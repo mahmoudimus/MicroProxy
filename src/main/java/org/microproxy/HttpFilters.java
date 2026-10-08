@@ -68,6 +68,17 @@ public interface HttpFilters {
         return httpObject;
     }
 
+    /**
+     * Asks for this response to be buffered, after seeing its head: return a positive size to
+     * receive the head and body as one {@link org.microproxy.http.FullHttpResponse} in {@link
+     * #serverToProxyResponse}, or 0 to stream. Unlike {@link
+     * HttpFiltersSource#getMaximumResponseBufferSizeInBytes()}, a body larger than the size is not
+     * an error: it is streamed through as usual. Ignored when the source already buffers.
+     */
+    default int responseBufferSizeInBytes(HttpResponse response) {
+        return 0;
+    }
+
     /** Called when the server did not respond within the idle timeout. */
     default void serverToProxyResponseTimedOut() {}
 
