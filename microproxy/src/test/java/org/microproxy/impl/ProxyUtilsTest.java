@@ -284,7 +284,7 @@ class ProxyUtilsTest {
                 HttpResponseStatus.BAD_GATEWAY, body);
         assertEquals(String.valueOf(body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length),
                 response.headers().get("Content-Length"));
-        assertEquals("text/html; charset=utf-8", response.headers().get("Content-Type"));
+        assertEquals("text/plain; charset=utf-8", response.headers().get("Content-Type"));
         assertTrue(response.headers().contains("Date"));
         FullHttpResponse empty = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, null);
         assertEquals("0", empty.headers().get("Content-Length"));
