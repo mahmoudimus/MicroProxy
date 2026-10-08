@@ -40,6 +40,13 @@ final class HttpCodec {
      * @return the request, or {@code null} if the connection closed cleanly before a request
      */
     static HttpRequest readRequest(ByteReader in, Limits limits) throws IOException {
+        int first = in.peek();
+        if (first < 0) return null;
+        if (!isRequestStart(first)) {
+            // Not HTTP: a TLS ClientHello (0x16), say. Fail now rather than wait for a line feed
+            // that may never come while the peer waits for an answer.
+            throw new HttpParseException("malformed request line");
+        }
         String line;
         int emptyLines = 0;
         do {
@@ -70,6 +77,11 @@ final class HttpCodec {
         } catch (IllegalArgumentException e) {
             throw new HttpParseException("malformed request-target");
         }
+    }
+
+    /** Whether a request may start with {@code b}: a method token character, or an empty line. */
+    private static boolean isRequestStart(int b) {
+        return b == '\r' || b == '\n' || (b > 0x20 && b < 0x7f && "\"(),/:;<=>?@[\\]{}".indexOf(b) < 0);
     }
 
     /**

@@ -92,6 +92,12 @@ final class ByteReader {
         }
     }
 
+    /** Returns the next byte without consuming it, blocking until one arrives; -1 at EOF. */
+    int peek() throws IOException {
+        if (pos >= limit && !fill()) return -1;
+        return buf[pos] & 0xff;
+    }
+
     /** Gives the buffer back to the pool if everything in it has been consumed. */
     void release() {
         if (buf != null && pos >= limit) {

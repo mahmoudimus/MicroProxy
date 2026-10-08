@@ -15,8 +15,13 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -470,6 +475,42 @@ class MessageSemanticsTest {
             assertEquals(403, refused.head().status().code());
             assertEquals("no tunnels", refused.body());
             assertStillUsable(s, in);
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // TLS sent to the plain HTTP port
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    void tlsRecordSentToThePlainPortIsRejectedPromptly() throws Exception {
+        start();
+        try (Socket s = connect()) {
+            s.setSoTimeout(5_000);
+            // A TLS handshake record header and the start of a ClientHello: no line feed anywhere.
+            byte[] hello = {0x16, 0x03, 0x01, 0x00, 0x30, 0x01, 0x00, 0x00, 0x2c, 0x03, 0x03, 0x11, 0x22, 0x33};
+            s.getOutputStream().write(hello);
+            s.getOutputStream().flush();
+            String answer;
+            try {
+                answer = new String(s.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            } catch (SocketTimeoutException e) {
+                throw new AssertionError("the proxy kept waiting for a request line", e);
+            }
+            assertTrue(answer.isEmpty() || answer.startsWith("HTTP/1.1 400 "), answer);
+        }
+    }
+
+    @Test
+    void tlsHandshakeWithThePlainPortFailsInsteadOfHanging() throws Exception {
+        start();
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, null, null);
+        try (SSLSocket tls = (SSLSocket) context.getSocketFactory().createSocket(
+                proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+            tls.setSoTimeout(5_000);
+            // A read timeout would surface as SocketTimeoutException, which is not an SSLException.
+            assertThrows(SSLException.class, tls::startHandshake);
         }
     }
 }
