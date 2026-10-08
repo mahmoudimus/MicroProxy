@@ -229,7 +229,11 @@ public final class ProxyUtils {
     /** The last formatted date: one string per second however many responses need it. */
     private static volatile CachedDate lastDate;
 
-    /** Creates an HTML-ish response with {@code body}, a Date and an exact Content-Length. */
+    /**
+     * Creates a plain-text response with {@code body}, a Date and an exact Content-Length. The
+     * proxy's own error bodies never repeat request input and are marked {@code nosniff}, so a
+     * crafted URL cannot become markup in a browser.
+     */
     public static FullHttpResponse createFullHttpResponse(
             HttpVersion version, HttpResponseStatus status, String body) {
         byte[] bytes = body == null ? new byte[0] : body.getBytes(StandardCharsets.UTF_8);
@@ -237,7 +241,8 @@ public final class ProxyUtils {
         HttpHeaders headers = response.headers();
         headers.set(HttpHeaderNames.DATE, httpDate());
         if (bytes.length > 0) {
-            headers.set(HttpHeaderNames.CONTENT_TYPE, "text/html; charset=utf-8");
+            headers.set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
+            headers.set("X-Content-Type-Options", "nosniff");
         }
         headers.set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
         return response;

@@ -440,7 +440,7 @@ final class ClientConnection implements Runnable {
             // An origin-form request means the client thinks we are the origin; refusing avoids
             // proxying to ourselves in a loop.
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
-                    "Bad Request to URI: " + ex.request.uri()), true);
+                    "Bad Request: the proxy needs an absolute URI"), true);
         }
 
         String hostAndPort = mitmHostAndPort != null ? mitmHostAndPort : identifyHostAndPort(ex.request);
@@ -949,7 +949,7 @@ final class ClientConnection implements Runnable {
             target = HostAndPort.parse(request.uri(), 443);
         } catch (IllegalArgumentException e) {
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
-                    "Bad Request to URI: " + request.uri()), false);
+                    "Bad Request: invalid CONNECT target"), false);
         }
         String hostAndPort = target.toString();
         boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm();
@@ -1543,7 +1543,7 @@ final class ClientConnection implements Runnable {
     }
 
     private static FullHttpResponse badGateway(Exchange ex) {
-        return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway: " + ex.originalUri);
+        return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway");
     }
 
     private static FullHttpResponse tooLarge(Exchange ex) {
@@ -1589,8 +1589,7 @@ final class ClientConnection implements Runnable {
         String realm = server.proxyAuthenticator.getRealm();
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED,
-                "<!DOCTYPE html>\n<html><head><title>407 Proxy Authentication Required</title></head>"
-                        + "<body><h1>Proxy Authentication Required</h1></body></html>\n");
+                "Proxy Authentication Required\n");
         response.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE,
                 "Basic realm=\"" + (realm == null ? "Restricted Files" : realm.replace("\"", "")) + "\"");
         return response;

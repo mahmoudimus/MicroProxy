@@ -73,6 +73,6 @@ class ActivityLoggerTest {
     void proxyGeneratedResponsesAreLoggedToo() {
         assertEquals(502, get(client(proxy), "http://no-such-host.invalid/x").statusCode());
         assertTrue(lines.get(LogFormat.CLF).get(0).endsWith("\"GET http://no-such-host.invalid/x HTTP/1.1\" 502 "
-                + "Bad Gateway: http://no-such-host.invalid/x".length()), lines.get(LogFormat.CLF).get(0));
+                + "Bad Gateway".length()), lines.get(LogFormat.CLF).get(0));
     }
 }

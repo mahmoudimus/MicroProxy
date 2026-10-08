@@ -82,4 +82,18 @@ class LineEndingTest {
         // The chunked cases fail after the head went out, with an unterminated body; the others never reach the server.
         assertEquals(true, forwarded.get() <= 2, "forwarded " + forwarded.get());
     }
+
+    @Test
+    void errorBodiesDoNotEchoTheRequest() throws Exception {
+        try (Socket s = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+            s.setSoTimeout(10_000);
+            write(s.getOutputStream(), "GET http://127.0.0.1:1/%3Cscript%3Ealert(1)%3C/script%3E<script> HTTP/1.1\r\n"
+                    + "Host: x\r\n\r\n");
+            WireLevelTest.Reply reply = WireLevelTest.read(new ByteReader(s.getInputStream(), 1024), HttpMethod.GET);
+            assertEquals(502, reply.head().status().code());
+            assertEquals("Bad Gateway", reply.body());
+            assertEquals("text/plain; charset=utf-8", reply.head().headers().get("Content-Type"));
+            assertEquals("nosniff", reply.head().headers().get("X-Content-Type-Options"));
+        }
+    }
 }
