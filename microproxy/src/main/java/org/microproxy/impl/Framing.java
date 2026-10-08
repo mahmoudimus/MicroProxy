@@ -99,6 +99,13 @@ record Framing(Kind kind, long length) {
      * @return the length, or -1 if absent
      */
     private static long contentLength(HttpMessage message) throws HttpParseException {
+        HttpHeaders headers = message.headers();
+        int fields = headers.count(HttpHeaderNames.CONTENT_LENGTH);
+        if (fields == 0) return -1;
+        if (fields == 1) {
+            String single = headers.get(HttpHeaderNames.CONTENT_LENGTH);
+            if (single.indexOf(',') < 0) return parseLength(single.strip());
+        }
         List<String> values = message.headers().getAllElements(HttpHeaderNames.CONTENT_LENGTH);
         if (values.isEmpty()) {
             return -1;

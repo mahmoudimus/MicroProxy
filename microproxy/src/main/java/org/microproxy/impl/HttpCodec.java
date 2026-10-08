@@ -107,7 +107,7 @@ final class HttpCodec {
         HttpResponseStatus malformed = lenient ? HttpResponseStatus.BAD_GATEWAY : HttpResponseStatus.BAD_REQUEST;
         int total = 0;
         String pendingName = null;
-        StringBuilder pendingValue = null;
+        String pendingValue = null;
         while (true) {
             String line = in.readLine(Math.max(0, maxSize - total), tooLarge);
             if (line == null) {
@@ -126,23 +126,31 @@ final class HttpCodec {
                 if (!lenient || pendingName == null) {
                     throw new HttpParseException(malformed, "obsolete line folding");
                 }
-                pendingValue.append(' ').append(line.strip());
+                pendingValue = pendingValue + ' ' + line.strip();
                 continue;
             }
             if (pendingName != null) {
-                addHeader(headers, pendingName, pendingValue.toString(), malformed);
+                addHeader(headers, pendingName, pendingValue, malformed);
             }
             int colon = line.indexOf(':');
             if (colon <= 0) {
                 throw new HttpParseException(malformed, "malformed header line");
             }
             pendingName = line.substring(0, colon);
-            pendingValue = new StringBuilder(line.substring(colon + 1).strip());
+            int from = colon + 1;
+            int to = line.length();
+            while (from < to && isOws(line.charAt(from))) from++;
+            while (to > from && isOws(line.charAt(to - 1))) to--;
+            pendingValue = line.substring(from, to);
         }
         if (pendingName != null) {
-            addHeader(headers, pendingName, pendingValue.toString(), malformed);
+            addHeader(headers, pendingName, pendingValue, malformed);
         }
         return headers;
+    }
+
+    private static boolean isOws(char c) {
+        return Character.isWhitespace(c);
     }
 
     private static void addHeader(
@@ -353,24 +361,49 @@ final class HttpCodec {
                     HttpUtil.setContentLength(message, full.content().length);
                 }
             }
-            StringBuilder sb = new StringBuilder(256);
+            // Written straight into the (pooled) output buffer, without building a string.
             if (message instanceof HttpRequest req) {
-                sb.append(req.method().name()).append(' ').append(req.uri()).append(' ')
-                        .append(req.protocolVersion().text());
+                writeLatin1(req.method().name());
+                out.write(' ');
+                writeLatin1(req.uri());
+                out.write(' ');
+                writeLatin1(req.protocolVersion().text());
             } else {
                 HttpResponse res = (HttpResponse) message;
-                sb.append(res.protocolVersion().text()).append(' ').append(res.status().code())
-                        .append(' ').append(res.status().reasonPhrase());
+                writeLatin1(res.protocolVersion().text());
+                out.write(' ');
+                writeDecimal(res.status().code());
+                out.write(' ');
+                writeLatin1(res.status().reasonPhrase());
             }
-            sb.append("\r\n");
-            appendHeaders(sb, message.headers());
-            sb.append("\r\n");
-            out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
+            out.write(CRLF);
+            HttpHeaders headers = message.headers();
+            for (int i = 0; i < headers.size(); i++) {
+                writeLatin1(headers.nameAt(i));
+                out.write(':');
+                out.write(' ');
+                writeLatin1(headers.valueAt(i));
+                out.write(CRLF);
+            }
+            out.write(CRLF);
             if (message instanceof FullHttpMessage full) {
                 writeContent(full);
             } else {
                 out.flush();
             }
+        }
+
+        /** Writes {@code s} as ISO-8859-1, as {@link String#getBytes} would, without allocating. */
+        private void writeLatin1(String s) throws IOException {
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                out.write(c <= 0xFF ? c : '?');
+            }
+        }
+
+        private void writeDecimal(int n) throws IOException {
+            if (n >= 10) writeDecimal(n / 10);
+            out.write('0' + n % 10);
         }
 
         /** Writes a body piece. */

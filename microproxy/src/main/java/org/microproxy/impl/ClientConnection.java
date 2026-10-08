@@ -355,7 +355,9 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, authenticationRequired(), false);
         }
 
-        HttpFilters filters = server.filtersSource.filterRequest(copy(request), flowContext);
+        // With no filters configured, skip the request copy the filters API hands them.
+        HttpFilters filters = server.filtersSource.getClass() == org.microproxy.HttpFiltersSourceAdapter.class ? NOOP
+                : server.filtersSource.filterRequest(copy(request), flowContext);
         ex.filters = filters != null ? filters : NOOP;
 
         int maxBuffer = server.filtersSource.getMaximumRequestBufferSizeInBytes();

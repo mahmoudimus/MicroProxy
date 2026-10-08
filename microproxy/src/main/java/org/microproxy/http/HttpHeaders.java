@@ -105,13 +105,43 @@ public final class HttpHeaders implements Iterable<Map.Entry<String, String>> {
 
     /** Returns all values for {@code name}, in order. */
     public List<String> getAll(String name) {
-        List<String> all = new ArrayList<>(2);
+        List<String> all = null;
         for (int i = 0; i < names.size(); i++) {
             if (names.get(i).equalsIgnoreCase(name)) {
+                if (all == null) all = new ArrayList<>(2);
                 all.add(values.get(i));
             }
         }
-        return all;
+        return all != null ? all : new ArrayList<>(0);
+    }
+
+    /** The number of fields named {@code name}. */
+    public int count(String name) {
+        int n = 0;
+        for (int i = 0; i < names.size(); i++) {
+            if (names.get(i).equalsIgnoreCase(name)) n++;
+        }
+        return n;
+    }
+
+    /** The name of field {@code index} (0 to {@link #size()} - 1), as received. */
+    public String nameAt(int index) {
+        return names.get(index);
+    }
+
+    /** The value of field {@code index}. */
+    public String valueAt(int index) {
+        return values.get(index);
+    }
+
+    /** Removes every field whose name matches {@code namePredicate}. */
+    public void removeIf(java.util.function.Predicate<String> namePredicate) {
+        for (int i = names.size() - 1; i >= 0; i--) {
+            if (namePredicate.test(names.get(i))) {
+                names.remove(i);
+                values.remove(i);
+            }
+        }
     }
 
     public boolean contains(String name) {
@@ -124,13 +154,29 @@ public final class HttpHeaders implements Iterable<Map.Entry<String, String>> {
      */
     public boolean containsValue(String name, String value, boolean ignoreCase) {
         for (int i = 0; i < names.size(); i++) {
-            if (names.get(i).equalsIgnoreCase(name)) {
-                for (String element : splitList(values.get(i))) {
-                    if (ignoreCase ? element.equalsIgnoreCase(value) : element.equals(value)) {
-                        return true;
-                    }
-                }
+            if (names.get(i).equalsIgnoreCase(name) && containsElement(values.get(i), value, ignoreCase)) {
+                return true;
             }
+        }
+        return false;
+    }
+
+    /** Whether the comma-separated {@code list} has an element equal to {@code element}, without allocating. */
+    static boolean containsElement(String list, String element, boolean ignoreCase) {
+        int i = 0;
+        int n = list.length();
+        while (i <= n) {
+            int comma = list.indexOf(',', i);
+            int end = comma < 0 ? n : comma;
+            int s = i;
+            int e = end;
+            while (s < e && Character.isWhitespace(list.charAt(s))) s++;
+            while (e > s && Character.isWhitespace(list.charAt(e - 1))) e--;
+            if (e - s == element.length() && list.regionMatches(ignoreCase, s, element, 0, element.length())) {
+                return true;
+            }
+            if (comma < 0) break;
+            i = comma + 1;
         }
         return false;
     }
@@ -190,8 +236,8 @@ public final class HttpHeaders implements Iterable<Map.Entry<String, String>> {
     /** All comma-separated elements across every field named {@code name}. */
     public List<String> getAllElements(String name) {
         List<String> out = new ArrayList<>(2);
-        for (String v : getAll(name)) {
-            out.addAll(splitList(v));
+        for (int i = 0; i < names.size(); i++) {
+            if (names.get(i).equalsIgnoreCase(name)) out.addAll(splitList(values.get(i)));
         }
         return out;
     }
