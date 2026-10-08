@@ -102,6 +102,25 @@ class FilterCallbacksTest {
     }
 
     @Test
+    void resolutionFailureCallsResolutionFailedAndNoConnectionHooks() {
+        RecordingFilters filters = new RecordingFilters();
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withFiltersSource(RecordingFilters.sourceOf(filters))
+                .withServerResolver((host, port) -> {
+                    throw new UnknownHostException(host);
+                })
+                .start();
+        HttpResponse<String> response = get(client(proxy), "http://www.does-not-exist/some-resource");
+        assertEquals(502, response.statusCode());
+        assertInOrder(filters.events, "clientToProxyRequest:head", "proxyToServerResolutionStarted",
+                "proxyToServerResolutionFailed", "proxyToClientResponse:full");
+        assertNone(filters.events, List.of("proxyToServerResolutionSucceeded", "proxyToServerConnectionStarted",
+                "proxyToServerConnectionFailed", "proxyToServerConnectionSucceeded",
+                "proxyToServerConnectionSSLHandshakeStarted", "proxyToServerAllowMitm"));
+        assertNone(filters.events, SERVER_EXCHANGE);
+    }
+
+    @Test
     void refusedConnectionCallsConnectionFailed() throws Exception {
         RecordingFilters filters = new RecordingFilters();
         proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(RecordingFilters.sourceOf(filters)).start();
@@ -276,7 +295,8 @@ class FilterCallbacksTest {
         assertEquals(502, get(client(proxy), "http://bad.invalid/x").statusCode());
         assertEquals(List.of("origin.test:" + port, "nowhere.test:" + port), lookups);
         assertTrue(filters.saw("proxyToServerResolutionFailed"), filters.events.toString());
-        assertNone(filters.events, List.of("proxyToServerResolutionSucceeded", "proxyToServerConnectionStarted"));
+        assertNone(filters.events, List.of("proxyToServerResolutionSucceeded", "proxyToServerConnectionStarted",
+                "proxyToServerConnectionFailed"));
     }
 
     // -------------------------------------------------------------------------------------------

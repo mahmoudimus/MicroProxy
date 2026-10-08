@@ -1125,6 +1125,7 @@ final class ClientConnection implements Runnable {
     private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
         IOException last = null;
+        boolean connecting = false;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
             try {
@@ -1141,12 +1142,16 @@ final class ClientConnection implements Runnable {
             } catch (IOException e) {
                 LOG.log(Level.DEBUG, "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
                 last = e;
+                // A name that did not resolve never got as far as connecting.
+                connecting |= !(e instanceof UnknownHostException);
                 if (proxy != null) {
                     proxy.connectionFailed(e);
                 }
             }
         }
-        ex.filters.proxyToServerConnectionFailed();
+        if (connecting) {
+            ex.filters.proxyToServerConnectionFailed();
+        }
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
     }
 
