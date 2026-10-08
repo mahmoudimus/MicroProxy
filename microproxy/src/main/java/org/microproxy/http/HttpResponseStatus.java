@@ -4,6 +4,7 @@ package org.microproxy.http;
  * An HTTP status code and reason phrase. Equality considers only the code, so a response from a
  * server with a non-standard reason phrase still equals the corresponding constant.
  */
+// @value-candidate: becomes a value class in the valhalla build profile
 public record HttpResponseStatus(int code, String reasonPhrase) {
 
     public static final HttpResponseStatus CONTINUE = new HttpResponseStatus(100, "Continue");

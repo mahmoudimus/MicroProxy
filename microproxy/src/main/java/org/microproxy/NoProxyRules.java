@@ -23,6 +23,7 @@ import java.util.Locale;
  */
 public final class NoProxyRules {
 
+    // @value-candidate: becomes a value class in the valhalla build profile
     private record Rule(String domain, byte[] network, int prefixLength, int port, boolean all) {}
 
     private final List<Rule> rules;

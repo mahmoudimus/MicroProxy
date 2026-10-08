@@ -186,6 +186,7 @@ public final class HttpCache implements HttpFiltersSource {
     }
 
     /** Counters since the cache was created. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     public record Stats(long hits, long misses, long stores, long revalidations, long staleServed) {}
 
     public Stats stats() {

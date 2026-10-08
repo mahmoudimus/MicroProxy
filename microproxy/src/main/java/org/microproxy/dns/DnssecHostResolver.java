@@ -40,6 +40,7 @@ public final class DnssecHostResolver implements HostResolver {
     }
 
     /** The result of a lookup. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     public record Resolution(List<InetAddress> addresses, boolean secure) {}
 
     /** IANA root zone trust anchors (https://data.iana.org/root-anchors/root-anchors.xml). */
@@ -47,6 +48,7 @@ public final class DnssecHostResolver implements HostResolver {
             ". 20326 8 2 E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D",
             ". 38696 8 2 683D2D0ACB8C9B712A1948B27F741219298D0A450D612C483AF444A4C0FB2B16");
 
+    // @value-candidate: becomes a value class in the valhalla build profile
     private record Cached(Resolution resolution, long expiresAtMillis) {}
 
     private final DnssecValidator validator;

@@ -124,6 +124,34 @@ Inputs shorter than two vectors (128 bytes with AVX-512) use the scalar code, wh
 there. The build runs the parser, WebSocket and SIMD tests a second time with the module, so
 both paths are tested.
 
+### Value classes (Project Valhalla, experimental)
+
+Value classes (JEP 401) are a preview feature of JDK 28. Preview class files run only on that
+exact JDK, with `--enable-preview`, so they cannot ship in a JDK 21 jar. Instead, a build profile
+turns the small immutable records marked `// @value-candidate` into value classes:
+`HttpVersion`, `HttpResponseStatus`, `HostAndPort`, `Framing`, the DNS record types, cache and
+pool records, and so on (19 in all).
+
+```bash
+# JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
+mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
+java --enable-preview -cp microproxy/target/microproxy-0.1.0-SNAPSHOT-valhalla.jar org.microproxy.Launcher
+```
+
+Measured on JDK 28 EA (build 18), with identical code apart from the `value` modifier:
+
+| | identity records | value records |
+|---|---|---|
+| allocation per small keep-alive request | 10,224 bytes | 10,135 bytes |
+| throughput, 16 clients | ~36,500 req/s | ~34,700 req/s (within noise) |
+| heap per idle connection pair | 10.3 KiB | 11.8 KiB (within noise) |
+
+The difference is under 1%. These records are short-lived, and escape analysis already
+removes most of them. Allocation per request is mostly strings and arrays from header
+handling, which value classes do not change. The profile stays useful for tracking Valhalla
+as it matures (null-restricted types and flattened arrays would matter for header storage),
+but it is not worth running in production today.
+
 ### Properties file
 
 Pass a properties file with `--config file.properties` or `MicroProxy.bootstrapFromFile(path)`.
