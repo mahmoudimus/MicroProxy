@@ -297,6 +297,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpFiltersSource getFiltersSource() {
+        return filtersSource;
+    }
+
+    @Override
     public HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource) {
         this.filtersSource = org.microproxy.HttpFiltersChain.of(this.filtersSource, filtersSource);
         return this;
