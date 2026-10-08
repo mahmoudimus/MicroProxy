@@ -98,10 +98,35 @@ class LifecycleTest {
     }
 
     @Test
+    void propertiesEnableThePoolLoggerAndDnssec(@TempDir Path dir) throws IOException {
+        HttpServer origin = TestSupport.origin(TestSupport.echo());
+        Path props = dir.resolve("microproxy.properties");
+        Files.writeString(props, """
+                port=0
+                use_shared_server_connection_pool=true
+                max_connections_per_host=3
+                max_total_connections=7
+                pool_idle_timeout=30
+                activity_log_format=json
+                dnssec=true
+                dnssec_resolver=https://cloudflare-dns.com/dns-query
+                """);
+        HttpProxyServer proxy = MicroProxy.bootstrapFromFile(props).start();
+        try {
+            // An IP literal needs no lookup, so this works offline even with DNSSEC enabled.
+            assertEquals(200, get(client(proxy), TestSupport.url(origin, "/")).statusCode());
+            assertEquals(1, proxy.getServerConnectionPoolMetrics().totalConnections());
+        } finally {
+            proxy.abort();
+            origin.stop(0);
+        }
+    }
+
+    @Test
     void launcherStartsAProxyWithMitm(@TempDir Path dir) throws IOException {
         ByteArrayOutputStream console = new ByteArrayOutputStream();
         Path ca = dir.resolve("ca.p12");
-        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--mitm", "--mitm-ca", ca.toString()},
+        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--mitm", "--mitm-ca", ca.toString(), "--dnssec", "--shared-pool", "--activity-log-format", "clf"},
                 new PrintStream(console, true));
         try {
             assertTrue(Files.isRegularFile(ca));

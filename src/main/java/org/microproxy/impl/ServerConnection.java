@@ -8,9 +8,13 @@ import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.FullFlowContext;
 
-/** A connection from the proxy to a server or chained proxy, owned by one client connection. */
+/**
+ * A connection from the proxy to a server or chained proxy. It is used by one client connection
+ * at a time; with the shared pool enabled it may be handed from one client to another.
+ */
 final class ServerConnection {
 
+    /** Key in the owning client's connection map. */
     volatile String key;
     final String hostAndPort;
     final ChainedProxy chainedProxy;
@@ -20,12 +24,26 @@ final class ServerConnection {
     final OutputStream out;
     final HttpCodec.HttpWriter writer;
     final InetSocketAddress remoteAddress;
-    final FullFlowContext flowContext;
+
+    /** The flow this connection currently serves; replaced when another client borrows it. */
+    volatile FullFlowContext flowContext;
+    /** Removes the connection from its current owner when it closes. */
+    volatile Runnable onDetach;
+    /** The pool counting this connection, if any. */
+    volatile SharedConnectionPool pool;
+    /** Pool key: mode, target and route. */
+    volatile String poolKey;
+    /** Limit key for per-host accounting. */
+    volatile String hostKey;
+    /** Returned to the pool after each exchange (rather than held for a client's session). */
+    volatile boolean perRequestLease;
+    /** Mid request/response: the connection's state is unknown if the exchange is abandoned. */
+    volatile boolean inExchange;
     /** Whether this connection has carried a request before (so it may have gone stale). */
-    boolean used;
+    volatile boolean used;
 
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final Runnable onClose;
+    private final Trackers trackers;
 
     ServerConnection(
             String key,
@@ -37,7 +55,7 @@ final class ServerConnection {
             OutputStream out,
             InetSocketAddress remoteAddress,
             FullFlowContext flowContext,
-            Runnable onClose) {
+            Trackers trackers) {
         this.key = key;
         this.hostAndPort = hostAndPort;
         this.chainedProxy = chainedProxy;
@@ -48,7 +66,7 @@ final class ServerConnection {
         this.writer = new HttpCodec.HttpWriter(out);
         this.remoteAddress = remoteAddress;
         this.flowContext = flowContext;
-        this.onClose = onClose;
+        this.trackers = trackers;
     }
 
     /**
@@ -66,7 +84,19 @@ final class ServerConnection {
     void close() {
         if (closed.compareAndSet(false, true)) {
             Tls.closeQuietly(socket);
-            onClose.run();
+            Runnable detach = onDetach;
+            if (detach != null) {
+                detach.run();
+            }
+            SharedConnectionPool p = pool;
+            if (p != null) {
+                p.discarded(this);
+            }
+            if (chainedProxy != null) {
+                chainedProxy.disconnected();
+            }
+            FullFlowContext ctx = flowContext;
+            trackers.fire(t -> t.serverDisconnected(ctx, remoteAddress));
         }
     }
 

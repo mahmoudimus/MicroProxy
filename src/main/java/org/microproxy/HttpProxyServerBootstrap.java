@@ -71,5 +71,51 @@ public interface HttpProxyServerBootstrap {
     /** Send a PROXY protocol v1 header on every outbound connection. */
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
+    /**
+     * Largest WebSocket frame payload buffered for {@link
+     * HttpFilters#webSocketFrameReceived(org.microproxy.http.WebSocketFrame, boolean)}; larger
+     * frames are streamed and reported as truncated. Default 1 MiB.
+     */
+    HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes);
+
+    /**
+     * Shares server connections between all clients instead of keeping them per client
+     * connection. A connection is leased for one exchange and returned to the pool when the
+     * response completes with keep-alive. Disabled by default.
+     */
+    HttpProxyServerBootstrap withSharedServerConnectionPool(boolean useSharedServerConnectionPool);
+
+    HttpProxyServerBootstrap withServerConnectionPoolType(ServerConnectionPoolType poolType);
+
+    /** Pooled connections per target ({@code host:port}); default 10. */
+    HttpProxyServerBootstrap withMaxConnectionsPerHost(int maxConnectionsPerHost);
+
+    /**
+     * Pooled connections in total; default 200. When the limit is reached, requests wait up to the
+     * connect timeout for a connection and then get {@code 503}.
+     */
+    HttpProxyServerBootstrap withMaxConnections(int maxConnections);
+
+    /** Closes pooled connections idle for longer than this; {@code null} keeps them. */
+    HttpProxyServerBootstrap withPoolIdleTimeout(Duration idleTimeout);
+
+    /**
+     * Lets intercepted (MITM) sessions take their server connection from the pool and return it
+     * when the client disconnects, so other clients can reuse it. Requires the shared pool.
+     */
+    HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections);
+
+    /**
+     * With {@link #withPoolSharedMitmConnections}, leases the server connection per intercepted
+     * request rather than per session.
+     */
+    HttpProxyServerBootstrap withPoolPerRequestInMitm(boolean poolPerRequestInMitm);
+
+    /**
+     * Resolves server names with the validating DNSSEC resolver ({@link
+     * org.microproxy.dns.DnssecHostResolver}) instead of the system resolver.
+     */
+    HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
+
     HttpProxyServer start();
 }
