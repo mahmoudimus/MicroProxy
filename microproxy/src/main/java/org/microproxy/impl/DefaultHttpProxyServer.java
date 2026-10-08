@@ -43,6 +43,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final ChainedProxyManager chainProxyManager;
     final MitmManager mitmManager;
     final HttpFiltersSource filtersSource;
+    /** Socket read/write buffers, lent to connections only while bytes are moving. */
+    final BufferPool ioBuffers = new BufferPool(16384, 512);
+    /** Buffers for relaying bodies no filter inspects, lent per body. */
+    final BufferPool relayBuffers = new BufferPool(65536, 64);
     final HostResolver serverResolver;
     final InetSocketAddress localAddress;
     final HttpCodec.Limits limits;

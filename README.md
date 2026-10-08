@@ -63,6 +63,12 @@ well, gets every piece as before. On loopback with a 256 MiB body this relays ab
 with `Content-Length` and 0.6 GB/s chunked, against 0.47 and 0.25 GB/s through per-chunk
 objects, and allocates under 3 MB instead of about 270 MB.
 
+Idle connections hold almost no memory. Socket buffers are lent from a bounded per-server
+pool only while bytes are moving. Between requests, a connection waits for the next byte without
+a buffer, and tunnels give theirs back whenever the peer goes quiet. With 2,000 idle keep-alive
+connections, each client and server connection pair costs about 11 KiB of heap, down from 141
+KiB. An idle `CONNECT` tunnel costs about 15 KiB, down from 113 KiB.
+
 A few rules keep this safe on JDK 21, where a virtual thread that blocks inside `synchronized`
 pins its carrier thread:
 
