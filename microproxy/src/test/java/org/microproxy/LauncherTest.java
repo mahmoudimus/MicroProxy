@@ -168,6 +168,31 @@ class LauncherTest {
         assertEquals("--throttle needs a value", e.getMessage());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"--port", "--idle-timeout", "--connect-timeout", "--cache-size", "--cache-memory"})
+    void nonNumericValuesNameTheOption(String flag) {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse(flag, "lots"));
+        assertEquals(flag + " needs a number, got: lots", e.getMessage());
+    }
+
+    @Test
+    void badThrottleAndLogFormatValuesAreExplained() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--throttle", "1k", "2k"));
+        assertEquals("--throttle needs a number, got: 1k", e.getMessage());
+        e = assertThrows(IllegalArgumentException.class, () -> parse("--activity-log-format", "fancy"));
+        assertTrue(e.getMessage().startsWith("unknown --activity-log-format: fancy; expected one of [CLF, "),
+                e.getMessage());
+    }
+
+    @Test
+    void missingOrDirectoryConfigFilesAreUsageErrors(@TempDir Path dir) {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> parse("--config", dir.resolve("absent.properties").toString()));
+        assertTrue(e.getMessage().startsWith("--config file not found: "), e.getMessage());
+        assertTrue(e.getMessage().endsWith("absent.properties"), e.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", dir.toString()));
+    }
+
     @Test
     void outOfRangePortsFailToStart() {
         assertThrows(IllegalArgumentException.class, () -> launch("--port", "-1"));

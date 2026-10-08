@@ -120,7 +120,11 @@ public final class Launcher {
             List<String> all = List.copyOf(queue);
             int i = all.indexOf("--config");
             if (i + 1 >= all.size()) throw new IllegalArgumentException("--config needs a value");
-            bootstrap = MicroProxy.bootstrapFromFile(Path.of(all.get(i + 1)));
+            Path config = Path.of(all.get(i + 1));
+            if (!java.nio.file.Files.isRegularFile(config)) {
+                throw new IllegalArgumentException("--config file not found: " + config.toAbsolutePath());
+            }
+            bootstrap = MicroProxy.bootstrapFromFile(config);
         }
         while (!queue.isEmpty()) {
             String arg = queue.poll();
@@ -130,7 +134,7 @@ public final class Launcher {
                     return null;
                 }
                 case "--config" -> value(queue, arg);
-                case "--port" -> bootstrap.withPort(Integer.parseInt(value(queue, arg)));
+                case "--port" -> bootstrap.withPort(intValue(queue, arg));
                 case "--address" -> {
                     String[] parts = value(queue, arg).split(":(?=[0-9]+$)");
                     bootstrap.withAddress(new InetSocketAddress(parts[0], parts.length > 1 ? Integer.parseInt(parts[1]) : 8080));
@@ -138,11 +142,10 @@ public final class Launcher {
                 case "--server" -> bootstrap.withAllowLocalOnly(false);
                 case "--name" -> bootstrap.withName(value(queue, arg));
                 case "--transparent" -> bootstrap.withTransparent(true);
-                case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(Integer.parseInt(value(queue, arg)));
-                case "--connect-timeout" -> bootstrap.withConnectTimeout(Integer.parseInt(value(queue, arg)));
+                case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(intValue(queue, arg));
+                case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
-                case "--throttle" -> bootstrap.withThrottling(
-                        Long.parseLong(value(queue, arg)), Long.parseLong(value(queue, arg)));
+                case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
@@ -154,12 +157,11 @@ public final class Launcher {
                     dnssec = true;
                     dnssecResolver = value(queue, arg);
                 }
-                case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(
-                        LogFormat.valueOf(value(queue, arg).toUpperCase(Locale.ROOT))));
+                case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(logFormat(value(queue, arg))));
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
                 case "--cache-dir" -> cacheDir = Path.of(value(queue, arg));
-                case "--cache-size" -> cacheSizeMb = Long.parseLong(value(queue, arg));
-                case "--cache-memory" -> cacheMemoryMb = Long.parseLong(value(queue, arg));
+                case "--cache-size" -> cacheSizeMb = longValue(queue, arg);
+                case "--cache-memory" -> cacheMemoryMb = longValue(queue, arg);
                 case "--offline" -> offline = true;
                 case "--warc-dir" -> warcDir = Path.of(value(queue, arg));
                 case "--mitm" -> mitm = true;
@@ -229,6 +231,33 @@ public final class Launcher {
         String v = queue.poll();
         if (v == null) throw new IllegalArgumentException(option + " needs a value");
         return v;
+    }
+
+    private static int intValue(Deque<String> queue, String option) {
+        String v = value(queue, option);
+        try {
+            return Integer.parseInt(v.strip());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(option + " needs a number, got: " + v);
+        }
+    }
+
+    private static long longValue(Deque<String> queue, String option) {
+        String v = value(queue, option);
+        try {
+            return Long.parseLong(v.strip());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(option + " needs a number, got: " + v);
+        }
+    }
+
+    private static LogFormat logFormat(String name) {
+        try {
+            return LogFormat.valueOf(name.strip().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("unknown --activity-log-format: " + name + "; expected one of "
+                    + java.util.Arrays.toString(LogFormat.values()));
+        }
     }
 
     private static String stripExtension(String name) {
