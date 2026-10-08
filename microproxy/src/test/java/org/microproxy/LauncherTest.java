@@ -554,6 +554,23 @@ class LauncherTest {
     }
 
     @Test
+    void addressPropertyMayAskForAnyFreePort(@TempDir Path dir) throws IOException {
+        Path props = dir.resolve("ephemeral.properties");
+        Files.writeString(props, "address=127.0.0.1:0\n");
+        HttpProxyServer proxy = launch("--config", props.toString());
+        assertEquals("127.0.0.1", proxy.getListenAddress().getAddress().getHostAddress());
+        assertTrue(proxy.getListenAddress().getPort() > 0);
+
+        Files.writeString(props, "address=[::1]:0\n");
+        InetSocketAddress v6 = view("--config", props.toString()).address();
+        assertEquals(0, v6.getPort());
+        assertTrue(v6.getAddress().isLoopbackAddress() && v6.getAddress().getAddress().length == 16, v6.toString());
+
+        Files.writeString(props, "address=127.0.0.1:70000\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+    }
+
+    @Test
     void propertiesForServerModeEnvProxyAndMemoryCache(@TempDir Path dir) throws IOException {
         Path props = dir.resolve("more.properties");
         Files.writeString(props, """

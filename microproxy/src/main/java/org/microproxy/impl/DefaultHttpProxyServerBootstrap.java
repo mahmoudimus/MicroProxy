@@ -224,7 +224,15 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     static InetSocketAddress parseAddress(String text) {
-        HostAndPort hp = HostAndPort.parse(text.strip(), 8080);
+        String t = text.strip();
+        if (t.endsWith(":0")) {
+            // Port 0 (any free port) is fine for listening, though not in a request's authority.
+            String host = t.substring(0, t.length() - 2);
+            if (host.startsWith("[") || host.indexOf(':') < 0) {
+                return new InetSocketAddress(HostAndPort.parse(host, 8080).host(), 0);
+            }
+        }
+        HostAndPort hp = HostAndPort.parse(t, 8080);
         return new InetSocketAddress(hp.host(), hp.port());
     }
 
