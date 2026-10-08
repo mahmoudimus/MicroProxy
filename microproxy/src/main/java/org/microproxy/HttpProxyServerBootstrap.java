@@ -36,6 +36,18 @@ public interface HttpProxyServerBootstrap {
 
     HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
 
+    /**
+     * Adds a filters source after those already configured; they run as a {@link
+     * HttpFiltersChain}.
+     */
+    HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource);
+
+    /**
+     * Caches responses ({@link org.microproxy.cache.HttpCache}). The cache always runs after the
+     * filters sources, whichever order they were configured in.
+     */
+    HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache);
+
     /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
     HttpProxyServerBootstrap withTransparent(boolean transparent);
 

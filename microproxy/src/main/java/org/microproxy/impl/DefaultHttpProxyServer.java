@@ -78,7 +78,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.proxyAuthenticator = b.proxyAuthenticator;
         this.chainProxyManager = b.chainProxyManager;
         this.mitmManager = b.mitmManager;
-        this.filtersSource = b.filtersSource;
+        // The cache runs last, so other filters see requests before it answers them.
+        this.filtersSource = b.httpCache == null ? b.filtersSource
+                : org.microproxy.HttpFiltersChain.of(b.filtersSource, b.httpCache);
         this.serverResolver = b.serverResolver;
         this.localAddress = b.localAddress;
         this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);

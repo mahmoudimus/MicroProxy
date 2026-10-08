@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.client;
 import static org.microproxy.TestSupport.get;
+import static org.microproxy.TestSupport.origin;
+import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.ByteArrayOutputStream;
@@ -137,5 +139,40 @@ class LifecycleTest {
         }
         assertNull(Launcher.start(new String[] {"--help"}, new PrintStream(new ByteArrayOutputStream())));
         assertThrows(IllegalArgumentException.class, () -> Launcher.start(new String[] {"--bogus"}, System.out));
+    }
+
+    @Test
+    void launcherCachesOnDiskAndGoesOffline(@TempDir Path dir) throws Exception {
+        java.util.concurrent.atomic.AtomicInteger hits = new java.util.concurrent.atomic.AtomicInteger();
+        HttpServer origin = origin(exchange -> {
+            byte[] body = ("page #" + hits.incrementAndGet()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Cache-Control", "max-age=0");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        Path cacheDir = dir.resolve("cache");
+        String target = url(origin, "/page");
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        HttpProxyServer online = Launcher.start(new String[] {"--port", "0", "--cache-dir", cacheDir.toString()},
+                new PrintStream(console, true));
+        try {
+            assertEquals("page #1", get(client(online), target).body());
+            assertTrue(console.toString().contains("Caching in"));
+        } finally {
+            online.abort();
+        }
+        // A new process with the same directory, offline: the page is still there.
+        HttpProxyServer offline = Launcher.start(new String[] {"--port", "0", "--cache-dir", cacheDir.toString(), "--offline"},
+                new PrintStream(new ByteArrayOutputStream(), true));
+        try {
+            assertEquals("page #1", get(client(offline), target).body());
+            assertEquals(504, get(client(offline), url(origin, "/elsewhere")).statusCode());
+            assertEquals(1, hits.get());
+        } finally {
+            offline.abort();
+            origin.stop(0);
+        }
+        assertThrows(IllegalArgumentException.class, () -> Launcher.start(new String[] {"--offline"}, System.out));
     }
 }

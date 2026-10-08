@@ -41,6 +41,10 @@ public final class Launcher {
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
               --activity-log-format <fmt>  access log: CLF, ELF, JSON, SQUID, W3C, LTSV, CSV, HAPROXY
               --shared-pool                share server connections between clients
+              --cache-dir <dir>            cache responses on disk (RFC 9111); survives restarts
+              --cache-size <MB>            disk cache limit (default 1024)
+              --cache-memory <MB>          cache responses in memory instead
+              --offline                    answer only from the cache (needs --cache-dir or --cache-memory)
               --mitm                       intercept HTTPS with a generated CA
               --mitm-ca <file.p12>         CA key store for --mitm (created if missing;
                                            default ./microproxy-ca.p12)
@@ -77,6 +81,10 @@ public final class Launcher {
         String dnssecResolver = null;
         boolean mitmTrustAll = false;
         Path caPath = Path.of("microproxy-ca.p12");
+        Path cacheDir = null;
+        long cacheSizeMb = 1024;
+        long cacheMemoryMb = 0;
+        boolean offline = false;
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
@@ -119,6 +127,10 @@ public final class Launcher {
                 case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(
                         LogFormat.valueOf(value(queue, arg).toUpperCase(java.util.Locale.ROOT))));
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
+                case "--cache-dir" -> cacheDir = Path.of(value(queue, arg));
+                case "--cache-size" -> cacheSizeMb = Long.parseLong(value(queue, arg));
+                case "--cache-memory" -> cacheMemoryMb = Long.parseLong(value(queue, arg));
+                case "--offline" -> offline = true;
                 case "--mitm" -> mitm = true;
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
@@ -149,6 +161,16 @@ public final class Launcher {
             bootstrap.withManInTheMiddle(mitmTrustAll
                     ? new CertificateAuthorityMitmManager(ca, SslContexts.trustAll())
                     : new CertificateAuthorityMitmManager(ca));
+        }
+        if (cacheDir != null || cacheMemoryMb > 0) {
+            org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(offline);
+            cache.store(cacheDir != null ? new org.microproxy.cache.DiskCacheStore(cacheDir, cacheSizeMb << 20)
+                    : new org.microproxy.cache.MemoryCacheStore(cacheMemoryMb << 20));
+            bootstrap.withHttpCache(cache.build());
+            console.println("Caching " + (cacheDir != null ? "in " + cacheDir.toAbsolutePath() : "in memory")
+                    + (offline ? " (offline: answering only from the cache)" : ""));
+        } else if (offline) {
+            throw new IllegalArgumentException("--offline needs --cache-dir or --cache-memory");
         }
         for (LauncherExtension extension : extensions) {
             extension.configure(bootstrap, console);
