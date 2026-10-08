@@ -10,6 +10,8 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
 import org.microproxy.thirdparty.starlark.eval.Structure;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * Per-request context: who the client is, and {@code vars}, a dict that lives as long as the
@@ -33,6 +35,16 @@ public final class ScriptContext implements Structure {
         this.connectionId = connectionId;
         this.tls = tls;
         this.vars = Dict.of(mu);
+    }
+
+    /** Types the builtins that return this class (see {@link ScriptType}). */
+    public static TypeConstructor getAssociatedTypeConstructor() {
+        return ScriptType.CONTEXT_CONSTRUCTOR;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+        return ScriptType.CONTEXT;
     }
 
     @Override

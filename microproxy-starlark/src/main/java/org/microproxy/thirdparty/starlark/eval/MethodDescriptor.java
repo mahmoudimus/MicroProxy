@@ -325,7 +325,9 @@ final class MethodDescriptor {
           return classStarlarkType;
         }
         if (Structure.class.isAssignableFrom(c)) {
-          return Types.ANY_STRUCT;
+          // MicroProxy: a structure that names its own type keeps that name.
+          @Nullable StarlarkType associated = CallUtils.getAssociatedStarlarkType(c);
+          return associated != null ? associated : Types.ANY_STRUCT;
         }
       }
       return Types.ANY;

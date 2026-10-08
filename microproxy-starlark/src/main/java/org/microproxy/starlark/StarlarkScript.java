@@ -33,6 +33,16 @@ public final class StarlarkScript {
 
     private static final System.Logger LOG = System.getLogger("org.microproxy.starlark.script");
 
+    /** Type annotations are allowed and resolved; unannotated code is unaffected. */
+    static final FileOptions FILE_OPTIONS =
+            FileOptions.DEFAULT.toBuilder().allowTypeSyntax(true).resolveTypeSyntax(true).build();
+
+    /** Annotations are checked when the script loads and again on every call. */
+    static final StarlarkSemantics SEMANTICS = StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, true)
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
+            .build();
+
     /** Bounds on each call into a script (and on running its top level). */
     public record Limits(long maxSteps, Duration timeout) {
         /** Ten million steps and five seconds per call. */
@@ -61,13 +71,13 @@ public final class StarlarkScript {
 
     /** Compiles and runs {@code source}; {@code name} appears in error messages. */
     public static StarlarkScript compile(String source, String name, Limits limits) throws ScriptException {
-        StarlarkFile file = StarlarkFile.parse(ParserInput.fromString(source, name), FileOptions.DEFAULT);
+        StarlarkFile file = StarlarkFile.parse(ParserInput.fromString(source, name), FILE_OPTIONS);
         if (!file.ok()) {
             throw new ScriptException(file.errors().stream().map(Object::toString).collect(Collectors.joining("\n")));
         }
-        Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, Builtins.PREDECLARED);
+        Module module = Module.withPredeclared(SEMANTICS, Builtins.PREDECLARED);
         try (Mutability mu = Mutability.create(name)) {
-            Program program = Program.compileFile(file, module);
+            Program program = Starlark.maybeWithTypeInfo(Program.compileFile(file, module), module, SEMANTICS, null);
             Starlark.execFileProgram(program, module, newThread(mu, limits));
         } catch (SyntaxError.Exception e) {
             throw new ScriptException(e.errors().stream().map(Object::toString).collect(Collectors.joining("\n")), e);
@@ -104,7 +114,7 @@ public final class StarlarkScript {
     }
 
     private static StarlarkThread newThread(Mutability mu, Limits limits) {
-        StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+        StarlarkThread thread = StarlarkThread.createTransient(mu, SEMANTICS);
         thread.setMaxExecutionSteps(limits.maxSteps());
         long timeout = limits.timeout().toMillis();
         if (timeout > 0) {

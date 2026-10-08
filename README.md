@@ -464,6 +464,31 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
 
+**Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
+script loads and again on each call. Unannotated code is not checked, so annotations can be added
+one function at a time. The proxy's objects are named `Request`, `Response`, `Headers` and
+`Context`:
+
+```python
+ALLOWED: list[str] = ["example.com", "example.org"]
+
+def on_request(req: Request, ctx: Context) -> Response | None:
+    if req.host not in ALLOWED:
+        return response(403, "not allowed\n")
+    req.headers["X-Client"] = ctx.client_ip
+    return None
+
+def on_response(req: Request, res: Response, ctx: Context) -> None:
+    if res.text != None:
+        text = cast(str, res.text)  # the checker does not narrow `str | None` after a test
+        res.text = text.replace("http://", "https://")
+```
+
+A misspelt field (`req.hots`), an assignment of the wrong type (`req.uri = 3`), or a return of
+the wrong type stops the script from loading, with the line and column. Arguments of the wrong
+type to an annotated function fail the call. `body` and `text` are typed `bytes | None` and
+`str | None`, since a streamed body has neither; `ctx.user` is `str | None`.
+
 **Errors and reloading.**
 
 - A hook that fails is logged with its Starlark stack trace, and the client gets a bare `500`.

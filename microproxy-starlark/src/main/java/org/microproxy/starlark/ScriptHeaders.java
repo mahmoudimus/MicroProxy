@@ -15,6 +15,8 @@ import org.microproxy.thirdparty.starlark.eval.StarlarkList;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSetIndexable;
 import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * The headers of a request or response. Names are case-insensitive; {@code h[name]} is the first
@@ -30,6 +32,16 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
     ScriptHeaders(HttpHeaders headers, boolean readOnly) {
         this.headers = headers;
         this.readOnly = readOnly;
+    }
+
+    /** Types the builtins that return this class (see {@link ScriptType}). */
+    public static TypeConstructor getAssociatedTypeConstructor() {
+        return ScriptType.HEADERS_CONSTRUCTOR;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+        return ScriptType.HEADERS;
     }
 
     @Override

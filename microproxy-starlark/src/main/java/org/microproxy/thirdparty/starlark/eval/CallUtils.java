@@ -497,6 +497,23 @@ public final class CallUtils {
   }
 
   /**
+   * MicroProxy: the type named by {@code clazz}'s {@code getAssociatedTypeConstructor()} when that
+   * constructor takes no arguments, or null.
+   */
+  @Nullable
+  static StarlarkType getAssociatedStarlarkType(Class<?> clazz) {
+    TypeConstructor constructor = getAssociatedTypeConstructor(clazz);
+    if (constructor == null) {
+      return null;
+    }
+    try {
+      return constructor.createStarlarkType(ImmutableList.of());
+    } catch (TypeConstructor.Failure e) {
+      return null;
+    }
+  }
+
+  /**
    * Returns the type constructor identified by calling the given class's {@code
    * getAssociatedTypeConstructor()} static method, or null if it does not have such a method.
    *

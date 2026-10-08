@@ -9,6 +9,8 @@ import org.microproxy.thirdparty.starlark.eval.Printer;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * A response as scripts see it: from the server in {@code on_response}, or made by {@code
@@ -28,6 +30,16 @@ public final class ScriptResponse extends ScriptMessage {
 
     HttpResponse response() {
         return response;
+    }
+
+    /** Types the builtins that return this class (see {@link ScriptType}). */
+    public static TypeConstructor getAssociatedTypeConstructor() {
+        return ScriptType.RESPONSE_CONSTRUCTOR;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+        return ScriptType.RESPONSE;
     }
 
     @Override

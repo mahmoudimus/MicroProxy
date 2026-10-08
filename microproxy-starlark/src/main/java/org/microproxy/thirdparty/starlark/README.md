@@ -12,6 +12,9 @@ Changes from upstream:
 - The command-line REPL (`cmd`) and the annotation processor (`annot/processor`) are omitted.
 - `CpuProfiler` logs through `System.Logger` instead of Flogger.
 - JetBrains nullness annotations are replaced by `javax.annotation` (JSR 305) ones.
+- A builtin returning a `Structure` whose class has `getAssociatedTypeConstructor()` is typed with
+  that type instead of an anonymous struct (`MethodDescriptor`, `CallUtils.getAssociatedStarlarkType`),
+  so `response(...)` is a `Response` to the type checker.
 
 The proxy-facing API lives in `org.microproxy.starlark`; nothing outside this module depends on
 these classes.

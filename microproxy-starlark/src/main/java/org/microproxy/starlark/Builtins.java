@@ -39,6 +39,7 @@ import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
 import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
 import org.microproxy.thirdparty.starlark.eval.StarlarkValue;
 import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.eval.TypeConstructorValue;
 import org.microproxy.thirdparty.starlark.lib.json.Json;
 
 /**
@@ -61,6 +62,11 @@ final class Builtins {
         env.put("time", new TimeModule());
         env.put("log", new LogModule());
         Starlark.addMethods(env, new Functions());
+        // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
+        env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));
+        env.put("Response", TypeConstructorValue.of(ScriptType.RESPONSE_CONSTRUCTOR));
+        env.put("Headers", TypeConstructorValue.of(ScriptType.HEADERS_CONSTRUCTOR));
+        env.put("Context", TypeConstructorValue.of(ScriptType.CONTEXT_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 

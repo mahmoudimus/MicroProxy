@@ -11,6 +11,8 @@ import org.microproxy.thirdparty.starlark.eval.Printer;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * A request as scripts see it. {@code method}, {@code uri}, {@code body} and {@code text} can be
@@ -38,6 +40,16 @@ public final class ScriptRequest extends ScriptMessage {
 
     HttpRequest request() {
         return request;
+    }
+
+    /** Types the builtins that return this class (see {@link ScriptType}). */
+    public static TypeConstructor getAssociatedTypeConstructor() {
+        return ScriptType.REQUEST_CONSTRUCTOR;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+        return ScriptType.REQUEST;
     }
 
     @Override
