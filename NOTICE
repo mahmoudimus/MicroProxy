@@ -5,3 +5,14 @@ This product is derived from LittleProxy (https://github.com/LittleProxy/LittleP
 originally created by Adam Fisk and licensed under the Apache License, Version 2.0.
 MicroProxy is a rewrite that replaces Netty with blocking I/O on virtual threads; its public
 API and proxying behaviour follow LittleProxy's design.
+
+This product includes third-party software:
+
+- A Brotli decoder (microproxy/src/main/java/org/microproxy/thirdparty/brotli), from
+  https://github.com/google/brotli. Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+  Licensed under the MIT License; see META-INF/LICENSE-brotli.txt.
+
+- The Starlark interpreter (microproxy-starlark/src/main/java/org/microproxy/thirdparty/starlark),
+  from Bazel (https://github.com/bazelbuild/bazel), Copyright The Bazel Authors, with additions
+  from starlarky (https://github.com/verygoodsecurity/starlarky), Copyright Very Good Security
+  Authors. Licensed under the Apache License, Version 2.0.

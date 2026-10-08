@@ -1,0 +1,126 @@
+package org.microproxy;
+
+import java.net.InetSocketAddress;
+import java.time.Duration;
+
+/** Configures and starts a {@link HttpProxyServer}. */
+public interface HttpProxyServerBootstrap {
+
+    /** Name used for thread names and logging. */
+    HttpProxyServerBootstrap withName(String name);
+
+    HttpProxyServerBootstrap withAddress(InetSocketAddress address);
+
+    /** Port to listen on; 0 picks an ephemeral port. */
+    HttpProxyServerBootstrap withPort(int port);
+
+    /** Listen on the loopback interface only. */
+    HttpProxyServerBootstrap withAllowLocalOnly(boolean allowLocalOnly);
+
+    /** Serve the proxy itself over TLS (an "HTTPS proxy"). */
+    HttpProxyServerBootstrap withSslContextSource(SslContextSource sslContextSource);
+
+    /** Require client certificates on the proxy's TLS listener. */
+    HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateSslClients);
+
+    HttpProxyServerBootstrap withProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
+
+    HttpProxyServerBootstrap withChainProxyManager(ChainedProxyManager chainProxyManager);
+
+    /** The chained proxy manager configured so far, or {@code null}; lets extensions wrap it. */
+    default ChainedProxyManager getChainProxyManager() {
+        return null;
+    }
+
+    HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager);
+
+    HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
+
+    /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
+    HttpProxyServerBootstrap withTransparent(boolean transparent);
+
+    HttpProxyServerBootstrap withIdleConnectionTimeout(int idleConnectionTimeoutInSeconds);
+
+    HttpProxyServerBootstrap withIdleConnectionTimeout(Duration idleConnectionTimeout);
+
+    /** Connect timeout for outbound connections in milliseconds. */
+    HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs);
+
+    HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
+
+    HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
+
+    /** Global bandwidth limits for server traffic; 0 means unlimited. */
+    HttpProxyServerBootstrap withThrottling(
+            long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
+
+    /** Local address to bind for outbound connections. */
+    HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
+
+    HttpProxyServerBootstrap withMaxInitialLineLength(int maxInitialLineLength);
+
+    HttpProxyServerBootstrap withMaxHeaderSize(int maxHeaderSize);
+
+    /** Largest body piece handed to filters when streaming. */
+    HttpProxyServerBootstrap withMaxChunkSize(int maxChunkSize);
+
+    /** Accept origin-form requests ({@code GET /path}) as if the proxy were the origin. */
+    HttpProxyServerBootstrap withAllowRequestToOriginServer(boolean allowRequestToOriginServer);
+
+    /** Name used in the {@code Via} header; defaults to the host name. */
+    HttpProxyServerBootstrap withProxyAlias(String alias);
+
+    /** Require a PROXY protocol (v1 or v2) header on every inbound connection. */
+    HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol);
+
+    /** Send a PROXY protocol v1 header on every outbound connection. */
+    HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
+
+    /**
+     * Largest WebSocket frame payload buffered for {@link
+     * HttpFilters#webSocketFrameReceived(org.microproxy.http.WebSocketFrame, boolean)}; larger
+     * frames are streamed and reported as truncated. Default 1 MiB.
+     */
+    HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes);
+
+    /**
+     * Shares server connections between all clients instead of keeping them per client
+     * connection. A connection is leased for one exchange and returned to the pool when the
+     * response completes with keep-alive. Disabled by default.
+     */
+    HttpProxyServerBootstrap withSharedServerConnectionPool(boolean useSharedServerConnectionPool);
+
+    HttpProxyServerBootstrap withServerConnectionPoolType(ServerConnectionPoolType poolType);
+
+    /** Pooled connections per target ({@code host:port}); default 10. */
+    HttpProxyServerBootstrap withMaxConnectionsPerHost(int maxConnectionsPerHost);
+
+    /**
+     * Pooled connections in total; default 200. When the limit is reached, requests wait up to the
+     * connect timeout for a connection and then get {@code 503}.
+     */
+    HttpProxyServerBootstrap withMaxConnections(int maxConnections);
+
+    /** Closes pooled connections idle for longer than this; {@code null} keeps them. */
+    HttpProxyServerBootstrap withPoolIdleTimeout(Duration idleTimeout);
+
+    /**
+     * Lets intercepted (MITM) sessions take their server connection from the pool and return it
+     * when the client disconnects, so other clients can reuse it. Requires the shared pool.
+     */
+    HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections);
+
+    /**
+     * With {@link #withPoolSharedMitmConnections}, leases the server connection per intercepted
+     * request rather than per session.
+     */
+    HttpProxyServerBootstrap withPoolPerRequestInMitm(boolean poolPerRequestInMitm);
+
+    /**
+     * Resolves server names with the validating DNSSEC resolver ({@link
+     * org.microproxy.dns.DnssecHostResolver}) instead of the system resolver.
+     */
+    HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
+
+    HttpProxyServer start();
+}
