@@ -37,6 +37,12 @@ import org.microproxy.http.WebSocketFrame;
  */
 public interface HttpFilters {
 
+    /** Starts filters made from lambdas, one per hook (see {@link HttpFiltersBuilder}). */
+    static HttpFiltersBuilder builder() {
+        return new HttpFiltersBuilder();
+    }
+
+
     /**
      * Asks for this request to be buffered, before {@link #clientToProxyRequest} sees it: return a
      * positive size to receive the head and body as one {@link

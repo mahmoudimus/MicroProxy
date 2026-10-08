@@ -38,6 +38,7 @@ import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersAdapter;
+import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.http.DefaultFullHttpRequest;
@@ -135,6 +136,11 @@ final class ClientConnection implements Runnable {
         if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(f -> observes(f, observes));
         }
+        if (filters instanceof HttpFiltersBuilder.Built built) {
+            // One class for every combination of lambdas: ask the instance.
+            return built.sees(observes == OBSERVES_REQUEST_CONTENT
+                    ? HttpFiltersBuilder.Body.REQUEST : HttpFiltersBuilder.Body.RESPONSE);
+        }
         return observes.get(filters.getClass());
     }
 
@@ -148,6 +154,9 @@ final class ClientConnection implements Runnable {
     private static boolean rewritesFrames(HttpFilters filters) {
         if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(ClientConnection::rewritesFrames);
+        }
+        if (filters instanceof HttpFiltersBuilder.Built built) {
+            return built.sees(HttpFiltersBuilder.Body.WEBSOCKET_FRAMES);
         }
         return REWRITES_FRAMES.get(filters.getClass());
     }

@@ -234,6 +234,27 @@ Command-line flags override values from the file.
 | Activity tracking | `ActivityTracker` for connections, requests, responses and bytes |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
+### Filters from lambdas
+
+`HttpFilters` keeps LittleProxy's shape: a class that overrides the hooks it needs. For small
+filters, `HttpFilters.builder()` takes one lambda per hook instead, and `HttpFiltersSource` is a
+functional interface:
+
+```java
+HttpFilters filters = HttpFilters.builder()
+        .onRequest(req -> req.uri().contains("/admin") ? forbidden() : null)   // short-circuit
+        .beforeSending(req -> { req.headers().set("X-Trace", traceId()); return null; })
+        .onResponse(res -> { res.headers().remove("Server"); return res; })
+        .onWebSocketFrame((frame, fromClient) -> frame.isPing() ? null : frame)
+        .build();
+MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
+```
+
+Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `resolveWith`, `allowMitm`,
+`bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order. Bodies and
+frames are only split into pieces when a body or frame hook is registered; otherwise they take the
+fast path, as they do for a filters class that doesn't override those hooks.
+
 ### Upstream proxies and NO_PROXY
 
 `UpstreamProxyManager` is a `ChainedProxyManager` configured the way command-line clients are:
