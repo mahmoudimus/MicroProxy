@@ -27,6 +27,13 @@ public interface HttpProxyServer extends AutoCloseable {
     /** Stops immediately, closing all connections without waiting. */
     void abort();
 
+    /**
+     * Closes {@code resource} when the server stops, after its connections have finished (or been
+     * closed): for things that outlive single requests, such as a WARC recorder. Resources close
+     * in the reverse order they were added.
+     */
+    void closeOnStop(AutoCloseable resource);
+
     InetSocketAddress getListenAddress();
 
     /** Changes global bandwidth limits for server traffic; 0 means unlimited. */

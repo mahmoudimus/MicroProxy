@@ -68,6 +68,7 @@ final class ClientConnection implements Runnable {
     private static final System.Logger LOG = System.getLogger(ClientConnection.class.getName());
     private static final AtomicLong IDS = new AtomicLong();
     private static final int BUFFER_SIZE = 16384;
+    private static final int RELAY_BUFFER_SIZE = 65536;
     /** How long to wait for a server's 100 (Continue) before sending the body anyway. */
     private static final int CONTINUE_TIMEOUT_MS = 1000;
     private static final HttpFilters NOOP = HttpFiltersAdapter.NOOP_FILTER;
@@ -86,6 +87,47 @@ final class ClientConnection implements Runnable {
             }
         }
     };
+
+    /** Whether a filters class sees response body pieces. */
+    private static final ClassValue<Boolean> OBSERVES_RESPONSE_CONTENT = overrides(HttpFilters.class,
+            "serverToProxyResponse", "proxyToClientResponse");
+    /** Whether a filters class sees request body pieces. */
+    private static final ClassValue<Boolean> OBSERVES_REQUEST_CONTENT = overrides(HttpFilters.class,
+            "clientToProxyRequest", "proxyToServerRequest");
+    /** Whether a chained proxy filters request body pieces. */
+    private static final ClassValue<Boolean> FILTERS_REQUEST_CONTENT = overrides(ChainedProxy.class, "filterRequest");
+
+    private static ClassValue<Boolean> overrides(Class<?> base, String... methods) {
+        return new ClassValue<>() {
+            @Override
+            protected Boolean computeValue(Class<?> type) {
+                for (String method : methods) {
+                    try {
+                        if (type.getMethod(method, HttpObject.class).getDeclaringClass() != base) return true;
+                    } catch (NoSuchMethodException e) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+    }
+
+    /** Whether any of {@code filters} (looking inside chains) is of a class {@code observes} flags. */
+    private static boolean observes(HttpFilters filters, ClassValue<Boolean> observes) {
+        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+            return chain.members().stream().anyMatch(f -> observes(f, observes));
+        }
+        return observes.get(filters.getClass());
+    }
+
+    /** One buffer per connection for relaying bodies nobody inspects; exchanges are sequential. */
+    private byte[] relayBuffer;
+
+    private byte[] relayBuffer() {
+        if (relayBuffer == null) relayBuffer = new byte[RELAY_BUFFER_SIZE];
+        return relayBuffer;
+    }
 
     private static boolean observesFrames(HttpFilters filters) {
         if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
@@ -517,6 +559,11 @@ final class ClientConnection implements Runnable {
     }
 
     private void pumpRequestBody(Exchange ex, ServerConnection conn) throws IOException {
+        if (!observes(ex.filters, OBSERVES_REQUEST_CONTENT)
+                && (conn.chainedProxy == null || !FILTERS_REQUEST_CONTENT.get(conn.chainedProxy.getClass()))) {
+            relayRequestBody(ex, conn);
+            return;
+        }
         while (true) {
             HttpContent content;
             try {
@@ -679,7 +726,9 @@ final class ClientConnection implements Runnable {
         writeToClient(() -> writer.writeHead(finalResponse, writeBody));
         server.trackers.fire(t -> t.responseSentToClient(flowContext, finalResponse));
 
-        if (body != null) {
+        if (body != null && prefetched.isEmpty() && !observes(filters, OBSERVES_RESPONSE_CONTENT)) {
+            relayResponseBody(body);
+        } else if (body != null) {
             boolean lastWritten = false;
             while (true) {
                 HttpContent content;
@@ -757,6 +806,52 @@ final class ClientConnection implements Runnable {
     @FunctionalInterface
     private interface ClientWrite {
         void run() throws IOException;
+    }
+
+    /** Copies a response body straight from the server to the client: no filter needs its pieces. */
+    private void relayResponseBody(HttpCodec.BodyReader body) throws IOException {
+        byte[] buf = relayBuffer();
+        while (true) {
+            int n;
+            try {
+                n = body.read(buf, 0, buf.length);
+            } catch (IOException e) {
+                throw new ServerFailure("reading response body failed", e);
+            }
+            if (n < 0) break;
+            boolean flush = !body.hasBufferedInput();
+            writeToClient(() -> {
+                writer.writeData(buf, 0, n);
+                if (flush) writer.flush();
+            });
+        }
+        HttpHeaders trailers = body.trailers();
+        writeToClient(() -> writer.writeEnd(trailers));
+    }
+
+    /** Copies a request body straight from the client to the server. */
+    private void relayRequestBody(Exchange ex, ServerConnection conn) throws IOException {
+        byte[] buf = relayBuffer();
+        while (true) {
+            int n;
+            try {
+                n = ex.body.read(buf, 0, buf.length);
+            } catch (IOException e) {
+                throw new ClientFailure(e);
+            }
+            if (n < 0) break;
+            try {
+                conn.writer.writeData(buf, 0, n);
+                if (!ex.body.hasBufferedInput()) conn.writer.flush();
+            } catch (IOException e) {
+                throw new ServerWriteFailure(e);
+            }
+        }
+        try {
+            conn.writer.writeEnd(ex.body.trailers());
+        } catch (IOException e) {
+            throw new ServerWriteFailure(e);
+        }
     }
 
     private static void writeToClient(ClientWrite write) throws ClientFailure {

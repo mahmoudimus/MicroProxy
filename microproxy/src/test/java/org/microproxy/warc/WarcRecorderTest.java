@@ -89,6 +89,12 @@ class WarcRecorderTest {
         var b = MicroProxy.bootstrap().withPort(0).withFiltersSource(recorder);
         if (cache != null) b.withHttpCache(cache);
         proxy = b.start();
+        proxy.closeOnStop(recorder);
+    }
+
+    /** Stops the proxy, which closes the recorder once in-flight exchanges are written. */
+    private void finish() {
+        proxy.stop();
     }
 
     private List<Path> warcFiles() throws IOException {
@@ -147,7 +153,7 @@ class WarcRecorderTest {
         get(client(proxy), url(origin, "/chunked"));
         send(client(proxy), HttpRequest.newBuilder(URI.create(url(origin, "/form")))
                 .POST(HttpRequest.BodyPublishers.ofString("a=1")).build());
-        recorder.close();
+        finish();
         assertEquals(3, recorder.recordedExchanges());
 
         List<Path> files = warcFiles();
@@ -190,7 +196,7 @@ class WarcRecorderTest {
     void largeBodiesSpillToDiskAndAreTruncatedAtTheLimit() throws Exception {
         start(WarcRecorder.builder(dir).maxBodySize(2 << 20), null);
         assertEquals(3 << 20, get(client(proxy), url(origin, "/big")).body().length());
-        recorder.close();
+        finish();
         WarcRecord big = read(warcFiles().get(0)).get(1);
         assertEquals("length", big.field("WARC-Truncated"));
         assertEquals(2 << 20, big.payload().length);
@@ -203,7 +209,7 @@ class WarcRecorderTest {
     void filesRotateAtTheSizeLimit() throws Exception {
         start(WarcRecorder.builder(dir).maxFileSize(1), null);
         for (int i = 0; i < 3; i++) get(client(proxy), url(origin, "/p" + i));
-        recorder.close();
+        finish();
         List<Path> files = warcFiles();
         assertEquals(3, files.size());
         for (Path f : files) {
@@ -219,7 +225,7 @@ class WarcRecorderTest {
         start(WarcRecorder.builder(dir), HttpCache.builder().build());
         get(client(proxy), url(origin, "/page"));
         get(client(proxy), url(origin, "/page"));
-        recorder.close();
+        finish();
         assertEquals(1, recorder.recordedExchanges());
         assertEquals(3, read(warcFiles().get(0)).size());
     }

@@ -237,6 +237,71 @@ final class HttpCodec {
             return new DefaultHttpContent(data);
         }
 
+        private HttpHeaders trailers = new HttpHeaders();
+
+        /**
+         * Reads body data (without framing) into {@code dst}: the fast path for relaying bodies no
+         * filter inspects. Returns -1 once the body is complete; {@link #trailers()} are then
+         * available. Do not mix with {@link #next()} on the same body.
+         */
+        int read(byte[] dst, int off, int len) throws IOException {
+            if (done) return -1;
+            switch (framing.kind()) {
+                case NONE -> {
+                    done = true;
+                    return -1;
+                }
+                case LENGTH -> {
+                    if (remaining == 0) {
+                        done = true;
+                        return -1;
+                    }
+                    int n = in.read(dst, off, (int) Math.min(len, remaining));
+                    if (n < 0) throw new java.io.EOFException("connection closed before end of body");
+                    remaining -= n;
+                    return n;
+                }
+                case UNTIL_CLOSE -> {
+                    int n = in.read(dst, off, len);
+                    if (n < 0) done = true;
+                    return n;
+                }
+                default -> {
+                    if (chunkRemaining <= 0) {
+                        if (chunkRemaining == 0) {
+                            String crlf = in.readLine(2, HttpResponseStatus.BAD_REQUEST);
+                            if (crlf == null || !crlf.isEmpty()) {
+                                throw new HttpParseException("missing CRLF after chunk data");
+                            }
+                        }
+                        String sizeLine = in.readLine(1024, HttpResponseStatus.BAD_REQUEST);
+                        if (sizeLine == null) throw new java.io.EOFException("connection closed before last chunk");
+                        long size = parseChunkSize(sizeLine);
+                        if (size == 0) {
+                            trailers = readHeaders(in, limits.maxHeaderSize(), true);
+                            done = true;
+                            return -1;
+                        }
+                        chunkRemaining = size;
+                    }
+                    int n = in.read(dst, off, (int) Math.min(len, chunkRemaining));
+                    if (n < 0) throw new java.io.EOFException("connection closed mid-chunk");
+                    chunkRemaining -= n;
+                    return n;
+                }
+            }
+        }
+
+        /** The trailer fields of a chunked body, once {@link #read} has returned -1. */
+        HttpHeaders trailers() {
+            return trailers;
+        }
+
+        /** Whether more input is already buffered, so a flush can wait. */
+        boolean hasBufferedInput() {
+            return in.buffered() > 0;
+        }
+
         private static long parseChunkSize(String line) throws HttpParseException {
             int semi = line.indexOf(';');
             String hex = (semi >= 0 ? line.substring(0, semi) : line).strip();
@@ -329,6 +394,34 @@ final class HttpCodec {
                     out.write(data);
                 }
             }
+            out.flush();
+        }
+
+        /** Writes body data, framing it as a chunk when the head asked for chunked coding. */
+        void writeData(byte[] data, int off, int len) throws IOException {
+            if (!bodyAllowed || len == 0) return;
+            if (chunked) {
+                out.write(Integer.toHexString(len).getBytes(StandardCharsets.ISO_8859_1));
+                out.write(CRLF);
+                out.write(data, off, len);
+                out.write(CRLF);
+            } else {
+                out.write(data, off, len);
+            }
+        }
+
+        /** Ends the body (the last chunk and trailers, when chunked) and flushes. */
+        void writeEnd(HttpHeaders trailers) throws IOException {
+            if (bodyAllowed && chunked) {
+                StringBuilder sb = new StringBuilder("0\r\n");
+                appendHeaders(sb, trailers);
+                sb.append("\r\n");
+                out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
+            }
+            out.flush();
+        }
+
+        void flush() throws IOException {
             out.flush();
         }
 

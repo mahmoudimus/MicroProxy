@@ -87,6 +87,7 @@ public final class Launcher {
         long cacheMemoryMb = 0;
         boolean offline = false;
         Path warcDir = null;
+        List<AutoCloseable> resources = new java.util.ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
@@ -169,13 +170,7 @@ public final class Launcher {
             // First among the filters, so it records messages before others change them.
             org.microproxy.warc.WarcRecorder recorder = org.microproxy.warc.WarcRecorder.builder(warcDir).build();
             bootstrap.withFiltersSource(org.microproxy.HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    recorder.close();
-                } catch (IOException e) {
-                    System.err.println("closing WARC file failed: " + e);
-                }
-            }, "microproxy-warc-close"));
+            resources.add(recorder);
             console.println("Recording WARC files in " + warcDir.toAbsolutePath());
         }
         if (cacheDir != null || cacheMemoryMb > 0) {
@@ -192,6 +187,8 @@ public final class Launcher {
             extension.configure(bootstrap, console);
         }
         HttpProxyServer server = bootstrap.start();
+        // Closed after the server's connections finish, so in-flight records are written.
+        resources.forEach(server::closeOnStop);
         console.println("MicroProxy listening on " + server.getListenAddress());
         return server;
     }

@@ -54,6 +54,15 @@ Each connection gets one cheap virtual thread, so blocking calls only park that 
 peer applies backpressure simply by blocking a write. The CONNECT tunnel is two loops copying
 bytes, one per direction. Tens of thousands of concurrent connections are fine.
 
+Bodies that no filter inspects skip the message objects entirely. They are copied between the
+sockets through one reusable 64 KiB buffer per connection, re-framed only when one side uses
+chunked coding, and flushed only when no more input is buffered. A filter that overrides a
+content hook (`clientToProxyRequest` / `proxyToServerRequest` for requests,
+`serverToProxyResponse` / `proxyToClientResponse` for responses), checked through chains as
+well, gets every piece as before. On loopback with a 256 MiB body this relays about 1.2 GB/s
+with `Content-Length` and 0.6 GB/s chunked, against 0.47 and 0.25 GB/s through per-chunk
+objects, and allocates under 3 MB instead of about 270 MB.
+
 A few rules keep this safe on JDK 21, where a virtual thread that blocks inside `synchronized`
 pins its carrier thread:
 
