@@ -9,6 +9,7 @@ import java.util.Arrays;
 /**
  * A resource record. RDATA is stored uncompressed (embedded names expanded) in original case.
  */
+// @value-candidate: becomes a value class in the valhalla build profile
 record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
 
     static final int A = 1;
@@ -62,6 +63,7 @@ record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
     }
 
     /** A name read from uncompressed wire data and the offset just after it. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record NameAt(DnsName name, int end) {}
 
     static NameAt readName(byte[] data, int offset) {
@@ -88,6 +90,7 @@ record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
     // --- RRSIG ----------------------------------------------------------------------------
 
     /** Parsed RRSIG RDATA (RFC 4034 section 3.1). */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Rrsig(int typeCovered, int algorithm, int labels, long originalTtl, long expiration,
             long inception, int keyTag, DnsName signer, byte[] signature, byte[] rdataWithoutSignature) {}
 
@@ -110,6 +113,7 @@ record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
     // --- DNSKEY / DS ----------------------------------------------------------------------
 
     /** Parsed DNSKEY RDATA (RFC 4034 section 2.1). */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Dnskey(int flags, int protocol, int algorithm, byte[] publicKey, int keyTag, byte[] rdata) {
         boolean isZoneKey() {
             return (flags & 0x0100) != 0;
@@ -137,6 +141,7 @@ record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
     }
 
     /** Parsed DS RDATA (RFC 4034 section 5.1). */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Ds(int keyTag, int algorithm, int digestType, byte[] digest) {}
 
     Ds ds() {

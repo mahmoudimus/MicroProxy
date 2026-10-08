@@ -35,6 +35,7 @@ public final class WarcWriter implements Closeable {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").withZone(ZoneOffset.UTC);
 
     /** One record to write: its WARC fields (beyond those the writer adds) and its block. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Record(String type, String id, Instant date, Map<String, String> fields, String contentType,
             byte[] head, Spool body) {}
 

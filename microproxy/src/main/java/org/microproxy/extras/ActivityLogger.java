@@ -38,6 +38,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     private static final DateTimeFormatter ISO_8601 = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
     private static final DateTimeFormatter W3C_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US);
 
+    // @value-candidate: becomes a value class in the valhalla build profile
     private record TimedRequest(HttpRequest request, long startMillis) {}
 
     private final LogFormat logFormat;

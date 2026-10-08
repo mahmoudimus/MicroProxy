@@ -1,6 +1,7 @@
 package org.microproxy.impl;
 
 /** A host (name or literal, IPv6 without brackets) and port. */
+// @value-candidate: becomes a value class in the valhalla build profile
 record HostAndPort(String host, int port) {
 
     /**

@@ -16,6 +16,7 @@ final class ProxyProtocol {
     };
 
     /** The addresses carried by a PROXY header; addresses are null for LOCAL/UNKNOWN. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Header(InetSocketAddress source, InetSocketAddress destination) {}
 
     private ProxyProtocol() {}

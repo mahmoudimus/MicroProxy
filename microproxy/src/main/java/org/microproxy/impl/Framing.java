@@ -10,6 +10,7 @@ import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 
 /** How the end of a message body is determined (RFC 9112 section 6). */
+// @value-candidate: becomes a value class in the valhalla build profile
 record Framing(Kind kind, long length) {
 
     enum Kind {

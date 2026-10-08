@@ -11,6 +11,7 @@ package org.microproxy;
  * @param evictionCount idle connections closed for idle timeout or to make room
  * @param validationFailureCount idle connections found closed when about to be reused
  */
+// @value-candidate: becomes a value class in the valhalla build profile
 public record PoolMetrics(
         int totalConnections,
         int activeConnections,

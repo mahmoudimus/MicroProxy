@@ -28,6 +28,7 @@ final class HttpCodec {
     private HttpCodec() {}
 
     /** Size limits applied while parsing. */
+    // @value-candidate: becomes a value class in the valhalla build profile
     record Limits(int maxInitialLineLength, int maxHeaderSize, int maxChunkSize) {}
 
     /**

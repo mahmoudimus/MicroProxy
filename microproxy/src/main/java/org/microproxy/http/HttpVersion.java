@@ -1,6 +1,7 @@
 package org.microproxy.http;
 
 /** An HTTP protocol version such as {@code HTTP/1.1}. */
+// @value-candidate: becomes a value class in the valhalla build profile
 public record HttpVersion(int majorVersion, int minorVersion) {
 
     public static final HttpVersion HTTP_1_0 = new HttpVersion(1, 0);

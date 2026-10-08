@@ -50,6 +50,7 @@ public final class DiskCacheStore implements CacheStore {
     private long size;
     private int count;
 
+    // @value-candidate: becomes a value class in the valhalla build profile
     private record Meta(String key, String signature, Path file, long weight) {}
 
     /**

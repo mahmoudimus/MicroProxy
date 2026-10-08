@@ -92,4 +92,97 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <!--
+              Feature flag for Project Valhalla: builds and tests the types marked
+              "// @value-candidate" as value classes (JEP 401, preview). Needs a JDK 28
+              early-access build as JAVA_HOME:
+
+                  mvn -Pvalhalla -pl zstd-decoder,microproxy verify
+
+              Produces microproxy-<version>-valhalla.jar, which runs only on that JDK with
+              java -enable-preview. The normal build (JDK 21+) is unaffected.
+            -->
+            <id>valhalla</id>
+            <properties>
+                <maven.compiler.release>28</maven.compiler.release>
+                <valhalla.sources>${project.build.directory}/valhalla-sources</valhalla.sources>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>valhalla-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <delete dir="${valhalla.sources}" quiet="true"/>
+                                        <copy todir="${valhalla.sources}">
+                                            <fileset dir="${project.basedir}/src/main/java"/>
+                                        </copy>
+                                        <replaceregexp flags="g" encoding="UTF-8">
+                                            <regexp pattern="(// @value-candidate[^\n]*\n\s*(?:(?:public|protected|private|static|final)\s+)*)record "/>
+                                            <substitution expression="\1value record "/>
+                                            <fileset dir="${valhalla.sources}" includes="**/*.java"/>
+                                        </replaceregexp>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <compilerArgs combine.children="append">
+                                <arg>--enable-preview</arg>
+                                <arg>-Xlint:-preview</arg>
+                            </compilerArgs>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <!-- Only the main code comes from the rewritten copy. -->
+                                <id>default-compile</id>
+                                <configuration>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${valhalla.sources}</compileSourceRoot>
+                                    </compileSourceRoots>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>--enable-preview -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>simd</id>
+                                <configuration>
+                                    <argLine>--enable-preview --add-modules jdk.incubator.vector -Dmicroproxy.expectSimd=true -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <configuration>
+                            <classifier>valhalla</classifier>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
