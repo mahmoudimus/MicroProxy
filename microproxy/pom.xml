@@ -41,8 +41,35 @@
                 <configuration>
                     <compilerArgs>
                         <arg>-Xlint:all,-serial</arg>
+                        <!-- For the optional SIMD code (org.microproxy.simd.VectorOps), loaded only when
+                             the JVM itself runs with this module; see Simd. -->
+                        <arg>--add-modules</arg>
+                        <arg>jdk.incubator.vector</arg>
                     </compilerArgs>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- Again with the Vector API module, so the SIMD code is tested too. -->
+                        <id>simd</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <argLine>--add-modules jdk.incubator.vector -Dmicroproxy.expectSimd=true -Djdk.tracePinnedThreads=short -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                            <includes>
+                                <include>**/SimdTest.java</include>
+                                <include>**/WebSocketFrameTest.java</include>
+                                <include>**/HttpCodecTest.java</include>
+                                <include>**/WireLevelTest.java</include>
+                                <include>**/SimpleProxyTest.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

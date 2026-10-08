@@ -98,6 +98,32 @@ java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar 
 `microproxy-ca.pem`. To intercept HTTPS without errors, add that certificate to your client's
 trust store.
 
+### SIMD (optional)
+
+A few byte loops can use the JDK's Vector API: WebSocket payload unmasking and the line scanning
+in the HTTP parser. The API is still an incubating module (JDK 21 through 26), so it is off unless
+you ask for it:
+
+```bash
+java --add-modules jdk.incubator.vector -jar microproxy.jar ...   # prints "SIMD: vector 512-bit"
+```
+
+The JVM then warns that it is using an incubator module. `-Dmicroproxy.simd=false` turns SIMD off
+again, and `-Dmicroproxy.simd=true` warns if the module is missing. Without the module, the
+scalar code runs, and it now works eight bytes at a time.
+
+Measured on a 4-core AVX-512 machine:
+
+| | before | scalar | vector |
+|---|---|---|---|
+| unmask a 1 KiB WebSocket payload | 1.0 GB/s | 5.9 GB/s | 41.7 GB/s |
+| unmask a 64 KiB payload | 1.3 GB/s | 5.7 GB/s | 35.5 GB/s |
+| find the end of a 400-byte header line | — | 7.1 GB/s | 25.8 GB/s |
+
+Inputs shorter than two vectors (128 bytes with AVX-512) use the scalar code, which is faster
+there. The build runs the parser, WebSocket and SIMD tests a second time with the module, so
+both paths are tested.
+
 ### Properties file
 
 Pass a properties file with `--config file.properties` or `MicroProxy.bootstrapFromFile(path)`.
