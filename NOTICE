@@ -1,0 +1,7 @@
+MicroProxy
+Copyright 2026 The MicroProxy authors
+
+This product is derived from LittleProxy (https://github.com/LittleProxy/LittleProxy),
+originally created by Adam Fisk and licensed under the Apache License, Version 2.0.
+MicroProxy is a rewrite that replaces Netty with blocking I/O on virtual threads; its public
+API and proxying behaviour follow LittleProxy's design.
