@@ -215,6 +215,24 @@ class MessageSemanticsTest {
     }
 
     @Test
+    void chunkedShortCircuitResponseIsTerminatedOnce() throws Exception {
+        FullHttpResponse chunked = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                "short-circuit body");
+        HttpUtil.setTransferEncodingChunked(chunked, true);
+        start(MicroProxy.bootstrap().withFiltersSource(filters(shortCircuit(chunked))));
+        try (Socket s = connect()) {
+            ByteReader in = new ByteReader(s.getInputStream(), 1024);
+            for (int i = 0; i < 2; i++) {
+                write(s.getOutputStream(), get(originAuthority(), "/short"));
+                Reply reply = WireLevelTest.read(in, HttpMethod.GET);
+                assertEquals(200, reply.head().status().code(), "response " + i);
+                assertEquals("short-circuit body", reply.body());
+            }
+            assertStillUsable(s, in);
+        }
+    }
+
+    @Test
     void http10ClientWithoutKeepAliveIsDisconnectedAfterTheResponse() throws Exception {
         start();
         try (Socket s = connect()) {
