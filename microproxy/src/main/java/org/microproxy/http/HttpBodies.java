@@ -29,20 +29,30 @@ import java.util.zip.InflaterInputStream;
  * }</pre>
  *
  * <p>{@code gzip}, {@code x-gzip}, {@code deflate} (zlib-wrapped or raw) and {@code br} (with a
- * bundled copy of Google's pure-Java Brotli decoder) can be decoded; others, such as {@code zstd},
- * are reported by {@link #canDecode}, and {@link #restrictAcceptEncoding} keeps servers from
- * choosing them. Decoding is capped (64 MiB by default) to defuse compression bombs. Rewriting a
- * body re-applies the original coding (a Brotli body is re-encoded as gzip, since there is no
- * pure-Java Brotli encoder) and drops validators ({@code ETag}, {@code Content-MD5}) that no
- * longer match; {@code Content-Length} is fixed when the message is written.
+ * bundled copy of Google's pure-Java Brotli decoder) can be decoded, and so can {@code zstd} when
+ * the optional {@code zstd-decoder} module is on the class path. Others, such as dictionary
+ * codings ({@code dcb}, {@code dcz}), are reported by {@link #canDecode}, and {@link
+ * #restrictAcceptEncoding} keeps servers from choosing them. Decoding is capped (64 MiB by
+ * default) to defuse compression bombs. Rewriting a body re-applies the original coding (Brotli
+ * and zstd bodies are re-encoded as gzip, since there are no pure-Java encoders for them) and
+ * drops validators ({@code ETag}, {@code Content-MD5}) that no longer match; {@code
+ * Content-Length} is fixed when the message is written.
  */
 public final class HttpBodies {
 
     /** Default cap on decoded body size. */
     public static final int DEFAULT_MAX_DECODED_BYTES = 64 << 20;
 
-    /** Content codings this class can decode. */
-    public static final java.util.Set<String> DECODABLE = java.util.Set.of("gzip", "x-gzip", "deflate", "br");
+    /**
+     * Content codings this class can decode: {@code gzip}, {@code x-gzip}, {@code deflate} and
+     * {@code br}, plus {@code zstd} when the {@code zstd-decoder} module is on the class path.
+     */
+    public static final java.util.Set<String> DECODABLE = ZstdSupport.AVAILABLE
+            ? java.util.Set.of("gzip", "x-gzip", "deflate", "br", "zstd")
+            : java.util.Set.of("gzip", "x-gzip", "deflate", "br");
+
+    /** Codings that can be decoded but not produced; rewritten bodies use gzip instead. */
+    private static final java.util.Set<String> DECODE_ONLY = java.util.Set.of("br", "zstd");
 
     private HttpBodies() {}
 
@@ -84,9 +94,9 @@ public final class HttpBodies {
      */
     public static void setDecoded(FullHttpMessage message, byte[] decodedBody) throws IOException {
         List<String> codings = contentEncodings(message);
-        if (codings.contains("br")) {
-            // No pure-Java Brotli encoder exists; gzip is understood by every client that sends br.
-            codings = codings.stream().map(c -> c.equals("br") ? "gzip" : c).toList();
+        if (codings.stream().anyMatch(DECODE_ONLY::contains)) {
+            // There is no encoder for these; gzip is understood by every client that sends them.
+            codings = codings.stream().map(c -> DECODE_ONLY.contains(c) ? "gzip" : c).toList();
             message.headers().set(HttpHeaderNames.CONTENT_ENCODING, String.join(", ", codings));
         }
         byte[] data = decodedBody;
@@ -110,7 +120,7 @@ public final class HttpBodies {
     }
 
     /**
-     * Removes content codings this class cannot decode (e.g. {@code zstd}) from the request's
+     * Removes content codings this class cannot decode (e.g. {@code dcb}) from the request's
      * {@code Accept-Encoding}, keeping quality values, so the server picks one that filters can
      * read. Leaves {@code identity} when nothing else remains.
      */
@@ -189,8 +199,40 @@ public final class HttpBodies {
                     throw new IOException("corrupt brotli data", e);
                 }
             }
+            case "zstd" -> {
+                if (!ZstdSupport.AVAILABLE) throw new IOException("unsupported content coding: zstd");
+                yield readCapped(ZstdSupport.open(new ByteArrayInputStream(data)), max);
+            }
             default -> throw new IOException("unsupported content coding: " + coding);
         };
+    }
+
+    /**
+     * The optional zstd-decoder module. Kept in its own class so that {@code HttpBodies} loads
+     * (and decodes everything else) when the module is absent.
+     */
+    private static final class ZstdSupport {
+        static final boolean AVAILABLE = present();
+
+        private static boolean present() {
+            try {
+                Class.forName("io.github.mahmoudimus.zstd.ZstdInputStream", false, HttpBodies.class.getClassLoader());
+                return true;
+            } catch (ClassNotFoundException | LinkageError e) {
+                return false;
+            }
+        }
+
+        static InputStream open(InputStream in) {
+            return Decoder.open(in);
+        }
+
+        /** Only loaded once the module is known to be present. */
+        private static final class Decoder {
+            static InputStream open(InputStream in) {
+                return new io.github.mahmoudimus.zstd.ZstdInputStream(in);
+            }
+        }
     }
 
     /** "deflate" is meant to be zlib-wrapped, but some servers send raw DEFLATE; accept both. */

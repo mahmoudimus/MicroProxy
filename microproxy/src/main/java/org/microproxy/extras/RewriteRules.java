@@ -102,7 +102,7 @@ public final class RewriteRules implements HttpFiltersSource {
                     rule.requestHeaderEdits.forEach(edit -> edit.apply(request.headers()));
                 }
                 if (editsBody) {
-                    // Keep the server from picking a coding (zstd, ...) we could not rewrite.
+                    // Keep the server from picking a coding (dcb, ...) we could not rewrite.
                     HttpBodies.restrictAcceptEncoding(request);
                 }
             }

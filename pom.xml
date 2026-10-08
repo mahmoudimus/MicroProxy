@@ -24,7 +24,9 @@
     </licenses>
 
     <modules>
-        <!-- The proxy itself: no runtime dependencies. -->
+        <!-- A standalone pure-Java Zstandard decoder; the proxy uses it when present. -->
+        <module>zstd-decoder</module>
+        <!-- The proxy itself: no required runtime dependencies. -->
         <module>microproxy</module>
         <!-- Optional: script the proxy in Starlark. -->
         <module>microproxy-starlark</module>
@@ -46,6 +48,11 @@
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>microproxy</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.mahmoudimus</groupId>
+                <artifactId>zstd-decoder</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
