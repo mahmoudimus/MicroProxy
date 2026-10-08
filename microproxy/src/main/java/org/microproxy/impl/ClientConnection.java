@@ -1066,7 +1066,8 @@ final class ClientConnection implements Runnable {
 
     /** Whether server connections for {@code mode} come from the shared pool. */
     private boolean usesPool(Mode mode) {
-        return server.pool != null
+        // A PROXY header names one client, so connections that carry it are never shared.
+        return server.pool != null && !server.sendProxyProtocol
                 && (mode == Mode.PLAIN || (mode == Mode.TLS && server.poolSharedMitmConnections));
     }
 

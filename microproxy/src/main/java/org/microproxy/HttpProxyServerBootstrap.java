@@ -100,7 +100,8 @@ public interface HttpProxyServerBootstrap {
      * Send a PROXY protocol v1 header to the final server: first on a direct connection, or
      * through the tunnel once an HTTP chained proxy has accepted the CONNECT. It is not sent where
      * there is no tunnel to the final server: through SOCKS chained proxies, or with plain
-     * requests forwarded to an HTTP chained proxy.
+     * requests forwarded to an HTTP chained proxy. Server connections that carry the header belong
+     * to one client, so the shared server connection pool is not used while this is on.
      */
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
