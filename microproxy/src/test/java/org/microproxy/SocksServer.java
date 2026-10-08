@@ -16,6 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 final class SocksServer implements AutoCloseable {
 
     final List<String> targets = new CopyOnWriteArrayList<>();
+    /** SOCKS5 authentication methods offered by clients, in order (0 = none, 2 = user/password). */
+    final List<Integer> offeredMethods = new CopyOnWriteArrayList<>();
     private final ServerSocket serverSocket;
     private final String user;
     private final String password;
@@ -62,6 +64,7 @@ final class SocksServer implements AutoCloseable {
             } else {
                 int methods = in.readUnsignedByte();
                 byte[] offered = in.readNBytes(methods);
+                for (byte m : offered) offeredMethods.add(m & 0xff);
                 boolean wantsAuth = user != null;
                 byte chosen = wantsAuth ? (byte) 2 : (byte) 0;
                 boolean ok = false;
