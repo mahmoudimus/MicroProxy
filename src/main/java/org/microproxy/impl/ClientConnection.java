@@ -1,0 +1,1249 @@
+package org.microproxy.impl;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.System.Logger.Level;
+import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ProtocolException;
+import java.net.Proxy;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+import org.microproxy.ChainedProxy;
+import org.microproxy.ChainedProxyAdapter;
+import org.microproxy.ChainedProxyType;
+import org.microproxy.ClientDetails;
+import org.microproxy.FlowContext;
+import org.microproxy.FullFlowContext;
+import org.microproxy.HttpFilters;
+import org.microproxy.HttpFiltersAdapter;
+import org.microproxy.http.DefaultFullHttpRequest;
+import org.microproxy.http.DefaultFullHttpResponse;
+import org.microproxy.http.DefaultHttpRequest;
+import org.microproxy.http.DefaultHttpResponse;
+import org.microproxy.http.FullHttpMessage;
+import org.microproxy.http.FullHttpRequest;
+import org.microproxy.http.FullHttpResponse;
+import org.microproxy.http.HttpContent;
+import org.microproxy.http.HttpHeaderNames;
+import org.microproxy.http.HttpHeaders;
+import org.microproxy.http.HttpMethod;
+import org.microproxy.http.HttpObject;
+import org.microproxy.http.HttpRequest;
+import org.microproxy.http.HttpResponse;
+import org.microproxy.http.HttpResponseStatus;
+import org.microproxy.http.HttpUtil;
+import org.microproxy.http.HttpVersion;
+import org.microproxy.http.LastHttpContent;
+
+/**
+ * Serves one client connection on its own virtual thread.
+ *
+ * <p>Requests are handled one at a time: read the request head, run filters, connect (or reuse a
+ * connection) to the server, stream the request body, stream the response back. HTTP/1.1
+ * pipelining works naturally because unread pipelined requests simply wait in the socket buffer.
+ * CONNECT turns the connection into a byte tunnel, or, with a {@link org.microproxy.MitmManager},
+ * into a TLS session whose decrypted requests are served by the same loop.
+ */
+final class ClientConnection implements Runnable {
+
+    private static final System.Logger LOG = System.getLogger(ClientConnection.class.getName());
+    private static final AtomicLong IDS = new AtomicLong();
+    private static final int BUFFER_SIZE = 16384;
+    /** How long to wait for a server's 100 (Continue) before sending the body anyway. */
+    private static final int CONTINUE_TIMEOUT_MS = 1000;
+    private static final HttpFilters NOOP = HttpFiltersAdapter.NOOP_FILTER;
+
+    /** How a server connection is used. */
+    enum Mode {
+        /** HTTP requests forwarded as-is. */
+        PLAIN,
+        /** Raw bytes relayed for a CONNECT tunnel. */
+        TUNNEL,
+        /** TLS to the origin for man-in-the-middle interception. */
+        TLS
+    }
+
+    /** Server I/O failed before the response could be completed. */
+    private static final class ServerFailure extends IOException {
+        ServerFailure(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /** The server did not answer within the idle timeout. */
+    private static final class ServerTimeout extends IOException {
+        ServerTimeout(Throwable cause) {
+            super("server timed out", cause);
+        }
+    }
+
+    /** Writing the request body to the server failed; the server may still have answered. */
+    private static final class ServerWriteFailure extends IOException {
+        ServerWriteFailure(Throwable cause) {
+            super("write to server failed", cause);
+        }
+    }
+
+    /** A reused keep-alive connection turned out to be closed; the request can be retried. */
+    private static final class StaleConnection extends IOException {
+        StaleConnection(Throwable cause) {
+            super("stale server connection", cause);
+        }
+    }
+
+    /** Client I/O failed; the client connection is unusable. */
+    private static final class ClientFailure extends IOException {
+        ClientFailure(Throwable cause) {
+            super("client connection failed", cause);
+        }
+    }
+
+    /** State of the request/response exchange in progress. */
+    private static final class Exchange {
+        HttpRequest request;
+        final HttpVersion clientVersion;
+        final Framing framing;
+        final HttpCodec.BodyReader body;
+        final boolean clientKeepAlive;
+        HttpFilters filters = NOOP;
+        boolean responseStarted;
+        /** The request body will never be read (server answered before 100-continue). */
+        boolean bodyAbandoned;
+
+        Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
+            this.request = request;
+            this.clientVersion = request.protocolVersion();
+            this.framing = framing;
+            this.body = body;
+            this.clientKeepAlive = clientKeepAlive;
+        }
+
+        boolean bodyUnread() {
+            return !(request instanceof FullHttpRequest) && framing.hasBody() && !body.isDone();
+        }
+    }
+
+    private final DefaultHttpProxyServer server;
+    private final Socket rawSocket;
+    private final long id = IDS.incrementAndGet();
+    private final ClientDetails clientDetails = new ClientDetails();
+    private final FlowContext flowContext;
+    private final Map<String, ServerConnection> serverConnections = new ConcurrentHashMap<>();
+
+    private volatile Socket socket;
+    private volatile SSLSession sslSession;
+    private volatile ProxyProtocol.Header proxyHeader;
+    private volatile boolean idle = true;
+    private volatile boolean closed;
+
+    private ByteReader in;
+    private OutputStream out;
+    private HttpCodec.HttpWriter writer;
+    private boolean authenticated;
+    /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
+    private String mitmHostAndPort;
+
+    ClientConnection(DefaultHttpProxyServer server, Socket socket) {
+        this.server = server;
+        this.rawSocket = socket;
+        this.socket = socket;
+        this.flowContext = new FlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
+    }
+
+    boolean isIdle() {
+        return idle;
+    }
+
+    /** Closes the client connection and every server connection it owns. */
+    void close() {
+        closed = true;
+        Tls.closeQuietly(socket);
+        Tls.closeQuietly(rawSocket);
+        for (ServerConnection c : List.copyOf(serverConnections.values())) {
+            c.close();
+        }
+    }
+
+    @Override
+    public void run() {
+        boolean connectedFired = false;
+        try {
+            rawSocket.setTcpNoDelay(true);
+            rawSocket.setSoTimeout(server.idleTimeoutMillis());
+            clientDetails.setClientAddress((InetSocketAddress) rawSocket.getRemoteSocketAddress());
+            attachClientStreams(rawSocket);
+            if (server.acceptProxyProtocol) {
+                proxyHeader = ProxyProtocol.read(in);
+                if (proxyHeader.source() != null) {
+                    clientDetails.setClientAddress(proxyHeader.source());
+                }
+            }
+            server.trackers.fire(t -> t.clientConnected(flowContext));
+            connectedFired = true;
+            if (server.sslContextSource != null) {
+                server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
+                SSLSocket tls = Tls.serverHandshake(
+                        server.sslContextSource.getSslContext(), rawSocket, in.drainBuffered(),
+                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false));
+                sslSession = tls.getSession();
+                attachClientStreams(tls);
+                SSLSession session = sslSession;
+                server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
+            }
+            serveRequests();
+        } catch (SocketTimeoutException e) {
+            LOG.log(Level.DEBUG, "client connection {0} timed out", id);
+            server.trackers.fire(t -> t.connectionTimedOut(flowContext));
+        } catch (IOException e) {
+            if (!closed) {
+                LOG.log(Level.DEBUG, "client connection " + id + " failed", e);
+                server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+            }
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "unexpected error on client connection " + id, e);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+        } finally {
+            close();
+            if (connectedFired) {
+                SSLSession session = sslSession;
+                server.trackers.fire(t -> t.clientDisconnected(flowContext, session));
+            }
+            server.unregister(this);
+        }
+    }
+
+    private void attachClientStreams(Socket s) throws IOException {
+        socket = s;
+        InputStream is = s.getInputStream();
+        OutputStream os = s.getOutputStream();
+        if (!server.trackers.isEmpty()) {
+            is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
+            os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));
+        }
+        in = new ByteReader(is, BUFFER_SIZE);
+        out = new BufferedOutputStream(os, BUFFER_SIZE);
+        writer = new HttpCodec.HttpWriter(out);
+    }
+
+    /** Reads and handles requests until the connection should close. */
+    private void serveRequests() throws IOException {
+        while (!closed) {
+            idle = true;
+            if (server.isStopping()) {
+                return;
+            }
+            HttpRequest request;
+            try {
+                request = HttpCodec.readRequest(in, server.limits);
+            } catch (HttpParseException e) {
+                LOG.log(Level.DEBUG, "bad request from client {0}: {1}", id, e.getMessage());
+                writeErrorAndClose(e.status());
+                return;
+            }
+            if (request == null) {
+                return;
+            }
+            idle = false;
+            if (!handleRequest(request)) {
+                return;
+            }
+        }
+    }
+
+    /** Handles one request. Returns whether the client connection stays open. */
+    private boolean handleRequest(HttpRequest request) throws IOException {
+        server.trackers.fire(t -> t.requestReceivedFromClient(flowContext, request));
+        Framing framing;
+        try {
+            framing = Framing.forRequest(request);
+        } catch (HttpParseException e) {
+            writeErrorAndClose(e.status());
+            return false;
+        }
+        Exchange ex = new Exchange(
+                request, framing, new HttpCodec.BodyReader(in, framing, server.limits),
+                ProxyUtils.isClientKeepAlive(request));
+
+        if (server.proxyAuthenticator != null && !authenticated && !authenticate(request)) {
+            return respondDirect(ex, authenticationRequired(), false);
+        }
+
+        HttpFilters filters = server.filtersSource.filterRequest(copy(request), flowContext);
+        ex.filters = filters != null ? filters : NOOP;
+
+        int maxBuffer = server.filtersSource.getMaximumRequestBufferSizeInBytes();
+        if (maxBuffer > 0 && !ProxyUtils.isCONNECT(request)) {
+            FullHttpRequest full = aggregateRequest(ex, maxBuffer);
+            if (full == null) {
+                return false;
+            }
+            ex.request = full;
+        }
+
+        HttpResponse shortCircuit = ex.filters.clientToProxyRequest(ex.request);
+        if (shortCircuit != null) {
+            return respondDirect(ex, shortCircuit, true);
+        }
+
+        if (ProxyUtils.isCONNECT(ex.request)) {
+            return handleConnect(ex);
+        }
+
+        if (mitmHostAndPort == null
+                && !server.allowRequestsToOriginServer
+                && !ProxyUtils.isAbsoluteUri(ex.request.uri())) {
+            // An origin-form request means the client thinks we are the origin; refusing avoids
+            // proxying to ourselves in a loop.
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
+                    "Bad Request to URI: " + ex.request.uri()), true);
+        }
+
+        String hostAndPort = mitmHostAndPort != null ? mitmHostAndPort : identifyHostAndPort(ex.request);
+        if (hostAndPort == null) {
+            return respondDirect(ex, badGateway(ex), false);
+        }
+        return proxyRequest(ex, hostAndPort);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Plain HTTP requests
+    // ---------------------------------------------------------------------------------------
+
+    private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
+        Mode mode = mitmHostAndPort != null ? Mode.TLS : Mode.PLAIN;
+        String key = mode + "|" + hostAndPort;
+        ServerConnection conn = serverConnections.get(key);
+        if (conn != null && !conn.isOpen()) {
+            serverConnections.remove(key, conn);
+            conn = null;
+        }
+        List<ChainedProxy> route = null;
+        boolean nextHopOrigin;
+        if (conn != null) {
+            nextHopOrigin = conn.nextHopIsOrigin();
+        } else {
+            route = lookupRoute(ex.request);
+            if (route == null) {
+                return respondDirect(ex, badGateway(ex), false);
+            }
+            nextHopOrigin = isNextHopOrigin(route.get(0), mode);
+        }
+
+        boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
+        modifyRequestHeadersToReflectProxying(ex.request, nextHopOrigin, webSocket);
+
+        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
+        if (shortCircuit != null) {
+            return respondDirect(ex, shortCircuit, true);
+        }
+
+        boolean replayable = ex.request instanceof FullHttpRequest || !ex.framing.hasBody();
+        for (int attempt = 0; ; attempt++) {
+            if (conn == null) {
+                if (route == null) {
+                    route = lookupRoute(ex.request);
+                    if (route == null) {
+                        return respondDirect(ex, badGateway(ex), false);
+                    }
+                }
+                try {
+                    conn = connect(hostAndPort, ex, route, mode);
+                } catch (IOException e) {
+                    LOG.log(Level.DEBUG, "unable to connect to " + hostAndPort, e);
+                    return respondDirect(ex, badGateway(ex), false);
+                }
+                serverConnections.put(key, conn);
+                if (conn.nextHopIsOrigin() != nextHopOrigin) {
+                    nextHopOrigin = conn.nextHopIsOrigin();
+                    adjustUriForNextHop(ex.request, hostAndPort, nextHopOrigin);
+                }
+            }
+            try {
+                return exchange(ex, conn, attempt == 0 && conn.used && replayable);
+            } catch (StaleConnection e) {
+                LOG.log(Level.DEBUG, "retrying on a new connection after stale {0}", conn);
+                conn.close();
+                conn = null;
+                route = null;
+            }
+        }
+    }
+
+    /** Sends the request on {@code conn} and relays the response. */
+    private boolean exchange(Exchange ex, ServerConnection conn, boolean retryAllowed) throws IOException {
+        HttpRequest request = ex.request;
+        HttpFilters filters = ex.filters;
+        ChainedProxy chainedProxy = conn.chainedProxy;
+        if (!conn.nextHopIsOrigin()) {
+            addUpstreamProxyAuthorization(request.headers(), chainedProxy);
+        }
+        if (chainedProxy != null) {
+            chainedProxy.filterRequest(request);
+        }
+        boolean streamingBody = !(request instanceof FullHttpRequest) && ex.framing.hasBody();
+        try {
+            filters.proxyToServerRequestSending();
+            try {
+                conn.writer.writeHead(request, true);
+            } catch (IOException e) {
+                if (retryAllowed) throw new StaleConnection(e);
+                throw new ServerFailure("write to server failed", e);
+            }
+            conn.used = true;
+            server.trackers.fire(t -> t.requestSentToServer(conn.flowContext, request));
+
+            HttpResponse response = null;
+            if (streamingBody) {
+                HttpResponse early = null;
+                if (HttpUtil.is100ContinueExpected(request)) {
+                    // Let the server decide whether it wants the body before reading it from the
+                    // client, which is waiting for a 100 (Continue). Servers that ignore Expect
+                    // never answer, so after a short wait the proxy continues on their behalf.
+                    early = awaitServerData(conn, CONTINUE_TIMEOUT_MS) ? readResponseHead(ex, conn, true, false) : null;
+                    if (early == null || early.status().code() == 100) {
+                        writeToClient(() -> writer.writeHead(
+                                new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE), false));
+                        early = null;
+                    }
+                }
+                if (early == null) {
+                    try {
+                        pumpRequestBody(ex, conn);
+                    } catch (ServerWriteFailure e) {
+                        // The server may have answered early (e.g. 413) and stopped reading.
+                        LOG.log(Level.DEBUG, "server stopped reading the request body", e);
+                        early = readResponseHead(ex, conn, false, false);
+                    }
+                }
+                if (early != null) {
+                    response = early;
+                    ex.bodyAbandoned = true;
+                }
+            }
+            if (response == null) {
+                filters.proxyToServerRequestSent();
+                response = readResponseHead(ex, conn, false, retryAllowed);
+            }
+            return relayResponse(ex, conn, response);
+        } catch (ServerTimeout e) {
+            filters.serverToProxyResponseTimedOut();
+            conn.close();
+            if (ex.responseStarted) {
+                close();
+                return false;
+            }
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.GATEWAY_TIMEOUT, "Gateway Timeout"), false);
+        } catch (ServerFailure e) {
+            LOG.log(Level.DEBUG, "server failure on " + conn, e);
+            conn.close();
+            if (ex.responseStarted) {
+                close();
+                return false;
+            }
+            return respondDirect(ex, badGateway(ex), false);
+        } catch (ClientFailure e) {
+            LOG.log(Level.DEBUG, "client failure", e);
+            conn.close();
+            close();
+            return false;
+        }
+    }
+
+    private void pumpRequestBody(Exchange ex, ServerConnection conn) throws IOException {
+        while (true) {
+            HttpContent content;
+            try {
+                content = ex.body.next();
+            } catch (IOException e) {
+                throw new ClientFailure(e);
+            }
+            if (content == null) {
+                return;
+            }
+            ex.filters.clientToProxyRequest(content);
+            ex.filters.proxyToServerRequest(content);
+            if (conn.chainedProxy != null) {
+                conn.chainedProxy.filterRequest(content);
+            }
+            try {
+                conn.writer.writeContent(content);
+            } catch (IOException e) {
+                throw new ServerWriteFailure(e);
+            }
+        }
+    }
+
+    /** Waits up to {@code millis} for the server to send something; false on timeout. */
+    private static boolean awaitServerData(ServerConnection conn, int millis) throws IOException {
+        int original = conn.socket.getSoTimeout();
+        conn.socket.setSoTimeout(original > 0 ? Math.min(original, millis) : millis);
+        try {
+            return conn.in.awaitData();
+        } catch (IOException e) {
+            throw new ServerFailure("read from server failed", e);
+        } finally {
+            conn.socket.setSoTimeout(original);
+        }
+    }
+
+    /**
+     * Reads the next final response head, forwarding interim (1xx) responses to the client.
+     *
+     * @param stopAtContinue return a 100 (Continue) instead of forwarding it
+     */
+    private HttpResponse readResponseHead(
+            Exchange ex, ServerConnection conn, boolean stopAtContinue, boolean retryAllowed)
+            throws IOException {
+        while (true) {
+            HttpResponse response;
+            try {
+                response = HttpCodec.readResponse(conn.in, server.limits);
+            } catch (SocketTimeoutException e) {
+                throw new ServerTimeout(e);
+            } catch (HttpParseException e) {
+                throw new ServerFailure("malformed response", e);
+            } catch (IOException e) {
+                if (retryAllowed) throw new StaleConnection(e);
+                throw new ServerFailure("read from server failed", e);
+            }
+            if (response == null) {
+                IOException eof = new java.io.EOFException("server closed connection");
+                if (retryAllowed) throw new StaleConnection(eof);
+                throw new ServerFailure("server closed connection", eof);
+            }
+            int code = response.status().code();
+            if (code == 100 && stopAtContinue) {
+                return response;
+            }
+            if (code >= 100 && code < 200 && code != 101) {
+                if (ex.clientVersion.isKeepAliveDefault()) {
+                    writeToClient(() -> writer.writeHead(response, false));
+                }
+                continue;
+            }
+            return response;
+        }
+    }
+
+    /** Relays a response (head and body) from the server to the client. */
+    private boolean relayResponse(Exchange ex, ServerConnection conn, HttpResponse response) throws IOException {
+        HttpFilters filters = ex.filters;
+        HttpRequest request = ex.request;
+        filters.serverToProxyResponseReceiving();
+        server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
+
+        Framing framing;
+        try {
+            framing = Framing.forResponse(response, request.method());
+        } catch (HttpParseException e) {
+            throw new ServerFailure("malformed response framing", e);
+        }
+        boolean serverKeepAlive = HttpUtil.isKeepAlive(response)
+                && framing.kind() != Framing.Kind.UNTIL_CLOSE && !ex.bodyAbandoned;
+        boolean switching = response.status().code() == 101;
+        String upgrade = response.headers().get(HttpHeaderNames.UPGRADE);
+
+        HttpCodec.BodyReader body = switching ? null : new HttpCodec.BodyReader(conn.in, framing, server.limits);
+        HttpObject head = response;
+        int maxBuffer = server.filtersSource.getMaximumResponseBufferSizeInBytes();
+        if (maxBuffer > 0 && !switching) {
+            head = aggregateResponse(response, framing, body, maxBuffer, request.method());
+            body = null;
+        }
+
+        HttpObject filtered = filters.serverToProxyResponse(head);
+        if (!(filtered instanceof HttpResponse res)) {
+            return abort(conn);
+        }
+        if (filtered instanceof FullHttpMessage && body != null) {
+            // The filter replaced a streamed response with a complete one: discard the original body.
+            serverKeepAlive &= drain(body);
+            body = null;
+        }
+
+        boolean bodyAllowed = Framing.responseMayHaveBody(res, request.method());
+        boolean closeClient = !ex.clientKeepAlive || ex.bodyAbandoned;
+        boolean clientSupportsChunked = ex.clientVersion.isKeepAliveDefault();
+        if (bodyAllowed && !switching && !(out instanceof FullHttpMessage)) {
+            if (!ProxyUtils.isResponseSelfTerminating(res)) {
+                // The server ends the body by closing. Re-chunk so the client connection survives.
+                if (clientSupportsChunked) {
+                    HttpUtil.setTransferEncodingChunked(res, true);
+                } else {
+                    closeClient = true;
+                }
+            } else if (!clientSupportsChunked && HttpUtil.isTransferEncodingChunked(res)) {
+                // HTTP/1.0 clients cannot parse chunked bodies: de-chunk and delimit by closing.
+                HttpUtil.setTransferEncodingChunked(res, false);
+                closeClient = true;
+            }
+        }
+        if (HttpUtil.isTransferEncodingChunked(res) && !res.protocolVersion().isKeepAliveDefault()) {
+            res.setProtocolVersion(HttpVersion.HTTP_1_1);
+        }
+        if (!server.transparent) {
+            modifyResponseHeadersToReflectProxying(res);
+        }
+        if (switching) {
+            if (upgrade != null) res.headers().set(HttpHeaderNames.UPGRADE, upgrade);
+            res.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
+        } else {
+            HttpUtil.setKeepAlive(res, !closeClient);
+        }
+
+        HttpObject toClient = filters.proxyToClientResponse(res);
+        if (!(toClient instanceof HttpResponse finalResponse)) {
+            return abort(conn);
+        }
+        ex.responseStarted = true;
+        boolean writeBody = Framing.responseMayHaveBody(finalResponse, request.method());
+        writeToClient(() -> writer.writeHead(finalResponse, writeBody));
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, finalResponse));
+
+        if (body != null) {
+            boolean lastWritten = false;
+            while (true) {
+                HttpContent content;
+                try {
+                    content = body.next();
+                } catch (IOException e) {
+                    throw new ServerFailure("reading response body failed", e);
+                }
+                if (content == null) {
+                    break;
+                }
+                HttpObject o = filters.serverToProxyResponse(content);
+                if (o != null) {
+                    o = filters.proxyToClientResponse(o);
+                }
+                if (o == null) {
+                    return abort(conn);
+                }
+                if (o instanceof HttpContent piece && !lastWritten) {
+                    writeToClient(() -> writer.writeContent(piece));
+                    lastWritten = piece instanceof LastHttpContent;
+                }
+            }
+            if (!lastWritten) {
+                writeToClient(() -> writer.writeContent(LastHttpContent.empty()));
+            }
+        }
+        filters.serverToProxyResponseReceived();
+
+        if (switching) {
+            Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
+                    server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id);
+            conn.close();
+            return false;
+        }
+        if (!serverKeepAlive) {
+            conn.close();
+        }
+        if (closeClient) {
+            close();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean abort(ServerConnection conn) {
+        conn.close();
+        close();
+        return false;
+    }
+
+    private static boolean drain(HttpCodec.BodyReader body) {
+        try {
+            while (body.next() != null) {
+                // discard
+            }
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    @FunctionalInterface
+    private interface ClientWrite {
+        void run() throws IOException;
+    }
+
+    private static void writeToClient(ClientWrite write) throws ClientFailure {
+        try {
+            write.run();
+        } catch (IOException e) {
+            throw new ClientFailure(e);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT
+    // ---------------------------------------------------------------------------------------
+
+    private boolean handleConnect(Exchange ex) throws IOException {
+        HttpRequest request = ex.request;
+        HostAndPort target;
+        try {
+            target = HostAndPort.parse(request.uri(), 443);
+        } catch (IllegalArgumentException e) {
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
+                    "Bad Request to URI: " + request.uri()), false);
+        }
+        String hostAndPort = target.toString();
+        boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm();
+        Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
+
+        List<ChainedProxy> route = lookupRoute(request);
+        if (route == null) {
+            return respondDirect(ex, badGateway(ex), false);
+        }
+        modifyRequestHeadersToReflectProxying(request, false, false);
+        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(request);
+        if (shortCircuit != null) {
+            return respondDirect(ex, shortCircuit, true);
+        }
+
+        ServerConnection conn;
+        try {
+            conn = connect(hostAndPort, ex, route, mode);
+        } catch (IOException e) {
+            LOG.log(Level.DEBUG, "CONNECT to " + hostAndPort + " failed", e);
+            return respondDirect(ex, badGateway(ex), false);
+        }
+
+        HttpResponse established =
+                new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, new HttpResponseStatus(200, "Connection established"));
+        if (!server.transparent) {
+            ProxyUtils.addVia(established, server.proxyAlias);
+        }
+        HttpObject o = ex.filters.serverToProxyResponse(established);
+        if (o != null) {
+            o = ex.filters.proxyToClientResponse(o);
+        }
+        if (!(o instanceof HttpResponse response)) {
+            return abort(conn);
+        }
+        writeToClient(() -> writer.writeHead(response, response.status().code() / 100 != 2));
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, response));
+        if (response.status().code() / 100 != 2) {
+            // A filter turned the CONNECT into a failure.
+            conn.close();
+            if (!(HttpUtil.isKeepAlive(response) && ex.clientKeepAlive)) {
+                close();
+                return false;
+            }
+            return true;
+        }
+
+        if (!mitm) {
+            Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
+                    server.getIdleConnectionTimeout(), server.name + "-tunnel-" + id);
+            conn.close();
+            return false;
+        }
+
+        SSLSession serverSession = ((SSLSocket) conn.socket).getSession();
+        SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
+        server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
+        SSLSocket tls = Tls.serverHandshake(clientContext, socket, in.drainBuffered(), false, null);
+        sslSession = tls.getSession();
+        attachClientStreams(tls);
+        SSLSession session = sslSession;
+        server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
+
+        mitmHostAndPort = hostAndPort;
+        conn.key = Mode.TLS + "|" + hostAndPort;
+        serverConnections.put(conn.key, conn);
+        serveRequests();
+        return false;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Connecting to servers
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * The chained proxies to try in order, with {@link ChainedProxyAdapter#FALLBACK_TO_DIRECT_CONNECTION}
+     * meaning a direct connection; {@code null} if the manager offered none.
+     */
+    private List<ChainedProxy> lookupRoute(HttpRequest request) {
+        if (server.chainProxyManager == null) {
+            return List.of(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        }
+        Queue<ChainedProxy> queue = new ArrayDeque<>();
+        server.chainProxyManager.lookupChainedProxies(request, queue, clientDetails);
+        return queue.isEmpty() ? null : new ArrayList<>(queue);
+    }
+
+    private static boolean isNextHopOrigin(ChainedProxy proxy, Mode mode) {
+        return proxy == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
+                || mode != Mode.PLAIN
+                || proxy.getChainedProxyType() != ChainedProxyType.HTTP;
+    }
+
+    private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
+            throws IOException {
+        IOException last = null;
+        for (ChainedProxy candidate : route) {
+            ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
+            try {
+                ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode);
+                if (proxy != null) {
+                    proxy.connectionSucceeded();
+                }
+                ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
+                server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
+                return conn;
+            } catch (IOException e) {
+                LOG.log(Level.DEBUG, "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
+                last = e;
+                if (proxy != null) {
+                    proxy.connectionFailed(e);
+                }
+            }
+        }
+        ex.filters.proxyToServerConnectionFailed();
+        throw last != null ? last : new ConnectException("no route to " + hostAndPort);
+    }
+
+    private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode)
+            throws IOException {
+        HttpFilters filters = ex.filters;
+        HostAndPort target = HostAndPort.parse(hostAndPort, 80);
+        InetSocketAddress remote;
+        if (proxy == null) {
+            remote = filters.proxyToServerResolutionStarted(hostAndPort);
+            if (remote == null) {
+                try {
+                    remote = server.serverResolver.resolve(target.host(), target.port());
+                } catch (UnknownHostException e) {
+                    filters.proxyToServerResolutionFailed(hostAndPort);
+                    throw e;
+                }
+            }
+            filters.proxyToServerResolutionSucceeded(hostAndPort, remote);
+        } else {
+            remote = proxy.getChainedProxyAddress();
+            if (remote == null) {
+                throw new ConnectException("chained proxy has no address");
+            }
+            if (remote.isUnresolved()) {
+                remote = new InetSocketAddress(InetAddress.getByName(remote.getHostString()), remote.getPort());
+            }
+        }
+        FullFlowContext serverContext = new FullFlowContext(flowContext, hostAndPort, proxy, remote);
+
+        filters.proxyToServerConnectionStarted();
+        Socket plain = new Socket(Proxy.NO_PROXY);
+        try {
+            InetSocketAddress local = proxy != null && proxy.getLocalAddress() != null
+                    ? proxy.getLocalAddress() : server.localAddress;
+            if (local != null) {
+                plain.bind(local);
+            }
+            plain.connect(remote, Math.max(0, server.getConnectTimeout()));
+            plain.setTcpNoDelay(true);
+            plain.setSoTimeout(server.idleTimeoutMillis());
+
+            Socket active = plain;
+            if (proxy != null && proxy.requiresEncryption()) {
+                SSLContext context = proxy.getSslContext();
+                if (context == null) {
+                    throw new ConnectException("chained proxy requires encryption but has no SSLContext");
+                }
+                active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
+                        s -> proxy.configure(s, true));
+            }
+            ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
+            boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
+
+            ByteReader reader = new ByteReader(serverInput(active, serverContext), BUFFER_SIZE);
+            OutputStream output = new BufferedOutputStream(serverOutput(active, serverContext), BUFFER_SIZE);
+            InputStream rawIn = active.getInputStream();
+            OutputStream rawOut = active.getOutputStream();
+
+            if (server.sendProxyProtocol && !socks) {
+                writeProxyProtocolHeader(rawOut);
+            }
+            if (type == ChainedProxyType.SOCKS4) {
+                Socks.connect4(rawIn, rawOut, target.host(), target.port(), proxy.getUsername());
+            } else if (type == ChainedProxyType.SOCKS5) {
+                Socks.connect5(rawIn, rawOut, target.host(), target.port(), proxy.getUsername(), proxy.getPassword());
+            }
+            if (server.sendProxyProtocol && socks) {
+                writeProxyProtocolHeader(rawOut);
+            }
+            if (type == ChainedProxyType.HTTP && mode != Mode.PLAIN) {
+                HttpRequest connectRequest = upstreamConnectRequest(ex.request, hostAndPort, proxy);
+                proxy.filterRequest(connectRequest);
+                new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
+                HttpResponse reply = HttpCodec.readResponse(reader, server.limits);
+                if (reply == null || reply.status().code() / 100 != 2) {
+                    throw new ConnectException("chained proxy refused CONNECT: "
+                            + (reply == null ? "connection closed" : reply.status()));
+                }
+            }
+            if (mode == Mode.TLS) {
+                if (reader.buffered() > 0) {
+                    throw new ProtocolException("unexpected data from server before TLS handshake");
+                }
+                filters.proxyToServerConnectionSSLHandshakeStarted();
+                SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
+                active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
+                        server.mitmManager::configureServerSocket);
+                reader = new ByteReader(serverInput(active, serverContext), BUFFER_SIZE);
+                output = new BufferedOutputStream(serverOutput(active, serverContext), BUFFER_SIZE);
+            }
+            String key = mode + "|" + hostAndPort;
+            Socket finalSocket = active;
+            ServerConnection[] holder = new ServerConnection[1];
+            holder[0] = new ServerConnection(key, hostAndPort, proxy, mode == Mode.TLS, finalSocket, reader, output,
+                    remote, serverContext, () -> {
+                        ServerConnection self = holder[0];
+                        serverConnections.remove(self.key, self);
+                        if (proxy != null) {
+                            proxy.disconnected();
+                        }
+                        server.trackers.fire(t -> t.serverDisconnected(serverContext, self.remoteAddress));
+                    });
+            return holder[0];
+        } catch (IOException e) {
+            Tls.closeQuietly(plain);
+            throw e;
+        } catch (RuntimeException e) {
+            Tls.closeQuietly(plain);
+            throw new IOException("connecting to " + hostAndPort + " failed", e);
+        }
+    }
+
+    private InputStream serverInput(Socket s, FullFlowContext serverContext) throws IOException {
+        InputStream is = server.readLimiter.wrap(s.getInputStream());
+        if (!server.trackers.isEmpty()) {
+            is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromServer(serverContext, n)));
+        }
+        return is;
+    }
+
+    private OutputStream serverOutput(Socket s, FullFlowContext serverContext) throws IOException {
+        OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
+        if (!server.trackers.isEmpty()) {
+            os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToServer(serverContext, n)));
+        }
+        return os;
+    }
+
+    private void writeProxyProtocolHeader(OutputStream os) throws IOException {
+        ProxyProtocol.Header received = proxyHeader;
+        InetSocketAddress source = clientDetails.getClientAddress();
+        InetSocketAddress destination = received != null && received.destination() != null
+                ? received.destination() : (InetSocketAddress) rawSocket.getLocalSocketAddress();
+        os.write(ProxyProtocol.encodeV1(source, destination));
+        os.flush();
+    }
+
+    /** The CONNECT sent to an upstream HTTP proxy: the client's own CONNECT if it sent one. */
+    private static HttpRequest upstreamConnectRequest(HttpRequest clientRequest, String hostAndPort, ChainedProxy proxy) {
+        HttpRequest connect;
+        if (ProxyUtils.isCONNECT(clientRequest)) {
+            connect = copy(clientRequest);
+        } else {
+            connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
+            connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
+        }
+        addUpstreamProxyAuthorization(connect.headers(), proxy);
+        return connect;
+    }
+
+    private static void addUpstreamProxyAuthorization(HttpHeaders headers, ChainedProxy proxy) {
+        if (proxy != null && proxy.getChainedProxyType() == ChainedProxyType.HTTP
+                && proxy.getUsername() != null && proxy.getPassword() != null) {
+            String credentials = proxy.getUsername() + ":" + proxy.getPassword();
+            headers.set(HttpHeaderNames.PROXY_AUTHORIZATION,
+                    "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)));
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Rewriting
+    // ---------------------------------------------------------------------------------------
+
+    private void modifyRequestHeadersToReflectProxying(HttpRequest request, boolean nextHopOrigin, boolean webSocket) {
+        if (!ProxyUtils.isCONNECT(request) && ProxyUtils.isAbsoluteUri(request.uri())) {
+            // RFC 9112 3.2.2: the target URI's authority replaces any received Host.
+            String authority = ProxyUtils.parseHostAndPort(request.uri());
+            if (authority != null && !authority.isEmpty()) {
+                request.headers().set(HttpHeaderNames.HOST, authority);
+            }
+            if (nextHopOrigin) {
+                request.setUri(ProxyUtils.stripHost(request.uri()));
+            }
+        }
+        if (!server.transparent) {
+            HttpHeaders headers = request.headers();
+            ProxyUtils.removeSdchEncoding(headers);
+            String upgrade = webSocket ? headers.get(HttpHeaderNames.UPGRADE) : null;
+            ProxyUtils.stripConnectionTokens(headers);
+            ProxyUtils.stripHopByHopHeaders(headers);
+            if (upgrade != null) {
+                headers.set(HttpHeaderNames.CONNECTION, "Upgrade");
+                headers.set(HttpHeaderNames.UPGRADE, upgrade);
+            }
+            ProxyUtils.addVia(request, server.proxyAlias);
+        }
+    }
+
+    /** Converts between origin-form and absolute-form after falling back to another route. */
+    private static void adjustUriForNextHop(HttpRequest request, String hostAndPort, boolean nextHopOrigin) {
+        String uri = request.uri();
+        if (nextHopOrigin) {
+            request.setUri(ProxyUtils.stripHost(uri));
+        } else if (!ProxyUtils.isAbsoluteUri(uri)) {
+            String host = request.headers().get(HttpHeaderNames.HOST, hostAndPort);
+            request.setUri("http://" + host + uri);
+        }
+    }
+
+    private void modifyResponseHeadersToReflectProxying(HttpResponse response) {
+        HttpHeaders headers = response.headers();
+        ProxyUtils.stripConnectionTokens(headers);
+        ProxyUtils.stripHopByHopHeaders(headers);
+        ProxyUtils.addVia(response, server.proxyAlias);
+        if (!headers.contains(HttpHeaderNames.DATE)) {
+            headers.set(HttpHeaderNames.DATE, ProxyUtils.httpDate());
+        }
+    }
+
+    private static String identifyHostAndPort(HttpRequest request) {
+        String uri = request.uri();
+        String authority = ProxyUtils.parseHostAndPort(uri);
+        if (authority == null || authority.isEmpty()) {
+            authority = request.headers().get(HttpHeaderNames.HOST);
+        }
+        if (authority == null || authority.isBlank()) {
+            return null;
+        }
+        try {
+            return HostAndPort.parse(authority.strip(), ProxyUtils.defaultPort(uri)).toString();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static HttpRequest copy(HttpRequest original) {
+        if (original instanceof FullHttpRequest full) {
+            DefaultFullHttpRequest copy = new DefaultFullHttpRequest(full.protocolVersion(), full.method(), full.uri(),
+                    full.headers().copy(), full.content().clone());
+            copy.trailingHeaders().set(full.trailingHeaders());
+            return copy;
+        }
+        return new DefaultHttpRequest(original.protocolVersion(), original.method(), original.uri(), original.headers().copy());
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Buffering
+    // ---------------------------------------------------------------------------------------
+
+    private FullHttpRequest aggregateRequest(Exchange ex, int maxBytes) throws IOException {
+        HttpRequest request = ex.request;
+        if (ex.framing.kind() == Framing.Kind.LENGTH && ex.framing.length() > maxBytes) {
+            respondDirect(ex, tooLarge(ex), false);
+            return null;
+        }
+        if (ex.framing.hasBody() && HttpUtil.is100ContinueExpected(request)) {
+            writer.writeHead(new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE), false);
+        }
+        request.headers().remove(HttpHeaderNames.EXPECT);
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        HttpHeaders trailers = null;
+        HttpContent content;
+        while ((content = ex.body.next()) != null) {
+            if (buffer.size() + content.contentLength() > maxBytes) {
+                respondDirect(ex, tooLarge(ex), false);
+                return null;
+            }
+            buffer.write(content.content());
+            if (content instanceof LastHttpContent last) {
+                trailers = last.trailingHeaders();
+            }
+        }
+        DefaultFullHttpRequest full = new DefaultFullHttpRequest(request.protocolVersion(), request.method(),
+                request.uri(), request.headers(), buffer.toByteArray());
+        if (trailers != null) {
+            full.trailingHeaders().set(trailers);
+        }
+        if (ex.framing.hasBody()) {
+            HttpUtil.setTransferEncodingChunked(full, false);
+            HttpUtil.setContentLength(full, full.content().length);
+        }
+        return full;
+    }
+
+    private FullHttpResponse aggregateResponse(HttpResponse response, Framing framing, HttpCodec.BodyReader body,
+            int maxBytes, HttpMethod requestMethod) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        HttpHeaders trailers = null;
+        while (true) {
+            HttpContent content;
+            try {
+                content = body.next();
+            } catch (SocketTimeoutException e) {
+                throw new ServerTimeout(e);
+            } catch (IOException e) {
+                throw new ServerFailure("reading response body failed", e);
+            }
+            if (content == null) {
+                break;
+            }
+            if (buffer.size() + content.contentLength() > maxBytes) {
+                throw new ServerFailure("response larger than " + maxBytes + " bytes", null);
+            }
+            buffer.write(content.content());
+            if (content instanceof LastHttpContent last) {
+                trailers = last.trailingHeaders();
+            }
+        }
+        DefaultFullHttpResponse full = new DefaultFullHttpResponse(response.protocolVersion(), response.status(),
+                response.headers(), buffer.toByteArray());
+        if (trailers != null) {
+            full.trailingHeaders().set(trailers);
+        }
+        if (framing.kind() != Framing.Kind.NONE && Framing.responseMayHaveBody(response, requestMethod)) {
+            HttpUtil.setTransferEncodingChunked(full, false);
+            HttpUtil.setContentLength(full, full.content().length);
+        }
+        return full;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Responses generated by the proxy
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Answers the client without the server's involvement: short-circuit responses from filters
+     * and proxy-generated errors. The response passes through {@link HttpFilters#proxyToClientResponse}.
+     *
+     * @param rewriteHeaders apply the proxy's response header rewriting (Via, Date, hop-by-hop)
+     * @return whether the client connection stays open
+     */
+    private boolean respondDirect(Exchange ex, HttpResponse response, boolean rewriteHeaders) throws IOException {
+        boolean keepAlive = HttpUtil.isKeepAlive(response) && ex.clientKeepAlive
+                && !ex.bodyUnread() && !ex.bodyAbandoned;
+        HttpObject filtered = ex.filters.proxyToClientResponse(response);
+        if (!(filtered instanceof HttpResponse res)) {
+            close();
+            return false;
+        }
+        if (rewriteHeaders && !server.transparent) {
+            modifyResponseHeadersToReflectProxying(res);
+        }
+        HttpUtil.setKeepAlive(res, keepAlive);
+        boolean bodyAllowed = Framing.responseMayHaveBody(res, ex.request.method());
+        boolean bare = !(out instanceof FullHttpMessage);
+        if (bare && bodyAllowed && !ProxyUtils.isResponseSelfTerminating(res)) {
+            HttpUtil.setContentLength(res, 0);
+        }
+        ex.responseStarted = true;
+        writeToClient(() -> writer.writeHead(res, bodyAllowed));
+        if (bare && bodyAllowed && HttpUtil.isTransferEncodingChunked(res)) {
+            writeToClient(() -> writer.writeContent(LastHttpContent.empty()));
+        }
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, res));
+        if (!keepAlive) {
+            close();
+        }
+        return keepAlive;
+    }
+
+    private void writeErrorAndClose(HttpResponseStatus status) {
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, status, status.reasonPhrase());
+        HttpUtil.setKeepAlive(response, false);
+        try {
+            writer.writeHead(response, true);
+        } catch (IOException ignored) {
+            // closing anyway
+        }
+        close();
+    }
+
+    private static FullHttpResponse errorResponse(Exchange ex, HttpResponseStatus status, String body) {
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, status, body);
+        if (ProxyUtils.isHEAD(ex.request)) {
+            // Keep the Content-Length a GET would have had, but send no body.
+            response.setContent(new byte[0]);
+        }
+        return response;
+    }
+
+    private static FullHttpResponse badGateway(Exchange ex) {
+        return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway: " + ex.request.uri());
+    }
+
+    private static FullHttpResponse tooLarge(Exchange ex) {
+        FullHttpResponse response = errorResponse(ex, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "Request Entity Too Large");
+        HttpUtil.setKeepAlive(response, false);
+        return response;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Authentication
+    // ---------------------------------------------------------------------------------------
+
+    private boolean authenticate(HttpRequest request) {
+        String value = request.headers().get(HttpHeaderNames.PROXY_AUTHORIZATION);
+        if (value == null) {
+            return false;
+        }
+        value = value.strip();
+        if (!value.regionMatches(true, 0, "Basic ", 0, 6)) {
+            return false;
+        }
+        String decoded;
+        try {
+            decoded = new String(Base64.getDecoder().decode(value.substring(6).strip()), UTF_8);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        int colon = decoded.indexOf(':');
+        if (colon < 0) {
+            return false;
+        }
+        String user = decoded.substring(0, colon);
+        if (!server.proxyAuthenticator.authenticate(user, decoded.substring(colon + 1))) {
+            return false;
+        }
+        clientDetails.setUserName(user);
+        request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
+        authenticated = true;
+        return true;
+    }
+
+    private FullHttpResponse authenticationRequired() {
+        String realm = server.proxyAuthenticator.getRealm();
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED,
+                "<!DOCTYPE html>\n<html><head><title>407 Proxy Authentication Required</title></head>"
+                        + "<body><h1>Proxy Authentication Required</h1></body></html>\n");
+        response.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE,
+                "Basic realm=\"" + (realm == null ? "Restricted Files" : realm.replace("\"", "")) + "\"");
+        return response;
+    }
+}
