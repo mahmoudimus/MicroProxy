@@ -354,7 +354,7 @@ final class ClientConnection implements Runnable {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));
         }
-        in = new ByteReader(is, server.ioBuffers);
+        in = new ByteReader(is, server.ioBuffers).strictLineEndings();
         out = new PooledOutputStream(os, server.ioBuffers);
         writer = new HttpCodec.HttpWriter(out);
     }
@@ -603,6 +603,11 @@ final class ClientConnection implements Runnable {
         } catch (ClientFailure e) {
             LOG.log(Level.DEBUG, "client failure", e);
             conn.close();
+            if (e.getCause() instanceof HttpParseException bad && !ex.responseStarted) {
+                // A malformed request body (bad chunk framing): tell the client before closing.
+                writeErrorAndClose(bad.status());
+                return false;
+            }
             close();
             return false;
         }

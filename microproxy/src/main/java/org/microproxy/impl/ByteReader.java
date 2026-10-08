@@ -25,10 +25,21 @@ final class ByteReader {
     private byte[] buf;
     private int pos;
     private int limit;
+    private boolean strictLineEndings;
 
     ByteReader(InputStream in, BufferPool pool) {
         this.in = in;
         this.pool = pool;
+    }
+
+    /**
+     * Requires lines to end in CRLF and contain no other CR, as RFC 9112 section 2.2 allows a
+     * recipient to insist. Used for requests from clients: proxies and servers that disagree about
+     * bare LF line endings can be made to see different requests (request smuggling).
+     */
+    ByteReader strictLineEndings() {
+        this.strictLineEndings = true;
+        return this;
     }
 
     /** A reader with its own (unshared) buffers of {@code bufferSize} bytes. */
@@ -124,11 +135,19 @@ final class ByteReader {
                 }
                 if (sb == null) {
                     // The common case: the whole line is buffered; make one string without the CR.
-                    int stop = end > start && buf[end - 1] == '\r' ? end - 1 : end;
+                    boolean cr = end > start && buf[end - 1] == '\r';
+                    int stop = cr ? end - 1 : end;
+                    if (strictLineEndings && (!cr || Simd.indexOf(buf, start, stop, (byte) '\r') >= 0)) {
+                        throw new HttpParseException(HttpResponseStatus.BAD_REQUEST, "line not terminated by CRLF");
+                    }
                     return new String(buf, start, stop - start, StandardCharsets.ISO_8859_1);
                 }
                 String line = sb.append(new String(buf, start, end - start, StandardCharsets.ISO_8859_1)).toString();
-                return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
+                boolean cr = line.endsWith("\r");
+                if (strictLineEndings && (!cr || line.indexOf('\r') < line.length() - 1)) {
+                    throw new HttpParseException(HttpResponseStatus.BAD_REQUEST, "line not terminated by CRLF");
+                }
+                return cr ? line.substring(0, line.length() - 1) : line;
             }
             pos = limit;
             length += pos - start;
