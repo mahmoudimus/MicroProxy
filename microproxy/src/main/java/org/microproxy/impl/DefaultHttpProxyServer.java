@@ -1,0 +1,275 @@
+package org.microproxy.impl;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.System.Logger.Level;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.microproxy.ChainedProxyManager;
+import org.microproxy.HostResolver;
+import org.microproxy.HttpFiltersSource;
+import org.microproxy.HttpProxyServer;
+import org.microproxy.HttpProxyServerBootstrap;
+import org.microproxy.MitmManager;
+import org.microproxy.PoolMetrics;
+import org.microproxy.ProxyAuthenticator;
+import org.microproxy.SslContextSource;
+
+/**
+ * The proxy server. A platform thread accepts connections and hands each to its own virtual
+ * thread, which serves the connection with plain blocking I/O.
+ */
+public final class DefaultHttpProxyServer implements HttpProxyServer {
+
+    private static final System.Logger LOG = System.getLogger(DefaultHttpProxyServer.class.getName());
+    private static final Duration GRACEFUL_STOP_TIMEOUT = Duration.ofSeconds(10);
+
+    final DefaultHttpProxyServerBootstrap config;
+    final String name;
+    final boolean transparent;
+    final SslContextSource sslContextSource;
+    final boolean authenticateSslClients;
+    final ProxyAuthenticator proxyAuthenticator;
+    final ChainedProxyManager chainProxyManager;
+    final MitmManager mitmManager;
+    final HttpFiltersSource filtersSource;
+    /** Socket read/write buffers, lent to connections only while bytes are moving. */
+    final BufferPool ioBuffers = new BufferPool(16384, 512);
+    /** Buffers for relaying bodies no filter inspects, lent per body. */
+    final BufferPool relayBuffers = new BufferPool(65536, 64);
+    final HostResolver serverResolver;
+    final InetSocketAddress localAddress;
+    final HttpCodec.Limits limits;
+    final boolean allowRequestsToOriginServer;
+    final String proxyAlias;
+    final boolean acceptProxyProtocol;
+    final boolean sendProxyProtocol;
+    final int maxWebSocketFrameBufferSize;
+    /** Shared server connection pool, or null when connections are kept per client. */
+    final SharedConnectionPool pool;
+    final boolean poolSharedMitmConnections;
+    final boolean poolPerRequestInMitm;
+    final Trackers trackers = new Trackers();
+    final RateLimiter readLimiter;
+    final RateLimiter writeLimiter;
+
+    private volatile Duration idleConnectionTimeout;
+    private volatile int connectTimeoutMs;
+
+    private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
+    private ServerSocket serverSocket;
+    private ExecutorService executor;
+    private Thread acceptor;
+    private volatile boolean stopping;
+    private InetSocketAddress boundAddress;
+
+    DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
+        this.config = b;
+        this.name = b.name;
+        this.transparent = b.transparent;
+        this.sslContextSource = b.sslContextSource;
+        this.authenticateSslClients = b.authenticateSslClients;
+        this.proxyAuthenticator = b.proxyAuthenticator;
+        this.chainProxyManager = b.chainProxyManager;
+        this.mitmManager = b.mitmManager;
+        // The cache runs last, so other filters see requests before it answers them.
+        this.filtersSource = b.httpCache == null ? b.filtersSource
+                : org.microproxy.HttpFiltersChain.of(b.filtersSource, b.httpCache);
+        this.serverResolver = b.serverResolver;
+        this.localAddress = b.localAddress;
+        this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);
+        this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
+        this.proxyAlias = b.proxyAlias != null ? b.proxyAlias : ProxyUtils.getHostName();
+        this.acceptProxyProtocol = b.acceptProxyProtocol;
+        this.sendProxyProtocol = b.sendProxyProtocol;
+        this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
+        this.pool = b.sharedServerConnectionPool
+                ? new SharedConnectionPool(b.maxConnectionsPerHost, b.maxConnections, b.poolIdleTimeout)
+                : null;
+        this.poolSharedMitmConnections = b.poolSharedMitmConnections;
+        this.poolPerRequestInMitm = b.poolSharedMitmConnections && b.poolPerRequestInMitm;
+        this.idleConnectionTimeout = b.idleConnectionTimeout;
+        this.connectTimeoutMs = b.connectTimeoutMs;
+        this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
+        this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
+        b.activityTrackers.forEach(trackers::add);
+    }
+
+    public static HttpProxyServerBootstrap bootstrap() {
+        return new DefaultHttpProxyServerBootstrap();
+    }
+
+    public static HttpProxyServerBootstrap bootstrapFromFile(Path path) throws IOException {
+        return DefaultHttpProxyServerBootstrap.fromProperties(path);
+    }
+
+    HttpProxyServer start() {
+        InetSocketAddress requested = config.address();
+        try {
+            serverSocket = new ServerSocket();
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(requested, 1024);
+        } catch (IOException e) {
+            Tls.closeQuietly(serverSocket);
+            if (pool != null) pool.closeAll();
+            throw new UncheckedIOException("unable to bind " + requested, e);
+        }
+        boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
+        executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(name + "-conn-", 0).factory());
+        // A platform, non-daemon acceptor keeps the JVM alive while the proxy runs, like Netty's
+        // event loops did; all per-connection work happens on (daemon) virtual threads.
+        acceptor = Thread.ofPlatform().name(name + "-acceptor").daemon(false).start(this::acceptLoop);
+        LOG.log(Level.INFO, "{0} listening on {1}", name, boundAddress);
+        return this;
+    }
+
+    private void acceptLoop() {
+        while (!stopping) {
+            Socket socket;
+            try {
+                socket = serverSocket.accept();
+            } catch (SocketException e) {
+                if (!stopping) LOG.log(Level.WARNING, "accept failed", e);
+                break;
+            } catch (IOException e) {
+                LOG.log(Level.WARNING, "accept failed", e);
+                continue;
+            }
+            ClientConnection connection = new ClientConnection(this, socket);
+            connections.add(connection);
+            try {
+                executor.execute(connection);
+            } catch (RuntimeException e) {
+                connections.remove(connection);
+                Tls.closeQuietly(socket);
+            }
+        }
+    }
+
+    void unregister(ClientConnection connection) {
+        connections.remove(connection);
+    }
+
+    boolean isStopping() {
+        return stopping;
+    }
+
+    @Override
+    public Duration getIdleConnectionTimeout() {
+        return idleConnectionTimeout;
+    }
+
+    @Override
+    public void setIdleConnectionTimeout(Duration idleConnectionTimeout) {
+        this.idleConnectionTimeout = idleConnectionTimeout == null ? Duration.ZERO : idleConnectionTimeout;
+    }
+
+    int idleTimeoutMillis() {
+        Duration d = idleConnectionTimeout;
+        return d == null || d.isZero() || d.isNegative() ? 0 : (int) Math.min(Integer.MAX_VALUE, d.toMillis());
+    }
+
+    @Override
+    public int getConnectTimeout() {
+        return connectTimeoutMs;
+    }
+
+    @Override
+    public void setConnectTimeout(int connectTimeoutMs) {
+        this.connectTimeoutMs = connectTimeoutMs;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap clone() {
+        DefaultHttpProxyServerBootstrap copy = config.copy();
+        int port = boundAddress.getPort();
+        copy.withAddress(new InetSocketAddress(config.address().getAddress(), config.port == 0 ? 0 : port + 1));
+        copy.withIdleConnectionTimeout(idleConnectionTimeout);
+        copy.withConnectTimeout(connectTimeoutMs);
+        copy.withThrottling(readLimiter.rate(), writeLimiter.rate());
+        return copy;
+    }
+
+    @Override
+    public void stop() {
+        shutdown(true);
+    }
+
+    @Override
+    public void abort() {
+        shutdown(false);
+    }
+
+    private final java.util.Deque<AutoCloseable> closeOnStop = new java.util.concurrent.ConcurrentLinkedDeque<>();
+
+    @Override
+    public void closeOnStop(AutoCloseable resource) {
+        closeOnStop.push(java.util.Objects.requireNonNull(resource));
+    }
+
+    private void shutdown(boolean graceful) {
+        if (stopping) return;
+        stopping = true;
+        LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
+        Tls.closeQuietly(serverSocket);
+        for (ClientConnection c : connections) {
+            if (!graceful || c.isIdle()) c.close();
+        }
+        executor.shutdown();
+        try {
+            if (graceful && !executor.awaitTermination(GRACEFUL_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                LOG.log(Level.WARNING, "connections still open after {0}; closing", GRACEFUL_STOP_TIMEOUT);
+            }
+            connections.forEach(ClientConnection::close);
+            if (pool != null) pool.closeAll();
+            executor.shutdownNow();
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+            acceptor.join(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        AutoCloseable resource;
+        while ((resource = closeOnStop.poll()) != null) {
+            try {
+                resource.close();
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "closing " + resource + " failed", e);
+            }
+        }
+    }
+
+    @Override
+    public InetSocketAddress getListenAddress() {
+        return boundAddress;
+    }
+
+    @Override
+    public void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+        readLimiter.setRate(readThrottleBytesPerSecond);
+        writeLimiter.setRate(writeThrottleBytesPerSecond);
+    }
+
+    @Override
+    public PoolMetrics getServerConnectionPoolMetrics() {
+        return pool == null ? null : pool.metrics();
+    }
+
+    /** Number of open client connections (for tests and monitoring). */
+    public int getOpenConnectionCount() {
+        return connections.size();
+    }
+
+    static InetAddress loopback() {
+        return InetAddress.getLoopbackAddress();
+    }
+}

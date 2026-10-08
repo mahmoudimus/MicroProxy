@@ -1,0 +1,51 @@
+package org.microproxy;
+
+import java.net.InetSocketAddress;
+import java.time.Duration;
+
+/** A running proxy. Obtain one from {@link MicroProxy#bootstrap()}. */
+public interface HttpProxyServer extends AutoCloseable {
+
+    Duration getIdleConnectionTimeout();
+
+    void setIdleConnectionTimeout(Duration idleConnectionTimeout);
+
+    /** Connect timeout for outbound connections in milliseconds (0 = system default). */
+    int getConnectTimeout();
+
+    void setConnectTimeout(int connectTimeoutMs);
+
+    /**
+     * Returns a bootstrap preconfigured like this server, listening on the next port (or an
+     * ephemeral port if this one is ephemeral).
+     */
+    HttpProxyServerBootstrap clone();
+
+    /** Stops accepting connections and gracefully closes existing ones. */
+    void stop();
+
+    /** Stops immediately, closing all connections without waiting. */
+    void abort();
+
+    /**
+     * Closes {@code resource} when the server stops, after its connections have finished (or been
+     * closed): for things that outlive single requests, such as a WARC recorder. Resources close
+     * in the reverse order they were added.
+     */
+    void closeOnStop(AutoCloseable resource);
+
+    InetSocketAddress getListenAddress();
+
+    /** Changes global bandwidth limits for server traffic; 0 means unlimited. */
+    void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
+
+    /** Statistics of the shared server connection pool, or {@code null} if it is disabled. */
+    default PoolMetrics getServerConnectionPoolMetrics() {
+        return null;
+    }
+
+    @Override
+    default void close() {
+        stop();
+    }
+}

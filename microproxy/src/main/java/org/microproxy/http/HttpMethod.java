@@ -1,0 +1,60 @@
+package org.microproxy.http;
+
+import java.util.Map;
+import java.util.Objects;
+
+/** An HTTP request method. Well-known methods are interned, so {@code ==} works for them. */
+public final class HttpMethod {
+
+    public static final HttpMethod GET = new HttpMethod("GET");
+    public static final HttpMethod HEAD = new HttpMethod("HEAD");
+    public static final HttpMethod POST = new HttpMethod("POST");
+    public static final HttpMethod PUT = new HttpMethod("PUT");
+    public static final HttpMethod DELETE = new HttpMethod("DELETE");
+    public static final HttpMethod CONNECT = new HttpMethod("CONNECT");
+    public static final HttpMethod OPTIONS = new HttpMethod("OPTIONS");
+    public static final HttpMethod TRACE = new HttpMethod("TRACE");
+    public static final HttpMethod PATCH = new HttpMethod("PATCH");
+
+    private static final Map<String, HttpMethod> KNOWN =
+            Map.of(
+                    "GET", GET, "HEAD", HEAD, "POST", POST, "PUT", PUT, "DELETE", DELETE,
+                    "CONNECT", CONNECT, "OPTIONS", OPTIONS, "TRACE", TRACE, "PATCH", PATCH);
+
+    private final String name;
+
+    private HttpMethod(String name) {
+        this.name = name;
+    }
+
+    /** Returns the method with the given (case-sensitive) name. */
+    public static HttpMethod valueOf(String name) {
+        HttpMethod known = KNOWN.get(name);
+        if (known != null) {
+            return known;
+        }
+        if (!HttpHeaders.isToken(name)) {
+            throw new IllegalArgumentException("invalid method: " + name);
+        }
+        return new HttpMethod(name);
+    }
+
+    public String name() {
+        return name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return this == o || (o instanceof HttpMethod m && m.name.equals(name));
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(name);
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+}

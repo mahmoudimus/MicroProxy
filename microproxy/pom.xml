@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.mahmoudimus</groupId>
+        <artifactId>microproxy-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>microproxy</artifactId>
+    <packaging>jar</packaging>
+
+    <name>MicroProxy</name>
+    <description>
+        A dependency-free HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
+        (Project Loom). A port of LittleProxy without Netty.
+    </description>
+
+    <dependencies>
+        <!-- Optional: when on the class path, HttpBodies decodes Content-Encoding: zstd. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>zstd-decoder</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-serial</arg>
+                        <!-- For the optional SIMD code (org.microproxy.simd.VectorOps), loaded only when
+                             the JVM itself runs with this module; see Simd. -->
+                        <arg>--add-modules</arg>
+                        <arg>jdk.incubator.vector</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- Again with the Vector API module, so the SIMD code is tested too. -->
+                        <id>simd</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <argLine>--add-modules jdk.incubator.vector -Dmicroproxy.expectSimd=true -Djdk.tracePinnedThreads=short -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                            <includes>
+                                <include>**/SimdTest.java</include>
+                                <include>**/WebSocketFrameTest.java</include>
+                                <include>**/HttpCodecTest.java</include>
+                                <include>**/WireLevelTest.java</include>
+                                <include>**/SimpleProxyTest.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- Test helpers (TestSupport) are reused by the scripting module's tests. -->
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.microproxy.Launcher</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <profiles>
+        <profile>
+            <!--
+              Feature flag for Project Valhalla: builds and tests the types marked
+              "// @value-candidate" as value classes (JEP 401, preview). Needs a JDK 28
+              early-access build as JAVA_HOME:
+
+                  mvn -Pvalhalla -pl zstd-decoder,microproxy verify
+
+              Produces microproxy-<version>-valhalla.jar, which runs only on that JDK with
+              java -enable-preview. The normal build (JDK 21+) is unaffected.
+            -->
+            <id>valhalla</id>
+            <properties>
+                <maven.compiler.release>28</maven.compiler.release>
+                <valhalla.sources>${project.build.directory}/valhalla-sources</valhalla.sources>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>valhalla-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <delete dir="${valhalla.sources}" quiet="true"/>
+                                        <copy todir="${valhalla.sources}">
+                                            <fileset dir="${project.basedir}/src/main/java"/>
+                                        </copy>
+                                        <replaceregexp flags="g" encoding="UTF-8">
+                                            <regexp pattern="(// @value-candidate[^\n]*\n\s*(?:(?:public|protected|private|static|final)\s+)*)record "/>
+                                            <substitution expression="\1value record "/>
+                                            <fileset dir="${valhalla.sources}" includes="**/*.java"/>
+                                        </replaceregexp>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <compilerArgs combine.children="append">
+                                <arg>--enable-preview</arg>
+                                <arg>-Xlint:-preview</arg>
+                            </compilerArgs>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <!-- Only the main code comes from the rewritten copy. -->
+                                <id>default-compile</id>
+                                <configuration>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${valhalla.sources}</compileSourceRoot>
+                                    </compileSourceRoots>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>--enable-preview -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>simd</id>
+                                <configuration>
+                                    <argLine>--enable-preview --add-modules jdk.incubator.vector -Dmicroproxy.expectSimd=true -Djava.util.logging.config.file=${maven.multiModuleProjectDirectory}/microproxy/src/test/resources/logging.properties</argLine>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <configuration>
+                            <classifier>valhalla</classifier>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
