@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.ChainedProxy;
@@ -186,6 +187,32 @@ final class ClientConnection implements Runnable {
     private static final class StaleConnection extends IOException {
         StaleConnection(Throwable cause) {
             super("stale server connection", cause);
+        }
+    }
+
+    /**
+     * The server behind a CONNECT answered the proxy's TLS handshake with something other than
+     * TLS (e.g. a plain HTTP or WebSocket server), so it cannot be intercepted.
+     */
+    private static final class NotTlsServer extends IOException {
+        NotTlsServer(String hostAndPort, SSLException cause) {
+            super(hostAndPort + " does not speak TLS", cause);
+        }
+
+        /**
+         * Whether a failed client handshake means the peer is not a TLS server at all, the same
+         * signs LittleProxy's {@code shouldRetryWithoutSsl} looks for: plaintext where a TLS record
+         * was expected, or the peer closing or resetting the connection on the ClientHello.
+         * Certificate and protocol-version failures come from real TLS servers and do not count.
+         */
+        static boolean isCause(SSLException e) {
+            String message = String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT);
+            return message.contains("unrecognized ssl message")
+                    || message.contains("not an ssl")
+                    || message.contains("remote host terminated")
+                    || message.contains("connection reset")
+                    || e.getCause() instanceof java.io.EOFException
+                    || e.getCause() instanceof java.net.SocketException;
         }
     }
 
@@ -935,7 +962,16 @@ final class ClientConnection implements Runnable {
 
         ServerConnection conn = null;
         try {
-            conn = usesPool(mode) ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
+            try {
+                conn = usesPool(mode) ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
+            } catch (NotTlsServer e) {
+                // As LittleProxy does (issue #71, e.g. ws:// through CONNECT): the client has not been
+                // answered yet, so it can still get a plain tunnel to the server instead of a 502.
+                LOG.log(Level.DEBUG, "{0}; tunnelling instead of intercepting", e.getMessage());
+                mitm = false;
+                mode = Mode.TUNNEL;
+                conn = connect(hostAndPort, ex, route, mode);
+            }
         } catch (SharedConnectionPool.PoolExhaustedException e) {
             LOG.log(Level.DEBUG, e.getMessage());
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -1094,6 +1130,9 @@ final class ClientConnection implements Runnable {
                 ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
                 server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
                 return conn;
+            } catch (NotTlsServer e) {
+                // The route works; the server just is not a TLS server. The caller retries as a tunnel.
+                throw e;
             } catch (IOException e) {
                 LOG.log(Level.DEBUG, "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
                 last = e;
@@ -1199,8 +1238,13 @@ final class ClientConnection implements Runnable {
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
                 SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
-                active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                        server.mitmManager::configureServerSocket);
+                try {
+                    active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
+                            server.mitmManager::configureServerSocket);
+                } catch (SSLException e) {
+                    if (NotTlsServer.isCause(e)) throw new NotTlsServer(hostAndPort, e);
+                    throw e;
+                }
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             }
