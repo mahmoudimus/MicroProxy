@@ -7,6 +7,9 @@ import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import org.microproxy.dns.DnssecHostResolver;
+import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.LogFormat;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 import org.microproxy.tls.SslContexts;
@@ -29,6 +32,10 @@ public final class Launcher {
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
+              --dnssec                     resolve server names with DNSSEC validation
+              --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
+              --activity-log-format <fmt>  access log: CLF, ELF, JSON, SQUID, W3C, LTSV, CSV, HAPROXY
+              --shared-pool                share server connections between clients
               --mitm                       intercept HTTPS with a generated CA
               --mitm-ca <file.p12>         CA key store for --mitm (created if missing;
                                            default ./microproxy-ca.p12)
@@ -51,6 +58,8 @@ public final class Launcher {
         Deque<String> queue = new ArrayDeque<>(List.of(args));
         HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap();
         boolean mitm = false;
+        boolean dnssec = false;
+        String dnssecResolver = null;
         boolean mitmTrustAll = false;
         Path caPath = Path.of("microproxy-ca.p12");
         String caPassword = "microproxy";
@@ -83,12 +92,24 @@ public final class Launcher {
                         Long.parseLong(value(queue, arg)), Long.parseLong(value(queue, arg)));
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
+                case "--dnssec" -> dnssec = true;
+                case "--dnssec-resolver" -> {
+                    dnssec = true;
+                    dnssecResolver = value(queue, arg);
+                }
+                case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(
+                        LogFormat.valueOf(value(queue, arg).toUpperCase(java.util.Locale.ROOT))));
+                case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
                 case "--mitm" -> mitm = true;
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
                 case "--mitm-trust-all" -> mitmTrustAll = true;
                 default -> throw new IllegalArgumentException("unknown option: " + arg + "\n\n" + USAGE);
             }
+        }
+        if (dnssec) {
+            bootstrap.withServerResolver(dnssecResolver == null ? new DnssecHostResolver()
+                    : DnssecHostResolver.builder().resolver(dnssecResolver).build());
         }
         if (mitm) {
             CertificateAuthority ca = CertificateAuthority.loadOrCreate(caPath, caPassword.toCharArray(), "MicroProxy CA");

@@ -32,6 +32,11 @@ public interface HttpProxyServer extends AutoCloseable {
     /** Changes global bandwidth limits for server traffic; 0 means unlimited. */
     void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 
+    /** Statistics of the shared server connection pool, or {@code null} if it is disabled. */
+    default PoolMetrics getServerConnectionPoolMetrics() {
+        return null;
+    }
+
     @Override
     default void close() {
         stop();

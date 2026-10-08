@@ -21,6 +21,7 @@ import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
+import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.SslContextSource;
 
@@ -49,6 +50,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final String proxyAlias;
     final boolean acceptProxyProtocol;
     final boolean sendProxyProtocol;
+    final int maxWebSocketFrameBufferSize;
+    /** Shared server connection pool, or null when connections are kept per client. */
+    final SharedConnectionPool pool;
+    final boolean poolSharedMitmConnections;
+    final boolean poolPerRequestInMitm;
     final Trackers trackers = new Trackers();
     final RateLimiter readLimiter;
     final RateLimiter writeLimiter;
@@ -80,6 +86,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.proxyAlias = b.proxyAlias != null ? b.proxyAlias : ProxyUtils.getHostName();
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;
+        this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
+        this.pool = b.sharedServerConnectionPool
+                ? new SharedConnectionPool(b.maxConnectionsPerHost, b.maxConnections, b.poolIdleTimeout)
+                : null;
+        this.poolSharedMitmConnections = b.poolSharedMitmConnections;
+        this.poolPerRequestInMitm = b.poolSharedMitmConnections && b.poolPerRequestInMitm;
         this.idleConnectionTimeout = b.idleConnectionTimeout;
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
@@ -103,6 +115,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             serverSocket.bind(requested, 1024);
         } catch (IOException e) {
             Tls.closeQuietly(serverSocket);
+            if (pool != null) pool.closeAll();
             throw new UncheckedIOException("unable to bind " + requested, e);
         }
         boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
@@ -205,6 +218,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 LOG.log(Level.WARNING, "connections still open after {0}; closing", GRACEFUL_STOP_TIMEOUT);
             }
             connections.forEach(ClientConnection::close);
+            if (pool != null) pool.closeAll();
             executor.shutdownNow();
             executor.awaitTermination(5, TimeUnit.SECONDS);
             acceptor.join(5000);
@@ -222,6 +236,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     public void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
         readLimiter.setRate(readThrottleBytesPerSecond);
         writeLimiter.setRate(writeThrottleBytesPerSecond);
+    }
+
+    @Override
+    public PoolMetrics getServerConnectionPoolMetrics() {
+        return pool == null ? null : pool.metrics();
     }
 
     /** Number of open client connections (for tests and monitoring). */

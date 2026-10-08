@@ -1,8 +1,10 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.util.function.Supplier;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpResponse;
+import org.microproxy.http.WebSocketFrame;
 
 /**
  * Hooks into the life of a single request/response exchange. One instance is created per request
@@ -113,4 +115,33 @@ public interface HttpFilters {
     default boolean proxyToServerAllowMitm() {
         return true;
     }
+
+    /**
+     * Called for every WebSocket frame relayed after this request was upgraded ({@code 101
+     * Switching Protocols} with {@code Upgrade: websocket}), including inside intercepted TLS
+     * sessions. Frames are observed, not modified: they are forwarded unchanged after this returns.
+     * The two directions are relayed on separate virtual threads, so this may be called
+     * concurrently for client and server frames.
+     *
+     * <p>Frames are only parsed when the filters class overrides one of the two {@code
+     * webSocketFrameReceived} methods; otherwise upgraded connections are relayed as raw bytes.
+     *
+     * <p>Frames whose payload exceeds {@link
+     * HttpProxyServerBootstrap#withMaxWebSocketFrameBufferSize(int)} are streamed through and
+     * reported with {@link WebSocketFrame#isTruncated()} set.
+     *
+     * <p>The default implementation delegates to the LittleProxy-compatible {@link
+     * #webSocketFrameReceived(Supplier, boolean)}.
+     *
+     * @param fromClient true for client-to-server frames
+     */
+    default void webSocketFrameReceived(WebSocketFrame frame, boolean fromClient) {
+        webSocketFrameReceived(frame::rawBytes, fromClient);
+    }
+
+    /**
+     * LittleProxy-compatible form of {@link #webSocketFrameReceived(WebSocketFrame, boolean)}:
+     * supplies the raw frame bytes as on the wire (header and still-masked payload).
+     */
+    default void webSocketFrameReceived(Supplier<byte[]> frameBytes, boolean fromClient) {}
 }

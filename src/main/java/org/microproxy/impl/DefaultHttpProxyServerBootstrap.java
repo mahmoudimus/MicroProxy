@@ -20,7 +20,11 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.SslContextSource;
+import org.microproxy.dns.DnssecHostResolver;
+import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.LogFormat;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -50,6 +54,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     String proxyAlias;
     boolean acceptProxyProtocol;
     boolean sendProxyProtocol;
+    int maxWebSocketFrameBufferSize = 1 << 20;
+    boolean sharedServerConnectionPool;
+    ServerConnectionPoolType serverConnectionPoolType = ServerConnectionPoolType.CONCURRENT_MAP;
+    int maxConnectionsPerHost = 10;
+    int maxConnections = 200;
+    Duration poolIdleTimeout;
+    boolean poolSharedMitmConnections;
+    boolean poolPerRequestInMitm;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -80,6 +92,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.proxyAlias = proxyAlias;
         c.acceptProxyProtocol = acceptProxyProtocol;
         c.sendProxyProtocol = sendProxyProtocol;
+        c.maxWebSocketFrameBufferSize = maxWebSocketFrameBufferSize;
+        c.sharedServerConnectionPool = sharedServerConnectionPool;
+        c.serverConnectionPoolType = serverConnectionPoolType;
+        c.maxConnectionsPerHost = maxConnectionsPerHost;
+        c.maxConnections = maxConnections;
+        c.poolIdleTimeout = poolIdleTimeout;
+        c.poolSharedMitmConnections = poolSharedMitmConnections;
+        c.poolPerRequestInMitm = poolPerRequestInMitm;
         return c;
     }
 
@@ -126,6 +146,36 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("allow_proxy_protocol")) withAcceptProxyProtocol(bool(p, "allow_proxy_protocol"));
         if (p.containsKey("send_proxy_protocol")) withSendProxyProtocol(bool(p, "send_proxy_protocol"));
+        if (p.containsKey("use_shared_server_connection_pool")) {
+            withSharedServerConnectionPool(bool(p, "use_shared_server_connection_pool"));
+        }
+        if (p.containsKey("server_connection_pool_type")) {
+            withServerConnectionPoolType(ServerConnectionPoolType.valueOf(
+                    p.getProperty("server_connection_pool_type").strip().toUpperCase(java.util.Locale.ROOT)));
+        }
+        if (p.containsKey("max_connections_per_host")) {
+            withMaxConnectionsPerHost(Integer.parseInt(p.getProperty("max_connections_per_host").strip()));
+        }
+        if (p.containsKey("max_total_connections")) {
+            withMaxConnections(Integer.parseInt(p.getProperty("max_total_connections").strip()));
+        }
+        if (p.containsKey("pool_idle_timeout")) {
+            withPoolIdleTimeout(Duration.ofSeconds(Long.parseLong(p.getProperty("pool_idle_timeout").strip())));
+        }
+        if (p.containsKey("pool_shared_mitm_connections")) {
+            withPoolSharedMitmConnections(bool(p, "pool_shared_mitm_connections"));
+        }
+        if (p.containsKey("pool_per_request_in_mitm")) {
+            withPoolPerRequestInMitm(bool(p, "pool_per_request_in_mitm"));
+        }
+        if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
+        if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
+            withServerResolver(DnssecHostResolver.builder().resolver(p.getProperty("dnssec_resolver")).build());
+        }
+        if (p.containsKey("activity_log_format")) {
+            plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
+                    p.getProperty("activity_log_format").strip().toUpperCase(java.util.Locale.ROOT))));
+        }
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
         withThrottling(read, write);
@@ -297,6 +347,61 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol) {
         this.sendProxyProtocol = sendProxyProtocol;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes) {
+        if (maxBytes < 0) throw new IllegalArgumentException("must not be negative: " + maxBytes);
+        this.maxWebSocketFrameBufferSize = maxBytes;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withSharedServerConnectionPool(boolean useSharedServerConnectionPool) {
+        this.sharedServerConnectionPool = useSharedServerConnectionPool;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withServerConnectionPoolType(ServerConnectionPoolType poolType) {
+        this.serverConnectionPoolType = Objects.requireNonNull(poolType);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMaxConnectionsPerHost(int maxConnectionsPerHost) {
+        this.maxConnectionsPerHost = positive(maxConnectionsPerHost);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMaxConnections(int maxConnections) {
+        this.maxConnections = positive(maxConnections);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withPoolIdleTimeout(Duration idleTimeout) {
+        this.poolIdleTimeout = idleTimeout;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections) {
+        this.poolSharedMitmConnections = poolSharedMitmConnections;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withPoolPerRequestInMitm(boolean poolPerRequestInMitm) {
+        this.poolPerRequestInMitm = poolPerRequestInMitm;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
+        this.serverResolver = useDnsSec ? new DnssecHostResolver() : new DefaultHostResolver();
         return this;
     }
 

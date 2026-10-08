@@ -72,6 +72,21 @@ final class ClientConnection implements Runnable {
     private static final int CONTINUE_TIMEOUT_MS = 1000;
     private static final HttpFilters NOOP = HttpFiltersAdapter.NOOP_FILTER;
 
+    /** Whether a filters class overrides either WebSocket frame callback. */
+    private static final ClassValue<Boolean> OBSERVES_FRAMES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("webSocketFrameReceived", org.microproxy.http.WebSocketFrame.class, boolean.class)
+                                .getDeclaringClass() != HttpFilters.class
+                        || type.getMethod("webSocketFrameReceived", java.util.function.Supplier.class, boolean.class)
+                                .getDeclaringClass() != HttpFilters.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }
+    };
+
     /** How a server connection is used. */
     enum Mode {
         /** HTTP requests forwarded as-is. */
@@ -120,6 +135,8 @@ final class ClientConnection implements Runnable {
     /** State of the request/response exchange in progress. */
     private static final class Exchange {
         HttpRequest request;
+        /** The request-target as the client sent it, before any rewriting. */
+        final String originalUri;
         final HttpVersion clientVersion;
         final Framing framing;
         final HttpCodec.BodyReader body;
@@ -131,6 +148,7 @@ final class ClientConnection implements Runnable {
 
         Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
             this.request = request;
+            this.originalUri = request.uri();
             this.clientVersion = request.protocolVersion();
             this.framing = framing;
             this.body = body;
@@ -179,7 +197,13 @@ final class ClientConnection implements Runnable {
         Tls.closeQuietly(socket);
         Tls.closeQuietly(rawSocket);
         for (ServerConnection c : List.copyOf(serverConnections.values())) {
-            c.close();
+            if (c.pool != null && !c.inExchange && c.isOpen()) {
+                // An intercepted session's idle server connection outlives the client.
+                serverConnections.remove(c.key, c);
+                c.pool.release(c);
+            } else {
+                c.close();
+            }
         }
     }
 
@@ -271,7 +295,11 @@ final class ClientConnection implements Runnable {
 
     /** Handles one request. Returns whether the client connection stays open. */
     private boolean handleRequest(HttpRequest request) throws IOException {
-        server.trackers.fire(t -> t.requestReceivedFromClient(flowContext, request));
+        if (!server.trackers.isEmpty()) {
+            // Trackers get a snapshot: the request itself is rewritten while it is proxied.
+            HttpRequest snapshot = copy(request);
+            server.trackers.fire(t -> t.requestReceivedFromClient(flowContext, snapshot));
+        }
         Framing framing;
         try {
             framing = Framing.forRequest(request);
@@ -331,7 +359,10 @@ final class ClientConnection implements Runnable {
     private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
         Mode mode = mitmHostAndPort != null ? Mode.TLS : Mode.PLAIN;
         String key = mode + "|" + hostAndPort;
-        ServerConnection conn = serverConnections.get(key);
+        boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
+        boolean pooled = !webSocket && usesPool(mode);
+        // Per-request leases always come fresh from the pool; otherwise reuse this client's own.
+        ServerConnection conn = pooled && leasesPerRequest(mode) ? null : serverConnections.get(key);
         if (conn != null && !conn.isOpen()) {
             serverConnections.remove(key, conn);
             conn = null;
@@ -348,7 +379,6 @@ final class ClientConnection implements Runnable {
             nextHopOrigin = isNextHopOrigin(route.get(0), mode);
         }
 
-        boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
         modifyRequestHeadersToReflectProxying(ex.request, nextHopOrigin, webSocket);
 
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
@@ -366,11 +396,16 @@ final class ClientConnection implements Runnable {
                     }
                 }
                 try {
-                    conn = connect(hostAndPort, ex, route, mode);
+                    conn = pooled ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
+                } catch (SharedConnectionPool.PoolExhaustedException e) {
+                    LOG.log(Level.DEBUG, e.getMessage());
+                    return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
+                            "Service Unavailable: no server connection available"), false);
                 } catch (IOException e) {
                     LOG.log(Level.DEBUG, "unable to connect to " + hostAndPort, e);
                     return respondDirect(ex, badGateway(ex), false);
                 }
+                conn.key = key;
                 serverConnections.put(key, conn);
                 if (conn.nextHopIsOrigin() != nextHopOrigin) {
                     nextHopOrigin = conn.nextHopIsOrigin();
@@ -378,7 +413,9 @@ final class ClientConnection implements Runnable {
                 }
             }
             try {
-                return exchange(ex, conn, attempt == 0 && conn.used && replayable);
+                // Reused connections may have been closed by the server while idle: retry those
+                // (a few times, since a pool can hold several stale ones).
+                return exchange(ex, conn, attempt < 3 && conn.used && replayable);
             } catch (StaleConnection e) {
                 LOG.log(Level.DEBUG, "retrying on a new connection after stale {0}", conn);
                 conn.close();
@@ -400,6 +437,7 @@ final class ClientConnection implements Runnable {
             chainedProxy.filterRequest(request);
         }
         boolean streamingBody = !(request instanceof FullHttpRequest) && ex.framing.hasBody();
+        conn.inExchange = true;
         try {
             filters.proxyToServerRequestSending();
             try {
@@ -650,13 +688,25 @@ final class ClientConnection implements Runnable {
         filters.serverToProxyResponseReceived();
 
         if (switching) {
+            boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
+                    .anyMatch(token -> token.equalsIgnoreCase("websocket"));
+            // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
+            Tunnel.FrameObserver observer = webSocket && OBSERVES_FRAMES.get(filters.getClass())
+                    ? filters::webSocketFrameReceived : null;
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
-                    server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id);
+                    server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id,
+                    observer, server.maxWebSocketFrameBufferSize);
             conn.close();
             return false;
         }
         if (!serverKeepAlive) {
             conn.close();
+        } else {
+            conn.inExchange = false;
+            if (conn.perRequestLease) {
+                serverConnections.remove(conn.key, conn);
+                conn.pool.release(conn);
+            }
         }
         if (closeClient) {
             close();
@@ -724,11 +774,17 @@ final class ClientConnection implements Runnable {
 
         ServerConnection conn;
         try {
-            conn = connect(hostAndPort, ex, route, mode);
+            conn = usesPool(mode) ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
+        } catch (SharedConnectionPool.PoolExhaustedException e) {
+            LOG.log(Level.DEBUG, e.getMessage());
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
+                    "Service Unavailable: no server connection available"), false);
         } catch (IOException e) {
             LOG.log(Level.DEBUG, "CONNECT to " + hostAndPort + " failed", e);
             return respondDirect(ex, badGateway(ex), false);
         }
+        conn.key = mode + "|" + hostAndPort;
+        serverConnections.put(conn.key, conn);
 
         HttpResponse established =
                 new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, new HttpResponseStatus(200, "Connection established"));
@@ -771,8 +827,11 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
 
         mitmHostAndPort = hostAndPort;
-        conn.key = Mode.TLS + "|" + hostAndPort;
-        serverConnections.put(conn.key, conn);
+        if (conn.perRequestLease) {
+            // Each intercepted request leases its own connection; start with this one.
+            serverConnections.remove(conn.key, conn);
+            conn.pool.release(conn);
+        }
         serveRequests();
         return false;
     }
@@ -780,6 +839,58 @@ final class ClientConnection implements Runnable {
     // ---------------------------------------------------------------------------------------
     // Connecting to servers
     // ---------------------------------------------------------------------------------------
+
+    /** Whether server connections for {@code mode} come from the shared pool. */
+    private boolean usesPool(Mode mode) {
+        return server.pool != null
+                && (mode == Mode.PLAIN || (mode == Mode.TLS && server.poolSharedMitmConnections));
+    }
+
+    /** Whether pooled connections for {@code mode} are returned after every request. */
+    private boolean leasesPerRequest(Mode mode) {
+        return mode == Mode.PLAIN || server.poolPerRequestInMitm;
+    }
+
+    /**
+     * Leases a server connection from the shared pool, creating one (counted against the pool's
+     * limits) when no idle connection exists for this target and route.
+     */
+    private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
+            throws IOException {
+        String hostKey = mode + "|" + hostAndPort;
+        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.get(0)), hostKey,
+                Math.max(1000, server.getConnectTimeout()));
+        if (conn != null) {
+            LOG.log(Level.DEBUG, "reusing pooled {0}", conn);
+            conn.flowContext = new FullFlowContext(flowContext, hostAndPort, conn.chainedProxy, conn.remoteAddress);
+        } else {
+            try {
+                conn = connect(hostAndPort, ex, route, mode);
+            } catch (IOException | RuntimeException e) {
+                server.pool.cancel(hostKey);
+                throw e;
+            }
+            ChainedProxy actual = conn.chainedProxy == null
+                    ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : conn.chainedProxy;
+            server.pool.register(conn, hostKey + "|" + routeKey(actual), hostKey);
+        }
+        ServerConnection leased = conn;
+        leased.onDetach = () -> serverConnections.remove(leased.key, leased);
+        leased.perRequestLease = leasesPerRequest(mode);
+        return leased;
+    }
+
+    /** Identifies the route (direct, or which chained proxy) part of a pool key. */
+    private static String routeKey(ChainedProxy proxy) {
+        if (proxy == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
+            return "direct";
+        }
+        InetSocketAddress address = proxy.getChainedProxyAddress();
+        String host = address == null ? "?" : address.getAddress() != null
+                ? address.getAddress().getHostAddress() : address.getHostString();
+        return proxy.getChainedProxyType() + ":" + host + ":" + (address == null ? 0 : address.getPort())
+                + (proxy.requiresEncryption() ? ":tls" : "");
+    }
 
     /**
      * The chained proxies to try in order, with {@link ChainedProxyAdapter#FALLBACK_TO_DIRECT_CONNECTION}
@@ -876,8 +987,11 @@ final class ClientConnection implements Runnable {
             ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
 
-            ByteReader reader = new ByteReader(serverInput(active, serverContext), BUFFER_SIZE);
-            OutputStream output = new BufferedOutputStream(serverOutput(active, serverContext), BUFFER_SIZE);
+            ServerConnection[] holder = new ServerConnection[1];
+            java.util.function.Supplier<FullFlowContext> currentContext =
+                    () -> holder[0] != null ? holder[0].flowContext : serverContext;
+            ByteReader reader = new ByteReader(serverInput(active, currentContext), BUFFER_SIZE);
+            OutputStream output = new BufferedOutputStream(serverOutput(active, currentContext), BUFFER_SIZE);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();
 
@@ -910,22 +1024,14 @@ final class ClientConnection implements Runnable {
                 SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
                 active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
                         server.mitmManager::configureServerSocket);
-                reader = new ByteReader(serverInput(active, serverContext), BUFFER_SIZE);
-                output = new BufferedOutputStream(serverOutput(active, serverContext), BUFFER_SIZE);
+                reader = new ByteReader(serverInput(active, currentContext), BUFFER_SIZE);
+                output = new BufferedOutputStream(serverOutput(active, currentContext), BUFFER_SIZE);
             }
-            String key = mode + "|" + hostAndPort;
-            Socket finalSocket = active;
-            ServerConnection[] holder = new ServerConnection[1];
-            holder[0] = new ServerConnection(key, hostAndPort, proxy, mode == Mode.TLS, finalSocket, reader, output,
-                    remote, serverContext, () -> {
-                        ServerConnection self = holder[0];
-                        serverConnections.remove(self.key, self);
-                        if (proxy != null) {
-                            proxy.disconnected();
-                        }
-                        server.trackers.fire(t -> t.serverDisconnected(serverContext, self.remoteAddress));
-                    });
-            return holder[0];
+            holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode == Mode.TLS,
+                    active, reader, output, remote, serverContext, server.trackers);
+            ServerConnection created = holder[0];
+            created.onDetach = () -> serverConnections.remove(created.key, created);
+            return created;
         } catch (IOException e) {
             Tls.closeQuietly(plain);
             throw e;
@@ -935,18 +1041,22 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    private InputStream serverInput(Socket s, FullFlowContext serverContext) throws IOException {
+    private InputStream serverInput(Socket s, java.util.function.Supplier<FullFlowContext> serverContext)
+            throws IOException {
         InputStream is = server.readLimiter.wrap(s.getInputStream());
         if (!server.trackers.isEmpty()) {
-            is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromServer(serverContext, n)));
+            is = CountingStreams.counting(is,
+                    n -> server.trackers.fire(t -> t.bytesReceivedFromServer(serverContext.get(), n)));
         }
         return is;
     }
 
-    private OutputStream serverOutput(Socket s, FullFlowContext serverContext) throws IOException {
+    private OutputStream serverOutput(Socket s, java.util.function.Supplier<FullFlowContext> serverContext)
+            throws IOException {
         OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
         if (!server.trackers.isEmpty()) {
-            os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToServer(serverContext, n)));
+            os = CountingStreams.counting(os,
+                    n -> server.trackers.fire(t -> t.bytesSentToServer(serverContext.get(), n)));
         }
         return os;
     }
@@ -1194,7 +1304,7 @@ final class ClientConnection implements Runnable {
     }
 
     private static FullHttpResponse badGateway(Exchange ex) {
-        return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway: " + ex.request.uri());
+        return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway: " + ex.originalUri);
     }
 
     private static FullHttpResponse tooLarge(Exchange ex) {

@@ -7,7 +7,7 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges.
-- **Size:** about 6k lines of main code (including Javadoc), compared with LittleProxy's 11k lines plus Netty.
+- **Size:** about 9k lines of main code (including Javadoc and a DNSSEC resolver), compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 
 ```java
 HttpProxyServer proxy = MicroProxy.bootstrap()
@@ -58,6 +58,7 @@ pins its carrier thread:
 mvn package
 java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
 java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   # intercept HTTPS
+java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
 java -jar target/microproxy-0.1.0-SNAPSHOT.jar --help
 ```
 
@@ -84,6 +85,14 @@ Command-line flags override values from the file.
 | `allow_requests_to_origin_server` | accept origin-form requests | `false` |
 | `allow_proxy_protocol` / `send_proxy_protocol` | PROXY protocol in / out | `false` |
 | `throttle_read_bytes_per_second` / `throttle_write_bytes_per_second` | global server bandwidth | `0` (unlimited) |
+| `use_shared_server_connection_pool` | share server connections between clients | `false` |
+| `server_connection_pool_type` | pool implementation (`CONCURRENT_MAP`) | `CONCURRENT_MAP` |
+| `max_connections_per_host` / `max_total_connections` | pool limits | `10` / `200` |
+| `pool_idle_timeout` | seconds before idle pooled connections close | none |
+| `pool_shared_mitm_connections` / `pool_per_request_in_mitm` | pool intercepted TLS connections, per session / per request | `false` |
+| `dnssec` | resolve server names with DNSSEC validation | `false` |
+| `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
+| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
 
 ## Features
 
@@ -97,10 +106,80 @@ Command-line flags override values from the file.
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | PROXY protocol | accept v1 and v2, send v1 |
-| WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101` |
+| WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
+| Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
+| DNSSEC | optional validating resolver, with no dependencies (see below) |
+| Access logs | `ActivityLogger` in eight formats |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Activity tracking | `ActivityTracker` for connections, requests, responses and bytes |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
+
+### Shared server connection pool
+
+By default, as in LittleProxy, server connections are kept per client connection. Calling
+`withSharedServerConnectionPool(true)` shares them between all clients:
+
+- **Leasing:** a connection is leased for one request and returned when the response completes
+  with keep-alive.
+- **Pool keys:** idle connections are kept per target and route, so direct, via-proxy and
+  intercepted connections never mix.
+- **Limits:** `withMaxConnections` (default 200) and `withMaxConnectionsPerHost` (default 10).
+  When the pool is full, a request waits up to the connect timeout for a connection, then gets
+  `503`. LittleProxy returned `502` immediately.
+- **Idle eviction:** `withPoolIdleTimeout` closes connections idle for too long. A pooled
+  connection the server closed while idle is retried transparently.
+- **Intercepted TLS:** `withPoolSharedMitmConnections(true)` lets intercepted sessions take their
+  upstream TLS connection from the pool and return it when the client leaves.
+  `withPoolPerRequestInMitm(true)` leases it per request instead.
+- **Metrics:** `HttpProxyServer.getServerConnectionPoolMetrics()` reports counts.
+
+### DNSSEC
+
+`withUseDnsSec(true)` (or `--dnssec`) resolves server names with
+`org.microproxy.dns.DnssecHostResolver`, a validating resolver written for this project:
+
+- **Validation:** queries go to a recursive resolver with the DO and CD bits set, and every answer
+  is validated locally from the IANA root trust anchors (KSK-2017 and KSK-2024) down through DS
+  records.
+- **Algorithms:** RSA/SHA-1/256/512, ECDSA P-256/P-384, Ed25519 and Ed448.
+- **Unsigned zones:** names in unsigned zones resolve only with a validated NSEC or NSEC3
+  (including opt-out) proof that their delegation is unsigned. Signed wildcards need their
+  denial proof.
+- **Rejection:** anything else is *bogus* and fails with `DnssecValidationException`. Stripping
+  signatures therefore cannot downgrade a signed zone. `Policy.REQUIRE_SECURE` also rejects
+  unsigned zones.
+- **Failure behaviour:** network failures fail the lookup. Unlike dnssec4j, there is no silent
+  fallback to unvalidated DNS.
+- **Transport:** UDP/TCP to the resolvers in `/etc/resolv.conf` by default, or DNS over HTTPS:
+  `DnssecHostResolver.builder().resolver("https://cloudflare-dns.com/dns-query").build()`.
+  Use DoH where port 53 is intercepted or blocked.
+
+LittleProxy used dnssec4j, which checked signatures where present but never anchored them to the
+root key or compared DS digests. It fell back to plain DNS on network errors.
+
+### WebSocket frames
+
+After a `101` upgrade to `websocket`, filters that override
+`webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` see every frame:
+
+- **What they get:** opcode, FIN, masking and the unmasked payload, from both directions,
+  including inside intercepted TLS.
+- **Compatibility:** LittleProxy's `webSocketFrameReceived(Supplier<byte[]>, boolean)` still
+  works and receives each frame's raw bytes. LittleProxy delivered raw TCP reads rather than
+  frames.
+- **Forwarding:** frames are observed, not modified, and forwarded unchanged.
+- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) are
+  streamed and reported as truncated.
+- **No listener:** if no filter overrides either method, the connection is relayed as raw bytes.
+
+### Access logs
+
+`bootstrap.plusActivityTracker(new ActivityLogger(LogFormat.CLF))` writes one line per response
+to the `System.Logger` named `org.microproxy.extras.ActivityLogger`, or to a `Consumer<String>`
+you pass. The formats are `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV` and
+`HAPROXY`. These are LittleProxy's formats, with three of its bugs fixed: JSON escaping, Squid
+timestamps and RFC 4180 CSV quoting. Lines also include the authenticated user, and URLs inside
+intercepted sessions are logged as `https://`.
 
 ## Migrating from LittleProxy
 
@@ -123,6 +202,9 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 | `SelfSignedSslEngineSource` (keytool, JKS file) | `org.microproxy.tls.SelfSignedSslContextSource` (generated in memory) |
 | `SelfSignedMitmManager` | `org.microproxy.tls.CertificateAuthorityMitmManager` |
 | `HttpProxyServer.getIdleConnectionTimeout()` (seconds) | returns a `Duration` |
+| `DnsSecServerResolver` (dnssec4j) | `org.microproxy.dns.DnssecHostResolver` |
+| `org.littleshoot.proxy.extras.ActivityLogger` / `LogFormat` | `org.microproxy.extras.ActivityLogger` / `LogFormat` |
+| `impl.PoolMetrics` | `org.microproxy.PoolMetrics` (a record) |
 
 Other behaviour differences:
 
@@ -130,16 +212,11 @@ Other behaviour differences:
   replace a body don't need to fix the header themselves.
 - All interface methods have defaults, so the `*Adapter` classes are only conveniences.
 
-Not ported, because they are Netty-specific or have no equivalent here:
+Not ported, because they only exist to manage Netty:
 
 - `ThreadPoolConfiguration` and `ServerGroup`: virtual threads replace event-loop sizing.
 - `connectionSaturated` / `connectionWritable` tracker events: blocking writes are the backpressure.
 - `proxyToServerConnectionQueued`.
-- The shared cross-client server connection pool: server connections are reused per client
-  connection, as in LittleProxy's default mode.
-- DNSSEC resolution: plug in your own `HostResolver`.
-- `ActivityLogger` access-log formats.
-- `webSocketFrameReceived` frame inspection: WebSocket traffic is tunnelled unparsed.
 
 ## Building and testing
 
@@ -150,7 +227,21 @@ mvn test
 The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpserver` as origin
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
 CONNECT, MITM, chaining (HTTP, TLS, SOCKS4/5, fallback), timeouts, PROXY protocol, throttling,
-lifecycle, the codec and certificate generation.
+lifecycle, the codec, certificate generation, the shared pool, WebSocket frames and access logs.
+
+DNSSEC is tested in three ways, all offline:
+
+- **Real responses:** responses recorded from real signed, unsigned and deliberately broken zones
+  are replayed with the clock fixed at recording time, then tampered with.
+- **Synthetic zones:** a signed hierarchy built in the test covers wildcards, unsigned delegations
+  and forgeries.
+- **Published values:** the IANA root key's tag and digest, and the RFC 5155 hash vectors.
+
+Live validation and re-recording are opt-in:
+
+```bash
+mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.record=true]
+```
 
 ## License
 
