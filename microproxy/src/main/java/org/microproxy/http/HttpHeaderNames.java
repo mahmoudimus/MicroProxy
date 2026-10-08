@@ -16,6 +16,7 @@ public final class HttpHeaderNames {
     public static final String PROXY_AUTHENTICATE = "Proxy-Authenticate";
     public static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
     public static final String PROXY_CONNECTION = "Proxy-Connection";
+    public static final String SEC_WEBSOCKET_EXTENSIONS = "Sec-WebSocket-Extensions";
     public static final String SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
     public static final String TE = "TE";
     public static final String TRAILER = "Trailer";

@@ -85,6 +85,19 @@ final class ClientConnection implements Runnable {
         }
     };
 
+    /** Whether a filters class rewrites WebSocket frames. */
+    private static final ClassValue<Boolean> REWRITES_FRAMES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("filterWebSocketFrame", org.microproxy.http.WebSocketFrame.class, boolean.class)
+                        .getDeclaringClass() != HttpFilters.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }
+    };
+
     /** Whether a filters class sees response body pieces. */
     private static final ClassValue<Boolean> OBSERVES_RESPONSE_CONTENT = overrides(HttpFilters.class,
             "serverToProxyResponse", "proxyToClientResponse");
@@ -123,6 +136,13 @@ final class ClientConnection implements Runnable {
             return chain.members().stream().anyMatch(ClientConnection::observesFrames);
         }
         return OBSERVES_FRAMES.get(filters.getClass());
+    }
+
+    private static boolean rewritesFrames(HttpFilters filters) {
+        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+            return chain.members().stream().anyMatch(ClientConnection::rewritesFrames);
+        }
+        return REWRITES_FRAMES.get(filters.getClass());
     }
 
     /** How a server connection is used. */
@@ -425,6 +445,10 @@ final class ClientConnection implements Runnable {
         }
 
         modifyRequestHeadersToReflectProxying(ex.request, nextHopOrigin, webSocket);
+        if (webSocket && rewritesFrames(ex.filters)) {
+            // Compressed (permessage-deflate) payloads could not be rewritten.
+            ex.request.headers().remove(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS);
+        }
 
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
         if (shortCircuit != null) {
@@ -755,11 +779,15 @@ final class ClientConnection implements Runnable {
             boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
                     .anyMatch(token -> token.equalsIgnoreCase("websocket"));
             // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
-            Tunnel.FrameObserver observer = webSocket && observesFrames(filters)
-                    ? filters::webSocketFrameReceived : null;
+            boolean observe = webSocket && observesFrames(filters);
+            boolean rewrite = webSocket && rewritesFrames(filters);
+            Tunnel.FrameHandler handler = !observe && !rewrite ? null : (frame, fromClient) -> {
+                if (observe) filters.webSocketFrameReceived(frame, fromClient);
+                return rewrite ? filters.filterWebSocketFrame(frame, fromClient) : frame;
+            };
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
                     server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id,
-                    observer, server.maxWebSocketFrameBufferSize, server.ioBuffers);
+                    handler, server.maxWebSocketFrameBufferSize, server.ioBuffers);
             conn.close();
             return false;
         }

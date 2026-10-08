@@ -20,7 +20,7 @@ import org.microproxy.thirdparty.starlark.syntax.Types;
  */
 final class ScriptType extends StarlarkType {
 
-    /** Bodies are {@code None} when they were streamed rather than buffered. */
+    /** Bodies (and frame payloads) are {@code None} when they were streamed rather than buffered. */
     private static final StarlarkType BODY = Types.union(
             Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT), Types.NONE);
 
@@ -58,10 +58,22 @@ final class ScriptType extends StarlarkType {
             "tls", Types.BOOL,
             "vars", Types.dict(Types.ANY, Types.ANY)), false);
 
+    static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("type", Types.STR)
+            .put("opcode", Types.INT)
+            .put("fin", Types.BOOL)
+            .put("from_client", Types.BOOL)
+            .put("truncated", Types.BOOL)
+            .put("length", Types.INT)
+            .put("text", TEXT)
+            .put("payload", BODY)
+            .buildOrThrow(), true);
+
     static final TypeConstructor REQUEST_CONSTRUCTOR = Types.wrapType("Request", REQUEST);
     static final TypeConstructor RESPONSE_CONSTRUCTOR = Types.wrapType("Response", RESPONSE);
     static final TypeConstructor HEADERS_CONSTRUCTOR = Types.wrapType("Headers", HEADERS);
     static final TypeConstructor CONTEXT_CONSTRUCTOR = Types.wrapType("Context", CONTEXT);
+    static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
 
     private final String name;
     private final Class<?> javaClass;

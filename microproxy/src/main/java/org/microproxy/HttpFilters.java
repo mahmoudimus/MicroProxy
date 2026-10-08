@@ -176,4 +176,29 @@ public interface HttpFilters {
      * supplies the raw frame bytes as on the wire (header and still-masked payload).
      */
     default void webSocketFrameReceived(Supplier<byte[]> frameBytes, boolean fromClient) {}
+
+    /**
+     * Rewrites or drops a WebSocket frame on an upgraded connection, after {@link
+     * #webSocketFrameReceived(WebSocketFrame, boolean)} has seen it. Return {@code frame} to
+     * forward it unchanged, another frame ({@link WebSocketFrame#withText(String)}, {@link
+     * WebSocketFrame#text(String)}, ...) to send instead, or {@code null} to drop it. The proxy
+     * masks frames it sends towards the server.
+     *
+     * <ul>
+     *   <li>Frames are rewritten one at a time; a message split across continuation frames is seen
+     *       piece by piece.
+     *   <li>When a filters class overrides this method, the proxy removes {@code
+     *       Sec-WebSocket-Extensions} from the upgrade request so that payloads are not compressed
+     *       (permessage-deflate) and can be read and rewritten.
+     *   <li>A frame larger than {@link HttpProxyServerBootstrap#withMaxWebSocketFrameBufferSize(int)}
+     *       arrives {@linkplain WebSocketFrame#isTruncated() truncated}: returning it streams it
+     *       through, {@code null} discards it, and a replacement frame is sent in its place.
+     *   <li>Like the observer, this is called concurrently for client and server frames.
+     * </ul>
+     *
+     * @param fromClient true for client-to-server frames
+     */
+    default WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+        return frame;
+    }
 }

@@ -30,6 +30,7 @@ import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.http.WebSocketFrame;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -59,6 +60,9 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *       on_request} can read {@code req.body}. Default: no.
  *   <li>{@code buffer_response(req, res, ctx)}: whether to buffer this response's body. Default:
  *       text bodies in a coding the proxy can decode, except event streams.
+ *   <li>{@code on_websocket_frame(req, frame, ctx)}: for each frame of an upgraded WebSocket
+ *       connection, in both directions. Assign {@code frame.text} or {@code frame.payload} to
+ *       change it; return {@code False} to drop it, or {@code None} to forward it.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm}
@@ -183,6 +187,9 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     @Override
     public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
         StarlarkScript s = script();
+        if (s.defines("on_websocket_frame")) {
+            return new FrameScriptFilters(s, flowContext);
+        }
         if (!s.defines("on_request") && !s.defines("on_response") && !s.defines("allow_mitm")
                 && !s.defines("buffer_request")) {
             return null;
@@ -190,10 +197,46 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         return new ScriptFilters(s, flowContext);
     }
 
-    private final class ScriptFilters implements HttpFilters {
-        private final StarlarkScript s;
-        private final Mutability mu = Mutability.create("request");
-        private final ScriptContext ctx;
+    /**
+     * Adds {@code on_websocket_frame}. A separate class, because the proxy parses frames (and
+     * keeps compression off) only for filters classes that override the frame hook.
+     */
+    private final class FrameScriptFilters extends ScriptFilters {
+        /** Frames from both directions arrive concurrently but share ctx.vars. */
+        private final ReentrantLock frameLock = new ReentrantLock();
+
+        FrameScriptFilters(StarlarkScript s, FlowContext flow) {
+            super(s, flow);
+        }
+
+        @Override
+        public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+            ScriptFrame f = new ScriptFrame(frame, fromClient);
+            frameLock.lock();
+            try {
+                Object r = s.call("on_websocket_frame", mu, request(), f, ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == f) return f.frame();
+                if (r == Boolean.FALSE) return null;
+                if (r instanceof ScriptFrame other) return other.frame();
+                throw Starlark.errorf("on_websocket_frame must return None, True, False or a frame, not %s",
+                        Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_websocket_frame failed; forwarding the frame: "
+                        + e.getMessageWithStack());
+                return frame;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return frame;
+            } finally {
+                frameLock.unlock();
+            }
+        }
+    }
+
+    private class ScriptFilters implements HttpFilters {
+        final StarlarkScript s;
+        final Mutability mu = Mutability.create("request");
+        final ScriptContext ctx;
         private final boolean secure;
         private ScriptRequest req;
 
@@ -292,7 +335,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             }
         }
 
-        private ScriptRequest request() {
+        ScriptRequest request() {
             return req != null ? req
                     : new ScriptRequest(new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"), secure, true);
         }

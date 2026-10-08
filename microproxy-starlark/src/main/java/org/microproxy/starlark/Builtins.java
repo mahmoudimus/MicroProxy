@@ -67,6 +67,7 @@ final class Builtins {
         env.put("Response", TypeConstructorValue.of(ScriptType.RESPONSE_CONSTRUCTOR));
         env.put("Headers", TypeConstructorValue.of(ScriptType.HEADERS_CONSTRUCTOR));
         env.put("Context", TypeConstructorValue.of(ScriptType.CONTEXT_CONSTRUCTOR));
+        env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 

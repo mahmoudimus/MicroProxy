@@ -19,17 +19,17 @@ import org.microproxy.http.WebSocketFrame;
  * With an idle timeout, the tunnel closes only when neither direction has moved data for that
  * long.
  *
- * <p>For upgraded WebSocket connections the relay can parse frames and report each one to an
- * observer before forwarding it unchanged.
+ * <p>For upgraded WebSocket connections the relay can parse frames and pass each one to a handler,
+ * which may forward it, replace it or drop it.
  */
 final class Tunnel {
 
     private static final System.Logger LOG = System.getLogger(Tunnel.class.getName());
 
-    /** Receives each relayed WebSocket frame. */
+    /** Sees each WebSocket frame and returns the frame to forward, or null to drop it. */
     @FunctionalInterface
-    interface FrameObserver {
-        void frame(WebSocketFrame frame, boolean fromClient);
+    interface FrameHandler {
+        WebSocketFrame frame(WebSocketFrame frame, boolean fromClient);
     }
 
     /** Thrown when both directions have been idle for the idle timeout. */
@@ -50,14 +50,14 @@ final class Tunnel {
     }
 
     /**
-     * Relays bytes, parsing WebSocket frames when {@code observer} is non-null.
+     * Relays bytes, parsing WebSocket frames when {@code handler} is non-null.
      *
      * @param maxFrameBuffer frames with larger payloads are streamed and reported as truncated
      */
     static void relay(
             Socket clientSocket, InputStream clientIn, OutputStream clientOut,
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
-            Duration idleTimeout, String name, FrameObserver observer, int maxFrameBuffer, BufferPool pool) {
+            Duration idleTimeout, String name, FrameHandler handler, int maxFrameBuffer, BufferPool pool) {
         AtomicLong lastActivity = new AtomicLong(System.nanoTime());
         long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Runnable closeAll = () -> {
@@ -67,8 +67,8 @@ final class Tunnel {
         Direction up = new Direction(clientIn, serverOut, serverSocket, lastActivity, idleNanos, true, pool);
         Direction down = new Direction(serverIn, clientOut, clientSocket, lastActivity, idleNanos, false, pool);
         Thread upstream = Thread.ofVirtual().name(name + "-up").start(
-                () -> run(up, observer, maxFrameBuffer, closeAll));
-        run(down, observer, maxFrameBuffer, closeAll);
+                () -> run(up, handler, maxFrameBuffer, closeAll));
+        run(down, handler, maxFrameBuffer, closeAll);
         try {
             upstream.join();
         } catch (InterruptedException e) {
@@ -78,12 +78,12 @@ final class Tunnel {
         }
     }
 
-    private static void run(Direction d, FrameObserver observer, int maxFrameBuffer, Runnable closeAll) {
+    private static void run(Direction d, FrameHandler handler, int maxFrameBuffer, Runnable closeAll) {
         try {
-            if (observer == null) {
+            if (handler == null) {
                 d.copyAll();
             } else {
-                pumpFrames(d, observer, maxFrameBuffer);
+                pumpFrames(d, handler, maxFrameBuffer);
             }
             d.halfClose();
         } catch (IOException e) {
@@ -91,8 +91,8 @@ final class Tunnel {
         }
     }
 
-    /** Parses and forwards frames until end-of-stream at a frame boundary. */
-    private static void pumpFrames(Direction d, FrameObserver observer, int maxFrameBuffer) throws IOException {
+    /** Parses, hands over and forwards frames until end-of-stream at a frame boundary. */
+    private static void pumpFrames(Direction d, FrameHandler handler, int maxFrameBuffer) throws IOException {
         byte[] head = new byte[14];
         while (true) {
             if (!d.readFully(head, 0, 2, true)) {
@@ -127,27 +127,44 @@ final class Tunnel {
                 pos += 4;
             }
             byte[] header = Arrays.copyOf(head, pos);
-            if (length <= maxFrameBuffer) {
-                byte[] payload = new byte[(int) length];
+            boolean buffered = length <= maxFrameBuffer;
+            byte[] payload = null;
+            if (buffered) {
+                payload = new byte[(int) length];
                 d.readFully(payload, 0, payload.length, false);
-                notify(observer, new WebSocketFrame(header, payload, length), d.fromClient);
-                d.write(header, 0, header.length);
-                d.write(payload, 0, payload.length);
-                d.flush();
-            } else {
-                notify(observer, new WebSocketFrame(header, null, length), d.fromClient);
-                d.write(header, 0, header.length);
-                d.copy(length);
-                d.flush();
             }
+            WebSocketFrame frame = new WebSocketFrame(header, payload, length);
+            WebSocketFrame out = handle(handler, frame, d.fromClient);
+            if (out == frame) {
+                d.write(header, 0, header.length);
+                if (buffered) {
+                    d.write(payload, 0, payload.length);
+                } else {
+                    d.copy(length);
+                }
+            } else {
+                if (!buffered) d.skip(length);
+                if (out != null) {
+                    byte[] wire = out.toWire(d.fromClient);
+                    d.write(wire, 0, wire.length);
+                }
+            }
+            d.flush();
         }
     }
 
-    private static void notify(FrameObserver observer, WebSocketFrame frame, boolean fromClient) {
+    /** The handler's verdict; a failing handler, or one returning a truncated frame of its own, forwards the frame. */
+    private static WebSocketFrame handle(FrameHandler handler, WebSocketFrame frame, boolean fromClient) {
         try {
-            observer.frame(frame, fromClient);
+            WebSocketFrame out = handler.frame(frame, fromClient);
+            if (out != null && out != frame && out.isTruncated()) {
+                LOG.log(Level.WARNING, "WebSocket frame filter returned a truncated frame; forwarding the original");
+                return frame;
+            }
+            return out;
         } catch (RuntimeException e) {
-            LOG.log(Level.WARNING, "WebSocket frame observer threw", e);
+            LOG.log(Level.WARNING, "WebSocket frame filter threw", e);
+            return frame;
         }
     }
 
@@ -258,6 +275,20 @@ final class Tunnel {
                         pool.give(buf);
                         buf = null;
                     }
+                }
+            } finally {
+                pool.give(buf);
+            }
+        }
+
+        /** Reads and discards exactly {@code remaining} bytes. */
+        void skip(long remaining) throws IOException {
+            byte[] buf = pool.take();
+            try {
+                while (remaining > 0) {
+                    int n = read(buf, 0, (int) Math.min(buf.length, remaining));
+                    if (n < 0) throw new EOFException("stream ended mid-frame");
+                    remaining -= n;
                 }
             } finally {
                 pool.give(buf);

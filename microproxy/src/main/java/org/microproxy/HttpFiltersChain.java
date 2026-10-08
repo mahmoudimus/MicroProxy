@@ -16,8 +16,9 @@ import org.microproxy.http.WebSocketFrame;
  * <ul>
  *   <li>Request hooks run first to last; the first short-circuit response wins and later filters
  *       do not see the request.
- *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) also run
- *       first to last, each receiving the previous one's result; {@code null} aborts.
+ *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) and {@code
+ *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
+ *       {@code null} aborts (or drops the frame).
  *   <li>Buffer sizes are the largest any filter asks for.
  *   <li>Interception needs every filter's consent ({@code proxyToServerAllowMitm}), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
@@ -233,6 +234,16 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void webSocketFrameReceived(Supplier<byte[]> frameBytes, boolean fromClient) {
             members.forEach(f -> f.webSocketFrameReceived(frameBytes, fromClient));
+        }
+
+        @Override
+        public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+            WebSocketFrame f = frame;
+            for (HttpFilters member : members) {
+                f = member.filterWebSocketFrame(f, fromClient);
+                if (f == null) return null;
+            }
+            return f;
         }
     }
 }

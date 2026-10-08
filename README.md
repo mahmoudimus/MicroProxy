@@ -438,6 +438,7 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
 | `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
+| `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
 
 **Objects.**
 
@@ -450,7 +451,11 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
   and `vars`, a dict that lives for one request so `on_request` can pass values to
-  `on_response`.
+  `on_response`. For a WebSocket it lives as long as the connection.
+- `frame`: `type` (`"text"`, `"binary"`, `"continuation"`, `"close"`, `"ping"`, `"pong"`),
+  `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
+  assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
+  frame.
 
 **Built-ins.**
 
@@ -463,6 +468,52 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
 - `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex).
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
+
+**WebSocket examples.** `on_websocket_frame` gets the upgrade request, the frame and the
+context. Frames from the client and from the server come through the same hook (`frame.from_client`
+tells them apart) and share `ctx.vars`, so a script can keep state for the whole connection.
+
+Redact a field in a JSON protocol, both ways:
+
+```python
+def on_websocket_frame(req, frame, ctx):
+    if frame.type != "text" or not frame.text.startswith("{"):
+        return None
+    msg = json.decode(frame.text)
+    if "token" in msg:
+        msg["token"] = "<redacted>"
+        frame.text = json.encode(msg)
+```
+
+Block client commands on one endpoint, and drop pings the server sends:
+
+```python
+def on_websocket_frame(req, frame, ctx):
+    if req.path == "/admin/ws" and frame.from_client and frame.type == "text":
+        if frame.text.startswith("DELETE "):
+            log.warn("blocked %s from %s" % (frame.text, ctx.client_ip))
+            return False
+    if frame.type == "ping" and not frame.from_client:
+        return False  # the proxy forwards nothing; the client simply never sees it
+```
+
+Number the messages in a chat, with types (see below):
+
+```python
+def on_websocket_frame(req: Request, frame: WebSocketFrame, ctx: Context) -> bool | None:
+    if frame.type != "text" or frame.from_client:
+        return None
+    n: int = ctx.vars.get("n", 0) + 1
+    ctx.vars["n"] = n
+    frame.text = "#%d %s" % (n, cast(str, frame.text))
+    return None
+```
+
+Binary protocols work on `frame.payload` (bytes): for example, replace a magic prefix with
+`frame.payload = b"v2" + frame.payload[2:]`. Frames over the buffer limit
+(`withMaxWebSocketFrameBufferSize`, 1 MiB by default) arrive with `truncated` set and no payload;
+they can be forwarded or dropped but not rewritten. A failing hook is logged and the frame is
+forwarded unchanged.
 
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
@@ -544,18 +595,34 @@ root key or compared DS digests. It fell back to plain DNS on network errors.
 
 ### WebSocket frames
 
-After a `101` upgrade to `websocket`, filters that override
-`webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` see every frame:
+After a `101` upgrade to `websocket`, filters can watch and rewrite every frame, in both
+directions and inside intercepted TLS:
 
-- **What they get:** opcode, FIN, masking and the unmasked payload, from both directions,
-  including inside intercepted TLS.
-- **Compatibility:** LittleProxy's `webSocketFrameReceived(Supplier<byte[]>, boolean)` still
-  works and receives each frame's raw bytes. LittleProxy delivered raw TCP reads rather than
-  frames.
-- **Forwarding:** frames are observed, not modified, and forwarded unchanged.
-- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) are
-  streamed and reported as truncated.
-- **No listener:** if no filter overrides either method, the connection is relayed as raw bytes.
+- **Watching:** `webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` sees the
+  opcode, FIN, masking and the unmasked payload. LittleProxy's
+  `webSocketFrameReceived(Supplier<byte[]>, boolean)` still works and receives each frame's raw
+  bytes (LittleProxy delivered raw TCP reads rather than frames).
+- **Rewriting:** `filterWebSocketFrame(WebSocketFrame frame, boolean fromClient)` returns the
+  frame to forward: `frame` itself, a replacement (`frame.withText(...)`,
+  `WebSocketFrame.text(...)`, `binary(...)`, `close(code, reason)`), or `null` to drop it. The
+  proxy masks frames it sends towards the server, as RFC 6455 requires. When a filter rewrites
+  frames, the proxy removes `Sec-WebSocket-Extensions` from the upgrade request so that payloads
+  are not compressed (permessage-deflate). Messages split into continuation frames are seen one
+  frame at a time.
+- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) arrive
+  truncated, without a payload: returning them streams them through, `null` discards them.
+- **No listener:** if no filter overrides any of these methods, the connection is relayed as raw
+  bytes.
+
+```java
+@Override
+public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+    if (!frame.isText()) return frame;
+    String text = frame.payloadAsText();
+    if (fromClient && text.contains("\"password\"")) return null;        // drop it
+    return frame.withText(text.replace("staging.example", "prod.example")); // or rewrite it
+}
+```
 
 ### Access logs
 

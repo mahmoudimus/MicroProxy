@@ -1,11 +1,17 @@
 package org.microproxy.http;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 
 /**
- * A WebSocket frame (RFC 6455 section 5.2) observed by the proxy after an upgrade. The proxy
- * relays frames unchanged; this is a read-only view for {@link
- * org.microproxy.HttpFilters#webSocketFrameReceived(WebSocketFrame, boolean)}.
+ * A WebSocket frame (RFC 6455 section 5.2). Frames the proxy relays after an upgrade are shown to
+ * {@link org.microproxy.HttpFilters#webSocketFrameReceived(WebSocketFrame, boolean)} and {@link
+ * org.microproxy.HttpFilters#filterWebSocketFrame(WebSocketFrame, boolean)}; the latter may return
+ * a frame built with {@link #text(String)}, {@link #binary(byte[])}, {@link #withPayload(byte[])}
+ * and the like to send instead. Frames are immutable.
+ *
+ * <p>Built frames carry an unmasked payload. The proxy masks a frame when it sends it towards the
+ * server and leaves it unmasked towards the client, as RFC 6455 requires ({@link #toWire(boolean)}).
  */
 public final class WebSocketFrame {
 
@@ -15,6 +21,8 @@ public final class WebSocketFrame {
     public static final int OPCODE_CLOSE = 0x8;
     public static final int OPCODE_PING = 0x9;
     public static final int OPCODE_PONG = 0xA;
+
+    private static final SecureRandom MASKS = new SecureRandom();
 
     private final byte[] header;
     private final byte[] maskedPayload;
@@ -31,6 +39,51 @@ public final class WebSocketFrame {
         this.header = header;
         this.maskedPayload = wirePayload;
         this.payloadLength = payloadLength;
+    }
+
+    /**
+     * A frame with the given fields and an unmasked payload.
+     *
+     * @param rsv the RSV1-3 bits (0 unless an extension defines them)
+     */
+    public static WebSocketFrame of(boolean fin, int rsv, int opcode, byte[] payload) {
+        if ((opcode & ~0x0f) != 0) throw new IllegalArgumentException("opcode " + opcode);
+        if ((rsv & ~0x7) != 0) throw new IllegalArgumentException("rsv " + rsv);
+        byte[] body = payload.clone();
+        if (opcode >= OPCODE_CLOSE && body.length > 125) {
+            throw new IllegalArgumentException("control frame payload over 125 bytes");
+        }
+        return new WebSocketFrame(header(fin, rsv, opcode, body.length, false), body, body.length);
+    }
+
+    /** A final text frame. */
+    public static WebSocketFrame text(String text) {
+        return of(true, 0, OPCODE_TEXT, text.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** A final binary frame. */
+    public static WebSocketFrame binary(byte[] data) {
+        return of(true, 0, OPCODE_BINARY, data);
+    }
+
+    /** A close frame with a status code (RFC 6455 section 7.4) and a reason. */
+    public static WebSocketFrame close(int code, String reason) {
+        byte[] text = reason.getBytes(StandardCharsets.UTF_8);
+        byte[] body = new byte[2 + text.length];
+        body[0] = (byte) (code >> 8);
+        body[1] = (byte) code;
+        System.arraycopy(text, 0, body, 2, text.length);
+        return of(true, 0, OPCODE_CLOSE, body);
+    }
+
+    /** This frame's FIN bit, RSV bits and opcode with a new payload. */
+    public WebSocketFrame withPayload(byte[] payload) {
+        return of(isFinal(), rsv(), opcode(), payload);
+    }
+
+    /** This frame's FIN bit, RSV bits and opcode with a new payload, encoded as UTF-8. */
+    public WebSocketFrame withText(String text) {
+        return withPayload(text.getBytes(StandardCharsets.UTF_8));
     }
 
     public boolean isFinal() {
@@ -104,6 +157,51 @@ public final class WebSocketFrame {
     public String payloadAsText() {
         byte[] p = payload();
         return p == null ? null : new String(p, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The frame encoded for sending: masked with a fresh random key when {@code masked} (frames
+     * towards a server), unmasked otherwise.
+     *
+     * @throws IllegalStateException if the frame is {@linkplain #isTruncated() truncated}
+     */
+    public byte[] toWire(boolean masked) {
+        byte[] body = payload();
+        if (body == null) throw new IllegalStateException("truncated frames cannot be re-encoded");
+        byte[] head = header(isFinal(), rsv(), opcode(), body.length, masked);
+        if (masked) {
+            int key = MASKS.nextInt();
+            int k = head.length - 4;
+            head[k] = (byte) (key >> 24);
+            head[k + 1] = (byte) (key >> 16);
+            head[k + 2] = (byte) (key >> 8);
+            head[k + 3] = (byte) key;
+            org.microproxy.simd.Simd.xorMask(body, 0, body.length, key);
+        }
+        byte[] out = new byte[head.length + body.length];
+        System.arraycopy(head, 0, out, 0, head.length);
+        System.arraycopy(body, 0, out, head.length, body.length);
+        return out;
+    }
+
+    private static byte[] header(boolean fin, int rsv, int opcode, int length, boolean masked) {
+        int lengthBytes = length < 126 ? 0 : length <= 0xffff ? 2 : 8;
+        byte[] head = new byte[2 + lengthBytes + (masked ? 4 : 0)];
+        head[0] = (byte) ((fin ? 0x80 : 0) | rsv << 4 | opcode);
+        int mask = masked ? 0x80 : 0;
+        if (lengthBytes == 0) {
+            head[1] = (byte) (mask | length);
+        } else if (lengthBytes == 2) {
+            head[1] = (byte) (mask | 126);
+            head[2] = (byte) (length >> 8);
+            head[3] = (byte) length;
+        } else {
+            head[1] = (byte) (mask | 127);
+            for (int i = 0; i < 8; i++) {
+                head[2 + i] = (byte) ((long) length >> (56 - 8 * i));
+            }
+        }
+        return head;
     }
 
     /** The frame exactly as on the wire: header plus (masked) payload, or just the header if truncated. */
