@@ -1,5 +1,11 @@
 # MicroProxy
 
+[![CI](https://github.com/mahmoudimus/MicroProxy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mahmoudimus/MicroProxy/actions/workflows/ci.yml)
+[![Release](https://github.com/mahmoudimus/MicroProxy/actions/workflows/release.yml/badge.svg)](https://github.com/mahmoudimus/MicroProxy/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/mahmoudimus/MicroProxy?include_prereleases&sort=semver)](https://github.com/mahmoudimus/MicroProxy/releases)
+[![Java 21+](https://img.shields.io/badge/Java-21%2B-blue)](https://openjdk.org/projects/jdk/21/)
+[![License](https://img.shields.io/github/license/mahmoudimus/MicroProxy)](LICENSE)
+
 MicroProxy is an HTTP/HTTPS proxy for Java that can intercept and rewrite traffic. It is a
 port of [LittleProxy](https://github.com/LittleProxy/LittleProxy) that drops Netty. Each
 connection runs on its own **virtual thread** (Project Loom) and uses plain blocking socket I/O.
@@ -90,6 +96,7 @@ pins its carrier thread:
 
 ## Running
 
+<!-- x-release-please-start-version -->
 ```bash
 mvn package
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
@@ -98,12 +105,13 @@ java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec -
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
 
 # With zstd decoding:
-java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar \
-    org.microproxy.Launcher --port 8080
+java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
+zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080
 
 # The same launcher with scripting and zstd built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
 ```
+<!-- x-release-please-end -->
 
 `--mitm` creates (or reuses) a CA in `microproxy-ca.p12` and writes its certificate to
 `microproxy-ca.pem`. To intercept HTTPS without errors, add that certificate to your client's
@@ -143,11 +151,13 @@ turns the small immutable records marked `// @value-candidate` into value classe
 `HttpVersion`, `HttpResponseStatus`, `HostAndPort`, `Framing`, the DNS record types, cache and
 pool records, and so on (19 in all).
 
+<!-- x-release-please-start-version -->
 ```bash
 # JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
 mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
 java --enable-preview -cp microproxy/target/microproxy-0.1.0-SNAPSHOT-valhalla.jar org.microproxy.Launcher
 ```
+<!-- x-release-please-end -->
 
 Measured on JDK 28 EA (build 18), with identical code apart from the `value` modifier:
 
@@ -404,9 +414,11 @@ def allow_mitm(req, ctx):
     return not req.host.endswith(".bank.example")
 ```
 
+<!-- x-release-please-start-version -->
 ```bash
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --mitm --script proxy.star
 ```
+<!-- x-release-please-end -->
 
 Or from Java, install one `ScriptedProxy` as both the filters source and the chained proxy
 manager:
@@ -574,6 +586,15 @@ mvn -pl microproxy test         # just the core
 ```
 
 `microproxy-starlark` reuses the core's test helpers through its `tests` jar.
+
+### Releases
+
+Releases are cut by [release-please](https://github.com/googleapis/release-please). It reads
+[Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`) on
+`main` and keeps a release pull request open that bumps every `pom.xml`, the versions in this
+README and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, publishes a GitHub release with the jars
+and their `SHA256SUMS` attached, and opens a follow-up pull request that moves `main` to the
+next `-SNAPSHOT` version.
 
 The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpserver` as origin
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
