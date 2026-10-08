@@ -1,7 +1,7 @@
 package org.microproxy.http;
 
 /** The head of an HTTP request. */
-public interface HttpRequest extends HttpMessage {
+public sealed interface HttpRequest extends HttpMessage permits FullHttpRequest, DefaultHttpRequest {
 
     HttpMethod method();
 

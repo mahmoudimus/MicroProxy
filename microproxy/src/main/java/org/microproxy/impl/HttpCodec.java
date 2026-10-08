@@ -382,19 +382,21 @@ final class HttpCodec {
                 }
             }
             // Written straight into the (pooled) output buffer, without building a string.
-            if (message instanceof HttpRequest req) {
-                writeLatin1(req.method().name());
-                out.write(' ');
-                writeLatin1(req.uri());
-                out.write(' ');
-                writeLatin1(req.protocolVersion().text());
-            } else {
-                HttpResponse res = (HttpResponse) message;
-                writeLatin1(res.protocolVersion().text());
-                out.write(' ');
-                writeDecimal(res.status().code());
-                out.write(' ');
-                writeLatin1(res.status().reasonPhrase());
+            switch (message) {
+                case HttpRequest req -> {
+                    writeLatin1(req.method().name());
+                    out.write(' ');
+                    writeLatin1(req.uri());
+                    out.write(' ');
+                    writeLatin1(req.protocolVersion().text());
+                }
+                case HttpResponse res -> {
+                    writeLatin1(res.protocolVersion().text());
+                    out.write(' ');
+                    writeDecimal(res.status().code());
+                    out.write(' ');
+                    writeLatin1(res.status().reasonPhrase());
+                }
             }
             out.write(CRLF);
             HttpHeaders headers = message.headers();

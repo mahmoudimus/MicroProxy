@@ -664,6 +664,9 @@ Other behaviour differences:
 - Full messages are written with a `Content-Length` that matches their actual body. Filters that
   replace a body don't need to fix the header themselves.
 - All interface methods have defaults, so the `*Adapter` classes are only conveniences.
+- The `org.microproxy.http` message types are a sealed hierarchy. Filters create (and may subclass)
+  the `Default*` classes but cannot implement `HttpRequest` and the other interfaces from scratch,
+  and a `switch` over them can be exhaustive (see `HttpObject`).
 
 Not ported, because they only exist to manage Netty:
 

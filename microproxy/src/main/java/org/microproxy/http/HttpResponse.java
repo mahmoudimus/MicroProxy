@@ -1,7 +1,7 @@
 package org.microproxy.http;
 
 /** The head of an HTTP response. */
-public interface HttpResponse extends HttpMessage {
+public sealed interface HttpResponse extends HttpMessage permits FullHttpResponse, DefaultHttpResponse {
 
     HttpResponseStatus status();
 

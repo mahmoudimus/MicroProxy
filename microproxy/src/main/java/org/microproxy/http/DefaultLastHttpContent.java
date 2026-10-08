@@ -3,7 +3,7 @@ package org.microproxy.http;
 import java.util.Objects;
 
 /** The last piece of a message body, with optional trailers. */
-public class DefaultLastHttpContent extends DefaultHttpContent implements LastHttpContent {
+public non-sealed class DefaultLastHttpContent extends DefaultHttpContent implements LastHttpContent {
 
     private static final byte[] EMPTY = new byte[0];
 

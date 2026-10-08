@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /** A complete request with its body. */
-public class DefaultFullHttpRequest extends DefaultHttpRequest implements FullHttpRequest {
+public non-sealed class DefaultFullHttpRequest extends DefaultHttpRequest implements FullHttpRequest {
 
     private byte[] content;
     private final HttpHeaders trailingHeaders = new HttpHeaders();

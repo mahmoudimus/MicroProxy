@@ -4,7 +4,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 /** A piece of an HTTP message body. */
-public interface HttpContent extends HttpObject {
+public sealed interface HttpContent extends HttpObject permits LastHttpContent, DefaultHttpContent {
 
     /** The body bytes. The returned array is the live backing array, not a copy. */
     byte[] content();
