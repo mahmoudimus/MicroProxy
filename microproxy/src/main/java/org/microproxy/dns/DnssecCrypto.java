@@ -1,5 +1,6 @@
 package org.microproxy.dns;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
@@ -13,6 +14,7 @@ import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.HexFormat;
 
 /** DNSSEC signature algorithms (RFC 8624) and DS digests mapped onto the JDK's providers. */
@@ -87,8 +89,8 @@ final class DnssecCrypto {
             expLen = ((key[1] & 0xff) << 8) | (key[2] & 0xff);
             offset = 3;
         }
-        BigInteger exponent = new BigInteger(1, java.util.Arrays.copyOfRange(key, offset, offset + expLen));
-        BigInteger modulus = new BigInteger(1, java.util.Arrays.copyOfRange(key, offset + expLen, key.length));
+        BigInteger exponent = new BigInteger(1, Arrays.copyOfRange(key, offset, offset + expLen));
+        BigInteger modulus = new BigInteger(1, Arrays.copyOfRange(key, offset + expLen, key.length));
         return KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(modulus, exponent));
     }
 
@@ -98,8 +100,8 @@ final class DnssecCrypto {
         AlgorithmParameters params = AlgorithmParameters.getInstance("EC");
         params.init(new ECGenParameterSpec(curve));
         ECParameterSpec spec = params.getParameterSpec(ECParameterSpec.class);
-        ECPoint point = new ECPoint(new BigInteger(1, java.util.Arrays.copyOfRange(key, 0, size)),
-                new BigInteger(1, java.util.Arrays.copyOfRange(key, size, size * 2)));
+        ECPoint point = new ECPoint(new BigInteger(1, Arrays.copyOfRange(key, 0, size)),
+                new BigInteger(1, Arrays.copyOfRange(key, size, size * 2)));
         return KeyFactory.getInstance("EC").generatePublic(new ECPublicKeySpec(point, spec));
     }
 
@@ -131,7 +133,7 @@ final class DnssecCrypto {
 
     /** Decodes base32hex without padding (RFC 4648 section 7), as used in NSEC3 owner names. */
     static byte[] base32HexDecode(byte[] label) {
-        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         int buffer = 0;
         int bits = 0;
         for (byte b : label) {
@@ -169,6 +171,6 @@ final class DnssecCrypto {
     }
 
     static int compareUnsigned(byte[] a, byte[] b) {
-        return java.util.Arrays.compareUnsigned(a, b);
+        return Arrays.compareUnsigned(a, b);
     }
 }

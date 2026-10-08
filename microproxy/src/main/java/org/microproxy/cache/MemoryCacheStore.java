@@ -47,7 +47,7 @@ public final class MemoryCacheStore implements CacheStore {
                     count--;
                 }
             }
-            variants.add(0, response);
+            variants.addFirst(response);
             size += response.weight();
             count++;
             Iterator<Map.Entry<String, List<CachedResponse>>> lru = entries.entrySet().iterator();

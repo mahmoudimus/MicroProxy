@@ -1,6 +1,7 @@
 package org.microproxy.impl;
 
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.List;
@@ -94,7 +95,7 @@ final class Tls {
         return true;
     }
 
-    static void closeQuietly(java.io.Closeable c) {
+    static void closeQuietly(Closeable c) {
         if (c == null) return;
         try {
             c.close();

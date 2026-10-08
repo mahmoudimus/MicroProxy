@@ -3,6 +3,7 @@ package org.microproxy.dns;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.time.Clock;
 import java.time.Duration;
@@ -83,7 +84,7 @@ public final class DnssecHostResolver implements HostResolver {
         if (resolution.addresses().isEmpty()) {
             throw new UnknownHostException(host);
         }
-        return new InetSocketAddress(resolution.addresses().get(0), port);
+        return new InetSocketAddress(resolution.addresses().getFirst(), port);
     }
 
     /**
@@ -126,7 +127,7 @@ public final class DnssecHostResolver implements HostResolver {
                 throw new UnknownHostException(host);
             }
             Resolution resolution = new Resolution(List.copyOf(addresses), answer.secure());
-            long ttlMillis = Math.min(3_600_000, Math.max(1, answer.ttlSeconds()) * 1000);
+            long ttlMillis = Math.clamp(answer.ttlSeconds() * 1000, 1_000L, 3_600_000L);
             cache.put(normalized, new Cached(resolution, clock.millis() + ttlMillis));
             return checkPolicy(host, resolution);
         } catch (UnknownHostException e) {
@@ -194,7 +195,7 @@ public final class DnssecHostResolver implements HostResolver {
         public Builder resolver(String spec) {
             String s = spec.strip();
             if (s.regionMatches(true, 0, "https://", 0, 8)) {
-                return transport(DnsTransport.https(java.net.URI.create(s), timeout.multipliedBy(3)));
+                return transport(DnsTransport.https(URI.create(s), timeout.multipliedBy(3)));
             }
             List<InetSocketAddress> list = new ArrayList<>();
             for (String part : s.split(",")) {

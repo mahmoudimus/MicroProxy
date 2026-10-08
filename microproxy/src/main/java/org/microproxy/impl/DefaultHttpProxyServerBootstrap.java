@@ -2,18 +2,21 @@ package org.microproxy.impl;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
 import org.microproxy.HostResolver;
+import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.HttpProxyServer;
@@ -24,6 +27,9 @@ import org.microproxy.NoProxyRules;
 import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.SslContextSource;
+import org.microproxy.cache.DiskCacheStore;
+import org.microproxy.cache.HttpCache;
+import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.LogFormat;
@@ -41,7 +47,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     ChainedProxyManager chainProxyManager;
     MitmManager mitmManager;
     HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
-    org.microproxy.cache.HttpCache httpCache;
+    HttpCache httpCache;
     boolean transparent;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
@@ -155,7 +161,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("server_connection_pool_type")) {
             withServerConnectionPoolType(ServerConnectionPoolType.valueOf(
-                    p.getProperty("server_connection_pool_type").strip().toUpperCase(java.util.Locale.ROOT)));
+                    p.getProperty("server_connection_pool_type").strip().toUpperCase(Locale.ROOT)));
         }
         if (p.containsKey("max_connections_per_host")) {
             withMaxConnectionsPerHost(Integer.parseInt(p.getProperty("max_connections_per_host").strip()));
@@ -186,20 +192,20 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("activity_log_format")) {
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
-                    p.getProperty("activity_log_format").strip().toUpperCase(java.util.Locale.ROOT))));
+                    p.getProperty("activity_log_format").strip().toUpperCase(Locale.ROOT))));
         }
         if (p.containsKey("cache_dir") || p.containsKey("cache_memory_mb") || bool(p, "offline")) {
-            org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(bool(p, "offline"));
+            HttpCache.Builder cache = HttpCache.builder().offline(bool(p, "offline"));
             if (p.containsKey("cache_dir")) {
                 long mb = Long.parseLong(p.getProperty("cache_max_mb", "1024").strip());
                 try {
-                    cache.store(new org.microproxy.cache.DiskCacheStore(
-                            java.nio.file.Path.of(p.getProperty("cache_dir").strip()), mb << 20));
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException("cannot open cache_dir", e);
+                    cache.store(new DiskCacheStore(
+                            Path.of(p.getProperty("cache_dir").strip()), mb << 20));
+                } catch (IOException e) {
+                    throw new UncheckedIOException("cannot open cache_dir", e);
                 }
             } else if (p.containsKey("cache_memory_mb")) {
-                cache.store(new org.microproxy.cache.MemoryCacheStore(
+                cache.store(new MemoryCacheStore(
                         Long.parseLong(p.getProperty("cache_memory_mb").strip()) << 20));
             }
             if (p.containsKey("cache_max_entry_mb")) {
@@ -291,7 +297,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
-    public HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache) {
+    public HttpProxyServerBootstrap withHttpCache(HttpCache cache) {
         this.httpCache = cache;
         return this;
     }
@@ -303,13 +309,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
 
     @Override
     public HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource) {
-        this.filtersSource = org.microproxy.HttpFiltersChain.of(this.filtersSource, filtersSource);
+        this.filtersSource = HttpFiltersChain.of(this.filtersSource, filtersSource);
         return this;
     }
 
     @Override
     public HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource) {
-        this.filtersSource = filtersSource == null ? new HttpFiltersSourceAdapter() : filtersSource;
+        this.filtersSource = Objects.requireNonNullElseGet(filtersSource, HttpFiltersSourceAdapter::new);
         return this;
     }
 

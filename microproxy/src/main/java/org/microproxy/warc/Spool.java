@@ -1,6 +1,8 @@
 package org.microproxy.warc;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -86,9 +88,9 @@ final class Spool implements AutoCloseable {
 
     /** The content, from the start. */
     InputStream open() throws IOException {
-        if (file == null) return new java.io.ByteArrayInputStream(memory.toByteArray());
+        if (file == null) return new ByteArrayInputStream(memory.toByteArray());
         file.position(0);
-        return new java.io.FilterInputStream(Channels.newInputStream(file)) {
+        return new FilterInputStream(Channels.newInputStream(file)) {
             @Override
             public void close() {
                 // Leave the channel open; the spool owns it.

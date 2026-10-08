@@ -9,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
 import java.util.List;
 
 /** UDP with TCP fallback. Each query uses a fresh socket and thus a random source port. */
@@ -53,7 +54,7 @@ final class UdpDnsTransport implements DnsTransport {
                 socket.receive(packet);
                 // Ignore datagrams that do not answer this query (spoofing / stale replies).
                 if (packet.getLength() >= 12 && buf[0] == query[0] && buf[1] == query[1]) {
-                    return java.util.Arrays.copyOf(buf, packet.getLength());
+                    return Arrays.copyOf(buf, packet.getLength());
                 }
                 int remaining = (int) ((deadline - System.nanoTime()) / 1_000_000L);
                 if (remaining <= 0) throw new SocketTimeoutException("no matching DNS response");

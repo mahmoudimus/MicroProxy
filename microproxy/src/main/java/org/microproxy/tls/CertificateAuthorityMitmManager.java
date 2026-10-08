@@ -5,6 +5,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,7 @@ public class CertificateAuthorityMitmManager implements MitmManager {
         this.authority = authority;
         this.upstreamContext = upstreamContext;
         this.maxCachedHosts = maxCachedHosts;
-        this.contexts = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+        this.contexts = new LinkedHashMap<>(16, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, CachedContext> eldest) {
                 return size() > CertificateAuthorityMitmManager.this.maxCachedHosts;

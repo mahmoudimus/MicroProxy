@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.http.DefaultHttpRequest;
+import org.microproxy.http.DefaultHttpResponse;
 import org.microproxy.http.HttpContent;
 import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpHeaders;
@@ -282,10 +284,10 @@ public final class WarcRecorder implements HttpFiltersSource, Closeable {
     }
 
     private static HttpRequest copy(HttpRequest r) {
-        return new org.microproxy.http.DefaultHttpRequest(r.protocolVersion(), r.method(), r.uri(), r.headers().copy());
+        return new DefaultHttpRequest(r.protocolVersion(), r.method(), r.uri(), r.headers().copy());
     }
 
     private static HttpResponse copy(HttpResponse r) {
-        return new org.microproxy.http.DefaultHttpResponse(r.protocolVersion(), r.status(), r.headers().copy());
+        return new DefaultHttpResponse(r.protocolVersion(), r.status(), r.headers().copy());
     }
 }

@@ -1,13 +1,16 @@
 package org.microproxy.cache;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaders;
@@ -46,7 +49,7 @@ public final class CachedResponse {
     public CachedResponse(String key, Map<String, String> vary, int status, String reason, HttpHeaders headers,
             byte[] body, long requestTime, long responseTime) {
         this.key = Objects.requireNonNull(key);
-        this.vary = java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(vary));
+        this.vary = Collections.unmodifiableMap(new TreeMap<>(vary));
         this.status = status;
         this.reason = Objects.requireNonNull(reason);
         this.headers = headers.copy();
@@ -198,7 +201,7 @@ public final class CachedResponse {
     }
 
     static String formatDate(long millis) {
-        return DateTimeFormatter.RFC_1123_DATE_TIME.format(Instant.ofEpochMilli(millis).atZone(java.time.ZoneOffset.UTC));
+        return DateTimeFormatter.RFC_1123_DATE_TIME.format(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC));
     }
 
     @Override

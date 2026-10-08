@@ -5,15 +5,22 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.ServiceLoader;
+import org.microproxy.cache.DiskCacheStore;
+import org.microproxy.cache.HttpCache;
+import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.LogFormat;
+import org.microproxy.simd.Simd;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 import org.microproxy.tls.SslContexts;
+import org.microproxy.warc.WarcRecorder;
 
 /** Command-line entry point. Run with {@code --help} for options. */
 public final class Launcher {
@@ -87,7 +94,7 @@ public final class Launcher {
         long cacheMemoryMb = 0;
         boolean offline = false;
         Path warcDir = null;
-        List<AutoCloseable> resources = new java.util.ArrayList<>();
+        List<AutoCloseable> resources = new ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
@@ -128,7 +135,7 @@ public final class Launcher {
                     dnssecResolver = value(queue, arg);
                 }
                 case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(
-                        LogFormat.valueOf(value(queue, arg).toUpperCase(java.util.Locale.ROOT))));
+                        LogFormat.valueOf(value(queue, arg).toUpperCase(Locale.ROOT))));
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
                 case "--cache-dir" -> cacheDir = Path.of(value(queue, arg));
                 case "--cache-size" -> cacheSizeMb = Long.parseLong(value(queue, arg));
@@ -168,15 +175,15 @@ public final class Launcher {
         }
         if (warcDir != null) {
             // First among the filters, so it records messages before others change them.
-            org.microproxy.warc.WarcRecorder recorder = org.microproxy.warc.WarcRecorder.builder(warcDir).build();
-            bootstrap.withFiltersSource(org.microproxy.HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
+            WarcRecorder recorder = WarcRecorder.builder(warcDir).build();
+            bootstrap.withFiltersSource(HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
             resources.add(recorder);
             console.println("Recording WARC files in " + warcDir.toAbsolutePath());
         }
         if (cacheDir != null || cacheMemoryMb > 0) {
-            org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(offline);
-            cache.store(cacheDir != null ? new org.microproxy.cache.DiskCacheStore(cacheDir, cacheSizeMb << 20)
-                    : new org.microproxy.cache.MemoryCacheStore(cacheMemoryMb << 20));
+            HttpCache.Builder cache = HttpCache.builder().offline(offline);
+            cache.store(cacheDir != null ? new DiskCacheStore(cacheDir, cacheSizeMb << 20)
+                    : new MemoryCacheStore(cacheMemoryMb << 20));
             bootstrap.withHttpCache(cache.build());
             console.println("Caching " + (cacheDir != null ? "in " + cacheDir.toAbsolutePath() : "in memory")
                     + (offline ? " (offline: answering only from the cache)" : ""));
@@ -190,8 +197,8 @@ public final class Launcher {
         // Closed after the server's connections finish, so in-flight records are written.
         resources.forEach(server::closeOnStop);
         console.println("MicroProxy listening on " + server.getListenAddress());
-        if (org.microproxy.simd.Simd.isVectorized()) {
-            console.println("SIMD: " + org.microproxy.simd.Simd.ops().description());
+        if (Simd.isVectorized()) {
+            console.println("SIMD: " + Simd.ops().description());
         }
         return server;
     }

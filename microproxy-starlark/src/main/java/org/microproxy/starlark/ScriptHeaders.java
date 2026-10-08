@@ -1,6 +1,7 @@
 package org.microproxy.starlark;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.microproxy.http.HttpHeaders;
@@ -64,7 +65,7 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
     }
 
     @Override
-    public java.util.Iterator<String> iterator() {
+    public Iterator<String> iterator() {
         return List.copyOf(headers.names()).iterator();
     }
 

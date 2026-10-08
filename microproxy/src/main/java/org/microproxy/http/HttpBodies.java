@@ -1,21 +1,23 @@
 package org.microproxy.http;
 
+import io.github.mahmoudimus.zstd.ZstdInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
-import java.nio.charset.UnsupportedCharsetException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
+import org.microproxy.thirdparty.brotli.BrotliInputStream;
 
 /**
  * Reads and rewrites the bodies of buffered messages ({@link FullHttpMessage}) in filters,
@@ -47,12 +49,12 @@ public final class HttpBodies {
      * Content codings this class can decode: {@code gzip}, {@code x-gzip}, {@code deflate} and
      * {@code br}, plus {@code zstd} when the {@code zstd-decoder} module is on the class path.
      */
-    public static final java.util.Set<String> DECODABLE = ZstdSupport.AVAILABLE
-            ? java.util.Set.of("gzip", "x-gzip", "deflate", "br", "zstd")
-            : java.util.Set.of("gzip", "x-gzip", "deflate", "br");
+    public static final Set<String> DECODABLE = ZstdSupport.AVAILABLE
+            ? Set.of("gzip", "x-gzip", "deflate", "br", "zstd")
+            : Set.of("gzip", "x-gzip", "deflate", "br");
 
     /** Codings that can be decoded but not produced; rewritten bodies use gzip instead. */
-    private static final java.util.Set<String> DECODE_ONLY = java.util.Set.of("br", "zstd");
+    private static final Set<String> DECODE_ONLY = Set.of("br", "zstd");
 
     private HttpBodies() {}
 
@@ -127,7 +129,7 @@ public final class HttpBodies {
     public static void restrictAcceptEncoding(HttpRequest request) {
         List<String> offered = request.headers().getAllElements(HttpHeaderNames.ACCEPT_ENCODING);
         if (offered.isEmpty()) return;
-        List<String> kept = new java.util.ArrayList<>();
+        List<String> kept = new ArrayList<>();
         for (String element : offered) {
             int semi = element.indexOf(';');
             String coding = (semi >= 0 ? element.substring(0, semi) : element).strip().toLowerCase(Locale.ROOT);
@@ -162,11 +164,7 @@ public final class HttpBodies {
             if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
                 value = value.substring(1, value.length() - 1);
             }
-            try {
-                return Charset.forName(value);
-            } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
-                return fallback;
-            }
+            return Charset.forName(value, fallback);
         }
         return fallback;
     }
@@ -194,7 +192,7 @@ public final class HttpBodies {
             case "deflate" -> inflate(data, max);
             case "br" -> {
                 try {
-                    yield readCapped(new org.microproxy.thirdparty.brotli.BrotliInputStream(new ByteArrayInputStream(data)), max);
+                    yield readCapped(new BrotliInputStream(new ByteArrayInputStream(data)), max);
                 } catch (RuntimeException e) {
                     throw new IOException("corrupt brotli data", e);
                 }
@@ -230,7 +228,7 @@ public final class HttpBodies {
         /** Only loaded once the module is known to be present. */
         private static final class Decoder {
             static InputStream open(InputStream in) {
-                return new io.github.mahmoudimus.zstd.ZstdInputStream(in);
+                return new ZstdInputStream(in);
             }
         }
     }

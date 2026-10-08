@@ -10,14 +10,18 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Deque;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.HostResolver;
+import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
@@ -85,12 +89,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.mitmManager = b.mitmManager;
         // The cache runs last, so other filters see requests before it answers them.
         this.filtersSource = b.httpCache == null ? b.filtersSource
-                : org.microproxy.HttpFiltersChain.of(b.filtersSource, b.httpCache);
+                : HttpFiltersChain.of(b.filtersSource, b.httpCache);
         this.serverResolver = b.serverResolver;
         this.localAddress = b.localAddress;
         this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);
         this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
-        this.proxyAlias = b.proxyAlias != null ? b.proxyAlias : ProxyUtils.getHostName();
+        this.proxyAlias = Objects.requireNonNullElseGet(b.proxyAlias, ProxyUtils::getHostName);
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
@@ -211,11 +215,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         shutdown(false);
     }
 
-    private final java.util.Deque<AutoCloseable> closeOnStop = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final Deque<AutoCloseable> closeOnStop = new ConcurrentLinkedDeque<>();
 
     @Override
     public void closeOnStop(AutoCloseable resource) {
-        closeOnStop.push(java.util.Objects.requireNonNull(resource));
+        closeOnStop.push(Objects.requireNonNull(resource));
     }
 
     private void shutdown(boolean graceful) {

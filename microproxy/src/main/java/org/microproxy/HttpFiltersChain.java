@@ -47,7 +47,7 @@ public final class HttpFiltersChain implements HttpFiltersSource {
             }
         }
         if (flat.isEmpty()) return new HttpFiltersSourceAdapter();
-        if (flat.size() == 1) return flat.get(0);
+        if (flat.size() == 1) return flat.getFirst();
         return new HttpFiltersChain(List.copyOf(flat));
     }
 
@@ -65,7 +65,7 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
         return switch (filters.size()) {
             case 0 -> null;
-            case 1 -> filters.get(0);
+            case 1 -> filters.getFirst();
             default -> new Chained(List.copyOf(filters));
         };
     }

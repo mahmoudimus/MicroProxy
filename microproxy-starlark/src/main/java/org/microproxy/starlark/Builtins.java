@@ -32,6 +32,7 @@ import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkBytes;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
 import org.microproxy.thirdparty.starlark.eval.StarlarkFloat;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkList;
@@ -237,7 +238,7 @@ final class Builtins {
         public String sub(String pattern, Object repl, String string, StarlarkInt count, StarlarkThread thread)
                 throws EvalException, InterruptedException {
             int limit = count.toInt("count");
-            if (!(repl instanceof String) && !(repl instanceof org.microproxy.thirdparty.starlark.eval.StarlarkCallable)) {
+            if (!(repl instanceof String) && !(repl instanceof StarlarkCallable)) {
                 throw Starlark.errorf("repl must be a string or function, not %s", Starlark.type(repl));
             }
             return bounded(() -> {
@@ -565,6 +566,7 @@ final class Builtins {
 
         private static final String UNRESERVED =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+        private static final HexFormat HEX_UPPER = HexFormat.of().withUpperCase();
 
         @StarlarkMethod(name = "quote", doc = "Percent-encodes s (UTF-8), leaving unreserved characters and safe alone.",
                 parameters = {@Param(name = "s"), @Param(name = "safe", named = true, defaultValue = "'/'")})
@@ -575,7 +577,7 @@ final class Builtins {
                 if (c < 0x80 && (UNRESERVED.indexOf(c) >= 0 || safe.indexOf(c) >= 0)) {
                     out.append(c);
                 } else {
-                    out.append('%').append(HexFormat.of().withUpperCase().toHexDigits(b));
+                    out.append('%').append(HEX_UPPER.toHexDigits(b));
                 }
             }
             return out.toString();

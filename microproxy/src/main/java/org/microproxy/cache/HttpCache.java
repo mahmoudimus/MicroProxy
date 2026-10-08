@@ -100,7 +100,7 @@ public final class HttpCache implements HttpFiltersSource {
     private final AtomicLong staleServed = new AtomicLong();
 
     private HttpCache(Builder b) {
-        this.store = b.store != null ? b.store : new MemoryCacheStore(64L << 20);
+        this.store = Objects.requireNonNullElseGet(b.store, () -> new MemoryCacheStore(64L << 20));
         this.maxEntrySize = b.maxEntrySize;
         this.shared = b.shared;
         this.offline = b.offline;

@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -217,7 +218,7 @@ public final class ProxyUtils {
         CachedDate cached = lastDate;
         if (cached == null || cached.second() != second) {
             cached = new CachedDate(second, HTTP_DATE.format(
-                    java.time.Instant.ofEpochSecond(second).atZone(ZoneOffset.UTC)));
+                    Instant.ofEpochSecond(second).atZone(ZoneOffset.UTC)));
             lastDate = cached;
         }
         return cached.text();

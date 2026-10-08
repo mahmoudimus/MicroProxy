@@ -2,6 +2,7 @@ package org.microproxy;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import org.microproxy.cache.HttpCache;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -49,7 +50,7 @@ public interface HttpProxyServerBootstrap {
      * Caches responses ({@link org.microproxy.cache.HttpCache}). The cache always runs after the
      * filters sources, whichever order they were configured in.
      */
-    HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache);
+    HttpProxyServerBootstrap withHttpCache(HttpCache cache);
 
     /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
     HttpProxyServerBootstrap withTransparent(boolean transparent);

@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +38,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     private static final DateTimeFormatter HAPROXY_DATE = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss.SSS", Locale.US);
     private static final DateTimeFormatter ISO_8601 = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
     private static final DateTimeFormatter W3C_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US);
+    private static final HexFormat HEX = HexFormat.of();
 
     // @value-candidate: becomes a value class in the valhalla build profile
     private record TimedRequest(HttpRequest request, long startMillis) {}
@@ -205,7 +207,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
                 case '\t' -> sb.append("\\t");
                 default -> {
                     if (c < 0x20) {
-                        sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+                        sb.append("\\u").append(HEX.toHexDigits(c));
                     } else {
                         sb.append(c);
                     }

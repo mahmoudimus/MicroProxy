@@ -2,6 +2,7 @@ package org.microproxy.http;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import org.microproxy.simd.Simd;
 
 /**
  * A WebSocket frame (RFC 6455 section 5.2). Frames the proxy relays after an upgrade are shown to
@@ -146,7 +147,7 @@ public final class WebSocketFrame {
                 int k = header.length - 4;
                 int key = (header[k] & 0xff) << 24 | (header[k + 1] & 0xff) << 16
                         | (header[k + 2] & 0xff) << 8 | (header[k + 3] & 0xff);
-                org.microproxy.simd.Simd.xorMask(out, 0, out.length, key);
+                Simd.xorMask(out, 0, out.length, key);
             }
             unmasked = out;
         }
@@ -176,7 +177,7 @@ public final class WebSocketFrame {
             head[k + 1] = (byte) (key >> 16);
             head[k + 2] = (byte) (key >> 8);
             head[k + 3] = (byte) key;
-            org.microproxy.simd.Simd.xorMask(body, 0, body.length, key);
+            Simd.xorMask(body, 0, body.length, key);
         }
         byte[] out = new byte[head.length + body.length];
         System.arraycopy(head, 0, out, 0, head.length);

@@ -5,10 +5,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * An ordered, case-insensitive multimap of header fields. The original spelling and order of
@@ -135,7 +137,7 @@ public final class HttpHeaders implements Iterable<Map.Entry<String, String>> {
     }
 
     /** Removes every field whose name matches {@code namePredicate}. */
-    public void removeIf(java.util.function.Predicate<String> namePredicate) {
+    public void removeIf(Predicate<String> namePredicate) {
         for (int i = names.size() - 1; i >= 0; i--) {
             if (namePredicate.test(names.get(i))) {
                 names.remove(i);
@@ -200,7 +202,7 @@ public final class HttpHeaders implements Iterable<Map.Entry<String, String>> {
         for (String n : names) {
             seen.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
         }
-        return Collections.unmodifiableSet(new java.util.LinkedHashSet<>(seen.values()));
+        return Collections.unmodifiableSet(new LinkedHashSet<>(seen.values()));
     }
 
     /** All fields as (name, value) pairs in order. */

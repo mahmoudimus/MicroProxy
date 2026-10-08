@@ -3,9 +3,11 @@ package org.microproxy.impl;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.microproxy.http.HttpResponseStatus;
+import org.microproxy.simd.Simd;
 
 /**
  * A buffered reader over a blocking {@link InputStream} with bounded line reading. Unlike {@link
@@ -113,7 +115,7 @@ final class ByteReader {
                 throw new EOFException("connection closed mid-line");
             }
             int start = pos;
-            int end = org.microproxy.simd.Simd.indexOf(buf, pos, limit, (byte) '\n');
+            int end = Simd.indexOf(buf, pos, limit, (byte) '\n');
             if (end >= 0) {
                 pos = end + 1;
                 length += end - start;
@@ -148,7 +150,7 @@ final class ByteReader {
         try {
             fill();
             return true;
-        } catch (java.net.SocketTimeoutException e) {
+        } catch (SocketTimeoutException e) {
             return false;
         }
     }

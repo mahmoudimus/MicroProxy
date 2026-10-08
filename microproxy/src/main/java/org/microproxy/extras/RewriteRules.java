@@ -16,6 +16,7 @@ import org.microproxy.HttpFiltersSource;
 import org.microproxy.http.FullHttpMessage;
 import org.microproxy.http.HttpBodies;
 import org.microproxy.http.HttpHeaderNames;
+import org.microproxy.http.HttpHeaders;
 import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
@@ -222,7 +223,7 @@ public final class RewriteRules implements HttpFiltersSource {
 
         @FunctionalInterface
         private interface HeaderEdit {
-            void apply(org.microproxy.http.HttpHeaders headers);
+            void apply(HttpHeaders headers);
         }
     }
 

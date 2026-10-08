@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -106,7 +107,7 @@ final class DnssecValidator {
                 RRset alias = cname != null ? cname : dname;
                 secure &= validate(alias, message) == Security.SECURE;
                 ttl = Math.min(ttl, alias.minTtl());
-                current = cname != null ? cname.records().get(0).target() : substitute(current, dname);
+                current = cname != null ? cname.records().getFirst().target() : substitute(current, dname);
                 if (!seen.add(current) || seen.size() > MAX_CHAIN) {
                     throw new IOException("alias chain too long or looping at " + current);
                 }
@@ -136,7 +137,7 @@ final class DnssecValidator {
 
     /** RFC 6672: replaces the DNAME owner suffix of {@code name} with the DNAME target. */
     private static DnsName substitute(DnsName name, RRset dname) {
-        DnsName target = dname.records().get(0).target();
+        DnsName target = dname.records().getFirst().target();
         int keep = name.labelCount() - dname.name().labelCount();
         byte[][] labels = new byte[keep + target.labelCount()][];
         for (int i = 0; i < keep; i++) labels[i] = name.label(i);
@@ -267,11 +268,11 @@ final class DnssecValidator {
         DnsName nextCloser = owner.suffix(sigLabels + 1);
         for (RRset nsec : group(response.authority).values()) {
             if (nsec.type() == DnsRecord.NSEC && signedBy(nsec, keys)) {
-                DnsRecord r = nsec.records().get(0);
+                DnsRecord r = nsec.records().getFirst();
                 if (nsecCovers(r.name(), r.nsec().next(), owner)) return;
             }
             if (nsec.type() == DnsRecord.NSEC3 && signedBy(nsec, keys)) {
-                DnsRecord r = nsec.records().get(0);
+                DnsRecord r = nsec.records().getFirst();
                 DnsRecord.Nsec3 n3 = r.nsec3();
                 if (n3.hashAlgorithm() == 1 && nsec3Covers(r, DnssecCrypto.nsec3Hash(nextCloser, n3.salt(), n3.iterations()))) {
                     return;
@@ -307,7 +308,7 @@ final class DnssecValidator {
                 continue;
             }
             Cut cut = cutStatus(child, current);
-            long expires = now + Math.min(MAX_CACHE_MILLIS, Math.max(1, cut.ttlSeconds()) * 1000);
+            long expires = now + Math.clamp(cut.ttlSeconds() * 1000, 1_000L, MAX_CACHE_MILLIS);
             switch (cut.kind()) {
                 case SECURE_DELEGATION -> {
                     ZoneKeys keys = validateDnskeys(child, cut.ds().records(), cut.ttlSeconds());
@@ -452,13 +453,13 @@ final class DnssecValidator {
             }
         }
         if (!nsec3s.isEmpty()) {
-            DnsRecord.Nsec3 params = nsec3s.get(0).nsec3();
+            DnsRecord.Nsec3 params = nsec3s.getFirst().nsec3();
             if (params.hashAlgorithm() != 1) {
                 throw new DnssecValidationException("unsupported NSEC3 hash algorithm " + params.hashAlgorithm());
             }
             if (params.iterations() > MAX_NSEC3_ITERATIONS) {
                 // RFC 9276 section 3.2: validators may treat such zones as insecure.
-                return new Cut(CutKind.INSECURE_DELEGATION, null, nsec3s.get(0).ttl());
+                return new Cut(CutKind.INSECURE_DELEGATION, null, nsec3s.getFirst().ttl());
             }
             byte[] childHash = DnssecCrypto.nsec3Hash(child, params.salt(), params.iterations());
             for (DnsRecord r : nsec3s) {
@@ -563,7 +564,7 @@ final class DnssecValidator {
     }
 
     private static String nameKey(DnsName name) {
-        return name.toString().toLowerCase(java.util.Locale.ROOT) + "/";
+        return name.toString().toLowerCase(Locale.ROOT) + "/";
     }
 
     static String key(DnsName name, int type) {

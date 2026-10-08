@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.List;
 import javax.net.ssl.SSLContext;
 
 /**
@@ -154,7 +155,7 @@ public final class CertificateAuthority {
     /** A server-side SSLContext presenting a fresh certificate for {@code names}. */
     public SSLContext serverContext(String... names) {
         KeyPair keyPair = newEcKeyPair();
-        X509Certificate leaf = issue(keyPair.getPublic(), java.util.List.of(names));
+        X509Certificate leaf = issue(keyPair.getPublic(), List.of(names));
         return SslContexts.withKey(keyPair.getPrivate(), new X509Certificate[] {leaf, certificate}, null);
     }
 

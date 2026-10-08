@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -18,11 +19,13 @@ import java.net.UnknownHostException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
@@ -34,6 +37,8 @@ import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersAdapter;
+import org.microproxy.HttpFiltersChain;
+import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -52,6 +57,7 @@ import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.LastHttpContent;
+import org.microproxy.http.WebSocketFrame;
 
 /**
  * Serves one client connection on its own virtual thread.
@@ -75,9 +81,9 @@ final class ClientConnection implements Runnable {
         @Override
         protected Boolean computeValue(Class<?> type) {
             try {
-                return type.getMethod("webSocketFrameReceived", org.microproxy.http.WebSocketFrame.class, boolean.class)
+                return type.getMethod("webSocketFrameReceived", WebSocketFrame.class, boolean.class)
                                 .getDeclaringClass() != HttpFilters.class
-                        || type.getMethod("webSocketFrameReceived", java.util.function.Supplier.class, boolean.class)
+                        || type.getMethod("webSocketFrameReceived", Supplier.class, boolean.class)
                                 .getDeclaringClass() != HttpFilters.class;
             } catch (NoSuchMethodException e) {
                 return false;
@@ -90,7 +96,7 @@ final class ClientConnection implements Runnable {
         @Override
         protected Boolean computeValue(Class<?> type) {
             try {
-                return type.getMethod("filterWebSocketFrame", org.microproxy.http.WebSocketFrame.class, boolean.class)
+                return type.getMethod("filterWebSocketFrame", WebSocketFrame.class, boolean.class)
                         .getDeclaringClass() != HttpFilters.class;
             } catch (NoSuchMethodException e) {
                 return false;
@@ -125,21 +131,21 @@ final class ClientConnection implements Runnable {
 
     /** Whether any of {@code filters} (looking inside chains) is of a class {@code observes} flags. */
     private static boolean observes(HttpFilters filters, ClassValue<Boolean> observes) {
-        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+        if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(f -> observes(f, observes));
         }
         return observes.get(filters.getClass());
     }
 
     private static boolean observesFrames(HttpFilters filters) {
-        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+        if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(ClientConnection::observesFrames);
         }
         return OBSERVES_FRAMES.get(filters.getClass());
     }
 
     private static boolean rewritesFrames(HttpFilters filters) {
-        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+        if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(ClientConnection::rewritesFrames);
         }
         return REWRITES_FRAMES.get(filters.getClass());
@@ -376,7 +382,7 @@ final class ClientConnection implements Runnable {
         }
 
         // With no filters configured, skip the request copy the filters API hands them.
-        HttpFilters filters = server.filtersSource.getClass() == org.microproxy.HttpFiltersSourceAdapter.class ? NOOP
+        HttpFilters filters = server.filtersSource.getClass() == HttpFiltersSourceAdapter.class ? NOOP
                 : server.filtersSource.filterRequest(copy(request), flowContext);
         ex.filters = filters != null ? filters : NOOP;
 
@@ -441,7 +447,7 @@ final class ClientConnection implements Runnable {
             if (route == null) {
                 return respondDirect(ex, badGateway(ex), false);
             }
-            nextHopOrigin = isNextHopOrigin(route.get(0), mode);
+            nextHopOrigin = isNextHopOrigin(route.getFirst(), mode);
         }
 
         modifyRequestHeadersToReflectProxying(ex.request, nextHopOrigin, webSocket);
@@ -638,7 +644,7 @@ final class ClientConnection implements Runnable {
                 throw new ServerFailure("read from server failed", e);
             }
             if (response == null) {
-                IOException eof = new java.io.EOFException("server closed connection");
+                IOException eof = new EOFException("server closed connection");
                 if (retryAllowed) throw new StaleConnection(eof);
                 throw new ServerFailure("server closed connection", eof);
             }
@@ -676,7 +682,7 @@ final class ClientConnection implements Runnable {
 
         HttpCodec.BodyReader body = switching ? null : new HttpCodec.BodyReader(conn.in, framing, server.limits);
         HttpObject head = response;
-        java.util.ArrayDeque<HttpContent> prefetched = new java.util.ArrayDeque<>();
+        ArrayDeque<HttpContent> prefetched = new ArrayDeque<>();
         int maxBuffer = server.filtersSource.getMaximumResponseBufferSizeInBytes();
         if (maxBuffer > 0 && !switching) {
             head = aggregateResponse(response, framing, body, maxBuffer, request.method(), null);
@@ -1022,7 +1028,7 @@ final class ClientConnection implements Runnable {
     private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
         String hostKey = mode + "|" + hostAndPort;
-        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.get(0)), hostKey,
+        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()), hostKey,
                 Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
             LOG.log(Level.DEBUG, "reusing pooled {0}", conn);
@@ -1152,7 +1158,7 @@ final class ClientConnection implements Runnable {
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
 
             ServerConnection[] holder = new ServerConnection[1];
-            java.util.function.Supplier<FullFlowContext> currentContext =
+            Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
             ByteReader reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
             OutputStream output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
@@ -1205,7 +1211,7 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    private InputStream serverInput(Socket s, java.util.function.Supplier<FullFlowContext> serverContext)
+    private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext)
             throws IOException {
         InputStream is = server.readLimiter.wrap(s.getInputStream());
         if (!server.trackers.isEmpty()) {
@@ -1215,7 +1221,7 @@ final class ClientConnection implements Runnable {
         return is;
     }
 
-    private OutputStream serverOutput(Socket s, java.util.function.Supplier<FullFlowContext> serverContext)
+    private OutputStream serverOutput(Socket s, Supplier<FullFlowContext> serverContext)
             throws IOException {
         OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
         if (!server.trackers.isEmpty()) {
@@ -1377,7 +1383,7 @@ final class ClientConnection implements Runnable {
      * the pieces read so far into {@code overflow} so the response can still be streamed.
      */
     private FullHttpResponse aggregateResponse(HttpResponse response, Framing framing, HttpCodec.BodyReader body,
-            int maxBytes, HttpMethod requestMethod, java.util.Deque<HttpContent> overflow) throws IOException {
+            int maxBytes, HttpMethod requestMethod, Deque<HttpContent> overflow) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         List<HttpContent> pieces = overflow == null ? null : new ArrayList<>();
         HttpHeaders trailers = null;
