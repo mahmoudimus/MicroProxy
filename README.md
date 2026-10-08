@@ -7,7 +7,15 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges.
-- **Size:** about 9k lines of main code (including Javadoc and a DNSSEC resolver), compared with LittleProxy's 11k lines plus Netty and dnssec4j.
+- **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
+  Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
+- **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
+  [Starlark](https://github.com/bazelbuild/starlark) script (see [Scripting](#scripting-with-starlark)).
+
+| Module | Artifact | Contents |
+|---|---|---|
+| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no dependencies |
+| `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
 ```java
 HttpProxyServer proxy = MicroProxy.bootstrap()
@@ -56,10 +64,13 @@ pins its carrier thread:
 
 ```bash
 mvn package
-java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
-java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   # intercept HTTPS
-java -jar target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
-java -jar target/microproxy-0.1.0-SNAPSHOT.jar --help
+java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
+java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   # intercept HTTPS
+java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
+java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
+
+# The same launcher with scripting built in (one self-contained jar):
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
 ```
 
 `--mitm` creates (or reuses) a CA in `microproxy-ca.p12` and writes its certificate to
@@ -107,7 +118,8 @@ Command-line flags override values from the file.
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
-| Body rewriting | `HttpBodies` decodes and re-encodes gzip/deflate bodies with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
+| Body rewriting | `HttpBodies` decodes gzip, deflate and Brotli bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
+| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | PROXY protocol | accept v1 and v2, send v1 |
@@ -146,15 +158,23 @@ context, or as a chained proxy's.
 
 `org.microproxy.http.HttpBodies` handles the parts of body editing that are easy to get wrong:
 
-- **Decoding:** gzip, x-gzip and deflate (zlib-wrapped or raw), capped at 64 MiB by default to
-  defuse compression bombs. `canDecode` reports codings the JDK can't handle, such as `br`.
+- **Decoding:** gzip, x-gzip, deflate (zlib-wrapped or raw) and `br` (Brotli, through a vendored
+  copy of Google's pure-Java decoder), capped at 64 MiB by default to defuse compression bombs.
+  `canDecode` reports codings that can't be decoded, such as `zstd`.
+- **Negotiation:** `restrictAcceptEncoding(request)` trims a request's `Accept-Encoding` to the
+  codings above (keeping q-values), so the server never picks one the proxy can't read.
+  `RewriteRules` and scripts that define `on_response` do this automatically.
 - **Charset:** taken from the *response's* `Content-Type`, defaulting to UTF-8.
-- **Rewriting:** the original coding is re-applied, and `ETag`/`Content-MD5` are dropped because
-  they no longer match. `Content-Length` is fixed when the message is written.
+- **Rewriting:** the original coding is re-applied, except that Brotli is re-encoded as gzip
+  because the JDK has no Brotli encoder. `ETag`/`Content-MD5` are dropped because they no longer
+  match. `Content-Length` is fixed when the message is written.
 
-A filter can also ask for one response to be buffered after seeing its head, with
-`HttpFilters.responseBufferSizeInBytes(response)`. A body larger than requested simply streams
-through.
+Filters can also ask to buffer one message at a time, after seeing its head:
+
+- `HttpFilters.responseBufferSizeInBytes(response)`: a body larger than requested simply streams
+  through.
+- `HttpFilters.requestBufferSizeInBytes(request)`: a body larger than requested is answered with
+  `413`, since part of it has already been read.
 
 `org.microproxy.extras.RewriteRules` builds on both. It is a filters source with an ordered list
 of rules. Each rule matches a URL regex (absolute form, `https://` inside intercepted sessions)
@@ -169,6 +189,97 @@ bootstrap.withFiltersSource(RewriteRules.builder()
 ```
 
 Only matching text responses are buffered; everything else streams.
+
+### Scripting with Starlark
+
+The optional `microproxy-starlark` module runs proxy logic written in
+[Starlark](https://github.com/bazelbuild/starlark/blob/master/spec.md), the Python dialect Bazel
+uses for configuration. Scripts are sandboxed: they have no file, network or process access,
+cannot change global state after loading, and each hook call is limited in steps and wall-clock
+time (10 million steps and 5 seconds by default). One loaded script is shared by every
+connection.
+
+```python
+# proxy.star
+BLOCKED = ["ads.example.com", "tracker.example.net"]
+
+def on_request(req, ctx):
+    if req.host in BLOCKED:
+        return response(403, "blocked\n")
+    req.headers["X-Client"] = ctx.client_ip
+    ctx.vars["started"] = time.monotonic()
+
+def on_response(req, res, ctx):
+    res.headers["X-Elapsed-Ms"] = str(int((time.monotonic() - ctx.vars["started"]) * 1000))
+    if res.text != None and "Example Domain" in res.text:
+        res.text = res.text.replace("Example Domain", "Scripted Domain")
+
+def upstream(req, ctx):
+    if req.host.endswith(".onion"):
+        return "socks5://127.0.0.1:9050"
+    return None  # the default route (--upstream-proxy, or direct)
+
+def allow_mitm(req, ctx):
+    return not req.host.endswith(".bank.example")
+```
+
+```bash
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --mitm --script proxy.star
+```
+
+Or from Java, install one `ScriptedProxy` as both the filters source and the chained proxy
+manager:
+
+```java
+ScriptedProxy script = ScriptedProxy.builder(Path.of("proxy.star")).build();
+MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).start();
+```
+
+**Hooks.** All are optional.
+
+| Hook | Called | Returns |
+|---|---|---|
+| `on_request(req, ctx)` | for every request, including `CONNECT` and requests inside intercepted HTTPS | `None` to continue, or `response(...)` to answer without contacting the server |
+| `on_response(req, res, ctx)` | for every response head (the whole response when buffered) | `None`, or a new `response(...)` to replace it |
+| `upstream(req, ctx)` | when a server connection is needed | `None` for the default route, `"DIRECT"`, a proxy URL (`http://`, `https://`, `socks4://`, `socks5://`), or a list to try in order |
+| `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
+| `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
+| `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
+
+**Objects.**
+
+- `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
+  `headers`, `body`, `text`.
+- `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`.
+- `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
+  streamed rather than buffered. Assigning either re-encodes the body.
+- `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
+  `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
+- `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
+  and `vars`, a dict that lives for one request so `on_request` can pass values to
+  `on_response`.
+
+**Built-ins.**
+
+- From Starlark: everything in the language spec, including `json.encode`/`json.decode`.
+- `response(status=200, body="", headers=None, content_type=None)`.
+- `re`: `match`, `search`, `fullmatch`, `findall`, `sub` (template or function), `split`,
+  `escape`. Patterns use java.util.regex syntax plus Python's `(?P<name>...)`, and are
+  abandoned at the call's deadline.
+- `base64.encode`/`decode` (`urlsafe=True`), `codecs.encode`/`decode`.
+- `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex).
+- `url.quote`/`unquote`/`parse_query`/`encode_query`.
+- `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
+
+**Errors and reloading.**
+
+- A hook that fails is logged with its Starlark stack trace, and the client gets a bare `500`.
+  A failing `allow_mitm` declines interception; a failing `upstream` gives `502`.
+- A script file is re-read when it changes (checked at most once a second). An edit that does
+  not compile is logged and the previous version stays in use. `--script-no-reload` turns this
+  off.
+- As in Bazel, `if` and `for` statements must be inside functions, and global values are frozen
+  once the file has loaded.
 
 ### Shared server connection pool
 
@@ -277,13 +388,18 @@ Not ported, because they only exist to manage Netty:
 ## Building and testing
 
 ```bash
-mvn test
+mvn verify                      # both modules
+mvn -pl microproxy test         # just the core
 ```
+
+`microproxy-starlark` reuses the core's test helpers through its `tests` jar.
 
 The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpserver` as origin
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
 CONNECT, MITM, chaining (HTTP, TLS, SOCKS4/5, fallback), timeouts, PROXY protocol, throttling,
-lifecycle, the codec, certificate generation, the shared pool, WebSocket frames and access logs.
+lifecycle, the codec, certificate generation, the shared pool, WebSocket frames, access logs,
+content codings (Brotli against the upstream test vectors) and the scripting hooks, sandbox
+limits and reloading.
 
 DNSSEC is tested in three ways, all offline:
 
@@ -300,6 +416,14 @@ mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.reco
 ```
 
 ## Acknowledgements
+
+Vendored code, with licenses and changes listed in [NOTICE](NOTICE) and the `README.md` next to
+each copy:
+
+- Google's [Brotli](https://github.com/google/brotli) decoder (MIT), in the core.
+- The Java [Starlark](https://github.com/bazelbuild/bazel) interpreter from Bazel, as extended by
+  [starlarky](https://github.com/verygoodsecurity/starlarky) (Apache-2.0), in
+  `microproxy-starlark`.
 
 Besides LittleProxy, these projects contributed ideas only; no code was copied:
 
