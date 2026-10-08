@@ -4,7 +4,14 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
@@ -27,7 +34,8 @@ final class Tls {
             String host,
             int port,
             boolean verifyHostname,
-            Consumer<SSLSocket> configurer)
+            Consumer<SSLSocket> configurer,
+            Duration deadline)
             throws IOException {
         SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket(plain, host, port, true);
         try {
@@ -47,7 +55,7 @@ final class Tls {
             if (configurer != null) {
                 configurer.accept(socket);
             }
-            socket.startHandshake();
+            handshake(socket, plain, deadline);
             return socket;
         } catch (IOException | RuntimeException e) {
             closeQuietly(socket);
@@ -65,7 +73,8 @@ final class Tls {
             Socket plain,
             byte[] consumed,
             boolean needClientAuth,
-            Consumer<SSLSocket> configurer)
+            Consumer<SSLSocket> configurer,
+            Duration deadline)
             throws IOException {
         SSLSocket socket =
                 (SSLSocket) context.getSocketFactory()
@@ -78,7 +87,7 @@ final class Tls {
             if (configurer != null) {
                 configurer.accept(socket);
             }
-            socket.startHandshake();
+            handshake(socket, plain, deadline);
             return socket;
         } catch (IOException | RuntimeException e) {
             closeQuietly(socket);
@@ -93,6 +102,46 @@ final class Tls {
             if (c != '.' && (c < '0' || c > '9')) return false;
         }
         return true;
+    }
+
+    /** Closes sockets whose handshake overran its deadline. One daemon thread serves the whole JVM. */
+    private static final ScheduledExecutorService DEADLINES = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "microproxy-tls-deadline");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /**
+     * Runs the handshake, closing the underlying socket if it has not finished within {@code
+     * deadline}. The read timeout alone does not bound a handshake: a peer sending a byte now and
+     * then keeps it alive indefinitely.
+     */
+    private static void handshake(SSLSocket socket, Socket plain, Duration deadline) throws IOException {
+        if (deadline == null || deadline.isZero() || deadline.isNegative()) {
+            socket.startHandshake();
+            return;
+        }
+        AtomicBoolean expired = new AtomicBoolean();
+        // Closing the plain socket, not the SSLSocket, avoids contending for the handshake's locks.
+        ScheduledFuture<?> timer = DEADLINES.schedule(() -> {
+            expired.set(true);
+            closeQuietly(plain);
+        }, deadline.toMillis(), TimeUnit.MILLISECONDS);
+        try {
+            socket.startHandshake();
+        } catch (IOException e) {
+            if (expired.get()) throw timedOut(deadline, e);
+            throw e;
+        } finally {
+            timer.cancel(false);
+        }
+        if (expired.get()) throw timedOut(deadline, null);
+    }
+
+    private static SocketTimeoutException timedOut(Duration deadline, Throwable cause) {
+        SocketTimeoutException e = new SocketTimeoutException("TLS handshake not finished within " + deadline.toMillis() + " ms");
+        if (cause != null) e.initCause(cause);
+        return e;
     }
 
     static void closeQuietly(Closeable c) {

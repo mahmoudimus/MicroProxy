@@ -51,6 +51,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     boolean transparent;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
+    Duration tlsHandshakeTimeout = Duration.ofSeconds(10);
     HostResolver serverResolver = new DefaultHostResolver();
     final List<ActivityTracker> activityTrackers = new ArrayList<>();
     long readThrottleBytesPerSecond;
@@ -90,6 +91,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.transparent = transparent;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
+        c.tlsHandshakeTimeout = tlsHandshakeTimeout;
         c.serverResolver = serverResolver;
         c.activityTrackers.addAll(activityTrackers);
         c.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
@@ -139,6 +141,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("connect_timeout")) {
             withConnectTimeout(Integer.parseInt(p.getProperty("connect_timeout").strip()));
+        }
+        if (p.containsKey("tls_handshake_timeout")) {
+            withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
         }
         if (p.containsKey("max_initial_line_length")) {
             withMaxInitialLineLength(Integer.parseInt(p.getProperty("max_initial_line_length").strip()));
@@ -347,6 +352,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs) {
         this.connectTimeoutMs = connectTimeoutMs;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout) {
+        if (timeout.isNegative()) throw new IllegalArgumentException("negative TLS handshake timeout");
+        this.tlsHandshakeTimeout = timeout;
         return this;
     }
 

@@ -318,7 +318,8 @@ final class ClientConnection implements Runnable {
                 server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
                 SSLSocket tls = Tls.serverHandshake(
                         server.sslContextSource.getSslContext(), rawSocket, in.drainBuffered(),
-                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false));
+                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false),
+                        server.tlsHandshakeTimeout);
                 sslSession = tls.getSession();
                 attachClientStreams(tls);
                 SSLSession session = sslSession;
@@ -1042,7 +1043,8 @@ final class ClientConnection implements Runnable {
         SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
         SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
         server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
-        SSLSocket tls = Tls.serverHandshake(clientContext, socket, in.drainBuffered(), false, null);
+        SSLSocket tls = Tls.serverHandshake(clientContext, socket, in.drainBuffered(), false, null,
+                server.tlsHandshakeTimeout);
         sslSession = tls.getSession();
         attachClientStreams(tls);
         SSLSession session = sslSession;
@@ -1216,7 +1218,7 @@ final class ClientConnection implements Runnable {
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
                 active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
-                        s -> proxy.configure(s, true));
+                        s -> proxy.configure(s, true), server.tlsHandshakeTimeout);
             }
             ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
@@ -1265,7 +1267,7 @@ final class ClientConnection implements Runnable {
                 SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
                 try {
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                            server.mitmManager::configureServerSocket);
+                            server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout);
                 } catch (SSLException e) {
                     if (NotTlsServer.isCause(e)) throw new NotTlsServer(hostAndPort, e);
                     throw e;

@@ -62,6 +62,13 @@ public interface HttpProxyServerBootstrap {
     /** Connect timeout for outbound connections in milliseconds. */
     HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs);
 
+    /**
+     * The longest a TLS handshake may take, with clients and with servers (default 10 seconds;
+     * zero for no limit). The idle timeout alone does not bound it, since it restarts with every
+     * byte received.
+     */
+    HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout);
+
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);

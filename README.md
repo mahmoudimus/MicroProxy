@@ -186,6 +186,7 @@ Command-line flags override values from the file.
 | `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds | `40000` |
+| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
