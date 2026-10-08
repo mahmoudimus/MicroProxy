@@ -189,6 +189,30 @@ class FilterCallbacksTest {
     }
 
     @Test
+    void failedTlsHandshakeWithChainedProxyCallsSslHandshakeStartedThenConnectionFailed() {
+        // The upstream proxy presents a certificate from one CA; the chained proxy trusts another.
+        CertificateAuthority upstreamCa = CertificateAuthority.generate("Upstream CA");
+        CertificateAuthority otherCa = CertificateAuthority.generate("Other CA");
+        SSLContext upstreamTls = upstreamCa.serverContext("127.0.0.1", "localhost");
+        upstream = MicroProxy.bootstrap().withPort(0).withSslContextSource(() -> upstreamTls).start();
+
+        RecordingFilters filters = new RecordingFilters();
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withFiltersSource(RecordingFilters.sourceOf(filters))
+                .withChainProxyManager((request, queue, details) -> queue.add(recordingChainedProxy(
+                        filters.events, upstream.getListenAddress(), otherCa.clientContext())))
+                .start();
+        HttpResponse<String> response = get(client(proxy), "http://localhost:1234/some-resource");
+        assertEquals(502, response.statusCode());
+        assertInOrder(filters.events, "clientToProxyRequest:head", "proxyToServerRequest:head",
+                "proxyToServerConnectionStarted", "proxyToServerConnectionSSLHandshakeStarted",
+                "chained.connectionFailed", "proxyToServerConnectionFailed", "proxyToClientResponse:full");
+        assertNone(filters.events, List.of("proxyToServerResolutionStarted", "proxyToServerConnectionSucceeded",
+                "chained.connectionSucceeded", "proxyToServerAllowMitm"));
+        assertNone(filters.events, SERVER_EXCHANGE);
+    }
+
+    @Test
     void mitmConnectRunsTheTlsHandshakeHooksInOrder() {
         CertificateAuthority originCa = CertificateAuthority.generate("Origin CA");
         CertificateAuthority proxyCa = CertificateAuthority.generate("Proxy CA");

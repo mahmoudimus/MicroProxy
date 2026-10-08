@@ -1203,6 +1203,7 @@ final class ClientConnection implements Runnable {
                 if (context == null) {
                     throw new ConnectException("chained proxy requires encryption but has no SSLContext");
                 }
+                filters.proxyToServerConnectionSSLHandshakeStarted();
                 active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
                         s -> proxy.configure(s, true));
             }
