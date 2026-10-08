@@ -238,7 +238,13 @@ public final class HttpBodies {
     /** "deflate" is meant to be zlib-wrapped, but some servers send raw DEFLATE; accept both. */
     private static byte[] inflate(byte[] data, int max) throws IOException {
         boolean zlib = data.length >= 2 && (data[0] & 0x0f) == 8 && (((data[0] & 0xff) << 8) | (data[1] & 0xff)) % 31 == 0;
-        return readCapped(new InflaterInputStream(new ByteArrayInputStream(data), new Inflater(!zlib)), max);
+        // InflaterInputStream only ends inflaters it created, so release the native memory here.
+        Inflater inflater = new Inflater(!zlib);
+        try {
+            return readCapped(new InflaterInputStream(new ByteArrayInputStream(data), inflater), max);
+        } finally {
+            inflater.end();
+        }
     }
 
     private static byte[] encode(String coding, byte[] data) throws IOException {

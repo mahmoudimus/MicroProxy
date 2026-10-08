@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /** An absolute domain name as a list of labels (leftmost first), compared case-insensitively. */
 final class DnsName implements Comparable<DnsName> {
@@ -158,7 +159,7 @@ final class DnsName implements Comparable<DnsName> {
                 int c = b & 0xff;
                 if (c == '.' || c == '\\') sb.append('\\').append((char) c);
                 else if (c > 0x20 && c < 0x7f) sb.append((char) c);
-                else sb.append(String.format("\\%03d", c));
+                else sb.append(String.format(Locale.ROOT, "\\%03d", c));
             }
             parts.add(sb.toString());
         }

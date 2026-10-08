@@ -707,7 +707,7 @@ final class ClientConnection implements Runnable {
         boolean bodyAllowed = Framing.responseMayHaveBody(res, request.method());
         boolean closeClient = !ex.clientKeepAlive || ex.bodyAbandoned;
         boolean clientSupportsChunked = ex.clientVersion.isKeepAliveDefault();
-        if (bodyAllowed && !switching && !(out instanceof FullHttpMessage)) {
+        if (bodyAllowed && !switching && !(res instanceof FullHttpMessage)) {
             if (!ProxyUtils.isResponseSelfTerminating(res)) {
                 // The server ends the body by closing. Re-chunk so the client connection survives.
                 if (clientSupportsChunked) {
@@ -1444,7 +1444,7 @@ final class ClientConnection implements Runnable {
         }
         HttpUtil.setKeepAlive(res, keepAlive);
         boolean bodyAllowed = Framing.responseMayHaveBody(res, ex.request.method());
-        boolean bare = !(out instanceof FullHttpMessage);
+        boolean bare = !(res instanceof FullHttpMessage);
         if (bare && bodyAllowed && !ProxyUtils.isResponseSelfTerminating(res)) {
             HttpUtil.setContentLength(res, 0);
         }

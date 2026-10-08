@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.HostResolver;
 import org.microproxy.HttpFiltersSource;
@@ -70,7 +71,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private ServerSocket serverSocket;
     private ExecutorService executor;
     private Thread acceptor;
-    private volatile boolean stopping;
+    private final AtomicBoolean stopping = new AtomicBoolean();
     private InetSocketAddress boundAddress;
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
@@ -134,12 +135,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     private void acceptLoop() {
-        while (!stopping) {
+        while (!stopping.get()) {
             Socket socket;
             try {
                 socket = serverSocket.accept();
             } catch (SocketException e) {
-                if (!stopping) LOG.log(Level.WARNING, "accept failed", e);
+                if (!stopping.get()) LOG.log(Level.WARNING, "accept failed", e);
                 break;
             } catch (IOException e) {
                 LOG.log(Level.WARNING, "accept failed", e);
@@ -161,7 +162,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     boolean isStopping() {
-        return stopping;
+        return stopping.get();
     }
 
     @Override
@@ -218,8 +219,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     private void shutdown(boolean graceful) {
-        if (stopping) return;
-        stopping = true;
+        // Both a shutdown hook and the application may stop the server; only the first one runs.
+        if (!stopping.compareAndSet(false, true)) return;
         LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
         Tls.closeQuietly(serverSocket);
         for (ClientConnection c : connections) {

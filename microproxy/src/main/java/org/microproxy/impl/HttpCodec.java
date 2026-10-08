@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.Map;
 import org.microproxy.http.DefaultHttpContent;
 import org.microproxy.http.DefaultHttpRequest;
@@ -311,17 +312,22 @@ final class HttpCodec {
             return in.buffered() > 0;
         }
 
+        /**
+         * {@code chunk-size [BWS ";" ...]} (RFC 9112 section 7.1): hex digits only. A sign or
+         * leading whitespace is rejected, since parsers that disagree on it enable smuggling.
+         */
         private static long parseChunkSize(String line) throws HttpParseException {
             int semi = line.indexOf(';');
-            String hex = (semi >= 0 ? line.substring(0, semi) : line).strip();
+            String hex = semi >= 0 ? line.substring(0, semi).stripTrailing() : line;
             if (hex.isEmpty() || hex.length() > 15) {
                 throw new HttpParseException("invalid chunk size");
             }
-            try {
-                return Long.parseLong(hex, 16);
-            } catch (NumberFormatException e) {
-                throw new HttpParseException("invalid chunk size");
+            for (int i = 0; i < hex.length(); i++) {
+                if (!HexFormat.isHexDigit(hex.charAt(i))) {
+                    throw new HttpParseException("invalid chunk size");
+                }
             }
+            return HexFormat.fromHexDigitsToLong(hex);
         }
 
         private byte[] readSome(int max) throws IOException {

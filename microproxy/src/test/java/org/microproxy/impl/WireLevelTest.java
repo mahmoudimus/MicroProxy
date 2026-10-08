@@ -18,10 +18,19 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.microproxy.FlowContext;
+import org.microproxy.HttpFilters;
+import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
 import org.microproxy.TestSupport;
+import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.HttpContent;
+import org.microproxy.http.HttpHeaderNames;
+import org.microproxy.http.HttpObject;
+import org.microproxy.http.HttpRequest;
+import org.microproxy.http.HttpResponseStatus;
+import org.microproxy.http.HttpVersion;
 import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpUtil;
@@ -294,6 +303,66 @@ class WireLevelTest {
                 assertEquals(200, reply.head().status().code());
                 assertEquals("ok", reply.body());
                 Thread.sleep(50);
+            }
+        }
+    }
+
+    /** Restarts the proxy with {@code filters} for every request. */
+    private void restartWith(HttpFilters filters) {
+        proxy.abort();
+        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext ctx) {
+                return filters;
+            }
+        }).start();
+    }
+
+    @Test
+    void chunkedShortCircuitResponsesKeepTheConnectionUsable() throws Exception {
+        restartWith(new HttpFilters() {
+            @Override
+            public HttpResponse clientToProxyRequest(HttpObject o) {
+                DefaultFullHttpResponse r = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                        "short".getBytes(StandardCharsets.UTF_8));
+                r.headers().set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
+                return r;
+            }
+        });
+        try (Socket s = connect()) {
+            ByteReader in = new ByteReader(s.getInputStream(), 1024);
+            for (int i = 0; i < 2; i++) {
+                write(s.getOutputStream(), "GET http://" + originAuthority() + "/ HTTP/1.1\r\nHost: x\r\n\r\n");
+                Reply reply = read(in, HttpMethod.GET);
+                assertEquals(200, reply.head().status().code(), "response " + i);
+                assertEquals("short", reply.body());
+            }
+        }
+    }
+
+    @Test
+    void fullReplacementResponsesGetAContentLength() throws Exception {
+        restartWith(new HttpFilters() {
+            @Override
+            public HttpObject serverToProxyResponse(HttpObject o) {
+                if (o instanceof HttpResponse) {
+                    return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                            "replaced".getBytes(StandardCharsets.UTF_8));
+                }
+                return o;
+            }
+        });
+        for (String version : new String[] {"HTTP/1.1", "HTTP/1.0"}) {
+            try (Socket s = connect()) {
+                ByteReader in = new ByteReader(s.getInputStream(), 1024);
+                write(s.getOutputStream(), "GET http://" + originAuthority() + "/ " + version + "\r\nHost: x\r\n"
+                        + "Connection: keep-alive\r\n\r\n");
+                Reply reply = read(in, HttpMethod.GET);
+                assertEquals("replaced", reply.body(), version);
+                assertEquals("8", reply.head().headers().get(HttpHeaderNames.CONTENT_LENGTH), version);
+                assertNull(reply.head().headers().get(HttpHeaderNames.TRANSFER_ENCODING), version);
+                // A complete body needs no connection close to delimit it.
+                assertFalse("close".equalsIgnoreCase(reply.head().headers().get(HttpHeaderNames.CONNECTION)), version);
             }
         }
     }
