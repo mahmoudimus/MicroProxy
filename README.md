@@ -6,7 +6,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
-  SLF4J/Log4j with the usual bridges.
+  SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
+  decode `zstd` bodies.
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
   Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
@@ -14,7 +15,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 
 | Module | Artifact | Contents |
 |---|---|---|
-| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no dependencies |
+| `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](zstd-decoder/README.md)) |
+| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder` is optional) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
 ```java
@@ -69,7 +71,11 @@ java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   #
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
 
-# The same launcher with scripting built in (one self-contained jar):
+# With zstd decoding:
+java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar \
+    org.microproxy.Launcher --port 8080
+
+# The same launcher with scripting and zstd built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
 ```
 
@@ -118,7 +124,7 @@ Command-line flags override values from the file.
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
-| Body rewriting | `HttpBodies` decodes gzip, deflate and Brotli bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
+| Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
@@ -158,15 +164,16 @@ context, or as a chained proxy's.
 
 `org.microproxy.http.HttpBodies` handles the parts of body editing that are easy to get wrong:
 
-- **Decoding:** gzip, x-gzip, deflate (zlib-wrapped or raw) and `br` (Brotli, through a vendored
-  copy of Google's pure-Java decoder), capped at 64 MiB by default to defuse compression bombs.
-  `canDecode` reports codings that can't be decoded, such as `zstd`.
+- **Decoding:** gzip, x-gzip, deflate (zlib-wrapped or raw), `br` (Brotli, through a vendored
+  copy of Google's pure-Java decoder) and, when `zstd-decoder` is on the class path, `zstd`.
+  Decoding is capped at 64 MiB by default to defuse compression bombs. `canDecode` reports
+  codings that can't be decoded, such as the dictionary codings `dcb` and `dcz`.
 - **Negotiation:** `restrictAcceptEncoding(request)` trims a request's `Accept-Encoding` to the
   codings above (keeping q-values), so the server never picks one the proxy can't read.
   `RewriteRules` and scripts that define `on_response` do this automatically.
 - **Charset:** taken from the *response's* `Content-Type`, defaulting to UTF-8.
-- **Rewriting:** the original coding is re-applied, except that Brotli is re-encoded as gzip
-  because the JDK has no Brotli encoder. `ETag`/`Content-MD5` are dropped because they no longer
+- **Rewriting:** the original coding is re-applied, except that Brotli and zstd are re-encoded as
+  gzip because there are no pure-Java encoders for them. `ETag`/`Content-MD5` are dropped because they no longer
   match. `Content-Length` is fixed when the message is written.
 
 Filters can also ask to buffer one message at a time, after seeing its head:
@@ -417,8 +424,9 @@ mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.reco
 
 ## Acknowledgements
 
-Vendored code, with licenses and changes listed in [NOTICE](NOTICE) and the `README.md` next to
-each copy:
+The Zstandard decoder in `zstd-decoder` was written from RFC 8878 and is tested against the
+reference `zstd` tool. Vendored code, with licenses and changes listed in [NOTICE](NOTICE) and
+the `README.md` next to each copy:
 
 - Google's [Brotli](https://github.com/google/brotli) decoder (MIT), in the core.
 - The Java [Starlark](https://github.com/bazelbuild/bazel) interpreter from Bazel, as extended by

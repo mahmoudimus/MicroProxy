@@ -79,7 +79,7 @@ class HttpBodiesTest {
 
     @Test
     void unsupportedCodingsAreReported() {
-        FullHttpResponse r = response(new byte[] {1, 2}, "zstd", "text/html");
+        FullHttpResponse r = response(new byte[] {1, 2}, "dcb", "text/html");
         assertFalse(HttpBodies.canDecode(r));
         assertThrows(IOException.class, () -> HttpBodies.decoded(r));
     }
@@ -98,6 +98,27 @@ class HttpBodiesTest {
         assertEquals("rewritten", HttpBodies.text(r));
     }
 
+    // ("zstd through the proxy! " * 40).strip() compressed by zstd -19: a repeat-offset match.
+    private static final byte[] ZSTD_SAMPLE = hex(
+            "28b52ffd04680501 00c07a7374642074 68726f7567682074 68652070726f7879 2120010090de6a8e 0160d331d9");
+
+    private static byte[] hex(String s) {
+        return java.util.HexFormat.of().parseHex(s.replace(" ", ""));
+    }
+
+    @Test
+    void zstdIsDecodedWhenTheModuleIsPresentAndRewrittenAsGzip() throws IOException {
+        assertTrue(HttpBodies.DECODABLE.contains("zstd"));
+        FullHttpResponse r = response(ZSTD_SAMPLE, "zstd", "text/plain");
+        assertTrue(HttpBodies.canDecode(r));
+        assertEquals(("zstd through the proxy! ".repeat(40)).strip(), HttpBodies.text(r));
+        HttpBodies.setText(r, "rewritten");
+        assertEquals("gzip", r.headers().get("Content-Encoding"));
+        assertEquals("rewritten", HttpBodies.text(r));
+        FullHttpResponse corrupt = response(new byte[] {0x28, (byte) 0xB5, 0x2F, (byte) 0xFD, 1}, "zstd", "text/plain");
+        assertThrows(IOException.class, () -> HttpBodies.decoded(corrupt));
+    }
+
     @Test
     void corruptBrotliIsAnIOException() {
         FullHttpResponse r = response(new byte[] {(byte) 0xff, 0x13, 0x00}, "br", "text/plain");
@@ -107,10 +128,10 @@ class HttpBodiesTest {
     @Test
     void acceptEncodingIsNarrowedToDecodableCodings() {
         HttpRequest req = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-        req.headers().set("Accept-Encoding", "zstd, br;q=0.9, gzip, dcb");
+        req.headers().set("Accept-Encoding", "zstd, br;q=0.9, gzip, dcb, dcz");
         HttpBodies.restrictAcceptEncoding(req);
-        assertEquals("br;q=0.9, gzip", req.headers().get("Accept-Encoding"));
-        req.headers().set("Accept-Encoding", "zstd, *");
+        assertEquals("zstd, br;q=0.9, gzip", req.headers().get("Accept-Encoding"));
+        req.headers().set("Accept-Encoding", "dcz, *");
         HttpBodies.restrictAcceptEncoding(req);
         assertEquals("identity", req.headers().get("Accept-Encoding"));
     }

@@ -45,13 +45,20 @@ class RewriteRulesTest {
             if (path.equals("/gzip")) {
                 body = HttpBodiesTest.gzip(body);
                 exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+            } else if (path.equals("/zstd")) {
+                // PAGE compressed by the zstd CLI.
+                body = java.util.HexFormat.of().parseHex("28b52ffd04582901003c68746d6c3e3c626f64793e48656c6c6f20576f726c64"
+                        + "3c2f626f64793e3c2f68746d6c3e29bceed1");
+                exchange.getResponseHeaders().set("Content-Encoding", "zstd");
             }
+            exchange.getResponseHeaders().set("X-Accept-Encoding",
+                    String.valueOf(exchange.getRequestHeaders().getFirst("Accept-Encoding")));
             exchange.sendResponseHeaders(200, body.length);
             exchange.getResponseBody().write(body);
             exchange.close();
         });
         proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(RewriteRules.builder()
-                .add(RewriteRules.Rule.matching("http://127\\.0\\.0\\.1:\\d+/(page|gzip|image|big).*")
+                .add(RewriteRules.Rule.matching("http://127\\.0\\.0\\.1:\\d+/(page|gzip|zstd|image|big).*")
                         .replaceInBody("W(o)rld", "W$1rld!")
                         .replaceLiteralInBody("Hello", "Howdy")
                         .removeResponseHeader("Content-Security-Policy")
@@ -82,6 +89,18 @@ class RewriteRulesTest {
         assertEquals("gzip", r.headers().firstValue("content-encoding").orElseThrow());
         String body = new String(new GZIPInputStream(new ByteArrayInputStream(r.body())).readAllBytes(), StandardCharsets.UTF_8);
         assertEquals("<html><body>Howdy World!</body></html>", body);
+    }
+
+    @Test
+    void decodesZstdAndReencodesItAsGzip() throws Exception {
+        HttpResponse<byte[]> r = client(proxy).send(HttpRequest.newBuilder(URI.create(url(origin, "/zstd")))
+                        .header("Accept-Encoding", "zstd, dcz, gzip").build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals("gzip", r.headers().firstValue("content-encoding").orElseThrow());
+        String body = new String(new GZIPInputStream(new ByteArrayInputStream(r.body())).readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals("<html><body>Howdy World!</body></html>", body);
+        // The server was only offered codings the rules can read.
+        assertEquals("zstd, gzip", r.headers().firstValue("x-accept-encoding").orElseThrow());
     }
 
     @Test

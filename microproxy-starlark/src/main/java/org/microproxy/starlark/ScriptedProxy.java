@@ -223,7 +223,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!(httpObject instanceof HttpRequest request)) return null;
             req = new ScriptRequest(request, secure, false);
             if (s.defines("on_response")) {
-                // Keep the server from choosing a coding (zstd, ...) the script could not read.
+                // Keep the server from choosing a coding (dcb, ...) the script could not read.
                 HttpBodies.restrictAcceptEncoding(request);
             }
             if (!s.defines("on_request")) return null;

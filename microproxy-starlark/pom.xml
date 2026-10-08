@@ -24,6 +24,11 @@
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>microproxy</artifactId>
         </dependency>
+        <!-- Bundled into the -all jar so the launcher decodes zstd bodies. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>zstd-decoder</artifactId>
+        </dependency>
         <!-- The only runtime dependency of the bundled interpreter. -->
         <dependency>
             <groupId>com.google.guava</groupId>
