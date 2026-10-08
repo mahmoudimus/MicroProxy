@@ -186,6 +186,7 @@ Command-line flags override values from the file.
 | `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds | `40000` |
+| `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
@@ -680,7 +681,13 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 | `org.littleshoot.proxy.extras.ActivityLogger` / `LogFormat` | `org.microproxy.extras.ActivityLogger` / `LogFormat` |
 | `impl.PoolMetrics` | `org.microproxy.PoolMetrics` (a record) |
 
-Other behaviour differences:
+Other behaviour differences. Where a filter depends on LittleProxy's behaviour,
+`withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) restores
+it; see that method's Javadoc for the list:
+
+- `proxyToServerRequest` runs before the server is resolved and connected, so a filter can answer
+  or redirect without a DNS lookup. LittleProxy resolves first (and with compatibility on, so does
+  MicroProxy).
 
 - Full messages are written with a `Content-Length` that matches their actual body. Filters that
   replace a body don't need to fix the header themselves.

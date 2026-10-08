@@ -38,6 +38,7 @@ public final class Launcher {
               --idle-timeout <seconds>     idle connection timeout (default 70, 0 = none)
               --connect-timeout <millis>   outbound connect timeout (default 40000)
               --tls-handshake-timeout <millis>  longest TLS handshake (default 10000, 0 = none)
+              --littleproxy-compat         behave like LittleProxy where MicroProxy differs
               --proxy-alias <alias>        name used in Via headers
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
@@ -146,6 +147,7 @@ public final class Launcher {
                 case "--transparent" -> bootstrap.withTransparent(true);
                 case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(intValue(queue, arg));
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
+                case "--littleproxy-compat" -> bootstrap.withLittleProxyCompatibility(true);
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));

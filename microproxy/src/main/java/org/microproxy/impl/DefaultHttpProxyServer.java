@@ -71,6 +71,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile Duration idleConnectionTimeout;
     private volatile int connectTimeoutMs;
     final Duration tlsHandshakeTimeout;
+    final boolean littleProxyCompatibility;
 
     private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
     private ServerSocket serverSocket;
@@ -107,6 +108,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.idleConnectionTimeout = b.idleConnectionTimeout;
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
+        this.littleProxyCompatibility = b.littleProxyCompatibility;
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);

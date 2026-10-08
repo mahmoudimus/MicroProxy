@@ -258,6 +258,23 @@ final class ClientConnection implements Runnable {
         boolean bodyUnread() {
             return !(request instanceof FullHttpRequest) && framing.hasBody() && !body.isDone();
         }
+
+        /** The server address resolved ahead of connecting (LittleProxy compatibility). */
+        private String preResolvedFor;
+        private InetSocketAddress preResolved;
+
+        void preResolve(String hostAndPort, InetSocketAddress address) {
+            preResolvedFor = hostAndPort;
+            preResolved = address;
+        }
+
+        /** The address resolved ahead for {@code hostAndPort}, once; null if none. */
+        InetSocketAddress takePreResolved(String hostAndPort) {
+            InetSocketAddress address = hostAndPort.equals(preResolvedFor) ? preResolved : null;
+            preResolved = null;
+            preResolvedFor = null;
+            return address;
+        }
     }
 
     private final DefaultHttpProxyServer server;
@@ -491,6 +508,17 @@ final class ClientConnection implements Runnable {
         if (webSocket && rewritesFrames(ex.filters)) {
             // Compressed (permessage-deflate) payloads could not be rewritten.
             ex.request.headers().remove(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS);
+        }
+
+        if (server.littleProxyCompatibility && conn == null
+                && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
+            // LittleProxy resolves the server before proxyToServerRequest, and answers 502 without
+            // calling it when the name does not resolve.
+            try {
+                ex.preResolve(hostAndPort, resolveServer(hostAndPort, ex.filters));
+            } catch (UnknownHostException e) {
+                return respondDirect(ex, badGateway(ex), false);
+            }
         }
 
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
@@ -1178,25 +1206,35 @@ final class ClientConnection implements Runnable {
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
     }
 
+    /** Resolves a server for a direct connection, reporting it to {@code filters}. */
+    private InetSocketAddress resolveServer(String hostAndPort, HttpFilters filters) throws UnknownHostException {
+        HostAndPort target = HostAndPort.parse(hostAndPort, 80);
+        InetSocketAddress remote = filters.proxyToServerResolutionStarted(hostAndPort);
+        try {
+            if (remote == null) {
+                remote = server.serverResolver.resolve(target.host(), target.port());
+            } else if (remote.isUnresolved()) {
+                // A filter may name another host rather than an address: resolve it the same way.
+                remote = server.serverResolver.resolve(remote.getHostString(), remote.getPort());
+            }
+        } catch (UnknownHostException e) {
+            filters.proxyToServerResolutionFailed(hostAndPort);
+            throw e;
+        }
+        filters.proxyToServerResolutionSucceeded(hostAndPort, remote);
+        return remote;
+    }
+
     private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode)
             throws IOException {
         HttpFilters filters = ex.filters;
         HostAndPort target = HostAndPort.parse(hostAndPort, 80);
         InetSocketAddress remote;
         if (proxy == null) {
-            remote = filters.proxyToServerResolutionStarted(hostAndPort);
-            try {
-                if (remote == null) {
-                    remote = server.serverResolver.resolve(target.host(), target.port());
-                } else if (remote.isUnresolved()) {
-                    // A filter may name another host rather than an address: resolve it the same way.
-                    remote = server.serverResolver.resolve(remote.getHostString(), remote.getPort());
-                }
-            } catch (UnknownHostException e) {
-                filters.proxyToServerResolutionFailed(hostAndPort);
-                throw e;
+            remote = ex.takePreResolved(hostAndPort);
+            if (remote == null) {
+                remote = resolveServer(hostAndPort, filters);
             }
-            filters.proxyToServerResolutionSucceeded(hostAndPort, remote);
         } else {
             remote = proxy.getChainedProxyAddress();
             if (remote == null) {
@@ -1246,7 +1284,7 @@ final class ClientConnection implements Runnable {
             // CONNECT, and not at all when there is no tunnel to the final server (SOCKS, or a
             // plain request forwarded to an HTTP chained proxy).
             if (server.sendProxyProtocol && proxy == null) {
-                writeProxyProtocolHeader(rawOut);
+                writeProxyProtocolHeader(rawOut, remote);
             } else if (server.sendProxyProtocol && (socks || mode == Mode.PLAIN)) {
                 LOG.log(Level.DEBUG, "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
                         hostAndPort, type, remote);
@@ -1266,7 +1304,7 @@ final class ClientConnection implements Runnable {
                             + (reply == null ? "connection closed" : reply.status()));
                 }
                 if (server.sendProxyProtocol) {
-                    writeProxyProtocolHeader(rawOut);
+                    writeProxyProtocolHeader(rawOut, remote);
                 }
             }
             if (mode == Mode.TLS) {
@@ -1319,11 +1357,26 @@ final class ClientConnection implements Runnable {
         return os;
     }
 
-    private void writeProxyProtocolHeader(OutputStream os) throws IOException {
+    /** @param remote the address this server connection goes to */
+    private void writeProxyProtocolHeader(OutputStream os, InetSocketAddress remote) throws IOException {
         ProxyProtocol.Header received = proxyHeader;
         InetSocketAddress source = clientDetails.getClientAddress();
-        InetSocketAddress destination = received != null && received.destination() != null
-                ? received.destination() : (InetSocketAddress) rawSocket.getLocalSocketAddress();
+        InetSocketAddress destination;
+        if (received != null && received.destination() != null) {
+            destination = received.destination();
+        } else if (server.littleProxyCompatibility) {
+            // LittleProxy names the server connection's remote end, and skips mixed families.
+            destination = remote;
+            if (source != null && source.getAddress() != null && destination.getAddress() != null
+                    && source.getAddress().getClass() != destination.getAddress().getClass()) {
+                LOG.log(Level.DEBUG, "not sending a PROXY header: {0} and {1} are different address families",
+                        source, destination);
+                return;
+            }
+        } else {
+            // As HAProxy does: the address the client connected to.
+            destination = (InetSocketAddress) rawSocket.getLocalSocketAddress();
+        }
         os.write(ProxyProtocol.encodeV1(source, destination));
         os.flush();
     }

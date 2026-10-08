@@ -69,6 +69,29 @@ public interface HttpProxyServerBootstrap {
      */
     HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout);
 
+    /**
+     * Behaves like LittleProxy where MicroProxy deliberately differs, for filters that depend on
+     * it:
+     *
+     * <ul>
+     *   <li>The server is resolved before {@link HttpFilters#proxyToServerRequest} rather than
+     *       after it; a name that does not resolve gets {@code 502} without that hook being called.
+     *   <li>A PROXY header sent without one received ({@link #withSendProxyProtocol}) names the
+     *       server connection's remote address as its destination, not the address the client
+     *       connected to; and none is sent when the client and that address are of different
+     *       address families.
+     * </ul>
+     *
+     * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not
+     * affected. Off by default.
+     */
+    HttpProxyServerBootstrap withLittleProxyCompatibility(boolean compatible);
+
+    /** Same as {@code withLittleProxyCompatibility(true)}. */
+    default HttpProxyServerBootstrap withLittleProxyCompatibility() {
+        return withLittleProxyCompatibility(true);
+    }
+
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);

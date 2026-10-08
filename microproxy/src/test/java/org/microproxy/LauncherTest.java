@@ -107,7 +107,8 @@ class LauncherTest {
         assertNull(Launcher.start(new String[] {"--help"}, out()));
         String usage = console.toString(StandardCharsets.UTF_8);
         for (String flag : List.of("--config", "--port", "--address", "--server", "--name", "--transparent",
-                "--idle-timeout", "--connect-timeout", "--tls-handshake-timeout", "--proxy-alias", "--throttle",
+                "--idle-timeout", "--connect-timeout", "--tls-handshake-timeout", "--littleproxy-compat", "--proxy-alias",
+                "--throttle",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--shared-pool", "--cache-dir",

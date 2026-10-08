@@ -23,17 +23,22 @@ import org.microproxy.http.WebSocketFrame;
  *
  * <ol>
  *   <li>{@link #clientToProxyRequest}
- *   <li>{@link #proxyToServerResolutionStarted}, {@link #proxyToServerResolutionSucceeded} /
- *       {@link #proxyToServerResolutionFailed}
- *   <li>{@link #proxyToServerConnectionStarted}, {@link
+ *   <li>{@link #proxyToServerRequest}, so a filter can answer or redirect before any DNS lookup
+ *       or connection
+ *   <li>when a new server connection is needed: {@link #proxyToServerResolutionStarted}, {@link
+ *       #proxyToServerResolutionSucceeded} / {@link #proxyToServerResolutionFailed} (direct
+ *       connections only), then {@link #proxyToServerConnectionStarted}, {@link
  *       #proxyToServerConnectionSSLHandshakeStarted}, {@link #proxyToServerConnectionSucceeded} /
  *       {@link #proxyToServerConnectionFailed}
- *   <li>{@link #proxyToServerRequest}, {@link #proxyToServerRequestSending}, {@link
- *       #proxyToServerRequestSent}
+ *   <li>{@link #proxyToServerRequestSending}, {@link #proxyToServerRequestSent}
  *   <li>{@link #serverToProxyResponseReceiving}, {@link #serverToProxyResponse}, {@link
  *       #serverToProxyResponseReceived} (or {@link #serverToProxyResponseTimedOut})
  *   <li>{@link #proxyToClientResponse}
  * </ol>
+ *
+ * <p>With {@link HttpProxyServerBootstrap#withLittleProxyCompatibility()}, the server is resolved
+ * before {@link #proxyToServerRequest}, as LittleProxy does (and a name that does not resolve is
+ * answered with {@code 502} without calling it); the connection is still made after it.
  */
 public interface HttpFilters {
 
