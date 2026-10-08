@@ -16,6 +16,7 @@ import com.sun.net.httpserver.HttpsServer;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -23,6 +24,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -218,6 +221,62 @@ class FilterCallbacksTest {
                 "proxyToClientResponse:full");
         assertNone(filters.events, List.of("serverToProxyResponseReceiving", "serverToProxyResponse:head",
                 "serverToProxyResponseReceived", "proxyToServerConnectionFailed", "proxyToServerResolutionFailed"));
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // proxyToServerResolutionStarted returning an address
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    void unresolvedAddressFromResolutionStartedIsResolved() {
+        AtomicReference<InetSocketAddress> resolved = new AtomicReference<>();
+        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(RecordingFilters.sourceOf(new HttpFilters() {
+            @Override
+            public InetSocketAddress proxyToServerResolutionStarted(String hostAndPort) {
+                return InetSocketAddress.createUnresolved("localhost", origin.getAddress().getPort());
+            }
+
+            @Override
+            public void proxyToServerResolutionSucceeded(String hostAndPort, InetSocketAddress address) {
+                resolved.set(address);
+            }
+        })).start();
+        HttpResponse<String> response = get(client(proxy), "http://rewritten.invalid/x");
+        assertEquals(200, response.statusCode());
+        assertFalse(resolved.get().isUnresolved(), "expected a resolved address, got " + resolved.get());
+        assertEquals(origin.getAddress().getPort(), resolved.get().getPort());
+    }
+
+    @Test
+    void unresolvedAddressFromResolutionStartedUsesTheServerResolver() {
+        List<String> lookups = new CopyOnWriteArrayList<>();
+        RecordingFilters filters = new RecordingFilters() {
+            @Override
+            public InetSocketAddress proxyToServerResolutionStarted(String hostAndPort) {
+                super.proxyToServerResolutionStarted(hostAndPort);
+                String host = hostAndPort.startsWith("good.") ? "origin.test" : "nowhere.test";
+                return InetSocketAddress.createUnresolved(host, origin.getAddress().getPort());
+            }
+        };
+        // The configured resolver (e.g. a DNSSEC one) must be the one that resolves the name.
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withFiltersSource(RecordingFilters.sourceOf(filters))
+                .withServerResolver((host, port) -> {
+                    lookups.add(host + ":" + port);
+                    if (!host.equals("origin.test")) throw new UnknownHostException(host);
+                    return new InetSocketAddress(TestSupport.LOOPBACK, port);
+                })
+                .start();
+        int port = origin.getAddress().getPort();
+        assertEquals(200, get(client(proxy), "http://good.invalid/x").statusCode());
+        assertEquals(List.of("origin.test:" + port), lookups);
+        assertTrue(filters.saw("proxyToServerResolutionSucceeded"));
+
+        filters.events.clear();
+        assertEquals(502, get(client(proxy), "http://bad.invalid/x").statusCode());
+        assertEquals(List.of("origin.test:" + port, "nowhere.test:" + port), lookups);
+        assertTrue(filters.saw("proxyToServerResolutionFailed"), filters.events.toString());
+        assertNone(filters.events, List.of("proxyToServerResolutionSucceeded", "proxyToServerConnectionStarted"));
     }
 
     // -------------------------------------------------------------------------------------------

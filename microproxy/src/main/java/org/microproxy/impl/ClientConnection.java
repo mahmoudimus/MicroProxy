@@ -1157,13 +1157,16 @@ final class ClientConnection implements Runnable {
         InetSocketAddress remote;
         if (proxy == null) {
             remote = filters.proxyToServerResolutionStarted(hostAndPort);
-            if (remote == null) {
-                try {
+            try {
+                if (remote == null) {
                     remote = server.serverResolver.resolve(target.host(), target.port());
-                } catch (UnknownHostException e) {
-                    filters.proxyToServerResolutionFailed(hostAndPort);
-                    throw e;
+                } else if (remote.isUnresolved()) {
+                    // A filter may name another host rather than an address: resolve it the same way.
+                    remote = server.serverResolver.resolve(remote.getHostString(), remote.getPort());
                 }
+            } catch (UnknownHostException e) {
+                filters.proxyToServerResolutionFailed(hostAndPort);
+                throw e;
             }
             filters.proxyToServerResolutionSucceeded(hostAndPort, remote);
         } else {
