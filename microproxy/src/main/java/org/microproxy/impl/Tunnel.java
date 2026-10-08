@@ -45,8 +45,8 @@ final class Tunnel {
     static void relay(
             Socket clientSocket, InputStream clientIn, OutputStream clientOut,
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
-            Duration idleTimeout, String name) {
-        relay(clientSocket, clientIn, clientOut, serverSocket, serverIn, serverOut, idleTimeout, name, null, 0);
+            Duration idleTimeout, String name, BufferPool pool) {
+        relay(clientSocket, clientIn, clientOut, serverSocket, serverIn, serverOut, idleTimeout, name, null, 0, pool);
     }
 
     /**
@@ -57,15 +57,15 @@ final class Tunnel {
     static void relay(
             Socket clientSocket, InputStream clientIn, OutputStream clientOut,
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
-            Duration idleTimeout, String name, FrameObserver observer, int maxFrameBuffer) {
+            Duration idleTimeout, String name, FrameObserver observer, int maxFrameBuffer, BufferPool pool) {
         AtomicLong lastActivity = new AtomicLong(System.nanoTime());
         long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Runnable closeAll = () -> {
             Tls.closeQuietly(clientSocket);
             Tls.closeQuietly(serverSocket);
         };
-        Direction up = new Direction(clientIn, serverOut, serverSocket, lastActivity, idleNanos, true);
-        Direction down = new Direction(serverIn, clientOut, clientSocket, lastActivity, idleNanos, false);
+        Direction up = new Direction(clientIn, serverOut, serverSocket, lastActivity, idleNanos, true, pool);
+        Direction down = new Direction(serverIn, clientOut, clientSocket, lastActivity, idleNanos, false, pool);
         Thread upstream = Thread.ofVirtual().name(name + "-up").start(
                 () -> run(up, observer, maxFrameBuffer, closeAll));
         run(down, observer, maxFrameBuffer, closeAll);
@@ -159,10 +159,11 @@ final class Tunnel {
         final AtomicLong lastActivity;
         final long idleNanos;
         final boolean fromClient;
-        final byte[] buf = new byte[16384];
+        final BufferPool pool;
 
         Direction(InputStream in, OutputStream out, Socket destination, AtomicLong lastActivity,
-                long idleNanos, boolean fromClient) {
+                long idleNanos, boolean fromClient, BufferPool pool) {
+            this.pool = pool;
             this.in = in;
             this.out = out;
             this.destination = destination;
@@ -212,23 +213,70 @@ final class Tunnel {
             out.flush();
         }
 
-        /** Copies until end-of-stream. */
+        /** Reads one byte, tolerating timeouts while the other direction is active. */
+        int readByte() throws IOException {
+            while (true) {
+                try {
+                    int b = in.read();
+                    if (b >= 0) lastActivity.set(System.nanoTime());
+                    return b;
+                } catch (SocketTimeoutException e) {
+                    if (idleNanos <= 0 || System.nanoTime() - lastActivity.get() >= idleNanos) {
+                        throw new IdleTimeout();
+                    }
+                }
+            }
+        }
+
+        /**
+         * Copies until end-of-stream. A buffer is held only while data keeps arriving; before
+         * blocking on a quiet peer it goes back to the pool and the wait is for a single byte.
+         */
         void copyAll() throws IOException {
-            int n;
-            while ((n = read(buf, 0, buf.length)) >= 0) {
-                out.write(buf, 0, n);
-                out.flush();
+            byte[] buf = null;
+            try {
+                while (true) {
+                    int n;
+                    if (buf == null) {
+                        int first = readByte();
+                        if (first < 0) return;
+                        buf = pool.take();
+                        buf[0] = (byte) first;
+                        n = 1;
+                        int available = in.available();
+                        if (available > 0) {
+                            int more = read(buf, 1, Math.min(available, buf.length - 1));
+                            if (more > 0) n += more;
+                        }
+                    } else {
+                        n = read(buf, 0, buf.length);
+                        if (n < 0) return;
+                    }
+                    out.write(buf, 0, n);
+                    out.flush();
+                    if (in.available() <= 0) {
+                        pool.give(buf);
+                        buf = null;
+                    }
+                }
+            } finally {
+                pool.give(buf);
             }
         }
 
         /** Copies exactly {@code remaining} bytes. */
         void copy(long remaining) throws IOException {
-            while (remaining > 0) {
-                int n = read(buf, 0, (int) Math.min(buf.length, remaining));
-                if (n < 0) throw new EOFException("stream ended mid-frame");
-                out.write(buf, 0, n);
-                out.flush();
-                remaining -= n;
+            byte[] buf = pool.take();
+            try {
+                while (remaining > 0) {
+                    int n = read(buf, 0, (int) Math.min(buf.length, remaining));
+                    if (n < 0) throw new EOFException("stream ended mid-frame");
+                    out.write(buf, 0, n);
+                    out.flush();
+                    remaining -= n;
+                }
+            } finally {
+                pool.give(buf);
             }
         }
 

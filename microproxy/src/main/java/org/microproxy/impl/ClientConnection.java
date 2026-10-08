@@ -2,7 +2,6 @@ package org.microproxy.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,8 +66,6 @@ final class ClientConnection implements Runnable {
 
     private static final System.Logger LOG = System.getLogger(ClientConnection.class.getName());
     private static final AtomicLong IDS = new AtomicLong();
-    private static final int BUFFER_SIZE = 16384;
-    private static final int RELAY_BUFFER_SIZE = 65536;
     /** How long to wait for a server's 100 (Continue) before sending the body anyway. */
     private static final int CONTINUE_TIMEOUT_MS = 1000;
     private static final HttpFilters NOOP = HttpFiltersAdapter.NOOP_FILTER;
@@ -119,14 +116,6 @@ final class ClientConnection implements Runnable {
             return chain.members().stream().anyMatch(f -> observes(f, observes));
         }
         return observes.get(filters.getClass());
-    }
-
-    /** One buffer per connection for relaying bodies nobody inspects; exchanges are sequential. */
-    private byte[] relayBuffer;
-
-    private byte[] relayBuffer() {
-        if (relayBuffer == null) relayBuffer = new byte[RELAY_BUFFER_SIZE];
-        return relayBuffer;
     }
 
     private static boolean observesFrames(HttpFilters filters) {
@@ -312,8 +301,8 @@ final class ClientConnection implements Runnable {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));
         }
-        in = new ByteReader(is, BUFFER_SIZE);
-        out = new BufferedOutputStream(os, BUFFER_SIZE);
+        in = new ByteReader(is, server.ioBuffers);
+        out = new PooledOutputStream(os, server.ioBuffers);
         writer = new HttpCodec.HttpWriter(out);
     }
 
@@ -326,6 +315,8 @@ final class ClientConnection implements Runnable {
             }
             HttpRequest request;
             try {
+                // Wait for the next request without holding a buffer: idle connections are cheap.
+                in.awaitNext();
                 request = HttpCodec.readRequest(in, server.limits);
             } catch (HttpParseException e) {
                 LOG.log(Level.DEBUG, "bad request from client {0}: {1}", id, e.getMessage());
@@ -766,13 +757,14 @@ final class ClientConnection implements Runnable {
                     ? filters::webSocketFrameReceived : null;
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
                     server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id,
-                    observer, server.maxWebSocketFrameBufferSize);
+                    observer, server.maxWebSocketFrameBufferSize, server.ioBuffers);
             conn.close();
             return false;
         }
         if (!serverKeepAlive) {
             conn.close();
         } else {
+            conn.in.release();
             conn.inExchange = false;
             if (conn.perRequestLease) {
                 serverConnections.remove(conn.key, conn);
@@ -810,7 +802,15 @@ final class ClientConnection implements Runnable {
 
     /** Copies a response body straight from the server to the client: no filter needs its pieces. */
     private void relayResponseBody(HttpCodec.BodyReader body) throws IOException {
-        byte[] buf = relayBuffer();
+        byte[] buf = server.relayBuffers.take();
+        try {
+            relayResponseBody(body, buf);
+        } finally {
+            server.relayBuffers.give(buf);
+        }
+    }
+
+    private void relayResponseBody(HttpCodec.BodyReader body, byte[] buf) throws IOException {
         while (true) {
             int n;
             try {
@@ -831,7 +831,15 @@ final class ClientConnection implements Runnable {
 
     /** Copies a request body straight from the client to the server. */
     private void relayRequestBody(Exchange ex, ServerConnection conn) throws IOException {
-        byte[] buf = relayBuffer();
+        byte[] buf = server.relayBuffers.take();
+        try {
+            relayRequestBody(ex, conn, buf);
+        } finally {
+            server.relayBuffers.give(buf);
+        }
+    }
+
+    private void relayRequestBody(Exchange ex, ServerConnection conn, byte[] buf) throws IOException {
         while (true) {
             int n;
             try {
@@ -938,7 +946,7 @@ final class ClientConnection implements Runnable {
 
         if (!mitm) {
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
-                    server.getIdleConnectionTimeout(), server.name + "-tunnel-" + id);
+                    server.getIdleConnectionTimeout(), server.name + "-tunnel-" + id, server.ioBuffers);
             conn.close();
             return false;
         }
@@ -1116,8 +1124,8 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             java.util.function.Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
-            ByteReader reader = new ByteReader(serverInput(active, currentContext), BUFFER_SIZE);
-            OutputStream output = new BufferedOutputStream(serverOutput(active, currentContext), BUFFER_SIZE);
+            ByteReader reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
+            OutputStream output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();
 
@@ -1150,8 +1158,8 @@ final class ClientConnection implements Runnable {
                 SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
                 active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
                         server.mitmManager::configureServerSocket);
-                reader = new ByteReader(serverInput(active, currentContext), BUFFER_SIZE);
-                output = new BufferedOutputStream(serverOutput(active, currentContext), BUFFER_SIZE);
+                reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
+                output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             }
             holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode == Mode.TLS,
                     active, reader, output, remote, serverContext, server.trackers);
