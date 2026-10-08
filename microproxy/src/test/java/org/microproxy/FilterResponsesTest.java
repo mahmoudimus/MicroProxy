@@ -175,6 +175,11 @@ class FilterResponsesTest {
         assertEachHookCanAnswer(1 << 20);
     }
 
+    @Test
+    void eachHookCanAnswerInsteadOfTheServerWhileStreaming() {
+        assertEachHookCanAnswer(0);
+    }
+
     // -------------------------------------------------------------------------------------------
     // Internal redirects
     // -------------------------------------------------------------------------------------------
@@ -236,6 +241,11 @@ class FilterResponsesTest {
     @Test
     void serverToProxyResponseCanReplaceAStreamedResponse() {
         assertRedirectIsFollowedInternally(false);
+    }
+
+    @Test
+    void proxyToClientResponseCanReplaceAStreamedResponse() {
+        assertRedirectIsFollowedInternally(true);
     }
 
     // -------------------------------------------------------------------------------------------

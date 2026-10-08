@@ -782,6 +782,11 @@ final class ClientConnection implements Runnable {
         if (!(toClient instanceof HttpResponse finalResponse)) {
             return abort(conn);
         }
+        if (finalResponse instanceof FullHttpMessage && body != null) {
+            // Replaced by a complete response here too: the server's body must not follow it.
+            serverKeepAlive &= drain(body);
+            body = null;
+        }
         ex.responseStarted = true;
         boolean writeBody = Framing.responseMayHaveBody(finalResponse, request.method());
         writeToClient(() -> writer.writeHead(finalResponse, writeBody));
