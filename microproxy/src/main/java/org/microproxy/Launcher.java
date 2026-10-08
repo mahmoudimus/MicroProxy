@@ -74,6 +74,26 @@ public final class Launcher {
 
     /** Parses {@code args} and starts the proxy; returns null if only help was printed. */
     static HttpProxyServer start(String[] args, PrintStream console) throws IOException {
+        Parsed parsed = parse(args, console);
+        if (parsed == null) return null;
+        HttpProxyServer server = parsed.bootstrap().start();
+        // Closed after the server's connections finish, so in-flight records are written.
+        parsed.resources().forEach(server::closeOnStop);
+        console.println("MicroProxy listening on " + server.getListenAddress());
+        if (Simd.isVectorized()) {
+            console.println("SIMD: " + Simd.ops().description());
+        }
+        return server;
+    }
+
+    /**
+     * A parsed command line: the configured bootstrap, and resources (such as a WARC recorder) to
+     * close when the server stops.
+     */
+    record Parsed(HttpProxyServerBootstrap bootstrap, List<AutoCloseable> resources) {}
+
+    /** Parses {@code args} into a bootstrap without starting it; returns null if only help was printed. */
+    static Parsed parse(String[] args, PrintStream console) throws IOException {
         Deque<String> queue = new ArrayDeque<>(List.of(args));
         List<LauncherExtension> extensions = ServiceLoader.load(LauncherExtension.class).stream()
                 .map(ServiceLoader.Provider::get)
@@ -193,14 +213,7 @@ public final class Launcher {
         for (LauncherExtension extension : extensions) {
             extension.configure(bootstrap, console);
         }
-        HttpProxyServer server = bootstrap.start();
-        // Closed after the server's connections finish, so in-flight records are written.
-        resources.forEach(server::closeOnStop);
-        console.println("MicroProxy listening on " + server.getListenAddress());
-        if (Simd.isVectorized()) {
-            console.println("SIMD: " + Simd.ops().description());
-        }
-        return server;
+        return new Parsed(bootstrap, List.copyOf(resources));
     }
 
     private static String usage(List<LauncherExtension> extensions) {
