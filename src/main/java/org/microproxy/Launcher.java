@@ -32,6 +32,10 @@ public final class Launcher {
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
+              --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...
+              --upstream-https-proxy <url> different upstream for HTTPS / CONNECT
+              --no-proxy <list>            hosts to reach directly (NO_PROXY syntax)
+              --env-proxy                  take upstream proxies from http_proxy/https_proxy/no_proxy
               --dnssec                     resolve server names with DNSSEC validation
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
               --activity-log-format <fmt>  access log: CLF, ELF, JSON, SQUID, W3C, LTSV, CSV, HAPROXY
@@ -59,6 +63,10 @@ public final class Launcher {
         HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap();
         boolean mitm = false;
         boolean dnssec = false;
+        String upstream = null;
+        String upstreamHttps = null;
+        String noProxy = null;
+        boolean envProxy = false;
         String dnssecResolver = null;
         boolean mitmTrustAll = false;
         Path caPath = Path.of("microproxy-ca.p12");
@@ -92,6 +100,10 @@ public final class Launcher {
                         Long.parseLong(value(queue, arg)), Long.parseLong(value(queue, arg)));
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
+                case "--upstream-proxy" -> upstream = value(queue, arg);
+                case "--upstream-https-proxy" -> upstreamHttps = value(queue, arg);
+                case "--no-proxy" -> noProxy = value(queue, arg);
+                case "--env-proxy" -> envProxy = true;
                 case "--dnssec" -> dnssec = true;
                 case "--dnssec-resolver" -> {
                     dnssec = true;
@@ -106,6 +118,13 @@ public final class Launcher {
                 case "--mitm-trust-all" -> mitmTrustAll = true;
                 default -> throw new IllegalArgumentException("unknown option: " + arg + "\n\n" + USAGE);
             }
+        }
+        if (upstream != null || upstreamHttps != null) {
+            bootstrap.withChainProxyManager(
+                    new UpstreamProxyManager(upstream, upstreamHttps, NoProxyRules.parse(noProxy)));
+        } else if (envProxy) {
+            UpstreamProxyManager fromEnv = UpstreamProxyManager.fromEnvironment(System.getenv());
+            if (fromEnv != null) bootstrap.withChainProxyManager(fromEnv);
         }
         if (dnssec) {
             bootstrap.withServerResolver(dnssecResolver == null ? new DnssecHostResolver()

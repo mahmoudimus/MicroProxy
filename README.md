@@ -90,6 +90,10 @@ Command-line flags override values from the file.
 | `max_connections_per_host` / `max_total_connections` | pool limits | `10` / `200` |
 | `pool_idle_timeout` | seconds before idle pooled connections close | none |
 | `pool_shared_mitm_connections` / `pool_per_request_in_mitm` | pool intercepted TLS connections, per session / per request | `false` |
+| `upstream_proxy` / `upstream_https_proxy` | chain to `http(s)://[user:pw@]host:port` or `socks4/5://...` (HTTPS / CONNECT may use a different upstream) | none |
+| `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
+| `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
+| `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
@@ -102,7 +106,8 @@ Command-line flags override values from the file.
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
-| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection |
+| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
+| Body rewriting | `HttpBodies` decodes and re-encodes gzip/deflate bodies with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | PROXY protocol | accept v1 and v2, send v1 |
@@ -113,6 +118,57 @@ Command-line flags override values from the file.
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Activity tracking | `ActivityTracker` for connections, requests, responses and bytes |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
+
+### Upstream proxies and NO_PROXY
+
+`UpstreamProxyManager` is a `ChainedProxyManager` configured the way command-line clients are:
+
+- **Upstreams:** one proxy URL for plain HTTP and optionally another for HTTPS/CONNECT:
+  `http://user:pw@proxy:3128`, `https://...` (TLS to the proxy), `socks4://`, `socks5://`.
+- **Bypass:** `NoProxyRules` takes curl's `NO_PROXY` syntax: `*`, domain suffixes
+  (`example.com`, `.example.com`, `*.example.com`), IP literals, CIDR ranges and `:port`
+  qualifiers. Addresses are only compared when the request names an IP literal, so no DNS
+  lookups happen.
+- **Environment:** `UpstreamProxyManager.fromEnvironment(System.getenv())`, `--env-proxy` or
+  `use_env_proxy=true` read `http_proxy`, `https_proxy`, `all_proxy` and `no_proxy` like curl
+  does. Upper-case `HTTP_PROXY` is ignored, as curl ignores it, because CGI servers set it from a
+  request header.
+
+```bash
+java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --no-proxy "localhost,.corp,10.0.0.0/8"
+```
+
+For servers or proxies signed by a private CA, `SslContexts.systemDefaultPlus(caCert)` trusts the
+JDK's roots plus extra anchors and keeps host-name checks. Use it as the MITM manager's upstream
+context, or as a chained proxy's.
+
+### Rewriting bodies
+
+`org.microproxy.http.HttpBodies` handles the parts of body editing that are easy to get wrong:
+
+- **Decoding:** gzip, x-gzip and deflate (zlib-wrapped or raw), capped at 64 MiB by default to
+  defuse compression bombs. `canDecode` reports codings the JDK can't handle, such as `br`.
+- **Charset:** taken from the *response's* `Content-Type`, defaulting to UTF-8.
+- **Rewriting:** the original coding is re-applied, and `ETag`/`Content-MD5` are dropped because
+  they no longer match. `Content-Length` is fixed when the message is written.
+
+A filter can also ask for one response to be buffered after seeing its head, with
+`HttpFilters.responseBufferSizeInBytes(response)`. A body larger than requested simply streams
+through.
+
+`org.microproxy.extras.RewriteRules` builds on both. It is a filters source with an ordered list
+of rules. Each rule matches a URL regex (absolute form, `https://` inside intercepted sessions)
+and edits request headers, response headers and textual response bodies:
+
+```java
+bootstrap.withFiltersSource(RewriteRules.builder()
+        .add(RewriteRules.Rule.matching("https://example\\.com/.*")
+                .replaceInBody("Example Domain", "Rewritten Domain")
+                .removeResponseHeader("Content-Security-Policy"))
+        .build());
+```
+
+Only matching text responses are buffered; everything else streams.
 
 ### Shared server connection pool
 
@@ -242,6 +298,18 @@ Live validation and re-recording are opt-in:
 ```bash
 mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.record=true]
 ```
+
+## Acknowledgements
+
+Besides LittleProxy, these projects contributed ideas only; no code was copied:
+
+- [baloise/proxy](https://github.com/baloise/proxy): `NO_PROXY` bypass and proxy settings from
+  the environment.
+- [littleproxy-response-modifier](https://github.com/MichielCM/littleproxy-response-modifier):
+  declarative rewrite rules.
+- [MoCuishle](https://github.com/ganskef/MoCuishle): content decoding and merged trust stores.
+- [LittleProxy-mitm](https://github.com/ganskef/LittleProxy-mitm): a bounded certificate cache
+  and copying IP SANs.
 
 ## License
 

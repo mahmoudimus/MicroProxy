@@ -20,7 +20,9 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.NoProxyRules;
 import org.microproxy.ServerConnectionPoolType;
+import org.microproxy.UpstreamProxyManager;
 import org.microproxy.SslContextSource;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
@@ -167,6 +169,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("pool_per_request_in_mitm")) {
             withPoolPerRequestInMitm(bool(p, "pool_per_request_in_mitm"));
+        }
+        if (p.containsKey("upstream_proxy") || p.containsKey("upstream_https_proxy")) {
+            withChainProxyManager(new UpstreamProxyManager(p.getProperty("upstream_proxy"),
+                    p.getProperty("upstream_https_proxy"), NoProxyRules.parse(p.getProperty("no_proxy")))
+                    .withFallbackToDirect(bool(p, "upstream_fallback_to_direct")));
+        } else if (bool(p, "use_env_proxy")) {
+            UpstreamProxyManager fromEnv = UpstreamProxyManager.fromEnvironment(System.getenv());
+            if (fromEnv != null) withChainProxyManager(fromEnv);
         }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {

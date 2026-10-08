@@ -51,6 +51,35 @@ public final class SslContexts {
     }
 
     /**
+     * A context that trusts the JDK's default trust store and, in addition, {@code extraAnchors}
+     * (e.g. a corporate or test CA). Host names are still verified where endpoint identification
+     * is enabled.
+     */
+    public static SSLContext systemDefaultPlus(X509Certificate... extraAnchors) {
+        try {
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(null, new TrustManager[] {systemDefaultPlusTrustManager(extraAnchors)}, null);
+            return context;
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    static javax.net.ssl.X509ExtendedTrustManager systemDefaultPlusTrustManager(X509Certificate... extraAnchors)
+            throws GeneralSecurityException {
+        TrustManagerFactory system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        system.init((KeyStore) null);
+        java.util.List<javax.net.ssl.X509ExtendedTrustManager> delegates = new java.util.ArrayList<>();
+        for (TrustManager tm : trustManagers(extraAnchors)) {
+            if (tm instanceof javax.net.ssl.X509ExtendedTrustManager x) delegates.add(x);
+        }
+        for (TrustManager tm : system.getTrustManagers()) {
+            if (tm instanceof javax.net.ssl.X509ExtendedTrustManager x) delegates.add(x);
+        }
+        return new MergedTrustManager(delegates);
+    }
+
+    /**
      * A context presenting {@code chain} (leaf first) with {@code key}, trusting {@code trustAnchors}
      * (or the system default when none are given).
      */

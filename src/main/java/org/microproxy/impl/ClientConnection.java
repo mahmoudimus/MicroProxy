@@ -602,10 +602,22 @@ final class ClientConnection implements Runnable {
 
         HttpCodec.BodyReader body = switching ? null : new HttpCodec.BodyReader(conn.in, framing, server.limits);
         HttpObject head = response;
+        java.util.ArrayDeque<HttpContent> prefetched = new java.util.ArrayDeque<>();
         int maxBuffer = server.filtersSource.getMaximumResponseBufferSizeInBytes();
         if (maxBuffer > 0 && !switching) {
-            head = aggregateResponse(response, framing, body, maxBuffer, request.method());
+            head = aggregateResponse(response, framing, body, maxBuffer, request.method(), null);
             body = null;
+        } else if (!switching) {
+            int filterBuffer = filters.responseBufferSizeInBytes(response);
+            if (filterBuffer > 0) {
+                // Buffer on the filter's request; if the body is larger, stream it after all.
+                FullHttpResponse full = aggregateResponse(response, framing, body, filterBuffer, request.method(),
+                        prefetched);
+                if (full != null) {
+                    head = full;
+                    body = null;
+                }
+            }
         }
 
         HttpObject filtered = filters.serverToProxyResponse(head);
@@ -662,7 +674,7 @@ final class ClientConnection implements Runnable {
             while (true) {
                 HttpContent content;
                 try {
-                    content = body.next();
+                    content = prefetched.isEmpty() ? body.next() : prefetched.poll();
                 } catch (IOException e) {
                     throw new ServerFailure("reading response body failed", e);
                 }
@@ -1207,9 +1219,15 @@ final class ClientConnection implements Runnable {
         return full;
     }
 
+    /**
+     * Reads the whole response body into a {@link FullHttpResponse}. When the body exceeds {@code
+     * maxBytes}: fails with 502 if {@code overflow} is null, otherwise returns null after putting
+     * the pieces read so far into {@code overflow} so the response can still be streamed.
+     */
     private FullHttpResponse aggregateResponse(HttpResponse response, Framing framing, HttpCodec.BodyReader body,
-            int maxBytes, HttpMethod requestMethod) throws IOException {
+            int maxBytes, HttpMethod requestMethod, java.util.Deque<HttpContent> overflow) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        List<HttpContent> pieces = overflow == null ? null : new ArrayList<>();
         HttpHeaders trailers = null;
         while (true) {
             HttpContent content;
@@ -1223,7 +1241,14 @@ final class ClientConnection implements Runnable {
             if (content == null) {
                 break;
             }
+            if (pieces != null) {
+                pieces.add(content);
+            }
             if (buffer.size() + content.contentLength() > maxBytes) {
+                if (overflow != null) {
+                    overflow.addAll(pieces);
+                    return null;
+                }
                 throw new ServerFailure("response larger than " + maxBytes + " bytes", null);
             }
             buffer.write(content.content());
