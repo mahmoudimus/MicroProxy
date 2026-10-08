@@ -1165,16 +1165,20 @@ final class ClientConnection implements Runnable {
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();
 
-            if (server.sendProxyProtocol && !socks) {
+            // The PROXY header must reach the final server, as in LittleProxy: written first on a
+            // direct connection, through the tunnel once an HTTP chained proxy has accepted the
+            // CONNECT, and not at all when there is no tunnel to the final server (SOCKS, or a
+            // plain request forwarded to an HTTP chained proxy).
+            if (server.sendProxyProtocol && proxy == null) {
                 writeProxyProtocolHeader(rawOut);
+            } else if (server.sendProxyProtocol && (socks || mode == Mode.PLAIN)) {
+                LOG.log(Level.DEBUG, "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
+                        hostAndPort, type, remote);
             }
             if (type == ChainedProxyType.SOCKS4) {
                 Socks.connect4(rawIn, rawOut, target.host(), target.port(), proxy.getUsername());
             } else if (type == ChainedProxyType.SOCKS5) {
                 Socks.connect5(rawIn, rawOut, target.host(), target.port(), proxy.getUsername(), proxy.getPassword());
-            }
-            if (server.sendProxyProtocol && socks) {
-                writeProxyProtocolHeader(rawOut);
             }
             if (type == ChainedProxyType.HTTP && mode != Mode.PLAIN) {
                 HttpRequest connectRequest = upstreamConnectRequest(ex.request, hostAndPort, proxy);
@@ -1184,6 +1188,9 @@ final class ClientConnection implements Runnable {
                 if (reply == null || reply.status().code() / 100 != 2) {
                     throw new ConnectException("chained proxy refused CONNECT: "
                             + (reply == null ? "connection closed" : reply.status()));
+                }
+                if (server.sendProxyProtocol) {
+                    writeProxyProtocolHeader(rawOut);
                 }
             }
             if (mode == Mode.TLS) {

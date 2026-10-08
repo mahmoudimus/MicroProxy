@@ -224,7 +224,7 @@ Command-line flags override values from the file.
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
-| PROXY protocol | accept v1 and v2, send v1 |
+| PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
 | WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |

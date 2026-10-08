@@ -89,7 +89,12 @@ public interface HttpProxyServerBootstrap {
     /** Require a PROXY protocol (v1 or v2) header on every inbound connection. */
     HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol);
 
-    /** Send a PROXY protocol v1 header on every outbound connection. */
+    /**
+     * Send a PROXY protocol v1 header to the final server: first on a direct connection, or
+     * through the tunnel once an HTTP chained proxy has accepted the CONNECT. It is not sent where
+     * there is no tunnel to the final server: through SOCKS chained proxies, or with plain
+     * requests forwarded to an HTTP chained proxy.
+     */
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
     /**
