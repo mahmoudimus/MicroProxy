@@ -206,6 +206,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         shutdown(false);
     }
 
+    private final java.util.Deque<AutoCloseable> closeOnStop = new java.util.concurrent.ConcurrentLinkedDeque<>();
+
+    @Override
+    public void closeOnStop(AutoCloseable resource) {
+        closeOnStop.push(java.util.Objects.requireNonNull(resource));
+    }
+
     private void shutdown(boolean graceful) {
         if (stopping) return;
         stopping = true;
@@ -226,6 +233,14 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             acceptor.join(5000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        AutoCloseable resource;
+        while ((resource = closeOnStop.poll()) != null) {
+            try {
+                resource.close();
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "closing " + resource + " failed", e);
+            }
         }
     }
 

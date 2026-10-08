@@ -175,6 +175,36 @@ class HttpFilterTest {
     }
 
     @Test
+    void bodyPiecesReachObservingFiltersInsideAChain() {
+        List<String> pieces = new CopyOnWriteArrayList<>();
+        HttpFiltersSource quiet = new HttpFiltersSourceAdapter();
+        HttpFiltersSource observing = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(org.microproxy.http.HttpRequest originalRequest, FlowContext ctx) {
+                return new HttpFilters() {
+                    @Override
+                    public HttpObject serverToProxyResponse(HttpObject o) {
+                        if (o instanceof HttpContent c) pieces.add(c.contentAsString());
+                        return o;
+                    }
+                };
+            }
+        };
+        // A plain adapter subclass that overrides nothing: on its own, bodies take the fast path.
+        HttpFiltersSource noOverrides = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(org.microproxy.http.HttpRequest originalRequest, FlowContext ctx) {
+                return new HttpFiltersAdapter(originalRequest, ctx);
+            }
+        };
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withFiltersSource(HttpFiltersChain.of(quiet, noOverrides, observing)).start();
+        HttpResponse<String> response = get(client(proxy), url(origin, "/streamed"));
+        assertTrue(response.body().startsWith("method: GET"), response.body());
+        assertEquals(response.body(), String.join("", pieces));
+    }
+
+    @Test
     void streamingFiltersSeeHeadThenContentThenLast() {
         List<String> events = new CopyOnWriteArrayList<>();
         start(req -> new HttpFilters() {
