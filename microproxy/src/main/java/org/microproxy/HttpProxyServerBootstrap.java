@@ -42,6 +42,9 @@ public interface HttpProxyServerBootstrap {
      */
     HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource);
 
+    /** The filters source configured so far (never null). */
+    HttpFiltersSource getFiltersSource();
+
     /**
      * Caches responses ({@link org.microproxy.cache.HttpCache}). The cache always runs after the
      * filters sources, whichever order they were configured in.

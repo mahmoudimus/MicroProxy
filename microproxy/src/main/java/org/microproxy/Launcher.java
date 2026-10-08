@@ -45,6 +45,7 @@ public final class Launcher {
               --cache-size <MB>            disk cache limit (default 1024)
               --cache-memory <MB>          cache responses in memory instead
               --offline                    answer only from the cache (needs --cache-dir or --cache-memory)
+              --warc-dir <dir>             record traffic with servers as WARC files
               --mitm                       intercept HTTPS with a generated CA
               --mitm-ca <file.p12>         CA key store for --mitm (created if missing;
                                            default ./microproxy-ca.p12)
@@ -85,6 +86,7 @@ public final class Launcher {
         long cacheSizeMb = 1024;
         long cacheMemoryMb = 0;
         boolean offline = false;
+        Path warcDir = null;
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
@@ -131,6 +133,7 @@ public final class Launcher {
                 case "--cache-size" -> cacheSizeMb = Long.parseLong(value(queue, arg));
                 case "--cache-memory" -> cacheMemoryMb = Long.parseLong(value(queue, arg));
                 case "--offline" -> offline = true;
+                case "--warc-dir" -> warcDir = Path.of(value(queue, arg));
                 case "--mitm" -> mitm = true;
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
@@ -161,6 +164,19 @@ public final class Launcher {
             bootstrap.withManInTheMiddle(mitmTrustAll
                     ? new CertificateAuthorityMitmManager(ca, SslContexts.trustAll())
                     : new CertificateAuthorityMitmManager(ca));
+        }
+        if (warcDir != null) {
+            // First among the filters, so it records messages before others change them.
+            org.microproxy.warc.WarcRecorder recorder = org.microproxy.warc.WarcRecorder.builder(warcDir).build();
+            bootstrap.withFiltersSource(org.microproxy.HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    recorder.close();
+                } catch (IOException e) {
+                    System.err.println("closing WARC file failed: " + e);
+                }
+            }, "microproxy-warc-close"));
+            console.println("Recording WARC files in " + warcDir.toAbsolutePath());
         }
         if (cacheDir != null || cacheMemoryMb > 0) {
             org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(offline);
