@@ -90,10 +90,10 @@ public final class WebSocketFrame {
         if (unmasked == null) {
             byte[] out = maskedPayload.clone();
             if (isMasked()) {
-                int keyOffset = header.length - 4;
-                for (int i = 0; i < out.length; i++) {
-                    out[i] ^= header[keyOffset + (i & 3)];
-                }
+                int k = header.length - 4;
+                int key = (header[k] & 0xff) << 24 | (header[k + 1] & 0xff) << 16
+                        | (header[k + 2] & 0xff) << 8 | (header[k + 3] & 0xff);
+                org.microproxy.simd.Simd.xorMask(out, 0, out.length, key);
             }
             unmasked = out;
         }

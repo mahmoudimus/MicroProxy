@@ -113,20 +113,18 @@ final class ByteReader {
                 throw new EOFException("connection closed mid-line");
             }
             int start = pos;
-            while (pos < limit) {
-                if (buf[pos] == '\n') {
-                    int end = pos;
-                    pos++;
-                    String part = new String(buf, start, end - start, StandardCharsets.ISO_8859_1);
-                    length += end - start;
-                    if (length > maxLength + 1) {
-                        throw new HttpParseException(tooLongStatus, "line too long");
-                    }
-                    String line = sb == null ? part : sb.append(part).toString();
-                    return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
+            int end = org.microproxy.simd.Simd.indexOf(buf, pos, limit, (byte) '\n');
+            if (end >= 0) {
+                pos = end + 1;
+                String part = new String(buf, start, end - start, StandardCharsets.ISO_8859_1);
+                length += end - start;
+                if (length > maxLength + 1) {
+                    throw new HttpParseException(tooLongStatus, "line too long");
                 }
-                pos++;
+                String line = sb == null ? part : sb.append(part).toString();
+                return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
             }
+            pos = limit;
             length += pos - start;
             if (length > maxLength + 1) {
                 throw new HttpParseException(tooLongStatus, "line too long");

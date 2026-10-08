@@ -190,6 +190,9 @@ public final class Launcher {
         // Closed after the server's connections finish, so in-flight records are written.
         resources.forEach(server::closeOnStop);
         console.println("MicroProxy listening on " + server.getListenAddress());
+        if (org.microproxy.simd.Simd.isVectorized()) {
+            console.println("SIMD: " + org.microproxy.simd.Simd.ops().description());
+        }
         return server;
     }
 
