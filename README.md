@@ -69,6 +69,17 @@ a buffer, and tunnels give theirs back whenever the peer goes quiet. With 2,000 
 connections, each client and server connection pair costs about 11 KiB of heap, down from 141
 KiB. An idle `CONNECT` tunnel costs about 15 KiB, down from 113 KiB.
 
+Per request, header handling avoids throwaway objects:
+
+- Heads are written straight into the pooled buffer.
+- Header lines are parsed into one string each, and then a single name and value.
+- List-valued fields are checked in place, and URIs are checked without regular expressions.
+- The `Date` value is formatted once per second.
+- The request copy that the filters API hands to filters is made only when filters are configured.
+
+A small keep-alive GET through the proxy now allocates about 4.7 KB, down from 12.1 KB, at
+10-20% higher throughput. Both figures include the benchmark client's own allocations.
+
 A few rules keep this safe on JDK 21, where a virtual thread that blocks inside `synchronized`
 pins its carrier thread:
 
@@ -142,7 +153,7 @@ Measured on JDK 28 EA (build 18), with identical code apart from the `value` mod
 
 | | identity records | value records |
 |---|---|---|
-| allocation per small keep-alive request | 10,224 bytes | 10,135 bytes |
+| allocation per small keep-alive request (before the header work above) | 10,224 bytes | 10,135 bytes |
 | throughput, 16 clients | ~36,500 req/s | ~34,700 req/s (within noise) |
 | heap per idle connection pair | 10.3 KiB | 11.8 KiB (within noise) |
 

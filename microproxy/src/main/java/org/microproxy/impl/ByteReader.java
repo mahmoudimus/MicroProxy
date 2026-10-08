@@ -116,12 +116,16 @@ final class ByteReader {
             int end = org.microproxy.simd.Simd.indexOf(buf, pos, limit, (byte) '\n');
             if (end >= 0) {
                 pos = end + 1;
-                String part = new String(buf, start, end - start, StandardCharsets.ISO_8859_1);
                 length += end - start;
                 if (length > maxLength + 1) {
                     throw new HttpParseException(tooLongStatus, "line too long");
                 }
-                String line = sb == null ? part : sb.append(part).toString();
+                if (sb == null) {
+                    // The common case: the whole line is buffered; make one string without the CR.
+                    int stop = end > start && buf[end - 1] == '\r' ? end - 1 : end;
+                    return new String(buf, start, stop - start, StandardCharsets.ISO_8859_1);
+                }
+                String line = sb.append(new String(buf, start, end - start, StandardCharsets.ISO_8859_1)).toString();
                 return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
             }
             pos = limit;

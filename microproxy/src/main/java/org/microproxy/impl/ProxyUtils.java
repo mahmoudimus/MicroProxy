@@ -4,13 +4,10 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.regex.Pattern;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
@@ -30,15 +27,14 @@ public final class ProxyUtils {
      * Hop-by-hop headers (RFC 9110 7.6.1) removed when forwarding. Transfer-Encoding is kept
      * because the proxy re-emits the same framing it received.
      */
-    private static final Set<String> HOP_BY_HOP =
-            Set.of("connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
-                    "proxy-connection", "te", "trailer", "upgrade");
+    private static final String[] HOP_BY_HOP = {"connection", "keep-alive", "proxy-authenticate",
+        "proxy-authorization", "proxy-connection", "te", "trailer", "upgrade"};
 
-    private static final Pattern ABSOLUTE_URI =
-            Pattern.compile("^[a-zA-Z][a-zA-Z0-9+.-]*://.*");
-
-    private static final Pattern HTTP_PREFIX =
-            Pattern.compile("^(http|ws)s?://.*", Pattern.CASE_INSENSITIVE);
+    /** Whether {@code uri} starts with {@code http://}, {@code https://}, {@code ws://} or {@code wss://}. */
+    private static boolean hasHttpScheme(String uri) {
+        return uri.regionMatches(true, 0, "http://", 0, 7) || uri.regionMatches(true, 0, "https://", 0, 8)
+                || uri.regionMatches(true, 0, "ws://", 0, 5) || uri.regionMatches(true, 0, "wss://", 0, 6);
+    }
 
     private static final DateTimeFormatter HTTP_DATE =
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US);
@@ -47,7 +43,7 @@ public final class ProxyUtils {
 
     /** Turns {@code http://host/path?q} into {@code /path?q}; other URIs are returned as is. */
     public static String stripHost(String uri) {
-        if (!HTTP_PREFIX.matcher(uri).matches()) {
+        if (!hasHttpScheme(uri)) {
             return uri;
         }
         String noScheme = uri.substring(uri.indexOf("://") + 3);
@@ -67,8 +63,19 @@ public final class ProxyUtils {
         return -1;
     }
 
+    /** Whether {@code uri} starts with a scheme followed by {@code ://}. */
     public static boolean isAbsoluteUri(String uri) {
-        return ABSOLUTE_URI.matcher(uri).matches();
+        if (uri.isEmpty() || !isAsciiLetter(uri.charAt(0))) return false;
+        for (int i = 1; i < uri.length(); i++) {
+            char c = uri.charAt(i);
+            if (c == ':') return uri.startsWith("//", i + 1);
+            if (!(isAsciiLetter(c) || (c >= '0' && c <= '9') || c == '+' || c == '.' || c == '-')) return false;
+        }
+        return false;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
     }
 
     /**
@@ -76,7 +83,7 @@ public final class ProxyUtils {
      * null} if the URI is not absolute.
      */
     public static String parseHostAndPort(String uri) {
-        if (!HTTP_PREFIX.matcher(uri).matches()) {
+        if (!hasHttpScheme(uri)) {
             return null;
         }
         String noScheme = uri.substring(uri.indexOf("://") + 3);
@@ -109,16 +116,15 @@ public final class ProxyUtils {
     }
 
     public static boolean shouldRemoveHopByHopHeader(String name) {
-        return HOP_BY_HOP.contains(name.toLowerCase(Locale.ROOT));
+        for (String h : HOP_BY_HOP) {
+            if (h.equalsIgnoreCase(name)) return true;
+        }
+        return false;
     }
 
     /** Removes the fixed set of hop-by-hop headers. */
     public static void stripHopByHopHeaders(HttpHeaders headers) {
-        for (String name : List.copyOf(headers.names())) {
-            if (shouldRemoveHopByHopHeader(name)) {
-                headers.remove(name);
-            }
-        }
+        headers.removeIf(ProxyUtils::shouldRemoveHopByHopHeader);
     }
 
     /**
@@ -127,6 +133,9 @@ public final class ProxyUtils {
      * proxy preserves.
      */
     public static void stripConnectionTokens(HttpHeaders headers) {
+        if (!headers.contains(HttpHeaderNames.CONNECTION) && !headers.contains(HttpHeaderNames.PROXY_CONNECTION)) {
+            return;
+        }
         List<String> tokens = new ArrayList<>(headers.getAllElements(HttpHeaderNames.CONNECTION));
         tokens.addAll(headers.getAllElements(HttpHeaderNames.PROXY_CONNECTION));
         for (String token : tokens) {
@@ -138,8 +147,17 @@ public final class ProxyUtils {
 
     /** Removes the {@code sdch} coding, which the proxy cannot decode, from Accept-Encoding. */
     static void removeSdchEncoding(HttpHeaders headers) {
+        String first = headers.get(HttpHeaderNames.ACCEPT_ENCODING);
+        if (first == null) return;
+        boolean sdch = false;
+        for (int i = 0; i < headers.size() && !sdch; i++) {
+            if (headers.nameAt(i).equalsIgnoreCase(HttpHeaderNames.ACCEPT_ENCODING)) {
+                String v = headers.valueAt(i);
+                for (int k = 0; k + 4 <= v.length() && !sdch; k++) sdch = v.regionMatches(true, k, "sdch", 0, 4);
+            }
+        }
+        if (!sdch) return;
         List<String> values = headers.getAll(HttpHeaderNames.ACCEPT_ENCODING);
-        if (values.isEmpty()) return;
         List<String> kept = new ArrayList<>();
         for (String v : values) {
             for (String coding : HttpHeaders.splitList(v)) {
@@ -195,8 +213,20 @@ public final class ProxyUtils {
 
     /** The current time as an IMF-fixdate. */
     public static String httpDate() {
-        return HTTP_DATE.format(ZonedDateTime.now(ZoneOffset.UTC));
+        long second = System.currentTimeMillis() / 1000;
+        CachedDate cached = lastDate;
+        if (cached == null || cached.second() != second) {
+            cached = new CachedDate(second, HTTP_DATE.format(
+                    java.time.Instant.ofEpochSecond(second).atZone(ZoneOffset.UTC)));
+            lastDate = cached;
+        }
+        return cached.text();
     }
+
+    private record CachedDate(long second, String text) {}
+
+    /** The last formatted date: one string per second however many responses need it. */
+    private static volatile CachedDate lastDate;
 
     /** Creates an HTML-ish response with {@code body}, a Date and an exact Content-Length. */
     public static FullHttpResponse createFullHttpResponse(
