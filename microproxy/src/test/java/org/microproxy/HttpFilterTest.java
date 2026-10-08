@@ -252,6 +252,11 @@ class HttpFilterTest {
             }
         }, 0, 0);
         assertEquals(200, get(client(proxy), url(origin, "/s")).statusCode());
+        // The client can have the whole response a moment before the proxy reports it received.
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        while (!events.contains("received") && System.nanoTime() < deadline) {
+            Thread.onSpinWait();
+        }
         String port = String.valueOf(origin.getAddress().getPort());
         assertEquals(List.of("resolving", "connected:127.0.0.1:" + port, "sending", "sent", "receiving",
                 "s2p:head", "p2c:head", "s2p:last", "p2c:last", "received"), events);
