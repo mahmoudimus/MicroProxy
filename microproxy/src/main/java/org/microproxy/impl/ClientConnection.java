@@ -579,6 +579,12 @@ final class ClientConnection implements Runnable {
                     ex.bodyAbandoned = true;
                 }
             }
+            if (!streamingBody && !(request instanceof FullHttpRequest) && observes(filters, OBSERVES_REQUEST_CONTENT)) {
+                // Filters see every streamed request end with a LastHttpContent, even without a body.
+                HttpContent end = LastHttpContent.empty();
+                filters.clientToProxyRequest(end);
+                filters.proxyToServerRequest(end);
+            }
             if (response == null) {
                 filters.proxyToServerRequestSent();
                 response = readResponseHead(ex, conn, false, retryAllowed);

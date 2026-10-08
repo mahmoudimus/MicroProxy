@@ -352,4 +352,15 @@ class FilterCallbacksTest {
                 "proxyToServerRequestSent", "serverToProxyResponseReceiving");
     }
 
+    @Test
+    void bodilessRequestStillEndsWithLastContent() {
+        RecordingFilters filters = new RecordingFilters();
+        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(RecordingFilters.sourceOf(filters)).start();
+        assertEquals(200, get(client(proxy), url(origin, "/get")).statusCode());
+        assertInOrder(filters.events, "clientToProxyRequest:head", "proxyToServerRequest:head",
+                "proxyToServerRequestSending", "clientToProxyRequest:last", "proxyToServerRequest:last",
+                "proxyToServerRequestSent");
+        assertEquals(1, filters.events.stream().filter(e -> e.equals("proxyToServerRequest:last")).count());
+        assertFalse(filters.saw("proxyToServerRequest:content"));
+    }
 }
