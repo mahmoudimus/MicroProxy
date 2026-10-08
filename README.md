@@ -114,16 +114,21 @@ Command-line flags override values from the file.
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
+| `cache_dir` / `cache_max_mb` | cache responses on disk (see [HTTP cache](#http-cache)) / its size | off / `1024` |
+| `cache_memory_mb` | cache responses in memory instead | off |
+| `cache_max_entry_mb` | largest response body cached | `8` |
+| `offline` | answer only from the cache | `false` |
 
 ## Features
 
 | | |
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
-| Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`) |
+| Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
+| HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator` (Basic) |
@@ -196,6 +201,57 @@ bootstrap.withFiltersSource(RewriteRules.builder()
 ```
 
 Only matching text responses are buffered; everything else streams.
+
+### HTTP cache
+
+`org.microproxy.cache.HttpCache` is a shared cache following RFC 9111. Put it on disk to keep
+cached pages across restarts and to browse them offline:
+
+```bash
+java -jar microproxy.jar --cache-dir ~/.microproxy-cache --cache-size 2048
+java -jar microproxy.jar --cache-dir ~/.microproxy-cache --offline   # never contact servers
+```
+
+```java
+HttpCache cache = HttpCache.builder()
+        .store(new DiskCacheStore(Path.of("cache"), 2L << 30))   // or new MemoryCacheStore(bytes)
+        .build();
+MicroProxy.bootstrap().withHttpCache(cache).start();
+```
+
+What it does:
+
+- **Storing:** complete `GET` responses up to 8 MiB that a shared cache may store. That excludes
+  `no-store`, `private`, `Vary: *`, responses to requests with `Authorization` (unless
+  `public`, `s-maxage` or `must-revalidate`), and responses setting cookies (unless `public`).
+- **Freshness:** from `s-maxage`, `max-age`, `Expires`, or 10% of the time since
+  `Last-Modified` (at most a day). Ages follow the RFC, including `Age` and the response delay.
+  The request directives `max-age`, `min-fresh`, `max-stale`, `no-cache` (and `Pragma: no-cache`),
+  `no-store` and `only-if-cached` are honoured.
+- **Revalidation:** a stale entry with an `ETag` or `Last-Modified` is checked with a conditional
+  request. A `304` refreshes the entry, and the client still gets the full response.
+- **Variants:** `Vary` is matched on normalized request values, and a URL may have several
+  variants. `HEAD` is answered from a stored `GET`.
+- **Invalidation:** a successful `POST`, `PUT`, `DELETE`, etc. removes the URL, and same-origin
+  `Location` / `Content-Location`.
+- **When servers are unreachable:** a stale entry is served instead of the proxy's `502`/`504`,
+  unless it is marked `must-revalidate`, `proxy-revalidate`, `no-cache` or `s-maxage`. A server's
+  `5xx` is replaced only within `stale-if-error`.
+  - With `--mitm`, intercepted HTTPS keeps working: a `CONNECT` to a dead server is still
+    intercepted, through the `proxyToServerAllowOfflineMitm` filter hook, and the cache answers
+    inside the session.
+- **Offline mode:** everything is answered from the cache, whatever its age; anything else gets
+  `504`.
+- **Reporting:** responses carry `Cache-Status` (RFC 9211), e.g. `MicroProxy; hit; ttl=42` or
+  `MicroProxy; fwd=stale; fwd-status=304`. `HttpCache.stats()` counts hits, misses, stores,
+  revalidations and stale responses served.
+
+The cache always runs after the other filters (`withFiltersSource`, `plusFiltersSource`, scripts).
+So filters and scripts see a request before the cache can answer it, and the cache stores
+responses after they have been rewritten.
+
+Not implemented: `stale-while-revalidate`, `Range` requests (they bypass the cache) and caching
+`POST` responses.
 
 ### Scripting with Starlark
 

@@ -52,7 +52,7 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
         } catch (ScriptException e) {
             throw new IllegalArgumentException("cannot load " + script + ":\n" + e.getMessage(), e);
         }
-        bootstrap.withFiltersSource(proxy).withChainProxyManager(proxy);
+        bootstrap.plusFiltersSource(proxy).withChainProxyManager(proxy);
         console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : ""));
     }
 }

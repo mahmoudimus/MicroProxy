@@ -139,6 +139,16 @@ public interface HttpFilters {
     }
 
     /**
+     * For a CONNECT that is being intercepted but whose server cannot be reached: return true to
+     * intercept it anyway, with a certificate made from the requested host name alone, so these
+     * filters can answer the requests inside the session (from a cache, for example). Those
+     * requests fail as usual if they do need the server.
+     */
+    default boolean proxyToServerAllowOfflineMitm() {
+        return false;
+    }
+
+    /**
      * Called for every WebSocket frame relayed after this request was upgraded ({@code 101
      * Switching Protocols} with {@code Upgrade: websocket}), including inside intercepted TLS
      * sessions. Frames are observed, not modified: they are forwarded unchanged after this returns.

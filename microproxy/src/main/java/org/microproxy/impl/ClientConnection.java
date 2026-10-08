@@ -87,6 +87,13 @@ final class ClientConnection implements Runnable {
         }
     };
 
+    private static boolean observesFrames(HttpFilters filters) {
+        if (filters instanceof org.microproxy.HttpFiltersChain.Chained chain) {
+            return chain.members().stream().anyMatch(ClientConnection::observesFrames);
+        }
+        return OBSERVES_FRAMES.get(filters.getClass());
+    }
+
     /** How a server connection is used. */
     enum Mode {
         /** HTTP requests forwarded as-is. */
@@ -706,7 +713,7 @@ final class ClientConnection implements Runnable {
             boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
                     .anyMatch(token -> token.equalsIgnoreCase("websocket"));
             // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
-            Tunnel.FrameObserver observer = webSocket && OBSERVES_FRAMES.get(filters.getClass())
+            Tunnel.FrameObserver observer = webSocket && observesFrames(filters)
                     ? filters::webSocketFrameReceived : null;
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
                     server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id,
@@ -787,7 +794,7 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, shortCircuit, true);
         }
 
-        ServerConnection conn;
+        ServerConnection conn = null;
         try {
             conn = usesPool(mode) ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
         } catch (SharedConnectionPool.PoolExhaustedException e) {
@@ -796,10 +803,15 @@ final class ClientConnection implements Runnable {
                     "Service Unavailable: no server connection available"), false);
         } catch (IOException e) {
             LOG.log(Level.DEBUG, "CONNECT to " + hostAndPort + " failed", e);
-            return respondDirect(ex, badGateway(ex), false);
+            if (!mitm || !ex.filters.proxyToServerAllowOfflineMitm()) {
+                return respondDirect(ex, badGateway(ex), false);
+            }
+            LOG.log(Level.DEBUG, "intercepting {0} without a server connection", hostAndPort);
         }
-        conn.key = mode + "|" + hostAndPort;
-        serverConnections.put(conn.key, conn);
+        if (conn != null) {
+            conn.key = mode + "|" + hostAndPort;
+            serverConnections.put(conn.key, conn);
+        }
 
         HttpResponse established =
                 new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, new HttpResponseStatus(200, "Connection established"));
@@ -811,13 +823,17 @@ final class ClientConnection implements Runnable {
             o = ex.filters.proxyToClientResponse(o);
         }
         if (!(o instanceof HttpResponse response)) {
+            if (conn == null) {
+                close();
+                return false;
+            }
             return abort(conn);
         }
         writeToClient(() -> writer.writeHead(response, response.status().code() / 100 != 2));
         server.trackers.fire(t -> t.responseSentToClient(flowContext, response));
         if (response.status().code() / 100 != 2) {
             // A filter turned the CONNECT into a failure.
-            conn.close();
+            if (conn != null) conn.close();
             if (!(HttpUtil.isKeepAlive(response) && ex.clientKeepAlive)) {
                 close();
                 return false;
@@ -832,7 +848,7 @@ final class ClientConnection implements Runnable {
             return false;
         }
 
-        SSLSession serverSession = ((SSLSocket) conn.socket).getSession();
+        SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
         SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
         server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
         SSLSocket tls = Tls.serverHandshake(clientContext, socket, in.drainBuffered(), false, null);
@@ -842,7 +858,7 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
 
         mitmHostAndPort = hostAndPort;
-        if (conn.perRequestLease) {
+        if (conn != null && conn.perRequestLease) {
             // Each intercepted request leases its own connection; start with this one.
             serverConnections.remove(conn.key, conn);
             conn.pool.release(conn);

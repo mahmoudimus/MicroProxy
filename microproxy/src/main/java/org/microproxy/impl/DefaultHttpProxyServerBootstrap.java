@@ -41,6 +41,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     ChainedProxyManager chainProxyManager;
     MitmManager mitmManager;
     HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
+    org.microproxy.cache.HttpCache httpCache;
     boolean transparent;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
@@ -79,6 +80,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.chainProxyManager = chainProxyManager;
         c.mitmManager = mitmManager;
         c.filtersSource = filtersSource;
+        c.httpCache = httpCache;
         c.transparent = transparent;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
@@ -186,6 +188,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
                     p.getProperty("activity_log_format").strip().toUpperCase(java.util.Locale.ROOT))));
         }
+        if (p.containsKey("cache_dir") || p.containsKey("cache_memory_mb") || bool(p, "offline")) {
+            org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(bool(p, "offline"));
+            if (p.containsKey("cache_dir")) {
+                long mb = Long.parseLong(p.getProperty("cache_max_mb", "1024").strip());
+                try {
+                    cache.store(new org.microproxy.cache.DiskCacheStore(
+                            java.nio.file.Path.of(p.getProperty("cache_dir").strip()), mb << 20));
+                } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException("cannot open cache_dir", e);
+                }
+            } else if (p.containsKey("cache_memory_mb")) {
+                cache.store(new org.microproxy.cache.MemoryCacheStore(
+                        Long.parseLong(p.getProperty("cache_memory_mb").strip()) << 20));
+            }
+            if (p.containsKey("cache_max_entry_mb")) {
+                cache.maxEntrySize(Integer.parseInt(p.getProperty("cache_max_entry_mb").strip()) << 20);
+            }
+            withHttpCache(cache.build());
+        }
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
         withThrottling(read, write);
@@ -266,6 +287,18 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager) {
         this.mitmManager = mitmManager;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache) {
+        this.httpCache = cache;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource) {
+        this.filtersSource = org.microproxy.HttpFiltersChain.of(this.filtersSource, filtersSource);
         return this;
     }
 
