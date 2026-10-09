@@ -44,6 +44,14 @@ public interface ActivityTracker {
         responseSentToClient(flowContext, httpResponse);
     }
 
+    /**
+     * Called when the whole response to a request, body included, has been written to the client
+     * (for a {@code CONNECT} or a protocol upgrade: once the response head has, before the tunnel
+     * starts). {@link FlowContext#timings()} is complete then. Not called when the exchange is
+     * abandoned half-way, e.g. because the server or the client failed.
+     */
+    default void responseCompleted(FlowContext flowContext, HttpResponse httpResponse) {}
+
     default void serverConnected(FullFlowContext flowContext, InetSocketAddress serverAddress) {}
 
     default void serverDisconnected(FullFlowContext flowContext, InetSocketAddress serverAddress) {}

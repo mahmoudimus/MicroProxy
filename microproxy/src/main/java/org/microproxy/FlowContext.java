@@ -101,6 +101,16 @@ public class FlowContext {
         return root == this ? OptionalInt.empty() : root.upstreamStatus();
     }
 
+    /**
+     * When the phases of the exchange in progress on this connection (or the last one) happened:
+     * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
+     * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
+     * the proxy return {@link FlowTimings#NONE}.
+     */
+    public FlowTimings timings() {
+        return root == this ? FlowTimings.NONE : root.timings();
+    }
+
     public ClientDetails getClientDetails() {
         return clientDetails;
     }

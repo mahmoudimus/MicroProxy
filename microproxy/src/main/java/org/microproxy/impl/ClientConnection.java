@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
@@ -365,15 +366,8 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.clientConnected(flowContext));
             connectedFired = true;
             if (server.sslContextSource != null) {
-                server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
-                SSLSocket tls = Tls.serverHandshake(
-                        server.sslContextSource.getSslContext(), rawSocket, in.drainBuffered(),
-                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false),
-                        server.tlsHandshakeTimeout);
-                sslSession = tls.getSession();
-                attachClientStreams(tls);
-                SSLSession session = sslSession;
-                server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
+                handshakeWithClient(server.sslContextSource.getSslContext(), rawSocket,
+                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false));
             }
             serveRequests();
         } catch (SocketTimeoutException e) {
@@ -395,6 +389,20 @@ final class ClientConnection implements Runnable {
             }
             server.unregister(this);
         }
+    }
+
+    /** Runs the TLS handshake with the client (the TLS listener's, or an intercepted session's). */
+    private void handshakeWithClient(SSLContext context, Socket plain, boolean needClientAuth,
+            Consumer<SSLSocket> configurer) throws IOException {
+        server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
+        flowContext.clientTlsStarted();
+        SSLSocket tls = Tls.serverHandshake(context, plain, in.drainBuffered(), needClientAuth, configurer,
+                server.tlsHandshakeTimeout);
+        flowContext.clientTlsFinished();
+        sslSession = tls.getSession();
+        attachClientStreams(tls);
+        SSLSession session = sslSession;
+        server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
     }
 
     private void attachClientStreams(Socket s) throws IOException {
@@ -421,6 +429,9 @@ final class ClientConnection implements Runnable {
             try {
                 // Wait for the next request without holding a buffer: idle connections are cheap.
                 in.awaitNext();
+                if (in.buffered() > 0) {
+                    flowContext.startExchange();
+                }
                 request = HttpCodec.readRequest(in, server.limits);
             } catch (HttpParseException e) {
                 if (LOG.isLoggable(Level.DEBUG)) {
@@ -433,7 +444,6 @@ final class ClientConnection implements Runnable {
                 return;
             }
             idle = false;
-            flowContext.startExchange();
             if (!handleRequest(request)) {
                 return;
             }
@@ -613,6 +623,9 @@ final class ClientConnection implements Runnable {
                 throw new ServerFailure("write to server failed", e);
             }
             conn.used = true;
+            if (!streamingBody) {
+                flowContext.mark(ClientFlowContext.REQUEST_SENT);
+            }
             server.trackers.fire(t -> t.requestSentToServer(conn.flowContext, request));
 
             HttpResponse response = null;
@@ -632,6 +645,7 @@ final class ClientConnection implements Runnable {
                 if (early == null) {
                     try {
                         pumpRequestBody(ex, conn);
+                        flowContext.mark(ClientFlowContext.REQUEST_SENT);
                     } catch (ServerWriteFailure e) {
                         // The server may have answered early (e.g. 413) and stopped reading.
                         LOG.log(Level.DEBUG, logPrefix + "server stopped reading the request body", e);
@@ -746,6 +760,10 @@ final class ClientConnection implements Runnable {
         while (true) {
             HttpResponse response;
             try {
+                conn.in.awaitNext();
+                if (conn.in.buffered() > 0) {
+                    flowContext.markFirst(ClientFlowContext.FIRST_RESPONSE_BYTE);
+                }
                 response = HttpCodec.readResponse(conn.in, server.limits);
             } catch (SocketTimeoutException e) {
                 throw new ServerTimeout(e);
@@ -900,6 +918,7 @@ final class ClientConnection implements Runnable {
             }
         }
         filters.serverToProxyResponseReceived();
+        completed(finalResponse);
 
         if (switching) {
             boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
@@ -932,6 +951,12 @@ final class ClientConnection implements Runnable {
             return false;
         }
         return true;
+    }
+
+    /** The response to the current request has been written in full. */
+    private void completed(HttpResponse response) {
+        flowContext.mark(ClientFlowContext.RESPONSE_COMPLETE);
+        server.trackers.fire(t -> t.responseCompleted(flowContext, response));
     }
 
     private boolean abort(ServerConnection conn) {
@@ -1098,6 +1123,7 @@ final class ClientConnection implements Runnable {
         writeToClient(() -> writer.writeHead(response, response.status().code() / 100 != 2));
         ResponseSource source = source(ResponseSource.PROXY, established, 200, response);
         server.trackers.fire(t -> t.responseSentToClient(flowContext, response, source));
+        completed(response);
         if (response.status().code() / 100 != 2) {
             // A filter turned the CONNECT into a failure.
             if (conn != null) conn.close();
@@ -1117,13 +1143,7 @@ final class ClientConnection implements Runnable {
 
         SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
         SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
-        server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
-        SSLSocket tls = Tls.serverHandshake(clientContext, socket, in.drainBuffered(), false, null,
-                server.tlsHandshakeTimeout);
-        sslSession = tls.getSession();
-        attachClientStreams(tls);
-        SSLSession session = sslSession;
-        server.trackers.fire(t -> t.clientSSLHandshakeSucceeded(flowContext, session));
+        handshakeWithClient(clientContext, socket, false, null);
 
         mitmHostAndPort = hostAndPort;
         if (conn != null && conn.perRequestLease) {
@@ -1257,10 +1277,14 @@ final class ClientConnection implements Runnable {
         InetSocketAddress remote = filters.proxyToServerResolutionStarted(hostAndPort);
         try {
             if (remote == null) {
+                flowContext.markFirst(ClientFlowContext.DNS_START);
                 remote = server.serverResolver.resolve(target.host(), target.port());
+                flowContext.mark(ClientFlowContext.DNS_END);
             } else if (remote.isUnresolved()) {
                 // A filter may name another host rather than an address: resolve it the same way.
+                flowContext.markFirst(ClientFlowContext.DNS_START);
                 remote = server.serverResolver.resolve(remote.getHostString(), remote.getPort());
+                flowContext.mark(ClientFlowContext.DNS_END);
             }
         } catch (UnknownHostException e) {
             filters.proxyToServerResolutionFailed(hostAndPort);
@@ -1286,7 +1310,9 @@ final class ClientConnection implements Runnable {
                 throw new ConnectException("chained proxy has no address");
             }
             if (remote.isUnresolved()) {
+                flowContext.markFirst(ClientFlowContext.DNS_START);
                 remote = new InetSocketAddress(InetAddress.getByName(remote.getHostString()), remote.getPort());
+                flowContext.mark(ClientFlowContext.DNS_END);
             }
         }
         FullFlowContext serverContext = new FullFlowContext(flowContext, hostAndPort, proxy, remote);
@@ -1300,7 +1326,9 @@ final class ClientConnection implements Runnable {
             if (local != null) {
                 plain.bind(local);
             }
+            flowContext.markFirst(ClientFlowContext.CONNECT_START);
             plain.connect(remote, Math.max(0, server.getConnectTimeout()));
+            flowContext.mark(ClientFlowContext.CONNECT_END);
             plain.setTcpNoDelay(true);
             plain.setSoTimeout(server.idleTimeoutMillis());
 
@@ -1312,8 +1340,10 @@ final class ClientConnection implements Runnable {
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
                 try {
+                    flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
                             s -> proxy.configure(s, true), server.tlsHandshakeTimeout);
+                    flowContext.mark(ClientFlowContext.TLS_END);
                 } catch (IOException e) {
                     throw new TlsHandshakeFailed(e);
                 }
@@ -1364,8 +1394,10 @@ final class ClientConnection implements Runnable {
                 filters.proxyToServerConnectionSSLHandshakeStarted();
                 SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
                 try {
+                    flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
                             server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout);
+                    flowContext.mark(ClientFlowContext.TLS_END);
                 } catch (IOException e) {
                     if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
                         throw new NotTlsServer(hostAndPort, ssl);
@@ -1657,6 +1689,7 @@ final class ClientConnection implements Runnable {
         }
         ResponseSource sent = source(source, response, status, res);
         server.trackers.fire(t -> t.responseSentToClient(flowContext, res, sent));
+        completed(res);
         if (!keepAlive) {
             close();
         }
