@@ -23,6 +23,7 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 |---|---|---|
 | `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](zstd-decoder/README.md)) |
 | `http2-codec/` | `io.github.mahmoudimus:http2-codec` | a standalone HTTP/2 frame codec and HPACK implementation ([README](http2-codec/README.md)) |
+| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, not yet used by the proxy ([README](http3-codec/README.md)) |
 | `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder` and `http2-codec` are optional) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
@@ -836,6 +837,10 @@ in [issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2). HTTP/3 runs o
 and that matters even now. Browsers never send QUIC through an HTTP proxy, and a transparent
 setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
 switch to it and bypass the proxy, and with it interception, filters and logging.
+
+The [`http3-codec`](http3-codec/README.md) module is a first step: it encodes and decodes HTTP/3
+frames and QPACK field sections over a QUIC stream's bytes. The proxy does not use it yet, since
+it has no QUIC transport to supply those bytes.
 
 Clients learn about HTTP/3 in two ways:
 
