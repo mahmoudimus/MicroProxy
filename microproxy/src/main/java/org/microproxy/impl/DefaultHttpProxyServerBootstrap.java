@@ -15,6 +15,7 @@ import java.util.Properties;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
+import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
@@ -48,6 +49,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     MitmManager mitmManager;
     HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
     HttpCache httpCache;
+    FailureResponder failureResponder;
     boolean transparent;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
@@ -89,6 +91,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.mitmManager = mitmManager;
         c.filtersSource = filtersSource;
         c.httpCache = httpCache;
+        c.failureResponder = failureResponder;
         c.transparent = transparent;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
@@ -334,6 +337,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource) {
         this.filtersSource = Objects.requireNonNullElseGet(filtersSource, HttpFiltersSourceAdapter::new);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withFailureResponder(FailureResponder responder) {
+        this.failureResponder = responder;
         return this;
     }
 

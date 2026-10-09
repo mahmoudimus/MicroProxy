@@ -52,6 +52,7 @@ public final class HttpFiltersBuilder {
     private UnaryOperator<HttpResponse> onResponse;
     private UnaryOperator<HttpContent> onResponseBody;
     private UnaryOperator<HttpResponse> beforeResponding;
+    private Function<ProxyFailure, HttpResponse> onFailure;
     private BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
     private Function<String, InetSocketAddress> resolver;
     private BooleanSupplier allowMitm;
@@ -104,6 +105,15 @@ public final class HttpFiltersBuilder {
     /** The response head just before it goes to the client ({@code proxyToClientResponse}). */
     public HttpFiltersBuilder beforeResponding(UnaryOperator<HttpResponse> hook) {
         beforeResponding = chain(beforeResponding, hook);
+        return this;
+    }
+
+    /**
+     * The proxy's own answer when the request fails ({@code proxyToServerFailure}): return a
+     * response to send instead of the default, or {@code null}.
+     */
+    public HttpFiltersBuilder onFailure(Function<ProxyFailure, HttpResponse> hook) {
+        onFailure = firstAnswer(onFailure, hook);
         return this;
     }
 
@@ -179,6 +189,7 @@ public final class HttpFiltersBuilder {
         private final UnaryOperator<HttpResponse> onResponse;
         private final UnaryOperator<HttpContent> onResponseBody;
         private final UnaryOperator<HttpResponse> beforeResponding;
+        private final Function<ProxyFailure, HttpResponse> onFailure;
         private final BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
         private final Function<String, InetSocketAddress> resolver;
         private final BooleanSupplier allowMitm;
@@ -192,6 +203,7 @@ public final class HttpFiltersBuilder {
             onResponse = b.onResponse;
             onResponseBody = b.onResponseBody;
             beforeResponding = b.beforeResponding;
+            onFailure = b.onFailure;
             onWebSocketFrame = b.onWebSocketFrame;
             resolver = b.resolver;
             allowMitm = b.allowMitm;
@@ -252,6 +264,11 @@ public final class HttpFiltersBuilder {
         public HttpObject proxyToClientResponse(HttpObject httpObject) {
             return httpObject instanceof HttpResponse response && beforeResponding != null
                     ? beforeResponding.apply(response) : httpObject;
+        }
+
+        @Override
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            return onFailure == null ? null : onFailure.apply(failure);
         }
 
         @Override

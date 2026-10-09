@@ -15,7 +15,8 @@ import org.microproxy.http.WebSocketFrame;
  *
  * <ul>
  *   <li>Request hooks run first to last; the first short-circuit response wins and later filters
- *       do not see the request.
+ *       do not see the request. {@code proxyToServerFailure} works the same way: the first
+ *       response wins.
  *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) and {@code
  *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
  *       {@code null} aborts (or drops the frame).
@@ -148,6 +149,15 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void serverToProxyResponseTimedOut() {
             members.forEach(HttpFilters::serverToProxyResponseTimedOut);
+        }
+
+        @Override
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            for (HttpFilters f : members) {
+                HttpResponse r = f.proxyToServerFailure(failure);
+                if (r != null) return r;
+            }
+            return null;
         }
 
         @Override

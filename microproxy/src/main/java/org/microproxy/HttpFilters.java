@@ -36,6 +36,9 @@ import org.microproxy.http.WebSocketFrame;
  *   <li>{@link #proxyToClientResponse}
  * </ol>
  *
+ * <p>When the proxy answers a request itself because something failed, {@link
+ * #proxyToServerFailure} may supply the answer.
+ *
  * <p>With {@link HttpProxyServerBootstrap#withLittleProxyCompatibility()}, the server is resolved
  * before {@link #proxyToServerRequest}, as LittleProxy does (and a name that does not resolve is
  * answered with {@code 502} without calling it); the connection is still made after it.
@@ -103,6 +106,22 @@ public interface HttpFilters {
 
     /** Called when the server did not respond within the idle timeout. */
     default void serverToProxyResponseTimedOut() {}
+
+    /**
+     * Called when the proxy is about to answer this request itself because of {@code failure}
+     * (the server could not be reached, timed out or answered badly, the request was refused, ...).
+     * Return a response to send instead of the proxy's default, or {@code null}. It is framed by
+     * the proxy and passes {@link #proxyToClientResponse} like any proxy-made response. Filters
+     * are asked before the {@link FailureResponder}; the more specific callbacks ({@link
+     * #proxyToServerResolutionFailed}, {@link #proxyToServerConnectionFailed}, {@link
+     * #serverToProxyResponseTimedOut}) are still called as well, before this one.
+     *
+     * <p>Not called when the failure happens after the response has started (the client connection
+     * is closed instead), or for requests the proxy could not parse.
+     */
+    default HttpResponse proxyToServerFailure(ProxyFailure failure) {
+        return null;
+    }
 
     /** Called when the server begins sending a response. */
     default void serverToProxyResponseReceiving() {}

@@ -52,6 +52,14 @@ public interface HttpProxyServerBootstrap {
      */
     HttpProxyServerBootstrap withHttpCache(HttpCache cache);
 
+    /**
+     * Makes the proxy's own answers when requests fail (see {@link ProxyFailure}): unreachable or
+     * misbehaving servers, timeouts, an exhausted connection pool, refused requests. Filters'
+     * {@link HttpFilters#proxyToServerFailure} answers take precedence; {@code null} (the
+     * default) or a responder returning {@code null} keeps the proxy's plain-text answers.
+     */
+    HttpProxyServerBootstrap withFailureResponder(FailureResponder responder);
+
     /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
     HttpProxyServerBootstrap withTransparent(boolean transparent);
 

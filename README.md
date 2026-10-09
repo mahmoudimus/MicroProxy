@@ -251,10 +251,46 @@ HttpFilters filters = HttpFilters.builder()
 MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
 ```
 
-Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `resolveWith`, `allowMitm`,
-`bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order. Bodies and
+Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `resolveWith`,
+`allowMitm`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order. Bodies and
 frames are only split into pieces when a body or frame hook is registered; otherwise they take the
 fast path, as they do for a filters class that doesn't override those hooks.
+
+### Failure responses
+
+When the proxy has to answer a request itself, it sends a short plain-text body (`Bad Gateway`,
+`Gateway Timeout`, ...) that never echoes the request. The cause is a sealed `ProxyFailure`:
+
+| `ProxyFailure` | when | default |
+|---|---|---|
+| `UnresolvedHost` | the server's name did not resolve | `502` |
+| `ConnectFailed` | connection refused, unreachable or timed out; a chained proxy refused | `502` |
+| `TlsFailed` | the TLS handshake with the server (MITM) or a TLS chained proxy failed or timed out | `502` |
+| `ServerTimeout` | no response within the idle timeout | `504` |
+| `BadServerResponse` | malformed response, or the server closed or failed before the head was complete | `502` |
+| `NoRoute` | the request names no host, or the chained proxy manager offered no route | `502` |
+| `NoConnectionAvailable` | the shared connection pool had no connection to spare | `503` |
+| `BadRequest` | an origin-form request (unless allowed) or an invalid `CONNECT` target | `400` |
+| `RequestTooLarge` | the body exceeds what the filters asked to buffer | `413` |
+
+Filters can answer first (`HttpFilters.proxyToServerFailure`, or `onFailure` in the builder; in a
+chain the first answer wins), then a `FailureResponder`; returning `null` keeps the default:
+
+```java
+MicroProxy.bootstrap()
+        .withFailureResponder((request, failure) -> switch (failure) {
+            case ProxyFailure.TlsFailed f -> errorPage(502, "The site's certificate is not trusted");
+            case ProxyFailure.ServerTimeout f -> errorPage(504, "The site took too long to answer");
+            default -> null;
+        })
+        .start();
+```
+
+The proxy frames whatever is returned (`Content-Length`, keep-alive, no body for `HEAD`), and it
+passes `proxyToClientResponse` like the default answers. A responder that throws is logged and the
+default is sent. Requests the proxy cannot parse at all are answered with a plain `4xx` without
+asking anyone. `HttpCache` uses the filter hook to serve stale entries when servers are
+unreachable.
 
 ### Upstream proxies and NO_PROXY
 

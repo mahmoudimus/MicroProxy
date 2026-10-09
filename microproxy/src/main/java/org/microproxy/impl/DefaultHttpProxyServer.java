@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.ChainedProxyManager;
+import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
@@ -48,6 +49,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final ChainedProxyManager chainProxyManager;
     final MitmManager mitmManager;
     final HttpFiltersSource filtersSource;
+    final FailureResponder failureResponder;
     /** Socket read/write buffers, lent to connections only while bytes are moving. */
     final BufferPool ioBuffers = new BufferPool(16384, 512);
     /** Buffers for relaying bodies no filter inspects, lent per body. */
@@ -92,6 +94,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         // The cache runs last, so other filters see requests before it answers them.
         this.filtersSource = b.httpCache == null ? b.filtersSource
                 : HttpFiltersChain.of(b.filtersSource, b.httpCache);
+        this.failureResponder = b.failureResponder;
         this.serverResolver = b.serverResolver;
         this.localAddress = b.localAddress;
         this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);

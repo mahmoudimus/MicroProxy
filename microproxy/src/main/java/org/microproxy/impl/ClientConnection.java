@@ -41,6 +41,7 @@ import org.microproxy.HttpFiltersAdapter;
 import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
+import org.microproxy.ProxyFailure;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -176,6 +177,23 @@ final class ClientConnection implements Runnable {
         ServerFailure(String message, Throwable cause) {
             super(message, cause);
         }
+
+        /** What went wrong, for filters and trackers (which cannot see this class). */
+        IOException reason() {
+            return getCause() instanceof IOException io ? io : new IOException(getMessage(), getCause());
+        }
+    }
+
+    /** A TLS handshake with the server or a chained proxy failed; the cause is the handshake's error. */
+    private static final class TlsHandshakeFailed extends IOException {
+        TlsHandshakeFailed(IOException cause) {
+            super("TLS handshake failed: " + cause.getMessage(), cause);
+        }
+    }
+
+    /** The exception a failed connection attempt really had, without the TLS marker. */
+    private static IOException unwrap(IOException e) {
+        return e instanceof TlsHandshakeFailed ? (IOException) e.getCause() : e;
     }
 
     /** The server did not answer within the idle timeout. */
@@ -245,6 +263,8 @@ final class ClientConnection implements Runnable {
         boolean responseStarted;
         /** The request body will never be read (server answered before 100-continue). */
         boolean bodyAbandoned;
+        /** The server side of the connection attempt in progress, once known. */
+        FullFlowContext attempt;
 
         Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
             this.request = request;
@@ -470,13 +490,12 @@ final class ClientConnection implements Runnable {
                 && !ProxyUtils.isAbsoluteUri(ex.request.uri())) {
             // An origin-form request means the client thinks we are the origin; refusing avoids
             // proxying to ourselves in a loop.
-            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
-                    "Bad Request: the proxy needs an absolute URI"), true);
+            return respondFailure(ex, new ProxyFailure.BadRequest("the proxy needs an absolute URI"), true);
         }
 
         String hostAndPort = mitmHostAndPort != null ? mitmHostAndPort : identifyHostAndPort(ex.request);
         if (hostAndPort == null) {
-            return respondDirect(ex, badGateway(ex), false);
+            return respondFailure(ex, new ProxyFailure.NoRoute(null), false);
         }
         return proxyRequest(ex, hostAndPort);
     }
@@ -503,7 +522,7 @@ final class ClientConnection implements Runnable {
         } else {
             route = lookupRoute(ex.request);
             if (route == null) {
-                return respondDirect(ex, badGateway(ex), false);
+                return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
             }
             nextHopOrigin = isNextHopOrigin(route.getFirst(), mode);
         }
@@ -521,7 +540,8 @@ final class ClientConnection implements Runnable {
             try {
                 ex.preResolve(hostAndPort, resolveServer(hostAndPort, ex.filters));
             } catch (UnknownHostException e) {
-                return respondDirect(ex, badGateway(ex), false);
+                reportServerFailure(new FullFlowContext(flowContext, hostAndPort, null, null), e);
+                return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort, e), false);
             }
         }
 
@@ -536,18 +556,17 @@ final class ClientConnection implements Runnable {
                 if (route == null) {
                     route = lookupRoute(ex.request);
                     if (route == null) {
-                        return respondDirect(ex, badGateway(ex), false);
+                        return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
                     }
                 }
                 try {
                     conn = pooled ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
                 } catch (SharedConnectionPool.PoolExhaustedException e) {
                     LOG.log(Level.DEBUG, logPrefix + e.getMessage());
-                    return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
-                            "Service Unavailable: no server connection available"), false);
+                    return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
                 } catch (IOException e) {
-                    LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort, e);
-                    return respondDirect(ex, badGateway(ex), false);
+                    LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort, unwrap(e));
+                    return respondFailure(ex, connectFailure(hostAndPort, e), false);
                 }
                 conn.key = key;
                 serverConnections.put(key, conn);
@@ -635,19 +654,29 @@ final class ClientConnection implements Runnable {
         } catch (ServerTimeout e) {
             filters.serverToProxyResponseTimedOut();
             conn.close();
+            IOException cause = (IOException) e.getCause();
+            reportServerFailure(conn.flowContext, cause);
             if (ex.responseStarted) {
                 close();
                 return false;
             }
-            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.GATEWAY_TIMEOUT, "Gateway Timeout"), false);
+            return respondFailure(ex, new ProxyFailure.ServerTimeout(conn.hostAndPort, cause), false);
         } catch (ServerFailure e) {
             LOG.log(Level.DEBUG, logPrefix + "server failure on " + conn, e);
             conn.close();
+            IOException reason = e.reason();
+            reportServerFailure(conn.flowContext, reason);
             if (ex.responseStarted) {
                 close();
                 return false;
             }
-            return respondDirect(ex, badGateway(ex), false);
+            return respondFailure(ex, new ProxyFailure.BadServerResponse(conn.hostAndPort, reason), false);
+        } catch (RuntimeException e) {
+            // A bug, in a filter or the proxy: the server connection's state is unknown. The client
+            // connection is closed (and the error logged) by run().
+            conn.close();
+            reportServerFailure(conn.flowContext, e);
+            throw e;
         } catch (ClientFailure e) {
             LOG.log(Level.DEBUG, logPrefix + "client failure", e);
             conn.close();
@@ -1001,8 +1030,7 @@ final class ClientConnection implements Runnable {
         try {
             target = HostAndPort.parse(request.uri(), 443);
         } catch (IllegalArgumentException e) {
-            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.BAD_REQUEST,
-                    "Bad Request: invalid CONNECT target"), false);
+            return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
         }
         String hostAndPort = target.toString();
         boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm();
@@ -1010,7 +1038,7 @@ final class ClientConnection implements Runnable {
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
-            return respondDirect(ex, badGateway(ex), false);
+            return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
         }
         modifyRequestHeadersToReflectProxying(request, false, false);
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(request);
@@ -1032,12 +1060,11 @@ final class ClientConnection implements Runnable {
             }
         } catch (SharedConnectionPool.PoolExhaustedException e) {
             LOG.log(Level.DEBUG, logPrefix + e.getMessage());
-            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
-                    "Service Unavailable: no server connection available"), false);
+            return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
         } catch (IOException e) {
-            LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed", e);
+            LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed", unwrap(e));
             if (!mitm || !ex.filters.proxyToServerAllowOfflineMitm()) {
-                return respondDirect(ex, badGateway(ex), false);
+                return respondFailure(ex, connectFailure(hostAndPort, e), false);
             }
             LOG.log(Level.DEBUG, logPrefix + "intercepting " + hostAndPort + " without a server connection");
         }
@@ -1185,6 +1212,7 @@ final class ClientConnection implements Runnable {
         boolean connecting = false;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
+            ex.attempt = null;
             try {
                 ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode);
                 if (proxy != null) {
@@ -1197,13 +1225,17 @@ final class ClientConnection implements Runnable {
                 // The route works; the server just is not a TLS server. The caller retries as a tunnel.
                 throw e;
             } catch (IOException e) {
-                LOG.log(Level.DEBUG, logPrefix + "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
+                IOException cause = unwrap(e);
+                LOG.log(Level.DEBUG, logPrefix + "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", cause);
                 last = e;
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException);
                 if (proxy != null) {
-                    proxy.connectionFailed(e);
+                    proxy.connectionFailed(cause);
                 }
+                FullFlowContext failed = ex.attempt != null ? ex.attempt
+                        : new FullFlowContext(flowContext, hostAndPort, proxy, proxy == null ? null : proxy.getChainedProxyAddress());
+                reportServerFailure(failed, cause);
             }
         }
         if (connecting) {
@@ -1251,6 +1283,7 @@ final class ClientConnection implements Runnable {
             }
         }
         FullFlowContext serverContext = new FullFlowContext(flowContext, hostAndPort, proxy, remote);
+        ex.attempt = serverContext;
 
         filters.proxyToServerConnectionStarted();
         Socket plain = new Socket(Proxy.NO_PROXY);
@@ -1271,8 +1304,12 @@ final class ClientConnection implements Runnable {
                     throw new ConnectException("chained proxy requires encryption but has no SSLContext");
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
-                active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
-                        s -> proxy.configure(s, true), server.tlsHandshakeTimeout);
+                try {
+                    active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
+                            s -> proxy.configure(s, true), server.tlsHandshakeTimeout);
+                } catch (IOException e) {
+                    throw new TlsHandshakeFailed(e);
+                }
             }
             ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
@@ -1322,9 +1359,11 @@ final class ClientConnection implements Runnable {
                 try {
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
                             server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout);
-                } catch (SSLException e) {
-                    if (NotTlsServer.isCause(e)) throw new NotTlsServer(hostAndPort, e);
-                    throw e;
+                } catch (IOException e) {
+                    if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
+                        throw new NotTlsServer(hostAndPort, ssl);
+                    }
+                    throw new TlsHandshakeFailed(e);
                 }
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
@@ -1492,7 +1531,7 @@ final class ClientConnection implements Runnable {
     private FullHttpRequest aggregateRequest(Exchange ex, int maxBytes) throws IOException {
         HttpRequest request = ex.request;
         if (ex.framing.kind() == Framing.Kind.LENGTH && ex.framing.length() > maxBytes) {
-            respondDirect(ex, tooLarge(ex), false);
+            respondFailure(ex, new ProxyFailure.RequestTooLarge(maxBytes), false);
             return null;
         }
         if (ex.framing.hasBody() && HttpUtil.is100ContinueExpected(request)) {
@@ -1504,7 +1543,7 @@ final class ClientConnection implements Runnable {
         HttpContent content;
         while ((content = ex.body.next()) != null) {
             if (buffer.size() + content.contentLength() > maxBytes) {
-                respondDirect(ex, tooLarge(ex), false);
+                respondFailure(ex, new ProxyFailure.RequestTooLarge(maxBytes), false);
                 return null;
             }
             buffer.write(content.content());
@@ -1613,6 +1652,64 @@ final class ClientConnection implements Runnable {
         return keepAlive;
     }
 
+    /**
+     * Answers the client because of {@code failure}: with the first filter's {@link
+     * HttpFilters#proxyToServerFailure} response, else the failure responder's, else the proxy's
+     * default. Other answers are framed here like the defaults.
+     */
+    private boolean respondFailure(Exchange ex, ProxyFailure failure, boolean rewriteHeaders) throws IOException {
+        HttpResponse response = ex.filters.proxyToServerFailure(failure);
+        if (response == null && server.failureResponder != null) {
+            try {
+                response = server.failureResponder.respond(ex.request, failure);
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, logPrefix + "failure responder threw; sending the default response", e);
+            }
+        }
+        if (response == null) {
+            response = defaultResponse(ex, failure);
+        } else if (response instanceof FullHttpMessage full) {
+            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            HttpUtil.setContentLength(response, full.content().length);
+        }
+        if (failure instanceof ProxyFailure.RequestTooLarge) {
+            // The rest of the body is never read, so the connection cannot be reused.
+            HttpUtil.setKeepAlive(response, false);
+        }
+        return respondDirect(ex, response, rewriteHeaders);
+    }
+
+    /** The proxy's own plain-text answer to {@code failure}. */
+    private static FullHttpResponse defaultResponse(Exchange ex, ProxyFailure failure) {
+        return switch (failure) {
+            case ProxyFailure.BadRequest f -> errorResponse(ex, f.status(), "Bad Request: " + f.reason());
+            case ProxyFailure.NoConnectionAvailable f ->
+                    errorResponse(ex, f.status(), "Service Unavailable: no server connection available");
+            case ProxyFailure.ServerTimeout f -> errorResponse(ex, f.status(), "Gateway Timeout");
+            case ProxyFailure.RequestTooLarge f -> errorResponse(ex, f.status(), "Request Entity Too Large");
+            case ProxyFailure.UnresolvedHost f -> badGateway(ex);
+            case ProxyFailure.ConnectFailed f -> badGateway(ex);
+            case ProxyFailure.TlsFailed f -> badGateway(ex);
+            case ProxyFailure.BadServerResponse f -> badGateway(ex);
+            case ProxyFailure.NoRoute f -> badGateway(ex);
+        };
+    }
+
+    /** Classifies a failed connection attempt, as thrown by {@link #connect} or {@link #lease}. */
+    private static ProxyFailure connectFailure(String hostAndPort, IOException e) {
+        if (e instanceof TlsHandshakeFailed) {
+            return new ProxyFailure.TlsFailed(hostAndPort, unwrap(e));
+        }
+        if (e instanceof UnknownHostException unknown) {
+            return new ProxyFailure.UnresolvedHost(hostAndPort, unknown);
+        }
+        return new ProxyFailure.ConnectFailed(hostAndPort, e);
+    }
+
+    private void reportServerFailure(FullFlowContext serverContext, Throwable cause) {
+        server.trackers.fire(t -> t.serverConnectionExceptionCaught(serverContext, cause));
+    }
+
     private void writeErrorAndClose(HttpResponseStatus status) {
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, status, status.reasonPhrase());
         HttpUtil.setKeepAlive(response, false);
@@ -1635,12 +1732,6 @@ final class ClientConnection implements Runnable {
 
     private static FullHttpResponse badGateway(Exchange ex) {
         return errorResponse(ex, HttpResponseStatus.BAD_GATEWAY, "Bad Gateway");
-    }
-
-    private static FullHttpResponse tooLarge(Exchange ex) {
-        FullHttpResponse response = errorResponse(ex, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "Request Entity Too Large");
-        HttpUtil.setKeepAlive(response, false);
-        return response;
     }
 
     // ---------------------------------------------------------------------------------------

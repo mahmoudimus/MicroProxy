@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ProxyFailure;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
@@ -338,9 +339,9 @@ public final class HttpCache implements HttpFiltersSource {
         }
 
         @Override
-        public HttpObject proxyToClientResponse(HttpObject httpObject) {
-            if (httpObject instanceof HttpResponse res && !answered && !sawServerResponse && candidate != null) {
-                int status = res.status().code();
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            if (!answered && !sawServerResponse && candidate != null) {
+                int status = failure.status().code();
                 if ((status == 502 || status == 504) && serveStaleOnError && !requestCc.has("no-cache")
                         && !revalidationRequired(candidate.cacheControl())) {
                     staleServed.incrementAndGet();
@@ -349,7 +350,7 @@ public final class HttpCache implements HttpFiltersSource {
                     return tag(candidate.toResponse(clock.millis(), head), "hit; detail=server-unreachable");
                 }
             }
-            return httpObject;
+            return null;
         }
 
         private HttpResponse serve(CachedResponse stored, long now, String status) {
