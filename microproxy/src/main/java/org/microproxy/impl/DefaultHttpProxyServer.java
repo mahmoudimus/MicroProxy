@@ -160,7 +160,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http2Options = b.http2Options;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
-        if (http2 && mitmManager == null) {
+        if (http2 && mitmManager == null && sslContextSource == null) {
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
         }

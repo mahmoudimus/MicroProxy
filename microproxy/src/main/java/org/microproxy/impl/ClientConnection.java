@@ -471,8 +471,15 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.clientConnected(flowContext));
             connectedFired = true;
             if (server.sslContextSource != null) {
-                handshakeWithClient(server.sslContextSource.getSslContext(),
-                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false), null);
+                SSLSocket tls = handshakeWithClient(server.sslContextSource.getSslContext(),
+                        server.authenticateSslClients, s -> {
+                            server.sslContextSource.configure(s, false);
+                            if (server.http2) offerHttp2(s, true);
+                        }, null);
+                if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
+                    serveHttp2(tls, new byte[0], null);
+                    return;
+                }
             } else if (server.http2Cleartext && http1.awaitRequest() && http1.startsWithHttp2Preface()) {
                 // HTTP/2 with prior knowledge: the whole connection, preface included, is HTTP/2's.
                 serveHttp2(rawSocket, http1.drainBuffered(), null);

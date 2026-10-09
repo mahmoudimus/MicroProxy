@@ -82,8 +82,8 @@ public final class Launcher {
                                            default ./microproxy-ca.p12)
               --mitm-ca-password <pw>      key store password (default "microproxy")
               --mitm-trust-all             do not validate upstream server certificates
-              --http2                      serve HTTP/2 to clients on intercepted TLS (with --mitm;
-                                           needs the http2-codec jar on the class path)
+              --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
+                                           needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
                                            h2), one shared connection per server; needs the
                                            http2-codec jar

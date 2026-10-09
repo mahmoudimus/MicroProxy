@@ -134,6 +134,23 @@ final class H2TestClient implements AutoCloseable {
         return new H2TestClient(raw, raw, authority, "http");
     }
 
+    /** Connects directly to the proxy's TLS listener and negotiates HTTP/2. */
+    static H2TestClient directTls(InetSocketAddress proxy, String authority, SSLContext trust) throws IOException {
+        SSLSocket socket = (SSLSocket) trust.getSocketFactory().createSocket(proxy.getAddress(), proxy.getPort());
+        socket.setSoTimeout(10_000);
+        SSLParameters params = socket.getSSLParameters();
+        params.setApplicationProtocols(new String[] {"h2"});
+        socket.setSSLParameters(params);
+        try {
+            socket.startHandshake();
+            if (!"h2".equals(socket.getApplicationProtocol())) throw new IOException("ALPN did not select h2");
+            return new H2TestClient(socket, socket, authority, "http");
+        } catch (IOException e) {
+            socket.close();
+            throw e;
+        }
+    }
+
     /** Sends the preface and empty SETTINGS, reads the server's SETTINGS and acknowledges them. */
     H2TestClient handshake() throws IOException {
         writer.writeClientPreface();

@@ -195,7 +195,8 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
-     * Serves HTTP/2 to clients on intercepted TLS ({@link #withManInTheMiddle}): the client
+     * Serves HTTP/2 to clients on intercepted TLS ({@link #withManInTheMiddle}) and the proxy
+     * TLS listener ({@link #withSslContextSource}): the client
      * handshake offers {@code h2} and {@code http/1.1} through ALPN, and a client that picks
      * {@code h2} has each of its streams handled as an exchange of its own, concurrently, with the
      * same filters, cache, authentication, failure answers and trackers as HTTP/1 requests.
