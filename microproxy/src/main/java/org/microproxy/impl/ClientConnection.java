@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,6 +32,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import org.microproxy.AuthResult;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyType;
@@ -327,6 +329,9 @@ final class ClientConnection implements Runnable {
     private OutputStream out;
     private HttpCodec.HttpWriter writer;
     private boolean authenticated;
+    /** Whether a request has been accepted on this connection, and as whom. */
+    private boolean accepted;
+    private String acceptedUser;
     /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
     private String mitmHostAndPort;
     /** The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked. */
@@ -349,6 +354,11 @@ final class ClientConnection implements Runnable {
         closed = true;
         Tls.closeQuietly(socket);
         Tls.closeQuietly(rawSocket);
+        releaseServerConnections();
+    }
+
+    /** Gives up this client's server connections: idle pooled ones go back to the pool. */
+    private void releaseServerConnections() {
         for (ServerConnection c : List.copyOf(serverConnections.values())) {
             if (c.pool != null && !c.inExchange && c.isOpen()) {
                 // An intercepted session's idle server connection outlives the client.
@@ -494,8 +504,16 @@ final class ClientConnection implements Runnable {
                 request, framing, new HttpCodec.BodyReader(in, framing, server.limits),
                 ProxyUtils.isClientKeepAlive(request));
 
-        if (server.proxyAuthenticator != null && !authenticated && !authenticate(request)) {
-            return respondDirect(ex, authenticationRequired(), false, ResponseSource.PROXY);
+        if (server.proxyAuthenticator != null) {
+            // Requests in an intercepted session are covered by the CONNECT that started it.
+            if (mitmHostAndPort == null && (!authenticated || server.proxyAuthenticator.authenticateEveryRequest())) {
+                HttpResponse refusal = authenticate(request);
+                if (refusal != null) {
+                    return respondDirect(ex, refusal, false, ResponseSource.PROXY);
+                }
+            }
+            // The credentials were for this proxy, whatever their scheme: never forward them.
+            request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
         }
 
         // With no filters configured, skip the request copy the filters API hands them.
@@ -1855,33 +1873,32 @@ final class ClientConnection implements Runnable {
     // Authentication
     // ---------------------------------------------------------------------------------------
 
-    private boolean authenticate(HttpRequest request) {
-        String value = request.headers().get(HttpHeaderNames.PROXY_AUTHORIZATION);
-        if (value == null) {
-            return false;
+    /** Asks the authenticator about {@code request}: null if it may proceed, else the answer. */
+    private HttpResponse authenticate(HttpRequest request) {
+        AuthResult result = server.proxyAuthenticator.authenticate(request, flowContext);
+        if (result instanceof AuthResult.Accepted ok) {
+            if (accepted && !Objects.equals(acceptedUser, ok.userName())) {
+                // Another user on the same connection: its server connections were routed for the
+                // previous one.
+                releaseServerConnections();
+            }
+            accepted = true;
+            acceptedUser = ok.userName();
+            clientDetails.setUserName(ok.userName());
+            authenticated = true;
+            return null;
         }
-        value = value.strip();
-        if (!value.regionMatches(true, 0, "Basic ", 0, 6)) {
-            return false;
+        authenticated = false;
+        clientDetails.setUserName(null);
+        HttpResponse challenge = result instanceof AuthResult.Rejected rejected ? rejected.challenge() : null;
+        if (challenge == null) {
+            return authenticationRequired();
         }
-        String decoded;
-        try {
-            decoded = new String(Base64.getDecoder().decode(value.substring(6).strip()), UTF_8);
-        } catch (IllegalArgumentException e) {
-            return false;
+        if (challenge instanceof FullHttpMessage full) {
+            challenge.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            HttpUtil.setContentLength(challenge, full.content().length);
         }
-        int colon = decoded.indexOf(':');
-        if (colon < 0) {
-            return false;
-        }
-        String user = decoded.substring(0, colon);
-        if (!server.proxyAuthenticator.authenticate(user, decoded.substring(colon + 1))) {
-            return false;
-        }
-        clientDetails.setUserName(user);
-        request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
-        authenticated = true;
-        return true;
+        return challenge;
     }
 
     private FullHttpResponse authenticationRequired() {

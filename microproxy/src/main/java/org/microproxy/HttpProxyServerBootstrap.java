@@ -24,6 +24,10 @@ public interface HttpProxyServerBootstrap {
     /** Require client certificates on the proxy's TLS listener. */
     HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateSslClients);
 
+    /**
+     * Requires clients to authenticate: with Basic credentials by default, or with any scheme
+     * through {@link ProxyAuthenticator#authenticate(org.microproxy.http.HttpRequest, FlowContext)}.
+     */
     HttpProxyServerBootstrap withProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
 
     HttpProxyServerBootstrap withChainProxyManager(ChainedProxyManager chainProxyManager);
