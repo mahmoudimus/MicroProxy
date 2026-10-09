@@ -56,6 +56,8 @@ final class H2TestOrigin implements AutoCloseable {
         boolean eagerCredit = true;
         /** Connections start with a PROXY protocol v1 line before TLS. */
         boolean proxyProtocol;
+        boolean enableConnectProtocol;
+        TestSupport.RawHandler http1Handler;
     }
 
     private static final Object END = new Object();
@@ -133,7 +135,17 @@ final class H2TestOrigin implements AutoCloseable {
             accepts.incrementAndGet();
             Thread.ofVirtual().name("h2-origin-conn").start(() -> {
                 try {
-                    Conn c = new Conn(options.proxyProtocol ? afterProxyHeader(s) : (SSLSocket) s);
+                    SSLSocket tls = options.proxyProtocol ? afterProxyHeader(s) : (SSLSocket) s;
+                    tls.startHandshake();
+                    if (!"h2".equals(tls.getApplicationProtocol()) && options.http1Handler != null) {
+                        try {
+                            options.http1Handler.handle(tls);
+                        } catch (Exception e) {
+                            throw new IOException(e);
+                        }
+                        return;
+                    }
+                    Conn c = new Conn(tls);
                     connections.add(c);
                     c.serve();
                 } catch (IOException e) {
@@ -187,6 +199,7 @@ final class H2TestOrigin implements AutoCloseable {
                 if (options.maxConcurrentStreams != Http2Settings.UNLIMITED) {
                     settings.put(Http2Settings.MAX_CONCURRENT_STREAMS, options.maxConcurrentStreams);
                 }
+                if (options.enableConnectProtocol) settings.put(Http2Settings.ENABLE_CONNECT_PROTOCOL, 1L);
                 writer.writeSettings(settings);
                 writer.flush();
             } finally {
@@ -423,6 +436,29 @@ final class H2TestOrigin implements AutoCloseable {
                 });
             }
             return data;
+        }
+
+        /** A byte-stream view for WebSocket frame tests. */
+        java.io.InputStream input() {
+            return new java.io.InputStream() {
+                private java.io.InputStream chunk = java.io.InputStream.nullInputStream();
+                @Override
+                public int read() throws IOException {
+                    byte[] one = new byte[1];
+                    return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+                }
+                @Override
+                public int read(byte[] bytes, int off, int len) throws IOException {
+                    if (len == 0) return 0;
+                    while (true) {
+                        int n = chunk.read(bytes, off, len);
+                        if (n >= 0) return n;
+                        byte[] next = Stream.this.read();
+                        if (next == null) return -1;
+                        chunk = new java.io.ByteArrayInputStream(next);
+                    }
+                }
+            };
         }
 
         byte[] readBody() throws IOException {

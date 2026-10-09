@@ -657,7 +657,7 @@ final class ClientConnection implements Runnable {
         if (maxBuffer <= 0 && !ProxyUtils.isCONNECT(request)) {
             maxBuffer = ex.filters.requestBufferSizeInBytes(request);
         }
-        if (maxBuffer > 0 && !ProxyUtils.isCONNECT(request)) {
+        if (maxBuffer > 0 && !ProxyUtils.isCONNECT(request) && ex.channel.tunnelProtocol() == null) {
             FullHttpRequest full = aggregateRequest(ex, maxBuffer);
             if (full == null) {
                 return false;
@@ -670,11 +670,16 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
+        if (ex.channel.tunnelProtocol() != null && !"websocket".equals(ex.channel.tunnelProtocol())) {
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.valueOf(501),
+                    "Unsupported extended CONNECT protocol"), true, ResponseSource.PROXY);
+        }
+
         if (ProxyUtils.isCONNECT(ex.request)) {
             if (!ex.channel.supportsTunnels()) {
-                // CONNECT inside an HTTP/2 stream (RFC 9113 section 8.5) is not supported yet.
+                // A future transport may carry requests without supporting tunnels.
                 FullHttpResponse notImplemented = errorResponse(ex, HttpResponseStatus.valueOf(501),
-                        "Not Implemented: CONNECT over HTTP/2");
+                        "Not Implemented: CONNECT on this transport");
                 return respondDirect(ex, notImplemented, true, ResponseSource.PROXY);
             }
             return handleConnect(ex);
@@ -700,15 +705,15 @@ final class ClientConnection implements Runnable {
     // ---------------------------------------------------------------------------------------
 
     private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
-        Mode mode = mitmHostAndPort != null ? Mode.TLS : Mode.PLAIN;
+        Mode mode = mitmHostAndPort != null || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
         String key = mode + "|" + hostAndPort;
         boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
         boolean pooled = !webSocket && usesPool(mode);
         // Concurrent exchanges (HTTP/2 streams) never share an HTTP/1.1 server connection: each
         // takes an idle one of the client's for the exchange, or makes one.
         boolean multiplexed = ex.channel.multiplexed();
-        // HTTP/2 to the server is negotiated on TLS; a WebSocket upgrade needs HTTP/1.1.
-        boolean http2 = server.http2Origins != null && mode == Mode.TLS && !webSocket;
+        // HTTP/2 to the server is negotiated on TLS; WebSockets additionally need RFC 8441.
+        boolean http2 = server.http2Origins != null && mode == Mode.TLS;
         ex.offerHttp2 = http2;
         // Per-request leases always come fresh from the pool; otherwise reuse this client's own.
         ServerConnection conn = pooled && leasesPerRequest(mode) ? null
@@ -829,6 +834,15 @@ final class ClientConnection implements Runnable {
                     nextHopOrigin = conn.nextHopIsOrigin();
                     adjustUriForNextHop(ex.request, hostAndPort, nextHopOrigin);
                 }
+            }
+            if (webSocket && conn.multiplexed() && !conn.supportsWebSockets()) {
+                // Keep the HTTP/2 connection for ordinary requests. This WebSocket needs a
+                // separate HTTP/1.1 connection when the origin does not advertise RFC 8441.
+                conn.close();
+                conn = null;
+                http2 = false;
+                ex.offerHttp2 = false;
+                continue;
             }
             try {
                 // Reused connections may have been closed by the server while idle: retry those
@@ -1122,9 +1136,18 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = ex.filters;
         HttpRequest request = ex.request;
         filters.serverToProxyResponseReceiving();
-        int upstreamStatus = response.status().code();
+        int upstreamStatus = conn.responseStatus(response);
         ex.flow.upstreamStatus(upstreamStatus);
         server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
+
+        if ("websocket".equals(ex.channel.tunnelProtocol()) && !conn.multiplexed()
+                && (response.status().code() == 101 || response.status().code() / 100 == 2)
+                && !WebSocketHandshake.valid(request, response)) {
+            // An RFC 8441 client cannot check the HTTP/1 nonce once the bridge strips it.
+            // Nor may an ordinary HTTP response's 2xx be mistaken for CONNECT acceptance.
+            throw new ServerFailure("invalid HTTP/1 WebSocket opening handshake",
+                    new IOException("origin did not accept the WebSocket upgrade"));
+        }
 
         Framing framing;
         try {
@@ -1191,6 +1214,21 @@ final class ClientConnection implements Runnable {
             // Replaced by a complete response here too: the server's body must not follow it.
             serverKeepAlive &= drain(body);
             body = null;
+        }
+        if (switching && (ex.channel.multiplexed() ? finalResponse.status().code() / 100 != 2
+                : finalResponse.status().code() != 101)) {
+            // A filter rejected the opening handshake: complete its response and release the
+            // origin now, rather than entering a relay that can never become a WebSocket.
+            ex.responseStarted = true;
+            writeToClient(() -> ex.channel.writeComplete(finalResponse,
+                    Framing.responseMayHaveBody(finalResponse, request.method())));
+            ResponseSource rejectedSource = source(ResponseSource.SERVER, head, upstreamStatus, finalResponse);
+            server.trackers.fire(t -> t.responseSentToClient(ex.flow, finalResponse, rejectedSource));
+            completed(ex, finalResponse, rejectedSource);
+            ex.channel.serverConnectionDone(conn);
+            conn.close();
+            if (!ex.channel.multiplexed()) ex.channel.close();
+            return false;
         }
         ex.responseStarted = true;
         boolean writeBody = Framing.responseMayHaveBody(finalResponse, request.method());
@@ -1389,8 +1427,8 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
         }
         String hostAndPort = target.toString();
-        boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm()
-                && mitmManager() != null;
+        boolean mitm = !ex.channel.multiplexed() && server.mitmManager != null && mitmHostAndPort == null
+                && ex.filters.proxyToServerAllowMitm() && mitmManager() != null;
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
         // The session's requests may take streams on an HTTP/2 connection made now.
         ex.offerHttp2 = server.http2Origins != null;
@@ -1470,7 +1508,17 @@ final class ClientConnection implements Runnable {
         }
         if (conn != null) {
             conn.key = mode + "|" + hostAndPort;
-            serverConnections.put(conn.key, conn);
+            try {
+                ex.channel.serverConnectionInUse(conn);
+            } catch (IOException e) {
+                conn.close();
+                throw e;
+            }
+            if (ex.channel.multiplexed()) {
+                streamConnections.add(conn);
+            } else {
+                serverConnections.put(conn.key, conn);
+            }
         }
 
         HttpResponse established =
@@ -1547,11 +1595,14 @@ final class ClientConnection implements Runnable {
      * Serves the connection as HTTP/2: this thread reads the frames, and each stream runs its
      * exchange ({@link #handleStream}) on a thread of its own.
      *
-     * @param socket the intercepted session's TLS socket, or the plain one for h2c
+     * @param socket the intercepted session / listener TLS socket, or the plain one for h2c
      * @param received bytes already read from {@code socket} that belong to HTTP/2
-     * @param target the intercepted {@code CONNECT} target, or null for a forward proxy (h2c)
+     * @param target the intercepted {@code CONNECT} target, or null for a forward proxy
      */
     private void serveHttp2(Socket socket, byte[] received, HostAndPort target) throws IOException {
+        // Choose once, before concurrent streams begin (secure extended CONNECT may need
+        // origin TLS even on a forward-proxy connection).
+        if (target == null && server.mitmManager != null) mitmManager();
         StreamServerConnections streams = new StreamServerConnections(server.http2Options.maxConcurrentStreams());
         streamConnections = streams;
         // The server connection made for the CONNECT serves the first stream that wants one.
@@ -1613,7 +1664,7 @@ final class ClientConnection implements Runnable {
         // TLS connections set up by a manager that may decide differently for each client.
         return server.pool != null && !server.sendProxyProtocol
                 && (mode == Mode.PLAIN || (mode == Mode.TLS && server.poolSharedMitmConnections
-                        && !SERVER_TLS_PER_CLIENT.get(connectionMitm.getClass())));
+                        && (connectionMitm == null || !SERVER_TLS_PER_CLIENT.get(connectionMitm.getClass()))));
     }
 
     /**
@@ -1975,7 +2026,13 @@ final class ClientConnection implements Runnable {
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
                 MitmManager manager = connectionMitm;
-                SSLContext context = manager.serverSslContext(target.host(), target.port(), serverContext);
+                SSLContext context;
+                try {
+                    context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
+                            : SSLContext.getDefault();
+                } catch (java.security.NoSuchAlgorithmException e) {
+                    throw new IOException("default TLS context unavailable", e);
+                }
                 boolean offerHttp2 = ex.offerHttp2;
                 try {
                     ex.flow.markFirst(ClientFlowContext.TLS_START);
@@ -1983,7 +2040,7 @@ final class ClientConnection implements Runnable {
                             server.tlsProtocols,
                             s -> {
                                 if (offerHttp2) offerHttp2(s, false);
-                                manager.configureServerSocket(s, serverContext);
+                                if (manager != null) manager.configureServerSocket(s, serverContext);
                             }, server.tlsHandshakeTimeout,
                             new TlsLog.Peer(ex.log, "server", target.host()));
                     ex.flow.mark(ClientFlowContext.TLS_END);

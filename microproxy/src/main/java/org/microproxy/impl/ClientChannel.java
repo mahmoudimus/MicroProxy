@@ -48,10 +48,19 @@ interface ClientChannel {
 
     /**
      * Whether {@link #relay} can turn the exchange into a byte tunnel ({@code CONNECT}, {@code
-     * 101 Switching Protocols}). An HTTP/2 stream cannot: {@code CONNECT} there is answered with
-     * {@code 501}.
+     * 101 Switching Protocols}). HTTP/2 carries the tunnel inside one stream.
      */
     boolean supportsTunnels();
+
+    /** RFC 8441's requested protocol, or null for an ordinary request / CONNECT. */
+    default String tunnelProtocol() {
+        return null;
+    }
+
+    /** Whether an extended WebSocket CONNECT names an HTTPS (wss) origin. */
+    default boolean secureWebSocket() {
+        return false;
+    }
 
     /**
      * The exchange now uses {@code server}: a transport that sees the client cancel the exchange

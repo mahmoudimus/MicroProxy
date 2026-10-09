@@ -112,6 +112,14 @@ class ServerConnection {
         return false;
     }
 
+    boolean supportsWebSockets() {
+        return true;
+    }
+
+    int responseStatus(HttpResponse response) {
+        return response.status().code();
+    }
+
     /**
      * Writes the request head; a {@link org.microproxy.http.FullHttpRequest} is written whole.
      *

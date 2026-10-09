@@ -214,7 +214,7 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * Speaks HTTP/2 to origin servers that offer it: TLS connections to servers (intercepted
-     * HTTPS) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
+     * HTTPS and secure WebSocket extended CONNECT) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
      * gets every exchange for it as a stream on one connection, shared by concurrent exchanges up
      * to the server's stream limit; others keep HTTP/1.1. Independent of {@link #withHttp2}, which
      * is about clients. Off by default.

@@ -3,6 +3,8 @@ package org.microproxy.impl;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +17,7 @@ import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpHeaders;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
+import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.LastHttpContent;
 
 /**
@@ -30,6 +33,9 @@ final class Http2UpstreamStream extends ServerConnection {
     private final Http2UpstreamConnection connection;
     private final Http2UpstreamConnection.StreamState state;
     private final String logPrefix;
+    private String webSocketKey;
+    private boolean webSocket;
+    private int tunnelStatus;
 
     Http2UpstreamStream(Http2UpstreamConnection connection, Http2UpstreamConnection.StreamState state,
             FullFlowContext flowContext, Trackers trackers) {
@@ -49,8 +55,29 @@ final class Http2UpstreamStream extends ServerConnection {
     }
 
     @Override
+    boolean supportsWebSockets() {
+        connection.stateLock.lock();
+        try {
+            return connection.peerSettings.enableConnectProtocol();
+        } finally {
+            connection.stateLock.unlock();
+        }
+    }
+
+    @Override
     void writeRequestHead(HttpRequest request, boolean bodyFollows, boolean trailersAccepted) throws IOException {
         List<HeaderField> fields = requestFields(request, hostAndPort, trailersAccepted);
+        webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(request);
+        if (webSocket) {
+            if (!supportsWebSockets()) throw new IOException("origin has not enabled extended CONNECT");
+            webSocketKey = request.headers().get("Sec-WebSocket-Key");
+            fields.set(0, new HeaderField(":method", "CONNECT"));
+            fields.add(1, new HeaderField(":protocol", "websocket"));
+            fields.removeIf(f -> f.name().equals("sec-websocket-key") || f.name().equals("sec-websocket-accept")
+                    || f.name().equals("content-length"));
+            connection.open(state, fields, false);
+            return;
+        }
         if (request instanceof FullHttpRequest full) {
             byte[] content = full.content();
             HttpHeaders trailers = full.trailingHeaders();
@@ -114,7 +141,22 @@ final class Http2UpstreamStream extends ServerConnection {
 
     @Override
     HttpResponse readResponse(HttpCodec.Limits limits) throws IOException {
-        return connection.takeHead(state);
+        HttpResponse response = connection.takeHead(state);
+        if (webSocket && response.status().code() / 100 == 2) {
+            tunnelStatus = response.status().code();
+            response.setStatus(HttpResponseStatus.valueOf(101));
+            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
+            response.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
+            response.headers().set(HttpHeaderNames.UPGRADE, "websocket");
+            if (webSocketKey != null) response.headers().set("Sec-WebSocket-Accept", WebSocketHandshake.accept(webSocketKey));
+        }
+        return response;
+    }
+
+    @Override
+    int responseStatus(HttpResponse response) {
+        return tunnelStatus != 0 ? tunnelStatus : super.responseStatus(response);
     }
 
     @Override
@@ -125,6 +167,36 @@ final class Http2UpstreamStream extends ServerConnection {
     @Override
     void exchangeDone() {
         // Nothing buffered for the next exchange: the stream carries only this one.
+    }
+
+    @Override
+    InputStream tunnelInput() {
+        return connection.body(state).asInputStream();
+    }
+
+    @Override
+    OutputStream tunnelOutput() {
+        return new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                write(new byte[] {(byte) b}, 0, 1);
+            }
+
+            @Override
+            public void write(byte[] bytes, int off, int len) throws IOException {
+                writeData(bytes, off, len);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                Http2UpstreamStream.this.flush();
+            }
+        };
+    }
+
+    @Override
+    void endTunnelOutput() throws IOException {
+        writeEnd(new HttpHeaders());
     }
 
     @Override

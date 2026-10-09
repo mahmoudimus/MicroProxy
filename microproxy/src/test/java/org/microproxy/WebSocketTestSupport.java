@@ -61,6 +61,25 @@ public final class WebSocketTestSupport {
         return s;
     }
 
+    /** Accepts an HTTP/1 WebSocket handshake with the request's actual nonce. */
+    public static String handshake(Socket socket) throws IOException {
+        String request = TestSupport.readUntil(socket.getInputStream(), "\r\n\r\n");
+        String key = request.lines().filter(line -> line.toLowerCase(java.util.Locale.ROOT)
+                .startsWith("sec-websocket-key:"))
+                .map(line -> line.substring(line.indexOf(':') + 1).strip()).findFirst().orElseThrow();
+        String accept;
+        try {
+            accept = java.util.Base64.getEncoder().encodeToString(java.security.MessageDigest.getInstance("SHA-1")
+                    .digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                            .getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        write(socket.getOutputStream(), "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+                + "Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept + "\r\n\r\n");
+        return request;
+    }
+
     /**
      * An origin that accepts the upgrade, records every frame it receives, answers each text
      * frame starting with {@code PING} or {@code ping} with {@code "echo:" + text}, and answers a
@@ -73,10 +92,8 @@ public final class WebSocketTestSupport {
 
         public EchoServer() {
             server = TestSupport.rawServer(socket -> {
-                upgradeRequest = TestSupport.readUntil(socket.getInputStream(), "\r\n\r\n");
+                upgradeRequest = handshake(socket);
                 OutputStream out = socket.getOutputStream();
-                write(out, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
-                        + "Connection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n");
                 while (true) {
                     WebSocketFrame frame = readFrame(socket.getInputStream());
                     received.add(frame);

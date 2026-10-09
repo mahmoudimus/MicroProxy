@@ -156,6 +156,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         boolean remoteClosed;
         /** END_STREAM sent: the request is complete. */
         boolean localClosed;
+        boolean webSocket;
         HttpHeaders trailers;
         /** Counted in {@link #reserved} until the stream closes or is given up. */
         boolean holdsSlot = true;
@@ -388,12 +389,12 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         stateLock.lock();
         try {
             if (s.reset) return;
-            boolean bodyless = s.headRequest || status == 204 || status == 304;
+            boolean bodyless = !(s.webSocket && status / 100 == 2) && (s.headRequest || status == 204 || status == 304);
             s.heads.addLast(toHttp1(head, h.endStream(), bodyless));
             if (!head.isInformational()) {
                 s.finalHead = true;
                 s.bodyless = bodyless;
-                s.declaredLength = head.contentLength();
+                s.declaredLength = s.webSocket && status / 100 == 2 ? -1 : head.contentLength();
                 if (h.endStream()) {
                     if (!bodyless) Http2Headers.checkContentLength(id, s.declaredLength, 0, true);
                     s.remoteClosed = true;
@@ -627,6 +628,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 streams.put(s.id, s);
                 flow.addStream(s.id);
                 s.localClosed = endStream;
+                s.webSocket = fields.stream().anyMatch(f -> f.name().equals(":protocol") && f.value().equals("websocket"));
             } finally {
                 stateLock.unlock();
             }

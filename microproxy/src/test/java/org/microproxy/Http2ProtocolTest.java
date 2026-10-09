@@ -294,12 +294,12 @@ class Http2ProtocolTest {
     }
 
     @Test
-    void connectInsideAStreamIsNotImplemented() throws IOException {
+    void connectCannotEscapeTheInterceptedAuthority() throws IOException {
         start(Http2Options.DEFAULT);
         try (H2TestClient h2 = connect().handshake()) {
             h2.headers(1, List.of(new HeaderField(":method", "CONNECT"), new HeaderField(":authority", "example.com:443")), false);
             H2TestClient.Response r = h2.response(1);
-            assertEquals(501, r.status());
+            assertEquals(421, r.status());
         }
     }
 

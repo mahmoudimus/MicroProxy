@@ -4,6 +4,7 @@ import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayDeque;
@@ -39,8 +40,8 @@ import org.microproxy.http.LastHttpContent;
  * <p>What has no meaning in HTTP/2: there is no connection to keep alive or close ({@link
  * #clientKeepAlive} is always true, {@link #setKeepAlive} does nothing, and {@link #close} resets
  * the stream), framing is the protocol's ({@link #adaptFraming} only drops {@code
- * Transfer-Encoding}), and there are no protocol switches or tunnels ({@link #relay} resets the
- * stream; {@code CONNECT} is answered with 501 before it gets that far). A {@code 100 Continue} is
+ * Transfer-Encoding}). CONNECT tunnels and WebSockets use DATA through the shared {@link Tunnel}
+ * relay; END_STREAM half-closes only that direction. A {@code 100 Continue} is
  * sent only to a client that asked for it; other interim responses are forwarded as interim
  * HEADERS.
  */
@@ -55,6 +56,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     final HttpRequest request;
     private final boolean expectsContinue;
     private final Body body = new Body();
+    private final String protocol;
+    private final String scheme;
 
     // Guarded by connection.stateLock.
     final Condition changed;
@@ -83,11 +86,18 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     Http2StreamChannel(Http2Connection connection, int id, ClientFlowContext flow, HttpRequest request,
             long declaredLength, boolean endStream) {
+        this(connection, id, flow, request, declaredLength, endStream, null, null);
+    }
+
+    Http2StreamChannel(Http2Connection connection, int id, ClientFlowContext flow, HttpRequest request,
+            long declaredLength, boolean endStream, String protocol, String scheme) {
         this.connection = connection;
         this.id = id;
         this.flow = flow;
         this.logPrefix = connection.logPrefix.substring(0, connection.logPrefix.length() - 2) + " stream " + id + "] ";
         this.request = request;
+        this.protocol = protocol;
+        this.scheme = scheme;
         this.expectsContinue = HttpUtil.is100ContinueExpected(request);
         this.changed = connection.stateLock.newCondition();
         this.declaredLength = declaredLength;
@@ -136,7 +146,17 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public boolean supportsTunnels() {
-        return false;
+        return true;
+    }
+
+    @Override
+    public String tunnelProtocol() {
+        return protocol;
+    }
+
+    @Override
+    public boolean secureWebSocket() {
+        return "websocket".equals(protocol) && "https".equalsIgnoreCase(scheme);
     }
 
     @Override
@@ -212,11 +232,26 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public void setUpgrade(HttpResponse response, String upgrade) {
-        // HTTP/2 has no protocol switch; relay() resets the stream.
+        if ("websocket".equals(protocol) && response.status().code() == 101) {
+            response.setStatus(HttpResponseStatus.OK);
+            response.headers().remove("Sec-WebSocket-Accept");
+            response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
+            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+        }
     }
 
     @Override
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
+        if (response.status().code() / 100 == 2
+                && (ProxyUtils.isCONNECT(request) || "websocket".equals(protocol))) {
+            // The response opens a tunnel. DATA are tunnel bytes, not a message body: even a
+            // FullHttpResponse with an empty payload must leave the stream open.
+            this.bodyAllowed = true;
+            response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
+            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            sendHead(response, false);
+            return;
+        }
         if (response instanceof FullHttpMessage full) {
             writeFull(response, full, bodyAllowed);
             return;
@@ -296,8 +331,26 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public void relay(ServerConnection conn, Tunnel.FrameHandler frames, String name) {
-        // Nothing to relay on a stream: a server that switched protocols cannot reach this client.
-        close();
+        OutputStream output = new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                write(new byte[] {(byte) b}, 0, 1);
+            }
+
+            @Override
+            public void write(byte[] bytes, int off, int len) throws IOException {
+                sendData(bytes, off, len, false, false);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                connection.flush();
+            }
+        };
+        Tunnel.relay(body.asInputStream(), output, () -> sendData(new byte[0], 0, 0, true, true),
+                conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
+                () -> { close(); conn.close(); }, connection.server.getIdleConnectionTimeout(), name, logPrefix,
+                frames, connection.server.maxWebSocketFrameBufferSize, connection.server.ioBuffers);
     }
 
     @Override
@@ -321,6 +374,7 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     // ---------------------------------------------------------------------------------------
 
     private void sendHead(HttpResponse response, boolean endStream) throws IOException {
+        if (response.status().code() == 101) throw new IOException("101 Switching Protocols is invalid in HTTP/2");
         headersSent = true;
         connection.writeHeaders(this, responseFields(response.status().code(), response.headers()), endStream);
         if (endStream) responseEnded = true;
@@ -369,7 +423,7 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
         @Override
         public boolean hasBody() {
-            return !emptyRequest && declaredLength != 0;
+            return !"websocket".equals(protocol) && !emptyRequest && declaredLength != 0;
         }
 
         @Override

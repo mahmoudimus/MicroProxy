@@ -198,6 +198,7 @@ final class Http2Connection extends Http2Endpoint {
             // The server's preface: SETTINGS (and a larger connection window), sent at once.
             Http2Settings ours = Http2Settings.builder()
                     .enablePush(false)
+                    .enableConnectProtocol(true)
                     .maxConcurrentStreams(options.maxConcurrentStreams())
                     .initialWindowSize(options.initialWindowSize())
                     .maxHeaderListSize(maxHeaderListSize)
@@ -364,9 +365,13 @@ final class Http2Connection extends Http2Endpoint {
             return;
         }
         RequestHeaders head = Http2Headers.toRequest(id, fields);
+        if ("websocket".equals(head.protocol()) && (!("http".equals(head.scheme()) || "https".equals(head.scheme()))
+                || !head.path().startsWith("/"))) {
+            throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "invalid WebSocket scheme or path");
+        }
         HttpRequest request = toHttp1(id, head, h.endStream(), target == null);
         Http2StreamChannel stream = new Http2StreamChannel(this, id, new ClientFlowContext(connectionFlow, id),
-                request, head.contentLength(), h.endStream());
+                request, head.isConnect() ? -1 : head.contentLength(), h.endStream(), head.protocol(), head.scheme());
         stateLock.lock();
         try {
             streams.put(id, stream);
@@ -375,7 +380,7 @@ final class Http2Connection extends Http2Endpoint {
         } finally {
             stateLock.unlock();
         }
-        boolean misdirected = !head.isConnect() && misdirected(head.authority());
+        boolean misdirected = misdirected(head.authority());
         stream.flowContext().startExchange();
         try {
             Thread.ofVirtual().name(server.name + "-h2-" + connectionFlow.getConnectionId() + "-" + id)
@@ -581,14 +586,22 @@ final class Http2Connection extends Http2Endpoint {
         for (HeaderField f : head.fields()) {
             headers.add(f.name(), f.value());
         }
-        if (!endStream && head.contentLength() < 0) {
+        boolean webSocket = "websocket".equals(head.protocol());
+        if (!endStream && head.contentLength() < 0 && !head.isConnect()) {
             // A body of unknown length: chunked towards an HTTP/1.1 server.
             headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         }
-        String uri = head.isConnect() ? head.authority() : head.path();
+        String uri = head.isConnect() && !webSocket ? head.authority() : head.path();
         boolean httpScheme = "http".equalsIgnoreCase(head.scheme()) || "https".equalsIgnoreCase(head.scheme());
-        if (forwardProxy && !head.isConnect() && httpScheme && head.authority() != null && head.path().startsWith("/")) {
+        if (forwardProxy && (!head.isConnect() || webSocket) && httpScheme && head.authority() != null && head.path().startsWith("/")) {
             uri = head.scheme().toLowerCase(java.util.Locale.ROOT) + "://" + head.authority() + head.path();
+        }
+        if (webSocket) {
+            method = HttpMethod.GET;
+            headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+            headers.set(HttpHeaderNames.CONNECTION, "Upgrade");
+            headers.set(HttpHeaderNames.UPGRADE, "websocket");
+            headers.set("Sec-WebSocket-Key", WebSocketHandshake.key());
         }
         return new DefaultHttpRequest(HttpVersion.HTTP_2_0, method, uri, headers);
     }
@@ -641,6 +654,10 @@ final class Http2Connection extends Http2Endpoint {
 
     /** The stream's thread is done: resets it if needed, forgets it and credits its unread data back. */
     private void finishStream(Http2StreamChannel s) {
+        // The exchange normally relinquishes its origin. Exceptions in filters or a CONNECT
+        // handshake must not leave a stream's socket alive until the whole client disconnects.
+        ServerConnection dangling = s.cancelServer();
+        if (dangling != null) dangling.close();
         ErrorCode code = null;
         int credit;
         boolean lastOne;
