@@ -40,6 +40,8 @@ import org.microproxy.extras.LogFormat;
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
 
+    static final List<String> DEFAULT_TLS_PROTOCOLS = List.of("TLSv1.3", "TLSv1.2");
+
     String name = "MicroProxy";
     InetSocketAddress requestedAddress;
     int port = 8080;
@@ -80,6 +82,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Backoff between chained proxy attempts; null when off. */
     Duration chainedProxyBackoffInitial;
     Duration chainedProxyBackoffMax;
+    /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
+    List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
 
@@ -127,6 +131,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
         c.chainedProxyBackoffMax = chainedProxyBackoffMax;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
+        c.tlsProtocols = tlsProtocols;
         return c;
     }
 
@@ -159,6 +164,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("littleproxy_compatibility")) {
             withLittleProxyCompatibility(bool(p, "littleproxy_compatibility"));
+        }
+        if (p.containsKey("tls_protocols")) {
+            withTlsProtocols(p.getProperty("tls_protocols").split(","));
         }
         if (p.containsKey("tls_handshake_timeout")) {
             withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
@@ -462,6 +470,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             }
             strippedRequestHeaders.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
         }
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
+        List<String> chosen = new ArrayList<>();
+        for (String protocol : protocols) {
+            String p = Objects.requireNonNull(protocol, "protocol").strip();
+            if (!p.isEmpty() && !chosen.contains(p)) chosen.add(p);
+        }
+        this.tlsProtocols = List.copyOf(chosen);
         return this;
     }
 

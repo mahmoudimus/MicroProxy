@@ -456,7 +456,7 @@ final class ClientConnection implements Runnable {
         flowContext.clientTlsStarted();
         SSLSocket tls;
         try {
-            tls = Tls.serverHandshake(context, plain, in.drainBuffered(), needClientAuth, configurer,
+            tls = Tls.serverHandshake(context, plain, in.drainBuffered(), needClientAuth, server.tlsProtocols, configurer,
                     server.tlsHandshakeTimeout, new TlsLog.Peer(logPrefix, "client", host));
         } catch (IOException e) {
             server.trackers.fire(t -> t.tlsHandshakeFailed(flowContext, true, e));
@@ -1584,6 +1584,7 @@ final class ClientConnection implements Runnable {
                 try {
                     flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
+                            server.tlsProtocols,
                             s -> proxy.configure(s, true), server.tlsHandshakeTimeout,
                             new TlsLog.Peer(logPrefix, "chained proxy", remote.getHostString()));
                     flowContext.mark(ClientFlowContext.TLS_END);
@@ -1642,6 +1643,7 @@ final class ClientConnection implements Runnable {
                 try {
                     flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
+                            server.tlsProtocols,
                             s -> manager.configureServerSocket(s, serverContext), server.tlsHandshakeTimeout,
                             new TlsLog.Peer(logPrefix, "server", target.host()));
                     flowContext.mark(ClientFlowContext.TLS_END);

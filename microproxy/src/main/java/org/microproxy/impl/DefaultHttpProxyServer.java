@@ -86,6 +86,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** Backoff between chained proxy attempts, in nanoseconds; 0 when off. */
     final long backoffInitialNanos;
     final long backoffMaxNanos;
+    /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
+    final String[] tlsProtocols;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
@@ -130,6 +132,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.littleProxyCompatibility = b.littleProxyCompatibility;
         this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
+        this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
         this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);

@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 
@@ -28,6 +29,8 @@ final class Tls {
      * Starts a client handshake over {@code plain}.
      *
      * @param verifyHostname enable HTTPS endpoint identification against {@code host}
+     * @param protocols the TLS versions to enable before {@code configurer} runs, or null for the
+     *     context's defaults (see {@link #pinProtocols})
      * @param peer who the handshake is with, for the log lines ({@link TlsLog})
      */
     static SSLSocket clientHandshake(
@@ -36,6 +39,7 @@ final class Tls {
             String host,
             int port,
             boolean verifyHostname,
+            String[] protocols,
             Consumer<SSLSocket> configurer,
             Duration deadline,
             TlsLog.Peer peer)
@@ -44,6 +48,7 @@ final class Tls {
         SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket(plain, host, port, true);
         try {
             socket.setUseClientMode(true);
+            pinProtocols(socket, protocols);
             SSLParameters params = socket.getSSLParameters();
             if (!isIpLiteral(host)) {
                 try {
@@ -77,6 +82,8 @@ final class Tls {
      * Starts a server handshake over {@code plain}.
      *
      * @param consumed bytes already read from {@code plain} that belong to the TLS stream
+     * @param protocols the TLS versions to enable before {@code configurer} runs, or null for the
+     *     context's defaults (see {@link #pinProtocols})
      * @param peer who the handshake is with, for the log lines ({@link TlsLog})
      */
     static SSLSocket serverHandshake(
@@ -84,6 +91,7 @@ final class Tls {
             Socket plain,
             byte[] consumed,
             boolean needClientAuth,
+            String[] protocols,
             Consumer<SSLSocket> configurer,
             Duration deadline,
             TlsLog.Peer peer)
@@ -94,6 +102,7 @@ final class Tls {
                         .createSocket(plain, consumed.length == 0 ? null : new ByteArrayInputStream(consumed), true);
         try {
             socket.setUseClientMode(false);
+            pinProtocols(socket, protocols);
             if (needClientAuth) {
                 socket.setNeedClientAuth(true);
             }
@@ -112,6 +121,25 @@ final class Tls {
             closeQuietly(socket);
             throw e;
         }
+    }
+
+    /**
+     * Enables exactly those of {@code pinned} that {@code socket}'s context supports, in the order
+     * given. Configuration hooks run afterwards and may change them again.
+     *
+     * @throws SSLHandshakeException if the context supports none of them
+     */
+    static void pinProtocols(SSLSocket socket, String[] pinned) throws SSLHandshakeException {
+        if (pinned == null) return;
+        String[] supportedProtocols = socket.getSupportedProtocols();
+        java.util.Set<String> supported = java.util.Set.of(supportedProtocols);
+        String[] usable = java.util.Arrays.stream(pinned).filter(supported::contains).toArray(String[]::new);
+        if (usable.length == 0) {
+            throw new SSLHandshakeException("none of the TLS protocols " + String.join(", ", pinned)
+                    + " allowed by withTlsProtocols (tls_protocols) is supported by this SSLContext, which supports "
+                    + String.join(", ", supportedProtocols));
+        }
+        socket.setEnabledProtocols(usable);
     }
 
     /**

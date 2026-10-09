@@ -87,6 +87,21 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout);
 
     /**
+     * The TLS versions allowed on every TLS socket the proxy creates: its TLS listener ({@link
+     * #withSslContextSource}), both sides of an intercepted session, and connections to TLS chained
+     * proxies. Default {@code TLSv1.3} and {@code TLSv1.2}. Each socket enables those of them that
+     * its {@link javax.net.ssl.SSLContext} supports; if it supports none, the handshake fails with
+     * an error naming both lists. The protocols are set right after the socket is created, before
+     * {@link SslContextSource#configure}, {@link MitmManager#configureServerSocket(javax.net.ssl.SSLSocket,
+     * FlowContext)} or {@link ChainedProxy#configure} run, so a hook that sets its own protocols
+     * wins. No protocols leaves every context's own defaults; the JDK's {@code
+     * jdk.tls.disabledAlgorithms} applies either way.
+     */
+    default HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TLS protocol pinning");
+    }
+
+    /**
      * Behaves like LittleProxy where MicroProxy deliberately differs, for filters that depend on
      * it:
      *

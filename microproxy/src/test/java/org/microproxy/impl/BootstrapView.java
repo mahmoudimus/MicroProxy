@@ -66,6 +66,11 @@ public record BootstrapView(
         return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());
     }
 
+    /** The TLS versions every TLS socket starts with, as configured; empty for the contexts' defaults. */
+    public static List<String> tlsProtocols(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).tlsProtocols;
+    }
+
     /** The settings a running server was started with. */
     public static BootstrapView of(HttpProxyServer server) {
         return of(((DefaultHttpProxyServer) server).config);

@@ -189,6 +189,7 @@ Command-line flags override values from the file.
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
+| `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
@@ -233,6 +234,7 @@ Command-line flags override values from the file.
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
+| TLS protocol pinning | every TLS connection (listener, both sides of interception, TLS chained proxies) allows only TLS 1.3 and 1.2 by default; `withTlsProtocols(...)` changes it (see below) |
 | PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
 | WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
@@ -537,6 +539,31 @@ clients given the same one. A manager overriding `serverSslContext(host, port, f
 `configureServerSocket(socket, flow)` may decide differently for every client, so its server
 connections are not pooled: each client connection keeps its own. Overriding only
 `clientSslContextFor(..., flow)` does not affect pooling.
+
+### TLS protocol versions
+
+Every TLS socket the proxy creates allows only `TLSv1.3` and `TLSv1.2` by default: the TLS
+listener (`withSslContextSource`), both sides of an intercepted session (towards the client and
+towards the server) and connections to TLS chained proxies. `withTlsProtocols(...)` (or
+`tls_protocols=...`, `--tls-protocols ...`) changes the list:
+
+```java
+MicroProxy.bootstrap().withTlsProtocols("TLSv1.3").start();   // TLS 1.3 only
+MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext's own defaults
+```
+
+- **Per socket:** each socket enables the listed versions its `SSLContext` supports, in the order
+  given. If it supports none of them, the handshake fails with an error naming both lists (a
+  `TlsFailed` towards servers, a failed handshake towards clients).
+- **Order:** the versions are set right after the socket is created, before
+  `SslContextSource.configure`, `MitmManager.configureServerSocket` and `ChainedProxy.configure`
+  run. A hook that sets its own protocols therefore wins.
+- **The JDK still applies** `jdk.tls.disabledAlgorithms`, which turns off TLS 1.1 and older,
+  whatever is listed here.
+- A server that refuses the proxy's versions with a `protocol_version` alert gets a `502`
+  (`TlsFailed`). One that just closes the connection on the proxy's `ClientHello` looks like a
+  server that does not speak TLS, and the `CONNECT` is tunnelled without interception, as for
+  any non-TLS server.
 
 ### Rewriting bodies
 
