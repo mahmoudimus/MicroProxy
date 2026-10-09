@@ -1454,6 +1454,11 @@ mvn -pl microproxy test         # just the core
 
 `microproxy-starlark` reuses the core's test helpers through its `tests` jar.
 
+How a request flows through the proxy, and which parts are HTTP/1-specific (the groundwork for
+HTTP/2 in [issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)), is described in
+[`microproxy/src/main/java/org/microproxy/impl/README.md`](microproxy/src/main/java/org/microproxy/impl/README.md).
+`AllocationTest` fails if a small keep-alive request starts allocating much more than it does now.
+
 ### Releases
 
 Releases are cut by [release-please](https://github.com/googleapis/release-please). It reads
