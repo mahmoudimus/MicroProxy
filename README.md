@@ -205,6 +205,7 @@ Command-line flags override values from the file.
 | `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
+| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](#retries-and-backoff)) | off / 8 × initial |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
@@ -223,7 +224,7 @@ Command-line flags override values from the file.
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
-| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
+| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection, optionally with exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
@@ -328,6 +329,33 @@ java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --no-proxy "loc
 For servers or proxies signed by a private CA, `SslContexts.systemDefaultPlus(caCert)` trusts the
 JDK's roots plus extra anchors and keeps host-name checks. Use it as the MITM manager's upstream
 context, or as a chained proxy's.
+
+#### Retries and backoff
+
+When a connection through one chained proxy fails (refused, timed out, its name does not resolve,
+its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
+`ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once.
+`withChainedProxyRetryBackoff(initial, max)` (or `chained_proxy_backoff_initial_ms` and
+`chained_proxy_backoff_max_ms`) waits in between, so a flapping upstream is not hammered:
+
+```java
+MicroProxy.bootstrap()
+        .withChainProxyManager(upstreams)
+        .withChainedProxyRetryBackoff(Duration.ofMillis(100), Duration.ofSeconds(2))
+        .start();
+```
+
+- Before attempt `n + 1` it waits a random time between zero and `initial * 2^(n-1)`, capped at
+  `max` ("full jitter", so clients that failed together do not retry together).
+- It never waits before the first attempt or after the last one.
+- It stops waiting, and gives up on the request, if the client disconnects meanwhile. Once the
+  client has sent more bytes (a request body, a pipelined request) a disconnect can no longer be
+  seen, and the rest of the wait is a plain sleep.
+- The waits of one request add up to at most 30 seconds or the connect timeout, whichever is
+  less, so a long candidate list cannot hold a request for minutes. Once that budget is spent,
+  the remaining candidates are tried without waiting.
+- The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
+  only a `DEBUG` log line.
 
 ### Proxy authentication
 

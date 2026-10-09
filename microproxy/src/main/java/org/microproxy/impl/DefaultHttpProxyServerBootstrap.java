@@ -77,6 +77,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Duration poolIdleTimeout;
     boolean poolSharedMitmConnections;
     boolean poolPerRequestInMitm;
+    /** Backoff between chained proxy attempts; null when off. */
+    Duration chainedProxyBackoffInitial;
+    Duration chainedProxyBackoffMax;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -119,6 +122,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.poolIdleTimeout = poolIdleTimeout;
         c.poolSharedMitmConnections = poolSharedMitmConnections;
         c.poolPerRequestInMitm = poolPerRequestInMitm;
+        c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
+        c.chainedProxyBackoffMax = chainedProxyBackoffMax;
         return c;
     }
 
@@ -200,6 +205,15 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         } else if (bool(p, "use_env_proxy")) {
             UpstreamProxyManager fromEnv = UpstreamProxyManager.fromEnvironment(System.getenv());
             if (fromEnv != null) withChainProxyManager(fromEnv);
+        }
+        if (p.containsKey("chained_proxy_backoff_initial_ms")) {
+            Duration initial = Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_initial_ms").strip()));
+            Duration max = p.containsKey("chained_proxy_backoff_max_ms")
+                    ? Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_max_ms").strip()))
+                    : initial.multipliedBy(8);
+            withChainedProxyRetryBackoff(initial, max);
+        } else if (p.containsKey("chained_proxy_backoff_max_ms")) {
+            throw new IllegalArgumentException("chained_proxy_backoff_max_ms needs chained_proxy_backoff_initial_ms");
         }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
@@ -403,6 +417,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout) {
         if (timeout.isNegative()) throw new IllegalArgumentException("negative TLS handshake timeout");
         this.tlsHandshakeTimeout = timeout;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+        if (initial == null) {
+            chainedProxyBackoffInitial = null;
+            chainedProxyBackoffMax = null;
+            return this;
+        }
+        if (initial.isNegative() || initial.isZero()) {
+            throw new IllegalArgumentException("the initial backoff must be positive: " + initial);
+        }
+        Duration cap = max == null ? initial : max;
+        if (cap.compareTo(initial) < 0) {
+            throw new IllegalArgumentException("the maximum backoff " + cap + " is below the initial " + initial);
+        }
+        chainedProxyBackoffInitial = initial;
+        chainedProxyBackoffMax = cap;
         return this;
     }
 

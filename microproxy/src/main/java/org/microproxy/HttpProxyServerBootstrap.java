@@ -111,6 +111,21 @@ public interface HttpProxyServerBootstrap {
 
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
+    /**
+     * Waits between attempts when a connection through one chained proxy (or the direct
+     * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
+     * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *
+     * 2^(n-1)}, capped at {@code max} ("full jitter"). It never sleeps before the first attempt or
+     * after the last, stops waiting (and gives up on the request) when the client disconnects
+     * meanwhile, and sleeps at most 30 seconds or the connect timeout in total per request,
+     * whichever is less; once that is spent, the remaining candidates are tried without waiting.
+     * The wait counts towards the connect phase of {@link FlowContext#timings()}. Off by default;
+     * {@code null} turns it off again.
+     */
+    default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
+    }
+
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
     /** Global bandwidth limits for server traffic; 0 means unlimited. */

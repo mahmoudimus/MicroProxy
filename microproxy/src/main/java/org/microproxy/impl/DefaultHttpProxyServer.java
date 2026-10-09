@@ -19,9 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.DoubleSupplier;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
@@ -81,6 +83,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int connectTimeoutMs;
     final Duration tlsHandshakeTimeout;
     final boolean littleProxyCompatibility;
+    /** Backoff between chained proxy attempts, in nanoseconds; 0 when off. */
+    final long backoffInitialNanos;
+    final long backoffMaxNanos;
+    /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
+    volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
     private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
     private ServerSocket serverSocket;
@@ -119,6 +126,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
         this.littleProxyCompatibility = b.littleProxyCompatibility;
+        this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
+        this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);

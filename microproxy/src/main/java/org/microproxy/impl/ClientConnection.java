@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -658,6 +659,11 @@ final class ClientConnection implements Runnable {
                 } catch (SharedConnectionPool.PoolExhaustedException e) {
                     LOG.log(Level.DEBUG, logPrefix + e.getMessage());
                     return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
+                } catch (ClientFailure e) {
+                    LOG.log(Level.DEBUG, logPrefix + "client left before " + hostAndPort + " could be reached: "
+                            + e.getCause());
+                    close();
+                    return false;
                 } catch (IOException e) {
                     LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort + ": " + unwrap(e));
                     return respondFailure(ex, connectFailure(hostAndPort, e), false);
@@ -1176,6 +1182,10 @@ final class ClientConnection implements Runnable {
         } catch (SharedConnectionPool.PoolExhaustedException e) {
             LOG.log(Level.DEBUG, logPrefix + e.getMessage());
             return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
+        } catch (ClientFailure e) {
+            LOG.log(Level.DEBUG, logPrefix + "client left before " + hostAndPort + " could be reached: " + e.getCause());
+            close();
+            return false;
         } catch (IOException e) {
             LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed: " + unwrap(e));
             if (!mitm || !ex.filters.proxyToServerAllowOfflineMitm()) {
@@ -1344,8 +1354,13 @@ final class ClientConnection implements Runnable {
             throws IOException {
         IOException last = null;
         boolean connecting = false;
+        int failures = 0;
+        long backoffBudget = server.backoffInitialNanos > 0 ? backoffBudgetNanos(ex) : 0;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
+            if (failures > 0 && backoffBudget > 0) {
+                backoffBudget -= backOff(failures, backoffBudget, hostAndPort, proxy);
+            }
             ex.attempt = null;
             try {
                 ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode);
@@ -1366,6 +1381,7 @@ final class ClientConnection implements Runnable {
                             + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed: " + cause);
                 }
                 last = e;
+                failures++;
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException);
                 if (proxy != null) {
@@ -1380,6 +1396,91 @@ final class ClientConnection implements Runnable {
             ex.filters.proxyToServerConnectionFailed();
         }
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
+    }
+
+    /** The longest all backoff waits of one request may add up to: 30 s or the connect timeout. */
+    private static final long MAX_BACKOFF_TOTAL_NANOS = TimeUnit.SECONDS.toNanos(30);
+
+    private long backoffBudgetNanos(Exchange ex) {
+        long connectTimeout = TimeUnit.MILLISECONDS.toNanos(connectTimeoutMillis(ex));
+        return connectTimeout > 0 ? Math.min(connectTimeout, MAX_BACKOFF_TOTAL_NANOS) : MAX_BACKOFF_TOTAL_NANOS;
+    }
+
+    /** The connect timeout for {@code ex}'s connection attempts, in milliseconds (0 = none). */
+    private int connectTimeoutMillis(Exchange ex) {
+        return Math.max(0, server.getConnectTimeout());
+    }
+
+    /**
+     * The backoff before the attempt that follows {@code failures} failed ones: a random time
+     * up to {@code initial * 2^(failures-1)}, capped at the maximum.
+     */
+    static long backoffNanos(int failures, long initialNanos, long maxNanos, double jitter) {
+        int doublings = Math.min(failures - 1, 62);
+        long ceiling = initialNanos > (maxNanos >> doublings) ? maxNanos : Math.min(maxNanos, initialNanos << doublings);
+        return (long) (ceiling * Math.min(1.0, Math.max(0.0, jitter)));
+    }
+
+    /**
+     * Waits before trying the next candidate after {@code failures} failed attempts, at most
+     * {@code budget} nanoseconds, while watching for the client to leave. Returns how long it
+     * waited.
+     *
+     * @throws ClientFailure if the client disconnected meanwhile
+     */
+    private long backOff(int failures, long budget, String hostAndPort, ChainedProxy next) throws IOException {
+        long wait = Math.min(budget,
+                backoffNanos(failures, server.backoffInitialNanos, server.backoffMaxNanos, server.backoffJitter.getAsDouble()));
+        if (wait <= 0) return 0;
+        if (LOG.isLoggable(Level.DEBUG)) {
+            LOG.log(Level.DEBUG, logPrefix + "waiting " + TimeUnit.NANOSECONDS.toMillis(wait) + " ms before trying "
+                    + (next == null ? "a direct connection" : "chained proxy " + next.getChainedProxyAddress())
+                    + " for " + hostAndPort + " after " + failures + " failed attempt" + (failures == 1 ? "" : "s"));
+        }
+        long start = System.nanoTime();
+        awaitUnlessClientLeaves(start + wait);
+        return System.nanoTime() - start;
+    }
+
+    /**
+     * Sleeps until {@code deadline} ({@link System#nanoTime()}), returning early with a {@link
+     * ClientFailure} if the client closes its connection meanwhile. Bytes the client sends (a
+     * request body, a pipelined request) stay buffered for later; once some have arrived, the
+     * close can no longer be seen and the rest of the wait is a plain sleep.
+     */
+    private void awaitUnlessClientLeaves(long deadline) throws IOException {
+        Socket client = socket;
+        int original = client.getSoTimeout();
+        try {
+            while (true) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) return;
+                if (in.buffered() > 0) {
+                    Thread.sleep(Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining)));
+                    return;
+                }
+                client.setSoTimeout((int) Math.max(1, Math.min(Integer.MAX_VALUE,
+                        TimeUnit.NANOSECONDS.toMillis(remaining + 999_999))));
+                if (in.awaitData() && in.buffered() == 0) {
+                    throw new ClientFailure(new EOFException("client disconnected while waiting to retry"));
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new java.io.InterruptedIOException("interrupted while waiting to retry");
+        } catch (ClientFailure e) {
+            throw e;
+        } catch (IOException e) {
+            throw new ClientFailure(e);
+        } finally {
+            if (!client.isClosed()) {
+                try {
+                    client.setSoTimeout(original);
+                } catch (IOException ignored) {
+                    // the connection is failing anyway
+                }
+            }
+        }
     }
 
     /** Resolves a server for a direct connection, reporting it to {@code filters}. */
@@ -1438,7 +1539,7 @@ final class ClientConnection implements Runnable {
                 plain.bind(local);
             }
             flowContext.markFirst(ClientFlowContext.CONNECT_START);
-            plain.connect(remote, Math.max(0, server.getConnectTimeout()));
+            plain.connect(remote, connectTimeoutMillis(ex));
             flowContext.mark(ClientFlowContext.CONNECT_END);
             plain.setTcpNoDelay(true);
             plain.setSoTimeout(server.idleTimeoutMillis());
