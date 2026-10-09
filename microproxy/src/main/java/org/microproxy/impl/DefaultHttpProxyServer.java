@@ -95,7 +95,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final boolean stripAltSvcH3;
     /** Whether intercepted TLS offers HTTP/2 (ALPN {@code h2}); the codec is known to be present. */
     final boolean http2;
+    /** Whether TLS connections to servers offer HTTP/2; the codec is known to be present. */
+    final boolean http2Upstream;
+    /** Whether the plain listener serves HTTP/2 with prior knowledge; the codec is known to be present. */
+    final boolean http2Cleartext;
     final Http2Options http2Options;
+    /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
+    final Http2Origins http2Origins;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -107,7 +113,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private InetSocketAddress boundAddress;
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
-        if (b.http2 && !Http2Support.available()) {
+        if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
             // Fail at startup, not on the first client that asks for h2.
             throw new IllegalStateException(Http2Support.MISSING);
         }
@@ -149,7 +155,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
         this.http2 = b.http2;
+        this.http2Upstream = b.http2Upstream;
+        this.http2Cleartext = b.http2Cleartext;
         this.http2Options = b.http2Options;
+        // Created only when enabled: the class needs the codec.
+        this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
         if (http2 && mitmManager == null) {
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
@@ -298,6 +308,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 LOG.log(Level.WARNING, "connections still open after {0}; closing", GRACEFUL_STOP_TIMEOUT);
             }
             connections.forEach(ClientConnection::close);
+            if (http2Origins != null) http2Origins.closeAll();
             if (pool != null) pool.closeAll();
             executor.shutdownNow();
             executor.awaitTermination(5, TimeUnit.SECONDS);

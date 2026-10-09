@@ -210,6 +210,36 @@ public interface HttpProxyServerBootstrap {
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
     }
 
+    /**
+     * Speaks HTTP/2 to origin servers that offer it: TLS connections to servers (intercepted
+     * HTTPS) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
+     * gets every exchange for it as a stream on one connection, shared by concurrent exchanges up
+     * to the server's stream limit; others keep HTTP/1.1. Independent of {@link #withHttp2}, which
+     * is about clients. Off by default.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * it enabled without the module fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2Upstream(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /**
+     * Serves HTTP/2 with prior knowledge ({@code h2c}, RFC 9113 section 3.3) on the plain listener:
+     * a connection that starts with the HTTP/2 connection preface is served as HTTP/2, its streams
+     * being proxy requests like HTTP/1 ones ({@code :scheme} and {@code :authority} name the
+     * target). Other connections stay HTTP/1.x; {@code Upgrade: h2c} is not supported. Off by
+     * default; limits are set with {@link #withHttp2Options}.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * it enabled without the module fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2Cleartext(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
     /** The HTTP/2 limits configured so far (never null). */
     default Http2Options getHttp2Options() {
         return Http2Options.DEFAULT;

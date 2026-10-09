@@ -257,11 +257,18 @@ final class Http1ClientChannel implements ClientChannel {
 
     @Override
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
+        hop(response);
         writer.writeHead(response, bodyAllowed);
+    }
+
+    /** A response from an HTTP/2 server goes to an HTTP/1 client with this hop's version, 1.1. */
+    private static void hop(HttpResponse response) {
+        if (response.protocolVersion().majorVersion() >= 2) response.setProtocolVersion(HttpVersion.HTTP_1_1);
     }
 
     @Override
     public void writeComplete(HttpResponse response, boolean bodyAllowed) throws IOException {
+        hop(response);
         boolean bare = !(response instanceof FullHttpMessage);
         if (bare && bodyAllowed && !ProxyUtils.isResponseSelfTerminating(response)) {
             HttpUtil.setContentLength(response, 0);

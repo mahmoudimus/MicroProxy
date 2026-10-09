@@ -50,6 +50,11 @@ class ServerConnection {
     volatile boolean inExchange;
     /** Whether this connection has carried a request before (so it may have gone stale). */
     volatile boolean used;
+    /**
+     * The TLS handshake with the server negotiated {@code h2} (ALPN): the connection is for an
+     * {@link Http2UpstreamConnection} to take over, never for HTTP/1.1 exchanges.
+     */
+    volatile boolean http2;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Trackers trackers;

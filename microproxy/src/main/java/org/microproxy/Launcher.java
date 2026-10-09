@@ -84,6 +84,11 @@ public final class Launcher {
               --mitm-trust-all             do not validate upstream server certificates
               --http2                      serve HTTP/2 to clients on intercepted TLS (with --mitm;
                                            needs the http2-codec jar on the class path)
+              --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
+                                           h2), one shared connection per server; needs the
+                                           http2-codec jar
+              --http2-cleartext            serve HTTP/2 with prior knowledge (h2c) on the plain
+                                           listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
               --help                       show this help
@@ -217,6 +222,8 @@ public final class Launcher {
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
                 case "--mitm-trust-all" -> mitmTrustAll = true;
                 case "--http2" -> bootstrap.withHttp2(true);
+                case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
+                case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
                 case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
                 default -> {
                     if (extensions.stream().noneMatch(e -> e.parseOption(arg, queue))) {

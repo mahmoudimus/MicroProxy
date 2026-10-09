@@ -8,7 +8,8 @@ package org.microproxy.impl;
 final class Http2Support {
 
     /** What a server enabling HTTP/2 without the module fails with. */
-    static final String MISSING = "HTTP/2 is enabled (withHttp2, --http2 or http2=true) but the http2-codec module"
+    static final String MISSING = "HTTP/2 is enabled (withHttp2, withHttp2Upstream or withHttp2Cleartext; --http2,"
+            + " --http2-upstream or --http2-cleartext; http2, http2_upstream or http2_cleartext) but the http2-codec module"
             + " (io.github.mahmoudimus:http2-codec) is not on the class path; add its jar to the class path or"
             + " use the microproxy-starlark -all jar, which bundles it";
 
