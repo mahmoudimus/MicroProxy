@@ -494,6 +494,70 @@ class Http2ProxyTest {
     }
 
     @Test
+    void warcRecordsStreamsAsHttp11Exchanges() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("h2-warc");
+        org.microproxy.warc.WarcRecorder recorder = org.microproxy.warc.WarcRecorder.builder(dir).compress(false).build();
+        try {
+            proxy = mitm().withFiltersSource(recorder).start();
+            HttpClient client = client();
+            List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                futures.add(client.sendAsync(get(url("/warc/" + i)), HttpResponse.BodyHandlers.ofString()));
+            }
+            for (CompletableFuture<HttpResponse<String>> f : futures) {
+                assertEquals(HttpClient.Version.HTTP_2, f.get(30, TimeUnit.SECONDS).version());
+            }
+            proxy.stop();
+            proxy = null;
+            recorder.close();
+            assertEquals(5, recorder.recordedExchanges());
+            StringBuilder all = new StringBuilder();
+            try (var files = java.nio.file.Files.list(dir)) {
+                for (java.nio.file.Path f : files.toList()) {
+                    all.append(new String(java.nio.file.Files.readAllBytes(f), StandardCharsets.ISO_8859_1));
+                }
+            }
+            for (int i = 0; i < 5; i++) {
+                assertTrue(all.indexOf("GET /warc/" + i + " HTTP/1.1\r\n") >= 0, "request " + i);
+                assertTrue(all.indexOf("WARC-Target-URI: " + url("/warc/" + i)) >= 0, "target " + i);
+            }
+        } finally {
+            recorder.close();
+            try (var files = java.nio.file.Files.list(dir)) {
+                for (java.nio.file.Path f : files.toList()) java.nio.file.Files.delete(f);
+            }
+            java.nio.file.Files.delete(dir);
+        }
+    }
+
+    @Test
+    void concurrencyLimiterCountsStreams() throws Exception {
+        org.microproxy.extras.ConcurrencyLimiter limiter = org.microproxy.extras.ConcurrencyLimiter.builder()
+                .permits(3).build();
+        proxy = mitm().withFiltersSource(limiter).start();
+        HttpClient client = client();
+        assertEquals(200, TestSupport.send(client, get(url("/warm-up"))).statusCode());
+        List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            futures.add(client.sendAsync(get(url("/slow")), HttpResponse.BodyHandlers.ofString()));
+        }
+        // Three streams hold the permits at the origin; the other three are refused at once.
+        assertTrue(slowArrived.await(10, TimeUnit.SECONDS));
+        eventually("three refusals", () -> futures.stream().filter(CompletableFuture::isDone).count() == 3);
+        release.countDown();
+        int ok = 0;
+        int refused = 0;
+        for (CompletableFuture<HttpResponse<String>> f : futures) {
+            int status = f.get(30, TimeUnit.SECONDS).statusCode();
+            if (status == 200) ok++;
+            if (status == 429) refused++;
+        }
+        assertEquals(3, ok);
+        assertEquals(3, refused);
+        eventually("every permit back", () -> limiter.snapshot().inUse() == 0);
+    }
+
+    @Test
     void withoutHttp2ClientsGetHttp11() {
         proxy = MicroProxy.bootstrap().withPort(0)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
