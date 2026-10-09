@@ -229,6 +229,23 @@ public final class TestSupport {
         }
     }
 
+    /**
+     * Waits until {@code condition} holds, checking every 10 ms for up to 10 seconds; fails with
+     * {@code what} otherwise. For state the proxy updates on its own threads.
+     */
+    public static void eventually(String what, java.util.function.BooleanSupplier condition) {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() - deadline > 0) throw new AssertionError("timed out waiting for " + what);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("interrupted waiting for " + what);
+            }
+        }
+    }
+
     public static void write(OutputStream out, String s) throws IOException {
         out.write(s.getBytes(StandardCharsets.ISO_8859_1));
         out.flush();

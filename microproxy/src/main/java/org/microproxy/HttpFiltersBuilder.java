@@ -377,6 +377,11 @@ public final class HttpFiltersBuilder {
         }
 
         @Override
+        public void exchangeEnded(boolean completed) {
+            if (logged != null) logged.exchangeEnded(completed);
+        }
+
+        @Override
         public HttpResponse proxyToServerFailure(ProxyFailure failure) {
             return onFailure == null ? null : onFailure.apply(failure);
         }

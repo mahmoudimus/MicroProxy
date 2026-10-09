@@ -32,6 +32,8 @@ public record HttpResponseStatus(int code, String reasonPhrase) {
             new HttpResponseStatus(413, "Request Entity Too Large");
     public static final HttpResponseStatus EXPECTATION_FAILED =
             new HttpResponseStatus(417, "Expectation Failed");
+    public static final HttpResponseStatus TOO_MANY_REQUESTS =
+            new HttpResponseStatus(429, "Too Many Requests");
     public static final HttpResponseStatus REQUEST_HEADER_FIELDS_TOO_LARGE =
             new HttpResponseStatus(431, "Request Header Fields Too Large");
     public static final HttpResponseStatus INTERNAL_SERVER_ERROR =
@@ -48,7 +50,7 @@ public record HttpResponseStatus(int code, String reasonPhrase) {
         CONTINUE, SWITCHING_PROTOCOLS, OK, CREATED, ACCEPTED, NO_CONTENT, MOVED_PERMANENTLY, FOUND,
         NOT_MODIFIED, BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED,
         PROXY_AUTHENTICATION_REQUIRED, REQUEST_TIMEOUT, REQUEST_ENTITY_TOO_LARGE, EXPECTATION_FAILED,
-        REQUEST_HEADER_FIELDS_TOO_LARGE, INTERNAL_SERVER_ERROR, NOT_IMPLEMENTED, BAD_GATEWAY,
+        TOO_MANY_REQUESTS, REQUEST_HEADER_FIELDS_TOO_LARGE, INTERNAL_SERVER_ERROR, NOT_IMPLEMENTED, BAD_GATEWAY,
         SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
     };
 

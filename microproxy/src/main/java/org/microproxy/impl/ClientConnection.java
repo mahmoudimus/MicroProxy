@@ -291,6 +291,10 @@ final class ClientConnection implements Runnable {
         boolean bodyAbandoned;
         /** The server side of the connection attempt in progress, once known. */
         FullFlowContext attempt;
+        /** The response was written in full ({@link HttpFilters#proxyToClientResponseSent} called). */
+        boolean completed;
+        /** {@link HttpFilters#exchangeEnded} has been called. */
+        boolean ended;
 
         Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
             this.request = request;
@@ -533,7 +537,27 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = server.filtersSource.getClass() == HttpFiltersSourceAdapter.class ? NOOP
                 : server.filtersSource.filterRequest(copy(request), flowContext);
         ex.filters = filters != null ? filters : NOOP;
+        try {
+            return handleFilteredRequest(ex);
+        } finally {
+            endExchange(ex);
+        }
+    }
 
+    /** Tells the filters, once, that {@code ex} is over (see {@link HttpFilters#exchangeEnded}). */
+    private void endExchange(Exchange ex) {
+        if (ex.ended) return;
+        ex.ended = true;
+        try {
+            ex.filters.exchangeEnded(ex.completed);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "exchangeEnded threw", e);
+        }
+    }
+
+    /** Handles a request whose filters have been created. Returns whether the client connection stays open. */
+    private boolean handleFilteredRequest(Exchange ex) throws IOException {
+        HttpRequest request = ex.request;
         int maxBuffer = server.filtersSource.getMaximumRequestBufferSizeInBytes();
         if (maxBuffer <= 0 && !ProxyUtils.isCONNECT(request)) {
             maxBuffer = ex.filters.requestBufferSizeInBytes(request);
@@ -1012,6 +1036,7 @@ final class ClientConnection implements Runnable {
 
     /** The response to the current request has been written in full. */
     private void completed(Exchange ex, HttpResponse response, ResponseSource source) {
+        ex.completed = true;
         flowContext.mark(ClientFlowContext.RESPONSE_COMPLETE);
         server.trackers.fire(t -> t.responseCompleted(flowContext, response));
         ex.filters.proxyToClientResponseSent(response, source);
@@ -1210,6 +1235,8 @@ final class ClientConnection implements Runnable {
             serverConnections.remove(conn.key, conn);
             conn.pool.release(conn);
         }
+        // The CONNECT exchange is over; the requests inside the session are exchanges of their own.
+        endExchange(ex);
         serveRequests();
         return false;
     }

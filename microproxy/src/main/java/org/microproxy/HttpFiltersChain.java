@@ -23,7 +23,8 @@ import org.microproxy.http.WebSocketFrame;
  *   <li>Buffer sizes are the largest any filter asks for.
  *   <li>Interception needs every filter's consent ({@code proxyToServerAllowMitm}), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
- *   <li>Notifications go to every filter.
+ *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
+ *       one of them throws.
  * </ul>
  *
  * <p>So a cache placed last stores responses after earlier filters have rewritten them, and
@@ -183,6 +184,20 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
             members.forEach(f -> f.proxyToClientResponseSent(response, source));
+        }
+
+        @Override
+        public void exchangeEnded(boolean completed) {
+            RuntimeException failure = null;
+            for (HttpFilters f : members) {
+                // Every member releases what it holds, even when an earlier one throws.
+                try {
+                    f.exchangeEnded(completed);
+                } catch (RuntimeException e) {
+                    if (failure == null) failure = e; else failure.addSuppressed(e);
+                }
+            }
+            if (failure != null) throw failure;
         }
 
         @Override

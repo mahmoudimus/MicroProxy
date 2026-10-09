@@ -33,6 +33,7 @@ import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 
@@ -207,6 +208,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("activity_log_format")) {
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
                     p.getProperty("activity_log_format").strip().toUpperCase(Locale.ROOT))));
+        }
+        if (p.containsKey("max_concurrent_per_client")) {
+            int n = Integer.parseInt(p.getProperty("max_concurrent_per_client").strip());
+            if (n <= 0) throw new IllegalArgumentException("max_concurrent_per_client must be positive: " + n);
+            // Before the other filters, so they do no work for refused requests.
+            withFiltersSource(HttpFiltersChain.of(ConcurrencyLimiter.builder().permits(n).build(), filtersSource));
         }
         if (p.containsKey("log_http")) {
             String level = p.getProperty("log_http").strip();

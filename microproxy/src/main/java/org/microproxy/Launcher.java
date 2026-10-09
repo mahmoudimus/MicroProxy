@@ -16,6 +16,7 @@ import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.simd.Simd;
@@ -56,6 +57,8 @@ public final class Launcher {
                                            body (to the System.Logger org.microproxy.http)
               --log-http-json              write --log-http as JSON lines (headers if no level)
               --shared-pool                share server connections between clients
+              --max-concurrent-per-client <n>  exchanges each client IP may run at once; more
+                                           get 429 (CONNECT tunnels count while open)
               --cache-dir <dir>            cache responses on disk (RFC 9111); survives restarts
               --cache-size <MB>            disk cache limit (default 1024)
               --cache-memory <MB>          cache responses in memory instead
@@ -124,6 +127,7 @@ public final class Launcher {
         Path warcDir = null;
         HttpLogger.Level logHttp = null;
         boolean logHttpJson = false;
+        int maxConcurrentPerClient = 0;
         List<AutoCloseable> resources = new ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
@@ -173,6 +177,12 @@ public final class Launcher {
                 case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
                 case "--log-http-json" -> logHttpJson = true;
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
+                case "--max-concurrent-per-client" -> {
+                    maxConcurrentPerClient = intValue(queue, arg);
+                    if (maxConcurrentPerClient <= 0) {
+                        throw new IllegalArgumentException(arg + " needs a positive number");
+                    }
+                }
                 case "--cache-dir" -> cacheDir = Path.of(value(queue, arg));
                 case "--cache-size" -> cacheSizeMb = longValue(queue, arg);
                 case "--cache-memory" -> cacheMemoryMb = longValue(queue, arg);
@@ -208,6 +218,12 @@ public final class Launcher {
             bootstrap.withManInTheMiddle(mitmTrustAll
                     ? new CertificateAuthorityMitmManager(ca, SslContexts.trustAll())
                     : new CertificateAuthorityMitmManager(ca));
+        }
+        if (maxConcurrentPerClient > 0) {
+            // In place of a limiter from the properties file, else before the other filters, so
+            // they do no work for refused requests; recorders and loggers added below still see those.
+            bootstrap.withFiltersSource(withLimiter(bootstrap.getFiltersSource(),
+                    ConcurrencyLimiter.builder().permits(maxConcurrentPerClient).build()));
         }
         if (warcDir != null) {
             // First among the filters, so it records messages before others change them.
@@ -312,6 +328,21 @@ public final class Launcher {
                     .toArray(HttpFiltersSource[]::new));
         }
         return source;
+    }
+
+    /** {@code source} with {@code limiter} replacing its concurrency limiters, or first if it has none. */
+    private static HttpFiltersSource withLimiter(HttpFiltersSource source, ConcurrencyLimiter limiter) {
+        List<HttpFiltersSource> sources = source instanceof HttpFiltersChain chain
+                ? new ArrayList<>(chain.sources()) : new ArrayList<>(List.of(source));
+        int at = -1;
+        for (int i = sources.size() - 1; i >= 0; i--) {
+            if (sources.get(i) instanceof ConcurrencyLimiter) {
+                sources.remove(i);
+                at = i;
+            }
+        }
+        sources.add(Math.max(at, 0), limiter);
+        return HttpFiltersChain.of(sources.toArray(HttpFiltersSource[]::new));
     }
 
     private static String stripExtension(String name) {

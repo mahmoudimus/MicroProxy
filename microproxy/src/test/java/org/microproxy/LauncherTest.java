@@ -41,6 +41,7 @@ import org.microproxy.cache.DiskCacheStore;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.http.DefaultHttpRequest;
@@ -113,7 +114,7 @@ class LauncherTest {
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
-                "--shared-pool", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
+                "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
@@ -712,5 +713,59 @@ class LauncherTest {
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
         Files.writeString(props, "max_header_size=0\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+    }
+
+    // --- concurrency limit ---------------------------------------------------------------------
+
+    @Test
+    void maxConcurrentPerClientInstallsALimiterFirst(@TempDir Path dir) throws IOException {
+        ConcurrencyLimiter limiter = assertInstanceOf(ConcurrencyLimiter.class,
+                view("--max-concurrent-per-client", "3").filtersSource());
+        assertEquals(3, limiter.permits());
+        assertThrows(IllegalArgumentException.class, () -> parse("--max-concurrent-per-client", "0"));
+
+        Path props = dir.resolve("limit.properties");
+        Files.writeString(props, "max_concurrent_per_client=5\nlog_http=basic\n");
+        HttpFiltersChain chain = assertInstanceOf(HttpFiltersChain.class, view("--config", props.toString()).filtersSource());
+        assertInstanceOf(HttpLogger.class, chain.sources().get(0), "the logger still sees refused requests");
+        assertEquals(5, assertInstanceOf(ConcurrencyLimiter.class, chain.sources().get(1)).permits());
+
+        // The flag replaces the file's limiter.
+        chain = assertInstanceOf(HttpFiltersChain.class,
+                view("--config", props.toString(), "--max-concurrent-per-client", "2").filtersSource());
+        List<ConcurrencyLimiter> limiters = chain.sources().stream()
+                .filter(ConcurrencyLimiter.class::isInstance).map(ConcurrencyLimiter.class::cast).toList();
+        assertEquals(1, limiters.size());
+        assertEquals(2, limiters.get(0).permits());
+        assertInstanceOf(HttpLogger.class, chain.sources().get(0), "in place of the file's limiter");
+
+        Files.writeString(props, "max_concurrent_per_client=-1\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+    }
+
+    @Test
+    void maxConcurrentPerClientRefusesTheExtraRequest() throws Exception {
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger held = new java.util.concurrent.atomic.AtomicInteger();
+        HttpServer origin = origin(exchange -> {
+            held.incrementAndGet();
+            try {
+                release.await(20, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            TestSupport.fixed(200, "ok").handle(exchange);
+        });
+        HttpProxyServer proxy = launch("--port", "0", "--max-concurrent-per-client", "1");
+        var client = client(proxy);
+        var first = client.sendAsync(java.net.http.HttpRequest.newBuilder(java.net.URI.create(url(origin, "/a")))
+                .build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+        try {
+            TestSupport.eventually("the first request to reach the origin", () -> held.get() == 1);
+            assertEquals(429, get(client, url(origin, "/b")).statusCode());
+        } finally {
+            release.countDown();
+        }
+        assertEquals(200, first.get(20, java.util.concurrent.TimeUnit.SECONDS).statusCode());
     }
 }

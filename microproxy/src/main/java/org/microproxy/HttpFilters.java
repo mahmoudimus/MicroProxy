@@ -35,6 +35,7 @@ import org.microproxy.http.WebSocketFrame;
  *       #serverToProxyResponseReceived} (or {@link #serverToProxyResponseTimedOut})
  *   <li>{@link #proxyToClientResponse}, then {@link #proxyToClientResponseSent} once the response
  *       has been written
+ *   <li>{@link #exchangeEnded}, exactly once, however the exchange ended
  * </ol>
  *
  * <p>When the proxy answers a request itself because something failed, {@link
@@ -150,6 +151,30 @@ public interface HttpFilters {
      *     ActivityTracker#responseSentToClient(FlowContext, HttpResponse, ResponseSource)}
      */
     default void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {}
+
+    /**
+     * Called exactly once when this exchange is over, however it ended, so per-exchange resources
+     * (a concurrency permit, a span, a temporary file) can be released:
+     *
+     * <ul>
+     *   <li>after {@link #proxyToClientResponseSent} for a response written in full, whoever made
+     *       it (the server, the proxy's failure answer, a filter's short-circuit, the cache);
+     *   <li>for a {@code CONNECT} that became a byte tunnel, or a request upgraded with {@code 101}
+     *       (WebSocket), when the tunnel closes;
+     *   <li>for an intercepted {@code CONNECT}, once interception starts: the requests inside the
+     *       session are exchanges of their own;
+     *   <li>when the exchange was abandoned: the client disconnected, the server failed half-way
+     *       through the response, a filter returned {@code null}, a filter or the proxy threw, or
+     *       the proxy was stopped.
+     * </ul>
+     *
+     * <p>It runs on the connection's thread before the next request on the connection is read.
+     * Exceptions it throws are logged and ignored.
+     *
+     * @param completed whether the response was written in full ({@link
+     *     #proxyToClientResponseSent} was called)
+     */
+    default void exchangeEnded(boolean completed) {}
 
     /**
      * Called before the server's host name is resolved. Return an address to skip resolution and
