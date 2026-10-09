@@ -1734,6 +1734,10 @@ README and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, publishes a GitHub release 
 and their `SHA256SUMS` attached, and opens a follow-up pull request that moves `main` to the
 next `-SNAPSHOT` version.
 
+Starting with 0.1.1, the release workflow also publishes signed artifacts, sources, and Javadoc
+to Maven Central under `io.github.mahmoudimus`. See [publishing setup and retries](docs/PUBLISHING.md)
+for the required secrets and manual recovery command.
+
 The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpserver` as origin
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
 CONNECT, MITM, chaining (HTTP, TLS, SOCKS4/5, fallback), timeouts, PROXY protocol, throttling,
