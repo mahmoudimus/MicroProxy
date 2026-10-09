@@ -146,7 +146,10 @@ class TlsDiagnosticsTest {
 
     @Test
     void untrustedChainedProxyIsAWarningWithTheCertificatesAndTheConnectionId() throws Exception {
-        InetSocketAddress upstream = start(MicroProxy.bootstrap().withSslContextSource(PROXY_TLS)).getListenAddress();
+        // The upstream is not tracked: only the downstream's failure is of interest.
+        HttpProxyServer upstreamProxy = MicroProxy.bootstrap().withPort(0).withSslContextSource(PROXY_TLS).start();
+        proxies.add(upstreamProxy);
+        InetSocketAddress upstream = upstreamProxy.getListenAddress();
         HttpProxyServer proxy = start(MicroProxy.bootstrap().withChainProxyManager((request, queue, details) ->
                 queue.add(new ChainedProxyAdapter() {
                     @Override
@@ -191,11 +194,12 @@ class TlsDiagnosticsTest {
         InetSocketAddress address = proxy.getListenAddress();
         try (Socket plain = new Socket(address.getAddress(), address.getPort())) {
             plain.setSoTimeout(10_000);
+            // Without autoClose the connection outlives the failed handshake, so the proxy finishes
+            // writing its flight and reads the client's alert rather than a reset.
             SSLSocket tls = (SSLSocket) OTHER_TLS.getSslContext().getSocketFactory()
-                    .createSocket(plain, "proxy.test", address.getPort(), true);
+                    .createSocket(plain, "proxy.test", address.getPort(), false);
             assertThrows(SSLException.class, tls::startHandshake);
-            // Let the proxy read the alert before the connection goes away.
-            Thread.sleep(200);
+            events.awaitFailure();
         }
         events.awaitFailure();
         FlowContext ctx = events.failedContexts.getFirst();
