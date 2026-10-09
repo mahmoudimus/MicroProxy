@@ -43,12 +43,24 @@ final class ScriptType extends StarlarkType {
             .put("text", TEXT)
             .buildOrThrow(), true);
 
+    private static final StarlarkType MILLIS = Types.union(Types.FLOAT, Types.NONE);
+
     static final ScriptType RESPONSE = new ScriptType("Response", ScriptResponse.class, ImmutableMap.of(
             "status", Types.INT,
             "reason", Types.STR,
             "headers", HEADERS,
             "body", BODY,
-            "text", TEXT), true);
+            "text", TEXT,
+            "source", Types.union(Types.STR, Types.NONE),
+            "upstream_status", Types.union(Types.INT, Types.NONE)), true);
+
+    static final ScriptType TIMINGS = new ScriptType("Timings", ScriptTimings.class, ImmutableMap.of(
+            "dns_ms", MILLIS,
+            "connect_ms", MILLIS,
+            "tls_ms", MILLIS,
+            "client_tls_ms", MILLIS,
+            "ttfb_ms", MILLIS,
+            "total_ms", MILLIS), false);
 
     static final ScriptType CONTEXT = new ScriptType("Context", ScriptContext.class, ImmutableMap.of(
             "client_ip", Types.STR,
@@ -56,7 +68,8 @@ final class ScriptType extends StarlarkType {
             "user", Types.union(Types.STR, Types.NONE),
             "connection_id", Types.INT,
             "tls", Types.BOOL,
-            "vars", Types.dict(Types.ANY, Types.ANY)), false);
+            "vars", Types.dict(Types.ANY, Types.ANY),
+            "timings", TIMINGS), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
             .put("type", Types.STR)
@@ -81,6 +94,7 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor CONTEXT_CONSTRUCTOR = Types.wrapType("Context", CONTEXT);
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
+    static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
 
     private final String name;
     private final Class<?> javaClass;

@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -24,6 +25,7 @@ import org.microproxy.HttpFiltersSource;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
+import org.microproxy.cache.HttpCache;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
@@ -279,6 +281,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         final StarlarkScript s;
         final Mutability mu = Mutability.create("request");
         final ScriptContext ctx;
+        private final FlowContext flow;
         private final boolean secure;
         /** A copy of the request as it arrived, for hooks that may run before clientToProxyRequest. */
         private final HttpRequest original;
@@ -287,6 +290,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         ScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
             this.s = s;
             this.original = original;
+            this.flow = flow;
             this.secure = flow.getClientSslSession() != null;
             this.ctx = new ScriptContext(flow, mu);
         }
@@ -347,7 +351,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!s.defines("on_response")) return 0;
             if (s.defines("buffer_response")) {
                 try {
-                    Object r = s.call("buffer_response", mu, request(), new ScriptResponse(response, true), ctx);
+                    Object r = s.call("buffer_response", mu, request(), received(response, true), ctx);
                     return Starlark.truth(r) ? maxBodySize : 0;
                 } catch (EvalException e) {
                     failed("buffer_response", e);
@@ -363,7 +367,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         @Override
         public HttpObject serverToProxyResponse(HttpObject httpObject) {
             if (!(httpObject instanceof HttpResponse response) || !s.defines("on_response")) return httpObject;
-            ScriptResponse res = new ScriptResponse(response, false);
+            ScriptResponse res = received(response, false);
             try {
                 Object r = s.call("on_response", mu, request(), res, ctx);
                 if (r instanceof ScriptResponse replacement && replacement != res) return replacement.response();
@@ -377,6 +381,28 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 Thread.currentThread().interrupt();
                 return scriptError();
             }
+        }
+
+        /** A response arriving at serverToProxyResponse (or its head, to decide on buffering). */
+        private ScriptResponse received(HttpResponse response, boolean readOnly) {
+            OptionalInt upstream = flow.upstreamStatus();
+            return new ScriptResponse(response, readOnly, source(response, upstream), upstream.orElse(-1));
+        }
+
+        /**
+         * Where a response reaching serverToProxyResponse came from. The proxy decides the final
+         * {@link org.microproxy.ResponseSource} only when the response is sent, after every filter;
+         * here it is known from what this hook receives: the cache's answers are their own class,
+         * the CONNECT 200 is the proxy's, and anything else is the server's response, unless an
+         * earlier filter in a chain gave it another status. Null when none of these applies.
+         */
+        private String source(HttpResponse response, OptionalInt upstream) {
+            if (response instanceof HttpCache.Answer) return "cache";
+            if (original != null && original.method().equals(HttpMethod.CONNECT)) {
+                return response.status().code() == 200 ? "proxy" : "filter";
+            }
+            if (upstream.isEmpty()) return null;
+            return upstream.getAsInt() == response.status().code() ? "server" : "filter";
         }
 
         @Override
