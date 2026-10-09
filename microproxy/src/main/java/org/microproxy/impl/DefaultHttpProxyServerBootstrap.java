@@ -2,18 +2,22 @@ package org.microproxy.impl;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
+import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
+import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.HttpProxyServer;
@@ -24,12 +28,19 @@ import org.microproxy.NoProxyRules;
 import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.SslContextSource;
+import org.microproxy.cache.DiskCacheStore;
+import org.microproxy.cache.HttpCache;
+import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.ConcurrencyLimiter;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
+
+    static final List<String> DEFAULT_TLS_PROTOCOLS = List.of("TLSv1.3", "TLSv1.2");
 
     String name = "MicroProxy";
     InetSocketAddress requestedAddress;
@@ -41,10 +52,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     ChainedProxyManager chainProxyManager;
     MitmManager mitmManager;
     HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
-    org.microproxy.cache.HttpCache httpCache;
+    HttpCache httpCache;
+    FailureResponder failureResponder;
     boolean transparent;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
+    Duration tlsHandshakeTimeout = Duration.ofSeconds(10);
+    boolean littleProxyCompatibility;
     HostResolver serverResolver = new DefaultHostResolver();
     final List<ActivityTracker> activityTrackers = new ArrayList<>();
     long readThrottleBytesPerSecond;
@@ -65,6 +79,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Duration poolIdleTimeout;
     boolean poolSharedMitmConnections;
     boolean poolPerRequestInMitm;
+    /** Backoff between chained proxy attempts; null when off. */
+    Duration chainedProxyBackoffInitial;
+    Duration chainedProxyBackoffMax;
+    /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
+    List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
+    /** Headers removed from requests sent upstream, in the order given, without duplicates. */
+    final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -81,9 +102,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.mitmManager = mitmManager;
         c.filtersSource = filtersSource;
         c.httpCache = httpCache;
+        c.failureResponder = failureResponder;
         c.transparent = transparent;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
+        c.tlsHandshakeTimeout = tlsHandshakeTimeout;
+        c.littleProxyCompatibility = littleProxyCompatibility;
         c.serverResolver = serverResolver;
         c.activityTrackers.addAll(activityTrackers);
         c.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
@@ -104,6 +128,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.poolIdleTimeout = poolIdleTimeout;
         c.poolSharedMitmConnections = poolSharedMitmConnections;
         c.poolPerRequestInMitm = poolPerRequestInMitm;
+        c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
+        c.chainedProxyBackoffMax = chainedProxyBackoffMax;
+        c.strippedRequestHeaders.putAll(strippedRequestHeaders);
+        c.tlsProtocols = tlsProtocols;
         return c;
     }
 
@@ -134,6 +162,15 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("connect_timeout")) {
             withConnectTimeout(Integer.parseInt(p.getProperty("connect_timeout").strip()));
         }
+        if (p.containsKey("littleproxy_compatibility")) {
+            withLittleProxyCompatibility(bool(p, "littleproxy_compatibility"));
+        }
+        if (p.containsKey("tls_protocols")) {
+            withTlsProtocols(p.getProperty("tls_protocols").split(","));
+        }
+        if (p.containsKey("tls_handshake_timeout")) {
+            withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
+        }
         if (p.containsKey("max_initial_line_length")) {
             withMaxInitialLineLength(Integer.parseInt(p.getProperty("max_initial_line_length").strip()));
         }
@@ -155,7 +192,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("server_connection_pool_type")) {
             withServerConnectionPoolType(ServerConnectionPoolType.valueOf(
-                    p.getProperty("server_connection_pool_type").strip().toUpperCase(java.util.Locale.ROOT)));
+                    p.getProperty("server_connection_pool_type").strip().toUpperCase(Locale.ROOT)));
         }
         if (p.containsKey("max_connections_per_host")) {
             withMaxConnectionsPerHost(Integer.parseInt(p.getProperty("max_connections_per_host").strip()));
@@ -180,26 +217,61 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             UpstreamProxyManager fromEnv = UpstreamProxyManager.fromEnvironment(System.getenv());
             if (fromEnv != null) withChainProxyManager(fromEnv);
         }
+        if (p.containsKey("chained_proxy_backoff_initial_ms")) {
+            Duration initial = Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_initial_ms").strip()));
+            Duration max = p.containsKey("chained_proxy_backoff_max_ms")
+                    ? Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_max_ms").strip()))
+                    : initial.multipliedBy(8);
+            withChainedProxyRetryBackoff(initial, max);
+        } else if (p.containsKey("chained_proxy_backoff_max_ms")) {
+            throw new IllegalArgumentException("chained_proxy_backoff_max_ms needs chained_proxy_backoff_initial_ms");
+        }
+        if (bool(p, "strip_tracing_headers")) withoutTracingHeadersUpstream();
+        if (p.containsKey("strip_request_headers")) {
+            plusStrippedRequestHeaders(p.getProperty("strip_request_headers").split(","));
+        }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
             withServerResolver(DnssecHostResolver.builder().resolver(p.getProperty("dnssec_resolver")).build());
         }
         if (p.containsKey("activity_log_format")) {
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
-                    p.getProperty("activity_log_format").strip().toUpperCase(java.util.Locale.ROOT))));
+                    p.getProperty("activity_log_format").strip().toUpperCase(Locale.ROOT))));
+        }
+        if (p.containsKey("max_concurrent_per_client")) {
+            int n = Integer.parseInt(p.getProperty("max_concurrent_per_client").strip());
+            if (n <= 0) throw new IllegalArgumentException("max_concurrent_per_client must be positive: " + n);
+            // Before the other filters, so they do no work for refused requests.
+            withFiltersSource(HttpFiltersChain.of(ConcurrencyLimiter.builder().permits(n).build(), filtersSource));
+        }
+        if (p.containsKey("log_http")) {
+            String level = p.getProperty("log_http").strip();
+            String format = p.getProperty("log_http_format", "text").strip();
+            HttpLogger logger;
+            try {
+                logger = HttpLogger.builder()
+                        .level(HttpLogger.Level.valueOf(level.toUpperCase(Locale.ROOT)))
+                        .format(HttpLogger.Format.valueOf(format.toUpperCase(Locale.ROOT)))
+                        .build();
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("unknown log_http=" + level + " or log_http_format=" + format
+                        + "; expected basic, headers or body, and text or json");
+            }
+            // First among the filters, so it sees requests as clients sent them.
+            withFiltersSource(HttpFiltersChain.of(logger, filtersSource));
         }
         if (p.containsKey("cache_dir") || p.containsKey("cache_memory_mb") || bool(p, "offline")) {
-            org.microproxy.cache.HttpCache.Builder cache = org.microproxy.cache.HttpCache.builder().offline(bool(p, "offline"));
+            HttpCache.Builder cache = HttpCache.builder().offline(bool(p, "offline"));
             if (p.containsKey("cache_dir")) {
                 long mb = Long.parseLong(p.getProperty("cache_max_mb", "1024").strip());
                 try {
-                    cache.store(new org.microproxy.cache.DiskCacheStore(
-                            java.nio.file.Path.of(p.getProperty("cache_dir").strip()), mb << 20));
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException("cannot open cache_dir", e);
+                    cache.store(new DiskCacheStore(
+                            Path.of(p.getProperty("cache_dir").strip()), mb << 20));
+                } catch (IOException e) {
+                    throw new UncheckedIOException("cannot open cache_dir", e);
                 }
             } else if (p.containsKey("cache_memory_mb")) {
-                cache.store(new org.microproxy.cache.MemoryCacheStore(
+                cache.store(new MemoryCacheStore(
                         Long.parseLong(p.getProperty("cache_memory_mb").strip()) << 20));
             }
             if (p.containsKey("cache_max_entry_mb")) {
@@ -218,7 +290,15 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     static InetSocketAddress parseAddress(String text) {
-        HostAndPort hp = HostAndPort.parse(text.strip(), 8080);
+        String t = text.strip();
+        if (t.endsWith(":0")) {
+            // Port 0 (any free port) is fine for listening, though not in a request's authority.
+            String host = t.substring(0, t.length() - 2);
+            if (host.startsWith("[") || host.indexOf(':') < 0) {
+                return new InetSocketAddress(HostAndPort.parse(host, 8080).host(), 0);
+            }
+        }
+        HostAndPort hp = HostAndPort.parse(t, 8080);
         return new InetSocketAddress(hp.host(), hp.port());
     }
 
@@ -291,7 +371,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
-    public HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache) {
+    public HttpProxyServerBootstrap withHttpCache(HttpCache cache) {
         this.httpCache = cache;
         return this;
     }
@@ -303,13 +383,19 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
 
     @Override
     public HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource) {
-        this.filtersSource = org.microproxy.HttpFiltersChain.of(this.filtersSource, filtersSource);
+        this.filtersSource = HttpFiltersChain.of(this.filtersSource, filtersSource);
         return this;
     }
 
     @Override
     public HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource) {
-        this.filtersSource = filtersSource == null ? new HttpFiltersSourceAdapter() : filtersSource;
+        this.filtersSource = Objects.requireNonNullElseGet(filtersSource, HttpFiltersSourceAdapter::new);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withFailureResponder(FailureResponder responder) {
+        this.failureResponder = responder;
         return this;
     }
 
@@ -333,6 +419,68 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs) {
         this.connectTimeoutMs = connectTimeoutMs;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withLittleProxyCompatibility(boolean compatible) {
+        this.littleProxyCompatibility = compatible;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout) {
+        if (timeout.isNegative()) throw new IllegalArgumentException("negative TLS handshake timeout");
+        this.tlsHandshakeTimeout = timeout;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+        if (initial == null) {
+            chainedProxyBackoffInitial = null;
+            chainedProxyBackoffMax = null;
+            return this;
+        }
+        if (initial.isNegative() || initial.isZero()) {
+            throw new IllegalArgumentException("the initial backoff must be positive: " + initial);
+        }
+        Duration cap = max == null ? initial : max;
+        if (cap.compareTo(initial) < 0) {
+            throw new IllegalArgumentException("the maximum backoff " + cap + " is below the initial " + initial);
+        }
+        chainedProxyBackoffInitial = initial;
+        chainedProxyBackoffMax = cap;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withStrippedRequestHeaders(String... names) {
+        strippedRequestHeaders.clear();
+        return plusStrippedRequestHeaders(names);
+    }
+
+    @Override
+    public HttpProxyServerBootstrap plusStrippedRequestHeaders(String... names) {
+        for (String name : names) {
+            String n = Objects.requireNonNull(name, "header name").strip();
+            if (n.isEmpty()) continue;
+            if (!n.chars().allMatch(c -> c > ' ' && c < 127 && "\"(),/:;<=>?@[\\]{}".indexOf(c) < 0)) {
+                throw new IllegalArgumentException("not a header name: " + n);
+            }
+            strippedRequestHeaders.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
+        }
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
+        List<String> chosen = new ArrayList<>();
+        for (String protocol : protocols) {
+            String p = Objects.requireNonNull(protocol, "protocol").strip();
+            if (!p.isEmpty() && !chosen.contains(p)) chosen.add(p);
+        }
+        this.tlsProtocols = List.copyOf(chosen);
         return this;
     }
 

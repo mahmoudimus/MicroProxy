@@ -1,0 +1,61 @@
+package org.microproxy.thirdparty.larky.modules.types;
+
+import java.util.Iterator;
+
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.StarlarkIterable;
+import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.syntax.TokenKind;
+
+import javax.annotation.Nonnull;
+
+public interface LarkyCollection extends LarkyIndexable, StarlarkIterable<Object> {
+  @Nonnull
+  @Override
+  default Iterator<Object> iterator() {
+    try {
+      return LarkyIterator.LarkyObjectIterator.of(this, getCurrentThread());
+    } catch (EvalException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  default boolean containsKey(StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key) throws EvalException {
+    return this.__contains__(this, TokenKind.IN, key, false, starlarkThread);
+  }
+
+  /**
+   * The below does not belong in LarkyObject because LarkyObject does not dictate what operations should exist on an
+   * object. That is left to the interface implementer.
+   *
+   * However, for LarkyCollections and its hierarchy tree, in Larky, we can simply "tack-on" the magic method (i.e. __len__
+   * or __contains__, etc.) and we expect various operations to work on that object, which is why we want to enable
+   * binaryOp on SimpleStruct.
+   */
+  @Override
+  default boolean __contains__(LarkyIndexable lhs, TokenKind op, Object rhs, boolean thisLeft, StarlarkThread thread) throws EvalException {
+    boolean result = false;
+    try {
+      result = LarkyIndexable.super.__contains__(lhs, op, rhs, thisLeft, thread);
+      // As in Python, a __contains__ that answers is the answer: iterating the collection is the
+      // fallback for a collection without one (and, as before, for one that fails).
+      return result;
+    } catch (EvalException ignored) {
+    }
+
+    if(!thisLeft) {
+      // it does not. ok, is thisLeft = false & it is an iterator?
+      LarkyCollection lhsCollection = (LarkyCollection) lhs;
+      try {
+        final LarkyIterator iterator = (LarkyIterator) lhsCollection.iterator();
+        Object res = iterator.binaryOp(op, rhs, false);
+        result = (res != null && (boolean) res);
+      } catch (Throwable ignored) {
+      }
+    }
+    return result;
+  }
+
+}

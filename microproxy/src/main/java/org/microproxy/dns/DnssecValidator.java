@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,9 +56,23 @@ final class DnssecValidator {
     /** The answer to a lookup: records and whether every RRset involved was secure. */
     record Answer(List<DnsRecord> records, boolean secure, long ttlSeconds) {}
 
-    private enum CutKind { SECURE_DELEGATION, INSECURE_DELEGATION, NOT_A_CUT }
+    /** What lies between a zone and a child name: a signed delegation, an unsigned one, or nothing. */
+    private sealed interface Cut {
+        long ttlSeconds();
 
-    private record Cut(CutKind kind, RRset ds, long ttlSeconds) {}
+        /** A delegation with a DS RRset: the child zone is signed with one of these keys. */
+        record SecureDelegation(RRset ds, long ttlSeconds) implements Cut {}
+
+        /** A delegation proven to have no DS: the child zone is unsigned. */
+        record InsecureDelegation(long ttlSeconds) implements Cut {}
+
+        /** The child is in the same zone as its parent. */
+        record NotACut(long ttlSeconds) implements Cut {}
+
+        static Cut delegation(boolean insecure, long ttlSeconds) {
+            return insecure ? new InsecureDelegation(ttlSeconds) : new NotACut(ttlSeconds);
+        }
+    }
 
     private final DnsTransport transport;
     private final List<DnsRecord> trustAnchors;
@@ -106,7 +121,7 @@ final class DnssecValidator {
                 RRset alias = cname != null ? cname : dname;
                 secure &= validate(alias, message) == Security.SECURE;
                 ttl = Math.min(ttl, alias.minTtl());
-                current = cname != null ? cname.records().get(0).target() : substitute(current, dname);
+                current = cname != null ? cname.records().getFirst().target() : substitute(current, dname);
                 if (!seen.add(current) || seen.size() > MAX_CHAIN) {
                     throw new IOException("alias chain too long or looping at " + current);
                 }
@@ -136,7 +151,7 @@ final class DnssecValidator {
 
     /** RFC 6672: replaces the DNAME owner suffix of {@code name} with the DNAME target. */
     private static DnsName substitute(DnsName name, RRset dname) {
-        DnsName target = dname.records().get(0).target();
+        DnsName target = dname.records().getFirst().target();
         int keep = name.labelCount() - dname.name().labelCount();
         byte[][] labels = new byte[keep + target.labelCount()][];
         for (int i = 0; i < keep; i++) labels[i] = name.label(i);
@@ -267,11 +282,11 @@ final class DnssecValidator {
         DnsName nextCloser = owner.suffix(sigLabels + 1);
         for (RRset nsec : group(response.authority).values()) {
             if (nsec.type() == DnsRecord.NSEC && signedBy(nsec, keys)) {
-                DnsRecord r = nsec.records().get(0);
+                DnsRecord r = nsec.records().getFirst();
                 if (nsecCovers(r.name(), r.nsec().next(), owner)) return;
             }
             if (nsec.type() == DnsRecord.NSEC3 && signedBy(nsec, keys)) {
-                DnsRecord r = nsec.records().get(0);
+                DnsRecord r = nsec.records().getFirst();
                 DnsRecord.Nsec3 n3 = r.nsec3();
                 if (n3.hashAlgorithm() == 1 && nsec3Covers(r, DnssecCrypto.nsec3Hash(nextCloser, n3.salt(), n3.iterations()))) {
                     return;
@@ -307,10 +322,10 @@ final class DnssecValidator {
                 continue;
             }
             Cut cut = cutStatus(child, current);
-            long expires = now + Math.min(MAX_CACHE_MILLIS, Math.max(1, cut.ttlSeconds()) * 1000);
-            switch (cut.kind()) {
-                case SECURE_DELEGATION -> {
-                    ZoneKeys keys = validateDnskeys(child, cut.ds().records(), cut.ttlSeconds());
+            long expires = now + Math.clamp(cut.ttlSeconds() * 1000, 1_000L, MAX_CACHE_MILLIS);
+            switch (cut) {
+                case Cut.SecureDelegation(RRset ds, long ttl) -> {
+                    ZoneKeys keys = validateDnskeys(child, ds.records(), ttl);
                     if (keys == null) {
                         insecureCuts.put(child, expires);
                         return null;
@@ -318,11 +333,11 @@ final class DnssecValidator {
                     zoneKeys.put(child, keys);
                     current = keys;
                 }
-                case INSECURE_DELEGATION -> {
+                case Cut.InsecureDelegation insecure -> {
                     insecureCuts.put(child, expires);
                     return null;
                 }
-                case NOT_A_CUT -> notCuts.put(child, expires);
+                case Cut.NotACut notACut -> notCuts.put(child, expires);
             }
         }
         return current;
@@ -411,7 +426,7 @@ final class DnssecValidator {
         DnsMessage message = query(child, DnsRecord.DS);
         if (message.rcode() == DnsMessage.RCODE_NXDOMAIN) {
             // The name does not exist; continuing with the parent's keys can only make data bogus.
-            return new Cut(CutKind.NOT_A_CUT, null, 60);
+            return new Cut.NotACut(60);
         }
         if (message.rcode() != DnsMessage.RCODE_NOERROR) {
             throw new IOException("DNS server returned RCODE " + message.rcode() + " for DS " + child);
@@ -422,10 +437,10 @@ final class DnssecValidator {
             if (!signedBy(ds, parent)) {
                 throw new DnssecValidationException("DS for " + child + " is not validly signed by " + parent.zone());
             }
-            return new Cut(CutKind.SECURE_DELEGATION, ds, ds.minTtl());
+            return new Cut.SecureDelegation(ds, ds.minTtl());
         }
         if (answer.containsKey(key(child, DnsRecord.CNAME))) {
-            return new Cut(CutKind.NOT_A_CUT, null, 60);
+            return new Cut.NotACut(60);
         }
         return denialOfDs(child, parent, message);
     }
@@ -448,17 +463,17 @@ final class DnssecValidator {
             if (nsecCovers(r.name(), r.nsec().next(), child)) {
                 // Either an empty non-terminal (next lies below child) or a name that does not
                 // exist: neither is a delegation.
-                return new Cut(CutKind.NOT_A_CUT, null, r.ttl());
+                return new Cut.NotACut(r.ttl());
             }
         }
         if (!nsec3s.isEmpty()) {
-            DnsRecord.Nsec3 params = nsec3s.get(0).nsec3();
+            DnsRecord.Nsec3 params = nsec3s.getFirst().nsec3();
             if (params.hashAlgorithm() != 1) {
                 throw new DnssecValidationException("unsupported NSEC3 hash algorithm " + params.hashAlgorithm());
             }
             if (params.iterations() > MAX_NSEC3_ITERATIONS) {
                 // RFC 9276 section 3.2: validators may treat such zones as insecure.
-                return new Cut(CutKind.INSECURE_DELEGATION, null, nsec3s.get(0).ttl());
+                return new Cut.InsecureDelegation(nsec3s.getFirst().ttl());
             }
             byte[] childHash = DnssecCrypto.nsec3Hash(child, params.salt(), params.iterations());
             for (DnsRecord r : nsec3s) {
@@ -478,8 +493,7 @@ final class DnssecValidator {
                         if (nsec3Covers(r, nextHash)) {
                             // Opt-out spans may hide unsigned delegations; otherwise the name
                             // simply does not exist.
-                            return new Cut(r.nsec3().optOut() ? CutKind.INSECURE_DELEGATION : CutKind.NOT_A_CUT,
-                                    null, r.ttl());
+                            return Cut.delegation(r.nsec3().optOut(), r.ttl());
                         }
                     }
                     break;
@@ -496,7 +510,7 @@ final class DnssecValidator {
             throw new DnssecValidationException("denial for DS " + child + " lists DS");
         }
         boolean delegation = DnsRecord.bitmapHas(bitmap, DnsRecord.NS) && !DnsRecord.bitmapHas(bitmap, DnsRecord.SOA);
-        return new Cut(delegation ? CutKind.INSECURE_DELEGATION : CutKind.NOT_A_CUT, null, ttl);
+        return Cut.delegation(delegation, ttl);
     }
 
     /** Whether an NSEC from {@code owner} to {@code next} covers {@code name} (RFC 4034 6.1 order). */
@@ -563,7 +577,7 @@ final class DnssecValidator {
     }
 
     private static String nameKey(DnsName name) {
-        return name.toString().toLowerCase(java.util.Locale.ROOT) + "/";
+        return name.toString().toLowerCase(Locale.ROOT) + "/";
     }
 
     static String key(DnsName name, int type) {

@@ -58,6 +58,10 @@ class ScriptedMitmTest {
 
                 def on_response(req, res, ctx):
                     res.headers["X-Tls"] = str(ctx.tls)
+                    if req.method != "CONNECT":
+                        t = ctx.timings
+                        # The server handshake belongs to the CONNECT; the client's to this session.
+                        res.headers["X-Timings"] = "%s %s" % (t.tls_ms != None, t.client_tls_ms != None)
                 """.replace("INTERCEPT", intercept ? "True" : "False"), "mitm.star").build();
         proxy = MicroProxy.bootstrap().withPort(0)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
@@ -74,6 +78,7 @@ class ScriptedMitmTest {
         assertEquals(200, response.statusCode());
         assertEquals(List.of(target), echoedHeader(response.body(), "x-url"));
         assertEquals("True", response.headers().firstValue("x-tls").orElseThrow());
+        assertEquals("False True", response.headers().firstValue("x-timings").orElseThrow());
     }
 
     @Test

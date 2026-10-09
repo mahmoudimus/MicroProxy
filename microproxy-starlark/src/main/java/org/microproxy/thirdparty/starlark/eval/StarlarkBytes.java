@@ -1031,26 +1031,40 @@ public class StarlarkBytes implements ByteStringModuleApi,
     String decode(byte[] data, String encoding, String errors) throws EvalException;
   }
 
+  /**
+   * The semantics flag under which {@code bytes.decode} uses the {@link #setDecoder decoder}
+   * (MicroProxy: set for scripts that load the standard library, so other scripts keep Java's
+   * charsets).
+   */
+  public static final String PYTHON_CODECS = "-python_codecs";
+
   @Nullable private static volatile Decoder decoder;
 
   /**
-   * Sets how {@code bytes.decode} decodes (Larky installs CPython's codec names and error
-   * handlers). Without one, Java's charsets decode, and an unknown name is a Java error.
+   * Sets how {@code bytes.decode} decodes under {@link #PYTHON_CODECS} (Larky installs CPython's
+   * codec names and error handlers). Otherwise Java's charsets decode.
    */
   public static void setDecoder(@Nullable Decoder d) {
     decoder = d;
   }
 
   @Override
-  public String decode(String encoding, String errors) throws EvalException {
+  public String decode(String encoding, String errors, StarlarkThread thread) throws EvalException {
     Decoder d = decoder;
-    if (d != null) {
+    if (d != null && thread.getSemantics().getBool(PYTHON_CODECS)) {
       return d.decode(this.delegate.toArray(), encoding, errors);
     }
+    return decodeWithCharset(encoding, errors);
+  }
+
+  /** Decodes with Java's charsets. */
+  public String decodeWithCharset(String encoding, String errors) throws EvalException {
     try {
       return this.delegate.decode(encoding, errors);
     } catch (CharacterCodingException e) {
       throw new EvalException(e.getMessage(), e);
+    } catch (IllegalArgumentException e) { // unknown or illegal charset name
+      throw new EvalException("unknown encoding: " + encoding, e);
     }
   }
 

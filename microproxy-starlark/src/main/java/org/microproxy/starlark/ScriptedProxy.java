@@ -6,10 +6,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import org.microproxy.AuthResult;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyManager;
@@ -17,7 +22,10 @@ import org.microproxy.ClientDetails;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
+import org.microproxy.cache.HttpCache;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
@@ -30,6 +38,7 @@ import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.http.WebSocketFrame;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -42,6 +51,9 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  * ScriptedProxy script = ScriptedProxy.builder(Path.of("proxy.star")).build();
  * MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).start();
  * }</pre>
+ *
+ * <p>Install it as the {@link ProxyAuthenticator} too when the script defines {@code
+ * authenticate} ({@link #definesAuthenticate()}).
  *
  * <p>The script may define any of these functions; each is optional:
  *
@@ -59,14 +71,29 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *       on_request} can read {@code req.body}. Default: no.
  *   <li>{@code buffer_response(req, res, ctx)}: whether to buffer this response's body. Default:
  *       text bodies in a coding the proxy can decode, except event streams.
+ *   <li>{@code on_websocket_frame(req, frame, ctx)}: for each frame of an upgraded WebSocket
+ *       connection, in both directions. Assign {@code frame.text} or {@code frame.payload} to
+ *       change it; return {@code False} to drop it, or {@code None} to forward it.
+ *   <li>{@code authenticate(req, ctx)}: decides whether a client may use the proxy, when this
+ *       object is also installed as the {@link ProxyAuthenticator} ({@code
+ *       withProxyAuthenticator(script)}). Return the user name (a non-empty string) or {@code
+ *       True} to accept, {@code False} or {@code None} to reject with the default {@code 407}, or
+ *       {@code response(...)} to reject with that answer. Anything else, a failure or a timeout
+ *       rejects. A global {@code AUTHENTICATE_EVERY_REQUEST = True} authenticates every request
+ *       instead of the first accepted one on each connection.
+ *   <li>{@code on_failure(req, failure, ctx)}: when the proxy has to answer the request itself
+ *       (the server's name did not resolve, the connection was refused, the server timed out,
+ *       ...). Return {@code response(...)} to answer, or {@code None} to leave it to the {@link
+ *       org.microproxy.FailureResponder} or the default answer.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm}
- * declines interception and a failing {@code upstream} rejects the request with {@code 502}. When
+ * declines interception, a failing {@code upstream} rejects the request with {@code 502}, and a
+ * failing {@code on_failure} leaves the answer to the responder or the default. When
  * the script is a file it is re-read when it changes (checked at most once a second); a version
  * that does not compile is logged and the previous one stays in use.
  */
-public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManager {
+public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManager, ProxyAuthenticator {
 
     private static final System.Logger LOG = System.getLogger(ScriptedProxy.class.getName());
     private static final long RELOAD_CHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
@@ -76,6 +103,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private final StarlarkScript.Limits limits;
     private final int maxBodySize;
     private final ChainedProxyManager fallback;
+    private final Map<String, Object> constants;
     private final ReentrantLock reloadLock = new ReentrantLock();
     private volatile StarlarkScript script;
     private volatile FileTime loadedModified;
@@ -87,6 +115,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.limits = b.limits;
         this.maxBodySize = b.maxBodySize;
         this.fallback = b.fallback;
+        this.constants = b.constants;
         this.script = script;
         this.loadedModified = modified;
         this.lastCheck = System.nanoTime();
@@ -111,6 +140,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private StarlarkScript.Limits limits = StarlarkScript.Limits.DEFAULT;
         private int maxBodySize = 10 << 20;
         private ChainedProxyManager fallback;
+        private Map<String, Object> constants = Map.of();
 
         private Builder(Path path, String source, String name) {
             this.path = path;
@@ -146,13 +176,31 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             return this;
         }
 
+        /**
+         * Adds read-only globals the script can use, such as tokens or host lists that should not
+         * be written into the script. Values are strings, ints ({@code Integer}, {@code Long},
+         * {@code BigInteger}, ...), booleans, and {@code List}s and {@code Map}s of them (map keys:
+         * strings, ints or booleans); they are copied and frozen. They are predeclared, so the
+         * type checker knows their types, and the script cannot assign them. Later calls add to
+         * earlier ones.
+         *
+         * @throws IllegalArgumentException for a name that is not an identifier or would hide a
+         *     built-in ({@code len}, {@code json}, {@code Request}, ...), or a value of another type
+         */
+        public Builder constants(Map<String, ?> constants) {
+            Map<String, Object> merged = new LinkedHashMap<>(this.constants);
+            merged.putAll(ScriptConstants.convert(constants));
+            this.constants = Collections.unmodifiableMap(merged);
+            return this;
+        }
+
         /** Compiles the script and runs its top level. */
         public ScriptedProxy build() throws IOException, ScriptException {
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
-                return new ScriptedProxy(this, StarlarkScript.load(path, limits), modified);
+                return new ScriptedProxy(this, StarlarkScript.load(path, limits, constants), modified);
             }
-            return new ScriptedProxy(this, StarlarkScript.compile(source, name, limits), null);
+            return new ScriptedProxy(this, StarlarkScript.compile(source, name, limits, constants), null);
         }
     }
 
@@ -164,7 +212,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 FileTime modified = Files.getLastModifiedTime(path);
                 if (!modified.equals(loadedModified)) {
                     loadedModified = modified;
-                    script = StarlarkScript.load(path, limits);
+                    script = StarlarkScript.load(path, limits, constants);
                     LOG.log(Level.INFO, "reloaded {0}", path);
                 }
             } catch (IOException | ScriptException e) {
@@ -183,25 +231,68 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     @Override
     public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
         StarlarkScript s = script();
+        if (s.defines("on_websocket_frame")) {
+            return new FrameScriptFilters(s, originalRequest, flowContext);
+        }
         if (!s.defines("on_request") && !s.defines("on_response") && !s.defines("allow_mitm")
-                && !s.defines("buffer_request")) {
+                && !s.defines("buffer_request") && !s.defines("on_failure") && !s.defines("authenticate")) {
             return null;
         }
-        return new ScriptFilters(s, flowContext);
+        return new ScriptFilters(s, originalRequest, flowContext);
     }
 
-    private final class ScriptFilters implements HttpFilters {
-        private final StarlarkScript s;
-        private final Mutability mu = Mutability.create("request");
-        private final ScriptContext ctx;
+    /**
+     * Adds {@code on_websocket_frame}. A separate class, because the proxy parses frames (and
+     * keeps compression off) only for filters classes that override the frame hook.
+     */
+    private final class FrameScriptFilters extends ScriptFilters {
+        /** Frames from both directions arrive concurrently but share ctx.vars. */
+        private final ReentrantLock frameLock = new ReentrantLock();
+
+        FrameScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
+            super(s, original, flow);
+        }
+
+        @Override
+        public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+            ScriptFrame f = new ScriptFrame(frame, fromClient);
+            frameLock.lock();
+            try {
+                Object r = s.call("on_websocket_frame", mu, request(), f, ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == f) return f.frame();
+                if (r == Boolean.FALSE) return null;
+                if (r instanceof ScriptFrame other) return other.frame();
+                throw Starlark.errorf("on_websocket_frame must return None, True, False or a frame, not %s",
+                        Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_websocket_frame failed; forwarding the frame: "
+                        + e.getMessageWithStack());
+                return frame;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return frame;
+            } finally {
+                frameLock.unlock();
+            }
+        }
+    }
+
+    private class ScriptFilters implements HttpFilters {
+        final StarlarkScript s;
+        final Mutability mu = Mutability.create("request");
+        final ScriptContext ctx;
+        private final FlowContext flow;
         private final boolean secure;
+        /** A copy of the request as it arrived, for hooks that may run before clientToProxyRequest. */
+        private final HttpRequest original;
         private ScriptRequest req;
 
-        ScriptFilters(StarlarkScript s, FlowContext flow) {
+        ScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
             this.s = s;
+            this.original = original;
+            this.flow = flow;
             this.secure = flow.getClientSslSession() != null;
-            this.ctx = new ScriptContext(flow.getClientAddress(), flow.getClientDetails().getUserName(),
-                    flow.getConnectionId(), secure, mu);
+            this.ctx = new ScriptContext(flow, mu);
         }
 
         @Override
@@ -260,7 +351,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!s.defines("on_response")) return 0;
             if (s.defines("buffer_response")) {
                 try {
-                    Object r = s.call("buffer_response", mu, request(), new ScriptResponse(response, true), ctx);
+                    Object r = s.call("buffer_response", mu, request(), received(response, true), ctx);
                     return Starlark.truth(r) ? maxBodySize : 0;
                 } catch (EvalException e) {
                     failed("buffer_response", e);
@@ -276,7 +367,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         @Override
         public HttpObject serverToProxyResponse(HttpObject httpObject) {
             if (!(httpObject instanceof HttpResponse response) || !s.defines("on_response")) return httpObject;
-            ScriptResponse res = new ScriptResponse(response, false);
+            ScriptResponse res = received(response, false);
             try {
                 Object r = s.call("on_response", mu, request(), res, ctx);
                 if (r instanceof ScriptResponse replacement && replacement != res) return replacement.response();
@@ -292,9 +383,51 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             }
         }
 
-        private ScriptRequest request() {
-            return req != null ? req
-                    : new ScriptRequest(new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"), secure, true);
+        /** A response arriving at serverToProxyResponse (or its head, to decide on buffering). */
+        private ScriptResponse received(HttpResponse response, boolean readOnly) {
+            OptionalInt upstream = flow.upstreamStatus();
+            return new ScriptResponse(response, readOnly, source(response, upstream), upstream.orElse(-1));
+        }
+
+        /**
+         * Where a response reaching serverToProxyResponse came from. The proxy decides the final
+         * {@link org.microproxy.ResponseSource} only when the response is sent, after every filter;
+         * here it is known from what this hook receives: the cache's answers are their own class,
+         * the CONNECT 200 is the proxy's, and anything else is the server's response, unless an
+         * earlier filter in a chain gave it another status. Null when none of these applies.
+         */
+        private String source(HttpResponse response, OptionalInt upstream) {
+            if (response instanceof HttpCache.Answer) return "cache";
+            if (original != null && original.method().equals(HttpMethod.CONNECT)) {
+                return response.status().code() == 200 ? "proxy" : "filter";
+            }
+            if (upstream.isEmpty()) return null;
+            return upstream.getAsInt() == response.status().code() ? "server" : "filter";
+        }
+
+        @Override
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            if (!s.defines("on_failure")) return null;
+            try {
+                Object r = s.call("on_failure", mu, request(), new ScriptFailure(failure), ctx);
+                if (r instanceof ScriptResponse res) return res.response();
+                if (r != Starlark.NONE) {
+                    throw Starlark.errorf("on_failure must return None or response(...), not %s", Starlark.type(r));
+                }
+            } catch (EvalException e) {
+                // Falls through to the FailureResponder or the default: a failure stays a failure.
+                LOG.log(Level.WARNING, s.name() + ": on_failure failed; sending the default answer: "
+                        + e.getMessageWithStack());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }
+
+        ScriptRequest request() {
+            if (req != null) return req;
+            HttpRequest r = original != null ? original : new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+            return new ScriptRequest(r, secure, true);
         }
 
         private FullHttpResponse failed(String hook, EvalException e) {
@@ -310,6 +443,64 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
         HttpUtil.setContentLength(response, body.length);
         return response;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // ProxyAuthenticator
+    // ---------------------------------------------------------------------------------------
+
+    /** Whether the script in use defines {@code authenticate}, so this can be the authenticator. */
+    public boolean definesAuthenticate() {
+        return script().defines("authenticate");
+    }
+
+    /** Not used: {@link #authenticate(HttpRequest, FlowContext)} asks the script instead. */
+    @Override
+    public boolean authenticate(String userName, String password) {
+        return false;
+    }
+
+    /**
+     * Calls the script's {@code authenticate(req, ctx)}. Fails closed: a script without the
+     * function (after a reload), a failing or timed-out call, or an unexpected return value
+     * rejects the request with the default challenge, and is logged.
+     */
+    @Override
+    public AuthResult authenticate(HttpRequest request, FlowContext flow) {
+        StarlarkScript s = script();
+        if (!s.defines("authenticate")) {
+            LOG.log(Level.WARNING, s.name() + " defines no authenticate(); rejecting the request");
+            return AuthResult.reject();
+        }
+        Mutability mu = Mutability.create("authenticate");
+        // No filters exist yet for this request: the context comes from the connection.
+        ScriptContext ctx = new ScriptContext(flow, mu);
+        try {
+            Object r = s.call("authenticate", mu, new ScriptRequest(request, flow.getClientSslSession() != null, true), ctx);
+            if (r instanceof String user) {
+                // "" is falsy, like False: `return USERS.get(token, "")` must not let anyone in.
+                return user.isEmpty() ? AuthResult.reject() : AuthResult.accept(user);
+            }
+            if (r == Boolean.TRUE) return AuthResult.accept(null);
+            if (r == Boolean.FALSE || r == Starlark.NONE) return AuthResult.reject();
+            if (r instanceof ScriptResponse res) return AuthResult.reject(res.response());
+            throw Starlark.errorf("authenticate must return a user name, True, False, None or response(...), not %s",
+                    Starlark.type(r));
+        } catch (EvalException e) {
+            LOG.log(Level.WARNING, s.name() + ": authenticate failed; rejecting the request: " + e.getMessageWithStack());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, s.name() + ": authenticate failed; rejecting the request", e);
+        }
+        return AuthResult.reject();
+    }
+
+    /** Whether the script sets {@code AUTHENTICATE_EVERY_REQUEST} to a true value. */
+    @Override
+    public boolean authenticateEveryRequest() {
+        Object every = script().global("AUTHENTICATE_EVERY_REQUEST");
+        return every != null && Starlark.truth(every);
     }
 
     // ---------------------------------------------------------------------------------------

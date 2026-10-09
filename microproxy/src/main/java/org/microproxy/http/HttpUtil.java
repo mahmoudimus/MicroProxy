@@ -40,7 +40,7 @@ public final class HttpUtil {
     public static boolean isTransferEncodingChunked(HttpMessage message) {
         if (!message.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)) return false;
         List<String> codings = message.headers().getAllElements(HttpHeaderNames.TRANSFER_ENCODING);
-        return !codings.isEmpty() && codings.get(codings.size() - 1).equalsIgnoreCase("chunked");
+        return !codings.isEmpty() && codings.getLast().equalsIgnoreCase("chunked");
     }
 
     /**

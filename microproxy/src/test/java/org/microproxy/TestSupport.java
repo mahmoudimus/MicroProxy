@@ -229,6 +229,39 @@ public final class TestSupport {
         }
     }
 
+    /**
+     * Reserves a loopback port nothing listens on: the socket is bound but not listening, so
+     * connecting to it is refused at once, and no server (such as a proxy started on port 0
+     * afterwards) can take the port until the socket is closed. A port taken from a {@link
+     * ServerSocket} that was then closed could be handed out again.
+     */
+    public static Socket refusingPort() {
+        Socket s = new Socket();
+        try {
+            s.bind(new InetSocketAddress(LOOPBACK, 0));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return s;
+    }
+
+    /**
+     * Waits until {@code condition} holds, checking every 10 ms for up to 10 seconds; fails with
+     * {@code what} otherwise. For state the proxy updates on its own threads.
+     */
+    public static void eventually(String what, java.util.function.BooleanSupplier condition) {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() - deadline > 0) throw new AssertionError("timed out waiting for " + what);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("interrupted waiting for " + what);
+            }
+        }
+    }
+
     public static void write(OutputStream out, String s) throws IOException {
         out.write(s.getBytes(StandardCharsets.ISO_8859_1));
         out.flush();

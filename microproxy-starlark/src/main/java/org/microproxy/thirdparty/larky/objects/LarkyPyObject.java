@@ -1,0 +1,321 @@
+package org.microproxy.thirdparty.larky.objects;
+
+import org.microproxy.thirdparty.larky.objects.type.LarkyClassType;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Maps;
+import java.util.Map;
+
+import org.microproxy.thirdparty.larky.modules.types.LarkyCollection;
+import org.microproxy.thirdparty.larky.modules.types.PyProtocols;
+import org.microproxy.thirdparty.larky.modules.types.structs.StructBinOp;
+import org.microproxy.thirdparty.larky.objects.type.BinaryOpHelper;
+import org.microproxy.thirdparty.larky.objects.type.LarkyType;
+import org.microproxy.thirdparty.larky.parser.StarlarkUtil;
+
+import org.microproxy.thirdparty.starlark.annot.Param;
+import org.microproxy.thirdparty.starlark.annot.ParamType;
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Dict;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.HasBinary;
+import org.microproxy.thirdparty.starlark.eval.Printer;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkEvalWrapper;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
+import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.syntax.TokenKind;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+
+public class LarkyPyObject implements
+  PyObject,
+    Comparable<LarkyPyObject>,
+    LarkyCollection,
+    HasBinary
+{
+
+  private final LarkyType.Origin origin;
+  private final LarkyType __class__;
+  private final Dict<String, Object> __dict__;
+  private final StarlarkThread thread;
+
+  // just a simple default to avoid re-allocation as the initial
+  // capacity size defaults to 1 which is just too small
+  private static final int INITIAL_DICT_CAPACITY = 5;
+  private static final Map<String, Object> INITIAL_DICT =
+    Maps.newLinkedHashMapWithExpectedSize(INITIAL_DICT_CAPACITY);
+
+  public LarkyPyObject(LarkyType klass, StarlarkThread instanceThread) {
+    this.origin = LarkyType.Origin.LARKY;
+    this.thread = instanceThread;
+    this.__dict__ = Dict.copyOf(thread.mutability(), INITIAL_DICT);
+    this.__class__ = klass;
+  }
+
+  @Override
+  public void __init__(Tuple args, Dict<String, ?> keywords) throws EvalException {
+    Object init = this.getField("__init__", thread);
+    if (init != null && StarlarkUtil.isCallable(init)) {
+      try {
+        Starlark.call(
+          thread,
+          StarlarkUtil.toCallable(init),
+          args,
+          Dict.cast(keywords, String.class, Object.class, this + ".__init__()")
+        );
+      } catch (InterruptedException e) {
+        throw new EvalException(e);
+      }
+    }
+  }
+
+  @Override
+  public LarkyType.Origin getOrigin() {
+    return this.origin;
+  }
+
+
+  @Override
+  public String typeName() {
+    return typeClass().__name__();
+  }
+
+  @Override
+  public LarkyType typeClass() {
+    return this.__class__;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    return LarkyClassType.of(this.__class__, this instanceof StarlarkCallable);
+  }
+
+  @Override
+  public LarkyType __class__() {
+    return this.__class__;
+  }
+
+  @Override
+  public PyObject __new__(Tuple args, Dict<String, Object> kwargs, StarlarkThread thread) {
+    throw new UnsupportedOperationException(); // TODO: implement me
+  }
+
+  @Override
+  public void debugPrint(Printer p, StarlarkThread thread) {
+    // This repr function prints only the fields.
+    // Any methods are still accessible through dir/getattr/hasattr.
+    p.append(typeName()).append("(");
+    String sep = "";
+    for (Map.Entry<String, Object> e : __dict__.entrySet()) {
+      p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue(), thread.getSemantics());
+      sep = ", ";
+    }
+    p.append(")");
+  }
+
+  @Override
+  public String toString() {
+    return __repr__();
+  }
+
+  @Override
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append(this.__repr__());
+  }
+
+  @Override
+  public void str(Printer printer, StarlarkSemantics semantics) {
+    printer.append(this.__str__());
+  }
+
+  @Override
+  public String __str__() {
+    return this.__repr__();
+  }
+
+  @Override
+  public String __repr__() {
+    return String.format("<'%s' object>",
+      typeName()
+    );
+  }
+
+  @Override
+  public StarlarkThread getCurrentThread() {
+    return StarlarkUtil.callerOr(thread);
+  }
+
+  @Override
+  public Dict<?, ?> __dict__() {
+    return this.__dict__;
+  }
+
+  @Override
+  public Map<String, Object> getInternalDictUnsafe() {
+    return this.__dict__;
+  }
+
+  @Override
+  public <K, V> void setItemUnsafe(K key, V value) throws EvalException {
+    this.__dict__.putEntry((String) key, value);
+  }
+
+  @Override
+  public int compareTo(@Nonnull LarkyPyObject o) {
+    Object result;
+    final boolean lt;
+    final boolean gt;
+
+    try {
+      // This code is a bit tricky. If we return null from operatorDispatch,
+      // it most likely not a proper comparison operation.
+      //
+      // To make the IDE happy, we have to do the checks below.
+      result = BinaryOpHelper.operatorDispatch(
+        this,
+        TokenKind.LESS,
+        o,
+        true,
+        this.getCurrentThread()
+      );
+      if (result instanceof Boolean) {
+        lt = (boolean) result;
+        if (lt) {
+          return -1;
+        }
+      }
+      result = BinaryOpHelper.operatorDispatch(
+        this,
+        TokenKind.GREATER,
+        o,
+        true,
+        this.getCurrentThread()
+      );
+      if (result instanceof Boolean) {
+        gt = (boolean) result;
+        if (gt) {
+          return 1;
+        }
+      }
+      // if result is null, let's throw an Error
+      if (result == null) {
+        throw Starlark.errorf(
+          String.format(
+          "unsupported binary operation: %s and %s",
+          this, o
+        ));
+      }
+    } catch (EvalException e) {
+      throw new StarlarkEvalWrapper.Exc.RuntimeEvalException(e, null);
+    }
+    return 0;
+  }
+
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof LarkyPyObject)) {
+      return false;
+    }
+    if (this == obj) {
+      return true;
+    }
+
+    // Objects compare by identity unless one of them has an __eq__, which then decides. An error
+    // raised by __eq__ propagates (as an unchecked evaluation error, since equals() cannot throw
+    // EvalException) instead of reading as "not equal", as in Python.
+    final StarlarkThread thread = this.getCurrentThread();
+    if (this.getField(PyProtocols.__EQ__, thread) == null
+          && ((LarkyPyObject) obj).getField(PyProtocols.__EQ__, thread) == null) {
+      return false;
+    }
+    try {
+      return BinaryOpHelper.richComparison(this, obj, PyProtocols.__EQ__, PyProtocols.__EQ__, thread);
+    } catch (EvalException e) {
+      throw StructBinOp.uncheckedEvalError(e, thread);
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode();
+  }
+
+  @Override
+  public ImmutableCollection<String> getFieldNames() {
+    return ImmutableSortedSet.copyOf(this.__dict__.keySet());
+  }
+
+  @Override
+  @StarlarkMethod(
+    name = "__getattribute__",
+    doc = " <pre>__getattribute__</pre> provides attribute read access on the object and its type.                              " +
+            "\n" +
+            "The default instance {@code __getattribute__} slot implements dictionary look-up on the type and the instance. It" +
+            "is the starting point for activating the descriptor protocol. The following order of precedence applies when     " +
+            "looking for the value of an attribute:                                                                           " +
+            "<ol>                                                                                                             " +
+            "<li>a data descriptor from the dictionary of the type</li>                                                       " +
+            "<li>a value in the instance dictionary of {@code obj}</li>                                                       " +
+            "<li>a non-data descriptor from dictionary of the type</li>                                                       " +
+            "<li>a value from the dictionary of the type</li>                                                                 " +
+            "</ol>                                                                                                            " +
+            "If a matching entry on the type is a data descriptor (case 1),                                                   " +
+            "but throws AttributeError, the instance dictionary (if                                                           " +
+            "any) will be consulted, and the subsequent cases (3 and 4)                                                       " +
+            "skipped. A non-data descriptor that throws an                                                                    " +
+            "AttributeError (case 3) causes case 4 to be skipped.                                                             ",
+    parameters = {
+      @Param(name = "name", allowedTypes = {@ParamType(type = String.class)})
+    },
+    useStarlarkThread = true
+  )
+  public final Object __getattribute__(String name, StarlarkThread thread)
+    throws EvalException {
+    return GetAttribute.get(this, name, thread);
+  }
+
+  /**
+   * As {@link PyObject#getField}, which calls {@link #__getattribute__} and falls back to
+   * {@code __getattr__} if it throws, but without creating an AttributeError for a missing
+   * attribute: attribute probes (e.g. for {@code __iter__} or {@code __contains__}) are frequent.
+   */
+  @Nullable
+  @Override
+  public Object getField(String name, @Nullable StarlarkThread thread) {
+    Object value;
+    try {
+      value = GetAttribute.find(this, name, thread);
+    } catch (EvalException ex) {
+      value = null;
+    }
+    return value != null ? value : GetAttribute.dunderGetAttr(this, name, thread, /*throwExc=*/false);
+  }
+
+  @Override
+  public void __setattr__(String name, Object value, StarlarkThread thread) throws EvalException {
+    SetAttribute.set(this, name, value, thread);
+  }
+
+  @Override
+  public void __delattr__(String name, StarlarkThread thread) throws EvalException {
+    DeleteAttribute.delete(this, name, thread);
+  }
+
+  @Nullable
+  @Override
+  public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    // important to note this: https://docs.python.org/3/reference/datamodel.html#special-method-lookup
+    // special methods automatically delegate to the underlying type
+    // we should bypass the instance dictionary if it's a SpecialMethod
+    return this.typeClass().binaryOp(op, that, thisLeft);
+  }
+
+
+}

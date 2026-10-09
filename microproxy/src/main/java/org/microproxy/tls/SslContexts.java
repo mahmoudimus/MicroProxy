@@ -1,14 +1,18 @@
 package org.microproxy.tls;
 
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
 
 /** Small factory methods for {@link SSLContext}s. */
 public final class SslContexts {
@@ -65,16 +69,16 @@ public final class SslContexts {
         }
     }
 
-    static javax.net.ssl.X509ExtendedTrustManager systemDefaultPlusTrustManager(X509Certificate... extraAnchors)
+    static X509ExtendedTrustManager systemDefaultPlusTrustManager(X509Certificate... extraAnchors)
             throws GeneralSecurityException {
         TrustManagerFactory system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         system.init((KeyStore) null);
-        java.util.List<javax.net.ssl.X509ExtendedTrustManager> delegates = new java.util.ArrayList<>();
+        List<X509ExtendedTrustManager> delegates = new ArrayList<>();
         for (TrustManager tm : trustManagers(extraAnchors)) {
-            if (tm instanceof javax.net.ssl.X509ExtendedTrustManager x) delegates.add(x);
+            if (tm instanceof X509ExtendedTrustManager x) delegates.add(x);
         }
         for (TrustManager tm : system.getTrustManagers()) {
-            if (tm instanceof javax.net.ssl.X509ExtendedTrustManager x) delegates.add(x);
+            if (tm instanceof X509ExtendedTrustManager x) delegates.add(x);
         }
         return new MergedTrustManager(delegates);
     }
@@ -97,7 +101,7 @@ public final class SslContexts {
         KeyStore store = KeyStore.getInstance("PKCS12");
         try {
             store.load(null, null);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new GeneralSecurityException(e);
         }
         store.setKeyEntry("key", key, EPHEMERAL_PASSWORD, chain);
@@ -110,7 +114,7 @@ public final class SslContexts {
         KeyStore store = KeyStore.getInstance("PKCS12");
         try {
             store.load(null, null);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new GeneralSecurityException(e);
         }
         for (int i = 0; i < anchors.length; i++) {

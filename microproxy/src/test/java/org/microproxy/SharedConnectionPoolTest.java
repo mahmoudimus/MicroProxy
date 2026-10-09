@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -187,6 +189,84 @@ class SharedConnectionPoolTest {
             assertEquals(1, serverConnections.get());
         } finally {
             secure.stop(0);
+        }
+    }
+
+    private static HttpProxyServer countingUpstream(AtomicInteger requests) {
+        return MicroProxy.bootstrap().withPort(0).plusActivityTracker(new ActivityTrackerAdapter() {
+            @Override
+            public void requestReceivedFromClient(FlowContext ctx, org.microproxy.http.HttpRequest request) {
+                requests.incrementAndGet();
+            }
+        }).start();
+    }
+
+    /** Routes /a and /b through two upstream proxies and everything else directly. */
+    private static ChainedProxyManager routeByPath(HttpProxyServer upstreamA, HttpProxyServer upstreamB) {
+        return (request, chainedProxies, clientDetails) -> {
+            String path = URI.create(request.uri()).getPath();
+            HttpProxyServer upstream = path.startsWith("/a") ? upstreamA : path.startsWith("/b") ? upstreamB : null;
+            chainedProxies.add(upstream == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
+                    : new ChainedProxyAdapter() {
+                        @Override
+                        public InetSocketAddress getChainedProxyAddress() {
+                            return upstream.getListenAddress();
+                        }
+                    });
+        };
+    }
+
+    @Test
+    void connectionsAreNotSharedAcrossRoutes() {
+        AtomicInteger viaA = new AtomicInteger();
+        AtomicInteger viaB = new AtomicInteger();
+        HttpProxyServer upstreamA = countingUpstream(viaA);
+        HttpProxyServer upstreamB = countingUpstream(viaB);
+        try {
+            proxy = bootstrap().withSharedServerConnectionPool(true)
+                    .withChainProxyManager(routeByPath(upstreamA, upstreamB)).start();
+            for (int round = 0; round < 2; round++) {
+                for (String path : List.of("/a", "/b", "/direct")) {
+                    assertEquals(200, get(client(proxy), url(origin, path + round)).statusCode());
+                }
+            }
+            assertEquals(2, viaA.get(), "only /a goes through upstream A");
+            assertEquals(2, viaB.get(), "only /b goes through upstream B");
+            // One connection per route (upstream A, upstream B, direct), each reused in round two.
+            assertEquals(3, serverConnections.get());
+            PoolMetrics metrics = proxy.getServerConnectionPoolMetrics();
+            assertEquals(3, metrics.totalConnections());
+            assertEquals(3, metrics.idleConnections());
+            assertEquals(6, metrics.borrowCount());
+        } finally {
+            upstreamA.abort();
+            upstreamB.abort();
+        }
+    }
+
+    @Test
+    void stopClosesPooledConnections() throws Exception {
+        CountDownLatch serverSawClose = new CountDownLatch(1);
+        try (TestSupport.RawServer keepAlive = TestSupport.rawServer(socket -> {
+            var in = socket.getInputStream();
+            while (!TestSupport.readUntil(in, "\r\n\r\n").isEmpty()) {
+                TestSupport.write(socket.getOutputStream(), "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
+            }
+            serverSawClose.countDown();
+        })) {
+            proxy = bootstrap().withSharedServerConnectionPool(true).start();
+            assertEquals("ok", get(client(proxy), "http://127.0.0.1:" + keepAlive.port() + "/").body());
+            // The connection goes back to the pool just after the response is relayed.
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (proxy.getServerConnectionPoolMetrics().idleConnections() == 0 && System.nanoTime() < deadline) {
+                Thread.sleep(5);
+            }
+            assertEquals(1, proxy.getServerConnectionPoolMetrics().idleConnections());
+            assertEquals(1, serverSawClose.getCount(), "the pooled connection stays open while the proxy runs");
+
+            proxy.stop();
+            assertTrue(serverSawClose.await(5, TimeUnit.SECONDS), "stopping closes the pooled connection");
+            assertEquals(0, proxy.getServerConnectionPoolMetrics().totalConnections());
         }
     }
 }

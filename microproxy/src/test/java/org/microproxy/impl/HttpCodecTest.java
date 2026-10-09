@@ -159,4 +159,30 @@ class HttpCodecTest {
         assertNull(ProxyUtils.parseHostAndPort("/relative"));
         assertInstanceOf(String.class, ProxyUtils.httpDate());
     }
+
+    private static String chunkedBody(String sizeLine) throws IOException {
+        HttpCodec.Limits limits = new HttpCodec.Limits(8192, 16384, 1 << 20);
+        ByteReader in = reader("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+                + sizeLine + "\r\nhello\r\n0\r\n\r\n");
+        HttpResponse head = HttpCodec.readResponse(in, limits);
+        HttpCodec.BodyReader body = new HttpCodec.BodyReader(in, Framing.forResponse(head, HttpMethod.GET), limits);
+        StringBuilder text = new StringBuilder();
+        HttpContent c;
+        while ((c = body.next()) != null) {
+            text.append(new String(c.content(), StandardCharsets.ISO_8859_1));
+            if (c instanceof LastHttpContent) break;
+        }
+        return text.toString();
+    }
+
+    @Test
+    void chunkSizesAreHexDigitsOnly() throws IOException {
+        assertEquals("hello", chunkedBody("5"));
+        assertEquals("hello", chunkedBody("5;name=value"));
+        assertEquals("hello", chunkedBody("5 \t; name"), "whitespace before an extension is allowed");
+        assertEquals("hello", chunkedBody("05"));
+        for (String bad : new String[] {"-5", "+5", " 5", "0x5", "5 5", "5 ", "", "g"}) {
+            assertThrows(HttpParseException.class, () -> chunkedBody(bad), "chunk size '" + bad + "'");
+        }
+    }
 }

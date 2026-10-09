@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -15,13 +16,16 @@ import org.microproxy.http.WebSocketFrame;
  *
  * <ul>
  *   <li>Request hooks run first to last; the first short-circuit response wins and later filters
- *       do not see the request.
- *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) also run
- *       first to last, each receiving the previous one's result; {@code null} aborts.
- *   <li>Buffer sizes are the largest any filter asks for.
+ *       do not see the request. {@code proxyToServerFailure} works the same way: the first
+ *       response wins.
+ *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) and {@code
+ *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
+ *       {@code null} aborts (or drops the frame).
+ *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
  *   <li>Interception needs every filter's consent ({@code proxyToServerAllowMitm}), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
- *   <li>Notifications go to every filter.
+ *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
+ *       one of them throws.
  * </ul>
  *
  * <p>So a cache placed last stores responses after earlier filters have rewritten them, and
@@ -46,7 +50,7 @@ public final class HttpFiltersChain implements HttpFiltersSource {
             }
         }
         if (flat.isEmpty()) return new HttpFiltersSourceAdapter();
-        if (flat.size() == 1) return flat.get(0);
+        if (flat.size() == 1) return flat.getFirst();
         return new HttpFiltersChain(List.copyOf(flat));
     }
 
@@ -60,11 +64,13 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         List<HttpFilters> filters = new ArrayList<>(sources.size());
         for (HttpFiltersSource source : sources) {
             HttpFilters f = source.filterRequest(originalRequest, flowContext);
+            // Binds built filters returned from another source to this exchange, as the proxy does.
+            if (f instanceof HttpFiltersBuilder.Built built) f = built.filterRequest(originalRequest, flowContext);
             if (f != null) filters.add(f);
         }
         return switch (filters.size()) {
             case 0 -> null;
-            case 1 -> filters.get(0);
+            case 1 -> filters.getFirst();
             default -> new Chained(List.copyOf(filters));
         };
     }
@@ -150,6 +156,15 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
 
         @Override
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            for (HttpFilters f : members) {
+                HttpResponse r = f.proxyToServerFailure(failure);
+                if (r != null) return r;
+            }
+            return null;
+        }
+
+        @Override
         public void serverToProxyResponseReceiving() {
             members.forEach(HttpFilters::serverToProxyResponseReceiving);
         }
@@ -170,6 +185,25 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
 
         @Override
+        public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
+            members.forEach(f -> f.proxyToClientResponseSent(response, source));
+        }
+
+        @Override
+        public void exchangeEnded(boolean completed) {
+            RuntimeException failure = null;
+            for (HttpFilters f : members) {
+                // Every member releases what it holds, even when an earlier one throws.
+                try {
+                    f.exchangeEnded(completed);
+                } catch (RuntimeException e) {
+                    if (failure == null) failure = e; else failure.addSuppressed(e);
+                }
+            }
+            if (failure != null) throw failure;
+        }
+
+        @Override
         public InetSocketAddress proxyToServerResolutionStarted(String hostAndPort) {
             InetSocketAddress resolved = null;
             for (HttpFilters f : members) {
@@ -187,6 +221,16 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
             members.forEach(f -> f.proxyToServerResolutionSucceeded(serverHostAndPort, resolvedRemoteAddress));
+        }
+
+        @Override
+        public Duration proxyToServerConnectTimeout() {
+            Duration shortest = null;
+            for (HttpFilters f : members) {
+                Duration d = f.proxyToServerConnectTimeout();
+                if (d != null && d.isPositive() && (shortest == null || d.compareTo(shortest) < 0)) shortest = d;
+            }
+            return shortest;
         }
 
         @Override
@@ -233,6 +277,16 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void webSocketFrameReceived(Supplier<byte[]> frameBytes, boolean fromClient) {
             members.forEach(f -> f.webSocketFrameReceived(frameBytes, fromClient));
+        }
+
+        @Override
+        public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+            WebSocketFrame f = frame;
+            for (HttpFilters member : members) {
+                f = member.filterWebSocketFrame(f, fromClient);
+                if (f == null) return null;
+            }
+            return f;
         }
     }
 }

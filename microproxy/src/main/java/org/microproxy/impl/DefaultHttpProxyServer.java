@@ -10,13 +10,24 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Deque;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.DoubleSupplier;
 import org.microproxy.ChainedProxyManager;
+import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
+import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
@@ -43,6 +54,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final ChainedProxyManager chainProxyManager;
     final MitmManager mitmManager;
     final HttpFiltersSource filtersSource;
+    final FailureResponder failureResponder;
     /** Socket read/write buffers, lent to connections only while bytes are moving. */
     final BufferPool ioBuffers = new BufferPool(16384, 512);
     /** Buffers for relaying bodies no filter inspects, lent per body. */
@@ -59,18 +71,33 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final SharedConnectionPool pool;
     final boolean poolSharedMitmConnections;
     final boolean poolPerRequestInMitm;
+    /** Numbers the MITM managers chosen per connection, for pool keys; weak, so they can be collected. */
+    private final Map<MitmManager, Long> mitmManagerIds = new WeakHashMap<>();
+    private final ReentrantLock mitmManagerIdsLock = new ReentrantLock();
+    private long nextMitmManagerId;
     final Trackers trackers = new Trackers();
     final RateLimiter readLimiter;
     final RateLimiter writeLimiter;
 
     private volatile Duration idleConnectionTimeout;
     private volatile int connectTimeoutMs;
+    final Duration tlsHandshakeTimeout;
+    final boolean littleProxyCompatibility;
+    /** Backoff between chained proxy attempts, in nanoseconds; 0 when off. */
+    final long backoffInitialNanos;
+    final long backoffMaxNanos;
+    /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
+    final String[] tlsProtocols;
+    /** Headers removed from every request right before it is written upstream; empty for none. */
+    final String[] strippedRequestHeaders;
+    /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
+    volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
     private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
     private ServerSocket serverSocket;
     private ExecutorService executor;
     private Thread acceptor;
-    private volatile boolean stopping;
+    private final AtomicBoolean stopping = new AtomicBoolean();
     private InetSocketAddress boundAddress;
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
@@ -84,12 +111,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.mitmManager = b.mitmManager;
         // The cache runs last, so other filters see requests before it answers them.
         this.filtersSource = b.httpCache == null ? b.filtersSource
-                : org.microproxy.HttpFiltersChain.of(b.filtersSource, b.httpCache);
+                : HttpFiltersChain.of(b.filtersSource, b.httpCache);
+        this.failureResponder = b.failureResponder;
         this.serverResolver = b.serverResolver;
         this.localAddress = b.localAddress;
         this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);
         this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
-        this.proxyAlias = b.proxyAlias != null ? b.proxyAlias : ProxyUtils.getHostName();
+        this.proxyAlias = Objects.requireNonNullElseGet(b.proxyAlias, ProxyUtils::getHostName);
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
@@ -100,6 +128,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.poolPerRequestInMitm = b.poolSharedMitmConnections && b.poolPerRequestInMitm;
         this.idleConnectionTimeout = b.idleConnectionTimeout;
         this.connectTimeoutMs = b.connectTimeoutMs;
+        this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
+        this.littleProxyCompatibility = b.littleProxyCompatibility;
+        this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
+        this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
+        this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
+        this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
@@ -134,12 +168,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     private void acceptLoop() {
-        while (!stopping) {
+        while (!stopping.get()) {
             Socket socket;
             try {
                 socket = serverSocket.accept();
             } catch (SocketException e) {
-                if (!stopping) LOG.log(Level.WARNING, "accept failed", e);
+                if (!stopping.get()) LOG.log(Level.WARNING, "accept failed", e);
                 break;
             } catch (IOException e) {
                 LOG.log(Level.WARNING, "accept failed", e);
@@ -160,8 +194,18 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         connections.remove(connection);
     }
 
+    /** A number identifying {@code manager} among the MITM managers this server has used. */
+    long mitmManagerId(MitmManager manager) {
+        mitmManagerIdsLock.lock();
+        try {
+            return mitmManagerIds.computeIfAbsent(manager, m -> ++nextMitmManagerId);
+        } finally {
+            mitmManagerIdsLock.unlock();
+        }
+    }
+
     boolean isStopping() {
-        return stopping;
+        return stopping.get();
     }
 
     @Override
@@ -210,16 +254,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         shutdown(false);
     }
 
-    private final java.util.Deque<AutoCloseable> closeOnStop = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final Deque<AutoCloseable> closeOnStop = new ConcurrentLinkedDeque<>();
 
     @Override
     public void closeOnStop(AutoCloseable resource) {
-        closeOnStop.push(java.util.Objects.requireNonNull(resource));
+        closeOnStop.push(Objects.requireNonNull(resource));
     }
 
     private void shutdown(boolean graceful) {
-        if (stopping) return;
-        stopping = true;
+        // Both a shutdown hook and the application may stop the server; only the first one runs.
+        if (!stopping.compareAndSet(false, true)) return;
         LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
         Tls.closeQuietly(serverSocket);
         for (ClientConnection c : connections) {

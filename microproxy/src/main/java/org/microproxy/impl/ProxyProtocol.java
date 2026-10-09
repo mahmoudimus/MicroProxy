@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ProtocolException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import org.microproxy.http.HttpResponseStatus;
 
 /** Reads PROXY protocol v1/v2 headers and writes v1 headers (HAProxy PROXY protocol spec). */
@@ -68,8 +69,8 @@ final class ProxyProtocol {
 
     private static Header addresses(byte[] body, int addrLen) throws IOException {
         if (body.length < addrLen * 2 + 4) throw new ProtocolException("short PROXY v2 address block");
-        byte[] src = java.util.Arrays.copyOfRange(body, 0, addrLen);
-        byte[] dst = java.util.Arrays.copyOfRange(body, addrLen, addrLen * 2);
+        byte[] src = Arrays.copyOfRange(body, 0, addrLen);
+        byte[] dst = Arrays.copyOfRange(body, addrLen, addrLen * 2);
         int sport = ((body[addrLen * 2] & 0xff) << 8) | (body[addrLen * 2 + 1] & 0xff);
         int dport = ((body[addrLen * 2 + 2] & 0xff) << 8) | (body[addrLen * 2 + 3] & 0xff);
         return new Header(

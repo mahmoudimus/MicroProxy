@@ -2,6 +2,7 @@ package org.microproxy;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import org.microproxy.cache.HttpCache;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -23,6 +24,10 @@ public interface HttpProxyServerBootstrap {
     /** Require client certificates on the proxy's TLS listener. */
     HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateSslClients);
 
+    /**
+     * Requires clients to authenticate: with Basic credentials by default, or with any scheme
+     * through {@link ProxyAuthenticator#authenticate(org.microproxy.http.HttpRequest, FlowContext)}.
+     */
     HttpProxyServerBootstrap withProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
 
     HttpProxyServerBootstrap withChainProxyManager(ChainedProxyManager chainProxyManager);
@@ -32,6 +37,11 @@ public interface HttpProxyServerBootstrap {
         return null;
     }
 
+    /**
+     * Intercepts CONNECT tunnels with {@code mitmManager}. To decide per client connection (per
+     * user, client address, ...), override its {@link FlowContext} overloads or use {@link
+     * MitmManager#perConnection}.
+     */
     HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager);
 
     HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
@@ -49,7 +59,15 @@ public interface HttpProxyServerBootstrap {
      * Caches responses ({@link org.microproxy.cache.HttpCache}). The cache always runs after the
      * filters sources, whichever order they were configured in.
      */
-    HttpProxyServerBootstrap withHttpCache(org.microproxy.cache.HttpCache cache);
+    HttpProxyServerBootstrap withHttpCache(HttpCache cache);
+
+    /**
+     * Makes the proxy's own answers when requests fail (see {@link ProxyFailure}): unreachable or
+     * misbehaving servers, timeouts, an exhausted connection pool, refused requests. Filters'
+     * {@link HttpFilters#proxyToServerFailure} answers take precedence; {@code null} (the
+     * default) or a responder returning {@code null} keeps the proxy's plain-text answers.
+     */
+    HttpProxyServerBootstrap withFailureResponder(FailureResponder responder);
 
     /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
     HttpProxyServerBootstrap withTransparent(boolean transparent);
@@ -61,7 +79,94 @@ public interface HttpProxyServerBootstrap {
     /** Connect timeout for outbound connections in milliseconds. */
     HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs);
 
+    /**
+     * The longest a TLS handshake may take, with clients and with servers (default 10 seconds;
+     * zero for no limit). The idle timeout alone does not bound it, since it restarts with every
+     * byte received.
+     */
+    HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout);
+
+    /**
+     * The TLS versions allowed on every TLS socket the proxy creates: its TLS listener ({@link
+     * #withSslContextSource}), both sides of an intercepted session, and connections to TLS chained
+     * proxies. Default {@code TLSv1.3} and {@code TLSv1.2}. Each socket enables those of them that
+     * its {@link javax.net.ssl.SSLContext} supports; if it supports none, the handshake fails with
+     * an error naming both lists. The protocols are set right after the socket is created, before
+     * {@link SslContextSource#configure}, {@link MitmManager#configureServerSocket(javax.net.ssl.SSLSocket,
+     * FlowContext)} or {@link ChainedProxy#configure} run, so a hook that sets its own protocols
+     * wins. No protocols leaves every context's own defaults; the JDK's {@code
+     * jdk.tls.disabledAlgorithms} applies either way.
+     */
+    default HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TLS protocol pinning");
+    }
+
+    /**
+     * Behaves like LittleProxy where MicroProxy deliberately differs, for filters that depend on
+     * it:
+     *
+     * <ul>
+     *   <li>The server is resolved before {@link HttpFilters#proxyToServerRequest} rather than
+     *       after it; a name that does not resolve gets {@code 502} without that hook being called.
+     *   <li>A PROXY header sent without one received ({@link #withSendProxyProtocol}) names the
+     *       server connection's remote address as its destination, not the address the client
+     *       connected to; and none is sent when the client and that address are of different
+     *       address families.
+     * </ul>
+     *
+     * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not
+     * affected. Off by default.
+     */
+    HttpProxyServerBootstrap withLittleProxyCompatibility(boolean compatible);
+
+    /** Same as {@code withLittleProxyCompatibility(true)}. */
+    default HttpProxyServerBootstrap withLittleProxyCompatibility() {
+        return withLittleProxyCompatibility(true);
+    }
+
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
+
+    /**
+     * Removes these headers (case-insensitively) from every request right before it is written
+     * upstream: after all filters, so headers that filters added are removed too. It applies to
+     * plain requests, requests inside intercepted (MITM) sessions, upgrade requests, and the
+     * {@code CONNECT} requests sent to HTTP chained proxies; the bytes of an uninspected tunnel
+     * are never touched. Replaces the names set so far; no names turns it off.
+     */
+    default HttpProxyServerBootstrap withStrippedRequestHeaders(String... names) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
+    }
+
+    /** Adds to the headers removed from requests sent upstream (see {@link #withStrippedRequestHeaders}). */
+    default HttpProxyServerBootstrap plusStrippedRequestHeaders(String... names) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
+    }
+
+    /**
+     * Removes distributed tracing headers ({@link org.microproxy.http.HttpHeaderNames#TRACING_HEADERS}:
+     * {@code traceparent}, {@code tracestate}, {@code baggage}, the B3 headers, {@code uber-trace-id},
+     * {@code X-Amzn-Trace-Id}, {@code X-Cloud-Trace-Context}, {@code grpc-trace-bin}, {@code
+     * sentry-trace}) from requests sent upstream, so clients' trace
+     * ids and baggage do not leak to servers. Adds to {@link #plusStrippedRequestHeaders}.
+     */
+    default HttpProxyServerBootstrap withoutTracingHeadersUpstream() {
+        return plusStrippedRequestHeaders(org.microproxy.http.HttpHeaderNames.TRACING_HEADERS.toArray(String[]::new));
+    }
+
+    /**
+     * Waits between attempts when a connection through one chained proxy (or the direct
+     * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
+     * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *
+     * 2^(n-1)}, capped at {@code max} ("full jitter"). It never sleeps before the first attempt or
+     * after the last, stops waiting (and gives up on the request) when the client disconnects
+     * meanwhile, and sleeps at most 30 seconds or the connect timeout in total per request,
+     * whichever is less; once that is spent, the remaining candidates are tried without waiting.
+     * The wait counts towards the connect phase of {@link FlowContext#timings()}. Off by default;
+     * {@code null} turns it off again.
+     */
+    default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
+    }
 
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
@@ -88,7 +193,13 @@ public interface HttpProxyServerBootstrap {
     /** Require a PROXY protocol (v1 or v2) header on every inbound connection. */
     HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol);
 
-    /** Send a PROXY protocol v1 header on every outbound connection. */
+    /**
+     * Send a PROXY protocol v1 header to the final server: first on a direct connection, or
+     * through the tunnel once an HTTP chained proxy has accepted the CONNECT. It is not sent where
+     * there is no tunnel to the final server: through SOCKS chained proxies, or with plain
+     * requests forwarded to an HTTP chained proxy. Server connections that carry the header belong
+     * to one client, so the shared server connection pool is not used while this is on.
+     */
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
     /**
@@ -122,6 +233,9 @@ public interface HttpProxyServerBootstrap {
     /**
      * Lets intercepted (MITM) sessions take their server connection from the pool and return it
      * when the client disconnects, so other clients can reuse it. Requires the shared pool.
+     * Connections are only shared by clients given the same {@link MitmManager#forConnection
+     * manager}, and not at all when the manager sets up server connections per client (see {@link
+     * MitmManager}).
      */
     HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections);
 

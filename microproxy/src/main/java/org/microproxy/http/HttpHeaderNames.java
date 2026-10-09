@@ -16,6 +16,7 @@ public final class HttpHeaderNames {
     public static final String PROXY_AUTHENTICATE = "Proxy-Authenticate";
     public static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
     public static final String PROXY_CONNECTION = "Proxy-Connection";
+    public static final String SEC_WEBSOCKET_EXTENSIONS = "Sec-WebSocket-Extensions";
     public static final String SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
     public static final String TE = "TE";
     public static final String TRAILER = "Trailer";
@@ -23,6 +24,21 @@ public final class HttpHeaderNames {
     public static final String UPGRADE = "Upgrade";
     public static final String USER_AGENT = "User-Agent";
     public static final String VIA = "Via";
+
+    /**
+     * Distributed tracing headers: W3C Trace Context and Baggage, B3 (single and multiple header
+     * forms), and the trace headers of other common tracing systems ({@code uber-trace-id}, {@code
+     * X-Amzn-Trace-Id}, {@code X-Cloud-Trace-Context}, gRPC's {@code grpc-trace-bin}, {@code
+     * sentry-trace}).
+     * {@link org.microproxy.HttpProxyServerBootstrap#withoutTracingHeadersUpstream()} removes them
+     * from requests sent upstream. {@code X-Request-Id} is not among them: it is often wanted by
+     * the server, and can be added with {@link
+     * org.microproxy.HttpProxyServerBootstrap#plusStrippedRequestHeaders(String...)}.
+     */
+    public static final java.util.List<String> TRACING_HEADERS = java.util.List.of(
+            "traceparent", "tracestate", "baggage",
+            "b3", "X-B3-TraceId", "X-B3-SpanId", "X-B3-ParentSpanId", "X-B3-Sampled", "X-B3-Flags",
+            "uber-trace-id", "X-Amzn-Trace-Id", "X-Cloud-Trace-Context", "grpc-trace-bin", "sentry-trace");
 
     private HttpHeaderNames() {}
 }

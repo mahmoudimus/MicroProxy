@@ -1,0 +1,111 @@
+package org.microproxy.thirdparty.larky.objects;
+
+import org.microproxy.thirdparty.larky.objects.type.LarkyBaseObjectType;
+import org.microproxy.thirdparty.larky.objects.type.LarkyType;
+import org.microproxy.thirdparty.larky.objects.type.LarkyTypeObject;
+
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Dict;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.eval.Tuple;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * Create a bound instance method object.
+ */
+public class LarkyMethod extends LarkyFunction {
+
+  public static final LarkyTypeObject TYPE = new LarkyTypeObject(Origin.BUILTIN, "method", Dict.empty());
+  static {
+    LarkyType.setupInheritanceHierarchy(TYPE, new LarkyType[]{(LarkyType) LarkyBaseObjectType.getInstance()});
+  }
+
+  PyObject im_self;
+
+
+  private LarkyMethod(@Nonnull StarlarkCallable function, @Nonnull PyObject im_self, @Nonnull StarlarkThread thread) {
+    super(TYPE, function, thread);
+    this.im_self = im_self;
+    bind(im_self.typeClass());
+  }
+
+  public static @Nonnull LarkyMethod create(@Nonnull StarlarkCallable function, @Nonnull PyObject im_self, @Nonnull StarlarkThread thread) {
+    return new LarkyMethod(function, im_self, thread);
+  }
+
+  @StarlarkMethod(name = "__objclass__", structField = true)
+  public LarkyType objClass() {
+    return getBoundOwner();
+  }
+
+  @StarlarkMethod(name = "__func__", structField = true)
+  public StarlarkCallable __func__() {
+    return this.fget;
+  }
+
+  @StarlarkMethod(name = "__self__", structField = true)
+  public PyObject __self__() {
+    return this.im_self;
+  }
+
+  @Override
+  public String __repr__() {
+    String result;
+    if (this.im_self != null) {
+      //  <bound method O.__init__ of <__main__.O object at 0x10731ea60>>
+      result = "<bound method ";
+      if(isBound()) {
+        assert getBoundOwner() != null;
+        result += getBoundOwner().__name__() + "." ;
+      }
+      result += this.fget.getName() + " of " + this.im_self + ">";
+    } else {
+      result = super.__repr__();
+    }
+    return result;
+  }
+
+  @Override
+  public String getName() {
+    return __repr__();
+  }
+
+  @Override
+  public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException, InterruptedException {
+    return Starlark.call(thread, this.fget, Tuple.concat(Tuple.of(this.im_self), args), kwargs);
+  }
+
+  @Override
+  public Object __get__(Object obj, LarkyType type, @Nullable StarlarkThread thread) throws EvalException {
+    if (obj == null) {
+      throw new EvalException("__get__(None, None) is invalid");
+    }
+    return this;
+  }
+
+  @Override
+  public LarkyType delegate() {
+    return this.im_class;
+  }
+
+  @Override
+  public StarlarkThread getCurrentThread() {
+    return this.im_self.getCurrentThread();
+ }
+
+
+  @Override
+  public LarkyType getBoundOwner() {
+    return im_class;
+  }
+
+  @Override
+  public void bindToOwner(LarkyType cls) {
+    im_class = cls;
+  }
+}

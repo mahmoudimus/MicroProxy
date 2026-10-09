@@ -1,7 +1,7 @@
 package org.microproxy.http;
 
 /** A complete HTTP request. */
-public interface FullHttpRequest extends HttpRequest, FullHttpMessage {
+public sealed interface FullHttpRequest extends HttpRequest, FullHttpMessage permits DefaultFullHttpRequest {
 
     @Override
     FullHttpRequest setContent(byte[] content);

@@ -3,7 +3,7 @@ package org.microproxy.http;
 import java.util.Objects;
 
 /** A piece of message body. */
-public class DefaultHttpContent implements HttpContent {
+public non-sealed class DefaultHttpContent implements HttpContent {
 
     private byte[] content;
 

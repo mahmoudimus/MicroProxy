@@ -1,21 +1,24 @@
 package org.microproxy.http;
 
+import io.github.mahmoudimus.zstd.ZstdInputStream;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
-import java.nio.charset.UnsupportedCharsetException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
+import org.microproxy.thirdparty.brotli.BrotliInputStream;
 
 /**
  * Reads and rewrites the bodies of buffered messages ({@link FullHttpMessage}) in filters,
@@ -47,12 +50,12 @@ public final class HttpBodies {
      * Content codings this class can decode: {@code gzip}, {@code x-gzip}, {@code deflate} and
      * {@code br}, plus {@code zstd} when the {@code zstd-decoder} module is on the class path.
      */
-    public static final java.util.Set<String> DECODABLE = ZstdSupport.AVAILABLE
-            ? java.util.Set.of("gzip", "x-gzip", "deflate", "br", "zstd")
-            : java.util.Set.of("gzip", "x-gzip", "deflate", "br");
+    public static final Set<String> DECODABLE = ZstdSupport.AVAILABLE
+            ? Set.of("gzip", "x-gzip", "deflate", "br", "zstd")
+            : Set.of("gzip", "x-gzip", "deflate", "br");
 
     /** Codings that can be decoded but not produced; rewritten bodies use gzip instead. */
-    private static final java.util.Set<String> DECODE_ONLY = java.util.Set.of("br", "zstd");
+    private static final Set<String> DECODE_ONLY = Set.of("br", "zstd");
 
     private HttpBodies() {}
 
@@ -86,6 +89,54 @@ public final class HttpBodies {
             data = decode(codings.get(i), data, maxDecodedBytes);
         }
         return data;
+    }
+
+    /**
+     * The first {@code maxBytes} of the body with all content codings removed, for previews and
+     * logs: unlike {@link #decoded(FullHttpMessage, int)}, a longer decoded body is cut short
+     * rather than an error, and only that much is ever decoded.
+     */
+    public static byte[] decodedPrefix(FullHttpMessage message, int maxBytes) throws IOException {
+        List<String> codings = contentEncodings(message);
+        List<Inflater> inflaters = new ArrayList<>(1);
+        InputStream in = new ByteArrayInputStream(message.content());
+        try {
+            for (int i = codings.size() - 1; i >= 0; i--) {
+                in = decoding(codings.get(i), in, inflaters);
+            }
+            try (InputStream decoded = in) {
+                return decoded.readNBytes(Math.max(0, maxBytes));
+            }
+        } catch (RuntimeException e) {
+            // The Brotli decoder reports corrupt data unchecked.
+            throw new IOException("corrupt " + String.join(", ", codings) + " data", e);
+        } finally {
+            inflaters.forEach(Inflater::end);
+        }
+    }
+
+    /** A stream that removes {@code coding} from {@code in}. */
+    private static InputStream decoding(String coding, InputStream in, List<Inflater> inflaters) throws IOException {
+        return switch (coding) {
+            case "gzip", "x-gzip" -> new GZIPInputStream(in);
+            case "deflate" -> {
+                BufferedInputStream buffered = new BufferedInputStream(in);
+                buffered.mark(2);
+                byte[] head = buffered.readNBytes(2);
+                buffered.reset();
+                boolean zlib = head.length == 2 && (head[0] & 0x0f) == 8
+                        && (((head[0] & 0xff) << 8) | (head[1] & 0xff)) % 31 == 0;
+                Inflater inflater = new Inflater(!zlib);
+                inflaters.add(inflater);
+                yield new InflaterInputStream(buffered, inflater);
+            }
+            case "br" -> new BrotliInputStream(in);
+            case "zstd" -> {
+                if (!ZstdSupport.AVAILABLE) throw new IOException("unsupported content coding: zstd");
+                yield ZstdSupport.open(in);
+            }
+            default -> throw new IOException("unsupported content coding: " + coding);
+        };
     }
 
     /**
@@ -127,7 +178,7 @@ public final class HttpBodies {
     public static void restrictAcceptEncoding(HttpRequest request) {
         List<String> offered = request.headers().getAllElements(HttpHeaderNames.ACCEPT_ENCODING);
         if (offered.isEmpty()) return;
-        List<String> kept = new java.util.ArrayList<>();
+        List<String> kept = new ArrayList<>();
         for (String element : offered) {
             int semi = element.indexOf(';');
             String coding = (semi >= 0 ? element.substring(0, semi) : element).strip().toLowerCase(Locale.ROOT);
@@ -162,11 +213,7 @@ public final class HttpBodies {
             if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
                 value = value.substring(1, value.length() - 1);
             }
-            try {
-                return Charset.forName(value);
-            } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
-                return fallback;
-            }
+            return Charset.forName(value, fallback);
         }
         return fallback;
     }
@@ -194,7 +241,7 @@ public final class HttpBodies {
             case "deflate" -> inflate(data, max);
             case "br" -> {
                 try {
-                    yield readCapped(new org.microproxy.thirdparty.brotli.BrotliInputStream(new ByteArrayInputStream(data)), max);
+                    yield readCapped(new BrotliInputStream(new ByteArrayInputStream(data)), max);
                 } catch (RuntimeException e) {
                     throw new IOException("corrupt brotli data", e);
                 }
@@ -230,7 +277,7 @@ public final class HttpBodies {
         /** Only loaded once the module is known to be present. */
         private static final class Decoder {
             static InputStream open(InputStream in) {
-                return new io.github.mahmoudimus.zstd.ZstdInputStream(in);
+                return new ZstdInputStream(in);
             }
         }
     }
@@ -238,7 +285,13 @@ public final class HttpBodies {
     /** "deflate" is meant to be zlib-wrapped, but some servers send raw DEFLATE; accept both. */
     private static byte[] inflate(byte[] data, int max) throws IOException {
         boolean zlib = data.length >= 2 && (data[0] & 0x0f) == 8 && (((data[0] & 0xff) << 8) | (data[1] & 0xff)) % 31 == 0;
-        return readCapped(new InflaterInputStream(new ByteArrayInputStream(data), new Inflater(!zlib)), max);
+        // InflaterInputStream only ends inflaters it created, so release the native memory here.
+        Inflater inflater = new Inflater(!zlib);
+        try {
+            return readCapped(new InflaterInputStream(new ByteArrayInputStream(data), inflater), max);
+        } finally {
+            inflater.end();
+        }
     }
 
     private static byte[] encode(String coding, byte[] data) throws IOException {

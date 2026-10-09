@@ -6,15 +6,21 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLSession;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.OptionalInt;
 import org.microproxy.ActivityTrackerAdapter;
 import org.microproxy.FlowContext;
+import org.microproxy.FlowTimings;
 import org.microproxy.FullFlowContext;
+import org.microproxy.ResponseSource;
 import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpRequest;
@@ -29,6 +35,10 @@ import org.microproxy.http.HttpResponse;
  * response's {@code Content-Length} ({@code -} when the body is chunked or close-delimited) and the
  * duration is the time from receiving the request to sending the response head. Lines go to the
  * {@code System.Logger} named after this class at INFO, or to the sink passed to the constructor.
+ *
+ * <p>{@link LogFormat#JSON_EXTENDED} lines are written once the response is complete instead, so
+ * they can carry the total time (see {@link FlowContext#timings()}); an exchange abandoned half-way
+ * is logged when the client connection ends, with {@code "total_ms":null}.
  */
 public class ActivityLogger extends ActivityTrackerAdapter {
 
@@ -37,9 +47,21 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     private static final DateTimeFormatter HAPROXY_DATE = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss.SSS", Locale.US);
     private static final DateTimeFormatter ISO_8601 = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
     private static final DateTimeFormatter W3C_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US);
+    private static final HexFormat HEX = HexFormat.of();
 
-    // @value-candidate: becomes a value class in the valhalla build profile
-    private record TimedRequest(HttpRequest request, long startMillis) {}
+    /** A request waiting for its line; for JSON_EXTENDED also its response, until it completes. */
+    private static final class TimedRequest {
+        final HttpRequest request;
+        final long startMillis;
+        ResponseSource source = ResponseSource.SERVER;
+        HttpResponse response;
+        long durationMillis;
+
+        TimedRequest(HttpRequest request, long startMillis) {
+            this.request = request;
+            this.startMillis = startMillis;
+        }
+    }
 
     private final LogFormat logFormat;
     private final Consumer<String> sink;
@@ -80,27 +102,81 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     }
 
     @Override
+    public void responseSentToClient(FlowContext flowContext, HttpResponse httpResponse, ResponseSource source) {
+        TimedRequest timed = requests.get(flowContext);
+        if (timed != null) {
+            timed.source = source;
+        }
+        responseSentToClient(flowContext, httpResponse);
+    }
+
+    @Override
     public void responseSentToClient(FlowContext flowContext, HttpResponse httpResponse) {
+        if (logFormat == LogFormat.JSON_EXTENDED) {
+            TimedRequest timed = requests.get(flowContext);
+            if (timed != null) {
+                timed.response = httpResponse;
+                timed.durationMillis = clock.millis() - timed.startMillis;
+            }
+            return;
+        }
         TimedRequest timed = requests.remove(flowContext);
         if (timed != null) {
-            log(formatLogEntry(flowContext, timed.request(), httpResponse, clock.millis() - timed.startMillis()));
+            log(formatLogEntry(flowContext, timed.request, httpResponse, clock.millis() - timed.startMillis));
+        }
+    }
+
+    @Override
+    public void responseCompleted(FlowContext flowContext, HttpResponse httpResponse) {
+        if (logFormat == LogFormat.JSON_EXTENDED) {
+            logExtended(flowContext, requests.remove(flowContext), true);
         }
     }
 
     @Override
     public void clientDisconnected(FlowContext flowContext, SSLSession sslSession) {
-        requests.remove(flowContext);
+        abandoned(flowContext);
         servers.remove(flowContext);
     }
 
     @Override
     public void connectionTimedOut(FlowContext flowContext) {
-        requests.remove(flowContext);
+        abandoned(flowContext);
     }
 
     @Override
     public void connectionExceptionCaught(FlowContext flowContext, Throwable cause) {
-        requests.remove(flowContext);
+        abandoned(flowContext);
+    }
+
+    /** Forgets the request in progress, logging it if its response had started. */
+    private void abandoned(FlowContext flowContext) {
+        TimedRequest timed = requests.remove(flowContext);
+        if (logFormat == LogFormat.JSON_EXTENDED) {
+            logExtended(flowContext, timed, false);
+        }
+    }
+
+    private void logExtended(FlowContext ctx, TimedRequest timed, boolean complete) {
+        if (timed == null || timed.response == null) {
+            return;
+        }
+        String line = formatLogEntry(ctx, timed.request, timed.response, timed.durationMillis);
+        FlowTimings timings = ctx.timings();
+        OptionalInt upstream = ctx.upstreamStatus();
+        log(line.substring(0, line.length() - 1)
+                + ",\"source\":\"" + timed.source + "\""
+                + ",\"upstream_status\":" + (upstream.isPresent() ? String.valueOf(upstream.getAsInt()) : "null")
+                + ",\"ttfb_ms\":" + millis(timings.timeToFirstByte())
+                + ",\"total_ms\":" + (complete ? millis(timings.total()) : "null")
+                + ",\"dns_ms\":" + millis(timings.dnsLookup())
+                + ",\"connect_ms\":" + millis(timings.connect())
+                + ",\"tls_ms\":" + millis(timings.tlsHandshake()) + "}");
+    }
+
+    /** Milliseconds with microsecond precision, or {@code null}. */
+    private static String millis(Optional<Duration> d) {
+        return d.map(x -> String.format(Locale.ROOT, "%.3f", x.toNanos() / 1e6)).orElse("null");
     }
 
     /** Writes a finished line. Override to send lines elsewhere. */
@@ -130,7 +206,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
                     + userAgent + "\"";
             case W3C -> W3C_DATE.format(now) + " " + client + " " + request.method() + " " + url + " "
                     + status + " " + bytes + " \"" + userAgent + "\"";
-            case JSON -> "{\"timestamp\":\"" + ISO_8601.format(now) + "\""
+            case JSON, JSON_EXTENDED -> "{\"timestamp\":\"" + ISO_8601.format(now) + "\""
                     + ",\"client_ip\":\"" + json(client) + "\""
                     + ",\"user\":" + (ctx.getClientDetails().getUserName() == null ? "null"
                             : "\"" + json(ctx.getClientDetails().getUserName()) + "\"")
@@ -205,7 +281,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
                 case '\t' -> sb.append("\\t");
                 default -> {
                     if (c < 0x20) {
-                        sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+                        sb.append("\\u").append(HEX.toHexDigits(c));
                     } else {
                         sb.append(c);
                     }

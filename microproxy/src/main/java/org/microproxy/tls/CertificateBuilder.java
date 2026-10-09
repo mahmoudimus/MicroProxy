@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.PrivateKey;
@@ -14,6 +15,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -148,7 +150,7 @@ public final class CertificateBuilder {
                 throw new IllegalArgumentException("invalid IP literal: " + san, e);
             }
         }
-        return Der.implicitPrimitive(2, san.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        return Der.implicitPrimitive(2, san.getBytes(StandardCharsets.US_ASCII));
     }
 
     static boolean isIpLiteral(String host) {
@@ -163,6 +165,6 @@ public final class CertificateBuilder {
 
     private static byte[] keyIdentifier(PublicKey key) throws GeneralSecurityException {
         byte[] digest = MessageDigest.getInstance("SHA-1").digest(key.getEncoded());
-        return java.util.Arrays.copyOf(digest, 20);
+        return Arrays.copyOf(digest, 20);
     }
 }

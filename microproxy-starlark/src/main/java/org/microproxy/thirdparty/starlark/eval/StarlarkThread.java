@@ -238,6 +238,10 @@ public final class StarlarkThread {
     final StarlarkThread thread;
     StarlarkCallable fn; // the called function
 
+    // The thread that was running Starlark code on this Java thread before this frame (see
+    // current()), restored when the frame is popped.
+    @Nullable StarlarkThread previousCurrent;
+
     @Nullable Debug.Debugger dbg; // the debugger, if active for this frame
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
@@ -403,6 +407,8 @@ public final class StarlarkThread {
     Frame fr = pooled > 0 ? framePool.remove(pooled - 1) : new Frame(this);
     fr.init(fn);
     callstack.add(fr);
+    fr.previousCurrent = CURRENT.get();
+    CURRENT.set(this);
 
     // Notify debug tools of the thread's first push.
     if (callstack.size() == 1 && Debug.threadHook != null) {
@@ -440,6 +446,12 @@ public final class StarlarkThread {
     }
 
     callstack.remove(last); // pop
+    if (fr.previousCurrent == null) {
+      CURRENT.remove();
+    } else {
+      CURRENT.set(fr.previousCurrent);
+      fr.previousCurrent = null;
+    }
 
     // End wall-time profile span.
     CallProfiler callProfiler = StarlarkThread.callProfiler;
@@ -456,6 +468,21 @@ public final class StarlarkThread {
     if (last == 0 && Debug.threadHook != null) {
       Debug.threadHook.onPopLast(this);
     }
+  }
+
+  // MicroProxy: the thread whose function is running on each Java thread.
+  private static final ThreadLocal<StarlarkThread> CURRENT = new ThreadLocal<>();
+
+  /**
+   * The StarlarkThread running the innermost Starlark (or built-in) function on the calling Java
+   * thread, or null outside any call. MicroProxy: Larky values remember the thread that created
+   * them; when they run code later (dunder methods, properties) they run it in this thread, the
+   * caller's, so that the caller's step and time limits apply and a value shared by many callers
+   * (as the standard library's frozen modules are) is not run in one thread concurrently.
+   */
+  @Nullable
+  public static StarlarkThread current() {
+    return CURRENT.get();
   }
 
   /** Returns the mutability for values created by this thread. */

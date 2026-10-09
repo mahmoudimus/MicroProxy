@@ -1,8 +1,12 @@
 package org.microproxy.dns;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -27,11 +31,11 @@ public interface DnsTransport {
      * DNS over HTTPS (RFC 8484) to a resolver such as {@code https://cloudflare-dns.com/dns-query}
      * or {@code https://dns.google/dns-query}. The connection uses the JVM's default proxy settings.
      */
-    static DnsTransport https(java.net.URI endpoint, Duration timeout) {
+    static DnsTransport https(URI endpoint, Duration timeout) {
         java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(timeout)
-                .proxy(java.net.ProxySelector.getDefault() != null
-                        ? java.net.ProxySelector.getDefault() : java.net.http.HttpClient.Builder.NO_PROXY)
+                .proxy(ProxySelector.getDefault() != null
+                        ? ProxySelector.getDefault() : java.net.http.HttpClient.Builder.NO_PROXY)
                 .build();
         return query -> {
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder(endpoint)
@@ -49,7 +53,7 @@ public interface DnsTransport {
                 return response.body();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new java.io.InterruptedIOException("interrupted during DoH query");
+                throw new InterruptedIOException("interrupted during DoH query");
             }
         };
     }
@@ -77,7 +81,7 @@ public interface DnsTransport {
             try {
                 servers.add(new InetSocketAddress(InetAddress.getByAddress(new byte[] {8, 8, 8, 8}), 53));
                 servers.add(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 1, 1, 1}), 53));
-            } catch (java.net.UnknownHostException e) {
+            } catch (UnknownHostException e) {
                 throw new IllegalStateException(e);
             }
         }

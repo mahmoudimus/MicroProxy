@@ -1,8 +1,10 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLSession;
@@ -15,13 +17,17 @@ public class FlowContext {
     private final Supplier<SSLSession> clientSslSession;
     private final ClientDetails clientDetails;
     private final Map<String, Long> timingData;
+    private final Instant acceptedAt;
+    /** The client connection's own context, which knows the exchange in progress. */
+    private final FlowContext root;
 
     public FlowContext(
             long connectionId,
             Supplier<InetSocketAddress> clientAddress,
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails) {
-        this(connectionId, clientAddress, clientSslSession, clientDetails, new ConcurrentHashMap<>());
+        this(connectionId, clientAddress, clientSslSession, clientDetails, new ConcurrentHashMap<>(), Instant.now(),
+                null);
     }
 
     /** Creates a context that shares identity and timing data with {@code parent}. */
@@ -31,7 +37,9 @@ public class FlowContext {
                 parent.clientAddress,
                 parent.clientSslSession,
                 parent.clientDetails,
-                parent.timingData);
+                parent.timingData,
+                parent.acceptedAt,
+                parent.root);
     }
 
     private FlowContext(
@@ -39,15 +47,22 @@ public class FlowContext {
             Supplier<InetSocketAddress> clientAddress,
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails,
-            Map<String, Long> timingData) {
+            Map<String, Long> timingData,
+            Instant acceptedAt,
+            FlowContext root) {
         this.connectionId = connectionId;
         this.clientAddress = Objects.requireNonNull(clientAddress);
         this.clientSslSession = Objects.requireNonNull(clientSslSession);
         this.clientDetails = Objects.requireNonNull(clientDetails);
         this.timingData = timingData;
+        this.acceptedAt = acceptedAt;
+        this.root = root == null ? this : root;
     }
 
-    /** A process-unique id of the client connection. */
+    /**
+     * A process-unique id of the client connection. The proxy's log lines about the connection
+     * start with {@code [conn <id>]}.
+     */
     public long getConnectionId() {
         return connectionId;
     }
@@ -66,6 +81,34 @@ public class FlowContext {
      */
     public SSLSession getClientSslSession() {
         return clientSslSession.get();
+    }
+
+    /**
+     * When the client connection was accepted (when this context was created, for contexts made
+     * outside the proxy).
+     */
+    public Instant acceptedAt() {
+        return acceptedAt;
+    }
+
+    /**
+     * The status of the final response the server sent for the exchange in progress on this
+     * connection (or the last one), even when a filter or the cache changed or replaced it before
+     * it reached the client; empty when no server response was received (the proxy or a filter
+     * answered, or the server failed). Contexts made outside the proxy have none.
+     */
+    public OptionalInt upstreamStatus() {
+        return root == this ? OptionalInt.empty() : root.upstreamStatus();
+    }
+
+    /**
+     * When the phases of the exchange in progress on this connection (or the last one) happened:
+     * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
+     * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
+     * the proxy return {@link FlowTimings#NONE}.
+     */
+    public FlowTimings timings() {
+        return root == this ? FlowTimings.NONE : root.timings();
     }
 
     public ClientDetails getClientDetails() {

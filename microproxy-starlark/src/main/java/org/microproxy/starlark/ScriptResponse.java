@@ -9,25 +9,54 @@ import org.microproxy.thirdparty.starlark.eval.Printer;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * A response as scripts see it: from the server in {@code on_response}, or made by {@code
  * response()}. {@code status}, {@code reason}, {@code body} and {@code text} can be assigned.
+ * {@code source} says where it came from and {@code upstream_status} what the server sent; both
+ * describe the response as the hook received it, not the script's own changes.
  */
 @StarlarkBuiltin(name = "response", doc = "An HTTP response.")
 public final class ScriptResponse extends ScriptMessage {
 
-    private static final ImmutableList<String> FIELDS = ImmutableList.of("status", "reason", "headers", "body", "text");
+    private static final ImmutableList<String> FIELDS =
+            ImmutableList.of("status", "reason", "headers", "body", "text", "source", "upstream_status");
 
     private final HttpResponse response;
+    private final String source;
+    private final int upstreamStatus;
 
+    /** A response the script made ({@code response(...)}): its source is {@code "filter"}. */
     ScriptResponse(HttpResponse response, boolean readOnly) {
+        this(response, readOnly, "filter", -1);
+    }
+
+    /**
+     * @param source where the response came from ({@code "server"}, {@code "proxy"}, {@code
+     *     "filter"}, {@code "cache"}), or null when that is not known
+     * @param upstreamStatus the status the server sent, or -1 for none
+     */
+    ScriptResponse(HttpResponse response, boolean readOnly, String source, int upstreamStatus) {
         super(response, readOnly);
         this.response = response;
+        this.source = source;
+        this.upstreamStatus = upstreamStatus;
     }
 
     HttpResponse response() {
         return response;
+    }
+
+    /** Types the builtins that return this class (see {@link ScriptType}). */
+    public static TypeConstructor getAssociatedTypeConstructor() {
+        return ScriptType.RESPONSE_CONSTRUCTOR;
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+        return ScriptType.RESPONSE;
     }
 
     @Override
@@ -38,6 +67,8 @@ public final class ScriptResponse extends ScriptMessage {
             case "headers" -> headers();
             case "body" -> body();
             case "text" -> text();
+            case "source" -> source == null ? Starlark.NONE : source;
+            case "upstream_status" -> upstreamStatus < 0 ? Starlark.NONE : StarlarkInt.of(upstreamStatus);
             default -> null;
         };
     }

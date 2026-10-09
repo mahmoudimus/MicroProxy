@@ -16,3 +16,17 @@ This product includes third-party software:
   from Bazel (https://github.com/bazelbuild/bazel), Copyright The Bazel Authors, with additions
   from starlarky (https://github.com/verygoodsecurity/starlarky), Copyright Very Good Security
   Authors. Licensed under the Apache License, Version 2.0.
+
+- The Larky runtime (microproxy-starlark/src/main/java/org/microproxy/thirdparty/larky) and the
+  Python-compatible standard library for scripts
+  (microproxy-starlark/src/main/resources/org/microproxy/starlark/stdlib and .../vendor), with
+  its tests (microproxy-starlark/src/test/resources/org/microproxy/starlark/stdlib_tests and
+  .../vendor_tests), from starlarky (https://github.com/verygoodsecurity/starlarky), with the same
+  copyright as starlarky's additions above. Licensed under the Apache License, Version 2.0.
+  Changes are listed in the
+  README.md next to the Java code and in comments marked "MicroProxy" in the .star files. Some
+  library files carry further notices in their headers: Starlark utilities from Bazel's Skylib
+  (Copyright The Bazel Authors, Apache License 2.0); hashlib, from CPython (Copyright Gregory P.
+  Smith, licensed to the Python Software Foundation); and xml/etree/ElementTree, ElementPath and
+  vendor/elementtree/SimpleXMLTreeBuilder, from ElementTree (Copyright Fredrik Lundh, under the
+  ElementTree license reproduced in those files).

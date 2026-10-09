@@ -3,7 +3,7 @@ package org.microproxy.http;
 import java.util.Objects;
 
 /** Mutable {@link HttpResponse} head. */
-public class DefaultHttpResponse implements HttpResponse {
+public non-sealed class DefaultHttpResponse implements HttpResponse {
 
     private HttpVersion version;
     private HttpResponseStatus status;

@@ -3,7 +3,7 @@ package org.microproxy.http;
 import java.util.Objects;
 
 /** Mutable {@link HttpRequest} head. */
-public class DefaultHttpRequest implements HttpRequest {
+public non-sealed class DefaultHttpRequest implements HttpRequest {
 
     private HttpVersion version;
     private HttpMethod method;

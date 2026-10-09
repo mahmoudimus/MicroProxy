@@ -50,6 +50,7 @@ class ActivityLoggerTest {
     void everyFormatLogsTheExchange() {
         String target = url(origin, "/path?q=\"x\"".replace("\"", "%22"));
         assertEquals(200, get(client(proxy), target).statusCode());
+        awaitExtended(1);
         for (LogFormat format : LogFormat.values()) {
             assertEquals(1, lines.get(format).size(), format + ": " + lines.get(format));
         }
@@ -69,10 +70,40 @@ class ActivityLoggerTest {
         assertEquals("127.0.0.1 [08/Oct/2026:12:34:56.789] " + request + " 200 5 0", lines.get(LogFormat.HAPROXY).get(0));
     }
 
+    /** JSON_EXTENDED lines are written once the response is complete, which the client may not wait for. */
+    private void awaitExtended(int n) {
+        for (int i = 0; i < 200 && lines.get(LogFormat.JSON_EXTENDED).size() < n; i++) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    @Test
+    void extendedJsonAddsSourceAndTimings() {
+        String target = url(origin, "/timed");
+        assertEquals(200, get(client(proxy), target).statusCode());
+        awaitExtended(1);
+        String line = lines.get(LogFormat.JSON_EXTENDED).get(0);
+        assertTrue(line.startsWith(lines.get(LogFormat.JSON).get(0).replaceAll("}$", "")), line);
+        assertTrue(Pattern.matches(".*,\"source\":\"SERVER\",\"upstream_status\":200,\"ttfb_ms\":\\d+\\.\\d{3},"
+                + "\"total_ms\":\\d+\\.\\d{3},\"dns_ms\":\\d+\\.\\d{3},\"connect_ms\":\\d+\\.\\d{3},\"tls_ms\":null}", line),
+                line);
+
+        assertEquals(502, get(client(proxy), "http://no-such-host.invalid/x").statusCode());
+        awaitExtended(2);
+        line = lines.get(LogFormat.JSON_EXTENDED).get(1);
+        assertTrue(line.contains(",\"status\":502,"), line);
+        assertTrue(line.contains(",\"source\":\"PROXY\",\"upstream_status\":null,\"ttfb_ms\":null,\"total_ms\":"), line);
+    }
+
     @Test
     void proxyGeneratedResponsesAreLoggedToo() {
         assertEquals(502, get(client(proxy), "http://no-such-host.invalid/x").statusCode());
         assertTrue(lines.get(LogFormat.CLF).get(0).endsWith("\"GET http://no-such-host.invalid/x HTTP/1.1\" 502 "
-                + "Bad Gateway: http://no-such-host.invalid/x".length()), lines.get(LogFormat.CLF).get(0));
+                + "Bad Gateway".length()), lines.get(LogFormat.CLF).get(0));
     }
 }

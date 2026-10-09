@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ProxyFailure;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
@@ -100,7 +101,7 @@ public final class HttpCache implements HttpFiltersSource {
     private final AtomicLong staleServed = new AtomicLong();
 
     private HttpCache(Builder b) {
-        this.store = b.store != null ? b.store : new MemoryCacheStore(64L << 20);
+        this.store = Objects.requireNonNullElseGet(b.store, () -> new MemoryCacheStore(64L << 20));
         this.maxEntrySize = b.maxEntrySize;
         this.shared = b.shared;
         this.offline = b.offline;
@@ -182,6 +183,16 @@ public final class HttpCache implements HttpFiltersSource {
 
         public HttpCache build() {
             return new HttpCache(this);
+        }
+    }
+
+    /**
+     * A response made by the cache: a stored response, or its own {@code 504}. The proxy reports
+     * these to trackers as {@link org.microproxy.ResponseSource#CACHE}.
+     */
+    public static final class Answer extends DefaultFullHttpResponse {
+        Answer(HttpResponseStatus status, byte[] content) {
+            super(HttpVersion.HTTP_1_1, status, content);
         }
     }
 
@@ -338,9 +349,9 @@ public final class HttpCache implements HttpFiltersSource {
         }
 
         @Override
-        public HttpObject proxyToClientResponse(HttpObject httpObject) {
-            if (httpObject instanceof HttpResponse res && !answered && !sawServerResponse && candidate != null) {
-                int status = res.status().code();
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            if (!answered && !sawServerResponse && candidate != null) {
+                int status = failure.status().code();
                 if ((status == 502 || status == 504) && serveStaleOnError && !requestCc.has("no-cache")
                         && !revalidationRequired(candidate.cacheControl())) {
                     staleServed.incrementAndGet();
@@ -349,7 +360,7 @@ public final class HttpCache implements HttpFiltersSource {
                     return tag(candidate.toResponse(clock.millis(), head), "hit; detail=server-unreachable");
                 }
             }
-            return httpObject;
+            return null;
         }
 
         private HttpResponse serve(CachedResponse stored, long now, String status) {
@@ -425,7 +436,7 @@ public final class HttpCache implements HttpFiltersSource {
 
     private static FullHttpResponse gatewayTimeout(String reason) {
         byte[] body = ("504 Gateway Timeout: " + reason + "\n").getBytes(StandardCharsets.UTF_8);
-        FullHttpResponse r = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(504), body);
+        FullHttpResponse r = new Answer(HttpResponseStatus.valueOf(504), body);
         r.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
         r.headers().set("Content-Length", String.valueOf(body.length));
         return r;

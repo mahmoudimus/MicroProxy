@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
@@ -88,7 +89,7 @@ public final class WarcWriter implements Closeable {
     }
 
     private void open() throws IOException {
-        String name = prefix + "-" + FILE_TIME.format(Instant.now()) + "-" + String.format("%05d", serial++)
+        String name = prefix + "-" + FILE_TIME.format(Instant.now()) + "-" + String.format(Locale.ROOT, "%05d", serial++)
                 + (gzip ? ".warc.gz" : ".warc");
         current = dir.resolve(name + ".open");
         out = new CountingStream(new BufferedOutputStream(Files.newOutputStream(current)));

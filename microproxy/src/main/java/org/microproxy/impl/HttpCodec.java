@@ -1,8 +1,11 @@
 package org.microproxy.impl;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Map;
 import org.microproxy.http.DefaultHttpContent;
 import org.microproxy.http.DefaultHttpRequest;
@@ -37,6 +40,13 @@ final class HttpCodec {
      * @return the request, or {@code null} if the connection closed cleanly before a request
      */
     static HttpRequest readRequest(ByteReader in, Limits limits) throws IOException {
+        int first = in.peek();
+        if (first < 0) return null;
+        if (!isRequestStart(first)) {
+            // Not HTTP: a TLS ClientHello (0x16), say. Fail now rather than wait for a line feed
+            // that may never come while the peer waits for an answer.
+            throw new HttpParseException("malformed request line");
+        }
         String line;
         int emptyLines = 0;
         do {
@@ -67,6 +77,11 @@ final class HttpCodec {
         } catch (IllegalArgumentException e) {
             throw new HttpParseException("malformed request-target");
         }
+    }
+
+    /** Whether a request may start with {@code b}: a method token character, or an empty line. */
+    private static boolean isRequestStart(int b) {
+        return b == '\r' || b == '\n' || (b > 0x20 && b < 0x7f && "\"(),/:;<=>?@[\\]{}".indexOf(b) < 0);
     }
 
     /**
@@ -111,7 +126,7 @@ final class HttpCodec {
         while (true) {
             String line = in.readLine(Math.max(0, maxSize - total), tooLarge);
             if (line == null) {
-                throw new java.io.EOFException("connection closed in headers");
+                throw new EOFException("connection closed in headers");
             }
             total += line.length() + 2;
             if (total > maxSize + 2) {
@@ -208,7 +223,7 @@ final class HttpCodec {
             if (remaining == 0) return finish(new DefaultLastHttpContent());
             byte[] data = readSome((int) Math.min(remaining, limits.maxChunkSize()));
             if (data == null) {
-                throw new java.io.EOFException("connection closed before end of body");
+                throw new EOFException("connection closed before end of body");
             }
             remaining -= data.length;
             return remaining == 0 ? finish(new DefaultLastHttpContent(data)) : new DefaultHttpContent(data);
@@ -229,7 +244,7 @@ final class HttpCodec {
                 }
                 String sizeLine = in.readLine(1024, HttpResponseStatus.BAD_REQUEST);
                 if (sizeLine == null) {
-                    throw new java.io.EOFException("connection closed before last chunk");
+                    throw new EOFException("connection closed before last chunk");
                 }
                 long size = parseChunkSize(sizeLine);
                 if (size == 0) {
@@ -240,7 +255,7 @@ final class HttpCodec {
             }
             byte[] data = readSome((int) Math.min(chunkRemaining, limits.maxChunkSize()));
             if (data == null) {
-                throw new java.io.EOFException("connection closed mid-chunk");
+                throw new EOFException("connection closed mid-chunk");
             }
             chunkRemaining -= data.length;
             return new DefaultHttpContent(data);
@@ -255,27 +270,27 @@ final class HttpCodec {
          */
         int read(byte[] dst, int off, int len) throws IOException {
             if (done) return -1;
-            switch (framing.kind()) {
+            return switch (framing.kind()) {
                 case NONE -> {
                     done = true;
-                    return -1;
+                    yield -1;
                 }
                 case LENGTH -> {
                     if (remaining == 0) {
                         done = true;
-                        return -1;
+                        yield -1;
                     }
                     int n = in.read(dst, off, (int) Math.min(len, remaining));
-                    if (n < 0) throw new java.io.EOFException("connection closed before end of body");
+                    if (n < 0) throw new EOFException("connection closed before end of body");
                     remaining -= n;
-                    return n;
+                    yield n;
                 }
                 case UNTIL_CLOSE -> {
                     int n = in.read(dst, off, len);
                     if (n < 0) done = true;
-                    return n;
+                    yield n;
                 }
-                default -> {
+                case CHUNKED -> {
                     if (chunkRemaining <= 0) {
                         if (chunkRemaining == 0) {
                             String crlf = in.readLine(2, HttpResponseStatus.BAD_REQUEST);
@@ -284,21 +299,21 @@ final class HttpCodec {
                             }
                         }
                         String sizeLine = in.readLine(1024, HttpResponseStatus.BAD_REQUEST);
-                        if (sizeLine == null) throw new java.io.EOFException("connection closed before last chunk");
+                        if (sizeLine == null) throw new EOFException("connection closed before last chunk");
                         long size = parseChunkSize(sizeLine);
                         if (size == 0) {
                             trailers = readHeaders(in, limits.maxHeaderSize(), true);
                             done = true;
-                            return -1;
+                            yield -1;
                         }
                         chunkRemaining = size;
                     }
                     int n = in.read(dst, off, (int) Math.min(len, chunkRemaining));
-                    if (n < 0) throw new java.io.EOFException("connection closed mid-chunk");
+                    if (n < 0) throw new EOFException("connection closed mid-chunk");
                     chunkRemaining -= n;
-                    return n;
+                    yield n;
                 }
-            }
+            };
         }
 
         /** The trailer fields of a chunked body, once {@link #read} has returned -1. */
@@ -311,24 +326,29 @@ final class HttpCodec {
             return in.buffered() > 0;
         }
 
+        /**
+         * {@code chunk-size [BWS ";" ...]} (RFC 9112 section 7.1): hex digits only. A sign or
+         * leading whitespace is rejected, since parsers that disagree on it enable smuggling.
+         */
         private static long parseChunkSize(String line) throws HttpParseException {
             int semi = line.indexOf(';');
-            String hex = (semi >= 0 ? line.substring(0, semi) : line).strip();
+            String hex = semi >= 0 ? line.substring(0, semi).stripTrailing() : line;
             if (hex.isEmpty() || hex.length() > 15) {
                 throw new HttpParseException("invalid chunk size");
             }
-            try {
-                return Long.parseLong(hex, 16);
-            } catch (NumberFormatException e) {
-                throw new HttpParseException("invalid chunk size");
+            for (int i = 0; i < hex.length(); i++) {
+                if (!HexFormat.isHexDigit(hex.charAt(i))) {
+                    throw new HttpParseException("invalid chunk size");
+                }
             }
+            return HexFormat.fromHexDigitsToLong(hex);
         }
 
         private byte[] readSome(int max) throws IOException {
             byte[] tmp = new byte[max];
             int n = in.read(tmp, 0, max);
             if (n < 0) return null;
-            return n == max ? tmp : java.util.Arrays.copyOf(tmp, n);
+            return n == max ? tmp : Arrays.copyOf(tmp, n);
         }
     }
 
@@ -362,19 +382,21 @@ final class HttpCodec {
                 }
             }
             // Written straight into the (pooled) output buffer, without building a string.
-            if (message instanceof HttpRequest req) {
-                writeLatin1(req.method().name());
-                out.write(' ');
-                writeLatin1(req.uri());
-                out.write(' ');
-                writeLatin1(req.protocolVersion().text());
-            } else {
-                HttpResponse res = (HttpResponse) message;
-                writeLatin1(res.protocolVersion().text());
-                out.write(' ');
-                writeDecimal(res.status().code());
-                out.write(' ');
-                writeLatin1(res.status().reasonPhrase());
+            switch (message) {
+                case HttpRequest req -> {
+                    writeLatin1(req.method().name());
+                    out.write(' ');
+                    writeLatin1(req.uri());
+                    out.write(' ');
+                    writeLatin1(req.protocolVersion().text());
+                }
+                case HttpResponse res -> {
+                    writeLatin1(res.protocolVersion().text());
+                    out.write(' ');
+                    writeDecimal(res.status().code());
+                    out.write(' ');
+                    writeLatin1(res.status().reasonPhrase());
+                }
             }
             out.write(CRLF);
             HttpHeaders headers = message.headers();
@@ -409,7 +431,6 @@ final class HttpCodec {
         /** Writes a body piece. */
         void writeContent(HttpContent content) throws IOException {
             byte[] data = content.content();
-            boolean last = content instanceof LastHttpContent;
             if (bodyAllowed) {
                 if (chunked) {
                     if (data.length > 0) {
@@ -418,9 +439,9 @@ final class HttpCodec {
                         out.write(data);
                         out.write(CRLF);
                     }
-                    if (last) {
+                    if (content instanceof LastHttpContent last) {
                         StringBuilder sb = new StringBuilder("0\r\n");
-                        appendHeaders(sb, ((LastHttpContent) content).trailingHeaders());
+                        appendHeaders(sb, last.trailingHeaders());
                         sb.append("\r\n");
                         out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
                     }

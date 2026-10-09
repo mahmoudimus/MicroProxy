@@ -4,7 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A resource record. RDATA is stored uncompressed (embedded names expanded) in original case.
@@ -67,7 +69,7 @@ record DnsRecord(DnsName name, int type, int dnsClass, long ttl, byte[] rdata) {
     record NameAt(DnsName name, int end) {}
 
     static NameAt readName(byte[] data, int offset) {
-        java.util.List<byte[]> labels = new java.util.ArrayList<>();
+        List<byte[]> labels = new ArrayList<>();
         int pos = offset;
         while (true) {
             if (pos >= data.length) throw new IllegalArgumentException("truncated name");

@@ -442,22 +442,24 @@ final class FrameDecoder {
     private FseTable table(int mode, FseTable previous, FseTable predefined, int maxLog, int maxSymbol, int[] at, int size)
             throws ZstdException {
         switch (mode) {
-            case 0:
+            case 0 -> {
                 return predefined;
-            case 1: {
+            }
+            case 1 -> {
                 need(at[0] + 1, size);
                 int symbol = block[at[0]++] & 0xff;
                 if (symbol > maxSymbol) throw ZstdException.corrupt("RLE sequence symbol out of range");
                 return FseTable.rle(symbol);
             }
-            case 2: {
+            case 2 -> {
                 FseTable t = FseTable.read(block, at[0], size, maxLog, maxSymbol, consumed);
                 at[0] += consumed[0];
                 return t;
             }
-            default:
+            default -> {
                 if (previous == null) throw ZstdException.corrupt("repeated sequence table without a previous one");
                 return previous;
+            }
         }
     }
 

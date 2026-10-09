@@ -32,6 +32,7 @@ import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkBytes;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
 import org.microproxy.thirdparty.starlark.eval.StarlarkFloat;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkList;
@@ -39,6 +40,7 @@ import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
 import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
 import org.microproxy.thirdparty.starlark.eval.StarlarkValue;
 import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.eval.TypeConstructorValue;
 import org.microproxy.thirdparty.starlark.lib.json.Json;
 
 /**
@@ -61,6 +63,14 @@ final class Builtins {
         env.put("time", new TimeModule());
         env.put("log", new LogModule());
         Starlark.addMethods(env, new Functions());
+        // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
+        env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));
+        env.put("Response", TypeConstructorValue.of(ScriptType.RESPONSE_CONSTRUCTOR));
+        env.put("Headers", TypeConstructorValue.of(ScriptType.HEADERS_CONSTRUCTOR));
+        env.put("Context", TypeConstructorValue.of(ScriptType.CONTEXT_CONSTRUCTOR));
+        env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
+        env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
+        env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 
@@ -230,7 +240,7 @@ final class Builtins {
         public String sub(String pattern, Object repl, String string, StarlarkInt count, StarlarkThread thread)
                 throws EvalException, InterruptedException {
             int limit = count.toInt("count");
-            if (!(repl instanceof String) && !(repl instanceof org.microproxy.thirdparty.starlark.eval.StarlarkCallable)) {
+            if (!(repl instanceof String) && !(repl instanceof StarlarkCallable)) {
                 throw Starlark.errorf("repl must be a string or function, not %s", Starlark.type(repl));
             }
             return bounded(() -> {
@@ -480,6 +490,11 @@ final class Builtins {
         }
     }
 
+    /**
+     * Hashes and HMACs as lowercase hex, and {@code equal}, which compares secrets in constant
+     * time: {@code ==} stops at the first differing character, so the time a comparison takes
+     * tells an attacker how much of a guessed token was right.
+     */
     @StarlarkBuiltin(name = "digest", doc = "Hashes and HMACs, returned as lowercase hex.")
     public static final class DigestModule implements StarlarkValue {
 
@@ -509,6 +524,16 @@ final class Builtins {
         @StarlarkMethod(name = "sha512", doc = "SHA-512 of data, as hex.", parameters = {@Param(name = "data")})
         public String sha512(Object data) throws EvalException {
             return hash("SHA-512", data);
+        }
+
+        @StarlarkMethod(
+                name = "equal",
+                doc = "Whether a and b (bytes, or strings as UTF-8) are equal, in time that does not depend on "
+                        + "where they differ. Use it to compare secrets; compare digests of both sides so that "
+                        + "lengths do not leak either.",
+                parameters = {@Param(name = "a"), @Param(name = "b")})
+        public boolean equal(Object a, Object b) throws EvalException {
+            return MessageDigest.isEqual(bytes(a, "a"), bytes(b, "b"));
         }
 
         @StarlarkMethod(name = "hmac_sha256", doc = "HMAC-SHA256 of data with key, as hex.",
@@ -558,6 +583,7 @@ final class Builtins {
 
         private static final String UNRESERVED =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+        private static final HexFormat HEX_UPPER = HexFormat.of().withUpperCase();
 
         @StarlarkMethod(name = "quote", doc = "Percent-encodes s (UTF-8), leaving unreserved characters and safe alone.",
                 parameters = {@Param(name = "s"), @Param(name = "safe", named = true, defaultValue = "'/'")})
@@ -568,7 +594,7 @@ final class Builtins {
                 if (c < 0x80 && (UNRESERVED.indexOf(c) >= 0 || safe.indexOf(c) >= 0)) {
                     out.append(c);
                 } else {
-                    out.append('%').append(HexFormat.of().withUpperCase().toHexDigits(b));
+                    out.append('%').append(HEX_UPPER.toHexDigits(b));
                 }
             }
             return out.toString();

@@ -86,6 +86,19 @@ class BuiltinsTest {
     }
 
     @Test
+    void constantTimeEquality() throws ScriptException {
+        check(
+                "if not digest.equal('secret', 'secret'): fail('equal strings')",
+                "if digest.equal('secret', 'secreT') or digest.equal('secret', 'secret2'): fail('different strings')",
+                "if not digest.equal(b'\\x00\\xff', b'\\x00\\xff') or digest.equal(b'a', b'b'): fail('bytes')",
+                "if not digest.equal('\u00e9', b'\\xc3\\xa9'): fail('strings compare as UTF-8')",
+                "if not digest.equal('', b''): fail('empty')",
+                "if not digest.equal(digest.sha256('token'), digest.sha256(b'token')): fail('digests')");
+        ScriptException e = assertThrows(ScriptException.class, () -> check("digest.equal('a', 1)"));
+        assertTrue(e.getMessage().contains("b must be bytes or string, not int"), e.getMessage());
+    }
+
+    @Test
     void responseBuiltin() throws ScriptException {
         check(
                 "r = response(404, 'nope', headers={'X-A': 'b'})",

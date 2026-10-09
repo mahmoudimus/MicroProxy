@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.WebSocketTestSupport.EchoServer;
 
 class WebSocketFrameTest {
 
@@ -114,6 +115,69 @@ class WebSocketFrameTest {
             assertTrue(truncated.isTruncated());
             assertEquals(2000, truncated.payloadLength());
             assertNull(truncated.payload());
+        }
+    }
+
+    @Test
+    void framesRoundTripThroughTheWireEncoding() throws Exception {
+        for (int size : new int[] {0, 125, 126, 65535, 65536, 70000}) {
+            byte[] payload = new byte[size];
+            for (int i = 0; i < size; i++) payload[i] = (byte) (i * 31);
+            for (boolean masked : new boolean[] {false, true}) {
+                WebSocketFrame frame = WebSocketFrame.of(false, 4, WebSocketFrame.OPCODE_BINARY, payload);
+                byte[] wire = frame.toWire(masked);
+                WebSocketFrame back = WebSocketTestSupport.readFrame(new java.io.ByteArrayInputStream(wire));
+                assertEquals(masked, back.isMasked(), "masked " + size);
+                assertFalse(back.isFinal());
+                assertEquals(4, back.rsv());
+                assertTrue(back.isBinary());
+                assertEquals(size, back.payloadLength());
+                assertArrayEquals(payload, back.payload(), "payload " + size);
+            }
+        }
+        WebSocketFrame close = WebSocketFrame.close(1001, "going away");
+        assertTrue(close.isClose());
+        assertEquals(1001, (close.payload()[0] & 0xff) << 8 | (close.payload()[1] & 0xff));
+        assertEquals("hi", WebSocketFrame.text("x").withText("hi").payloadAsText());
+    }
+
+    @Test
+    void filtersRewriteAndDropFramesInBothDirections() throws Exception {
+        proxy = MicroProxy.bootstrap().withPort(0).withMaxWebSocketFrameBufferSize(1000)
+                .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @Override
+                    public HttpFilters filterRequest(HttpRequest req, FlowContext ctx) {
+                        return new HttpFilters() {
+                            @Override
+                            public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+                                if (frame.isTruncated()) return null; // too big to inspect: drop it
+                                if (!frame.isText()) return frame;
+                                String text = frame.payloadAsText();
+                                if (text.startsWith("secret")) return null;
+                                return fromClient ? frame.withText(text.toUpperCase()) : frame.withText(text + "!");
+                            }
+                        };
+                    }
+                }).start();
+        try (EchoServer server = new EchoServer(); Socket s = WebSocketTestSupport.connect(proxy, server.raw())) {
+            OutputStream out = s.getOutputStream();
+            WebSocketTestSupport.sendFromClient(out, WebSocketFrame.text("hello"));
+            WebSocketTestSupport.sendFromClient(out, WebSocketFrame.text("secret token"));
+            WebSocketTestSupport.sendFromClient(out, WebSocketFrame.binary(new byte[2000]));
+            WebSocketTestSupport.sendFromClient(out, WebSocketFrame.text("ping"));
+            WebSocketFrame echo = WebSocketTestSupport.readFrame(s.getInputStream());
+            assertEquals("echo:PING!", echo.payloadAsText());
+            assertFalse(echo.isMasked(), "frames towards the client are not masked");
+            WebSocketTestSupport.sendFromClient(out, WebSocketFrame.close(1000, "done"));
+            assertTrue(WebSocketTestSupport.readFrame(s.getInputStream()).isClose());
+
+            assertTrue(server.upgradeRequest.startsWith("GET /chat"), server.upgradeRequest);
+            assertFalse(server.upgradeRequest.toLowerCase().contains("sec-websocket-extensions"),
+                    "compression is not negotiated when frames are rewritten");
+            List<String> texts = server.received.stream()
+                    .map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
+            assertEquals(List.of("HELLO", "PING", "<close>"), texts);
+            assertTrue(server.received.stream().allMatch(WebSocketFrame::isMasked), "frames towards the server are masked");
         }
     }
 }

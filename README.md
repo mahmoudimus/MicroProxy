@@ -1,5 +1,11 @@
 # MicroProxy
 
+[![CI](https://github.com/mahmoudimus/MicroProxy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mahmoudimus/MicroProxy/actions/workflows/ci.yml)
+[![Release](https://github.com/mahmoudimus/MicroProxy/actions/workflows/release.yml/badge.svg)](https://github.com/mahmoudimus/MicroProxy/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/mahmoudimus/MicroProxy?include_prereleases&sort=semver)](https://github.com/mahmoudimus/MicroProxy/releases)
+[![Java 21+](https://img.shields.io/badge/Java-21%2B-blue)](https://openjdk.org/projects/jdk/21/)
+[![License](https://img.shields.io/github/license/mahmoudimus/MicroProxy)](LICENSE)
+
 MicroProxy is an HTTP/HTTPS proxy for Java that can intercept and rewrite traffic. It is a
 port of [LittleProxy](https://github.com/LittleProxy/LittleProxy) that drops Netty. Each
 connection runs on its own **virtual thread** (Project Loom) and uses plain blocking socket I/O.
@@ -90,20 +96,23 @@ pins its carrier thread:
 
 ## Running
 
+<!-- x-release-please-start-version -->
 ```bash
 mvn package
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   # intercept HTTPS
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
+java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm --log-http headers   # dump traffic
 java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
 
 # With zstd decoding:
-java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar \
-    org.microproxy.Launcher --port 8080
+java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
+zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080
 
 # The same launcher with scripting and zstd built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
 ```
+<!-- x-release-please-end -->
 
 `--mitm` creates (or reuses) a CA in `microproxy-ca.p12` and writes its certificate to
 `microproxy-ca.pem`. To intercept HTTPS without errors, add that certificate to your client's
@@ -143,11 +152,13 @@ turns the small immutable records marked `// @value-candidate` into value classe
 `HttpVersion`, `HttpResponseStatus`, `HostAndPort`, `Framing`, the DNS record types, cache and
 pool records, and so on (19 in all).
 
+<!-- x-release-please-start-version -->
 ```bash
 # JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
 mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
 java --enable-preview -cp microproxy/target/microproxy-0.1.0-SNAPSHOT-valhalla.jar org.microproxy.Launcher
 ```
+<!-- x-release-please-end -->
 
 Measured on JDK 28 EA (build 18), with identical code apart from the `value` modifier:
 
@@ -175,7 +186,10 @@ Command-line flags override values from the file.
 | `allow_local_only` | listen on loopback only | `true` |
 | `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
-| `connect_timeout` | milliseconds | `40000` |
+| `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
+| `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
+| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
+| `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
@@ -185,15 +199,21 @@ Command-line flags override values from the file.
 | `use_shared_server_connection_pool` | share server connections between clients | `false` |
 | `server_connection_pool_type` | pool implementation (`CONCURRENT_MAP`) | `CONCURRENT_MAP` |
 | `max_connections_per_host` / `max_total_connections` | pool limits | `10` / `200` |
+| `max_concurrent_per_client` | exchanges each client IP may run at once; more get `429` (see [Concurrency limiting](#concurrency-limiting)) | off |
 | `pool_idle_timeout` | seconds before idle pooled connections close | none |
 | `pool_shared_mitm_connections` / `pool_per_request_in_mitm` | pool intercepted TLS connections, per session / per request | `false` |
 | `upstream_proxy` / `upstream_https_proxy` | chain to `http(s)://[user:pw@]host:port` or `socks4/5://...` (HTTPS / CONNECT may use a different upstream) | none |
 | `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
+| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](#retries-and-backoff)) | off / 8 × initial |
+| `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](#removing-tracing-headers)) | `false` |
+| `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
-| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
+| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
+| `log_http` | log whole requests and responses: `basic`, `headers` or `body` (see [Request/response logging](#requestresponse-logging)) | off |
+| `log_http_format` | `text` or `json` (one object per line) for `log_http` | `text` |
 | `cache_dir` / `cache_max_mb` | cache responses on disk (see [HTTP cache](#http-cache)) / its size | off / `1024` |
 | `cache_memory_mb` | cache responses in memory instead | off |
 | `cache_max_entry_mb` | largest response body cached | `8` |
@@ -206,22 +226,104 @@ Command-line flags override values from the file.
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
-| MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
-| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
+| MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
+| Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection, optionally with exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
-| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
-| Proxy authentication | `ProxyAuthenticator` (Basic) |
+| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` hooks in Starlark, sandboxed, with hot reload (see below) |
+| Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
-| PROXY protocol | accept v1 and v2, send v1 |
+| TLS protocol pinning | every TLS connection (listener, both sides of interception, TLS chained proxies) allows only TLS 1.3 and 1.2 by default; `withTlsProtocols(...)` changes it (see below) |
+| PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
 | WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
-| Access logs | `ActivityLogger` in eight formats |
+| Access logs | `ActivityLogger` in nine formats, one with per-phase timings |
+| Request/response logging | `HttpLogger` dumps whole messages (heads, the changes the proxy and filters made, bodies on request) as readable blocks or JSON lines, with redaction (see below) |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
-| Activity tracking | `ActivityTracker` for connections, requests, responses and bytes |
+| Concurrency limiting | `ConcurrencyLimiter` caps the exchanges in progress per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics (see below) |
+| Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
+| Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3 and other common trace headers) and any other named headers from requests sent upstream, after all filters (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
+
+### Filters from lambdas
+
+`HttpFilters` keeps LittleProxy's shape: a class that overrides the hooks it needs. For small
+filters, `HttpFilters.builder()` takes one lambda per hook instead, and `HttpFiltersSource` is a
+functional interface:
+
+```java
+HttpFilters filters = HttpFilters.builder()
+        .onRequest(req -> req.uri().contains("/admin") ? forbidden() : null)   // short-circuit
+        .beforeSending(req -> { req.headers().set("X-Trace", traceId()); return null; })
+        .onResponse(res -> { res.headers().remove("Server"); return res; })
+        .onWebSocketFrame((frame, fromClient) -> frame.isPing() ? null : frame)
+        .build();
+MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
+```
+
+Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `resolveWith`,
+`allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
+`log(httpLogger)` logs each exchange around the lambdas (see [Request/response
+logging](#requestresponse-logging)), whether a lambda source returns the built filters, as above,
+or they are the source themselves: they are also an `HttpFiltersSource` that returns them for every
+request, so `withFiltersSource(filters)` works as well.
+
+**Per-request connect timeout:** `HttpFilters.proxyToServerConnectTimeout()` (or `connectTimeout(Duration)`
+in the builder) bounds the TCP connect of the request's new connections, direct or to each chained
+proxy tried, instead of the server's `withConnectTimeout`. `null` (the default) or a non-positive
+duration keeps the server's; in a chain the shortest timeout wins. It is asked only when a new
+connection is needed, and does not cover name resolution or TLS handshakes:
+
+```java
+HttpFilters.builder()
+        .connectTimeout(Duration.ofMillis(500))   // fail fast, e.g. to fall back to the next upstream
+        .build();
+```
+
+Bodies and frames are only split into pieces when a body or frame hook is registered; otherwise they
+take the fast path, as they do for a filters class that doesn't override those hooks. A filters
+class that overrides `clientToProxyRequest` or `serverToProxyResponse` only to read heads can say so
+by implementing `SelectiveFilters`: the proxy then asks its `sees(Body)` instead of guessing from the
+class.
+
+### Failure responses
+
+When the proxy has to answer a request itself, it sends a short plain-text body (`Bad Gateway`,
+`Gateway Timeout`, ...) that never echoes the request. The cause is a sealed `ProxyFailure`:
+
+| `ProxyFailure` | when | default |
+|---|---|---|
+| `UnresolvedHost` | the server's name did not resolve | `502` |
+| `ConnectFailed` | connection refused, unreachable or timed out; a chained proxy refused, or its own name did not resolve | `502` |
+| `TlsFailed` | the TLS handshake with the server (MITM) or a TLS chained proxy failed or timed out | `502` |
+| `ServerTimeout` | no response within the idle timeout | `504` |
+| `BadServerResponse` | malformed response, or the server closed or failed before the head was complete | `502` |
+| `NoRoute` | the request names no host, or the chained proxy manager offered no route | `502` |
+| `NoConnectionAvailable` | the shared connection pool had no connection to spare | `503` |
+| `BadRequest` | an origin-form request (unless allowed) or an invalid `CONNECT` target | `400` |
+| `RequestTooLarge` | the body exceeds what the filters asked to buffer | `413` |
+
+Filters can answer first (`HttpFilters.proxyToServerFailure`, or `onFailure` in the builder; in a
+chain the first answer wins), then a `FailureResponder`; returning `null` keeps the default:
+
+```java
+MicroProxy.bootstrap()
+        .withFailureResponder((request, failure) -> switch (failure) {
+            case ProxyFailure.TlsFailed f -> errorPage(502, "The site's certificate is not trusted");
+            case ProxyFailure.ServerTimeout f -> errorPage(504, "The site took too long to answer");
+            default -> null;
+        })
+        .start();
+```
+
+Starlark scripts answer through `on_failure` (see [Scripting with Starlark](#scripting-with-starlark)).
+The proxy frames whatever is returned (`Content-Length`, keep-alive, no body for `HEAD`), and it
+passes `proxyToClientResponse` like the default answers. A responder that throws is logged and the
+default is sent. Requests the proxy cannot parse at all are answered with a plain `4xx` without
+asking anyone. `HttpCache` uses the filter hook to serve stale entries when servers are
+unreachable.
 
 ### Upstream proxies and NO_PROXY
 
@@ -245,6 +347,233 @@ java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --no-proxy "loc
 For servers or proxies signed by a private CA, `SslContexts.systemDefaultPlus(caCert)` trusts the
 JDK's roots plus extra anchors and keeps host-name checks. Use it as the MITM manager's upstream
 context, or as a chained proxy's.
+
+#### Retries and backoff
+
+When a connection through one chained proxy fails (refused, timed out, its name does not resolve,
+its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
+`ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once.
+`withChainedProxyRetryBackoff(initial, max)` (or `chained_proxy_backoff_initial_ms` and
+`chained_proxy_backoff_max_ms`, or `--chained-proxy-backoff <initial-ms>[:<max-ms>]`) waits in
+between, so a flapping upstream is not hammered:
+
+```java
+MicroProxy.bootstrap()
+        .withChainProxyManager(upstreams)
+        .withChainedProxyRetryBackoff(Duration.ofMillis(100), Duration.ofSeconds(2))
+        .start();
+```
+
+```bash
+java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --chained-proxy-backoff 100:2000
+java -jar microproxy.jar --config proxy.properties --chained-proxy-backoff 0   # turn off the file's backoff
+```
+
+Without a maximum, the property and the flag cap the wait at 8 × the initial one; `0` on the
+command line turns waiting off, overriding a properties file.
+
+- Before attempt `n + 1` it waits a random time between zero and `initial * 2^(n-1)`, capped at
+  `max` ("full jitter", so clients that failed together do not retry together).
+- It never waits before the first attempt or after the last one.
+- It stops waiting, and gives up on the request, if the client disconnects meanwhile. Once the
+  client has sent more bytes (a request body, a pipelined request) a disconnect can no longer be
+  seen, and the rest of the wait is a plain sleep.
+- The waits of one request add up to at most 30 seconds or the connect timeout, whichever is
+  less, so a long candidate list cannot hold a request for minutes. Once that budget is spent,
+  the remaining candidates are tried without waiting.
+- The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
+  only a `DEBUG` log line.
+
+### Proxy authentication
+
+`withProxyAuthenticator` makes clients authenticate. A `ProxyAuthenticator` that only implements
+`authenticate(user, password)` checks `Proxy-Authorization: Basic` and answers failures with
+`407` and `Proxy-Authenticate: Basic realm="..."` (`getRealm()`). For other schemes, override
+`authenticate(HttpRequest, FlowContext)`, which sees the whole request and the client connection
+and returns an `AuthResult`:
+
+- `AuthResult.accept(user)`: the request proceeds, and `user` (which may be `null`) becomes
+  `ClientDetails.getUserName()` for filters, trackers, access logs, the `ChainedProxyManager`,
+  MITM decisions and Starlark's `ctx.user`.
+- `AuthResult.reject(response)`: the client gets `response`, for instance a `407` with your own
+  `Proxy-Authenticate` header and body, or a `403`. `AuthResult.reject()` sends the default
+  Basic `407`.
+
+```java
+MicroProxy.bootstrap()
+        .withProxyAuthenticator(new ProxyAuthenticator() {
+            @Override
+            public AuthResult authenticate(HttpRequest request, FlowContext flow) {
+                String value = request.headers().get(HttpHeaderNames.PROXY_AUTHORIZATION);
+                if (value != null && value.startsWith("Bearer ")) {
+                    String user = tokens.userFor(value.substring(7));   // your token check
+                    if (user != null) return AuthResult.accept(user);
+                }
+                FullHttpResponse challenge = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+                        HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, "{\"error\":\"invalid_token\"}");
+                challenge.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE, "Bearer realm=\"proxy\"");
+                return AuthResult.reject(challenge);
+            }
+
+            @Override
+            public boolean authenticate(String userName, String password) {
+                return false;   // no Basic credentials
+            }
+
+            @Override
+            public boolean authenticateEveryRequest() {
+                return true;    // tokens expire
+            }
+        })
+        .start();
+```
+
+- **Once per connection:** by default the first accepted request authenticates its client
+  connection, and later requests on it are not checked. `authenticateEveryRequest()` checks every
+  request instead. When the accepted user changes on a connection, the server connections made
+  for the previous user are given up, so routing is decided again.
+- **CONNECT and interception:** a `CONNECT` is authenticated like any request. The requests inside
+  an intercepted session carry no proxy credentials and are covered by their `CONNECT`, even with
+  `authenticateEveryRequest()`.
+- **Credentials stay here:** whatever the scheme, `Proxy-Authorization` is removed from every
+  request before filters see it, so it is never forwarded, even by a transparent proxy.
+- To accept Basic as well, fall back to `ProxyAuthenticator.super.authenticate(request, flow)`.
+- A Starlark script can be the authenticator, with an `authenticate` hook (see
+  [Scripting with Starlark](#scripting-with-starlark)).
+
+### Concurrency limiting
+
+`org.microproxy.extras.ConcurrencyLimiter` is a filters source that caps how many exchanges run at
+once per key. Requests over the limit wait in a bounded queue, or are answered with `429 Too Many
+Requests` (plain text, `Retry-After: 1` by default):
+
+```java
+ConcurrencyLimiter limiter = ConcurrencyLimiter.builder()
+        .key(ConcurrencyLimiter.byUser())              // default: byClientIp(); also byTargetHost()
+        .permits(8)                                     // per key
+        .permits(user -> user.equals("batch") ? 32 : null)   // null: the default
+        .queue(16, Duration.ofSeconds(2))               // default: refuse at once
+        .onReject((key, request, flow) -> metrics.increment("limited", key))
+        .build();
+MicroProxy.bootstrap().withFiltersSource(HttpFiltersChain.of(limiter, myFilters)).start();
+```
+
+- **Key:** any `(request, flow) -> String`, for example `flow.getClientDetails().getUserName()` or
+  the target host; a `null` key leaves the request unlimited.
+- **When a permit is held:** it is taken in `clientToProxyRequest`, which runs after proxy
+  authentication (requests answered with `407` are never counted), and released exactly once in
+  `HttpFilters.exchangeEnded`: after the response is written, or when the exchange was abandoned
+  (client gone, server failure, a filter's answer or abort, the proxy stopping). Put the limiter
+  first among the filters so the others do no work for refused requests.
+- **Tunnels:** a `CONNECT` tunnel and an upgraded (WebSocket) connection hold their permit until
+  they close; `countTunnels(false)` stops counting `CONNECT`s and releases an upgrade's permit
+  after its `101`. An intercepted `CONNECT` holds its permit only until interception starts, and
+  the requests inside the session are counted one by one.
+- **Safety net:** a permit held for longer than `permitTimeout` (10 minutes by default) is
+  reclaimed and logged at `WARNING`; established tunnels are exempt.
+- **Shadow mode:** `shadow(true)` counts and reports requests over the limit but lets them
+  through, to try a limit out first.
+- **Answers:** `retryAfter(Duration)` (or `null` for none) and `response((key, request, flow) ->
+  ...)` replace the default `429`.
+- **Metrics:** `snapshot()` returns the permits in use, waiting and refused per busy key, plus
+  totals (granted, refused, reclaimed). A key is forgotten as soon as none of its permits are in
+  use, so memory stays bounded by the exchanges in progress.
+
+Waiting blocks only the client connection's virtual thread. The limiter reads request heads only,
+so bodies keep the fast path. Lambda-built filters keep no state per exchange, so combine them
+with a limiter in a chain rather than inside the builder. On the command line,
+`--max-concurrent-per-client N` (or `max_concurrent_per_client=N`) installs one keyed by client IP.
+
+### Removing tracing headers
+
+Clients and services often send distributed tracing headers that carry trace ids, sampling
+decisions and baggage (sometimes user ids) to whatever server they talk to. To keep them from
+leaving through the proxy:
+
+```java
+MicroProxy.bootstrap()
+        .withoutTracingHeadersUpstream()                 // HttpHeaderNames.TRACING_HEADERS
+        .plusStrippedRequestHeaders("X-Request-Id")      // and any others
+        .start();
+```
+
+- **The list:** `traceparent`, `tracestate`, `baggage`, `b3`, `X-B3-TraceId`, `X-B3-SpanId`,
+  `X-B3-ParentSpanId`, `X-B3-Sampled`, `X-B3-Flags`, `uber-trace-id`, `X-Amzn-Trace-Id`,
+  `X-Cloud-Trace-Context`, `grpc-trace-bin` and `sentry-trace`. `X-Request-Id` is not on it,
+  because servers often want it; add it with `plusStrippedRequestHeaders` if yours do not.
+- **When:** right before a request is written to the server or chained proxy, after every filter,
+  so headers a filter added are removed too. Filters, `HttpLogger`'s "forwarded as" view and
+  `ActivityTracker.requestReceivedFromClient` still see them; `requestSentToServer` does not.
+- **Where:** plain requests, requests inside intercepted (MITM) sessions, WebSocket upgrade
+  requests, and the `CONNECT` requests sent to HTTP chained proxies. The bytes of a tunnel that is
+  not intercepted cannot be touched.
+- `withStrippedRequestHeaders(names...)` replaces the list instead of adding to it; names are
+  matched case-insensitively.
+- On the command line: `--strip-tracing-headers` and `--strip-request-headers a,b`; in properties
+  files: `strip_tracing_headers=true` and `strip_request_headers=a,b`.
+
+### Interception per client connection
+
+The proxy hands every `MitmManager` call the client connection's `FlowContext`, with its
+authenticated user (`getClientDetails().getUserName()`) and address (`getClientAddress()`). Two
+ways to use it:
+
+- **One manager per tenant:** `MitmManager.perConnection(flow -> ...)` picks a manager when a
+  connection is first intercepted and keeps it for that connection. Return the same instance for
+  clients that may share server connections; `null` tunnels without interception.
+
+  ```java
+  Map<String, MitmManager> byTenant = Map.of(
+          "alice", new CertificateAuthorityMitmManager(aliceCa, aliceUpstreamContext),
+          "bob", new CertificateAuthorityMitmManager(bobCa, bobUpstreamContext));
+  MicroProxy.bootstrap()
+          .withProxyAuthenticator(authenticator)
+          .withManInTheMiddle(MitmManager.perConnection(
+                  flow -> byTenant.get(flow.getClientDetails().getUserName())))
+          .start();
+  ```
+
+- **One manager deciding per call:** override the `FlowContext` overloads,
+  `serverSslContext(host, port, flow)` (upstream trust store and client certificate; `flow` is a
+  `FullFlowContext` naming the server and route), `clientSslContextFor(connect, session, flow)`
+  (the certificate shown to the client) or `configureServerSocket(socket, flow)`. They default to
+  the methods without `FlowContext`, so existing managers work unchanged.
+
+An upstream context with a key (`SslContexts.withKey(key, chain, trustManagers)`) presents that
+client certificate to servers that ask for one.
+
+With `withPoolSharedMitmConnections(true)`, a pooled TLS connection carries the trust and client
+certificate it was made with, so the pool keeps them apart. Connections made by a manager chosen
+with `forConnection` (which `perConnection` uses) are pooled under that manager and only reused by
+clients given the same one. A manager overriding `serverSslContext(host, port, flow)` or
+`configureServerSocket(socket, flow)` may decide differently for every client, so its server
+connections are not pooled: each client connection keeps its own. Overriding only
+`clientSslContextFor(..., flow)` does not affect pooling.
+
+### TLS protocol versions
+
+Every TLS socket the proxy creates allows only `TLSv1.3` and `TLSv1.2` by default: the TLS
+listener (`withSslContextSource`), both sides of an intercepted session (towards the client and
+towards the server) and connections to TLS chained proxies. `withTlsProtocols(...)` (or
+`tls_protocols=...`, `--tls-protocols ...`) changes the list:
+
+```java
+MicroProxy.bootstrap().withTlsProtocols("TLSv1.3").start();   // TLS 1.3 only
+MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext's own defaults
+```
+
+- **Per socket:** each socket enables the listed versions its `SSLContext` supports, in the order
+  given. If it supports none of them, the handshake fails with an error naming both lists (a
+  `TlsFailed` towards servers, a failed handshake towards clients).
+- **Order:** the versions are set right after the socket is created, before
+  `SslContextSource.configure`, `MitmManager.configureServerSocket` and `ChainedProxy.configure`
+  run. A hook that sets its own protocols therefore wins.
+- **The JDK still applies** `jdk.tls.disabledAlgorithms`, which turns off TLS 1.1 and older,
+  whatever is listed here.
+- A server that refuses the proxy's versions with a `protocol_version` alert gets a `502`
+  (`TlsFailed`). One that just closes the connection on the proxy's `ClientHello` looks like a
+  server that does not speak TLS, and the `CONNECT` is tunnelled without interception, as for
+  any non-TLS server.
 
 ### Rewriting bodies
 
@@ -404,16 +733,21 @@ def allow_mitm(req, ctx):
     return not req.host.endswith(".bank.example")
 ```
 
+<!-- x-release-please-start-version -->
 ```bash
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --mitm --script proxy.star
 ```
+<!-- x-release-please-end -->
 
 Or from Java, install one `ScriptedProxy` as both the filters source and the chained proxy
-manager:
+manager, and as the authenticator when the script defines `authenticate` (`--script` does this
+by itself):
 
 ```java
 ScriptedProxy script = ScriptedProxy.builder(Path.of("proxy.star")).build();
-MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).start();
+HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script);
+if (script.definesAuthenticate()) bootstrap.withProxyAuthenticator(script);
+bootstrap.start();
 ```
 
 **Hooks.** All are optional.
@@ -426,19 +760,33 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
 | `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
+| `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
+| `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
+| `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
 
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`.
-- `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`.
+- `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`, plus `source` and
+  `upstream_status` (below).
 - `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
   streamed rather than buffered. Assigning either re-encodes the body.
 - `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
-  and `vars`, a dict that lives for one request so `on_request` can pass values to
-  `on_response`.
+  `timings` (below), and `vars`, a dict that lives for one request so `on_request` can pass
+  values to `on_response`. For a WebSocket it lives as long as the connection.
+- `failure`: `kind` (`"unresolved_host"`, `"connect_failed"`, `"tls_failed"`,
+  `"server_timeout"`, `"bad_server_response"`, `"no_route"`, `"no_connection_available"`,
+  `"bad_request"`, `"request_too_large"`), `status` (of the default answer), `host` (the server's
+  name without the port; `None` for `bad_request`, `request_too_large` and a request that names
+  no host), and `message`: the cause's message
+  (`Connection refused`, ...) or the reason, never a stack trace.
+- `frame`: `type` (`"text"`, `"binary"`, `"continuation"`, `"close"`, `"ping"`, `"pong"`),
+  `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
+  assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
+  frame.
 
 **Built-ins.**
 
@@ -448,14 +796,271 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
   `escape`. Patterns use java.util.regex syntax plus Python's `(?P<name>...)`, and are
   abandoned at the call's deadline.
 - `base64.encode`/`decode` (`urlsafe=True`), `codecs.encode`/`decode`.
-- `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex).
+- `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex), and `digest.equal(a, b)`,
+  which compares bytes or strings (as UTF-8) in constant time. Use it, not `==`, for tokens and
+  signatures: `==` stops at the first difference, so how long a guess takes to fail tells an
+  attacker how much of it was right. Compare digests of both sides (as below) so the length does
+  not leak either.
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
+- More with `load()`: Python's `hashlib`, `hmac`, `re`, `urllib.parse`, `json`, `zlib`, ... (see
+  **Standard library** below).
+
+**Where a response came from, and how long it took.** `res.source` tells the server's responses
+from the others, like the `source` of the [access log](#access-logs), and `res.upstream_status`
+is the status the server sent (`None` if it sent none). They describe the response as the hook
+received it, not the script's own changes:
+
+| where | `res.source` |
+|---|---|
+| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
+| `response(...)` | `"filter"` |
+
+The script never sees the proxy's own answers or other filters' short-circuits as `res`
+(`on_failure` makes the former), and filters after it (including a cache placed last, as
+`--cache-dir` does) may still replace the response: `ActivityTracker`s and the access log report
+the final source.
+
+`ctx.timings` is a read-only snapshot, taken when read, of the exchange's
+[timings](#observability) in milliseconds: `dns_ms`, `connect_ms`, `tls_ms` (towards the server),
+`client_tls_ms`, `ttfb_ms` (to the first byte of the server's response) and `total_ms` (to the
+last byte sent to the client). Each is a float, or `None` for a phase that did not happen or has
+not happened yet: in `on_request` only `client_tls_ms` can be known, in `on_response` and
+`on_failure` the server phases so far, and `total_ms` only in `on_websocket_frame` (after the
+upgrade's response). A request on a reused connection has no `dns_ms`, `connect_ms` or `tls_ms`;
+inside an intercepted session they belong to the `CONNECT`.
+
+Log slow servers, and tell the client how long the server took:
+
+```python
+def on_response(req, res, ctx):
+    t = ctx.timings
+    if t.ttfb_ms == None:
+        return None
+    if t.ttfb_ms > 1000:
+        log.warn("%s: first byte after %d ms (dns %s, connect %s, tls %s), %s from the %s" % (
+            req.url, t.ttfb_ms, t.dns_ms, t.connect_ms, t.tls_ms, res.upstream_status, res.source))
+    res.headers["Server-Timing"] = "upstream;dur=%d" % t.ttfb_ms
+    return None
+```
+
+**Answering failures.** `on_failure` replaces the proxy's plain-text answers, and leaves the rest
+to the [`FailureResponder`](#failure-responses) or the default by returning `None`:
+
+```python
+def on_failure(req, failure, ctx):
+    if failure.kind in ["unresolved_host", "connect_failed"]:
+        return response(502, "%s is unreachable: %s\n" % (failure.host, failure.message),
+                        headers={"Retry-After": "30"})
+    if failure.kind == "server_timeout":
+        return response(504, json.encode({"error": "timeout", "host": failure.host}),
+                        content_type="application/json")
+    return None  # the FailureResponder's answer, or the proxy's default
+```
+
+**Authenticating clients.** A script that defines `authenticate` decides who may use the proxy
+(see [Proxy authentication](#proxy-authentication)). `req` is read-only there, and still carries
+`Proxy-Authorization`, which the proxy removes before the other hooks see the request. `ctx.user`
+is the user the connection authenticated as before, if any; `ctx.vars` is not shared with the
+other hooks, whose `ctx.user` is the user it accepts. It fails closed: a failing or timed-out
+call, an empty string or any other value rejects the request with the default `407` and is
+logged, and so is every request if a reload removes `authenticate`. By default the first
+accepted request authenticates its connection; `AUTHENTICATE_EVERY_REQUEST = True` checks every
+request.
+
+Bearer tokens, compared in constant time. Never write secrets into a script: here they come from
+constants (below), and only their SHA-256 digests are given to the proxy:
+
+```python
+# TOKENS = "alice:<sha256 of alice's token>,bob:<sha256 of bob's token>", from --script-var(-file)
+USERS = [entry.split(":") for entry in TOKENS.split(",")]
+
+def authenticate(req, ctx):
+    value = req.headers.get("Proxy-Authorization", "")
+    if value.startswith("Bearer "):
+        presented = digest.sha256(value[len("Bearer "):].strip())
+        for user, expected in USERS:
+            if digest.equal(presented, expected):
+                return user
+    return response(407, "a valid token is required\n",
+                    headers={"Proxy-Authenticate": 'Bearer realm="proxy"'})
+```
+
+<!-- x-release-please-start-version -->
+```bash
+echo "TOKENS=alice:$(printf %s "$ALICE_TOKEN" | sha256sum | cut -d' ' -f1)" > tokens.properties
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --script auth.star --script-var-file tokens.properties
+```
+<!-- x-release-please-end -->
+
+**Constants.** Values a script needs but should not contain (tokens, host lists, per-site
+settings) come from outside as read-only globals. On the command line, `--script-var NAME=VALUE`
+(repeatable) gives a string, and `--script-var-file file.properties` reads a properties file;
+later options win. Arguments are visible to other local users (`ps`), so put secrets in a file.
+From Java, `ScriptedProxy.Builder.constants(Map)` also takes ints, booleans, and lists and dicts
+of these:
+
+```java
+ScriptedProxy script = ScriptedProxy.builder(Path.of("auth.star"))
+        .constants(Map.of("TOKENS", System.getenv("PROXY_TOKENS"), "MAX_BODY", 1 << 20,
+                "ALLOWED", List.of("example.com", "example.org")))
+        .build();
+```
+
+Constants are frozen, predeclared like the built-ins (so the type checker knows their types),
+and cannot be assigned by the script. A name must be an identifier that does not hide a built-in
+(`len`, `json`, `Request`, ...); a script that uses a constant nobody set does not load. They
+are kept when the script reloads.
+
+**WebSocket examples.** `on_websocket_frame` gets the upgrade request, the frame and the
+context. Frames from the client and from the server come through the same hook (`frame.from_client`
+tells them apart) and share `ctx.vars`, so a script can keep state for the whole connection.
+
+Redact a field in a JSON protocol, both ways:
+
+```python
+def on_websocket_frame(req, frame, ctx):
+    if frame.type != "text" or not frame.text.startswith("{"):
+        return None
+    msg = json.decode(frame.text)
+    if "token" in msg:
+        msg["token"] = "<redacted>"
+        frame.text = json.encode(msg)
+```
+
+Block client commands on one endpoint, and drop pings the server sends:
+
+```python
+def on_websocket_frame(req, frame, ctx):
+    if req.path == "/admin/ws" and frame.from_client and frame.type == "text":
+        if frame.text.startswith("DELETE "):
+            log.warn("blocked %s from %s" % (frame.text, ctx.client_ip))
+            return False
+    if frame.type == "ping" and not frame.from_client:
+        return False  # the proxy forwards nothing; the client simply never sees it
+```
+
+Number the messages in a chat, with types (see below):
+
+```python
+def on_websocket_frame(req: Request, frame: WebSocketFrame, ctx: Context) -> bool | None:
+    if frame.type != "text" or frame.from_client:
+        return None
+    n: int = ctx.vars.get("n", 0) + 1
+    ctx.vars["n"] = n
+    frame.text = "#%d %s" % (n, cast(str, frame.text))
+    return None
+```
+
+Binary protocols work on `frame.payload` (bytes): for example, replace a magic prefix with
+`frame.payload = b"v2" + frame.payload[2:]`. Frames over the buffer limit
+(`withMaxWebSocketFrameBufferSize`, 1 MiB by default) arrive with `truncated` set and no payload;
+they can be forwarded or dropped but not rewritten. A failing hook is logged and the frame is
+forwarded unchanged.
+
+**Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
+script loads and again on each call. Unannotated code is not checked, so annotations can be added
+one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
+`Context`, `WebSocketFrame`, `Failure` and `Timings`:
+
+```python
+ALLOWED: list[str] = ["example.com", "example.org"]
+
+def on_request(req: Request, ctx: Context) -> Response | None:
+    if req.host not in ALLOWED:
+        return response(403, "not allowed\n")
+    req.headers["X-Client"] = ctx.client_ip
+    return None
+
+def on_response(req: Request, res: Response, ctx: Context) -> None:
+    if res.text != None:
+        text = cast(str, res.text)  # the checker does not narrow `str | None` after a test
+        res.text = text.replace("http://", "https://")
+```
+
+A misspelt field (`req.hots`), an assignment of the wrong type (`req.uri = 3`), or a return of
+the wrong type stops the script from loading, with the line and column. Arguments of the wrong
+type to an annotated function fail the call. `body` and `text` are typed `bytes | None` and
+`str | None`, since a streamed body has neither; `ctx.user`, `res.source` and `failure.host` are
+`str | None`, `res.upstream_status` is `int | None`, and the fields of `ctx.timings` are
+`float | None`.
+
+**Standard library.** Scripts can `load()` a Python-compatible standard library, ported from
+[starlarky](https://github.com/verygoodsecurity/starlarky) and running on the JDK alone (no
+dependency besides the interpreter's Guava). Load a module by its label, `@stdlib//<module>` or
+`@vendor//<module>`, and name the bindings to take from it:
+
+```python
+load("@stdlib//hmac", "hmac")
+load("@stdlib//urllib/parse", "parse")
+
+# SECRET, from --script-var(-file), signs links as hmac_sha256(SECRET, path + expires)
+def on_request(req, ctx):
+    query = parse.parse_qs(req.query)
+    expires = query.get("expires", ["0"])[0]
+    signature = query.get("signature", [""])[0]
+    expected = hmac.new(bytes(SECRET), bytes(req.path + expires), "sha256").hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return response(403, "bad signature\n")
+    if int(expires) < time.now():
+        return response(410, "link expired\n")
+    return None
+```
+
+| Module | |
+|---|---|
+| `base64`, `binascii`, `codecs`, `struct`, `zlib` | Python's APIs over bytes (`zlib` on `java.util.zip`, including gzip and raw deflate streams) |
+| `hashlib`, `hmac` | `md5`, `sha1`, `sha224`, `sha256`, `sha384`, `sha512`, `sha512_224`, `sha512_256`, `sha3_224`…`sha3_512`, `new(name)`, `pbkdf2_hmac`; `hmac.new`/`digest`/`compare_digest` (the JDK's `MessageDigest` and `Mac`) |
+| `json` | `dumps`/`loads` and `encode`/`decode`/`indent` (the predeclared `json`, plus Python's names; keys are sorted) |
+| `re` | Python's `re`: `compile`, `match`, `search`, `fullmatch`, `findall`, `finditer`, `sub`/`subn`, `split`, `escape`, flags, match objects (see below) |
+| `urllib/parse`, `urllib/request` | `urlparse`, `urlsplit`, `urljoin`, `quote`, `unquote`, `urlencode`, `parse_qs`, ...; `Request` objects (no network access) |
+| `collections`, `dicts`, `enum`, `functools`, `itertools`, `operator`, `sets`, `types` | containers and functional helpers |
+| `string`, `textwrap`, `reprlib`, `csv`, `io` (`StringIO`, `BytesIO`) | text |
+| `math`, `random`, `uuid` | `random` and `uuid4` use `SecureRandom` (no seeding) |
+| `xml/etree/ElementTree` | parsing, building, `find`/`findall` with ElementPath, serializing (a pure-Starlark parser) |
+| `zipfile` | reading and writing archives in memory (stored and deflated; `bz2` is a stub) |
+| `builtins`, `larky`, `sys` | Python builtins that Starlark lacks (`builtins.bytes(s, "latin-1")`, ...), and starlarky's helpers (`larky.struct`, `larky.mutablestruct`, ...) |
+| `@vendor//option/result` | Rust-style `Ok`/`Error` results, which the library returns internally |
+| `@vendor//asserts`, `six`, `escapes`, `multidict`, `luhn` | test assertions, compatibility helpers, case-insensitive multi-dicts, Luhn checksums |
+
+What loading changes, and what it does not:
+
+- A module is compiled and run once per process, frozen, and shared by every script and
+  connection; loading it costs nothing after the first time. Its functions run in the calling
+  hook, within the hook's step and time limits, under the same sandbox (no files, network or
+  processes). A module's own top level is bounded too (200 million steps, 60 seconds).
+- A script that loads anything runs with Python's string semantics, which the library relies on:
+  `"%5.2f" % x` and the other printf flags, Unicode-aware `upper()`/`isalpha()`/..., Python's
+  bounds for `find`/`count`, and CPython's codec names for `bytes.decode`. Scripts without
+  `load` statements behave exactly as before.
+- The predeclared built-ins (`re`, `json`, `base64`, `digest`, ...) stay available without
+  `load`. A loaded name may hide one: after `load("@stdlib//json", "json")`, `json` is the
+  library's; `load("@stdlib//json", py_json="json")` keeps both.
+- Typed scripts are checked as usual; values from the library are untyped (`Any`).
+- Only the library can be loaded: `load("helpers.star", ...)` is an error, as are unknown modules
+  (the message lists the available ones) and cycles.
+- The library's `re` translates Python patterns to `java.util.regex`. Unlike starlarky's (RE2),
+  it supports look-ahead, look-behind, backreferences, atomic groups and possessive quantifiers;
+  conditional groups (`(?(1)a|b)`) are rejected. `\d`, `\w`, `\s` and `\b` are Unicode-aware
+  for str patterns (ASCII with `re.ASCII` or for bytes), and `.`, `^` and `$` treat only `\n` as
+  a line end, as in Python. Java's engine backtracks, so a pathological pattern can take
+  exponential time: matching is abandoned at the hook's deadline with
+  `re.error: regular expression ran past the deadline`. Matches on bytes are returned as str
+  (Latin-1), as in starlarky.
+
+Not included: starlarky's cryptography, JOSE/JWT, OpenSSL, OpenPGP and XML-signature modules
+(`Crypto`, `cryptography`, `jose`, `OpenSSL`, `OpenPGP`, `xmlsig`, `lxml`), which need
+BouncyCastle, Tink or WSS4J; `iso8583`, `jks` and the company-specific modules of its `vgs`
+namespace; and `hashlib`'s BLAKE2 and SHAKE, which the JDK lacks (`hashlib.blake2b(...)` fails
+with `unsupported hash type`). starlarky's own tests run in the build against the port
+(`StarlarkyStdlibTest`), with the few known differences listed there.
 
 **Errors and reloading.**
 
 - A hook that fails is logged with its Starlark stack trace, and the client gets a bare `500`.
-  A failing `allow_mitm` declines interception; a failing `upstream` gives `502`.
+  A failing `allow_mitm` declines interception; a failing `upstream` gives `502`; a failing
+  `on_failure` leaves the answer to the `FailureResponder` or the default; a failing
+  `authenticate` rejects the request.
 - A script file is re-read when it changes (checked at most once a second). An edit that does
   not compile is logged and the previous version stays in use. `--script-no-reload` turns this
   off.
@@ -478,7 +1083,9 @@ By default, as in LittleProxy, server connections are kept per client connection
   connection the server closed while idle is retried transparently.
 - **Intercepted TLS:** `withPoolSharedMitmConnections(true)` lets intercepted sessions take their
   upstream TLS connection from the pool and return it when the client leaves.
-  `withPoolPerRequestInMitm(true)` leases it per request instead.
+  `withPoolPerRequestInMitm(true)` leases it per request instead. Managers chosen per client
+  connection only share with clients given the same manager (see
+  [Interception per client connection](#interception-per-client-connection)).
 - **Metrics:** `HttpProxyServer.getServerConnectionPoolMetrics()` reports counts.
 
 ### DNSSEC
@@ -507,18 +1114,34 @@ root key or compared DS digests. It fell back to plain DNS on network errors.
 
 ### WebSocket frames
 
-After a `101` upgrade to `websocket`, filters that override
-`webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` see every frame:
+After a `101` upgrade to `websocket`, filters can watch and rewrite every frame, in both
+directions and inside intercepted TLS:
 
-- **What they get:** opcode, FIN, masking and the unmasked payload, from both directions,
-  including inside intercepted TLS.
-- **Compatibility:** LittleProxy's `webSocketFrameReceived(Supplier<byte[]>, boolean)` still
-  works and receives each frame's raw bytes. LittleProxy delivered raw TCP reads rather than
-  frames.
-- **Forwarding:** frames are observed, not modified, and forwarded unchanged.
-- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) are
-  streamed and reported as truncated.
-- **No listener:** if no filter overrides either method, the connection is relayed as raw bytes.
+- **Watching:** `webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` sees the
+  opcode, FIN, masking and the unmasked payload. LittleProxy's
+  `webSocketFrameReceived(Supplier<byte[]>, boolean)` still works and receives each frame's raw
+  bytes (LittleProxy delivered raw TCP reads rather than frames).
+- **Rewriting:** `filterWebSocketFrame(WebSocketFrame frame, boolean fromClient)` returns the
+  frame to forward: `frame` itself, a replacement (`frame.withText(...)`,
+  `WebSocketFrame.text(...)`, `binary(...)`, `close(code, reason)`), or `null` to drop it. The
+  proxy masks frames it sends towards the server, as RFC 6455 requires. When a filter rewrites
+  frames, the proxy removes `Sec-WebSocket-Extensions` from the upgrade request so that payloads
+  are not compressed (permessage-deflate). Messages split into continuation frames are seen one
+  frame at a time.
+- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) arrive
+  truncated, without a payload: returning them streams them through, `null` discards them.
+- **No listener:** if no filter overrides any of these methods, the connection is relayed as raw
+  bytes.
+
+```java
+@Override
+public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+    if (!frame.isText()) return frame;
+    String text = frame.payloadAsText();
+    if (fromClient && text.contains("\"password\"")) return null;        // drop it
+    return frame.withText(text.replace("staging.example", "prod.example")); // or rewrite it
+}
+```
 
 ### Access logs
 
@@ -528,6 +1151,213 @@ you pass. The formats are `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV
 `HAPROXY`. These are LittleProxy's formats, with three of its bugs fixed: JSON escaping, Squid
 timestamps and RFC 4180 CSV quoting. Lines also include the authenticated user, and URLs inside
 intercepted sessions are logged as `https://`.
+
+`JSON_EXTENDED` adds fields to the `JSON` line: `source` (`SERVER`, `PROXY`, `FILTER` or `CACHE`),
+`upstream_status` (what the server sent, when a filter or the cache changed it), and `ttfb_ms`,
+`total_ms`, `dns_ms`, `connect_ms` and `tls_ms`. Its lines are written when the response is
+complete rather than when its head is sent; see [Observability](#observability).
+
+Three ways to keep a record of traffic:
+
+- **`ActivityLogger`:** one line per exchange, in an access-log format. Cheap enough to leave on.
+- **`HttpLogger`:** whole messages, with their headers, what the proxy and filters changed, and
+  optionally bodies, as readable blocks or JSON lines. For debugging and audits (see
+  [Request/response logging](#requestresponse-logging)).
+- **`WarcRecorder`:** an archive of the exchanges with servers as binary WARC records, complete and
+  unredacted, for replay tools (see [WARC recording](#warc-recording)).
+
+### Request/response logging
+
+`HttpLogger` logs whole requests and responses, like OkHttp's `HttpLoggingInterceptor` or a
+mitmproxy flow dump. It is a filters source:
+
+```java
+HttpLogger logger = HttpLogger.builder()
+        .level(HttpLogger.Level.HEADERS)          // BASIC, HEADERS (the default) or BODY
+        .redact("X-Api-Key")                       // besides Authorization, Cookie, Set-Cookie, Proxy-Authorization
+        .redactQueryParams("token", "api_key")
+        .maxBodyBytes(4096)                        // BODY: bytes kept per body (the default)
+        .only((request, ctx) -> request.uri().contains("/api/"))   // optional
+        .build();
+MicroProxy.bootstrap().plusFiltersSource(logger).start();
+```
+
+- **Levels:** `BASIC` logs the request line, the status line, timings and the sizes the heads
+  declare. `HEADERS` adds the headers. `BODY` adds the bodies.
+- **Both sides of the proxy:** the request as the client sent it, then, when the proxy or a filter
+  changed it, a `forwarded as` section with the request line as sent and the headers removed (`-`)
+  and added (`+`). The response as the server sent it, then a `delivered as` section in the same
+  form. The response line shows the status the client got, how long the exchange took (`ttfb` is
+  the wait for the server's first byte), where the response came from (`source=server`, `proxy`,
+  `filter` or `cache`) and the server's status (`upstream=`) when a filter or the cache answered or
+  changed it.
+- **Correlation:** each message is handed to the sink as one string, so concurrent connections do
+  not interleave their lines. Every line starts with `[conn <id> #<n>]`: the client connection, as
+  in the proxy's own log lines, and the exchange's number on it. Requests inside an intercepted
+  TLS session are numbered after their `CONNECT`.
+- **When:** a request is logged once it has been sent to the server (or answered without it), a
+  response once it has been delivered in full. An exchange that fails half-way through its response
+  logs no response.
+- **Redaction:** the values of `Authorization`, `Cookie`, `Set-Cookie` and `Proxy-Authorization`
+  are replaced with `██`, in any case and on both sides. `redact(...)` adds header names,
+  `redactQueryParams(...)` redacts query parameters in logged URLs, and `redactNothing()` turns
+  redaction off (later `redact` calls add to that). Bodies are never redacted.
+- **Bodies (`BODY`):** each body is kept up to `maxBodyBytes`; the rest is counted, never buffered,
+  and what is forwarded does not change. A body seen whole is decoded (`gzip`, `deflate`, `br`,
+  `zstd`, as in [Rewriting bodies](#rewriting-bodies)) and shown as text in the charset of its
+  `Content-Type`. Binary bodies are summarised (`<1000 bytes of image/png>`). A request body is
+  shown as the client sent it, a response body as the server sent it (and the delivered body too
+  when a filter replaced the response).
+- **WebSocket frames:** `.webSocketFrames(true)` at `BODY` also logs each frame after an upgrade:
+  text frames' text (up to `maxBodyBytes`), other frames' sizes. It is off by default because it
+  makes the proxy parse every frame. Frames are only watched, so the extension negotiation is left
+  alone and compressed frames are logged as such.
+- **Cost:** `BASIC` and `HEADERS` read only heads, so bodies keep the proxy's fast path. When the
+  `System.Logger` is off at INFO (and no `sink` was given), no filters are created at all.
+- **Failures:** a sink that throws, or a bug in the logger, is reported once to the
+  `org.microproxy.extras.HttpLogger` logger and never reaches the proxy.
+
+> **`BODY` logs payloads.** Bodies carry passwords, tokens, session data and personal data, and
+> redaction does not touch them. Use `BODY` while developing, or narrowed with `only(...)` to the
+> traffic you are debugging, and not in production without deciding where the logs go and who can
+> read them. `HEADERS` also logs URLs and every header that is not redacted.
+
+To log from filters built with lambdas, add the logger to the builder. It sees the request before
+the lambdas and the response after them, so their changes show in the diffs:
+
+```java
+HttpFiltersBuilder.Built filters = HttpFilters.builder()
+        .log(logger)
+        .beforeSending(req -> { req.headers().set("X-Trace", traceId()); return null; })
+        .build();
+MicroProxy.bootstrap().withFiltersSource(filters).start();
+// or, the same: .withFiltersSource((request, ctx) -> filters)
+```
+
+One built instance can serve every connection: the logger's state is per exchange. When the proxy
+(or an `HttpFiltersChain`) gets built filters from a source, whether they are the source or a
+lambda returned them, it asks them for a copy bound to that exchange, which holds the logger's state
+and goes away with the exchange. Only built filters wrapped in filters of your own that delegate to
+them cannot be bound; they run their hooks but log nothing, and a warning says so once.
+
+In a chain, put the logger first: `HttpFiltersChain.of(logger, rewriter, script)`. It still sees
+requests as clients sent them and responses as delivered wherever it is, but it reads server
+responses (and request bodies) when they reach it. Starlark scripts chain the same way.
+
+From the command line, `--log-http basic|headers|body` installs a logger first among the filters,
+and `--log-http-json` writes JSON lines (at `headers` unless a level is given). Properties files
+take `log_http` and `log_http_format=json`.
+
+Without a `sink`, messages go to the `System.Logger` named `org.microproxy.http` at INFO. With the
+JDK's default `java.util.logging` setup they appear on standard error with a date line before each.
+To keep only the messages, or to send them to a file, pass a configuration with
+`-Djava.util.logging.config.file=http-logging.properties`:
+
+```properties
+handlers = java.util.logging.ConsoleHandler
+java.util.logging.ConsoleHandler.level = ALL
+.level = WARNING
+org.microproxy.http.level = INFO
+# just the message: one block, or one JSON object per line
+java.util.logging.SimpleFormatter.format = %5$s%n
+# or write them to a file instead of the console:
+# org.microproxy.http.handlers = java.util.logging.FileHandler
+# org.microproxy.http.useParentHandlers = false
+# java.util.logging.FileHandler.pattern = http-%u.log
+# java.util.logging.FileHandler.formatter = java.util.logging.SimpleFormatter
+```
+
+With SLF4J or Log4j bridges, configure the logger `org.microproxy.http` there. A `sink(line -> ...)`
+receives each message directly instead.
+
+`HEADERS` output for a `POST` through the proxy (`--log-http headers`):
+
+```text
+[conn 3 #1] --> POST http://api.example.com/items?token=██&page=2 HTTP/1.1
+[conn 3 #1] Content-Length: 17
+[conn 3 #1] Host: api.example.com
+[conn 3 #1] User-Agent: curl/8.9.1
+[conn 3 #1] Authorization: ██
+[conn 3 #1] Content-Type: application/json
+[conn 3 #1] Proxy-Connection: Keep-Alive
+[conn 3 #1] --> forwarded as POST /items?token=██&page=2 HTTP/1.1
+[conn 3 #1] - Proxy-Connection: Keep-Alive
+[conn 3 #1] + Via: 1.1 gateway
+[conn 3 #1] --> END POST (17-byte body)
+[conn 3 #1] <-- 201 Created http://api.example.com/items?token=██&page=2 (48 ms, ttfb 47 ms, source=server)
+[conn 3 #1] Content-Type: application/json
+[conn 3 #1] Content-Length: 25
+[conn 3 #1] Set-Cookie: ██
+[conn 3 #1] <-- delivered as HTTP/1.1 201 Created
+[conn 3 #1] + Via: 1.1 gateway
+[conn 3 #1] <-- END HTTP (25-byte body)
+```
+
+`BODY` adds the bodies after a blank line, before the `END` lines. With `--log-http-json`, each
+message is one object (wrapped here):
+
+```json
+{"type":"request","conn":3,"seq":1,"time":"2026-10-09T02:44:26.372Z","method":"POST",
+ "url":"http://api.example.com/items?token=██&page=2","version":"HTTP/1.1",
+ "headers":[["Content-Length","17"],["Host","api.example.com"],["Authorization","██"],["Content-Type","application/json"]],
+ "forwarded":{"method":"POST","uri":"/items?token=██&page=2","version":"HTTP/1.1","removed":[],"added":[["Via","1.1 gateway"]]},
+ "body_bytes":17}
+{"type":"response","conn":3,"seq":1,"time":"2026-10-09T02:44:26.372Z","status":201,"reason":"Created",
+ "url":"http://api.example.com/items?token=██&page=2","version":"HTTP/1.1","source":"SERVER","upstream_status":201,
+ "ttfb_ms":47.112,"total_ms":48.003,"headers":[["Content-Type","application/json"],["Content-Length","25"],["Set-Cookie","██"]],
+ "delivered":{"status":201,"reason":"Created","version":"HTTP/1.1","removed":[],"added":[["Via","1.1 gateway"]]},
+ "body_bytes":25}
+```
+
+At `BODY`, JSON messages add `body` (the text, or `null` with a `body_note` for binary or
+undecodable bodies) and `body_remarks` (`gzip-decoded`, `first 4096 bytes shown`, ...); WebSocket
+frames are `{"type":"websocket","from":"client","opcode":"text","fin":true,"bytes":4,"payload":"ping",...}`.
+
+### Observability
+
+`ActivityTracker` callbacks run on the connection's virtual thread. Besides LittleProxy's events:
+
+- **Where a response came from:** `responseSentToClient(ctx, response, source)` receives a
+  `ResponseSource`: `SERVER` (relayed, maybe with headers or body edited in place), `PROXY` (the
+  proxy's error answers, `407`, the `CONNECT` `200`), `FILTER` (a short-circuit, a failure answer
+  from a filter, or a server or proxy response a filter replaced or gave another status) or `CACHE`.
+  `ctx.upstreamStatus()` is the status the server sent, so a `500` a filter turned into a `200`
+  still shows. The two-argument callback keeps working.
+- **Timings:** `ctx.timings()` returns a `FlowTimings` snapshot for the exchange in progress:
+  `dnsLookup()`, `connect()`, `tlsHandshake()` (towards the server or a TLS chained proxy),
+  `clientTlsHandshake()`, `timeToFirstByte()` and `total()`, plus the raw offsets from the first
+  byte of the request. A request on a reused connection has no lookup or connect; when intercepting,
+  the server handshake belongs to the `CONNECT` exchange. Take the snapshot in
+  `responseCompleted(ctx, response)`, which follows the last byte of the response. Recording costs
+  a few `System.nanoTime()` calls and no allocation per request.
+- **Server-side failures:** `serverConnectionExceptionCaught(serverContext, cause)` reports each
+  failed connection attempt, server timeout or bad response once, with the server (or chained
+  proxy) it concerned. Client-side errors still go to `connectionExceptionCaught`.
+- **TLS handshakes:** `tlsHandshakeFailed(ctx, clientSide, cause)` reports each failed or timed-out
+  handshake: with a client (TLS listener or interception) or with a server or TLS chained proxy
+  (then `ctx` is a `FullFlowContext` naming it).
+- **Correlation:** `ctx.getConnectionId()` and `ctx.acceptedAt()` identify the client connection,
+  and the proxy's log lines about it start with `[conn <id>]`.
+- **In filters:** `HttpFilters.proxyToClientResponseSent(response, source)` is called once a
+  response has been written in full, whoever made it, with the head as sent and its
+  `ResponseSource`; `ctx.timings()` covers the whole exchange by then.
+  `HttpFilters.exchangeEnded(completed)` follows exactly once however the exchange ended (also
+  when the client left half-way, the server failed or a filter aborted; for tunnels when they
+  close), so filters can release what they hold per exchange.
+
+The logger `org.microproxy.impl.Tls` writes one line per handshake event, without stack traces:
+
+| event | level | contents |
+|---|---|---|
+| started | DEBUG | peer address, host, the proxy's TLS role (`mode=client` / `server`), whether a client certificate is required |
+| succeeded | DEBUG | the same, the duration, negotiated protocol and cipher suite, and the SNI name a client asked for |
+| failed with a client | DEBUG | the error and its root cause (`certificate_unknown`, `no cipher suites in common`, `TLS handshake not finished within 10000 ms`, ...), and a certificate summary: the proxy's own certificate, then the peer's chain (subject, issuer, `notAfter`, SANs) |
+| failed with a server or chained proxy | WARNING for certificate problems (untrusted, expired, wrong name, client certificate refused), DEBUG when the server does not speak TLS (the `CONNECT` is tunnelled instead), INFO otherwise (timeouts, protocol mismatches) | the same |
+
+Client handshakes fail routinely (clients giving up, scanners, clients that do not trust the
+interception CA), hence DEBUG. The JDK discards a peer chain it rejected for an unknown issuer, so
+for that failure the summary has no peer chain. Turn the lines on with, for example,
+`-Djava.util.logging.config.file=...` setting `org.microproxy.impl.Tls.level = FINE`.
 
 ## Migrating from LittleProxy
 
@@ -554,11 +1384,30 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 | `org.littleshoot.proxy.extras.ActivityLogger` / `LogFormat` | `org.microproxy.extras.ActivityLogger` / `LogFormat` |
 | `impl.PoolMetrics` | `org.microproxy.PoolMetrics` (a record) |
 
-Other behaviour differences:
+Other behaviour differences. Where a filter depends on LittleProxy's behaviour,
+`withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) restores
+it; see that method's Javadoc for the list:
 
+- `proxyToServerRequest` runs before the server is resolved and connected, so a filter can answer
+  or redirect without a DNS lookup. LittleProxy resolves first (and with compatibility on, so does
+  MicroProxy).
+
+- The proxy does not fill `FlowContext`'s string-keyed timing map (LittleProxy's
+  `dns_resolution_*_time_ms`); `FlowContext.timings()` has typed timings for every phase instead
+  (see [Observability](#observability)).
 - Full messages are written with a `Content-Length` that matches their actual body. Filters that
   replace a body don't need to fix the header themselves.
+- `ProxyAuthenticator` and `MitmManager` keep LittleProxy's methods. The overloads that take the
+  request or a `FlowContext` are optional additions: other authentication schemes and challenges,
+  per-request checks, and MITM decisions per user or client (see
+  [Proxy authentication](#proxy-authentication) and
+  [Interception per client connection](#interception-per-client-connection)).
+- With an authenticator configured, `Proxy-Authorization` is removed from every request before
+  filters run, not only from the one that authenticated the connection.
 - All interface methods have defaults, so the `*Adapter` classes are only conveniences.
+- The `org.microproxy.http` message types are a sealed hierarchy. Filters create (and may subclass)
+  the `Default*` classes but cannot implement `HttpRequest` and the other interfaces from scratch,
+  and a `switch` over them can be exhaustive (see `HttpObject`).
 
 Not ported, because they only exist to manage Netty:
 
@@ -574,6 +1423,15 @@ mvn -pl microproxy test         # just the core
 ```
 
 `microproxy-starlark` reuses the core's test helpers through its `tests` jar.
+
+### Releases
+
+Releases are cut by [release-please](https://github.com/googleapis/release-please). It reads
+[Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `feat!:`) on
+`main` and keeps a release pull request open that bumps every `pom.xml`, the versions in this
+README and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, publishes a GitHub release with the jars
+and their `SHA256SUMS` attached, and opens a follow-up pull request that moves `main` to the
+next `-SNAPSHOT` version.
 
 The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpserver` as origin
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
@@ -606,6 +1464,8 @@ the `README.md` next to each copy:
 - The Java [Starlark](https://github.com/bazelbuild/bazel) interpreter from Bazel, as extended by
   [starlarky](https://github.com/verygoodsecurity/starlarky) (Apache-2.0), in
   `microproxy-starlark`.
+- starlarky's Larky runtime and Python-compatible standard library (Apache-2.0, with CPython and
+  ElementTree notices in some files), in `microproxy-starlark`.
 
 Besides LittleProxy, these projects contributed ideas only; no code was copied:
 

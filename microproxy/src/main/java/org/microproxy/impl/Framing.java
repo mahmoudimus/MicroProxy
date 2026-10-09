@@ -44,7 +44,7 @@ record Framing(Kind kind, long length) {
                 throw new HttpParseException("both Transfer-Encoding and Content-Length present");
             }
             List<String> codings = headers.getAllElements(HttpHeaderNames.TRANSFER_ENCODING);
-            if (codings.isEmpty() || !codings.get(codings.size() - 1).equalsIgnoreCase("chunked")) {
+            if (codings.isEmpty() || !codings.getLast().equalsIgnoreCase("chunked")) {
                 throw new HttpParseException("request transfer coding must end with chunked");
             }
             return CHUNKED;
@@ -70,7 +70,7 @@ record Framing(Kind kind, long length) {
         HttpHeaders headers = response.headers();
         if (headers.contains(HttpHeaderNames.TRANSFER_ENCODING)) {
             List<String> codings = headers.getAllElements(HttpHeaderNames.TRANSFER_ENCODING);
-            if (!codings.isEmpty() && codings.get(codings.size() - 1).equalsIgnoreCase("chunked")) {
+            if (!codings.isEmpty() && codings.getLast().equalsIgnoreCase("chunked")) {
                 headers.remove(HttpHeaderNames.CONTENT_LENGTH);
                 return CHUNKED;
             }
