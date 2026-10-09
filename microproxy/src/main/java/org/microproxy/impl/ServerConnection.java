@@ -1,6 +1,7 @@
 package org.microproxy.impl;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -174,6 +175,19 @@ class ServerConnection {
     /** The exchange is over and the connection reusable: gives back the buffers it held. */
     void exchangeDone() {
         in.release();
+    }
+
+    InputStream tunnelInput() {
+        return in.asInputStream();
+    }
+
+    OutputStream tunnelOutput() {
+        return out;
+    }
+
+    void endTunnelOutput() throws IOException {
+        out.flush();
+        Tunnel.halfClose(socket);
     }
 
     /**

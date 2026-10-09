@@ -1,6 +1,7 @@
 package org.microproxy.impl;
 
 import java.io.IOException;
+import java.io.InputStream;
 import org.microproxy.http.HttpContent;
 import org.microproxy.http.HttpHeaders;
 import org.microproxy.http.LastHttpContent;
@@ -42,4 +43,26 @@ interface MessageBody {
 
     /** Whether more of the body is already buffered, so that a flush downstream can wait. */
     boolean hasBufferedInput();
+
+    /** Byte-stream view for tunnel protocols carried in DATA frames. */
+    default InputStream asInputStream() {
+        return new InputStream() {
+            @Override
+            public int read() throws IOException {
+                byte[] one = new byte[1];
+                return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+            }
+
+            @Override
+            public int read(byte[] dst, int off, int len) throws IOException {
+                java.util.Objects.checkFromIndexSize(off, len, dst.length);
+                return len == 0 ? 0 : MessageBody.this.read(dst, off, len);
+            }
+
+            @Override
+            public int available() {
+                return hasBufferedInput() ? 1 : 0;
+            }
+        };
+    }
 }

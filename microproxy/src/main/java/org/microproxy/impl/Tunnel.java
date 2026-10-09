@@ -32,6 +32,11 @@ final class Tunnel {
         WebSocketFrame frame(WebSocketFrame frame, boolean fromClient);
     }
 
+    @FunctionalInterface
+    interface HalfClose {
+        void close() throws IOException;
+    }
+
     /** Thrown when both directions have been idle for the idle timeout. */
     private static final class IdleTimeout extends IOException {
         IdleTimeout() {
@@ -61,14 +66,23 @@ final class Tunnel {
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
             Duration idleTimeout, String name, String logPrefix, FrameHandler handler, int maxFrameBuffer,
             BufferPool pool) {
-        AtomicLong lastActivity = new AtomicLong(System.nanoTime());
-        long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Runnable closeAll = () -> {
             Tls.closeQuietly(clientSocket);
             Tls.closeQuietly(serverSocket);
         };
-        Direction up = new Direction(clientIn, serverOut, serverSocket, lastActivity, idleNanos, true, pool, logPrefix);
-        Direction down = new Direction(serverIn, clientOut, clientSocket, lastActivity, idleNanos, false, pool, logPrefix);
+        relay(clientIn, clientOut, () -> halfClose(clientSocket), serverIn, serverOut, () -> halfClose(serverSocket),
+                closeAll, idleTimeout, name, logPrefix, handler, maxFrameBuffer, pool);
+    }
+
+    /** The same relay and frame hooks for sockets and multiplexed streams. */
+    static void relay(InputStream clientIn, OutputStream clientOut, HalfClose clientEnd,
+            InputStream serverIn, OutputStream serverOut, HalfClose serverEnd, Runnable closeAll,
+            Duration idleTimeout, String name, String logPrefix, FrameHandler handler, int maxFrameBuffer,
+            BufferPool pool) {
+        AtomicLong lastActivity = new AtomicLong(System.nanoTime());
+        long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
+        Direction up = new Direction(clientIn, serverOut, serverEnd, lastActivity, idleNanos, true, pool, logPrefix);
+        Direction down = new Direction(serverIn, clientOut, clientEnd, lastActivity, idleNanos, false, pool, logPrefix);
         Thread upstream = Thread.ofVirtual().name(name + "-up").start(
                 () -> run(up, handler, maxFrameBuffer, closeAll));
         run(down, handler, maxFrameBuffer, closeAll);
@@ -81,6 +95,15 @@ final class Tunnel {
         }
     }
 
+    static void halfClose(Socket destination) throws IOException {
+        if (destination instanceof SSLSocket) {
+            // Keep the existing TLS relay behavior; TLS peers differ in half-close support.
+            destination.close();
+        } else if (!destination.isClosed() && !destination.isOutputShutdown()) {
+            destination.shutdownOutput();
+        }
+    }
+
     private static void run(Direction d, FrameHandler handler, int maxFrameBuffer, Runnable closeAll) {
         try {
             if (handler == null) {
@@ -89,7 +112,7 @@ final class Tunnel {
                 pumpFrames(d, handler, maxFrameBuffer);
             }
             d.halfClose();
-        } catch (IOException e) {
+        } catch (IOException | UnsupportedOperationException e) {
             closeAll.run();
         }
     }
@@ -176,14 +199,14 @@ final class Tunnel {
     private static final class Direction {
         final InputStream in;
         final OutputStream out;
-        final Socket destination;
+        final HalfClose destination;
         final AtomicLong lastActivity;
         final long idleNanos;
         final boolean fromClient;
         final BufferPool pool;
         final String logPrefix;
 
-        Direction(InputStream in, OutputStream out, Socket destination, AtomicLong lastActivity,
+        Direction(InputStream in, OutputStream out, HalfClose destination, AtomicLong lastActivity,
                 long idleNanos, boolean fromClient, BufferPool pool, String logPrefix) {
             this.pool = pool;
             this.logPrefix = logPrefix;
@@ -317,18 +340,9 @@ final class Tunnel {
             }
         }
 
-        void halfClose() {
-            try {
-                out.flush();
-                if (destination instanceof SSLSocket) {
-                    // TLS half-close support varies by peer; closing is the safe choice.
-                    destination.close();
-                } else if (!destination.isClosed() && !destination.isOutputShutdown()) {
-                    destination.shutdownOutput();
-                }
-            } catch (IOException | UnsupportedOperationException e) {
-                Tls.closeQuietly(destination);
-            }
+        void halfClose() throws IOException {
+            out.flush();
+            destination.close();
         }
     }
 }
