@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -73,6 +75,50 @@ class LauncherScriptTest {
             proxy.abort();
             origin.stop(0);
         }
+    }
+
+    @Test
+    void scriptVarsBecomeConstants(@TempDir Path dir) throws Exception {
+        Path script = dir.resolve("vars.star");
+        Files.writeString(script, """
+                def on_request(req, ctx):
+                    return response(200, "%s %s %s" % (GREETING, NAME, SECRET))
+                """);
+        Path file = dir.resolve("vars.properties");
+        Files.writeString(file, "NAME=from-file\nSECRET=s3cret value\n");
+        HttpServer origin = origin(echo());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--script", script.toString(),
+                "--script-var", "NAME=from-flag", "--script-var-file", file.toString(),
+                "--script-var", "GREETING=a=b"}, new PrintStream(out, true, StandardCharsets.UTF_8));
+        try {
+            // Later options win: the file's NAME replaces the flag before it.
+            assertEquals("a=b from-file s3cret value", get(client(proxy), url(origin, "/")).body());
+            String console = out.toString(StandardCharsets.UTF_8);
+            assertTrue(console.contains("Script constants: NAME, SECRET, GREETING"), console);
+            assertFalse(console.contains("s3cret"), "values are not printed: " + console);
+        } finally {
+            proxy.abort();
+            origin.stop(0);
+        }
+    }
+
+    @Test
+    void badScriptVarsStopStartup(@TempDir Path dir) throws Exception {
+        Path script = dir.resolve("vars.star");
+        Files.writeString(script, "def on_request(req, ctx):\n    pass\n");
+        for (String var : List.of("len=1", "1A=x", "NOVALUE")) {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> Launcher.start(
+                    new String[] {"--port", "0", "--script", script.toString(), "--script-var", var}, System.out));
+            assertTrue(e.getMessage().contains("built-in") || e.getMessage().contains("identifier")
+                    || e.getMessage().contains("NAME=VALUE"), e.getMessage());
+        }
+        Path file = dir.resolve("bad.properties");
+        Files.writeString(file, "json=shadow\n");
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> Launcher.start(
+                new String[] {"--port", "0", "--script", script.toString(), "--script-var-file", file.toString()},
+                System.out));
+        assertTrue(e.getMessage().contains("bad.properties") && e.getMessage().contains("json"), e.getMessage());
     }
 
     @Test

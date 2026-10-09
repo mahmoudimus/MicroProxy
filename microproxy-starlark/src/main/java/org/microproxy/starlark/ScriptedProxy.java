@@ -6,6 +6,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
@@ -98,6 +101,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private final StarlarkScript.Limits limits;
     private final int maxBodySize;
     private final ChainedProxyManager fallback;
+    private final Map<String, Object> constants;
     private final ReentrantLock reloadLock = new ReentrantLock();
     private volatile StarlarkScript script;
     private volatile FileTime loadedModified;
@@ -109,6 +113,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.limits = b.limits;
         this.maxBodySize = b.maxBodySize;
         this.fallback = b.fallback;
+        this.constants = b.constants;
         this.script = script;
         this.loadedModified = modified;
         this.lastCheck = System.nanoTime();
@@ -133,6 +138,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private StarlarkScript.Limits limits = StarlarkScript.Limits.DEFAULT;
         private int maxBodySize = 10 << 20;
         private ChainedProxyManager fallback;
+        private Map<String, Object> constants = Map.of();
 
         private Builder(Path path, String source, String name) {
             this.path = path;
@@ -168,13 +174,31 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             return this;
         }
 
+        /**
+         * Adds read-only globals the script can use, such as tokens or host lists that should not
+         * be written into the script. Values are strings, ints ({@code Integer}, {@code Long},
+         * {@code BigInteger}, ...), booleans, and {@code List}s and {@code Map}s of them (map keys:
+         * strings, ints or booleans); they are copied and frozen. They are predeclared, so the
+         * type checker knows their types, and the script cannot assign them. Later calls add to
+         * earlier ones.
+         *
+         * @throws IllegalArgumentException for a name that is not an identifier or would hide a
+         *     built-in ({@code len}, {@code json}, {@code Request}, ...), or a value of another type
+         */
+        public Builder constants(Map<String, ?> constants) {
+            Map<String, Object> merged = new LinkedHashMap<>(this.constants);
+            merged.putAll(ScriptConstants.convert(constants));
+            this.constants = Collections.unmodifiableMap(merged);
+            return this;
+        }
+
         /** Compiles the script and runs its top level. */
         public ScriptedProxy build() throws IOException, ScriptException {
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
-                return new ScriptedProxy(this, StarlarkScript.load(path, limits), modified);
+                return new ScriptedProxy(this, StarlarkScript.load(path, limits, constants), modified);
             }
-            return new ScriptedProxy(this, StarlarkScript.compile(source, name, limits), null);
+            return new ScriptedProxy(this, StarlarkScript.compile(source, name, limits, constants), null);
         }
     }
 
@@ -186,7 +210,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 FileTime modified = Files.getLastModifiedTime(path);
                 if (!modified.equals(loadedModified)) {
                     loadedModified = modified;
-                    script = StarlarkScript.load(path, limits);
+                    script = StarlarkScript.load(path, limits, constants);
                     LOG.log(Level.INFO, "reloaded {0}", path);
                 }
             } catch (IOException | ScriptException e) {

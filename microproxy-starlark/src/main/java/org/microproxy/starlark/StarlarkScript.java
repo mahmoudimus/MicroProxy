@@ -1,5 +1,6 @@
 package org.microproxy.starlark;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.nio.charset.StandardCharsets;
@@ -66,16 +67,39 @@ public final class StarlarkScript {
 
     /** Loads and runs the script in {@code file}. */
     public static StarlarkScript load(Path file, Limits limits) throws IOException, ScriptException {
-        return compile(Files.readString(file, StandardCharsets.UTF_8), file.toString(), limits);
+        return load(file, limits, Map.of());
+    }
+
+    /**
+     * Loads and runs the script in {@code file}, with {@code constants} as read-only globals
+     * (see {@link ScriptedProxy.Builder#constants}).
+     */
+    public static StarlarkScript load(Path file, Limits limits, Map<String, ?> constants)
+            throws IOException, ScriptException {
+        return compile(Files.readString(file, StandardCharsets.UTF_8), file.toString(), limits, constants);
     }
 
     /** Compiles and runs {@code source}; {@code name} appears in error messages. */
     public static StarlarkScript compile(String source, String name, Limits limits) throws ScriptException {
+        return compile(source, name, limits, Map.of());
+    }
+
+    /**
+     * Compiles and runs {@code source} with {@code constants} as read-only globals (see {@link
+     * ScriptedProxy.Builder#constants}); {@code name} appears in error messages.
+     *
+     * @throws IllegalArgumentException for constants that are not valid (see {@link
+     *     ScriptedProxy.Builder#constants})
+     */
+    public static StarlarkScript compile(String source, String name, Limits limits, Map<String, ?> constants)
+            throws ScriptException {
+        ImmutableMap<String, Object> values = ScriptConstants.convert(constants);
         StarlarkFile file = StarlarkFile.parse(ParserInput.fromString(source, name), FILE_OPTIONS);
         if (!file.ok()) {
             throw new ScriptException(file.errors().stream().map(Object::toString).collect(Collectors.joining("\n")));
         }
-        Module module = Module.withPredeclared(SEMANTICS, Builtins.PREDECLARED);
+        Module module = Module.withPredeclared(SEMANTICS, values.isEmpty() ? Builtins.PREDECLARED
+                : ImmutableMap.<String, Object>builder().putAll(Builtins.PREDECLARED).putAll(values).buildOrThrow());
         try (Mutability mu = Mutability.create(name)) {
             Program program = Starlark.maybeWithTypeInfo(Program.compileFile(file, module), module, SEMANTICS, null);
             Starlark.execFileProgram(program, module, newThread(mu, limits));
@@ -86,6 +110,11 @@ public final class StarlarkScript {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ScriptException("interrupted while loading " + name, e);
+        }
+        for (String constant : values.keySet()) {
+            if (module.getGlobal(constant) != null) {
+                throw new ScriptException(name + ": " + constant + " is a script constant; the script cannot assign it");
+            }
         }
         // Closing the mutability froze the globals.
         return new StarlarkScript(name, module, limits);
