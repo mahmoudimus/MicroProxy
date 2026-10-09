@@ -353,7 +353,8 @@ When a connection through one chained proxy fails (refused, timed out, its name 
 its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
 `ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once.
 `withChainedProxyRetryBackoff(initial, max)` (or `chained_proxy_backoff_initial_ms` and
-`chained_proxy_backoff_max_ms`) waits in between, so a flapping upstream is not hammered:
+`chained_proxy_backoff_max_ms`, or `--chained-proxy-backoff <initial-ms>[:<max-ms>]`) waits in
+between, so a flapping upstream is not hammered:
 
 ```java
 MicroProxy.bootstrap()
@@ -361,6 +362,14 @@ MicroProxy.bootstrap()
         .withChainedProxyRetryBackoff(Duration.ofMillis(100), Duration.ofSeconds(2))
         .start();
 ```
+
+```bash
+java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --chained-proxy-backoff 100:2000
+java -jar microproxy.jar --config proxy.properties --chained-proxy-backoff 0   # turn off the file's backoff
+```
+
+Without a maximum, the property and the flag cap the wait at 8 × the initial one; `0` on the
+command line turns waiting off, overriding a properties file.
 
 - Before attempt `n + 1` it waits a random time between zero and `initial * 2^(n-1)`, capped at
   `max` ("full jitter", so clients that failed together do not retry together).

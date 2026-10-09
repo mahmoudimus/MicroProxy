@@ -45,6 +45,9 @@ public final class Launcher {
               --littleproxy-compat         behave like LittleProxy where MicroProxy differs
               --proxy-alias <alias>        name used in Via headers
               --throttle <read> <write>    global server bandwidth limits in bytes/s
+              --chained-proxy-backoff <initial>[:<max>]  millis to wait between failed chained
+                                           proxy attempts, doubling up to max (default 8 x initial;
+                                           0 = no waiting, the default)
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
               --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...
@@ -168,6 +171,7 @@ public final class Launcher {
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));
+                case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg);
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
@@ -300,6 +304,38 @@ public final class Launcher {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(option + " needs a number, got: " + v);
         }
+    }
+
+    /**
+     * Applies {@code --chained-proxy-backoff <initial-ms>[:<max-ms>]}: the maximum defaults to 8 x
+     * the initial wait, as {@code chained_proxy_backoff_max_ms} does, and 0 turns waiting off.
+     */
+    private static void chainedProxyBackoff(HttpProxyServerBootstrap bootstrap, String v, String option) {
+        int colon = v.indexOf(':');
+        long initial = millis(colon < 0 ? v : v.substring(0, colon), v, option);
+        long max = colon < 0 ? initial * 8 : millis(v.substring(colon + 1), v, option);
+        if (initial == 0) {
+            if (colon >= 0) throw new IllegalArgumentException(option + " 0 turns the backoff off and takes no maximum, got: " + v);
+            bootstrap.withChainedProxyRetryBackoff(null, null);
+        } else if (max < initial) {
+            throw new IllegalArgumentException(option + " maximum " + max + " ms is below the initial " + initial + " ms");
+        } else {
+            bootstrap.withChainedProxyRetryBackoff(Duration.ofMillis(initial), Duration.ofMillis(max));
+        }
+    }
+
+    private static long millis(String part, String v, String option) {
+        long ms;
+        try {
+            ms = Long.parseLong(part.strip());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(option + " needs a number, got: " + v);
+        }
+        // Bounded so that 8 x initial cannot overflow, and the Duration stays representable.
+        if (ms < 0 || ms > Long.MAX_VALUE / 8 / 1_000_000) {
+            throw new IllegalArgumentException(option + " needs a non-negative number, got: " + v);
+        }
+        return ms;
     }
 
     private static LogFormat logFormat(String name) {

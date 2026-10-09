@@ -71,6 +71,18 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).tlsProtocols;
     }
 
+    /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */
+    public static Duration[] chainedProxyBackoff(HttpProxyServerBootstrap bootstrap) {
+        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
+        return new Duration[] {b.chainedProxyBackoffInitial, b.chainedProxyBackoffMax};
+    }
+
+    /** A running server's chained proxy retry backoff: {initial, max}, both zero when off. */
+    public static Duration[] chainedProxyBackoff(HttpProxyServer server) {
+        DefaultHttpProxyServer s = (DefaultHttpProxyServer) server;
+        return new Duration[] {Duration.ofNanos(s.backoffInitialNanos), Duration.ofNanos(s.backoffMaxNanos)};
+    }
+
     /** The settings a running server was started with. */
     public static BootstrapView of(HttpProxyServer server) {
         return of(((DefaultHttpProxyServer) server).config);

@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -110,7 +111,7 @@ class LauncherTest {
         String usage = console.toString(StandardCharsets.UTF_8);
         for (String flag : List.of("--config", "--port", "--address", "--server", "--name", "--transparent",
                 "--idle-timeout", "--connect-timeout", "--tls-handshake-timeout", "--tls-protocols", "--littleproxy-compat", "--proxy-alias",
-                "--throttle",
+                "--throttle", "--chained-proxy-backoff",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
@@ -159,7 +160,7 @@ class LauncherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
-        "--proxy-alias", "--throttle", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
+        "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
         "--dnssec-resolver", "--activity-log-format", "--log-http", "--cache-dir", "--cache-size", "--cache-memory",
         "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
@@ -281,6 +282,58 @@ class LauncherTest {
         HttpProxyServer proxy = launch("--port", "0", "--throttle", "3000", "4000");
         assertEquals(List.of(3000L, 4000L), List.of(BootstrapView.currentThrottle(proxy)[0],
                 BootstrapView.currentThrottle(proxy)[1]));
+    }
+
+    @Test
+    void chainedProxyBackoffTakesTheInitialAndOptionalMaximum(@TempDir Path dir) throws IOException {
+        assertEquals(List.of(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                backoff("--chained-proxy-backoff", "100:2000"));
+        assertEquals(List.of(Duration.ofMillis(250), Duration.ofMillis(2000)),
+                backoff("--chained-proxy-backoff", "250"), "the maximum defaults to 8 x the initial wait");
+        assertEquals(List.of(Duration.ofMillis(300), Duration.ofMillis(300)),
+                backoff("--chained-proxy-backoff", "300:300"), "a maximum equal to the initial is a fixed wait");
+        assertEquals(Arrays.asList(null, null), backoff(), "off by default");
+        assertEquals(Arrays.asList(null, null), backoff("--chained-proxy-backoff", "0"));
+
+        // The flag overrides the properties file, including turning its backoff off.
+        Path props = dir.resolve("backoff.properties");
+        Files.writeString(props, "chained_proxy_backoff_initial_ms=50\nchained_proxy_backoff_max_ms=60\n");
+        assertEquals(List.of(Duration.ofMillis(50), Duration.ofMillis(60)), backoff("--config", props.toString()));
+        assertEquals(List.of(Duration.ofMillis(10), Duration.ofMillis(80)),
+                backoff("--chained-proxy-backoff", "10", "--config", props.toString()));
+        assertEquals(Arrays.asList(null, null),
+                backoff("--config", props.toString(), "--chained-proxy-backoff", "0"));
+
+        HttpProxyServer proxy = launch("--port", "0", "--chained-proxy-backoff", "100:700");
+        assertEquals(List.of(Duration.ofMillis(100), Duration.ofMillis(700)),
+                List.of(BootstrapView.chainedProxyBackoff(proxy)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"soon", "100:later", ":100", "100:", "1e3", "-5", "100:-1", "0:500", "500:100"})
+    void badChainedProxyBackoffValuesNameTheOption(String value) {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> parse("--chained-proxy-backoff", value));
+        assertTrue(e.getMessage().startsWith("--chained-proxy-backoff "), e.getMessage());
+        assertTrue(e.getMessage().contains(value.equals("500:100") ? "below the initial" : value), e.getMessage());
+    }
+
+    @Test
+    void chainedProxyBackoffErrorsAreExplained() {
+        assertEquals("--chained-proxy-backoff needs a number, got: 1s",
+                assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "1s")).getMessage());
+        assertEquals("--chained-proxy-backoff needs a non-negative number, got: -5",
+                assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "-5")).getMessage());
+        assertEquals("--chained-proxy-backoff maximum 100 ms is below the initial 500 ms",
+                assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "500:100"))
+                        .getMessage());
+        assertEquals("--chained-proxy-backoff 0 turns the backoff off and takes no maximum, got: 0:500",
+                assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "0:500"))
+                        .getMessage());
+    }
+
+    private List<Duration> backoff(String... args) throws IOException {
+        return Arrays.asList(BootstrapView.chainedProxyBackoff(parse(args).bootstrap()));
     }
 
     // --- PROXY protocol ------------------------------------------------------------------------
