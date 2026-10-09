@@ -12,11 +12,14 @@ import io.github.mahmoudimus.http2.Http2Headers;
 import io.github.mahmoudimus.http2.Http2Settings;
 import io.github.mahmoudimus.http2.RequestHeaders;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.SequenceInputStream;
 import java.lang.System.Logger.Level;
+import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.SSLSocket;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
@@ -37,10 +39,12 @@ import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
 
 /**
- * The server side of an HTTP/2 connection from a client (RFC 9113), over an intercepted TLS
- * session that negotiated {@code h2}. Each stream's request is an exchange of its own, run by the
- * same exchange logic as HTTP/1 requests ({@link ClientConnection#handleStream}) through an {@link
- * Http2StreamChannel}, on a virtual thread of its own.
+ * The server side of an HTTP/2 connection from a client (RFC 9113): over an intercepted TLS
+ * session that negotiated {@code h2}, or over a plain connection that started with the connection
+ * preface ({@code h2c} with prior knowledge), whose requests are proxy requests for any target.
+ * Each stream's request is an exchange of its own, run by the same exchange logic as HTTP/1
+ * requests ({@link ClientConnection#handleStream}) through an {@link Http2StreamChannel}, on a
+ * virtual thread of its own.
  *
  * <p>Threads and locks (writing and flow control are {@link Http2Endpoint}'s):
  *
@@ -83,9 +87,14 @@ final class Http2Connection extends Http2Endpoint {
         "rapid reset"};
 
     private final ClientConnection client;
-    private final SSLSocket socket;
+    private final Socket socket;
+    /** Bytes the client sent before the connection was handed over (the preface, for h2c). */
+    private final byte[] received;
     private final ClientFlowContext connectionFlow;
-    /** The {@code CONNECT} target: requests for another authority get 421. */
+    /**
+     * The {@code CONNECT} target: requests for another authority get 421. Null for a forward proxy
+     * connection (h2c), whose requests name any target.
+     */
     private final HostAndPort target;
     private final int maxHeaderListSize;
     private final int[] limits;
@@ -122,13 +131,14 @@ final class Http2Connection extends Http2Endpoint {
     private volatile long goAwayNanos;
     private ScheduledFuture<?> watchdog;
 
-    Http2Connection(DefaultHttpProxyServer server, ClientConnection client, SSLSocket socket,
+    Http2Connection(DefaultHttpProxyServer server, ClientConnection client, Socket socket, byte[] received,
             ClientFlowContext connectionFlow, String logPrefix, HostAndPort target) {
         // The larger receive window applies at once: it only lets the client send more sooner.
         super(server, logPrefix,
                 new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE));
         this.client = client;
         this.socket = socket;
+        this.received = received;
         this.connectionFlow = connectionFlow;
         this.target = target;
         this.maxHeaderListSize = options.maxHeaderListSize() > 0 ? options.maxHeaderListSize()
@@ -160,6 +170,7 @@ final class Http2Connection extends Http2Endpoint {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(connectionFlow, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(connectionFlow, n)));
         }
+        if (received.length > 0) is = new SequenceInputStream(new ByteArrayInputStream(received), is);
         in = new BufferedInputStream(is, 16_384);
         reader = new FrameReader(in);
         int maxBlock = Math.max(FrameReader.DEFAULT_MAX_HEADER_BLOCK_SIZE, maxHeaderListSize + 4096);
@@ -172,7 +183,7 @@ final class Http2Connection extends Http2Endpoint {
         startWriting(new BufferedOutputStream(os, 16_384));
         long tick = tickMillis();
         watchdog = TIMERS.scheduleWithFixedDelay(this::tick, tick, tick, TimeUnit.MILLISECONDS);
-        LOG.log(Level.DEBUG, logPrefix + "serving HTTP/2 (ALPN h2)");
+        LOG.log(Level.DEBUG, logPrefix + "serving HTTP/2 (" + (target != null ? "ALPN h2" : "prior knowledge") + ")");
         try {
             int idle = server.idleTimeoutMillis();
             socket.setSoTimeout(idle > 0 ? idle : (int) options.settingsAckTimeout().toMillis());
@@ -335,7 +346,7 @@ final class Http2Connection extends Http2Endpoint {
             return;
         }
         RequestHeaders head = Http2Headers.toRequest(id, fields);
-        HttpRequest request = toHttp1(id, head, h.endStream());
+        HttpRequest request = toHttp1(id, head, h.endStream(), target == null);
         Http2StreamChannel stream = new Http2StreamChannel(this, id, new ClientFlowContext(connectionFlow, id),
                 request, head.contentLength(), h.endStream());
         stateLock.lock();
@@ -509,8 +520,13 @@ final class Http2Connection extends Http2Endpoint {
     // Streams
     // ---------------------------------------------------------------------------------------
 
-    /** The HTTP/1-style request the exchange logic handles for a stream's request head. */
-    private static HttpRequest toHttp1(int id, RequestHeaders head, boolean endStream) throws Http2Exception {
+    /**
+     * The HTTP/1-style request the exchange logic handles for a stream's request head: origin-form
+     * on an intercepted session, absolute-form ({@code :scheme} and {@code :authority}) for a
+     * forward proxy, as an HTTP/1 client would send it.
+     */
+    private static HttpRequest toHttp1(int id, RequestHeaders head, boolean endStream, boolean forwardProxy)
+            throws Http2Exception {
         HttpMethod method;
         try {
             method = HttpMethod.valueOf(head.method());
@@ -529,6 +545,10 @@ final class Http2Connection extends Http2Endpoint {
             headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         }
         String uri = head.isConnect() ? head.authority() : head.path();
+        boolean httpScheme = "http".equalsIgnoreCase(head.scheme()) || "https".equalsIgnoreCase(head.scheme());
+        if (forwardProxy && !head.isConnect() && httpScheme && head.authority() != null && head.path().startsWith("/")) {
+            uri = head.scheme().toLowerCase(java.util.Locale.ROOT) + "://" + head.authority() + head.path();
+        }
         return new DefaultHttpRequest(HttpVersion.HTTP_2_0, method, uri, headers);
     }
 

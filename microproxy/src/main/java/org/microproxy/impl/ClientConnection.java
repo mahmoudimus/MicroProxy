@@ -471,6 +471,10 @@ final class ClientConnection implements Runnable {
             if (server.sslContextSource != null) {
                 handshakeWithClient(server.sslContextSource.getSslContext(),
                         server.authenticateSslClients, s -> server.sslContextSource.configure(s, false), null);
+            } else if (server.http2Cleartext && http1.awaitRequest() && http1.startsWithHttp2Preface()) {
+                // HTTP/2 with prior knowledge: the whole connection, preface included, is HTTP/2's.
+                serveHttp2(rawSocket, http1.drainBuffered(), null);
+                return;
             }
             serveRequests();
         } catch (SocketTimeoutException e) {
@@ -594,13 +598,16 @@ final class ClientConnection implements Runnable {
 
         if (server.proxyAuthenticator != null) {
             // Requests in an intercepted session (HTTP/2 streams included) are covered by the
-            // CONNECT that started it.
-            if (mitmHostAndPort == null && !channel.multiplexed()
-                    && (!authenticated || server.proxyAuthenticator.authenticateEveryRequest())) {
-                HttpResponse refusal = authenticate(ex);
-                if (refusal != null) {
-                    return respondDirect(ex, refusal, false, ResponseSource.PROXY);
-                }
+            // CONNECT that started it. Streams of an h2c connection, which run concurrently,
+            // each authenticate on their own.
+            HttpResponse refusal = null;
+            if (mitmHostAndPort == null && channel.multiplexed()) {
+                refusal = authenticateStream(ex);
+            } else if (mitmHostAndPort == null && (!authenticated || server.proxyAuthenticator.authenticateEveryRequest())) {
+                refusal = authenticate(ex);
+            }
+            if (refusal != null) {
+                return respondDirect(ex, refusal, false, ResponseSource.PROXY);
             }
             // The credentials were for this proxy, whatever their scheme: never forward them.
             request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
@@ -1520,7 +1527,7 @@ final class ClientConnection implements Runnable {
         // The CONNECT exchange is over; the requests inside the session are exchanges of their own.
         endExchange(ex);
         if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
-            serveHttp2(tls, target);
+            serveHttp2(tls, new byte[0], target);
             return false;
         }
         serveRequests();
@@ -1528,10 +1535,14 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * Serves the intercepted session as HTTP/2: this thread reads the frames, and each stream runs
-     * its exchange ({@link #handleStream}) on a thread of its own.
+     * Serves the connection as HTTP/2: this thread reads the frames, and each stream runs its
+     * exchange ({@link #handleStream}) on a thread of its own.
+     *
+     * @param socket the intercepted session's TLS socket, or the plain one for h2c
+     * @param received bytes already read from {@code socket} that belong to HTTP/2
+     * @param target the intercepted {@code CONNECT} target, or null for a forward proxy (h2c)
      */
-    private void serveHttp2(SSLSocket tls, HostAndPort target) throws IOException {
+    private void serveHttp2(Socket socket, byte[] received, HostAndPort target) throws IOException {
         StreamServerConnections streams = new StreamServerConnections(server.http2Options.maxConcurrentStreams());
         streamConnections = streams;
         // The server connection made for the CONNECT serves the first stream that wants one.
@@ -1541,7 +1552,7 @@ final class ClientConnection implements Runnable {
                 streams.release(c);
             }
         }
-        Http2Connection h2 = new Http2Connection(server, this, tls, flowContext, logPrefix, target);
+        Http2Connection h2 = new Http2Connection(server, this, socket, received, flowContext, logPrefix, target);
         http2 = h2;
         if (closed) return;
         h2.serve();
@@ -2376,6 +2387,27 @@ final class ClientConnection implements Runnable {
         }
         authenticated = false;
         clientDetails.setUserName(null);
+        HttpResponse challenge = result instanceof AuthResult.Rejected rejected ? rejected.challenge() : null;
+        if (challenge == null) {
+            return authenticationRequired();
+        }
+        if (challenge instanceof FullHttpMessage full) {
+            challenge.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            HttpUtil.setContentLength(challenge, full.content().length);
+        }
+        return challenge;
+    }
+
+    /**
+     * Asks the authenticator about an h2c stream's request, without touching the connection's
+     * authentication state, which concurrent streams would share: null if it may proceed.
+     */
+    private HttpResponse authenticateStream(Exchange ex) {
+        AuthResult result = server.proxyAuthenticator.authenticate(ex.request, ex.flow);
+        if (result instanceof AuthResult.Accepted ok) {
+            if (ok.userName() != null) clientDetails.setUserName(ok.userName());
+            return null;
+        }
         HttpResponse challenge = result instanceof AuthResult.Rejected rejected ? rejected.challenge() : null;
         if (challenge == null) {
             return authenticationRequired();

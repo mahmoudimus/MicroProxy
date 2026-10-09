@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLContext;
@@ -105,6 +106,22 @@ final class Http1ClientChannel implements ClientChannel {
         in.awaitNext();
         return in.buffered() > 0;
     }
+
+    /**
+     * Whether the connection starts with the HTTP/2 connection preface (prior knowledge, {@code
+     * h2c}); nothing is consumed, and an HTTP/1 request is told apart by its first bytes.
+     */
+    boolean startsWithHttp2Preface() throws IOException {
+        return in.startsWith(HTTP2_PREFACE);
+    }
+
+    /** The bytes received and not yet read: what an HTTP/2 connection taking over starts with. */
+    byte[] drainBuffered() {
+        return in.drainBuffered();
+    }
+
+    /** The HTTP/2 client connection preface (RFC 9113 section 3.4). */
+    private static final byte[] HTTP2_PREFACE = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
 
     /**
      * Reads a request head.
