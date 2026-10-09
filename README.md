@@ -209,6 +209,7 @@ Command-line flags override values from the file.
 | `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](#retries-and-backoff)) | off / 8 × initial |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
+| `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [HTTP/3 and QUIC](#http3-and-quic)) | `true` with interception or `transparent`, else `false` |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
@@ -244,6 +245,7 @@ Command-line flags override values from the file.
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Concurrency limiting | `ConcurrencyLimiter` caps the exchanges in progress per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics (see below) |
 | Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
+| HTTP/3 bypass | removes `h3` alternatives from `Alt-Svc` by default when intercepting or transparent, so clients stay on TCP through the proxy rather than move to QUIC (see below) |
 | Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3 and other common trace headers) and any other named headers from requests sent upstream, after all filters (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
@@ -574,6 +576,34 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
   (`TlsFailed`). One that just closes the connection on the proxy's `ClientHello` looks like a
   server that does not speak TLS, and the `CONNECT` is tunnelled without interception, as for
   any non-TLS server.
+
+### HTTP/3 and QUIC
+
+MicroProxy speaks HTTP/1.x; HTTP/2 and HTTP/3 are planned in
+[issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2). HTTP/3 runs over QUIC, on UDP,
+and that matters even now. Browsers never send QUIC through an HTTP proxy, and a transparent
+setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
+switch to it and bypass the proxy, and with it interception, filters and logging.
+
+Clients learn about HTTP/3 in two ways:
+
+- **From `Alt-Svc` response headers** such as `Alt-Svc: h3=":443"; ma=86400, h2=":443"`. The
+  proxy removes the `h3` alternatives, including the draft versions (`h3-29`, `h3-Q050`, ...)
+  and Google QUIC's `quic`. Other alternatives such as `h2=":443"` are kept with their
+  parameters (`ma`, `persist`), a header left empty is removed, and `Alt-Svc: clear` is passed
+  on. This is **on by default with interception (`--mitm`, `withManInTheMiddle`) or
+  `--transparent`**, and off for a plain forward proxy. `--no-alt-svc-h3`,
+  `withoutHttp3Advertisement()` or `strip_alt_svc_h3=true` turn it on, and `--keep-alt-svc-h3`,
+  `withAltSvcH3Stripping(false)` or `strip_alt_svc_h3=false` turn it off. Filters see server
+  responses unchanged in `serverToProxyResponse` and already stripped in
+  `proxyToClientResponse`. Short-circuit responses (including cache answers) are stripped as
+  they are sent.
+- **From DNS `HTTPS` records**, which the proxy never sees. In transparent deployments,
+  **block UDP port 443** (for example `iptables -A FORWARD -p udp --dport 443 -j REJECT`).
+  Clients then fall back to TCP, which the proxy does see.
+
+HTTP/2 can also announce alternatives in `ALTSVC` frames. They will need the same treatment once
+the proxy speaks HTTP/2 to clients.
 
 ### Rewriting bodies
 
