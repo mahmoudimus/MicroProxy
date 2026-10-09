@@ -3,15 +3,45 @@ package io.github.mahmoudimus.http2;
 /** Frame type codes (RFC 9113 §6) and frame flags. */
 public final class FrameType {
 
+    /**
+     * The frame type for stream content.
+     */
     public static final int DATA = 0x0;
+    /**
+     * The frame type for a header field block fragment.
+     */
     public static final int HEADERS = 0x1;
+    /**
+     * The frame type for a deprecated priority signal.
+     */
     public static final int PRIORITY = 0x2;
+    /**
+     * The frame type for stream termination.
+     */
     public static final int RST_STREAM = 0x3;
+    /**
+     * The frame type for connection settings.
+     */
     public static final int SETTINGS = 0x4;
+    /**
+     * The frame type for a promised stream and field block.
+     */
     public static final int PUSH_PROMISE = 0x5;
+    /**
+     * The frame type for a connection probe.
+     */
     public static final int PING = 0x6;
+    /**
+     * The frame type for connection shutdown.
+     */
     public static final int GOAWAY = 0x7;
+    /**
+     * The frame type for flow-control credit.
+     */
     public static final int WINDOW_UPDATE = 0x8;
+    /**
+     * The frame type for a continued field block.
+     */
     public static final int CONTINUATION = 0x9;
 
     /** DATA, HEADERS: the last frame the sender will send on the stream. */
@@ -30,7 +60,12 @@ public final class FrameType {
 
     private FrameType() {}
 
-    /** A readable name for a frame type code, for messages. */
+    /**
+     * A readable name for a frame type code, for messages.
+     *
+     * @param type the frame type code
+     * @return the standard type name, or UNKNOWN with its hexadecimal code
+     */
     public static String name(int type) {
         return switch (type) {
             case DATA -> "DATA";

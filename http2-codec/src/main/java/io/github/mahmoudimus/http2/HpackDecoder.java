@@ -35,7 +35,13 @@ import java.util.Objects;
  */
 public final class HpackDecoder {
 
+    /**
+     * The default decoded field section limit, including per-field overhead, in octets.
+     */
     public static final long DEFAULT_MAX_HEADER_LIST_SIZE = 64 * 1024;
+    /**
+     * The default maximum encoded or decoded string length in octets.
+     */
     public static final int DEFAULT_MAX_STRING_LENGTH = 64 * 1024;
 
     private final DynamicTable table;
@@ -57,6 +63,8 @@ public final class HpackDecoder {
     /**
      * A decoder whose dynamic table starts with the given maximum size, which both sides must
      * already agree on: in HTTP/2, 4096 (the initial SETTINGS_HEADER_TABLE_SIZE).
+     *
+     * @param maxHeaderTableSize the nonnegative initial and maximum table capacity in octets
      */
     public HpackDecoder(int maxHeaderTableSize) {
         if (maxHeaderTableSize < 0) throw new IllegalArgumentException("negative table size");
@@ -68,6 +76,8 @@ public final class HpackDecoder {
      * Sets the largest dynamic table the peer's encoder may use: call this when the peer
      * acknowledges a SETTINGS frame that carried SETTINGS_HEADER_TABLE_SIZE. If the table is now
      * larger than allowed, the next field block must start with a size update that shrinks it.
+     *
+     * @param maxHeaderTableSize the nonnegative advertised table limit in octets
      */
     public void setMaxHeaderTableSize(int maxHeaderTableSize) {
         if (maxHeaderTableSize < 0) throw new IllegalArgumentException("negative table size");
@@ -75,46 +85,89 @@ public final class HpackDecoder {
         if (maxHeaderTableSize < table.capacity()) sizeUpdateRequired = true;
     }
 
+    /**
+     * Returns the advertised dynamic table limit.
+     *
+     * @return the maximum table capacity allowed, in octets
+     */
     public int maxHeaderTableSize() {
         return maxTableSize;
     }
 
-    /** SETTINGS_MAX_HEADER_LIST_SIZE: the largest decoded field section accepted. */
+    /**
+     * SETTINGS_MAX_HEADER_LIST_SIZE: the largest decoded field section accepted.
+     *
+     * @param maxHeaderListSize the nonnegative decoded field section limit in octets
+     */
     public void setMaxHeaderListSize(long maxHeaderListSize) {
         if (maxHeaderListSize < 0) throw new IllegalArgumentException("negative limit");
         this.maxHeaderListSize = maxHeaderListSize;
     }
 
+    /**
+     * Returns the decoded field section limit.
+     *
+     * @return the maximum decoded size in octets, including per-field overhead
+     */
     public long maxHeaderListSize() {
         return maxHeaderListSize;
     }
 
-    /** The longest name or value accepted, in octets. */
+    /**
+     * The longest name or value accepted, in octets.
+     *
+     * @param maxStringLength the nonnegative encoded and decoded string limit in octets
+     */
     public void setMaxStringLength(int maxStringLength) {
         if (maxStringLength < 0) throw new IllegalArgumentException("negative limit");
         this.maxStringLength = maxStringLength;
     }
 
-    /** The current size of the dynamic table in octets (entries plus 32 each). */
+    /**
+     * The current size of the dynamic table in octets (entries plus 32 each).
+     *
+     * @return the current table size in octets, including per-entry overhead
+     */
     public int dynamicTableSize() {
         return table.size();
     }
 
-    /** The current maximum size of the dynamic table, as last set by the peer's encoder. */
+    /**
+     * The current maximum size of the dynamic table, as last set by the peer's encoder.
+     *
+     * @return the table capacity in octets
+     */
     public int dynamicTableCapacity() {
         return table.capacity();
     }
 
-    /** The number of entries in the dynamic table. */
+    /**
+     * The number of entries in the dynamic table.
+     *
+     * @return the current entry count
+     */
     public int dynamicTableLength() {
         return table.length();
     }
 
-    /** A dynamic table entry, 1 being the newest (HPACK index 62). */
+    /**
+     * A dynamic table entry, 1 being the newest (HPACK index 62).
+     *
+     * @param index the one-based dynamic table index, with 1 the newest entry
+     * @return the field at that dynamic table index
+     */
     public HeaderField dynamicTableEntry(int index) {
         return table.get(index);
     }
 
+    /**
+     * Decodes a complete HPACK field block.
+     *
+     * @param streamId the stream identifier used for header list size errors
+     * @param block the complete HPACK-encoded field block
+     * @return the decoded fields in order, preserving never-indexed sensitivity
+     * @throws Http2Exception if the block is malformed or exceeds a decoding limit
+     */
     public List<HeaderField> decode(int streamId, byte[] block) throws Http2Exception {
         return decode(streamId, block, 0, block.length);
     }
@@ -125,6 +178,11 @@ public final class HpackDecoder {
      * @param streamId the stream the block belongs to, for {@link HeaderListSizeException}
      * @return the fields in order; never-indexed literals come back with
      *     {@link HeaderField#sensitive()} set
+     *
+     * @param block the byte array containing the HPACK field block
+     * @param offset the first encoded byte
+     * @param length the encoded block length in octets
+     * @throws Http2Exception if the block is malformed or exceeds a decoding limit
      */
     public List<HeaderField> decode(int streamId, byte[] block, int offset, int length) throws Http2Exception {
         Objects.checkFromIndexSize(offset, length, block.length);

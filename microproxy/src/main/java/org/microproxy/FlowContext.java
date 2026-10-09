@@ -25,6 +25,14 @@ public class FlowContext {
     /** The context of the client connection: this one, or the connection's for a stream's context. */
     private final FlowContext connection;
 
+    /**
+     * Creates a context for the supplied client address and TLS session.
+     *
+     * @param connectionId the client connection identifier
+     * @param clientAddress the supplier of the current client socket address
+     * @param clientSslSession the supplier of the client TLS session, which may return {@code null}
+     * @param clientDetails the client address and authentication details
+     */
     public FlowContext(
             long connectionId,
             Supplier<InetSocketAddress> clientAddress,
@@ -34,7 +42,11 @@ public class FlowContext {
                 null, 0, null);
     }
 
-    /** Creates a context that shares identity and timing data with {@code parent}. */
+    /**
+     * Creates a context that shares identity and timing data with {@code parent}.
+     *
+     * @param parent the client connection context
+     */
     protected FlowContext(FlowContext parent) {
         this(
                 parent.connectionId,
@@ -55,6 +67,8 @@ public class FlowContext {
      * the same time.
      *
      * @param streamId the stream's identifier, positive
+     *
+     * @param connection the parent client connection context
      */
     protected FlowContext(FlowContext connection, int streamId) {
         this(
@@ -98,6 +112,8 @@ public class FlowContext {
     /**
      * A process-unique id of the client connection. The proxy's log lines about the connection
      * start with {@code [conn <id>]}.
+     *
+     * @return a process-unique id of the client connection
      */
     public long getConnectionId() {
         return connectionId;
@@ -107,6 +123,8 @@ public class FlowContext {
      * The HTTP/2 stream that carries this flow's exchange, or 0 when the client connection is
      * HTTP/1 (whose exchanges run one after another). Streams of one connection run concurrently;
      * the proxy's log lines about a stream start with {@code [conn <id> stream <streamId>]}.
+     *
+     * @return the HTTP/2 stream that carries this flow's exchange, or 0 when the client connection is HTTP/1 (whose exchanges run one after another)
      */
     public int getStreamId() {
         return streamId;
@@ -116,6 +134,8 @@ public class FlowContext {
      * The context of the client connection this flow belongs to: this context itself (or the one
      * it was made from) for HTTP/1, the connection's own for an HTTP/2 stream's. Use it for state
      * kept per client connection; contexts of different streams are not {@linkplain #equals equal}.
+     *
+     * @return the context of the client connection this flow belongs to: this context itself (or the one it was made from) for HTTP/1, the connection's own for an HTTP/2 stream's
      */
     public FlowContext getConnectionContext() {
         return connection;
@@ -124,6 +144,8 @@ public class FlowContext {
     /**
      * The client's address. When a PROXY protocol header was accepted, this is the original client
      * address it carried rather than the address of the load balancer.
+     *
+     * @return the client's address
      */
     public InetSocketAddress getClientAddress() {
         return clientAddress.get();
@@ -132,6 +154,8 @@ public class FlowContext {
     /**
      * The TLS session with the client, or {@code null}. This is the proxy's own TLS listener
      * session, or the intercepted session while a CONNECT is being man-in-the-middled.
+     *
+     * @return the TLS session with the client, or {@code null}
      */
     public SSLSession getClientSslSession() {
         return clientSslSession.get();
@@ -140,6 +164,8 @@ public class FlowContext {
     /**
      * When the client connection was accepted (when this context was created, for contexts made
      * outside the proxy).
+     *
+     * @return when the client connection was accepted (when this context was created, for contexts made outside the proxy)
      */
     public Instant acceptedAt() {
         return acceptedAt;
@@ -150,6 +176,8 @@ public class FlowContext {
      * connection (or the last one), even when a filter or the cache changed or replaced it before
      * it reached the client; empty when no server response was received (the proxy or a filter
      * answered, or the server failed). Contexts made outside the proxy have none.
+     *
+     * @return the final upstream status, or empty when no upstream response was received
      */
     public OptionalInt upstreamStatus() {
         return root == this ? OptionalInt.empty() : root.upstreamStatus();
@@ -160,23 +188,43 @@ public class FlowContext {
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
      * the proxy return {@link FlowTimings#NONE}.
+     *
+     * @return a snapshot of the exchange phase timings
      */
     public FlowTimings timings() {
         return root == this ? FlowTimings.NONE : root.timings();
     }
 
+    /** {@return the client address and authentication details} */
     public ClientDetails getClientDetails() {
         return clientDetails;
     }
 
+    /**
+     * Stores a named legacy timing value.
+     *
+     * @param key the timing measurement name
+     * @param value the timing value to record
+     */
     public void setTimingData(String key, Long value) {
         timingData.put(Objects.requireNonNull(key), Objects.requireNonNull(value));
     }
 
+    /**
+     * Returns a named legacy timing value.
+     *
+     * @param key the timing measurement name
+     * @return the recorded value, or {@code null} if absent
+     */
     public Long getTimingData(String key) {
         return timingData.get(key);
     }
 
+    /**
+     * Returns the legacy timing values.
+     *
+     * @return an immutable snapshot of the legacy timing map
+     */
     public Map<String, Long> getTimings() {
         return Map.copyOf(timingData);
     }

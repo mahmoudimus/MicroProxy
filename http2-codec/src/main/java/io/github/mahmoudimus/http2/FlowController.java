@@ -31,6 +31,8 @@ public final class FlowController {
     private int peerInitialWindowSize;
 
     /**
+     * Creates flow-control accounting with the agreed initial stream windows.
+     *
      * @param localInitialWindowSize the SETTINGS_INITIAL_WINDOW_SIZE in force for what this endpoint
      *     receives (65535 until the peer acknowledges another)
      * @param peerInitialWindowSize the peer's SETTINGS_INITIAL_WINDOW_SIZE, for what this endpoint sends
@@ -46,7 +48,11 @@ public final class FlowController {
         this(Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE, Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE);
     }
 
-    /** Starts tracking a stream that has just opened. */
+    /**
+     * Starts tracking a stream that has just opened.
+     *
+     * @param streamId the nonzero stream identifier
+     */
     public void addStream(int streamId) {
         if (streamId <= 0) throw new IllegalArgumentException("bad stream id " + streamId);
         if (streamSend.containsKey(streamId)) throw new IllegalStateException("stream " + streamId + " is already tracked");
@@ -54,12 +60,22 @@ public final class FlowController {
         streamReceive.put(streamId, new FlowControlWindow(streamId, localInitialWindowSize));
     }
 
-    /** Stops tracking a closed stream. Frames for it still count against the connection windows. */
+    /**
+     * Stops tracking a closed stream. Frames for it still count against the connection windows.
+     *
+     * @param streamId the closed stream identifier
+     */
     public void removeStream(int streamId) {
         streamSend.remove(streamId);
         streamReceive.remove(streamId);
     }
 
+    /**
+     * Checks whether a stream is tracked.
+     *
+     * @param streamId the stream identifier to query
+     * @return whether the stream is tracked
+     */
     public boolean hasStream(int streamId) {
         return streamSend.containsKey(streamId);
     }
@@ -67,6 +83,10 @@ public final class FlowController {
     /**
      * Accounts for a received flow-controlled frame (DATA: {@link Frame.Data#flowControlledLength()}).
      * The connection window is always debited; the stream's only if it is tracked.
+     *
+     * @param streamId the receiving stream identifier
+     * @param length the flow-controlled octet count, including padding
+     * @throws Http2Exception if a receive window is exceeded
      */
     public void onDataReceived(int streamId, int length) throws Http2Exception {
         connectionReceive.receive(length);
@@ -74,26 +94,48 @@ public final class FlowController {
         if (w != null) w.receive(length);
     }
 
-    /** Credits a receive window for a WINDOW_UPDATE this endpoint sent (stream 0: the connection). */
+    /**
+     * Credits a receive window for a WINDOW_UPDATE this endpoint sent (stream 0: the connection).
+     *
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param increment the positive credit sent
+     * @throws Http2Exception if the receive window would exceed 2^31-1
+     */
     public void onWindowUpdateSent(int streamId, int increment) throws Http2Exception {
         FlowControlWindow w = streamId == 0 ? connectionReceive : streamReceive.get(streamId);
         if (w != null) w.increment(increment);
     }
 
-    /** Credits a send window for a WINDOW_UPDATE received. Updates for streams not tracked are ignored. */
+    /**
+     * Credits a send window for a WINDOW_UPDATE received. Updates for streams not tracked are ignored.
+     *
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param increment the positive credit received
+     * @throws Http2Exception if the send window would exceed 2^31-1
+     */
     public void onWindowUpdateReceived(int streamId, int increment) throws Http2Exception {
         FlowControlWindow w = streamId == 0 ? connectionSend : streamSend.get(streamId);
         if (w != null) w.increment(increment);
     }
 
-    /** How many flow-controlled octets the stream may send now: the smaller of its and the connection's window. */
+    /**
+     * How many flow-controlled octets the stream may send now: the smaller of its and the connection's window.
+     *
+     * @param streamId the stream identifier to query
+     * @return the available octet count, or 0 for an untracked stream
+     */
     public int sendable(int streamId) {
         FlowControlWindow w = streamSend.get(streamId);
         if (w == null) return 0;
         return Math.min(w.available(), connectionSend.available());
     }
 
-    /** Debits the send windows for a flow-controlled frame being sent. */
+    /**
+     * Debits the send windows for a flow-controlled frame being sent.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param length the flow-controlled octet count, including padding
+     */
     public void onDataSent(int streamId, int length) {
         FlowControlWindow w = streamSend.get(streamId);
         if (w == null) throw new IllegalStateException("stream " + streamId + " is not tracked");
@@ -104,7 +146,12 @@ public final class FlowController {
         connectionSend.send(length);
     }
 
-    /** Applies a new SETTINGS_INITIAL_WINDOW_SIZE from the peer to every stream's send window. */
+    /**
+     * Applies a new SETTINGS_INITIAL_WINDOW_SIZE from the peer to every stream's send window.
+     *
+     * @param newSize the new nonnegative peer initial window size
+     * @throws Http2Exception if any send window would exceed 2^31-1
+     */
     public void onPeerInitialWindowSize(int newSize) throws Http2Exception {
         checkSize(newSize);
         long delta = (long) newSize - peerInitialWindowSize;
@@ -112,7 +159,12 @@ public final class FlowController {
         peerInitialWindowSize = newSize;
     }
 
-    /** Applies this endpoint's new SETTINGS_INITIAL_WINDOW_SIZE, once acknowledged, to every receive window. */
+    /**
+     * Applies this endpoint's new SETTINGS_INITIAL_WINDOW_SIZE, once acknowledged, to every receive window.
+     *
+     * @param newSize the new nonnegative local initial window size
+     * @throws Http2Exception if any receive window would exceed 2^31-1
+     */
     public void onLocalInitialWindowSize(int newSize) throws Http2Exception {
         checkSize(newSize);
         long delta = (long) newSize - localInitialWindowSize;
@@ -120,20 +172,40 @@ public final class FlowController {
         localInitialWindowSize = newSize;
     }
 
+    /**
+     * Returns the connection send window.
+     *
+     * @return the mutable connection send window
+     */
     public FlowControlWindow connectionSendWindow() {
         return connectionSend;
     }
 
+    /**
+     * Returns the connection receive window.
+     *
+     * @return the mutable connection receive window
+     */
     public FlowControlWindow connectionReceiveWindow() {
         return connectionReceive;
     }
 
-    /** The stream's send window, or null if it is not tracked. */
+    /**
+     * The stream's send window, or null if it is not tracked.
+     *
+     * @param streamId the stream identifier to query
+     * @return the mutable send window, or null if untracked
+     */
     public FlowControlWindow streamSendWindow(int streamId) {
         return streamSend.get(streamId);
     }
 
-    /** The stream's receive window, or null if it is not tracked. */
+    /**
+     * The stream's receive window, or null if it is not tracked.
+     *
+     * @param streamId the stream identifier to query
+     * @return the mutable receive window, or null if untracked
+     */
     public FlowControlWindow streamReceiveWindow(int streamId) {
         return streamReceive.get(streamId);
     }

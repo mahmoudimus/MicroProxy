@@ -87,12 +87,27 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
     /** Called for every request over the limit, refused or (in shadow mode) let through. */
     @FunctionalInterface
     public interface RejectListener {
+        /**
+         * Called when a request exceeds its concurrency limit.
+         *
+         * @param key the concurrency group key that exceeded its limit
+         * @param request the request being handled
+         * @param flow the client connection or exchange context
+         */
         void rejected(String key, HttpRequest request, FlowContext flow);
     }
 
     /** Makes the answer to a refused request; {@code null} sends the default {@code 429}. */
     @FunctionalInterface
     public interface Responder {
+        /**
+         * Creates the HTTP response for a refused request.
+         *
+         * @param key the concurrency group key that exceeded its limit
+         * @param request the request being handled
+         * @param flow the client connection or exchange context
+         * @return the rejection response, or {@code null} for the default {@code 429}
+         */
         HttpResponse respond(String key, HttpRequest request, FlowContext flow);
     }
 
@@ -153,11 +168,20 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         permitTimeoutNanos = b.permitTimeout.toNanos();
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Keys requests by the client's IP address (the default). */
+    /**
+     * Keys requests by the client's IP address (the default).
+     *
+     * @return a function extracting the client IP key
+     */
     public static BiFunction<HttpRequest, FlowContext, String> byClientIp() {
         return (request, flow) -> clientIp(flow);
     }
@@ -165,6 +189,8 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
     /**
      * Keys requests by the authenticated user ({@code flow.getClientDetails().getUserName()}),
      * or by the client's IP address for clients that did not authenticate.
+     *
+     * @return a function extracting the authenticated-user or client-IP key
      */
     public static BiFunction<HttpRequest, FlowContext, String> byUser() {
         return (request, flow) -> {
@@ -176,6 +202,8 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
     /**
      * Keys requests by the host they go to, lower-cased and without the port: the {@code CONNECT}
      * target, the absolute URI's host, or the {@code Host} header (inside intercepted sessions).
+     *
+     * @return a function extracting the lower-case destination host key
      */
     public static BiFunction<HttpRequest, FlowContext, String> byTargetHost() {
         return (request, flow) -> targetHost(request);
@@ -216,17 +244,17 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         return host.strip().toLowerCase(Locale.ROOT);
     }
 
-    /** The permits per key unless {@link Builder#permits(Function)} says otherwise. */
+    /** {@return the permits per key unless {@link Builder#permits(Function)} says otherwise} */
     public int permits() {
         return permits;
     }
 
-    /** Whether requests over the limit are only counted and reported, never refused. */
+    /** {@return whether requests over the limit are only counted and reported, never refused} */
     public boolean shadow() {
         return shadow;
     }
 
-    /** Whether {@code CONNECT} tunnels hold a permit (see the class documentation). */
+    /** {@return whether {@code CONNECT} tunnels hold a permit (see the class documentation)} */
     public boolean countTunnels() {
         return countTunnels;
     }
@@ -239,7 +267,11 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         return new Exchange(flowContext);
     }
 
-    /** The current state, per key and in total. Also reclaims expired permits. */
+    /**
+     * The current state, per key and in total. Also reclaims expired permits.
+     *
+     * @return the current state, per key and in total
+     */
     public Snapshot snapshot() {
         sweep(System.nanoTime(), true);
         Map<String, KeyStats> keys = new TreeMap<>();
@@ -527,13 +559,21 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
          * What requests are counted by: the client's IP address by default ({@link #byClientIp()}),
          * or {@link #byUser()}, {@link #byTargetHost()} or any function of the request head and
          * client connection. A {@code null} key leaves the request unlimited.
+         *
+         * @param key the function assigning each request to a concurrency group
+         * @return this builder
          */
         public Builder key(BiFunction<HttpRequest, FlowContext, String> key) {
             this.key = Objects.requireNonNull(key);
             return this;
         }
 
-        /** Exchanges per key that may run at once (default 16); 0 refuses every request. */
+        /**
+         * Exchanges per key that may run at once (default 16); 0 refuses every request.
+         *
+         * @param permits the maximum concurrent exchanges per key
+         * @return this builder
+         */
         public Builder permits(int permits) {
             if (permits < 0) throw new IllegalArgumentException("negative permits: " + permits);
             this.permits = permits;
@@ -543,6 +583,9 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         /**
          * Permits for particular keys; {@code null} means {@link #permits(int)}. Asked when a key
          * becomes busy, and kept until it is idle again.
+         *
+         * @param permitsPerKey the function selecting the permit limit for each key
+         * @return this builder
          */
         public Builder permits(Function<String, Integer> permitsPerKey) {
             this.permitsPerKey = Objects.requireNonNull(permitsPerKey);
@@ -552,6 +595,10 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         /**
          * Lets up to {@code maxWaiting} requests per key wait up to {@code maxWait} each for a
          * permit before they are refused. The default, 0, refuses at once.
+         *
+         * @param maxWaiting the maximum queued requests per key
+         * @param maxWait the maximum wait for a permit
+         * @return this builder
          */
         public Builder queue(int maxWaiting, Duration maxWait) {
             if (maxWaiting < 0) throw new IllegalArgumentException("negative queue length: " + maxWaiting);
@@ -564,6 +611,9 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         /**
          * Counts and reports requests over the limit ({@link #onReject}, {@link #snapshot()}) but
          * lets them through, to try a limit out before enforcing it.
+         *
+         * @param shadow whether to report excess requests while allowing them through
+         * @return this builder
          */
         public Builder shadow(boolean shadow) {
             this.shadow = shadow;
@@ -575,26 +625,44 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
          * for its lifetime (default true). With false, {@code CONNECT}s are not counted and
          * upgraded connections give their permit back once the {@code 101} has been sent; requests
          * inside intercepted sessions are counted either way.
+         *
+         * @param countTunnels whether tunnels retain permits for their lifetime
+         * @return this builder
          */
         public Builder countTunnels(boolean countTunnels) {
             this.countTunnels = countTunnels;
             return this;
         }
 
-        /** The {@code Retry-After} of the default {@code 429}, rounded up to seconds; null for none. Default 1 s. */
+        /**
+         * The {@code Retry-After} of the default {@code 429}, rounded up to seconds; null for none. Default 1 s.
+         *
+         * @param retryAfter the retry delay advertised on rejection, or {@code null} to omit it
+         * @return this builder
+         */
         public Builder retryAfter(Duration retryAfter) {
             if (retryAfter != null && retryAfter.isNegative()) throw new IllegalArgumentException("negative Retry-After");
             this.retryAfter = retryAfter;
             return this;
         }
 
-        /** Answers refused requests instead of the default plain-text {@code 429}. */
+        /**
+         * Answers refused requests instead of the default plain-text {@code 429}.
+         *
+         * @param responder the function creating a rejection or failure response
+         * @return this builder
+         */
         public Builder response(Responder responder) {
             this.responder = Objects.requireNonNull(responder);
             return this;
         }
 
-        /** Called for every request over the limit (also in shadow mode), on its connection's thread. */
+        /**
+         * Called for every request over the limit (also in shadow mode), on its connection's thread.
+         *
+         * @param listener the rejection callback
+         * @return this builder
+         */
         public Builder onReject(RejectListener listener) {
             this.onReject = Objects.requireNonNull(listener);
             return this;
@@ -604,6 +672,9 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
          * Reclaims (and logs) a permit held for longer than this, in case an exchange never ends;
          * default 10 minutes, {@link Duration#ZERO} to turn the safety net off. Established
          * tunnels are exempt. Set it above the slowest exchange you expect.
+         *
+         * @param permitTimeout the maximum permit lifetime, or zero to disable expiry
+         * @return this builder
          */
         public Builder permitTimeout(Duration permitTimeout) {
             if (permitTimeout.isNegative()) throw new IllegalArgumentException("negative permit timeout");
@@ -611,6 +682,11 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
             return this;
         }
 
+        /**
+         * Creates the configured concurrency limiter.
+         *
+         * @return the configured concurrency limiter
+         */
         public ConcurrencyLimiter build() {
             return new ConcurrencyLimiter(this);
         }

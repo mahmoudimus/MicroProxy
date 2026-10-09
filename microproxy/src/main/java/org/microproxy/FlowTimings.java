@@ -33,6 +33,17 @@ import java.util.Optional;
  * proxy's TLS listener, or the intercepted session) on which the request arrived, or {@code -1}.
  *
  * @param startEpochMillis wall-clock time when the request started arriving; 0 for {@link #NONE}
+ *
+ * @param dnsStartNanos the DNS lookup start offset in nanoseconds, or -1 if absent
+ * @param dnsEndNanos the DNS lookup end offset in nanoseconds, or -1 if absent
+ * @param connectStartNanos the TCP connect start offset in nanoseconds, or -1 if absent
+ * @param connectEndNanos the TCP connect end offset in nanoseconds, or -1 if absent
+ * @param tlsStartNanos the upstream TLS start offset in nanoseconds, or -1 if absent
+ * @param tlsEndNanos the upstream TLS end offset in nanoseconds, or -1 if absent
+ * @param requestSentNanos the completed request-send offset in nanoseconds, or -1 if absent
+ * @param firstResponseByteNanos the first upstream response-byte offset in nanoseconds, or -1 if absent
+ * @param responseCompleteNanos the completed client-response offset in nanoseconds, or -1 if absent
+ * @param clientTlsHandshakeNanos the client TLS handshake duration in nanoseconds, or -1 if absent
  */
 public record FlowTimings(
         long startEpochMillis,
@@ -50,27 +61,47 @@ public record FlowTimings(
     /** No exchange recorded, e.g. for a context made outside the proxy. */
     public static final FlowTimings NONE = new FlowTimings(0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
 
-    /** When the request started arriving (wall clock). */
+    /**
+     * When the request started arriving (wall clock).
+     *
+     * @return the request start instant, or empty if no exchange was recorded
+     */
     public Optional<Instant> start() {
         return startEpochMillis == 0 ? Optional.empty() : Optional.of(Instant.ofEpochMilli(startEpochMillis));
     }
 
-    /** How long resolving the server's name took. */
+    /**
+     * How long resolving the server's name took.
+     *
+     * @return the DNS lookup duration, or empty if the phase was not recorded
+     */
     public Optional<Duration> dnsLookup() {
         return between(dnsStartNanos, dnsEndNanos);
     }
 
-    /** How long the TCP connect took. */
+    /**
+     * How long the TCP connect took.
+     *
+     * @return the TCP connect duration, or empty if the phase was not recorded
+     */
     public Optional<Duration> connect() {
         return between(connectStartNanos, connectEndNanos);
     }
 
-    /** How long the TLS handshakes towards the server took. */
+    /**
+     * How long the TLS handshakes towards the server took.
+     *
+     * @return the upstream TLS duration, or empty if the phase was not recorded
+     */
     public Optional<Duration> tlsHandshake() {
         return between(tlsStartNanos, tlsEndNanos);
     }
 
-    /** How long the TLS handshake with the client took. */
+    /**
+     * How long the TLS handshake with the client took.
+     *
+     * @return the client TLS duration, or empty if the phase was not recorded
+     */
     public Optional<Duration> clientTlsHandshake() {
         return clientTlsHandshakeNanos < 0 ? Optional.empty() : Optional.of(Duration.ofNanos(clientTlsHandshakeNanos));
     }
@@ -78,12 +109,18 @@ public record FlowTimings(
     /**
      * From the start of the request to the first byte of the server's response: everything the
      * client waited for that the proxy did not decide alone (lookup, connect, sending, the server).
+     *
+     * @return the time to the first upstream byte, or empty if none was recorded
      */
     public Optional<Duration> timeToFirstByte() {
         return sinceStart(firstResponseByteNanos);
     }
 
-    /** From the start of the request to the end of the response sent to the client. */
+    /**
+     * From the start of the request to the end of the response sent to the client.
+     *
+     * @return the full exchange duration, or empty until the response completes
+     */
     public Optional<Duration> total() {
         return sinceStart(responseCompleteNanos);
     }

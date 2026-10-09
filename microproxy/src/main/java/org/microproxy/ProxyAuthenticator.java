@@ -17,10 +17,16 @@ import org.microproxy.http.HttpRequest;
  */
 public interface ProxyAuthenticator {
 
-    /** Validates Basic credentials (for the default {@link #authenticate(HttpRequest, FlowContext)}). */
+    /**
+     * Validates Basic credentials (for the default {@link #authenticate(HttpRequest, FlowContext)}).
+     *
+     * @param userName the authenticated user name, or {@code null} if unknown
+     * @param password the client password
+     * @return whether the credentials are accepted
+     */
     boolean authenticate(String userName, String password);
 
-    /** The realm advertised in the default {@code Proxy-Authenticate}; {@code null} for the default. */
+    /** {@return the realm advertised in the default {@code Proxy-Authenticate}; {@code null} for the default} */
     default String getRealm() {
         return null;
     }
@@ -41,6 +47,8 @@ public interface ProxyAuthenticator {
      *
      * @param flow the client connection, with its address and TLS session
      * @return {@link AuthResult#accept}, or {@link AuthResult#reject} with the answer to send
+     *
+     * @param request the request being handled
      */
     default AuthResult authenticate(HttpRequest request, FlowContext flow) {
         String value = request.headers().get(HttpHeaderNames.PROXY_AUTHORIZATION);
@@ -69,6 +77,8 @@ public interface ProxyAuthenticator {
      * Whether to authenticate every request rather than the first one accepted on each client
      * connection, e.g. because tokens expire. Requests inside an intercepted session are still
      * covered by their CONNECT. Off by default.
+     *
+     * @return whether to authenticate every request rather than the first one accepted on each client connection, e.g. because tokens expire
      */
     default boolean authenticateEveryRequest() {
         return false;

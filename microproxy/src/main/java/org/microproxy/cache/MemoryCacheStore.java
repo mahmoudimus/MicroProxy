@@ -16,7 +16,11 @@ public final class MemoryCacheStore implements CacheStore {
     private long size;
     private int count;
 
-    /** @param maxSize the most {@link CachedResponse#weight()} to hold, in bytes */
+    /**
+     * Creates an in-memory store with a byte-weight limit.
+     *
+     * @param maxSize the most {@link CachedResponse#weight()} to hold, in bytes
+     */
     public MemoryCacheStore(long maxSize) {
         if (maxSize <= 0) throw new IllegalArgumentException("maxSize must be positive");
         this.maxSize = maxSize;

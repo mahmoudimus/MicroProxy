@@ -24,16 +24,29 @@ public final class Simd {
 
     /** The operations, in scalar and SIMD flavours. */
     public interface Ops {
-        /** The index of the first {@code value} in {@code a[from, to)}, or -1. */
+        /**
+         * The index of the first {@code value} in {@code a[from, to)}, or -1.
+         *
+         * @param a the byte array to search
+         * @param from the first array index, inclusive
+         * @param to the last array index, exclusive
+         * @param value the byte value to find
+         * @return the first matching index, or -1 if no byte matches
+         */
         int indexOf(byte[] a, int from, int to, byte value);
 
         /**
          * XORs {@code a[off, off + len)} with the 4-byte {@code mask} repeated, starting with its
          * most significant byte: WebSocket (un)masking.
+         *
+         * @param a the byte array to modify
+         * @param off the first byte offset to modify
+         * @param len the number of bytes to modify
+         * @param mask the four-byte mask, applied most significant byte first
          */
         void xorMask(byte[] a, int off, int len, int mask);
 
-        /** A short description, such as {@code scalar} or {@code vector 256-bit}. */
+        /** {@return a short description, such as {@code scalar} or {@code vector 256-bit}} */
         String description();
     }
 
@@ -42,17 +55,17 @@ public final class Simd {
 
     private Simd() {}
 
-    /** The implementation in use. */
+    /** {@return the implementation in use} */
     public static Ops ops() {
         return OPS;
     }
 
-    /** The scalar implementation, always available. */
+    /** {@return the scalar implementation, always available} */
     public static Ops scalar() {
         return SCALAR;
     }
 
-    /** The SIMD implementation, or {@code null} if the Vector API module is not present. */
+    /** {@return the SIMD implementation, or {@code null} if the Vector API module is not present} */
     public static Ops vector() {
         if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) return null;
         try {
@@ -63,14 +76,36 @@ public final class Simd {
         }
     }
 
+    /**
+     * Reports whether the selected implementation uses SIMD.
+     *
+     * @return whether SIMD is in use
+     */
     public static boolean isVectorized() {
         return OPS != SCALAR;
     }
 
+    /**
+     * Finds the first matching byte within the specified range.
+     *
+     * @param a the byte array to search
+     * @param from the first array index, inclusive
+     * @param to the last array index, exclusive
+     * @param value the byte value to find
+     * @return the first matching index, or -1 if no byte matches
+     */
     public static int indexOf(byte[] a, int from, int to, byte value) {
         return OPS.indexOf(a, from, to, value);
     }
 
+    /**
+     * Applies the repeating four-byte WebSocket mask to an array range.
+     *
+     * @param a the byte array to modify
+     * @param off the first byte offset to modify
+     * @param len the number of bytes to modify
+     * @param mask the four-byte mask, applied most significant byte first
+     */
     public static void xorMask(byte[] a, int off, int len, int mask) {
         OPS.xorMask(a, off, len, mask);
     }

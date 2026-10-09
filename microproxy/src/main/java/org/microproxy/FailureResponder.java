@@ -25,6 +25,9 @@ public interface FailureResponder {
      *
      * @param request the request as the proxy was about to forward it (after filters and the
      *     proxy's own header changes); avoid echoing its parts into an HTML body unescaped
+     *
+     * @param failure the proxy failure to answer
+     * @return the response to send, or {@code null} for the proxy default
      */
     HttpResponse respond(HttpRequest request, ProxyFailure failure);
 }

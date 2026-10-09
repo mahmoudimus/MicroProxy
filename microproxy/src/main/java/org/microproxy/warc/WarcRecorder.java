@@ -67,6 +67,12 @@ public final class WarcRecorder implements HttpFiltersSource, Closeable {
         this.maxBodySize = b.maxBodySize;
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @param dir the directory in which to create WARC files
+     * @return a new builder with default settings
+     */
     public static Builder builder(Path dir) {
         return new Builder(dir);
     }
@@ -84,47 +90,78 @@ public final class WarcRecorder implements HttpFiltersSource, Closeable {
             this.dir = Objects.requireNonNull(dir);
         }
 
-        /** File name prefix (default "microproxy"). */
+        /**
+         * File name prefix (default "microproxy").
+         *
+         * @param prefix the WARC file-name prefix
+         * @return this builder
+         */
         public Builder prefix(String prefix) {
             this.prefix = Objects.requireNonNull(prefix);
             return this;
         }
 
-        /** Start a new file after this many bytes (default 1 GiB). */
+        /**
+         * Start a new file after this many bytes (default 1 GiB).
+         *
+         * @param bytes the file size in bytes at which to rotate to a new WARC file
+         * @return this builder
+         */
         public Builder maxFileSize(long bytes) {
             this.maxFileSize = bytes;
             return this;
         }
 
-        /** Record at most this much of each body (default 512 MiB). */
+        /**
+         * Record at most this much of each body (default 512 MiB).
+         *
+         * @param bytes the maximum bytes to record from each body
+         * @return this builder
+         */
         public Builder maxBodySize(long bytes) {
             this.maxBodySize = bytes;
             return this;
         }
 
-        /** Gzip each record (default true). */
+        /**
+         * Gzip each record (default true).
+         *
+         * @param compress whether to gzip each WARC record
+         * @return this builder
+         */
         public Builder compress(boolean compress) {
             this.compress = compress;
             return this;
         }
 
-        /** The {@code software} field of the {@code warcinfo} records. */
+        /**
+         * The {@code software} field of the {@code warcinfo} records.
+         *
+         * @param software the software identification written to warcinfo records
+         * @return this builder
+         */
         public Builder software(String software) {
             this.software = Objects.requireNonNull(software);
             return this;
         }
 
+        /**
+         * Creates the configured WARC recorder.
+         *
+         * @return the configured WARC recorder
+         * @throws IOException if the recording directory cannot be created
+         */
         public WarcRecorder build() throws IOException {
             return new WarcRecorder(this);
         }
     }
 
-    /** Exchanges recorded so far. */
+    /** {@return exchanges recorded so far} */
     public long recordedExchanges() {
         return recorded.get();
     }
 
-    /** Exchanges that could not be written. */
+    /** {@return exchanges that could not be written} */
     public long failedExchanges() {
         return failures.get();
     }

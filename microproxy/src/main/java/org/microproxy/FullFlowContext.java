@@ -9,6 +9,14 @@ public class FullFlowContext extends FlowContext {
     private final ChainedProxy chainedProxy;
     private final InetSocketAddress remoteAddress;
 
+    /**
+     * Creates a server-side view of a client exchange.
+     *
+     * @param clientContext the client connection or exchange context
+     * @param serverHostAndPort the requested server host and port
+     * @param chainedProxy the upstream proxy in use, or {@code null} for direct routing
+     * @param remoteAddress the connected server or upstream proxy address
+     */
     public FullFlowContext(
             FlowContext clientContext,
             String serverHostAndPort,
@@ -20,17 +28,17 @@ public class FullFlowContext extends FlowContext {
         this.remoteAddress = remoteAddress;
     }
 
-    /** The {@code host:port} the client asked for. */
+    /** {@return the {@code host:port} the client asked for} */
     public String getServerHostAndPort() {
         return serverHostAndPort;
     }
 
-    /** The upstream proxy in use, or {@code null} for a direct connection. */
+    /** {@return the upstream proxy in use, or {@code null} for a direct connection} */
     public ChainedProxy getChainedProxy() {
         return chainedProxy;
     }
 
-    /** The address the proxy is connected to: the server, or the chained proxy. */
+    /** {@return the address the proxy is connected to: the server, or the chained proxy} */
     public InetSocketAddress getRemoteAddress() {
         return remoteAddress;
     }

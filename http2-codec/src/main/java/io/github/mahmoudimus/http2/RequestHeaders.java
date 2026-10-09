@@ -20,26 +20,62 @@ import java.util.Objects;
 public record RequestHeaders(String method, String scheme, String authority, String path, List<HeaderField> fields,
         long contentLength, String protocol) {
 
+    /**
+     * Creates request headers without extended CONNECT metadata.
+     *
+     * @param method the non-null request method
+     * @param scheme the URI scheme, or null for ordinary CONNECT
+     * @param authority the target authority, or null if unavailable
+     * @param path the request path, or null for ordinary CONNECT
+     * @param fields the regular fields in order, copied into an immutable list
+     * @param contentLength the declared content length, or -1 if absent
+     */
     public RequestHeaders(String method, String scheme, String authority, String path, List<HeaderField> fields,
             long contentLength) {
         this(method, scheme, authority, path, fields, contentLength, null);
     }
 
+    /**
+     * Creates request headers and takes an immutable copy of the regular fields.
+     *
+     * @param method the non-null request method
+     * @param scheme the URI scheme, or null for ordinary CONNECT
+     * @param authority the target authority, or null if unavailable
+     * @param path the request path, or null for ordinary CONNECT
+     * @param fields the regular fields in order, copied into an immutable list
+     * @param contentLength the declared content length, or -1 if absent
+     * @param protocol the extended CONNECT protocol, or null if absent
+     */
     public RequestHeaders {
         Objects.requireNonNull(method, "method");
         fields = List.copyOf(fields);
     }
 
+    /**
+     * Checks the request method.
+     *
+     * @return whether the method is CONNECT
+     */
     public boolean isConnect() {
         return method.equals("CONNECT");
     }
 
-    /** The value of the first field with this (lower-case) name, or null. */
+    /**
+     * The value of the first field with this (lower-case) name, or null.
+     *
+     * @param name the lower-case field name
+     * @return the first matching value, or null if absent
+     */
     public String get(String name) {
         return Http2Headers.first(fields, name);
     }
 
-    /** The values of every field with this (lower-case) name. */
+    /**
+     * The values of every field with this (lower-case) name.
+     *
+     * @param name the lower-case field name
+     * @return the matching values in field order, or an empty list
+     */
     public List<String> getAll(String name) {
         List<String> values = new ArrayList<>();
         for (HeaderField f : fields) {

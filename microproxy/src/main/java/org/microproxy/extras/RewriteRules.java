@@ -54,6 +54,11 @@ public final class RewriteRules implements HttpFiltersSource {
         this.maxBodySize = maxBodySize;
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -156,56 +161,113 @@ public final class RewriteRules implements HttpFiltersSource {
             this.url = url;
         }
 
-        /** A rule for URLs that fully match {@code urlRegex}. */
+        /**
+         * A rule for URLs that fully match {@code urlRegex}.
+         *
+         * @param urlRegex the regular expression matched against the whole URL
+         * @return a rule matching the complete URL against the expression
+         */
         public static Rule matching(String urlRegex) {
             return new Rule(Pattern.compile(urlRegex));
         }
 
-        /** A rule for URLs that start with {@code prefix} (matched literally). */
+        /**
+         * A rule for URLs that start with {@code prefix} (matched literally).
+         *
+         * @param prefix the literal URL prefix to match
+         * @return a rule matching the literal URL prefix
+         */
         public static Rule prefix(String prefix) {
             return new Rule(Pattern.compile(Pattern.quote(prefix) + ".*"));
         }
 
-        /** Matches the URL without its query string. */
+        /**
+         * Matches the URL without its query string.
+         *
+         * @return this rule
+         */
         public Rule ignoringQuery() {
             this.ignoreQuery = true;
             return this;
         }
 
-        /** Restricts the rule to these methods. */
+        /**
+         * Restricts the rule to these methods.
+         *
+         * @param methods the HTTP methods to match
+         * @return this rule
+         */
         public Rule methods(String... methods) {
             this.methods = Set.of(methods);
             return this;
         }
 
-        /** Replaces every match of {@code regex} in textual response bodies ({@link Matcher#replaceAll}). */
+        /**
+         * Replaces every match of {@code regex} in textual response bodies ({@link Matcher#replaceAll}).
+         *
+         * @param regex the regular expression to replace
+         * @param replacement the replacement text
+         * @return this rule
+         */
         public Rule replaceInBody(String regex, String replacement) {
             Pattern p = Pattern.compile(regex);
             bodyEdits.add(text -> p.matcher(text).replaceAll(replacement));
             return this;
         }
 
-        /** Replaces every occurrence of {@code target} literally in textual response bodies. */
+        /**
+         * Replaces every occurrence of {@code target} literally in textual response bodies.
+         *
+         * @param target the literal text to replace
+         * @param replacement the replacement text
+         * @return this rule
+         */
         public Rule replaceLiteralInBody(String target, String replacement) {
             bodyEdits.add(text -> text.replace(target, replacement));
             return this;
         }
 
+        /**
+         * Sets a header on matching requests.
+         *
+         * @param name the request header name
+         * @param value the replacement header value
+         * @return this rule
+         */
         public Rule setRequestHeader(String name, String value) {
             requestHeaderEdits.add(headers -> headers.set(name, value));
             return this;
         }
 
+        /**
+         * Removes a header from matching requests.
+         *
+         * @param name the request header name to remove
+         * @return this rule
+         */
         public Rule removeRequestHeader(String name) {
             requestHeaderEdits.add(headers -> headers.remove(name));
             return this;
         }
 
+        /**
+         * Sets a header on matching responses.
+         *
+         * @param name the response header name
+         * @param value the replacement header value
+         * @return this rule
+         */
         public Rule setResponseHeader(String name, String value) {
             responseHeaderEdits.add(headers -> headers.set(name, value));
             return this;
         }
 
+        /**
+         * Removes a header from matching responses.
+         *
+         * @param name the response header name to remove
+         * @return this rule
+         */
         public Rule removeResponseHeader(String name) {
             responseHeaderEdits.add(headers -> headers.remove(name));
             return this;
@@ -234,18 +296,34 @@ public final class RewriteRules implements HttpFiltersSource {
 
         private Builder() {}
 
+        /**
+         * Appends a rule to this rewrite configuration.
+         *
+         * @param rule the rewrite rule to append
+         * @return this builder
+         */
         public Builder add(Rule rule) {
             rules.add(Objects.requireNonNull(rule));
             return this;
         }
 
-        /** Largest response body (as received) that is buffered for editing; default 10 MiB. */
+        /**
+         * Largest response body (as received) that is buffered for editing; default 10 MiB.
+         *
+         * @param bytes the maximum response body size buffered for rewriting
+         * @return this builder
+         */
         public Builder maxBodySize(int bytes) {
             if (bytes <= 0) throw new IllegalArgumentException("must be positive");
             this.maxBodySize = bytes;
             return this;
         }
 
+        /**
+         * Creates the configured response rewrite rules.
+         *
+         * @return the configured rewrite rules
+         */
         public RewriteRules build() {
             return new RewriteRules(rules, maxBodySize);
         }

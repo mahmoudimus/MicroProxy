@@ -16,10 +16,15 @@ import org.microproxy.http.HttpResponseStatus;
  */
 public sealed interface ProxyFailure {
 
-    /** The status of the proxy's default answer. */
+    /** {@return the status of the proxy's default answer} */
     HttpResponseStatus status();
 
-    /** The server's name did not resolve (direct connections). Default {@code 502}. */
+    /**
+     * The server's name did not resolve (direct connections). Default {@code 502}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
+     * @param cause the failure that triggered this event
+     */
     record UnresolvedHost(String hostAndPort, UnknownHostException cause) implements ProxyFailure {
         @Override
         public HttpResponseStatus status() {
@@ -32,6 +37,9 @@ public sealed interface ProxyFailure {
      * unreachable, timed out, a chained proxy whose own name did not resolve, or a chained proxy
      * that refused the {@code CONNECT} or SOCKS request.
      * With several chained proxies, {@code cause} is the last one's failure. Default {@code 502}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
+     * @param cause the failure that triggered this event
      */
     record ConnectFailed(String hostAndPort, IOException cause) implements ProxyFailure {
         @Override
@@ -44,6 +52,9 @@ public sealed interface ProxyFailure {
      * The TLS handshake with the server (when intercepting) or with a TLS chained proxy failed or
      * did not finish within {@link HttpProxyServerBootstrap#withTlsHandshakeTimeout}, e.g. because
      * its certificate is not trusted. Default {@code 502}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
+     * @param cause the failure that triggered this event
      */
     record TlsFailed(String hostAndPort, IOException cause) implements ProxyFailure {
         @Override
@@ -52,7 +63,12 @@ public sealed interface ProxyFailure {
         }
     }
 
-    /** The server did not answer within the idle timeout. Default {@code 504}. */
+    /**
+     * The server did not answer within the idle timeout. Default {@code 504}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
+     * @param cause the failure that triggered this event
+     */
     record ServerTimeout(String hostAndPort, IOException cause) implements ProxyFailure {
         @Override
         public HttpResponseStatus status() {
@@ -63,6 +79,9 @@ public sealed interface ProxyFailure {
     /**
      * The server's response was malformed, or the server closed the connection or failed before
      * the response head (or a body the filters asked to buffer) was complete. Default {@code 502}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
+     * @param cause the failure that triggered this event
      */
     record BadServerResponse(String hostAndPort, IOException cause) implements ProxyFailure {
         @Override
@@ -74,6 +93,8 @@ public sealed interface ProxyFailure {
     /**
      * There is nowhere to send the request: it names no host ({@code hostAndPort} is null), or the
      * {@link ChainedProxyManager} offered no route. Default {@code 502}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
      */
     record NoRoute(String hostAndPort) implements ProxyFailure {
         @Override
@@ -85,6 +106,8 @@ public sealed interface ProxyFailure {
     /**
      * The {@linkplain HttpProxyServerBootstrap#withSharedServerConnectionPool shared connection
      * pool} had no connection to spare within the connect timeout. Default {@code 503}.
+     *
+     * @param hostAndPort the destination host and port, or {@code null} when unavailable
      */
     record NoConnectionAvailable(String hostAndPort) implements ProxyFailure {
         @Override
@@ -97,6 +120,8 @@ public sealed interface ProxyFailure {
      * The proxy refuses the request: an origin-form request without {@link
      * HttpProxyServerBootstrap#withAllowRequestToOriginServer}, or a {@code CONNECT} target that is
      * not {@code host:port}. Default {@code 400} with the body {@code "Bad Request: " + reason}.
+     *
+     * @param reason the reason the request was rejected
      */
     record BadRequest(String reason) implements ProxyFailure {
         @Override
@@ -109,6 +134,8 @@ public sealed interface ProxyFailure {
      * The request body is larger than the filters asked to buffer ({@code maxBytes}). The client
      * connection is always closed afterwards, since the rest of the body is never read. Default
      * {@code 413}.
+     *
+     * @param maxBytes the maximum number of body bytes
      */
     record RequestTooLarge(int maxBytes) implements ProxyFailure {
         @Override

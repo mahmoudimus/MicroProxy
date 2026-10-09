@@ -40,9 +40,18 @@ public final class CachedResponse {
     private final long responseTime;
 
     /**
+     * Creates a stored response and its freshness metadata.
+     *
      * @param key the URL the response was stored under
      * @param vary for each field named by {@code Vary} (lower-cased), the request's normalized value,
      *     or {@code null} if the request lacked it
+     *
+     * @param status the HTTP status code
+     * @param reason the HTTP reason phrase
+     * @param headers the response header fields
+     * @param body the response body bytes
+     * @param requestTime the request timestamp in epoch milliseconds
+     * @param responseTime the response timestamp in epoch milliseconds
      */
     public CachedResponse(String key, Map<String, String> vary, int status, String reason, HttpHeaders headers,
             byte[] body, long requestTime, long responseTime) {
@@ -57,23 +66,27 @@ public final class CachedResponse {
         this.responseTime = responseTime;
     }
 
+    /** {@return the URL identifying this cached response} */
     public String key() {
         return key;
     }
 
+    /** {@return the request header values selecting this cached variant} */
     public Map<String, String> vary() {
         return vary;
     }
 
+    /** {@return the stored HTTP status code} */
     public int status() {
         return status;
     }
 
+    /** {@return the stored HTTP reason phrase} */
     public String reason() {
         return reason;
     }
 
-    /** A copy of the stored header fields. */
+    /** {@return a copy of the stored header fields} */
     public HttpHeaders headers() {
         return headers.copy();
     }
@@ -82,7 +95,7 @@ public final class CachedResponse {
         return headers.get(name);
     }
 
-    /** A copy of the body. */
+    /** {@return a copy of the body} */
     public byte[] body() {
         return body.clone();
     }
@@ -99,15 +112,17 @@ public final class CachedResponse {
         return headers;
     }
 
+    /** {@return when the request was sent, in epoch milliseconds} */
     public long requestTime() {
         return requestTime;
     }
 
+    /** {@return when the response was received, in epoch milliseconds} */
     public long responseTime() {
         return responseTime;
     }
 
-    /** Roughly how much memory or disk the entry takes. */
+    /** {@return roughly how much memory or disk the entry takes} */
     public long weight() {
         long w = body.length + key.length() + 64;
         for (Map.Entry<String, String> e : headers.entries()) w += e.getKey().length() + e.getValue().length() + 4;

@@ -25,6 +25,9 @@ import java.util.List;
  */
 public final class CertificateBuilder {
 
+    /** Starts a self-signed server certificate with the default subject and validity. */
+    public CertificateBuilder() {}
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private String subjectCommonName = "MicroProxy";
@@ -36,35 +39,71 @@ public final class CertificateBuilder {
     private boolean certificateAuthority;
     private final List<String> subjectAltNames = new ArrayList<>();
 
+    /**
+     * Sets the certificate subject.
+     *
+     * @param commonName the certificate subject common name
+     * @param organization the subject organization
+     * @return this builder
+     */
     public CertificateBuilder subject(String commonName, String organization) {
         this.subjectCommonName = commonName;
         this.subjectOrganization = organization;
         return this;
     }
 
-    /** The issuing CA certificate; leave unset for a self-signed certificate. */
+    /**
+     * The issuing CA certificate; leave unset for a self-signed certificate.
+     *
+     * @param issuer the issuing CA certificate
+     * @return this builder
+     */
     public CertificateBuilder issuer(X509Certificate issuer) {
         this.issuer = issuer;
         return this;
     }
 
+    /**
+     * Sets the public key certified by this certificate.
+     *
+     * @param publicKey the public key to certify
+     * @return this builder
+     */
     public CertificateBuilder publicKey(PublicKey publicKey) {
         this.publicKey = publicKey;
         return this;
     }
 
+    /**
+     * Sets the certificate validity interval.
+     *
+     * @param notBefore the start of the validity interval
+     * @param notAfter the end of the validity interval
+     * @return this builder
+     */
     public CertificateBuilder validity(Instant notBefore, Instant notAfter) {
         this.notBefore = notBefore;
         this.notAfter = notAfter;
         return this;
     }
 
+    /**
+     * Sets whether the certificate may issue other certificates.
+     *
+     * @param ca whether the certificate may sign other certificates
+     * @return this builder
+     */
     public CertificateBuilder certificateAuthority(boolean ca) {
         this.certificateAuthority = ca;
         return this;
     }
 
-    /** Adds a DNS name or IP literal to the subject alternative names. */
+    /**
+     * Adds a DNS name or IP literal to the subject alternative names.
+     *
+     * @param nameOrIp the DNS name or IP literal to add
+     * @return this builder
+     */
     public CertificateBuilder addSubjectAltName(String nameOrIp) {
         if (!subjectAltNames.contains(nameOrIp)) {
             subjectAltNames.add(nameOrIp);
@@ -72,7 +111,13 @@ public final class CertificateBuilder {
         return this;
     }
 
-    /** Signs the certificate with {@code signingKey} (the issuer's key, or the subject's own). */
+    /**
+     * Signs the certificate with {@code signingKey} (the issuer's key, or the subject's own).
+     *
+     * @param signingKey the private key used to sign the certificate
+     * @return the signed certificate
+     * @throws GeneralSecurityException if the certificate cannot be signed
+     */
     public X509Certificate sign(PrivateKey signingKey) throws GeneralSecurityException {
         if (publicKey == null) throw new IllegalStateException("publicKey not set");
         boolean ec = signingKey.getAlgorithm().equals("EC");

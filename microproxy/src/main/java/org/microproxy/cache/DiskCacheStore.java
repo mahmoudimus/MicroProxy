@@ -57,6 +57,9 @@ public final class DiskCacheStore implements CacheStore {
      * Opens (creating if needed) a store in {@code dir}, indexing the entries already there.
      *
      * @param maxSize the most {@link CachedResponse#weight()} to hold, in bytes
+     *
+     * @param dir the directory backing the response cache
+     * @throws IOException if the cache directory cannot be created or read
      */
     public DiskCacheStore(Path dir, long maxSize) throws IOException {
         if (maxSize <= 0) throw new IllegalArgumentException("maxSize must be positive");

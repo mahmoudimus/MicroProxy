@@ -59,7 +59,12 @@ public final class HttpBodies {
 
     private HttpBodies() {}
 
-    /** The content codings applied to {@code message}, outermost last ({@code identity} omitted). */
+    /**
+     * The content codings applied to {@code message}, outermost last ({@code identity} omitted).
+     *
+     * @param message the message whose body and headers are inspected
+     * @return the lower-case content codings in application order, excluding identity
+     */
     public static List<String> contentEncodings(HttpMessage message) {
         return message.headers().getAllElements(HttpHeaderNames.CONTENT_ENCODING).stream()
                 .map(s -> s.toLowerCase(Locale.ROOT))
@@ -67,7 +72,12 @@ public final class HttpBodies {
                 .toList();
     }
 
-    /** Whether every content coding of {@code message} can be decoded. */
+    /**
+     * Whether every content coding of {@code message} can be decoded.
+     *
+     * @param message the message whose body and headers are inspected
+     * @return whether all declared content codings are supported
+     */
     public static boolean canDecode(HttpMessage message) {
         for (String coding : contentEncodings(message)) {
             if (!DECODABLE.contains(coding)) {
@@ -77,11 +87,25 @@ public final class HttpBodies {
         return true;
     }
 
-    /** The body with all content codings removed. */
+    /**
+     * The body with all content codings removed.
+     *
+     * @param message the message whose body and headers are inspected
+     * @return the body bytes after all content codings are removed
+     * @throws IOException if a coding is unsupported, corrupt, or exceeds the default decoding limit
+     */
     public static byte[] decoded(FullHttpMessage message) throws IOException {
         return decoded(message, DEFAULT_MAX_DECODED_BYTES);
     }
 
+    /**
+     * Removes all content codings with a limit on each decompression stage.
+     *
+     * @param message the message whose body and headers are inspected
+     * @param maxDecodedBytes the maximum output size in bytes for each decompression stage
+     * @return the body bytes after all content codings are removed
+     * @throws IOException if a coding is unsupported, corrupt, or exceeds the decoding limit
+     */
     public static byte[] decoded(FullHttpMessage message, int maxDecodedBytes) throws IOException {
         byte[] data = message.content();
         List<String> codings = contentEncodings(message);
@@ -95,6 +119,11 @@ public final class HttpBodies {
      * The first {@code maxBytes} of the body with all content codings removed, for previews and
      * logs: unlike {@link #decoded(FullHttpMessage, int)}, a longer decoded body is cut short
      * rather than an error, and only that much is ever decoded.
+     *
+     * @param message the message whose body and headers are inspected
+     * @param maxBytes the maximum prefix length; nonpositive values produce an empty result
+     * @return up to maxBytes decoded body bytes
+     * @throws IOException if a coding is unsupported or the decoded prefix cannot be read
      */
     public static byte[] decodedPrefix(FullHttpMessage message, int maxBytes) throws IOException {
         List<String> codings = contentEncodings(message);
@@ -142,6 +171,10 @@ public final class HttpBodies {
     /**
      * Replaces the body with {@code decodedBody}, re-applying the message's content codings, and
      * removes validators that described the old body.
+     *
+     * @param message the message to update
+     * @param decodedBody the replacement bytes before applying content codings
+     * @throws IOException if a content coding is unsupported or encoding fails
      */
     public static void setDecoded(FullHttpMessage message, byte[] decodedBody) throws IOException {
         List<String> codings = contentEncodings(message);
@@ -160,7 +193,12 @@ public final class HttpBodies {
         message.headers().remove("Digest");
     }
 
-    /** Decodes the body and removes {@code Content-Encoding}, so later filters see plain bytes. */
+    /**
+     * Decodes the body and removes {@code Content-Encoding}, so later filters see plain bytes.
+     *
+     * @param message the message to decode and update
+     * @throws IOException if a coding is unsupported, corrupt, or exceeds the default decoding limit
+     */
     public static void removeContentEncoding(FullHttpMessage message) throws IOException {
         byte[] plain = decoded(message);
         message.headers().remove(HttpHeaderNames.CONTENT_ENCODING);
@@ -174,6 +212,8 @@ public final class HttpBodies {
      * Removes content codings this class cannot decode (e.g. {@code dcb}) from the request's
      * {@code Accept-Encoding}, keeping quality values, so the server picks one that filters can
      * read. Leaves {@code identity} when nothing else remains.
+     *
+     * @param request the request whose accepted codings are restricted
      */
     public static void restrictAcceptEncoding(HttpRequest request) {
         List<String> offered = request.headers().getAllElements(HttpHeaderNames.ACCEPT_ENCODING);
@@ -189,12 +229,24 @@ public final class HttpBodies {
         request.headers().set(HttpHeaderNames.ACCEPT_ENCODING, kept.isEmpty() ? "identity" : String.join(", ", kept));
     }
 
-    /** The decoded body as text, in the message's charset (UTF-8 when none is declared). */
+    /**
+     * The decoded body as text, in the message's charset (UTF-8 when none is declared).
+     *
+     * @param message the message whose body and headers are inspected
+     * @return the decoded body interpreted in the declared charset, or UTF-8 by default
+     * @throws IOException if a coding is unsupported, corrupt, or exceeds the default decoding limit
+     */
     public static String text(FullHttpMessage message) throws IOException {
         return new String(decoded(message), charset(message, StandardCharsets.UTF_8));
     }
 
-    /** Replaces the body with {@code text} in the message's charset (UTF-8 when none is declared). */
+    /**
+     * Replaces the body with {@code text} in the message's charset (UTF-8 when none is declared).
+     *
+     * @param message the message to update
+     * @param text the replacement text before charset encoding and content coding
+     * @throws IOException if a content coding is unsupported or encoding fails
+     */
     public static void setText(FullHttpMessage message, String text) throws IOException {
         setDecoded(message, text.getBytes(charset(message, StandardCharsets.UTF_8)));
     }
@@ -202,6 +254,10 @@ public final class HttpBodies {
     /**
      * The {@code charset} parameter of {@code Content-Type}, or {@code fallback} when absent,
      * unknown or malformed.
+     *
+     * @param message the message whose Content-Type is inspected
+     * @param fallback the charset to use when the parameter cannot be resolved
+     * @return the declared charset, or fallback if unavailable
      */
     public static Charset charset(HttpMessage message, Charset fallback) {
         String contentType = message.headers().get(HttpHeaderNames.CONTENT_TYPE);
@@ -218,7 +274,12 @@ public final class HttpBodies {
         return fallback;
     }
 
-    /** The media type of {@code Content-Type} in lower case, without parameters, or "". */
+    /**
+     * The media type of {@code Content-Type} in lower case, without parameters, or "".
+     *
+     * @param message the message whose Content-Type is inspected
+     * @return the lower-case media type without parameters, or an empty string if absent
+     */
     public static String mediaType(HttpMessage message) {
         String contentType = message.headers().get(HttpHeaderNames.CONTENT_TYPE);
         if (contentType == null) return "";
@@ -226,7 +287,12 @@ public final class HttpBodies {
         return (semi >= 0 ? contentType.substring(0, semi) : contentType).strip().toLowerCase(Locale.ROOT);
     }
 
-    /** Whether the media type is textual: {@code text/*}, JSON, XML, JavaScript or form data. */
+    /**
+     * Whether the media type is textual: {@code text/*}, JSON, XML, JavaScript or form data.
+     *
+     * @param message the message whose media type is inspected
+     * @return whether the media type is recognized as textual
+     */
     public static boolean isText(HttpMessage message) {
         String type = mediaType(message);
         return type.startsWith("text/") || type.endsWith("+json") || type.endsWith("+xml")

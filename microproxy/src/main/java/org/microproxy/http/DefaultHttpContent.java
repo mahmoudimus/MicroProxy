@@ -7,6 +7,10 @@ public non-sealed class DefaultHttpContent implements HttpContent {
 
     private byte[] content;
 
+    /**
+     * Creates a body piece backed by the supplied array.
+     * @param content body bytes, retained without copying
+     */
     public DefaultHttpContent(byte[] content) {
         this.content = Objects.requireNonNull(content, "content");
     }

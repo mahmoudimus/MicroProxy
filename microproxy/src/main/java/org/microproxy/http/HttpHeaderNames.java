@@ -3,26 +3,47 @@ package org.microproxy.http;
 /** Common header names. Header lookups in {@link HttpHeaders} are case-insensitive. */
 public final class HttpHeaderNames {
 
+    /** The {@code Accept-Encoding} header field name. */
     public static final String ACCEPT_ENCODING = "Accept-Encoding";
+    /** The {@code Connection} header field name. */
     public static final String CONNECTION = "Connection";
+    /** The {@code Content-Encoding} header field name. */
     public static final String CONTENT_ENCODING = "Content-Encoding";
+    /** The {@code Content-Length} header field name. */
     public static final String CONTENT_LENGTH = "Content-Length";
+    /** The {@code Content-Type} header field name. */
     public static final String CONTENT_TYPE = "Content-Type";
+    /** The {@code Date} header field name. */
     public static final String DATE = "Date";
+    /** The {@code Expect} header field name. */
     public static final String EXPECT = "Expect";
+    /** The {@code Host} header field name. */
     public static final String HOST = "Host";
+    /** The {@code Keep-Alive} header field name. */
     public static final String KEEP_ALIVE = "Keep-Alive";
+    /** The {@code Location} header field name. */
     public static final String LOCATION = "Location";
+    /** The {@code Proxy-Authenticate} header field name. */
     public static final String PROXY_AUTHENTICATE = "Proxy-Authenticate";
+    /** The {@code Proxy-Authorization} header field name. */
     public static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
+    /** The {@code Proxy-Connection} header field name. */
     public static final String PROXY_CONNECTION = "Proxy-Connection";
+    /** The {@code Sec-WebSocket-Extensions} header field name. */
     public static final String SEC_WEBSOCKET_EXTENSIONS = "Sec-WebSocket-Extensions";
+    /** The {@code Sec-WebSocket-Key} header field name. */
     public static final String SEC_WEBSOCKET_KEY = "Sec-WebSocket-Key";
+    /** The {@code TE} header field name. */
     public static final String TE = "TE";
+    /** The {@code Trailer} header field name. */
     public static final String TRAILER = "Trailer";
+    /** The {@code Transfer-Encoding} header field name. */
     public static final String TRANSFER_ENCODING = "Transfer-Encoding";
+    /** The {@code Upgrade} header field name. */
     public static final String UPGRADE = "Upgrade";
+    /** The {@code User-Agent} header field name. */
     public static final String USER_AGENT = "User-Agent";
+    /** The {@code Via} header field name. */
     public static final String VIA = "Via";
 
     /**

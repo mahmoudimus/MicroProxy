@@ -23,6 +23,9 @@ public interface StarlarkSetIndexable extends StarlarkIndexable {
   /**
    * Updates an object as if by the Starlark statement {@code object[key] = value}.
    *
+   * @param semantics the interpreter settings used for indexed assignment
+   * @param key the index or mapping key to update
+   * @param value the new Starlark value to associate with the key
    * @throws EvalException if underlying object is immutable.
    */
   void setIndex(StarlarkSemantics semantics, Object key, Object value) throws EvalException;

@@ -42,7 +42,12 @@ public final class ProxyUtils {
 
     private ProxyUtils() {}
 
-    /** Turns {@code http://host/path?q} into {@code /path?q}; other URIs are returned as is. */
+    /**
+     * Turns {@code http://host/path?q} into {@code /path?q}; other URIs are returned as is.
+     *
+     * @param uri the request URI
+     * @return the path and query, or the unchanged URI if it is not absolute
+     */
     public static String stripHost(String uri) {
         if (!hasHttpScheme(uri)) {
             return uri;
@@ -64,7 +69,12 @@ public final class ProxyUtils {
         return -1;
     }
 
-    /** Whether {@code uri} starts with a scheme followed by {@code ://}. */
+    /**
+     * Whether {@code uri} starts with a scheme followed by {@code ://}.
+     *
+     * @param uri the request URI
+     * @return whether {@code uri} starts with a scheme followed by {@code ://}
+     */
     public static boolean isAbsoluteUri(String uri) {
         if (uri.isEmpty() || !isAsciiLetter(uri.charAt(0))) return false;
         for (int i = 1; i < uri.length(); i++) {
@@ -82,6 +92,9 @@ public final class ProxyUtils {
     /**
      * Extracts {@code host[:port]} from an absolute URI (without user info), or returns {@code
      * null} if the URI is not absolute.
+     *
+     * @param uri the request URI
+     * @return the authority without user information, or {@code null} for a relative URI
      */
     public static String parseHostAndPort(String uri) {
         if (!hasHttpScheme(uri)) {
@@ -102,15 +115,32 @@ public final class ProxyUtils {
         return lower.startsWith("https://") || lower.startsWith("wss://") ? 443 : 80;
     }
 
+    /**
+     * Tests whether the request uses CONNECT.
+     *
+     * @param request the request being handled
+     * @return whether the request method is CONNECT
+     */
     public static boolean isCONNECT(HttpRequest request) {
         return HttpMethod.CONNECT.equals(request.method());
     }
 
+    /**
+     * Tests whether the request uses HEAD.
+     *
+     * @param request the request being handled
+     * @return whether the request method is HEAD
+     */
     public static boolean isHEAD(HttpRequest request) {
         return HttpMethod.HEAD.equals(request.method());
     }
 
-    /** Appends {@code <version> <alias>} to the {@code Via} header (RFC 9110 7.6.3). */
+    /**
+     * Appends {@code <version> <alias>} to the {@code Via} header (RFC 9110 7.6.3).
+     *
+     * @param message the HTTP message whose Via header to append to
+     * @param alias the name used in Via headers
+     */
     public static void addVia(HttpMessage message, String alias) {
         HttpVersion v = message.protocolVersion();
         // HTTP/2 and later have no minor version: "2" (RFC 9110 section 7.6.3).
@@ -119,6 +149,12 @@ public final class ProxyUtils {
         message.headers().add(HttpHeaderNames.VIA, received + " " + alias);
     }
 
+    /**
+     * Tests whether a header is specific to one transport connection.
+     *
+     * @param name the HTTP header name to test
+     * @return whether the header must be removed before forwarding
+     */
     public static boolean shouldRemoveHopByHopHeader(String name) {
         for (String h : HOP_BY_HOP) {
             if (h.equalsIgnoreCase(name)) return true;
@@ -126,7 +162,11 @@ public final class ProxyUtils {
         return false;
     }
 
-    /** Removes the fixed set of hop-by-hop headers. */
+    /**
+     * Removes the fixed set of hop-by-hop headers.
+     *
+     * @param headers the HTTP message headers to modify
+     */
     public static void stripHopByHopHeaders(HttpHeaders headers) {
         headers.removeIf(ProxyUtils::shouldRemoveHopByHopHeader);
     }
@@ -135,6 +175,8 @@ public final class ProxyUtils {
      * Removes headers named as connection options in {@code Connection} (RFC 9110 7.6.1) or in the
      * non-standard {@code Proxy-Connection}, except {@code Transfer-Encoding}, whose framing the
      * proxy preserves.
+     *
+     * @param headers the HTTP message headers to modify
      */
     public static void stripConnectionTokens(HttpHeaders headers) {
         if (!headers.contains(HttpHeaderNames.CONNECTION) && !headers.contains(HttpHeaderNames.PROXY_CONNECTION)) {
@@ -190,11 +232,23 @@ public final class ProxyUtils {
                 || h.containsValue(HttpHeaderNames.PROXY_CONNECTION, "keep-alive", true);
     }
 
+    /**
+     * Tests whether the message requests or confirms a WebSocket upgrade.
+     *
+     * @param request the request being handled
+     * @return whether the message requests or confirms a WebSocket upgrade
+     */
     public static boolean isSwitchingToWebSocketProtocol(HttpRequest request) {
         return request.headers().containsValue(HttpHeaderNames.UPGRADE, "websocket", true)
                 && request.headers().containsValue(HttpHeaderNames.CONNECTION, "upgrade", true);
     }
 
+    /**
+     * Tests whether the message requests or confirms a WebSocket upgrade.
+     *
+     * @param response the response being handled
+     * @return whether the message requests or confirms a WebSocket upgrade
+     */
     public static boolean isSwitchingToWebSocketProtocol(HttpResponse response) {
         return response.status().code() == 101
                 && response.headers().containsValue(HttpHeaderNames.UPGRADE, "websocket", true);
@@ -203,6 +257,9 @@ public final class ProxyUtils {
     /**
      * Whether a response delimits its own body (rather than by closing the connection). See RFC
      * 9112 6.3.
+     *
+     * @param response the response being handled
+     * @return whether a response delimits its own body (rather than by closing the connection)
      */
     public static boolean isResponseSelfTerminating(HttpResponse response) {
         int code = response.status().code();
@@ -215,7 +272,7 @@ public final class ProxyUtils {
         return response.headers().contains(HttpHeaderNames.CONTENT_LENGTH);
     }
 
-    /** The current time as an IMF-fixdate. */
+    /** {@return the current time as an IMF-fixdate} */
     public static String httpDate() {
         long second = System.currentTimeMillis() / 1000;
         CachedDate cached = lastDate;
@@ -236,6 +293,11 @@ public final class ProxyUtils {
      * Creates a plain-text response with {@code body}, a Date and an exact Content-Length. The
      * proxy's own error bodies never repeat request input and are marked {@code nosniff}, so a
      * crafted URL cannot become markup in a browser.
+     *
+     * @param version the HTTP protocol version
+     * @param status the response status
+     * @param body the plain-text response body
+     * @return the framed plain-text response
      */
     public static FullHttpResponse createFullHttpResponse(
             HttpVersion version, HttpResponseStatus status, String body) {
@@ -251,7 +313,7 @@ public final class ProxyUtils {
         return response;
     }
 
-    /** The local host name, used as the default {@code Via} alias. */
+    /** {@return the local host name, used as the default {@code Via} alias} */
     public static String getHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();

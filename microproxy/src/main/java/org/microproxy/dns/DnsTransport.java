@@ -20,9 +20,22 @@ import java.util.List;
 @FunctionalInterface
 public interface DnsTransport {
 
+    /**
+     * Sends a wire-format DNS query and reads its response.
+     *
+     * @param query the wire-format DNS query message
+     * @return the wire-format DNS response
+     * @throws IOException if the query fails or no DNS response can be read
+     */
     byte[] exchange(byte[] query) throws IOException;
 
-    /** UDP to each server in turn, retrying over TCP when a response is truncated. */
+    /**
+     * UDP to each server in turn, retrying over TCP when a response is truncated.
+     *
+     * @param servers the recursive DNS server addresses
+     * @param timeout the per-attempt UDP/TCP query timeout
+     * @return the UDP transport with TCP fallback
+     */
     static DnsTransport udp(List<InetSocketAddress> servers, Duration timeout) {
         return new UdpDnsTransport(List.copyOf(servers), (int) Math.max(1, timeout.toMillis()));
     }
@@ -30,6 +43,10 @@ public interface DnsTransport {
     /**
      * DNS over HTTPS (RFC 8484) to a resolver such as {@code https://cloudflare-dns.com/dns-query}
      * or {@code https://dns.google/dns-query}. The connection uses the JVM's default proxy settings.
+     *
+     * @param endpoint the DNS-over-HTTPS endpoint
+     * @param timeout the HTTP connection and query timeout
+     * @return the DNS-over-HTTPS transport
      */
     static DnsTransport https(URI endpoint, Duration timeout) {
         java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
@@ -61,6 +78,8 @@ public interface DnsTransport {
     /**
      * The {@code nameserver}s of {@code /etc/resolv.conf}, or Google and Cloudflare public
      * resolvers when that file is unavailable.
+     *
+     * @return the {@code nameserver}s of {@code /etc/resolv.conf}, or Google and Cloudflare public resolvers when that file is unavailable
      */
     static List<InetSocketAddress> systemServers() {
         List<InetSocketAddress> servers = new ArrayList<>();

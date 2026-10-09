@@ -41,7 +41,12 @@ public final class Dictionary {
 
   private static final int DICTIONARY_DEBUG = Utils.isDebugMode();
 
-  /** Initialize static dictionary. */
+  /**
+   * Initialize static dictionary.
+   *
+   * @param newData the replacement dictionary bytes
+   * @param newSizeBits the base-two logarithms of word counts indexed by word length
+   */
   public static void setData(ByteBuffer newData, int[] newSizeBits) {
     if (DICTIONARY_DEBUG != 0) {
       if ((Utils.isDirect(newData) == 0) || (Utils.isReadOnly(newData) == 0)) {
@@ -91,7 +96,11 @@ public final class Dictionary {
     Dictionary.data = newData;
   }
 
-  /** Access static dictionary. */
+  /**
+   * Access static dictionary.
+   *
+   * @return the static Brotli dictionary bytes
+   */
   public static ByteBuffer getData() {
     if (data.capacity() != 0) {
       return data;

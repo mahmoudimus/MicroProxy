@@ -21,17 +21,29 @@ public class SelfSignedSslContextSource implements SslContextSource {
     private final X509Certificate certificate;
     private final SSLContext sslContext;
 
+    /**
+     * Creates a TLS context source with a generated self-signed certificate.
+     */
     public SelfSignedSslContextSource() {
         this(false, true);
     }
 
+    /**
+     * Creates a TLS context source with a generated self-signed certificate.
+     *
+     * @param trustAllServers whether to trust all peer certificates instead of only the generated certificate
+     */
     public SelfSignedSslContextSource(boolean trustAllServers) {
         this(trustAllServers, true);
     }
 
     /**
+     * Creates a TLS context source with a generated self-signed certificate.
+     *
      * @param trustAllServers trust any peer instead of only this certificate
      * @param sendCerts present the certificate (needed on the server side and for client auth)
+     *
+     * @param names the DNS names or IP literals to include in the certificate
      */
     public SelfSignedSslContextSource(boolean trustAllServers, boolean sendCerts, String... names) {
         String[] subjectNames = names.length == 0 ? new String[] {"localhost", "127.0.0.1", "::1"} : names;
@@ -64,6 +76,7 @@ public class SelfSignedSslContextSource implements SslContextSource {
         return sslContext;
     }
 
+    /** {@return the certificate presented by this source} */
     public X509Certificate getCertificate() {
         return certificate;
     }

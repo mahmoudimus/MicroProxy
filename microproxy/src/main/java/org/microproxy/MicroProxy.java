@@ -9,11 +9,22 @@ public final class MicroProxy {
 
     private MicroProxy() {}
 
+    /**
+     * Starts a proxy configuration with default settings.
+     *
+     * @return a new proxy bootstrap
+     */
     public static HttpProxyServerBootstrap bootstrap() {
         return DefaultHttpProxyServer.bootstrap();
     }
 
-    /** A bootstrap configured from a properties file (see the README for keys). */
+    /**
+     * A bootstrap configured from a properties file (see the README for keys).
+     *
+     * @param path the properties file to read
+     * @return a bootstrap initialized from the properties file
+     * @throws IOException if the properties file cannot be read
+     */
     public static HttpProxyServerBootstrap bootstrapFromFile(Path path) throws IOException {
         return DefaultHttpProxyServer.bootstrapFromFile(path);
     }

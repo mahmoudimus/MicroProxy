@@ -145,11 +145,10 @@ class TlsProtocolPinningTest {
      * protocol_version} alert (the JDK's HTTPS server just closes the connection, which the proxy
      * takes for a server that does not speak TLS at all, and tunnels).
      */
-    private AutoCloseable tlsOrigin(SSLContext context, int[] port, String... protocols) throws IOException {
+    private SSLServerSocket tlsOrigin(SSLContext context, String... protocols) throws IOException {
         SSLServerSocket server = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 50,
                 TestSupport.LOOPBACK);
         server.setEnabledProtocols(protocols);
-        port[0] = server.getLocalPort();
         Thread.ofVirtual().start(() -> {
             while (!server.isClosed()) {
                 try {
@@ -169,15 +168,13 @@ class TlsProtocolPinningTest {
                 }
             }
         });
-        return server::close;
+        return server;
     }
 
     @Test
     void bothSidesOfAnInterceptedSessionArePinned() throws Exception {
         CertificateAuthority originCa = CertificateAuthority.generate("Pinning Origin CA");
         CertificateAuthority proxyCa = CertificateAuthority.generate("Pinning Proxy CA");
-        int[] tls12Port = new int[1];
-        int[] tls13Port = new int[1];
         List<List<String>> serverSide = new CopyOnWriteArrayList<>();
         List<ProxyFailure> failures = new CopyOnWriteArrayList<>();
         CertificateAuthorityMitmManager ca = new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext());
@@ -197,10 +194,10 @@ class TlsProtocolPinningTest {
                 serverSide.add(List.of(socket.getEnabledProtocols()));
             }
         };
-        try (AutoCloseable tls12 = tlsOrigin(originCa.serverContext("127.0.0.1"), tls12Port, "TLSv1.2");
-                AutoCloseable tls13 = tlsOrigin(originCa.serverContext("127.0.0.1"), tls13Port, "TLSv1.3")) {
+        try (SSLServerSocket tls12 = tlsOrigin(originCa.serverContext("127.0.0.1"), "TLSv1.2");
+                SSLServerSocket tls13 = tlsOrigin(originCa.serverContext("127.0.0.1"), "TLSv1.3")) {
             HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withManInTheMiddle(recording));
-            var response = get(client(proxy, proxyCa.clientContext()), "https://127.0.0.1:" + tls12Port[0] + "/");
+            var response = get(client(proxy, proxyCa.clientContext()), "https://127.0.0.1:" + tls12.getLocalPort() + "/");
             assertEquals(200, response.statusCode());
             assertEquals("secure", response.body());
             assertEquals(List.of(DEFAULT), serverSide);
@@ -212,15 +209,15 @@ class TlsProtocolPinningTest {
                         failures.add(failure);
                         return null;
                     }));
-            assertEquals(502, ChainTestSupport.connectStatus(strict.getListenAddress(), "127.0.0.1:" + tls12Port[0]));
+            assertEquals(502, ChainTestSupport.connectStatus(strict.getListenAddress(), "127.0.0.1:" + tls12.getLocalPort()));
             assertInstanceOf(ProxyFailure.TlsFailed.class, failures.getFirst());
             assertEquals(List.of("TLSv1.3"), serverSide.getLast());
 
             // The client side of the session: a TLS 1.2-only client is refused by the strict proxy.
             try (Socket s = ChainTestSupport.open(strict.getListenAddress())) {
-                assertEquals(200, ChainTestSupport.status(ChainTestSupport.connect(s, "127.0.0.1:" + tls13Port[0])));
+                assertEquals(200, ChainTestSupport.status(ChainTestSupport.connect(s, "127.0.0.1:" + tls13.getLocalPort())));
                 SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(s, "127.0.0.1",
-                        tls13Port[0], true);
+                        tls13.getLocalPort(), true);
                 tls.setEnabledProtocols(new String[] {"TLSv1.2"});
                 assertThrows(IOException.class, tls::startHandshake);
             }

@@ -35,7 +35,11 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
         this.readOnly = readOnly;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for HTTP headers
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.HEADERS_CONSTRUCTOR;
     }
@@ -69,6 +73,13 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
         return List.copyOf(headers.names()).iterator();
     }
 
+    /**
+     * Returns the first value of a header, with a caller-supplied fallback.
+     *
+     * @param name the case-insensitive header name
+     * @param defaultValue the result when the header is absent
+     * @return the first header value, or {@code defaultValue}
+     */
     @StarlarkMethod(
             name = "get",
             doc = "The first value of a header, or default.",
@@ -79,11 +90,24 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
         return value != null ? value : defaultValue;
     }
 
+    /**
+     * Returns every value of a header.
+     *
+     * @param name the case-insensitive header name
+     * @return an immutable list of values, empty when absent
+     */
     @StarlarkMethod(name = "get_all", doc = "All values of a header, as a list.", parameters = {@Param(name = "name")})
     public StarlarkList<String> getAll(String name) {
         return StarlarkList.immutableCopyOf(headers.getAll(name));
     }
 
+    /**
+     * Replaces all values of a header.
+     *
+     * @param name the header name
+     * @param value a string or a list or tuple of strings
+     * @throws EvalException if headers are read-only or the name or values are invalid
+     */
     @StarlarkMethod(
             name = "set",
             doc = "Replaces a header's values with value (a string or list of strings).",
@@ -98,6 +122,13 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
         }
     }
 
+    /**
+     * Appends values to a header without removing existing values.
+     *
+     * @param name the header name
+     * @param value a string or a list or tuple of strings
+     * @throws EvalException if headers are read-only or the name or values are invalid
+     */
     @StarlarkMethod(name = "add", doc = "Adds a value to a header.", parameters = {@Param(name = "name"), @Param(name = "value")})
     public void add(String name, Object value) throws EvalException {
         checkWritable();
@@ -109,17 +140,34 @@ public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterab
         }
     }
 
+    /**
+     * Removes all values of a header.
+     *
+     * @param name the case-insensitive header name
+     * @return whether any values were removed
+     * @throws EvalException if headers are read-only
+     */
     @StarlarkMethod(name = "remove", doc = "Removes a header; returns whether it was present.", parameters = {@Param(name = "name")})
     public boolean remove(String name) throws EvalException {
         checkWritable();
         return headers.remove(name);
     }
 
+    /**
+     * Returns the distinct header names.
+     *
+     * @return an immutable list of header names
+     */
     @StarlarkMethod(name = "keys", doc = "The distinct header names.")
     public StarlarkList<String> keys() {
         return StarlarkList.immutableCopyOf(headers.names());
     }
 
+    /**
+     * Returns each header value with its name in header order.
+     *
+     * @return an immutable list of name/value tuples, including repeated names
+     */
     @StarlarkMethod(name = "items", doc = "(name, value) pairs in order, one per value.")
     public StarlarkList<Tuple> items() {
         List<Tuple> items = new ArrayList<>();

@@ -13,6 +13,9 @@ import javax.net.ssl.X509ExtendedTrustManager;
  */
 public final class TrustingTrustManager extends X509ExtendedTrustManager {
 
+    /** Creates a trust manager that accepts every peer certificate. */
+    public TrustingTrustManager() {}
+
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType) {}
 

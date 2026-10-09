@@ -3,6 +3,9 @@ package org.microproxy.http;
 /**
  * An HTTP status code and reason phrase. Equality considers only the code, so a response from a
  * server with a non-standard reason phrase still equals the corresponding constant.
+ *
+ * @param code three-digit status code, from 100 to 999
+ * @param reasonPhrase reason phrase, without CR or LF characters
  */
 // @value-candidate: becomes a value class in the valhalla build profile
 public record HttpResponseStatus(int code, String reasonPhrase) {
@@ -54,6 +57,12 @@ public record HttpResponseStatus(int code, String reasonPhrase) {
         SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT
     };
 
+    /**
+     * Creates a status with a validated code and reason phrase.
+     * @param code three-digit status code, from 100 to 999
+     * @param reasonPhrase reason phrase, without CR or LF characters
+     * @throws IllegalArgumentException if the code or reason phrase is invalid
+     */
     public HttpResponseStatus {
         if (code < 100 || code > 999) {
             throw new IllegalArgumentException("invalid status code: " + code);
@@ -63,7 +72,12 @@ public record HttpResponseStatus(int code, String reasonPhrase) {
         }
     }
 
-    /** Returns the well-known status for {@code code}, or a new one with a generic phrase. */
+    /**
+     * Returns the well-known status for {@code code}, or a new one with a generic phrase.
+     * @param code three-digit status code
+     * @return a status with the standard or generic reason phrase
+     * @throws IllegalArgumentException if the code is outside 100 to 999
+     */
     public static HttpResponseStatus valueOf(int code) {
         for (HttpResponseStatus s : KNOWN) {
             if (s.code == code) return s;
@@ -71,7 +85,13 @@ public record HttpResponseStatus(int code, String reasonPhrase) {
         return new HttpResponseStatus(code, defaultReason(code));
     }
 
-    /** Returns a status with {@code code} and {@code reasonPhrase}, reusing constants when equal. */
+    /**
+     * Returns a status with {@code code} and {@code reasonPhrase}, reusing constants when equal.
+     * @param code three-digit status code
+     * @param reasonPhrase reason phrase, without CR or LF characters
+     * @return a status retaining the supplied reason phrase
+     * @throws IllegalArgumentException if the code or reason phrase is invalid
+     */
     public static HttpResponseStatus valueOf(int code, String reasonPhrase) {
         HttpResponseStatus known = valueOf(code);
         return known.reasonPhrase.equals(reasonPhrase) ? known : new HttpResponseStatus(code, reasonPhrase);

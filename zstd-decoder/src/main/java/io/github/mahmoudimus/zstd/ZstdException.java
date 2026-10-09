@@ -7,10 +7,21 @@ public class ZstdException extends IOException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Creates a decoder failure with a diagnostic message.
+     *
+     * @param message description of the invalid data or exceeded limit
+     */
     public ZstdException(String message) {
         super(message);
     }
 
+    /**
+     * Creates a decoder failure caused by another exception.
+     *
+     * @param message description of the decoder failure
+     * @param cause underlying failure
+     */
     public ZstdException(String message, Throwable cause) {
         super(message, cause);
     }

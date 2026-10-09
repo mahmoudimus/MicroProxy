@@ -33,6 +33,8 @@ public interface Structure extends StarlarkValue {
    * <p>The set of names for which {@code getValue} returns non-null should match {@code
    * getFieldNames} if possible.
    *
+   * @param name the name of the field to retrieve
+   * @return the field value, or null if the field does not exist
    * @throws EvalException if a user-visible error occurs (other than non-existent field).
    */
   // TODO(adonovan): rename "getField".
@@ -61,6 +63,8 @@ public interface Structure extends StarlarkValue {
    *
    * <p>The Starlark expression {@code dir(x)} reports the union of {@code getFieldNames()} and any
    * StarlarkMethod-annotated fields and methods of this value.
+   *
+   * @return the field names in a stable order
    */
   ImmutableCollection<String> getFieldNames();
 
@@ -68,6 +72,9 @@ public interface Structure extends StarlarkValue {
    * Returns the error message to print for an attempt to access an undefined field.
    *
    * <p>May return null to use a default error message.
+   *
+   * @param field the undefined field name
+   * @return the diagnostic message, or null to use the default
    */
   @Nullable
   String getErrorMessageForUnknownField(String field);
@@ -76,6 +83,8 @@ public interface Structure extends StarlarkValue {
    * Updates the named field of this value as if by the Starlark statement {@code this.field =
    * value}.
    *
+   * @param field the name of the field to update
+   * @param value the new Starlark value for the field
    * @throws EvalException if the update failed because this value is immutable, does not support
    *     field update, or update of that particular field, or because the value was inappropriate.
    */

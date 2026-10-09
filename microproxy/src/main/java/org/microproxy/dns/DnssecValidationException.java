@@ -9,6 +9,11 @@ import java.net.UnknownHostException;
  */
 public class DnssecValidationException extends UnknownHostException {
 
+    /**
+     * Creates a DNSSEC validation error with a diagnostic message.
+     *
+     * @param message the diagnostic message
+     */
     public DnssecValidationException(String message) {
         super(message);
     }

@@ -98,6 +98,12 @@ public final class Launcher {
 
     private Launcher() {}
 
+    /**
+     * Starts the proxy from command-line options.
+     *
+     * @param args the command-line arguments
+     * @throws IOException if configuration cannot be read or the proxy cannot be started
+     */
     public static void main(String[] args) throws IOException {
         HttpProxyServer server = start(args, System.out);
         if (server != null) {
