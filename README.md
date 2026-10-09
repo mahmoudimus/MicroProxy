@@ -770,6 +770,9 @@ it; see that method's Javadoc for the list:
   or redirect without a DNS lookup. LittleProxy resolves first (and with compatibility on, so does
   MicroProxy).
 
+- The proxy does not fill `FlowContext`'s string-keyed timing map (LittleProxy's
+  `dns_resolution_*_time_ms`); `FlowContext.timings()` has typed timings for every phase instead
+  (see [Observability](#observability)).
 - Full messages are written with a `Content-Length` that matches their actual body. Filters that
   replace a body don't need to fix the header themselves.
 - All interface methods have defaults, so the `*Adapter` classes are only conveniences.
