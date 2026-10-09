@@ -6,6 +6,11 @@ public record HttpVersion(int majorVersion, int minorVersion) {
 
     public static final HttpVersion HTTP_1_0 = new HttpVersion(1, 0);
     public static final HttpVersion HTTP_1_1 = new HttpVersion(1, 1);
+    /**
+     * HTTP/2: the version of requests that arrived on an HTTP/2 stream. HTTP/2 has no request
+     * line; the proxy forwards such requests to servers as HTTP/1.1.
+     */
+    public static final HttpVersion HTTP_2_0 = new HttpVersion(2, 0);
 
     public HttpVersion {
         if (majorVersion < 0 || minorVersion < 0) {
@@ -21,6 +26,7 @@ public record HttpVersion(int majorVersion, int minorVersion) {
             if (Character.isDigit(major) && Character.isDigit(minor)) {
                 if (major == '1' && minor == '1') return HTTP_1_1;
                 if (major == '1' && minor == '0') return HTTP_1_0;
+                if (major == '2' && minor == '0') return HTTP_2_0;
                 return new HttpVersion(major - '0', minor - '0');
             }
         }

@@ -113,7 +113,10 @@ public final class ProxyUtils {
     /** Appends {@code <version> <alias>} to the {@code Via} header (RFC 9110 7.6.3). */
     public static void addVia(HttpMessage message, String alias) {
         HttpVersion v = message.protocolVersion();
-        message.headers().add(HttpHeaderNames.VIA, v.majorVersion() + "." + v.minorVersion() + " " + alias);
+        // HTTP/2 and later have no minor version: "2" (RFC 9110 section 7.6.3).
+        String received = v.majorVersion() >= 2 && v.minorVersion() == 0
+                ? Integer.toString(v.majorVersion()) : v.majorVersion() + "." + v.minorVersion();
+        message.headers().add(HttpHeaderNames.VIA, received + " " + alias);
     }
 
     public static boolean shouldRemoveHopByHopHeader(String name) {

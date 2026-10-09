@@ -131,6 +131,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
         if (logFormat == LogFormat.JSON_EXTENDED) {
             logExtended(flowContext, requests.remove(flowContext), true);
         }
+        forgetStream(flowContext);
     }
 
     @Override
@@ -154,6 +155,17 @@ public class ActivityLogger extends ActivityTrackerAdapter {
         TimedRequest timed = requests.remove(flowContext);
         if (logFormat == LogFormat.JSON_EXTENDED) {
             logExtended(flowContext, timed, false);
+        }
+        forgetStream(flowContext);
+    }
+
+    /**
+     * An HTTP/2 stream's exchange is over: its server address is not needed again (an HTTP/1
+     * connection keeps its own until it closes, since the next exchange may reuse it).
+     */
+    private void forgetStream(FlowContext flowContext) {
+        if (flowContext.getStreamId() != 0) {
+            servers.remove(flowContext);
         }
     }
 
