@@ -7,8 +7,9 @@ import org.microproxy.http.LastHttpContent;
 
 /**
  * The body of a message as it arrives, independent of how the transport delimits it: HTTP/1
- * {@code Content-Length} or chunked coding ({@link HttpCodec.BodyReader}), or, for a future HTTP/2
- * transport, a stream's DATA frames.
+ * {@code Content-Length} or chunked coding ({@link HttpCodec.BodyReader}), or an HTTP/2 stream's
+ * DATA frames: a client's request ({@link Http2StreamChannel}) or a server's response ({@link
+ * Http2UpstreamConnection}).
  *
  * <p>A body is read either piece by piece ({@link #next()}, for filters that inspect it) or as
  * bytes ({@link #read}, the fast path that relays bodies no filter looks at), never both.

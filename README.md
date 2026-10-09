@@ -13,7 +13,7 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
-  decode `zstd` bodies, and the `http2-codec` jar to serve [HTTP/2](#http2) to clients.
+  decode `zstd` bodies, and the `http2-codec` jar for [HTTP/2](#http2) to clients and servers.
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
   Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
@@ -110,9 +110,9 @@ java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
 java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
 zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080
 
-# With HTTP/2 to clients on intercepted TLS (needs the http2-codec jar):
+# With HTTP/2 to clients on intercepted TLS and to servers (needs the http2-codec jar):
 java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
-http2-codec/target/http2-codec-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080 --mitm --http2
+http2-codec/target/http2-codec-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
 
 # The same launcher with scripting, zstd and HTTP/2 built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
@@ -217,6 +217,8 @@ Command-line flags override values from the file.
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [HTTP/3 and QUIC](#http3-and-quic)) | `true` with interception or `transparent`, else `false` |
 | `http2` | serve HTTP/2 to clients on intercepted TLS (needs the `http2-codec` jar; see [HTTP/2](#http2)) | `false` |
+| `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges (see [HTTP/2 to servers](#http2-to-servers)) | `false` |
+| `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
 | `http2_initial_window_size` / `http2_connection_window_size` | request bytes buffered per HTTP/2 stream / per connection | `262144` / `1048576` |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
@@ -234,7 +236,8 @@ Command-line flags override values from the file.
 | | |
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
-| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging, forwarded to servers as HTTP/1.1; hardened against stream, reset and frame floods (see below) |
+| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
+| HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
@@ -589,61 +592,144 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
 
 ### HTTP/2
 
-MicroProxy can speak HTTP/2 to clients inside intercepted TLS sessions. Each HTTP/2 stream is an
+MicroProxy can speak HTTP/2 to clients inside intercepted TLS sessions and, with prior knowledge
+(`h2c`), on its plain listener, and to origin servers that negotiate it. Each HTTP/2 stream is an
 exchange like any HTTP/1 request: it gets its own `HttpFilters`, cache lookup, failure answers,
-trackers and log lines. Requests reach servers as HTTP/1.1, through the same server connection
-code as before.
+trackers and log lines. The client side and the server side are independent: an HTTP/1 client
+can reach an HTTP/2 server and the other way round.
 
 ```java
 MicroProxy.bootstrap()
         .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
-        .withHttp2(true)                                  // or --http2, or http2=true
+        .withHttp2(true)                                  // to clients: --http2, http2=true
+        .withHttp2Upstream(true)                          // to servers: --http2-upstream, http2_upstream=true
+        .withHttp2Cleartext(true)                         // h2c: --http2-cleartext, http2_cleartext=true
         .withHttp2Options(Http2Options.builder().maxConcurrentStreams(200).build())   // optional
         .start();
 ```
 
-HTTP/2 is off by default. It needs the optional `http2-codec` module on the class path (see
-[Running](#running); the `microproxy-starlark` `-all` jar bundles it). A proxy started with HTTP/2
-enabled but without the module fails at startup with an `IllegalStateException` that says so.
+All three are off by default. They need the optional `http2-codec` module on the class path (see
+[Running](#running); the `microproxy-starlark` `-all` jar bundles it). A proxy started with any of
+them enabled but without the module fails at startup with an `IllegalStateException` that says
+so; without them, nothing loads the module.
 
 **Negotiation.** With HTTP/2 on, the proxy's handshake with an intercepted client offers `h2` and
 `http/1.1` through ALPN. A client that offers `h2` gets it. Any other client keeps HTTP/1.1 as
 before: one that offers only `http/1.1`, one that offers protocols the proxy does not know, and
 one that sends no ALPN at all (the handshake never fails over ALPN). The TLS log line for the
-handshake shows the result (`alpn=h2`). The proxy's own TLS listener (`withSslContextSource`) and
-plain connections stay HTTP/1.1.
+handshake shows the result (`alpn=h2`). The proxy's own TLS listener (`withSslContextSource`)
+stays HTTP/1.1.
 
 **What a stream looks like to filters.**
 
-- The request is an `HttpRequest` with version `HTTP/2.0` and an origin-form URI. `:authority`
-  becomes `Host`, split `cookie` fields are joined, and trailers arrive in the `LastHttpContent`.
-  `FlowContext.getStreamId()` is the stream's id (0 for HTTP/1), and each stream has its own
-  `FlowContext` and timings.
-- Before the request goes upstream it becomes HTTP/1.1: the request line says `HTTP/1.1`, `Via`
+- The request is an `HttpRequest` with version `HTTP/2.0` and an origin-form URI (absolute-form
+  on an `h2c` connection, which is a forward proxy). `:authority` becomes `Host`, split `cookie`
+  fields are joined, and trailers arrive in the `LastHttpContent`. `FlowContext.getStreamId()` is
+  the stream's id (0 for HTTP/1), and each stream has its own `FlowContext` and timings.
+- Towards an HTTP/1.1 server the request becomes HTTP/1.1: the request line says `HTTP/1.1`, `Via`
   says `2 <alias>`, and a body without a `Content-Length` is sent chunked, with its trailers.
 - Responses lose HTTP/1's connection-specific fields (`Connection`, `Keep-Alive`,
   `Transfer-Encoding`, `Upgrade`, ...). `Content-Length` is kept, and chunked trailers become a
-  trailing HEADERS frame. A `100 Continue` is sent only to a client that asked for one; other 1xx
-  responses (such as `103 Early Hints`) are forwarded as interim responses.
+  trailing HEADERS frame; a response with `Content-Length: 0` is a single HEADERS frame that ends
+  the stream. A `100 Continue` is sent only to a client that asked for one; other 1xx responses
+  (such as `103 Early Hints`) are forwarded as interim responses.
 - Proxy authentication happens once, on the `CONNECT` that started the session. Its streams
-  inherit it, as HTTP/1 requests inside an intercepted session do.
+  inherit it, as HTTP/1 requests inside an intercepted session do. On an `h2c` connection each
+  stream authenticates on its own (`Proxy-Authorization` per request).
 
 **Concurrency.** The connection's thread reads frames; each stream runs on a virtual thread of its
-own, so a slow stream never holds up the others. HTTP/1.1 cannot multiplex, so each stream takes a
-server connection of its own; idle ones are reused by later streams of the same client
-connection, and the `CONNECT`'s server connection serves the first stream. Because streams run
-at the same time, `ActivityTracker` callbacks and filters for one client connection may run
-concurrently, on the streams' threads.
+own, so a slow stream never holds up the others. Towards HTTP/1.1 servers, which cannot multiplex,
+each stream takes a server connection of its own; idle ones are reused by later streams of the
+same client connection, and the `CONNECT`'s server connection serves the first stream. Because
+streams run at the same time, `ActivityTracker` callbacks and filters for one client connection
+may run concurrently, on the streams' threads.
+
+#### HTTP/2 to servers
+
+With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
+connections to servers, the ones it makes for intercepted HTTPS, offer `h2` and `http/1.1` through
+ALPN (before `MitmManager.configureServerSocket`, which may change that). A server that picks `h2`
+is spoken to in HTTP/2; any other keeps HTTP/1.1, so turning it on is safe for servers without
+HTTP/2. WebSocket upgrades always use HTTP/1.1 connections. Plain-HTTP requests (`http://`
+through the proxy, and plain HTTP chained proxies) stay HTTP/1.1; HTTP/2 inside the tunnel of an
+HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct connection.
+
+- **Multiplexing.** An HTTP/2 connection to a server carries many exchanges at once, one stream
+  each: the streams of an HTTP/2 client, the requests of an intercepted HTTP/1 session, and, with
+  the shared pool (`withSharedServerConnectionPool` and `withPoolSharedMitmConnections`), the
+  exchanges of every client connection. A burst of exchanges waits for the connection one of them
+  is making instead of making their own, and an intercepted `CONNECT` whose requests will use an
+  existing connection makes none (like a reused pooled connection, it fires no connection hooks).
+- **Stream limits.** The proxy reads the server's SETTINGS before the first stream and never opens
+  more streams than its `SETTINGS_MAX_CONCURRENT_STREAMS`; when every connection to the server is
+  full, another one is made (counted against the shared pool's limits).
+- **Isolation.** Connections are shared only between exchanges with the same target, route
+  (direct, or which chained proxy) and MITM manager, and between client connections only where a
+  pooled connection would be: with the shared pool on, and nothing about the connection particular
+  to one client. A connection that carries a PROXY protocol header, or whose TLS a MITM manager set
+  up for one client (one that overrides `serverSslContext` or `configureServerSocket` with a
+  `FlowContext`), serves only its own client connection. Private connections close with their
+  client; shared ones after the idle timeout without streams.
+- **Translation.** The request line and `Host` become `:method`, `:scheme https`, `:authority`
+  and `:path`; connection-specific fields (`Connection` and what it names, `Keep-Alive`,
+  `Proxy-Connection`, `Transfer-Encoding`, `Upgrade`) are dropped, `cookie` is split into crumbs,
+  and `te` is sent only as `te: trailers`, when the client sent it. Responses reach filters as
+  `HTTP/2.0` responses; without a `content-length`, their body is chunked (`Transfer-Encoding:
+  chunked`), so HTTP/1 clients get trailers too, and they reach HTTP/1 clients with an `HTTP/1.1`
+  status line and `Via: 2 <alias>`.
+- **Failures.** A stream the server refuses (`REFUSED_STREAM`) or did not process before its
+  `GOAWAY` (an id above the last one it names) is retried on another connection when the request
+  can be sent again (no body, or a buffered one), up to three times. A `GOAWAY` lets the streams
+  in progress finish and starts no new ones. Any other reset fails the exchange like a broken
+  server connection: `proxyToServerFailure` with `ProxyFailure.BadServerResponse` and a `502`, or,
+  once the response has started, a reset client stream (HTTP/2) or a closed connection (HTTP/1).
+  Connection errors fail every stream of the connection. `PUSH_PROMISE` is refused (push is off).
+- **Flow control.** A stream's response data is buffered up to its window (`initialWindowSize`,
+  256 KiB), which is credited back only as the exchange passes the data on to the client: a slow
+  client stops its server stream instead of growing the proxy's buffers. The connection's window
+  (`connectionWindowSize`) is credited back as data arrives, so one slow client does not hold up
+  the other streams. Request bodies wait for the server's windows.
+- **Hooks.** Filters, `proxyToServerConnection*` hooks, timings, `upstreamStatus`, `ActivityTracker`
+  callbacks, `HttpLogger` and the WARC recorder work per exchange as with HTTP/1.1. A new
+  connection fires the connection hooks for the exchange that made it; exchanges that take a stream
+  on an existing one look like exchanges on a reused pooled connection. Bytes sent and received are
+  counted per stream (each frame to its stream's exchange).
+
+#### Trailers and gRPC
+
+Trailers go end to end: request trailers from HTTP/2 clients (and from HTTP/1 clients' chunked
+bodies) reach HTTP/2 servers as a trailing HEADERS frame, and response trailers such as
+`grpc-status` and `grpc-message` come back to HTTP/2 clients the same way, and to HTTP/1 clients
+in the chunked body. When both the client and the server side of an exchange are HTTP/2 streams
+and no filter looks at the request body's pieces, the request body is relayed on a thread of its
+own while the response comes back, so bidirectional streaming works; otherwise a request body is
+sent whole before the response is read, as with HTTP/1.1. So gRPC (`application/grpc`, `te:
+trailers`, length-prefixed messages, unary and streaming calls, Trailers-Only error responses)
+works through the intercepting proxy with `--mitm --http2 --http2-upstream`.
+
+#### h2c with prior knowledge
+
+With `withHttp2Cleartext(true)` (`--http2-cleartext`, `http2_cleartext=true`), a connection to the
+plain listener whose first bytes are the HTTP/2 connection preface (`PRI * HTTP/2.0`, RFC 9113
+section 3.4) is served as HTTP/2. The first bytes are compared without consuming anything, and an
+HTTP/1 request is told apart by its first byte or two, so HTTP/1 clients are unaffected. Its
+streams are proxy requests: `:scheme` and `:authority` name the target, so any authority is valid
+(the `421` check applies only to intercepted sessions), and they reach servers as HTTP/1.1 (HTTP/2
+to servers needs TLS, which the proxy makes only for intercepted HTTPS). `Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
+before: the request is answered in HTTP/1.1. The same limits as for intercepted HTTP/2 apply.
 
 **What HTTP/2 cannot do here (yet).** There are no protocol switches: a request with `Upgrade`
 or `Connection` is malformed in HTTP/2 and its stream is reset, so WebSockets need HTTP/1.1.
 `CONNECT` inside a stream gets `501`. A request for an authority other than the intercepted one
 (browsers reuse connections for every name a certificate covers) gets `421 Misdirected Request`,
-which makes the client retry it on a connection of its own.
+which makes the client retry it on a connection of its own. The proxy does not originate TLS for
+absolute `https://` URIs sent to it in plain HTTP (or `:scheme https` on `h2c`), so HTTP/2 to
+servers applies to intercepted HTTPS; HTTP/2 chained proxies are not supported.
 
 **Limits.** Input is untrusted; every limit has a default, and the configurable ones are set with
 `Http2Options` (or the `http2_*` properties and `--http2-max-streams`). Rate limits count frames
-per window of 10 seconds (`rateWindow`).
+per window of 10 seconds (`rateWindow`). The window sizes apply to both sides: what the proxy
+buffers of a client's request bodies, and of a server's responses.
 
 | Limit | Default | When exceeded | Setting |
 |---|---|---|---|
@@ -662,30 +748,49 @@ per window of 10 seconds (`rateWindow`).
 | Acknowledging the proxy's SETTINGS | 10 seconds | `GOAWAY SETTINGS_TIMEOUT` | `settingsAckTimeout` |
 | A connection with no open streams | `idle_connection_timeout` (70 s) | `GOAWAY NO_ERROR`, then closed | `withIdleConnectionTimeout` |
 | A stream waiting for request data or for flow-control window, a write the client does not read | `idle_connection_timeout` | the stream is reset / the connection closed | `withIdleConnectionTimeout` |
+| Response bytes buffered per server stream | 256 KiB (its window) | the server waits for window | `initialWindowSize` |
+| A connection to a server with no streams, a server that sends nothing for a stream, a write it does not read | `idle_connection_timeout` | `GOAWAY NO_ERROR` and closed / `504` / the connection closed | `withIdleConnectionTimeout` |
 
 Protocol violations end the connection with `GOAWAY` and the error RFC 9113 names: a bad preface,
 frames other than SETTINGS first, even or decreasing stream ids (`PROTOCOL_ERROR` /
 `STREAM_CLOSED`), frames on idle streams, `PUSH_PROMISE` from a client. Malformed requests
 (missing or repeated pseudo-headers, upper-case or connection-specific fields, a `content-length`
-the DATA does not match) only reset their stream. Request bodies are buffered only within the
-flow-control windows the proxy granted, so a connection holds at most its connection window of
-request data, plus two 16 KiB I/O buffers and its HPACK tables.
+the DATA does not match, a stream that depends on itself) only reset their stream, as do frames a
+client sends on a stream after resetting it (`STREAM_CLOSED`). Request bodies are buffered only
+within the flow-control windows the proxy granted, so a connection holds at most its connection
+window of request data, plus two 16 KiB I/O buffers and its HPACK tables. Malformed responses
+from servers reset their stream and fail its exchange with a `502`.
 
 **Shutting down.** A graceful stop (`stop()`) sends `GOAWAY` to HTTP/2 clients, finishes the
 streams already open (for up to the graceful stop timeout), and refuses new ones. An idle
-connection is sent `GOAWAY` and closed.
+connection is sent `GOAWAY` and closed. Connections to servers are sent `GOAWAY` and closed once
+the client connections are done.
 
 **Compatibility.** Nothing changes unless HTTP/2 is enabled, with two small exceptions in the
 API: `FlowContext.equals` (and `hashCode`) now also compare the stream id, which is 0 for every
 HTTP/1 context, so HTTP/1 behaviour is the same; and `HttpProxyServerBootstrap` gains
-`withHttp2`, `withHttp2Options` and `getHttp2Options` as default methods, so other
-implementations still compile. Trackers and filters keyed by `FlowContext` keep one entry per
-stream; state meant per client connection can be keyed by `ctx.getConnectionContext()`.
+`withHttp2`, `withHttp2Upstream`, `withHttp2Cleartext`, `withHttp2Options` and `getHttp2Options`
+as default methods, so other implementations still compile. Trackers and filters keyed by
+`FlowContext` keep one entry per stream; state meant per client connection can be keyed by
+`ctx.getConnectionContext()`.
 
-**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2), Phase 3):
-HTTP/2 to origins (ALPN `h2` on server connections, one multiplexed connection per origin),
-trailers end to end for gRPC, `h2c` with prior knowledge on the plain listener, extended `CONNECT`
-(RFC 8441) for WebSockets over HTTP/2, HTTP/2 on the proxy's own TLS listener, and h2spec in CI.
+#### Conformance (h2spec)
+
+CI runs [h2spec](https://github.com/summerwind/h2spec) v2.6.0 in strict mode against the `h2c`
+listener (`.github/scripts/h2spec.sh`, with `org.microproxy.H2specTarget` from the test sources:
+the proxy with `h2c` on and a filter that answers every request with `200`). All 147 cases pass
+except one, which CI leaves out:
+
+- `http2/3.5/2` (*Sends invalid connection preface*): h2spec expects `GOAWAY` or a closed
+  connection. The `h2c` listener is shared with HTTP/1, so a connection that does not start with
+  the preface is an HTTP/1 connection, and gets an HTTP/1 error response before it is closed.
+
+To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
+`.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
+
+**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): extended
+`CONNECT` (RFC 8441) for WebSockets over HTTP/2, HTTP/2 on the proxy's own TLS listener, and
+HTTP/3.
 
 ### HTTP/3 and QUIC
 
@@ -712,10 +817,9 @@ Clients learn about HTTP/3 in two ways:
   **block UDP port 443** (for example `iptables -A FORWARD -p udp --dport 443 -j REJECT`).
   Clients then fall back to TCP, which the proxy does see.
 
-HTTP/2 can also announce alternatives in `ALTSVC` frames. The proxy never sends them: its servers
-speak HTTP/1.1, so alternatives reach HTTP/2 clients only as `Alt-Svc` headers, which are
-stripped the same way. Once the proxy speaks HTTP/2 to origins, `ALTSVC` frames from them will
-need the same treatment.
+HTTP/2 can also announce alternatives in `ALTSVC` frames. The proxy never sends them, and drops
+any that HTTP/2 servers send (as frames of a type it does not handle), so alternatives reach
+HTTP/2 clients only as `Alt-Svc` headers, which are stripped the same way.
 
 ### Rewriting bodies
 
@@ -910,7 +1014,8 @@ bootstrap.start();
 
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`, plus `http_version`: the version the client used, `"HTTP/1.1"`,
-  `"HTTP/1.0"` or `"HTTP/2"` (requests reach servers as HTTP/1.1 either way).
+  `"HTTP/1.0"` or `"HTTP/2"` (requests reach servers as HTTP/1.1, or as HTTP/2 to servers that
+  negotiate it with `http2_upstream`).
 - `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`, plus `source` and
   `upstream_status` (below).
 - `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
@@ -1594,8 +1699,9 @@ The tests use JUnit 5, the JDK's `HttpClient` as the client, `com.sun.net.httpse
 servers, and raw sockets for wire-level checks. They cover proxying, filters, authentication,
 CONNECT, MITM, chaining (HTTP, TLS, SOCKS4/5, fallback), timeouts, PROXY protocol, throttling,
 lifecycle, the codec, certificate generation, the shared pool, WebSocket frames, access logs,
-HTTP/2 (with the JDK's HTTP/2 client, frame-by-frame protocol tests and, when installed,
-`curl --http2`),
+HTTP/2 (with the JDK's HTTP/2 client, frame-by-frame protocol tests, a codec-based HTTP/2 origin
+for the server side and gRPC-style streaming, and, when installed, `curl --http2`; CI also runs
+[h2spec](#conformance-h2spec)),
 content codings (Brotli against the upstream test vectors) and the scripting hooks, sandbox
 limits and reloading.
 

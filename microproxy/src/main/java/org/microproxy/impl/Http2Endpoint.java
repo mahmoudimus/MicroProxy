@@ -21,8 +21,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.microproxy.Http2Options;
 
 /**
- * What the proxy's HTTP/2 connections share, whichever end of them the proxy is: frames are read on
- * a thread of their own and written from the threads of the streams' exchanges.
+ * What the proxy's two kinds of HTTP/2 connection share: {@link Http2Connection}, which serves a
+ * client, and {@link Http2UpstreamConnection}, which talks to an origin server. Both read frames on
+ * a thread of their own and write them from the threads of their streams' exchanges.
  *
  * <ul>
  *   <li>{@link #writeLock} serializes writing: the frame writer, the HPACK encoder (a header block

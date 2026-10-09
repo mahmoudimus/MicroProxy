@@ -2,8 +2,9 @@ package org.microproxy.impl;
 
 /**
  * Whether the optional {@code http2-codec} module is on the class path. HTTP/2 can only be enabled
- * with it; the classes that use it ({@link Http2Connection}, {@link Http2StreamChannel}) are only
- * loaded once it is known to be present, so the proxy runs without it.
+ * with it; the classes that use it ({@link Http2Endpoint} and its subclasses, {@link
+ * Http2StreamChannel}, {@link Http2UpstreamStream}) are only loaded once it is known to be
+ * present, so the proxy runs without it ({@code Http2CodecAbsentTest} runs it so).
  */
 final class Http2Support {
 

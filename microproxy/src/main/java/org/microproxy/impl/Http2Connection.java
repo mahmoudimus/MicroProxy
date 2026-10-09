@@ -46,7 +46,8 @@ import org.microproxy.http.HttpVersion;
  * requests ({@link ClientConnection#handleStream}) through an {@link Http2StreamChannel}, on a
  * virtual thread of its own.
  *
- * <p>Threads and locks (writing and flow control are {@link Http2Endpoint}'s):
+ * <p>Threads and locks (writing and flow control are {@link Http2Endpoint}'s, shared with {@link
+ * Http2UpstreamConnection}):
  *
  * <ul>
  *   <li>The client connection's thread reads frames ({@link #serve}) and hands them to streams.

@@ -199,8 +199,9 @@ public interface HttpProxyServerBootstrap {
      * handshake offers {@code h2} and {@code http/1.1} through ALPN, and a client that picks
      * {@code h2} has each of its streams handled as an exchange of its own, concurrently, with the
      * same filters, cache, authentication, failure answers and trackers as HTTP/1 requests.
-     * Requests reach servers as HTTP/1.1, each stream on a server connection of its own. Off by
-     * default; limits are set with {@link #withHttp2Options}.
+     * Requests reach servers as HTTP/1.1, each stream on a server connection of its own, unless
+     * {@link #withHttp2Upstream} lets them share an HTTP/2 connection. Off by default; limits are
+     * set with {@link #withHttp2Options}.
      *
      * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
      * HTTP/2 enabled without it fails with {@link IllegalStateException}.
