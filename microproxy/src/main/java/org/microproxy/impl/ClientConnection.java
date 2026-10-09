@@ -371,6 +371,8 @@ final class ClientConnection implements Runnable {
     private volatile StreamServerConnections streamConnections;
     /** The HTTP/2 connection this client switched to, once it has. */
     private volatile Http2Connection http2;
+    /** Whether this client may have HTTP/2 connections to servers of its own ({@link #http2Owner}). */
+    private volatile boolean ownsHttp2Connections;
 
     /** The client connection's transport; every client byte goes through it. */
     private final Http1ClientChannel http1;
@@ -436,7 +438,7 @@ final class ClientConnection implements Runnable {
         StreamServerConnections streams = streamConnections;
         if (streams != null) streams.releaseAll();
         // HTTP/2 connections to servers that only this client could use.
-        if (server.http2Origins != null) server.http2Origins.closeOwnedBy(this);
+        if (ownsHttp2Connections) server.http2Origins.closeOwnedBy(this);
         for (ServerConnection c : List.copyOf(serverConnections.values())) {
             if (c.pool != null && !c.inExchange && c.isOpen()) {
                 // An intercepted session's idle server connection outlives the client.
@@ -1681,7 +1683,9 @@ final class ClientConnection implements Runnable {
      * manager that may decide per client).
      */
     private Object http2Owner(Mode mode) {
-        return server.pool != null && usesPool(mode) ? null : this;
+        if (server.pool != null && usesPool(mode)) return null;
+        ownsHttp2Connections = true;
+        return this;
     }
 
     /**
