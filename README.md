@@ -100,23 +100,23 @@ pins its carrier thread:
 <!-- x-release-please-start-version -->
 ```bash
 mvn package
-java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080
-java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm   # intercept HTTPS
-java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --dnssec --activity-log-format clf
-java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --port 8080 --mitm --log-http headers   # dump traffic
-java -jar microproxy/target/microproxy-0.1.0-SNAPSHOT.jar --help
+java -jar microproxy/target/microproxy-0.1.0 --port 8080
+java -jar microproxy/target/microproxy-0.1.0 --port 8080 --mitm   # intercept HTTPS
+java -jar microproxy/target/microproxy-0.1.0 --port 8080 --dnssec --activity-log-format clf
+java -jar microproxy/target/microproxy-0.1.0 --port 8080 --mitm --log-http headers   # dump traffic
+java -jar microproxy/target/microproxy-0.1.0 --help
 
 # With zstd decoding:
-java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
-zstd-decoder/target/zstd-decoder-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080
+java -cp microproxy/target/microproxy-0.1.0:\
+zstd-decoder/target/zstd-decoder-0.1.0 org.microproxy.Launcher --port 8080
 
 # With HTTP/2 to clients on intercepted TLS and to servers (needs the http2-codec jar):
-java -cp microproxy/target/microproxy-0.1.0-SNAPSHOT.jar:\
-http2-codec/target/http2-codec-0.1.0-SNAPSHOT.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
+java -cp microproxy/target/microproxy-0.1.0:\
+http2-codec/target/http2-codec-0.1.0 org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
 
 # The same launcher with scripting, zstd and HTTP/2 built in (one self-contained jar):
-java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --script proxy.star
-java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --port 8080 --mitm --http2
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-all.jar --port 8080 --script proxy.star
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-all.jar --port 8080 --mitm --http2
 ```
 <!-- x-release-please-end -->
 
@@ -162,7 +162,7 @@ pool records, and so on (19 in all).
 ```bash
 # JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
 mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
-java --enable-preview -cp microproxy/target/microproxy-0.1.0-SNAPSHOT-valhalla.jar org.microproxy.Launcher
+java --enable-preview -cp microproxy/target/microproxy-0.1.0-valhalla.jar org.microproxy.Launcher
 ```
 <!-- x-release-please-end -->
 
@@ -1016,7 +1016,7 @@ def allow_mitm(req, ctx):
 
 <!-- x-release-please-start-version -->
 ```bash
-java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --mitm --script proxy.star
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-all.jar --mitm --script proxy.star
 ```
 <!-- x-release-please-end -->
 
@@ -1172,7 +1172,7 @@ def authenticate(req, ctx):
 <!-- x-release-please-start-version -->
 ```bash
 echo "TOKENS=alice:$(printf %s "$ALICE_TOKEN" | sha256sum | cut -d' ' -f1)" > tokens.properties
-java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --script auth.star --script-var-file tokens.properties
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-all.jar --script auth.star --script-var-file tokens.properties
 ```
 <!-- x-release-please-end -->
 
