@@ -54,6 +54,8 @@ final class H2TestOrigin implements AutoCloseable {
         long maxConcurrentStreams = Http2Settings.UNLIMITED;
         /** Credit the client's DATA back at once (otherwise only as the handler reads it). */
         boolean eagerCredit = true;
+        /** Connections start with a PROXY protocol v1 line before TLS. */
+        boolean proxyProtocol;
     }
 
     private static final Object END = new Object();
@@ -68,6 +70,9 @@ final class H2TestOrigin implements AutoCloseable {
     final AtomicInteger refused = new AtomicInteger();
     /** RST_STREAM codes received from the proxy. */
     final List<ErrorCode> resets = new CopyOnWriteArrayList<>();
+    /** The PROXY protocol lines connections started with ({@link Options#proxyProtocol}). */
+    final List<String> proxyHeaders = new CopyOnWriteArrayList<>();
+    private final SSLContext context;
     final List<Conn> connections = new CopyOnWriteArrayList<>();
 
     H2TestOrigin(SSLContext context, Handler handler) throws IOException {
@@ -77,12 +82,32 @@ final class H2TestOrigin implements AutoCloseable {
     H2TestOrigin(SSLContext context, Options options, Handler handler) throws IOException {
         this.handler = handler;
         this.options = options;
-        SSLServerSocket s = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 50, TestSupport.LOOPBACK);
-        SSLParameters params = s.getSSLParameters();
-        params.setApplicationProtocols(new String[] {"h2"});
-        s.setSSLParameters(params);
-        serverSocket = s;
+        this.context = context;
+        if (options.proxyProtocol) {
+            serverSocket = new ServerSocket(0, 50, TestSupport.LOOPBACK);
+        } else {
+            SSLServerSocket s = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 50, TestSupport.LOOPBACK);
+            s.setSSLParameters(alpnH2(s.getSSLParameters()));
+            serverSocket = s;
+        }
         Thread.ofVirtual().name("h2-origin-accept").start(this::acceptLoop);
+    }
+
+    private static SSLParameters alpnH2(SSLParameters params) {
+        params.setApplicationProtocols(new String[] {"h2"});
+        return params;
+    }
+
+    /** Reads the PROXY line from {@code plain}, then runs the TLS handshake over it as the server. */
+    private SSLSocket afterProxyHeader(Socket plain) throws IOException {
+        StringBuilder line = new StringBuilder();
+        int b;
+        while ((b = plain.getInputStream().read()) >= 0 && b != '\n') line.append((char) b);
+        proxyHeaders.add(line.toString().strip());
+        SSLSocket tls = (SSLSocket) context.getSocketFactory().createSocket(plain, null, true);
+        tls.setUseClientMode(false);
+        tls.setSSLParameters(alpnH2(tls.getSSLParameters()));
+        return tls;
     }
 
     int port() {
@@ -108,7 +133,7 @@ final class H2TestOrigin implements AutoCloseable {
             accepts.incrementAndGet();
             Thread.ofVirtual().name("h2-origin-conn").start(() -> {
                 try {
-                    Conn c = new Conn((SSLSocket) s);
+                    Conn c = new Conn(options.proxyProtocol ? afterProxyHeader(s) : (SSLSocket) s);
                     connections.add(c);
                     c.serve();
                 } catch (IOException e) {

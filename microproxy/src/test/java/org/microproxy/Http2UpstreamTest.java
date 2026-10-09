@@ -617,4 +617,43 @@ class Http2UpstreamTest {
     private static boolean isClosedByPeer(H2TestOrigin.Conn c) {
         return c.socket.isClosed() || c.socket.isInputShutdown();
     }
+
+    @Test
+    void connectionsCarryingAProxyHeaderServeOneClientOnly() throws Exception {
+        H2TestOrigin.Options options = new H2TestOrigin.Options();
+        options.proxyProtocol = true;
+        origin(options, Http2UpstreamTest::echo);
+        // Even with the shared pool on: each connection names its client in its PROXY header.
+        proxy = mitm().withSendProxyProtocol(true)
+                .withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true).start();
+        for (int i = 0; i < 3; i++) {
+            HttpClient client = http1Client();
+            assertEquals(200, TestSupport.send(client, get(origin.url("/p" + i))).statusCode());
+            assertEquals(200, TestSupport.send(client, get(origin.url("/q" + i))).statusCode());
+        }
+        assertEquals(3, origin.accepts.get(), "one connection per client connection");
+        assertEquals(3, origin.proxyHeaders.size());
+        assertTrue(origin.proxyHeaders.stream().allMatch(h -> h.startsWith("PROXY TCP4 127.0.0.1 ")), origin.proxyHeaders.toString());
+        assertEquals(3, origin.proxyHeaders.stream().distinct().count(), "a client each");
+    }
+
+    @Test
+    void http2InsideAChainedProxysConnectTunnel() throws Exception {
+        origin(Http2UpstreamTest::echo);
+        ChainTestSupport.RequestLog upstreamLog = new ChainTestSupport.RequestLog();
+        HttpProxyServer upstream = MicroProxy.bootstrap().withPort(0).plusActivityTracker(upstreamLog).start();
+        closeables.add(upstream::abort);
+        proxy = mitm().withHttp2(true)
+                .withChainProxyManager(ChainTestSupport.always(ChainTestSupport.http(upstream.getListenAddress())))
+                .start();
+        HttpClient client = http2Client();
+        for (int i = 0; i < 3; i++) {
+            HttpResponse<String> r = TestSupport.send(client, get(origin.url("/chained" + i)));
+            assertEquals(200, r.statusCode());
+            // (The test origin speaks nothing but HTTP/2.)
+            assertEquals(List.of("/chained" + i), lines(r.body(), ":path"));
+        }
+        assertEquals(1, origin.accepts.get());
+        assertEquals(List.of("CONNECT localhost:" + origin.port()), upstreamLog.received);
+    }
 }
