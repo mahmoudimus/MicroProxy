@@ -17,6 +17,18 @@ public interface ActivityTracker {
 
     default void clientSSLHandshakeSucceeded(FlowContext flowContext, SSLSession sslSession) {}
 
+    /**
+     * Called when a TLS handshake failed or timed out, before the failure is handled.
+     *
+     * @param flowContext the client's context for a handshake with the client (the TLS listener or
+     *     an intercepted session); for one with a server or a TLS chained proxy, a {@link
+     *     FullFlowContext} naming it
+     * @param clientSide whether the handshake was with the client
+     * @param cause the handshake's error, e.g. an {@link javax.net.ssl.SSLHandshakeException} or a
+     *     {@link java.net.SocketTimeoutException}
+     */
+    default void tlsHandshakeFailed(FlowContext flowContext, boolean clientSide, Throwable cause) {}
+
     default void clientDisconnected(FlowContext flowContext, SSLSession sslSession) {}
 
     default void bytesReceivedFromClient(FlowContext flowContext, int numberOfBytes) {}

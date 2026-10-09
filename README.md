@@ -717,8 +717,25 @@ complete rather than when its head is sent; see [Observability](#observability).
 - **Server-side failures:** `serverConnectionExceptionCaught(serverContext, cause)` reports each
   failed connection attempt, server timeout or bad response once, with the server (or chained
   proxy) it concerned. Client-side errors still go to `connectionExceptionCaught`.
+- **TLS handshakes:** `tlsHandshakeFailed(ctx, clientSide, cause)` reports each failed or timed-out
+  handshake: with a client (TLS listener or interception) or with a server or TLS chained proxy
+  (then `ctx` is a `FullFlowContext` naming it).
 - **Correlation:** `ctx.getConnectionId()` and `ctx.acceptedAt()` identify the client connection,
   and the proxy's log lines about it start with `[conn <id>]`.
+
+The logger `org.microproxy.impl.Tls` writes one line per handshake event, without stack traces:
+
+| event | level | contents |
+|---|---|---|
+| started | DEBUG | peer address, host, the proxy's TLS role (`mode=client` / `server`), whether a client certificate is required |
+| succeeded | DEBUG | the same, the duration, negotiated protocol and cipher suite, and the SNI name a client asked for |
+| failed with a client | DEBUG | the error and its root cause (`certificate_unknown`, `no cipher suites in common`, `TLS handshake not finished within 10000 ms`, ...), and a certificate summary: the proxy's own certificate, then the peer's chain (subject, issuer, `notAfter`, SANs) |
+| failed with a server or chained proxy | WARNING for certificate problems (untrusted, expired, wrong name, client certificate refused), DEBUG when the server does not speak TLS (the `CONNECT` is tunnelled instead), INFO otherwise (timeouts, protocol mismatches) | the same |
+
+Client handshakes fail routinely (clients giving up, scanners, clients that do not trust the
+interception CA), hence DEBUG. The JDK discards a peer chain it rejected for an unknown issuer, so
+for that failure the summary has no peer chain. Turn the lines on with, for example,
+`-Djava.util.logging.config.file=...` setting `org.microproxy.impl.Tls.level = FINE`.
 
 ## Migrating from LittleProxy
 

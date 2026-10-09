@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 
@@ -27,6 +28,7 @@ final class Tls {
      * Starts a client handshake over {@code plain}.
      *
      * @param verifyHostname enable HTTPS endpoint identification against {@code host}
+     * @param peer who the handshake is with, for the log lines ({@link TlsLog})
      */
     static SSLSocket clientHandshake(
             SSLContext context,
@@ -35,8 +37,10 @@ final class Tls {
             int port,
             boolean verifyHostname,
             Consumer<SSLSocket> configurer,
-            Duration deadline)
+            Duration deadline,
+            TlsLog.Peer peer)
             throws IOException {
+        long start = System.nanoTime();
         SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket(plain, host, port, true);
         try {
             socket.setUseClientMode(true);
@@ -55,9 +59,15 @@ final class Tls {
             if (configurer != null) {
                 configurer.accept(socket);
             }
+            TlsLog.started(peer, plain, true, false);
             handshake(socket, plain, deadline);
+            TlsLog.succeeded(peer, plain, socket, true, start);
             return socket;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
+            closeQuietly(socket);
+            TlsLog.failed(peer, plain, socket, true, e);
+            throw e;
+        } catch (RuntimeException e) {
             closeQuietly(socket);
             throw e;
         }
@@ -67,6 +77,7 @@ final class Tls {
      * Starts a server handshake over {@code plain}.
      *
      * @param consumed bytes already read from {@code plain} that belong to the TLS stream
+     * @param peer who the handshake is with, for the log lines ({@link TlsLog})
      */
     static SSLSocket serverHandshake(
             SSLContext context,
@@ -74,8 +85,10 @@ final class Tls {
             byte[] consumed,
             boolean needClientAuth,
             Consumer<SSLSocket> configurer,
-            Duration deadline)
+            Duration deadline,
+            TlsLog.Peer peer)
             throws IOException {
+        long start = System.nanoTime();
         SSLSocket socket =
                 (SSLSocket) context.getSocketFactory()
                         .createSocket(plain, consumed.length == 0 ? null : new ByteArrayInputStream(consumed), true);
@@ -87,12 +100,34 @@ final class Tls {
             if (configurer != null) {
                 configurer.accept(socket);
             }
+            TlsLog.started(peer, plain, false, socket.getNeedClientAuth());
             handshake(socket, plain, deadline);
+            TlsLog.succeeded(peer, plain, socket, false, start);
             return socket;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
+            closeQuietly(socket);
+            TlsLog.failed(peer, plain, socket, false, e);
+            throw e;
+        } catch (RuntimeException e) {
             closeQuietly(socket);
             throw e;
         }
+    }
+
+    /**
+     * Whether a failed client handshake means the peer is not a TLS server at all, the same
+     * signs LittleProxy's {@code shouldRetryWithoutSsl} looks for: plaintext where a TLS record
+     * was expected, or the peer closing or resetting the connection on the ClientHello.
+     * Certificate and protocol-version failures come from real TLS servers and do not count.
+     */
+    static boolean looksLikePlaintextPeer(SSLException e) {
+        String message = String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT);
+        return message.contains("unrecognized ssl message")
+                || message.contains("not an ssl")
+                || message.contains("remote host terminated")
+                || message.contains("connection reset")
+                || e.getCause() instanceof java.io.EOFException
+                || e.getCause() instanceof java.net.SocketException;
     }
 
     static boolean isIpLiteral(String host) {

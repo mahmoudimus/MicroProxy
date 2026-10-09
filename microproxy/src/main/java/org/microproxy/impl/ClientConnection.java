@@ -229,20 +229,9 @@ final class ClientConnection implements Runnable {
             super(hostAndPort + " does not speak TLS", cause);
         }
 
-        /**
-         * Whether a failed client handshake means the peer is not a TLS server at all, the same
-         * signs LittleProxy's {@code shouldRetryWithoutSsl} looks for: plaintext where a TLS record
-         * was expected, or the peer closing or resetting the connection on the ClientHello.
-         * Certificate and protocol-version failures come from real TLS servers and do not count.
-         */
+        /** Whether a failed client handshake means the peer is not a TLS server at all. */
         static boolean isCause(SSLException e) {
-            String message = String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT);
-            return message.contains("unrecognized ssl message")
-                    || message.contains("not an ssl")
-                    || message.contains("remote host terminated")
-                    || message.contains("connection reset")
-                    || e.getCause() instanceof java.io.EOFException
-                    || e.getCause() instanceof java.net.SocketException;
+            return Tls.looksLikePlaintextPeer(e);
         }
     }
 
@@ -367,7 +356,7 @@ final class ClientConnection implements Runnable {
             connectedFired = true;
             if (server.sslContextSource != null) {
                 handshakeWithClient(server.sslContextSource.getSslContext(), rawSocket,
-                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false));
+                        server.authenticateSslClients, s -> server.sslContextSource.configure(s, false), null);
             }
             serveRequests();
         } catch (SocketTimeoutException e) {
@@ -375,7 +364,12 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.connectionTimedOut(flowContext));
         } catch (IOException e) {
             if (!closed) {
-                LOG.log(Level.DEBUG, logPrefix + "client connection failed", e);
+                if (e instanceof SSLException) {
+                    // A failed handshake with the client has been logged by Tls already.
+                    LOG.log(Level.DEBUG, logPrefix + "client connection failed: " + e);
+                } else {
+                    LOG.log(Level.DEBUG, logPrefix + "client connection failed", e);
+                }
                 server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
             }
         } catch (RuntimeException e) {
@@ -391,13 +385,23 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    /** Runs the TLS handshake with the client (the TLS listener's, or an intercepted session's). */
+    /**
+     * Runs the TLS handshake with the client (the TLS listener's, or an intercepted session's).
+     *
+     * @param host the intercepted host, or null for the TLS listener
+     */
     private void handshakeWithClient(SSLContext context, Socket plain, boolean needClientAuth,
-            Consumer<SSLSocket> configurer) throws IOException {
+            Consumer<SSLSocket> configurer, String host) throws IOException {
         server.trackers.fire(t -> t.clientSSLHandshakeStarted(flowContext));
         flowContext.clientTlsStarted();
-        SSLSocket tls = Tls.serverHandshake(context, plain, in.drainBuffered(), needClientAuth, configurer,
-                server.tlsHandshakeTimeout);
+        SSLSocket tls;
+        try {
+            tls = Tls.serverHandshake(context, plain, in.drainBuffered(), needClientAuth, configurer,
+                    server.tlsHandshakeTimeout, new TlsLog.Peer(logPrefix, "client", host));
+        } catch (IOException e) {
+            server.trackers.fire(t -> t.tlsHandshakeFailed(flowContext, true, e));
+            throw e;
+        }
         flowContext.clientTlsFinished();
         sslSession = tls.getSession();
         attachClientStreams(tls);
@@ -578,7 +582,7 @@ final class ClientConnection implements Runnable {
                     LOG.log(Level.DEBUG, logPrefix + e.getMessage());
                     return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
                 } catch (IOException e) {
-                    LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort, unwrap(e));
+                    LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort + ": " + unwrap(e));
                     return respondFailure(ex, connectFailure(hostAndPort, e), false);
                 }
                 conn.key = key;
@@ -1093,7 +1097,7 @@ final class ClientConnection implements Runnable {
             LOG.log(Level.DEBUG, logPrefix + e.getMessage());
             return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
         } catch (IOException e) {
-            LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed", unwrap(e));
+            LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed: " + unwrap(e));
             if (!mitm || !ex.filters.proxyToServerAllowOfflineMitm()) {
                 return respondFailure(ex, connectFailure(hostAndPort, e), false);
             }
@@ -1143,7 +1147,7 @@ final class ClientConnection implements Runnable {
 
         SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
         SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
-        handshakeWithClient(clientContext, socket, false, null);
+        handshakeWithClient(clientContext, socket, false, null, target.host());
 
         mitmHostAndPort = hostAndPort;
         if (conn != null && conn.perRequestLease) {
@@ -1253,7 +1257,11 @@ final class ClientConnection implements Runnable {
                 throw e;
             } catch (IOException e) {
                 IOException cause = unwrap(e);
-                LOG.log(Level.DEBUG, logPrefix + "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", cause);
+                if (LOG.isLoggable(Level.DEBUG)) {
+                    // Expected failures: the cause's message is enough (TLS failures have their own line).
+                    LOG.log(Level.DEBUG, logPrefix + "connection to " + hostAndPort
+                            + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed: " + cause);
+                }
                 last = e;
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException);
@@ -1342,9 +1350,11 @@ final class ClientConnection implements Runnable {
                 try {
                     flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
-                            s -> proxy.configure(s, true), server.tlsHandshakeTimeout);
+                            s -> proxy.configure(s, true), server.tlsHandshakeTimeout,
+                            new TlsLog.Peer(logPrefix, "chained proxy", remote.getHostString()));
                     flowContext.mark(ClientFlowContext.TLS_END);
                 } catch (IOException e) {
+                    server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
                     throw new TlsHandshakeFailed(e);
                 }
             }
@@ -1396,12 +1406,14 @@ final class ClientConnection implements Runnable {
                 try {
                     flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                            server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout);
+                            server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout,
+                            new TlsLog.Peer(logPrefix, "server", target.host()));
                     flowContext.mark(ClientFlowContext.TLS_END);
                 } catch (IOException e) {
                     if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
                         throw new NotTlsServer(hostAndPort, ssl);
                     }
+                    server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
                     throw new TlsHandshakeFailed(e);
                 }
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
