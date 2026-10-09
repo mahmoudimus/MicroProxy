@@ -1,5 +1,6 @@
 package org.microproxy.impl;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -7,12 +8,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.FullFlowContext;
+import org.microproxy.http.HttpContent;
+import org.microproxy.http.HttpHeaders;
+import org.microproxy.http.HttpRequest;
+import org.microproxy.http.HttpResponse;
 
 /**
  * A connection from the proxy to a server or chained proxy. It is used by one client connection
  * at a time; with the shared pool enabled it may be handed from one client to another.
+ *
+ * <p>The exchange logic writes requests and reads responses through the methods under "The
+ * exchange's I/O", which this class implements for HTTP/1.1. A subclass stands for one stream of
+ * a multiplexed connection instead ({@link #multiplexed()}).
  */
-final class ServerConnection {
+class ServerConnection {
 
     /** Key in the owning client's connection map. */
     volatile String key;
@@ -67,6 +76,107 @@ final class ServerConnection {
         this.remoteAddress = remoteAddress;
         this.flowContext = flowContext;
         this.trackers = trackers;
+    }
+
+    /** For a stream of a multiplexed connection, which has no reader and writer of its own. */
+    ServerConnection(String hostAndPort, ChainedProxy chainedProxy, Socket socket, InetSocketAddress remoteAddress,
+            FullFlowContext flowContext, Trackers trackers) {
+        this.key = null;
+        this.hostAndPort = hostAndPort;
+        this.chainedProxy = chainedProxy;
+        this.tlsToOrigin = true;
+        this.socket = socket;
+        this.in = null;
+        this.out = null;
+        this.writer = null;
+        this.remoteAddress = remoteAddress;
+        this.flowContext = flowContext;
+        this.trackers = trackers;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The exchange's I/O
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether this is one stream of a multiplexed connection, which carries one exchange and is
+     * never pooled or kept by a client: {@link #close()} ends the stream, not the connection.
+     */
+    boolean multiplexed() {
+        return false;
+    }
+
+    /**
+     * Writes the request head; a {@link org.microproxy.http.FullHttpRequest} is written whole.
+     *
+     * @param bodyFollows the body is streamed after the head ({@link #writeData} or {@link
+     *     #writeContent}, then {@link #writeEnd})
+     * @param trailersAccepted the client sent {@code TE: trailers}
+     */
+    void writeRequestHead(HttpRequest request, boolean bodyFollows, boolean trailersAccepted) throws IOException {
+        writer.writeHead(request, true);
+    }
+
+    /** Writes a piece of the request body; a {@link org.microproxy.http.LastHttpContent} ends it. */
+    void writeContent(HttpContent content) throws IOException {
+        writer.writeContent(content);
+    }
+
+    /** Writes request body bytes. */
+    void writeData(byte[] data, int off, int len) throws IOException {
+        writer.writeData(data, off, len);
+    }
+
+    void flush() throws IOException {
+        writer.flush();
+    }
+
+    /** Ends the request body, with its trailers. */
+    void writeEnd(HttpHeaders trailers) throws IOException {
+        writer.writeEnd(trailers);
+    }
+
+    /** Waits up to {@code millis} for the server to send something; false on timeout. */
+    boolean awaitResponse(int millis) throws IOException {
+        int original = socket.getSoTimeout();
+        socket.setSoTimeout(original > 0 ? Math.min(original, millis) : millis);
+        try {
+            return in.awaitData();
+        } finally {
+            socket.setSoTimeout(original);
+        }
+    }
+
+    /**
+     * Waits (up to the read timeout) for the next response head to begin; returns whether any of
+     * it has arrived, false at the end of the connection.
+     */
+    boolean awaitResponseHead() throws IOException {
+        in.awaitNext();
+        return in.buffered() > 0;
+    }
+
+    /** Reads the next response head (interim or final); null if the server closed the connection. */
+    HttpResponse readResponse(HttpCodec.Limits limits) throws IOException {
+        return HttpCodec.readResponse(in, limits);
+    }
+
+    /** The body of the response just read, delimited by {@code framing}. */
+    MessageBody responseBody(Framing framing, HttpCodec.Limits limits) {
+        return new HttpCodec.BodyReader(in, framing, limits);
+    }
+
+    /** The exchange is over and the connection reusable: gives back the buffers it held. */
+    void exchangeDone() {
+        in.release();
+    }
+
+    /**
+     * Whether a request that failed with {@code e} on a reused connection may be sent again: for
+     * HTTP/1.1, any failure before the response can mean the server had closed the idle connection.
+     */
+    boolean retryable(IOException e) {
+        return true;
     }
 
     /**

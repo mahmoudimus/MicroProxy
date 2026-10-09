@@ -794,9 +794,9 @@ final class ClientConnection implements Runnable {
             filters.proxyToServerRequestSending();
             stripRequestHeaders(request.headers());
             try {
-                conn.writer.writeHead(request, true);
+                conn.writeRequestHead(request, streamingBody, false);
             } catch (IOException e) {
-                if (retryAllowed) throw new StaleConnection(e);
+                if (retryAllowed && conn.retryable(e)) throw new StaleConnection(e);
                 throw new ServerFailure("write to server failed", e);
             }
             conn.used = true;
@@ -905,7 +905,7 @@ final class ClientConnection implements Runnable {
                 conn.chainedProxy.filterRequest(content);
             }
             try {
-                conn.writer.writeContent(content);
+                conn.writeContent(content);
             } catch (IOException e) {
                 throw new ServerWriteFailure(e);
             }
@@ -914,14 +914,10 @@ final class ClientConnection implements Runnable {
 
     /** Waits up to {@code millis} for the server to send something; false on timeout. */
     private static boolean awaitServerData(ServerConnection conn, int millis) throws IOException {
-        int original = conn.socket.getSoTimeout();
-        conn.socket.setSoTimeout(original > 0 ? Math.min(original, millis) : millis);
         try {
-            return conn.in.awaitData();
+            return conn.awaitResponse(millis);
         } catch (IOException e) {
             throw new ServerFailure("read from server failed", e);
-        } finally {
-            conn.socket.setSoTimeout(original);
         }
     }
 
@@ -936,17 +932,16 @@ final class ClientConnection implements Runnable {
         while (true) {
             HttpResponse response;
             try {
-                conn.in.awaitNext();
-                if (conn.in.buffered() > 0) {
+                if (conn.awaitResponseHead()) {
                     ex.flow.markFirst(ClientFlowContext.FIRST_RESPONSE_BYTE);
                 }
-                response = HttpCodec.readResponse(conn.in, server.limits);
+                response = conn.readResponse(server.limits);
             } catch (SocketTimeoutException e) {
                 throw new ServerTimeout(e);
             } catch (HttpParseException e) {
                 throw new ServerFailure("malformed response", e);
             } catch (IOException e) {
-                if (retryAllowed) throw new StaleConnection(e);
+                if (retryAllowed && conn.retryable(e)) throw new StaleConnection(e);
                 throw new ServerFailure("read from server failed", e);
             }
             if (response == null) {
@@ -986,7 +981,7 @@ final class ClientConnection implements Runnable {
         boolean switching = response.status().code() == 101;
         String upgrade = response.headers().get(HttpHeaderNames.UPGRADE);
 
-        HttpCodec.BodyReader body = switching ? null : new HttpCodec.BodyReader(conn.in, framing, server.limits);
+        MessageBody body = switching ? null : conn.responseBody(framing, server.limits);
         HttpObject head = response;
         ArrayDeque<HttpContent> prefetched = new ArrayDeque<>();
         int maxBuffer = server.filtersSource.getMaximumResponseBufferSizeInBytes();
@@ -1098,7 +1093,7 @@ final class ClientConnection implements Runnable {
             // (Or the client cancelled the exchange, and its transport closed the connection.)
             conn.close();
         } else {
-            conn.in.release();
+            conn.exchangeDone();
             conn.inExchange = false;
             if (conn.perRequestLease) {
                 serverConnections.remove(conn.key, conn);
@@ -1129,7 +1124,7 @@ final class ClientConnection implements Runnable {
         return false;
     }
 
-    private static boolean drain(HttpCodec.BodyReader body) {
+    private static boolean drain(MessageBody body) {
         try {
             while (body.next() != null) {
                 // discard
@@ -1149,7 +1144,7 @@ final class ClientConnection implements Runnable {
      * Copies a response body straight from the server to the client, without message objects: no
      * filter needs its pieces.
      */
-    private void relayResponseBody(ClientChannel client, HttpCodec.BodyReader body) throws IOException {
+    private void relayResponseBody(ClientChannel client, MessageBody body) throws IOException {
         byte[] buf = server.relayBuffers.take();
         try {
             relayResponseBody(client, body, buf);
@@ -1158,7 +1153,7 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    private static void relayResponseBody(ClientChannel client, HttpCodec.BodyReader body, byte[] buf)
+    private static void relayResponseBody(ClientChannel client, MessageBody body, byte[] buf)
             throws IOException {
         while (true) {
             int n;
@@ -1198,14 +1193,14 @@ final class ClientConnection implements Runnable {
             }
             if (n < 0) break;
             try {
-                conn.writer.writeData(buf, 0, n);
-                if (!ex.body.hasBufferedInput()) conn.writer.flush();
+                conn.writeData(buf, 0, n);
+                if (!ex.body.hasBufferedInput()) conn.flush();
             } catch (IOException e) {
                 throw new ServerWriteFailure(e);
             }
         }
         try {
-            conn.writer.writeEnd(ex.body.trailers());
+            conn.writeEnd(ex.body.trailers());
         } catch (IOException e) {
             throw new ServerWriteFailure(e);
         }
@@ -1956,7 +1951,7 @@ final class ClientConnection implements Runnable {
      * maxBytes}: fails with 502 if {@code overflow} is null, otherwise returns null after putting
      * the pieces read so far into {@code overflow} so the response can still be streamed.
      */
-    private FullHttpResponse aggregateResponse(HttpResponse response, Framing framing, HttpCodec.BodyReader body,
+    private FullHttpResponse aggregateResponse(HttpResponse response, Framing framing, MessageBody body,
             int maxBytes, HttpMethod requestMethod, Deque<HttpContent> overflow) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         List<HttpContent> pieces = overflow == null ? null : new ArrayList<>();
