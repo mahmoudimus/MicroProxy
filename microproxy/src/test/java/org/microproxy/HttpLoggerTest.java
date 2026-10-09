@@ -520,19 +520,225 @@ class HttpLoggerTest {
         assertEquals("--> END POST (3000000-byte body)", lines(log.get(0)).getLast());
     }
 
+    // --- built filters returned from a lambda source --------------------------------------------
+
+    /** {@code built}, returned as it is from a lambda source for every request. */
+    private HttpProxyServer startWithLambdaSource(HttpFilters built) {
+        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource((request, ctx) -> built).start();
+        return proxy;
+    }
+
+    /** The {@code [conn N #S] } prefix shared by every line of {@code message}. */
+    private static String prefixOf(String message) {
+        Matcher m = PREFIX.matcher(message);
+        assertTrue(m.find(), message);
+        String prefix = m.group();
+        for (String line : message.split("\n", -1)) {
+            assertTrue(line.startsWith(prefix), "line '" + line + "' mixed into the message of " + prefix + "\n" + message);
+        }
+        return prefix;
+    }
+
     @Test
-    void builtFiltersUsedDirectlyStillRunButDoNotLog() throws Exception {
+    void builtFiltersFromALambdaSourceLogEachOfManyConcurrentExchanges() throws Exception {
         HttpFilters built = HttpFilters.builder().log(logger(Level.HEADERS).build())
                 .beforeSending(req -> {
                     req.headers().set("X-Added", "yes");
                     return null;
                 })
                 .build();
-        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource((request, ctx) -> built).start();
-        HttpResponse<String> response = get(client(proxy), url(origin, "/a"));
-        assertEquals(List.of("yes"), TestSupport.echoedHeader(response.body(), "x-added"));
-        Thread.sleep(50);
-        assertTrue(out.isEmpty());
+        startWithLambdaSource(built);
+        String base = "http://127.0.0.1:" + port(origin);
+        int clients = 8;
+        int requests = 3;
+        java.util.concurrent.CyclicBarrier together = new java.util.concurrent.CyclicBarrier(clients);
+        List<java.util.concurrent.Future<?>> done = new ArrayList<>();
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int c = 0; c < clients; c++) {
+                int client = c;
+                done.add(pool.submit(() -> {
+                    // One keep-alive connection per client, its requests one after another.
+                    try (Socket s = RawProxyClient.open(proxy.getListenAddress())) {
+                        together.await();
+                        for (int r = 1; r <= requests; r++) {
+                            RawProxyClient.Response response = RawProxyClient.exchange(s, "GET " + base + "/c" + client
+                                    + "/r" + r + " HTTP/1.1\r\nHost: x\r\nX-Client: " + client + "\r\n\r\n");
+                            assertEquals(List.of("yes"), TestSupport.echoedHeader(response.body(), "x-added"));
+                        }
+                    }
+                    return null;
+                }));
+            }
+            for (var f : done) f.get();
+        }
+        List<String> log = await(2 * clients * requests);
+
+        // Each exchange logs one complete request and one complete response, nothing else mixed in.
+        Map<String, List<String>> byExchange = new LinkedHashMap<>();
+        for (String message : log) byExchange.computeIfAbsent(prefixOf(message), k -> new ArrayList<>()).add(message);
+        assertEquals(clients * requests, byExchange.size(), byExchange.keySet().toString());
+        Map<String, String> clientOfConnection = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> e : byExchange.entrySet()) {
+            Matcher id = PREFIX.matcher(e.getKey());
+            assertTrue(id.find());
+            List<String> messages = e.getValue();
+            assertEquals(2, messages.size(), String.join("\n----\n", messages));
+            List<String> request = lines(messages.get(0));
+            Matcher path = Pattern.compile("^--> GET " + Pattern.quote(base) + "/c(\\d+)/r(\\d+) HTTP/1\\.1$")
+                    .matcher(request.getFirst());
+            assertTrue(path.find(), request.toString());
+            assertTrue(request.contains("X-Client: " + path.group(1)), request.toString());
+            assertTrue(request.contains("+ X-Added: yes"), request.toString());
+            assertEquals("--> END GET", request.getLast());
+            List<String> response = lines(messages.get(1));
+            assertTrue(response.getFirst().startsWith("<-- 200 OK " + base + "/c" + path.group(1) + "/r" + path.group(2) + " "),
+                    response.toString());
+            assertTrue(response.getLast().startsWith("<-- END HTTP"), response.toString());
+            // Sequential exchanges on one keep-alive connection are numbered 1, 2, 3 in order.
+            assertEquals(path.group(2), id.group(2), "sequence number of " + request.getFirst());
+            String previous = clientOfConnection.put(id.group(1), path.group(1));
+            assertTrue(previous == null || previous.equals(path.group(1)), "one client per connection");
+        }
+        assertEquals(clients, clientOfConnection.size());
+    }
+
+    @Test
+    void builtFiltersFromALambdaSourceLogInterceptedRequests() throws Exception {
+        CertificateAuthority originCa = CertificateAuthority.generate("Lambda Origin CA");
+        CertificateAuthority proxyCa = CertificateAuthority.generate("Lambda Proxy CA");
+        HttpsServer https = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), echo());
+        try {
+            HttpFilters built = HttpFilters.builder().log(logger(Level.BODY).build()).build();
+            proxy = MicroProxy.bootstrap().withPort(0)
+                    .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                    .withFiltersSource((request, ctx) -> built)
+                    .start();
+            HttpClient client = client(proxy, proxyCa.clientContext());
+            assertEquals(200, send(client, post(url(https, "/one"), "first")).statusCode());
+            assertEquals(200, send(client, post(url(https, "/two"), "second")).statusCode());
+            List<String> log = await(6);
+            String hostPort = "127.0.0.1:" + https.getAddress().getPort();
+            assertEquals("--> CONNECT " + hostPort + " HTTP/1.1", lines(log.get(0)).getFirst());
+            assertTrue(lines(log.get(1)).getFirst().startsWith("<-- 200 Connection established "), log.get(1));
+            List<String> one = lines(log.get(2));
+            assertEquals("--> POST https://" + hostPort + "/one HTTP/1.1", one.getFirst());
+            assertTrue(one.contains("first") && !one.contains("second"), one.toString());
+            assertTrue(lines(log.get(3)).getFirst().startsWith("<-- 200 OK https://" + hostPort + "/one"), log.get(3));
+            List<String> two = lines(log.get(4));
+            assertEquals("--> POST https://" + hostPort + "/two HTTP/1.1", two.getFirst());
+            assertTrue(two.contains("second") && !two.contains("first"), two.toString());
+            assertTrue(lines(log.get(5)).getFirst().startsWith("<-- 200 OK https://" + hostPort + "/two"), log.get(5));
+            List<String> prefixes = log.stream().map(HttpLoggerTest::prefixOf).toList();
+            Matcher connect = PREFIX.matcher(prefixes.get(0));
+            Matcher second = PREFIX.matcher(prefixes.get(4));
+            assertTrue(connect.find() && second.find());
+            assertEquals(connect.group(1), second.group(1), "one client connection");
+            assertEquals(List.of(prefixes.get(0), prefixes.get(2), prefixes.get(4)),
+                    List.of(prefixes.get(1), prefixes.get(3), prefixes.get(5)), "each response with its request");
+            assertEquals(List.of("1", "3"), List.of(connect.group(2), second.group(2)));
+        } finally {
+            https.stop(0);
+        }
+    }
+
+    @Test
+    void builtFiltersFromALambdaSourceLogWebSocketFrames() throws Exception {
+        AtomicInteger rewritten = new AtomicInteger();
+        HttpFilters built = HttpFilters.builder().log(logger(Level.BODY).webSocketFrames(true).build())
+                .onWebSocketFrame((frame, fromClient) -> {
+                    rewritten.incrementAndGet();
+                    return frame;
+                })
+                .build();
+        startWithLambdaSource(built);
+        try (EchoServer server = new EchoServer(); Socket s = WebSocketTestSupport.connect(proxy, server.raw())) {
+            WebSocketTestSupport.sendFromClient(s.getOutputStream(), WebSocketFrame.text("ping"));
+            assertEquals("echo:ping", WebSocketTestSupport.readFrame(s.getInputStream()).payloadAsText());
+            WebSocketTestSupport.sendFromClient(s.getOutputStream(), WebSocketFrame.binary(new byte[300]));
+            List<String> log = await(5);
+            assertTrue(lines(log.get(1)).getFirst().startsWith("<-- 101 Switching Protocols "), log.get(1));
+            assertEquals(List.of("--> WS text (4 bytes): ping"), lines(log.get(2)));
+            assertEquals(List.of("<-- WS text (9 bytes): echo:ping"), lines(log.get(3)));
+            assertEquals(List.of("--> WS binary (300 bytes)"), lines(log.get(4)));
+            assertEquals(1, log.stream().map(HttpLoggerTest::prefixOf).distinct().count(), "frames log under the upgrade");
+            assertTrue(rewritten.get() >= 3, "the frame hook ran too");
+        }
+    }
+
+    @Test
+    void builtFiltersFromALambdaSourceStartAfreshAfterAbortedExchanges() throws Exception {
+        HttpFilters built = HttpFilters.builder().log(logger(Level.BODY).build())
+                .onResponse(res -> res.headers().contains("X-Abort") ? null : res)
+                .build();
+        origin.createContext("/abort", exchange -> {
+            exchange.getResponseHeaders().set("X-Abort", "1");
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        startWithLambdaSource(built);
+        String base = "http://127.0.0.1:" + port(origin);
+        try (Socket refused = TestSupport.refusingPort();
+                Socket s = RawProxyClient.open(proxy.getListenAddress())) {
+            // A failed exchange, then one on the same keep-alive connection: each has its own state.
+            assertEquals(502, RawProxyClient.exchange(s, "GET http://127.0.0.1:" + refused.getLocalPort()
+                    + "/gone HTTP/1.1\r\nHost: x\r\n\r\n").status());
+            assertEquals(200, RawProxyClient.exchange(s, "POST " + base + "/after HTTP/1.1\r\nHost: x\r\n"
+                    + "Content-Length: 5\r\n\r\nhello").status());
+        }
+        List<String> log = await(4);
+        assertTrue(lines(log.get(1)).getFirst().startsWith("<-- 502 Bad Gateway "), log.get(1));
+        List<String> after = lines(log.get(2));
+        assertEquals("--> POST " + base + "/after HTTP/1.1", after.getFirst());
+        assertEquals("--> END POST (5-byte body)", after.getLast());
+        assertTrue(lines(log.get(3)).getFirst().startsWith("<-- 200 OK " + base + "/after "), log.get(3));
+        assertEquals(List.of("#1", "#1", "#2", "#2"),
+                log.stream().map(m -> prefixOf(m).replaceAll(".* (#\\d+)] $", "$1")).toList());
+
+        // An exchange the filters abort, and a client that leaves mid-body: later exchanges log whole.
+        try (Socket s = RawProxyClient.open(proxy.getListenAddress())) {
+            TestSupport.write(s.getOutputStream(), "GET " + base + "/abort HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+            s.getInputStream().readAllBytes();
+        }
+        try (Socket s = RawProxyClient.open(proxy.getListenAddress())) {
+            TestSupport.write(s.getOutputStream(), "POST " + base + "/partial HTTP/1.1\r\nHost: x\r\n"
+                    + "Content-Length: 100\r\n\r\nonly part");
+        }
+        HttpResponse<String> response = send(client(proxy), post(url(origin, "/last"), "done"));
+        assertEquals("done", echoedBody(response.body()));
+        TestSupport.eventually("the /last exchange's log", () -> out.stream().filter(m -> m.contains("/last ")).count() == 2);
+        List<String> last = out.stream().filter(m -> m.contains("/last ")).toList();
+        assertEquals("--> POST " + base + "/last HTTP/1.1", lines(last.get(0)).getFirst());
+        assertEquals("--> END POST (4-byte body)", lines(last.get(0)).getLast());
+        assertTrue(lines(last.get(0)).contains("done"), last.get(0));
+        assertTrue(lines(last.get(1)).getFirst().startsWith("<-- 200 OK " + base + "/last "), last.get(1));
+        for (String m : last) assertFalse(m.contains("/abort") || m.contains("/partial") || m.contains("only part"), m);
+        assertEquals(prefixOf(last.get(0)), prefixOf(last.get(1)));
+    }
+
+    @Test
+    void builtFiltersBindOneCopyPerExchangeAndStayStateless() {
+        HttpFiltersBuilder.Built built = HttpFilters.builder().log(logger(Level.HEADERS).build()).build();
+        FlowContext ctx = new FlowContext(3, () -> null, () -> null, new ClientDetails());
+        DefaultHttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "http://x/");
+        HttpFilters first = built.filterRequest(request, ctx);
+        HttpFilters second = built.filterRequest(request, ctx);
+        assertTrue(first != built && second != built && first != second, "a copy per exchange");
+        assertTrue(first.equals(((HttpFiltersBuilder.Built) first).filterRequest(request, ctx)),
+                "a bound copy is not bound again");
+        // A lambda source returns the shared instance; the proxy binds it the same way.
+        HttpFiltersSource lambda = (req, c) -> built;
+        HttpFilters chained = HttpFiltersChain.of(lambda, HttpFilters.builder().onRequest(r -> null).build())
+                .filterRequest(request, ctx);
+        HttpFilters member = ((HttpFiltersChain.Chained) chained).members().getFirst();
+        assertInstanceOf(HttpFiltersBuilder.Built.class, member);
+        assertTrue(member != built, "chains bind built filters from other sources too");
+
+        // A skipped exchange gets a shared bound copy that logs nothing.
+        HttpFiltersBuilder.Built skipping = HttpFilters.builder()
+                .log(logger(Level.HEADERS).only((req, c) -> false).build()).build();
+        HttpFilters skipped = skipping.filterRequest(request, ctx);
+        assertTrue(skipped != skipping, "bound, so it does not warn about being unbound");
+        assertTrue(skipped == skipping.filterRequest(request, ctx), "and shared, as it keeps no state");
     }
 
     // --- a tiny JSON reader for the assertions ------------------------------------------------------

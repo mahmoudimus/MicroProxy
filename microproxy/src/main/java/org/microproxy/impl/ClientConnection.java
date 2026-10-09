@@ -545,8 +545,14 @@ final class ClientConnection implements Runnable {
         }
 
         // With no filters configured, skip the request copy the filters API hands them.
-        HttpFilters filters = server.filtersSource.getClass() == HttpFiltersSourceAdapter.class ? NOOP
-                : server.filtersSource.filterRequest(copy(request), flowContext);
+        HttpFilters filters = NOOP;
+        if (server.filtersSource.getClass() != HttpFiltersSourceAdapter.class) {
+            HttpRequest original = copy(request);
+            filters = server.filtersSource.filterRequest(original, flowContext);
+            // Built filters that a source (such as a lambda) returned as they are still get the
+            // per-exchange state their logger needs; bound ones return themselves.
+            if (filters instanceof HttpFiltersBuilder.Built built) filters = built.filterRequest(original, flowContext);
+        }
         ex.filters = filters != null ? filters : NOOP;
         try {
             return handleFilteredRequest(ex);

@@ -266,8 +266,9 @@ MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
 Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `resolveWith`,
 `allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
 `log(httpLogger)` logs each exchange around the lambdas (see [Request/response
-logging](#requestresponse-logging)). The built filters are also an `HttpFiltersSource` that returns
-them for every request, so `withFiltersSource(filters)` works as well.
+logging](#requestresponse-logging)), whether a lambda source returns the built filters, as above,
+or they are the source themselves: they are also an `HttpFiltersSource` that returns them for every
+request, so `withFiltersSource(filters)` works as well.
 
 **Per-request connect timeout:** `HttpFilters.proxyToServerConnectTimeout()` (or `connectTimeout(Duration)`
 in the builder) bounds the TCP connect of the request's new connections, direct or to each chained
@@ -1221,9 +1222,8 @@ MicroProxy.bootstrap().plusFiltersSource(logger).start();
 > traffic you are debugging, and not in production without deciding where the logs go and who can
 > read them. `HEADERS` also logs URLs and every header that is not redacted.
 
-To log from filters built with lambdas, add the logger to the builder and use the built filters as
-the source, which binds the logger to each request. It sees the request before the lambdas and the
-response after them, so their changes show in the diffs:
+To log from filters built with lambdas, add the logger to the builder. It sees the request before
+the lambdas and the response after them, so their changes show in the diffs:
 
 ```java
 HttpFiltersBuilder.Built filters = HttpFilters.builder()
@@ -1231,7 +1231,14 @@ HttpFiltersBuilder.Built filters = HttpFilters.builder()
         .beforeSending(req -> { req.headers().set("X-Trace", traceId()); return null; })
         .build();
 MicroProxy.bootstrap().withFiltersSource(filters).start();
+// or, the same: .withFiltersSource((request, ctx) -> filters)
 ```
+
+One built instance can serve every connection: the logger's state is per exchange. When the proxy
+(or an `HttpFiltersChain`) gets built filters from a source, whether they are the source or a
+lambda returned them, it asks them for a copy bound to that exchange, which holds the logger's state
+and goes away with the exchange. Only built filters wrapped in filters of your own that delegate to
+them cannot be bound; they run their hooks but log nothing, and a warning says so once.
 
 In a chain, put the logger first: `HttpFiltersChain.of(logger, rewriter, script)`. It still sees
 requests as clients sent them and responses as delivered wherever it is, but it reads server

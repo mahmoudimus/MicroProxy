@@ -64,6 +64,8 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         List<HttpFilters> filters = new ArrayList<>(sources.size());
         for (HttpFiltersSource source : sources) {
             HttpFilters f = source.filterRequest(originalRequest, flowContext);
+            // Binds built filters returned from another source to this exchange, as the proxy does.
+            if (f instanceof HttpFiltersBuilder.Built built) f = built.filterRequest(originalRequest, flowContext);
             if (f != null) filters.add(f);
         }
         return switch (filters.size()) {

@@ -179,10 +179,12 @@ public final class HttpFiltersBuilder {
      * server sent them (before {@link #onResponse}) and as delivered (after {@link
      * #beforeResponding}). Bodies are only parsed when the logger's level needs them.
      *
-     * <p>The logger keeps state per exchange, so the built filters must be used as their own
-     * source, which binds them to each request: {@code withFiltersSource(built)}, {@code
-     * plusFiltersSource(built)} or a member of an {@link HttpFiltersChain}. Returned from a lambda
-     * source instead, they run their hooks but log nothing (with one warning).
+     * <p>The logger keeps state per exchange. The proxy gives each exchange its own copy of the
+     * built filters for that state, whether they are the source ({@code withFiltersSource(built)},
+     * {@code plusFiltersSource(built)}, a member of an {@link HttpFiltersChain}) or are returned
+     * from another source, such as {@code withFiltersSource((request, ctx) -> built)}. Wrapped in
+     * filters of your own that delegate to them, they run their hooks but log nothing (with one
+     * warning).
      */
     public HttpFiltersBuilder log(HttpLogger logger) {
         if (this.logger != null) throw new IllegalStateException("a logger is already set");
@@ -220,7 +222,8 @@ public final class HttpFiltersBuilder {
     /**
      * Filters made by {@link HttpFiltersBuilder}. They are also a {@link HttpFiltersSource} that
      * returns them for every request (bound to the exchange when a {@linkplain #log logger} is
-     * set), so {@code withFiltersSource(built)} works.
+     * set), so {@code withFiltersSource(built)} works. When another source returns them, the proxy
+     * (and {@link HttpFiltersChain}) binds them the same way, through {@link #filterRequest}.
      */
     public static final class Built implements SelectiveFilters, HttpFiltersSource {
         private static final System.Logger LOG = System.getLogger(Built.class.getName());
@@ -242,6 +245,10 @@ public final class HttpFiltersBuilder {
         private final Duration connectTimeout;
         /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
         private final SelectiveFilters logged;
+        /** Whether these filters belong to one exchange (made by {@link #filterRequest}). */
+        private final boolean bound;
+        /** For exchanges the logger skips: bound, logging nothing, shared as it has no state. */
+        private final Built unlogged;
 
         private Built(HttpFiltersBuilder b) {
             onRequest = b.onRequest;
@@ -259,9 +266,11 @@ public final class HttpFiltersBuilder {
             logger = b.logger;
             connectTimeout = b.connectTimeout;
             logged = null;
+            bound = false;
+            unlogged = logger == null ? this : new Built(this, null);
         }
 
-        /** {@code base}'s hooks, logging one exchange with {@code logged}. */
+        /** {@code base}'s hooks, bound to one exchange, which {@code logged} logs (if not null). */
         private Built(Built base, SelectiveFilters logged) {
             onRequest = base.onRequest;
             onRequestBody = base.onRequestBody;
@@ -278,17 +287,20 @@ public final class HttpFiltersBuilder {
             logger = base.logger;
             connectTimeout = base.connectTimeout;
             this.logged = logged;
+            bound = true;
+            unlogged = this;
         }
 
         /**
          * These filters, for any request. With a {@linkplain HttpFiltersBuilder#log logger}, a copy
-         * bound to this exchange (or these filters alone when the logger skips the request).
+         * bound to this exchange (one that logs nothing when the logger skips the request). Filters
+         * already bound to an exchange return themselves.
          */
         @Override
         public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
-            if (logger == null || logged != null) return this;
+            if (logger == null || bound) return this;
             SelectiveFilters exchange = logger.filterRequest(originalRequest, flowContext);
-            return exchange == null ? this : new Built(this, exchange);
+            return exchange == null ? unlogged : new Built(this, exchange);
         }
 
         /**
@@ -320,10 +332,11 @@ public final class HttpFiltersBuilder {
         public HttpResponse clientToProxyRequest(HttpObject httpObject) {
             if (logged != null) {
                 logged.clientToProxyRequest(httpObject);
-            } else if (logger != null && httpObject instanceof HttpRequest && !warnedUnbound) {
+            } else if (logger != null && !bound && httpObject instanceof HttpRequest && !warnedUnbound) {
                 warnedUnbound = true;
-                LOG.log(System.Logger.Level.WARNING, "filters built with log(...) were used without being bound to"
-                        + " each request; pass them to withFiltersSource or plusFiltersSource to log");
+                LOG.log(System.Logger.Level.WARNING, "filters built with log(...) ran without being bound to an"
+                        + " exchange, so they log nothing; return them from a filters source as they are,"
+                        + " not wrapped in other filters");
             }
             return switch (httpObject) {
                 case HttpRequest request -> onRequest == null ? null : onRequest.apply(request);
