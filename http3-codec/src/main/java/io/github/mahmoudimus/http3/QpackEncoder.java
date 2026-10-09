@@ -272,9 +272,10 @@ public final class QpackEncoder {
                     continue;
                 }
                 if (dynamic) {
-                    long found = findEntry(name, value, mayBlock);
-                    if (found >= 0) {
-                        reference = found;
+                    long newest = findEntry(name, value, true);
+                    if (newest >= 0) {
+                        // Already in the table: use it, or an acknowledged copy if this stream may not block.
+                        reference = mayBlock ? newest : findEntry(name, value, false);
                     } else if (f.size() <= table.capacity()) {
                         long inserted = insertEntry(new HeaderField(name, value));
                         if (inserted >= 0 && mayBlock) reference = inserted;
