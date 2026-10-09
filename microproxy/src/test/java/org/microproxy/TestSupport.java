@@ -230,6 +230,22 @@ public final class TestSupport {
     }
 
     /**
+     * Reserves a loopback port nothing listens on: the socket is bound but not listening, so
+     * connecting to it is refused at once, and no server (such as a proxy started on port 0
+     * afterwards) can take the port until the socket is closed. A port taken from a {@link
+     * ServerSocket} that was then closed could be handed out again.
+     */
+    public static Socket refusingPort() {
+        Socket s = new Socket();
+        try {
+            s.bind(new InetSocketAddress(LOOPBACK, 0));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return s;
+    }
+
+    /**
      * Waits until {@code condition} holds, checking every 10 ms for up to 10 seconds; fails with
      * {@code what} otherwise. For state the proxy updates on its own threads.
      */

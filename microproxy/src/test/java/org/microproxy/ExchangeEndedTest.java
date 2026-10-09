@@ -10,7 +10,6 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.http.HttpClient;
 import java.util.List;
@@ -89,11 +88,8 @@ class ExchangeEndedTest {
     @Test
     void completedShortCircuitedFailedAndAbortedExchanges() throws Exception {
         HttpServer origin = TestSupport.origin(TestSupport.fixed(200, "ok"));
-        int refusedPort;
-        try (ServerSocket closed = new ServerSocket(0)) {
-            refusedPort = closed.getLocalPort();
-        }
-        try {
+        try (Socket refusing = TestSupport.refusingPort()) {
+            int refusedPort = refusing.getLocalPort();
             proxy = recording().start();
             HttpClient client = client(proxy);
             String base = TestSupport.url(origin, "");

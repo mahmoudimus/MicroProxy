@@ -9,12 +9,13 @@ import static org.microproxy.TestSupport.readUntil;
 import static org.microproxy.TestSupport.send;
 
 import java.io.IOException;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +44,9 @@ class ScriptedFailureTest {
     };
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         if (proxy != null) proxy.abort();
+        for (Socket s : refusing) s.close();
     }
 
     private HttpProxyServer start(String source, HttpProxyServerBootstrap bootstrap) throws Exception {
@@ -53,10 +55,13 @@ class ScriptedFailureTest {
         return proxy;
     }
 
-    private static int closedPort() throws IOException {
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            return s.getLocalPort();
-        }
+    /** Reserved until the test ends, so the proxy started afterwards cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private static final String DESCRIBE = """

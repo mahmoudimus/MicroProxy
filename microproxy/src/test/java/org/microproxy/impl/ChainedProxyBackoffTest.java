@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -44,11 +43,10 @@ class ChainedProxyBackoffTest {
     }
 
     /** An address nothing listens on: connecting is refused at once. */
-    private static ChainedProxy refused() throws Exception {
-        InetSocketAddress address;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            address = new InetSocketAddress(TestSupport.LOOPBACK, s.getLocalPort());
-        }
+    private ChainedProxy refused() {
+        Socket refusing = TestSupport.refusingPort();
+        closeables.add(refusing);
+        InetSocketAddress address = new InetSocketAddress(TestSupport.LOOPBACK, refusing.getLocalPort());
         return () -> address;
     }
 

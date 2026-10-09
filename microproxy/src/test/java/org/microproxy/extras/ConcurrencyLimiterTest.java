@@ -13,7 +13,6 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -202,10 +201,9 @@ class ConcurrencyLimiterTest {
     @Test
     void failuresShortCircuitsAndDisconnectsGiveThePermitBack() throws Exception {
         HttpServer origin = origin(blocking());
-        int refusedPort;
-        try (ServerSocket s = new ServerSocket(0)) {
-            refusedPort = s.getLocalPort();
-        }
+        Socket refusing = TestSupport.refusingPort();
+        closeables.add(refusing);
+        int refusedPort = refusing.getLocalPort();
         ConcurrencyLimiter limiter = ConcurrencyLimiter.builder().permits(1).build();
         HttpFilters blocker = HttpFilters.builder()
                 .onRequest(r -> r.uri().endsWith("/blocked")
