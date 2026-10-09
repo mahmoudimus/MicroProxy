@@ -1,0 +1,385 @@
+package org.microproxy.thirdparty.larky.objects.type;
+
+import org.microproxy.thirdparty.starlark.syntax.Types;
+import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
+import com.google.common.collect.ImmutableSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.microproxy.thirdparty.larky.modules.types.LarkyCollection;
+import org.microproxy.thirdparty.larky.objects.DeleteAttribute;
+import org.microproxy.thirdparty.larky.objects.GetAttribute;
+import org.microproxy.thirdparty.larky.objects.PyObject;
+import org.microproxy.thirdparty.larky.objects.SetAttribute;
+import org.microproxy.thirdparty.larky.objects.descriptor.LarkyDataDescriptor;
+import org.microproxy.thirdparty.larky.objects.descriptor.LarkyNonDataDescriptor;
+import org.microproxy.thirdparty.larky.objects.mro.C3;
+import org.microproxy.thirdparty.larky.parser.StarlarkUtil;
+
+import org.microproxy.thirdparty.starlark.annot.Param;
+import org.microproxy.thirdparty.starlark.annot.ParamType;
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.Dict;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.HasBinary;
+import org.microproxy.thirdparty.starlark.eval.Printer;
+import org.microproxy.thirdparty.starlark.eval.Sequence;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+
+import javax.annotation.Nonnull;
+
+import org.microproxy.thirdparty.larky.modules.utils.Sneaky;
+
+public interface LarkyType extends PyObject, LarkyCollection, HasBinary {
+
+  static void setupInheritanceHierarchy(@Nonnull LarkyType cls, LarkyType[] parentClasses) {
+    try {
+      cls.setBaseClasses(parentClasses);
+      final List<LarkyType> mro;
+      mro = C3.calculateMRO(cls);
+      cls.setMRO(mro);
+      for (LarkyType superclass : mro) {
+        superclass.getAllSubclasses().add(cls);
+      }
+      cls.getAllSubclasses().add(cls);
+    } catch (Throwable sneaky) {
+      throw Sneaky.sneakyThrow(sneaky);
+    }
+  }
+
+  Set<LarkyType> getAllSubclasses();
+
+  void setMRO(List<LarkyType> mro);
+
+  void setBaseClasses(LarkyType[] parentClasses);
+
+  @Override
+  default String typeName() {
+    return "type";
+  }
+
+  /**
+   * A class object's own type (not that of its instances, {@link LarkyClassType}). Not derived from
+   * its fields, as for other structures: some of a class's fields have no value.
+   */
+  @Override
+  default StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    return Types.ANY;
+  }
+
+  @Override
+  default LarkyType __class__() {
+    return LarkyTypeObject.getInstance();
+  }
+
+  @Override
+  default void __init__(Tuple args, Dict<String, ?> keywords) throws EvalException {
+  }
+
+  @Override
+  default void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append(this.__repr__());
+  }
+
+  @Override
+  default String __repr__() {
+    return String.format("<class '%s'>", typeName());
+  }
+
+  @Override
+  default void str(Printer printer, StarlarkSemantics semantics) {
+    printer.append(this.__str__());
+  }
+
+  @Override
+  default String __str__() {
+    return this.__repr__();
+  }
+
+  @Override
+  default Dict<?, ?> __dict__() {
+    try {
+      // for types, this is a mappingproxy (readonly!)
+      return Dict.cast(
+               StarlarkUtil.valueToStarlark(this.getInternalDictUnsafe()),
+               Object.class,
+               Object.class,
+               "this.__dict__()"
+             );
+    } catch (Throwable sneaky) {
+      throw Sneaky.sneakyThrow(sneaky);
+    }
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")  // safe
+  default <K, V> void setItemUnsafe(K key, V value) throws EvalException {
+    final Map<K, V> dictUnsafe = (Map<K, V>) this.getInternalDictUnsafe();
+    if(dictUnsafe instanceof Dict) {
+      final Dict<K, V> starlarkDictUnsafe = Dict.cast(dictUnsafe, (Class<K>) key.getClass(), (Class<V>) value.getClass(), "LarkyType#setItemUnsafe");
+      starlarkDictUnsafe.putEntry(key, value);
+    } else {
+      dictUnsafe.put(key, value);
+    }
+  }
+
+  /**
+   * Get the {@code __base__} of this type. The {@code __base__} is a type from the MRO, but its choice is determined by
+   * implementation details.
+   * <p>
+   * It is the type earliest on the MRO after the current type, whose implementation contains all the members necessary
+   * to implement the current type.
+   *
+   * @return the type's base
+   */
+  @StarlarkMethod(name = "__base__", structField = true)
+  Object getBase();
+
+  /**
+   * @return the bases as a tuple
+   */
+  @StarlarkMethod(name = "__bases__", structField = true)
+  Tuple getBases();
+
+  @StarlarkMethod(name = "__mro__", structField = true)
+  Tuple getMRO();
+
+  @StarlarkMethod(name = "__name__", structField = true)
+  String __name__();
+
+  /**
+   * Look for a name, returning the entry directly from the first dictionary along the MRO containing key {@code name}.
+   * This may be a descriptor, but no {@code __get__} takes place on it: the descriptor itself will be returned. This
+   * method does not throw an exception if the name is not found, but returns {@code null} like a {@code Map.get}
+   *
+   * @param name to look up, must be exactly a {@code str}
+   * @return dictionary entry or null
+   */
+  default Object lookup(String name) {
+    try {
+  
+      // Look in dictionaries of types in MRO
+      Sequence<LarkyType> mro = Sequence.cast(getMRO(), LarkyType.class, "LarkyType::lookup");
+      // See https://docs.python.org/3/reference/datamodel.html#the-standard-type-hierarchy
+      // under Custom Clases
+      for (LarkyType base : mro) {
+        switch (name) {
+          case "__class__":
+            return base.__class__();
+          case "__dict__":
+            return base.__dict__();
+          case "__bases__":
+            return base.getBases();
+          case "__base__":
+            return base.getBase();
+          case "__mro__":
+            return base.getMRO();
+          default:
+            Object res;
+            if ((res = base.getInternalDictUnsafe().get(name)) != null) {
+              return res;
+            }
+        }
+      }
+      return null;
+    } catch (Throwable sneaky) {
+      throw Sneaky.sneakyThrow(sneaky);
+    }
+  }
+
+
+  /**
+   * See <br/>
+   *  <a href="https://github.com/python/cpython/blob/6969eaf4682beb01bc95eeb14f5ce6c01312e297/Objects/typeobject.c#L7314-L7704">python/cpython@Objects/typeobject.c#L7314-L7704</a><br/>
+   *  and <br/>
+   *  <a href="https://stackoverflow.com/a/44994572/133514">Martijn Pieters' answer on StackOverflow</a><br/>
+   *
+   * @param ref the first type to check before going through the MRO
+   * @param name the method name to lookup
+   * @return the method if found, or null otherwise
+   */
+  default PyObject lookupForSuper(LarkyType ref, String name) {
+    PyObject result = null;
+    //
+    Tuple mro = this.getMRO();
+    if (mro != null) {
+      int i;
+      // skip past the start type in the MRO
+      for (i = 0; i < mro.size(); i++) {
+        if (mro.get(i) == ref)
+          break;
+      }
+      i++;
+      // Search for the attribute on the remainder of the MRO
+      for (; i < mro.size(); i++) {
+        Map<String, Object> dict = ((PyObject) mro.get(i)).getInternalDictUnsafe();
+        if (dict != null) {
+          Object obj = dict.get(name);
+          if (obj != null) {
+            result = (PyObject) obj;
+            break;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  default boolean isSubtypeOf(LarkyType other) {
+    boolean result = false;
+    if (other == this) {
+      result = true;
+    } else {
+      for (Object superclass : this.getMRO()) {
+        if (superclass == other) {
+          result = true;
+          break;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  default boolean isInstance(PyObject object) {
+    boolean result = false;
+    if (object.typeClass() == this) {
+      result = true;
+    } else {
+      for (LarkyType subclass : this.getAllSubclasses()) {
+        if (subclass == object.typeClass()) {
+          result = true;
+          break;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * provides attribute read access on
+   * this type object and its metatype. This is very like
+   * {@code object.__getattribute__}
+   * ({@link PyObject#__getattribute__(String, org.microproxy.thirdparty.starlark.eval.StarlarkThread)}), but the
+   * instance is replaced by a type object, and that object's type is
+   * a meta-type (which is also a {@code type}).
+   * <p>
+   * The behavioural difference is that in looking for attributes on a
+   * type:
+   * <ul>
+   * <li>we use {@link #lookup(String)} to search along along the
+   * MRO, and</li>
+   * <li>if we find a descriptor, we use it.
+   * ({@code object.__getattribute__} does not check for descriptors
+   * on the instance.)</li>
+   * </ul>
+   * <p>
+   * The following order of precedence applies when looking for the
+   * value of an attribute:
+   * <ol>
+   * <li>a data descriptor from the dictionary of the meta-type</li>
+   * <li>a descriptor or value in the dictionary of {@code type}</li>
+   * <li>a non-data descriptor or value from dictionary of the meta
+   * type</li>
+   * </ol>
+   *
+   * @param name of the attribute
+   * @return attribute value
+   * @throws EvalException if no such attribute
+   */
+  @Override
+  @StarlarkMethod(
+    name = "__getattribute__",
+    doc = "" +
+      "Slot.op_getattribute has signature Signature.GETATTR and provides attribute read " +
+            "access on this type object and its metatype. " +
+            "" +
+            "This is very like object.__getattribute__ (PyBaseObject.__getattribute__(Object, String)), " +
+            "but the instance is replaced by a type object, and that object's type is a " +
+            "meta-type (which is also a type).\n" +
+      "The behavioral difference is that in looking for attributes on a type:\n" +
+      "we use lookup(String) to search along along the MRO, and\n" +
+      "if we find a descriptor, we use it. (object.__getattribute__ does not check for descriptors " +
+            "on the instance.)\n" +
+      "The following order of precedence applies when looking for the value of an attribute:\n" +
+      "- a data descriptor from the dictionary of the meta-type\n" +
+      "- a descriptor or value in the dictionary of type\n" +
+      "- a non-data descriptor or value from dictionary of the meta type\n",
+    parameters = {
+      @Param(name = "name", allowedTypes = {@ParamType(type = String.class)})
+    },
+    useStarlarkThread = true
+  )
+  default Object __getattribute__(String name, StarlarkThread thread)
+    throws EvalException {
+    return GetAttribute.getForType(this, name, thread);
+  }
+
+  @Override
+  default void __setattr__(String name, Object value, StarlarkThread thread) throws EvalException {
+    checkMutable(name);
+    SetAttribute.set(this, name, value, thread);
+  }
+
+  @Override
+  default void __delattr__(String name, StarlarkThread thread) throws EvalException {
+    checkMutable(name);
+    DeleteAttribute.delete(this, name, thread);
+  }
+
+  /**
+   * Reports whether this type's attributes can no longer change: built-in types never, and types
+   * defined by a script once the module that defined them is frozen. Types are shared (built-in
+   * ones by every evaluation in the process), so this is what keeps one script from changing a
+   * type another script sees.
+   */
+  default boolean isFrozenType() {
+    return getOrigin() != Origin.LARKY;
+  }
+
+  private void checkMutable(String attr) throws EvalException {
+    if (isFrozenType()) {
+      throw getOrigin() == Origin.LARKY
+          ? Starlark.errorf("trying to mutate frozen type '%s' (setting '%s')", __name__(), attr)
+          : Starlark.errorf("cannot set attribute '%s' of built-in type '%s'", attr, __name__());
+    }
+  }
+
+  /**
+   * If an object defines __set__() or __delete__(), it is considered a data descriptor.
+   *
+   * Descriptors that only define __get__() are called non-data descriptors
+   * (they are often used for methods but other uses are possible).
+   */
+  default boolean isDataDescriptor() {
+    return LarkyDataDescriptor.isDataDescriptor(this);
+  }
+
+  default boolean isNonDataDescriptor() {
+    return LarkyNonDataDescriptor.isNonDataDescriptor(this);
+  }
+
+  /**
+   * Will be used to determine if a type is eligible for a special
+   * operation / method.
+   * @return An immutable set of the type's {@link SpecialMethod}s.
+   */
+  ImmutableSet<SpecialMethod> getSpecialMethods();
+
+  enum Origin {
+    PLACEHOLDER,  // Dummy entry to resolve circular dependencies
+    BUILTIN,      // A type provided as part of Starlarky itself.
+    LARKY         // A type defined in Larky code
+    ;
+
+    public boolean isBuiltin() {
+      return this == PLACEHOLDER || this == BUILTIN;
+    }
+  }
+
+}

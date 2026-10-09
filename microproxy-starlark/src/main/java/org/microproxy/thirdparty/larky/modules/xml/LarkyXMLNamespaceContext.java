@@ -1,0 +1,226 @@
+package org.microproxy.thirdparty.larky.modules.xml;
+
+import static javax.xml.XMLConstants.NULL_NS_URI;
+import static javax.xml.XMLConstants.XMLNS_ATTRIBUTE;
+import static javax.xml.XMLConstants.XMLNS_ATTRIBUTE_NS_URI;
+import static javax.xml.XMLConstants.XML_NS_PREFIX;
+import static javax.xml.XMLConstants.XML_NS_URI;
+
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableSet;
+import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+
+import org.microproxy.thirdparty.larky.modules.types.LarkyMapping;
+
+import org.microproxy.thirdparty.starlark.annot.Param;
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.Mutability;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import javax.xml.namespace.NamespaceContext;
+
+
+
+/**
+ * <p>
+ *   TODO: This should probably be built-in to Java already, I am assuming?
+ * </p>
+ *
+ * see: {@link org.xml.sax.helpers.NamespaceSupport}
+ */
+public class LarkyXMLNamespaceContext implements LarkyMapping<String, String>, NamespaceContext {
+  /**
+   * see <a href="https://github.com/python/cpython/blob/3.10/Lib/xml/etree/ElementTree.py#L1013-L1026">
+   *   python/cpython#ElementTree.py#L1013-L1026
+   *   </a>
+   *
+   * see {@link javax.xml.XMLConstants}
+   * see {@link com.sun.org.apache.xerces.internal.impl.Constants}
+   * see {@link com.sun.org.apache.xerces.internal.impl.xs.SchemaSymbols}
+   */
+  private static ConcurrentNavigableMap<String, String> wellknownPrefixes() {
+    ConcurrentNavigableMap<String, String> bakedInMappings = new ConcurrentSkipListMap<>();
+    bakedInMappings.put(XML_NS_URI, XML_NS_PREFIX);
+    bakedInMappings.put(XMLNS_ATTRIBUTE_NS_URI, XMLNS_ATTRIBUTE);
+    bakedInMappings.put("http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdf");
+    bakedInMappings.put("http://schemas.xmlsoap.org/wsdl/", "wsdl");
+    // xml schema
+    bakedInMappings.put("http://www.w3.org/2001/XMLSchema", "xs");
+    bakedInMappings.put("http://www.w3.org/2001/XMLSchema-instance", "xsi");
+    // dublin core
+    bakedInMappings.put("http://purl.org/dc/elements/1.1/", "dc");
+    bakedInMappings.put("http://www.w3.org/2000/09/xmldsig#", "ds"); // XMLSignature.XMLNS
+    return bakedInMappings;
+  }
+
+  /** Never modified: each evaluation's registry starts as a copy of it. */
+  private static final ConcurrentNavigableMap<String, String> WELL_KNOWN_NAMESPACE_PREFIXES = wellknownPrefixes();
+
+  private final ConcurrentNavigableMap<String, String> namespaceMap;
+  private final Pattern internalPatternPrefix = Pattern.compile("ns\\d+$");
+  private Mutability mutability;
+  private StarlarkThread currentThread;
+  private int iteratorCount; // number of active iterators (unused once frozen)
+
+  private LarkyXMLNamespaceContext(StarlarkThread thread) {
+    this.namespaceMap = new ConcurrentSkipListMap<>(WELL_KNOWN_NAMESPACE_PREFIXES);
+    this.mutability = thread.mutability();
+    this.currentThread = thread;
+  }
+
+  /**
+   * The namespace registry of the evaluation running on {@code thread}, created from the
+   * well-known prefixes on first use. Python's registry is global to the process; here it is
+   * global to one evaluation, so what one script registers never reaches another.
+   */
+  public static LarkyXMLNamespaceContext forThread(StarlarkThread thread) {
+    LarkyXMLNamespaceContext registry = thread.getThreadLocal(LarkyXMLNamespaceContext.class);
+    if (registry == null) {
+      registry = new LarkyXMLNamespaceContext(thread);
+      thread.setThreadLocal(LarkyXMLNamespaceContext.class, registry);
+    }
+    return registry;
+  }
+
+  public String getNamespaceURI(String prefix) {
+    if (prefix == null) {
+      throw new IllegalArgumentException("Null prefix");
+    }
+    if (!namespaceMap.containsKey(prefix)) {
+      return NULL_NS_URI;
+    }
+    return namespaceMap.get(prefix);
+  }
+
+  public String getPrefix(String namespaceURI) {
+    if (namespaceURI == null) {
+      throw new IllegalArgumentException("Null NS URI");
+    }
+    for (Map.Entry<String, String> entry : namespaceMap.entrySet()) {
+      if (namespaceURI.equals(entry.getValue())) {
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+  public Iterator<String> getPrefixes(String namespaceURI) {
+    if (namespaceURI == null) {
+      throw new IllegalArgumentException("null namespaceURI");
+    }
+    List<String> results = new ArrayList<>(3);
+    for (Map.Entry<String, String> entry : namespaceMap.entrySet()) {
+      if (namespaceURI.equals(entry.getValue())) {
+        results.add(entry.getKey());
+      }
+    }
+    return results.iterator();
+  }
+
+  /**
+   * Register a namespace prefix.
+   *
+   * The registry is global, and any existing mapping for either the
+   * given prefix or the namespace URI will be removed.
+   *
+   * *prefix* is the namespace prefix, *uri* is a namespace uri. Tags and
+   * attributes in this namespace will be serialized with prefix if possible.
+   *
+   * ValueError is raised if prefix is reserved or is invalid.
+   */
+  @StarlarkMethod(
+    name="register_namespace",
+    doc = "Register a namespace prefix.\n" +
+            "\n" +
+          "The registry is global, and any existing mapping for either the\n" +
+          "given prefix or the namespace URI will be removed.\n" +
+          "\n" +
+          "*prefix* is the namespace prefix, *uri* is a namespace uri. Tags and\n" +
+          "attributes in this namespace will be serialized with prefix if possible.\n" +
+          "\n" +
+          "ValueError is raised if prefix is reserved or is invalid.\n",
+    parameters = {
+      @Param(name="prefix"),
+      @Param(name="uri")
+  }, useStarlarkThread = true)
+  public void registerNamespace(String prefix, String uri, StarlarkThread thread) throws EvalException {
+    Starlark.checkMutable(this);
+    if(this.internalPatternPrefix.matcher(prefix).matches()) {
+      throw Starlark.errorf("ValueError: Prefix format %s reserved for internal use", prefix);
+    }
+    /* as in Python:
+      for k, v in list(_namespace_map.items()):
+          if k == uri or v == prefix:
+              operator.delitem(_namespace_map, k)
+      _namespace_map[uri] = prefix
+     */
+    this.namespaceMap.entrySet().removeIf(e -> e.getKey().equals(uri) || e.getValue().equals(prefix));
+    this.namespaceMap.put(uri, prefix);
+  }
+
+  /**
+   * We will set the current thread so that we can ensure mutability
+   * across the execution StarlarkThread.
+   *
+   * @param thread - the starlark thread in the current execution context
+   */
+  public void setCurrentThread(@Nonnull StarlarkThread thread) {
+    this.currentThread = thread;
+  }
+
+  @Override
+  public StarlarkThread getCurrentThread() {
+    return this.currentThread;
+  }
+
+  @Nullable
+  @Override
+  public Object getField(String name, @Nullable StarlarkThread thread) {
+    return this.namespaceMap.get(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getFieldNames() {
+    return ImmutableSet.copyOf(this.namespaceMap.keySet());
+  }
+
+  @Override
+  public Mutability mutability() {
+    return mutability;
+  }
+
+  @Override
+  public void freeze() {
+     mutability = Mutability.IMMUTABLE;
+  }
+
+  @Override
+  public boolean updateIteratorCount(int delta) {
+    if (isImmutable()) {
+      return false;
+    }
+    if (delta > 0) {
+      iteratorCount++;
+    } else if (delta < 0) {
+      iteratorCount--;
+    }
+    return iteratorCount > 0;
+  }
+
+  @Override
+  public NavigableMap<String, String> contents() {
+    return namespaceMap;
+  }
+}

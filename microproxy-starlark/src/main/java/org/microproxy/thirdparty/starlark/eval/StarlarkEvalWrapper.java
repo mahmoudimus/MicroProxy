@@ -1,0 +1,260 @@
+package org.microproxy.thirdparty.starlark.eval;
+
+import static com.google.common.base.Strings.isNullOrEmpty;
+
+import com.google.common.collect.ImmutableList;
+
+import org.microproxy.thirdparty.starlark.eval.Starlark.UncheckedEvalException;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread.CallStackEntry;
+import org.microproxy.thirdparty.starlark.syntax.Location;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public class StarlarkEvalWrapper {
+
+  private StarlarkEvalWrapper() {
+  } // uninstantiable
+
+  /**
+   * Publicly exposes the {@link StarlarkList#wrap} method to allow list creation via array ownership transfer to allow
+   * "zero-copy" StarlarkList creation. Takes ownership of the supplied array.
+   *
+   * Same limitations of the package-private {@link StarlarkList#wrap} method apply. The caller
+   * <b>MUST NOT</b> subsequently modify the array.n
+   *
+   * @param mu  The {@link Mutability} of the list.
+   * @param arr The array to take ownership
+   * @param <T> The type of elements in the array
+   * @return A {@link StarlarkList} which takes ownership of the supplied {@code arr}
+   */
+  /** The number of frames on {@code thread}'s call stack; see {@link #unwindCallStack}. */
+  public static int callStackSize(StarlarkThread thread) {
+    return thread.callStackSize();
+  }
+
+  /**
+   * Pops {@code thread}'s call stack back to {@code size} frames. A call that fails can leave
+   * frames pushed (e.g. an argument error reports the callee's frame); Starlark never recovers
+   * from an error, but code that does (Larky's safe()) must restore the stack, or the next call
+   * of the same function is reported as recursive.
+   */
+  public static void unwindCallStack(StarlarkThread thread, int size) {
+    while (thread.callStackSize() > size) {
+      thread.pop();
+    }
+  }
+
+  public static <T> StarlarkList<?> zeroCopyList(Mutability mu, T[] arr) {
+    return StarlarkList.wrap(mu, arr);
+  }
+
+  /**
+   * Defines the strict weak ordering of Starlark values used for sorting and the comparison operators. Throws
+   * ClassCastException on failure.
+   */
+  public static int compareUnchecked(Object x, Object y) {
+    return Starlark.compareUnchecked(x, y);
+  }
+
+  public static StarlarkInt ofFiniteDouble(double x) {
+    return StarlarkFloat.finiteDoubleToIntExact(x);
+  }
+
+  // StarlarkMethod-annotated field or method?
+  public static Object getAttrFromMethodAnnotations(
+    @Nullable StarlarkThread thread,
+    Object x,
+    String name
+  )  {
+    Object result = null;
+    if (thread != null) {
+      MethodDescriptor method = CallUtils.getBuiltinManager(thread.getSemantics()).getAnnotatedMethods(x.getClass()).get(name);
+      if (method != null) {
+        if (method.isStructField()) {
+          try {
+            result = method.callField(x, thread.getSemantics(), thread.mutability());
+          } catch (EvalException | InterruptedException e) {
+            throw new Exc.RuntimeEvalException(e, thread);
+          }
+        } else {
+          result = BuiltinFunction.of(x, method);
+        }
+      }
+    }
+    return result;
+  }
+
+  public interface Exc {
+
+    /**
+     * Given a {@link EvalException}, will return, if applicable, the metadata surrounding the location of the exception
+     * for the evaluated script.
+     *
+     * @param larkyException - The {@link EvalException} that contains the Larky stacktrace
+     * @return a {@link Location} detailing the filename, line, and row where the error occurred.
+     */
+    static @Nullable Location getErrorLocation(@Nonnull final EvalException larkyException) {
+
+      final ImmutableList<StarlarkThread.CallStackEntry> callStack = larkyException.getCallStack();
+      final int n = callStack.size();
+      if (callStack.isEmpty()) {
+        return null;
+      }
+      // Report where the error happened in the script being run: an error raised inside a
+      // built-in or one of Larky's own modules (stdlib/, vendor/, vgs/) would otherwise point at
+      // "<builtin>" line 0 or at a library line the script's author never wrote.
+      for (int i = n - 1; i >= 0; i--) {
+        final Location location = callStack.get(i).location;
+        if (!isLibraryLocation(location)) {
+          return location;
+        }
+      }
+      return callStack.get(n - 1).location;
+    }
+
+    /** Whether {@code location} is in a built-in or in one of Larky's own .star modules. */
+    static boolean isLibraryLocation(@Nonnull final Location location) {
+      final String file = location.file();
+      return location.line() == 0
+          || file.equals("<builtin>")
+          || file.startsWith("stdlib/")
+          || file.startsWith("vendor/")
+          || file.startsWith("vgs/");
+    }
+
+    static void fillInStackTraceFromCallStack(
+        @Nonnull final Throwable throwable,
+        @Nonnull final ImmutableList<StarlarkThread.CallStackEntry> callStack) {
+      final int callStackSize = callStack.size();
+      StackTraceElement[] trace = new StackTraceElement[callStackSize];
+      for (int i = 0; i < callStackSize; i++) {
+        StarlarkThread.CallStackEntry frame = callStack.get(i);
+        trace[trace.length - i - 1] = new StackTraceElement(
+          /*declaringClass=*/ "<larky>",
+          frame.name,
+          frame.location.file(),
+          frame.location.line());
+      }
+      throwable.setStackTrace(trace);
+    }
+
+    /**
+     * Sets the given {@link Throwable}'s stack trace to a Java-style version of {@link StarlarkThread#getCallStack}.
+     * This is useful to expose the underlying larky callstack to the caller for a simpler way to identify Larky
+     * errors.
+     *
+     * @param larkyException - The {@link EvalException} that contains the Larky stacktrace
+     * @param throwable      - The {@link Throwable} class to hoist the Larky stacktrace above the Java exception
+     *                       callstack.
+     */
+    static void fillInLarkyStackTrace(@Nonnull final EvalException larkyException, @Nonnull final Throwable throwable) {
+      final ImmutableList<StarlarkThread.CallStackEntry> larkyCallStack = larkyException.getCallStack();
+      fillInStackTraceFromCallStack(throwable, larkyCallStack);
+    }
+
+    static String createUncheckedEvalMessage(Throwable cause, @Nullable StarlarkThread thread) {
+      String msg = cause.getClass().getSimpleName() + " thrown during Starlark evaluation";
+      String context = null;
+      if (thread != null) {
+        context = thread.getContextDescription();
+      }
+      if (isNullOrEmpty(context)) {
+        context = cause.getMessage();
+      }
+      return msg + " (" + context + ")";
+    }
+
+    /**
+     * Decorates a {@link RuntimeException} with its Starlark stack, to help maintainers locate problematic source
+     * expressions.
+     *
+     * <p>The original exception can be retrieved using {@link #getCause}.
+     */
+    final class RuntimeEvalException extends RuntimeException {
+      public RuntimeEvalException(Throwable cause, @Nullable StarlarkThread thread) {
+        super(createUncheckedEvalMessage(cause, thread), cause);
+        if (thread != null) {
+          thread.fillInStackTrace(this);
+        }
+      }
+
+      public RuntimeEvalException(String message, Throwable cause, @Nullable StarlarkThread thread) {
+        super(message, cause);
+        if (thread != null) {
+          thread.fillInStackTrace(this);
+        }
+      }
+    }
+    
+    final class WrappedUncheckedEvalException extends UncheckedEvalException {
+      private final ImmutableList<StarlarkThread.CallStackEntry> callStack;
+      private final String errorMessage;
+
+      private WrappedUncheckedEvalException(
+          @Nonnull final String cause,
+          @Nonnull final StarlarkThread thread,
+          @Nonnull final ImmutableList<StarlarkThread.CallStackEntry> callStack) {
+        super(new RuntimeException(cause), thread);
+        this.callStack = callStack;
+        this.errorMessage = cause;
+        StarlarkEvalWrapper.Exc.fillInStackTraceFromCallStack(this, callStack);
+      }
+
+      @Override
+      public String getMessage() {
+        // Use EvalException's formatCallStack to get nice formatting with source code lines
+        return EvalException.formatCallStack(callStack, errorMessage, EvalException.newSourceReader());
+      }
+
+      @Override
+      public String toString() {
+        // Return just the formatted message without the exception class name prefix
+        // This prevents "WrappedUncheckedEvalException: Traceback..." and just shows "Traceback..."
+        return getMessage();
+      }
+
+      @Override
+      public synchronized Throwable getCause() {
+        // Return null to prevent redundant "Caused by: RuntimeException: ..." from appearing
+        // All relevant information is already in our formatted message via getMessage()
+        return null;
+      }
+
+      public static WrappedUncheckedEvalException of(
+          @Nonnull final String cause,
+          @Nonnull final StarlarkThread thread,
+          @Nonnull final ImmutableList<StarlarkThread.CallStackEntry> callStack) {
+        thread.setUncheckedExceptionContext(
+            () -> "in " + callStack.get(callStack.size() - 1).name);
+        return new WrappedUncheckedEvalException(cause, thread, callStack);
+      }
+    }
+  }
+
+  public interface CallStack {
+
+    /**
+     * Returns the stack frame at the specified depth. 0 means top of stack, 1 is its caller, etc.
+     */
+    @Nonnull
+    static Debug.Frame frame(@Nonnull StarlarkThread thread, int depth) throws EvalException {
+      final int callstackSize = thread.getCallStackSize();
+      if(depth > callstackSize) {
+        throw Starlark.errorf("depth %d exceeds maximum call stack size", depth);
+      }
+      return thread.frame(depth);
+    }
+
+    /**
+     * Reports the current call stack depth.
+     *
+     * @return <code>0</code> - if an idle thread <br/>
+     *         <code>1</code> - if currently evaluating a function for the top-level statements of a file <br/>
+     *         <code>2+</code> - which means a function call is in progress and this is the depth of functions
+     */
+    static int depth(@Nonnull StarlarkThread thread) {
+      return thread.getCallStackSize();
+    }
+  }
+}

@@ -1,0 +1,366 @@
+package org.microproxy.thirdparty.larky.modules.types.structs;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+
+import org.microproxy.thirdparty.larky.modules.types.LarkyCallable;
+import org.microproxy.thirdparty.larky.modules.types.LarkyCollection;
+import org.microproxy.thirdparty.larky.modules.types.LarkyObject;
+import org.microproxy.thirdparty.larky.modules.types.PyProtocols;
+import org.microproxy.thirdparty.larky.parser.StarlarkUtil;
+
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Dict;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.HasBinary;
+import org.microproxy.thirdparty.starlark.eval.Mutability;
+import org.microproxy.thirdparty.starlark.eval.Printer;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
+import org.microproxy.thirdparty.starlark.eval.StarlarkEvalWrapper;
+import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
+import org.microproxy.thirdparty.starlark.eval.StarlarkList;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.eval.Tuple;
+import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
+import org.microproxy.thirdparty.starlark.syntax.TokenKind;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+// A trivial struct-like class with Starlark fields defined by a map.
+public class SimpleStruct implements LarkyCallable, LarkyCollection, HasBinary, Comparable<Object> {
+
+  private static final TokenKind[] COMPARE_OPNAMES = new TokenKind[]{
+    TokenKind.LESS,
+    TokenKind.LESS_EQUALS,
+    TokenKind.EQUALS_EQUALS,
+    TokenKind.NOT_EQUALS,
+    TokenKind.GREATER,
+    TokenKind.GREATER_EQUALS
+  };
+  final Map<String, Object> fields;
+  final StarlarkThread currentThread;
+
+  protected SimpleStruct(Map<String, Object> fields, StarlarkThread currentThread) {
+    this.currentThread = currentThread;
+    this.fields = fields;
+  }
+
+  public static SimpleStruct immutable(Dict<String, Object> kwargs, StarlarkThread thread) {
+    return new ImmutableStruct(ImmutableMap.copyOf(kwargs), thread);
+  }
+
+  public static SimpleStruct mutable(Dict<String, Object> kwargs, StarlarkThread thread) {
+    return new MutableStruct(kwargs, thread);
+  }
+
+  @StarlarkMethod(name = PyProtocols.__DICT__, structField = true)
+  public Dict<String, Object> dunderDict() throws EvalException {
+    return composeAndFillDunderDictBuilder().build(Mutability.IMMUTABLE);
+  }
+
+  @Override
+  public StarlarkThread getCurrentThread() {
+    return StarlarkUtil.callerOr(currentThread);
+  }
+
+  @Override
+  public ImmutableList<String> getFieldNames() {
+    return ImmutableList.copyOf(fields.keySet());
+  }
+
+  @Override
+  public Object getField(String name, StarlarkThread thread) {
+    if (
+      (name == null
+         // we do not support null as field values, signifying does not exist
+         || this.fields.getOrDefault(name, null) == null
+      ) && this.fields.get(PyProtocols.__GETATTR__) == null) {
+      return null;
+    }
+
+    if (!fields.containsKey(name)) {
+      // if there's an object with a __getattr__, it will be invoked..
+      Object getAttrMethod = this.fields.get(PyProtocols.__GETATTR__);
+      StarlarkThread evalThread = thread == null ? getCurrentThread() : thread;
+      try {
+        return Starlark.call(evalThread, getAttrMethod, Tuple.of(name), Dict.empty());
+      } catch (EvalException | InterruptedException e) {
+        throw new StarlarkEvalWrapper.Exc.RuntimeEvalException(e, evalThread);
+      }
+    }
+    return fields.get(name);
+  }
+
+  @Override
+  public void repr(Printer p, StarlarkSemantics semantics) {
+    try {
+      if (hasReprField()) {
+        final StarlarkCallable reprCallable = (StarlarkCallable) getField(PyProtocols.__REPR__);
+        if (reprCallable != null) {
+          try {
+            p.append(invoke(reprCallable).toString());
+            return;
+          } catch (EvalException ex) {
+            if (!ex.getMessage().contains("'__repr__' called recursively")) {
+              throw ex;
+            }
+          }
+        }
+      }
+    } catch (EvalException ex) {
+      throw new RuntimeException(ex);
+    }
+    p.append("<class '").append(typeName()).append("'>");
+  }
+
+  @Override
+  public void debugPrint(Printer p, StarlarkThread thread) {
+    // This repr function prints only the fields.
+    // Any methods are still accessible through dir/getattr/hasattr.
+    p.append(typeName());
+    p.append("(");
+    String sep = "";
+    for (Map.Entry<String, Object> e : fields.entrySet()) {
+      p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue(), thread.getSemantics());
+      sep = ", ";
+    }
+    p.append(")");
+  }
+
+  /**
+   * Avoid un-necessary allocation if we need to override the immutability of the `__dict__` in a subclass for the
+   * caller.
+   */
+  protected Dict.Builder<String, Object> composeAndFillDunderDictBuilder() throws EvalException {
+    StarlarkThread thread = getCurrentThread();
+    StarlarkList<String> keys = Starlark.dir(thread.mutability(), thread.getSemantics(), this);
+    Dict.Builder<String, Object> builder = Dict.builder();
+    for (String k : keys) {
+      // obviously, ignore the actual __dict__ key since we're in this method already
+      if (k.equals(PyProtocols.__DICT__)) {
+        continue;
+      }
+      Object value = getValue(k);
+      builder.put(k, value != null ? value : Starlark.NONE);
+    }
+
+    return builder;
+  }
+  @Override
+  public boolean truth() {
+    // __bool__() is used to implement truth value testing and the built-in operation bool();
+    final Object dunderBool = getField(PyProtocols.__BOOL__, getCurrentThread());
+    final Object dunderLen = getField(PyProtocols.__LEN__, getCurrentThread());
+    final Object res;
+    if(dunderBool != null) {
+      try {
+        res = invoke(dunderBool);
+      } catch (EvalException e) {
+        throw new RuntimeException(e);
+      }
+      // it should return False or True.
+      if(!(res instanceof Boolean)) {
+        throw new RuntimeException("TypeError: __bool__ should return bool, returned " + StarlarkUtil.richType(res));
+      }
+      return (boolean) res;
+    }
+    else if(dunderLen != null/*false*/) {
+      try {
+         res = invoke(dunderLen);
+       } catch (EvalException e) {
+        throw new RuntimeException(e);
+      }
+      // it should return non-zero integer (or boolean)
+      if(res instanceof Boolean) {
+        return Starlark.truth(res);
+      }
+      else if(res instanceof StarlarkInt
+                || (res instanceof LarkyObject && ((LarkyObject)res).isCoerceableToInt())) {
+        final StarlarkInt asInt;
+        if(res instanceof LarkyObject) {
+          try {
+            asInt = ((LarkyObject) res).coerceToInt(getCurrentThread());
+          } catch (EvalException e) {
+            throw new RuntimeException(e);
+          }
+        } else {
+          asInt = (StarlarkInt) res;
+        }
+        switch(asInt.signum()) {
+          case 0:
+            return false;
+          case 1:
+            return true;
+          case -1: // if it's a negative number
+            // fallthrough
+          default:
+            throw new RuntimeException("ValueError: __len__() of " + typeName() + "should return >= 0, returned: " + asInt);
+        }
+      }
+      throw new RuntimeException("TypeError: '" + StarlarkUtil.richType(res) + "' object cannot be interpreted as an integer");
+    }
+    /*
+      If a class defines neither __len__() nor __bool__(), all its instances
+      are considered true.
+    */
+    return true;
+  }
+
+  /**
+   * Whether this struct itself defines the special method {@code name}. Like Python's special
+   * method lookup, this bypasses {@code __getattr__}.
+   */
+  private boolean definesSpecialMethod(String name) {
+    return fields.get(name) != null;
+  }
+
+  /**
+   * Structs compare by identity unless one of them defines {@code __eq__}, which then decides, as
+   * in Python. An error raised by {@code __eq__} propagates (as an unchecked evaluation error,
+   * since {@code equals} cannot throw {@link EvalException}) instead of reading as "not equal".
+   */
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SimpleStruct)) {
+      return false;
+    }
+    SimpleStruct other = (SimpleStruct) obj;
+    if (!definesSpecialMethod(PyProtocols.__EQ__) && !other.definesSpecialMethod(PyProtocols.__EQ__)) {
+      return false;
+    }
+    try {
+      return StructBinOp.richComparison(
+        this, obj, PyProtocols.__EQ__, PyProtocols.__EQ__, this.getCurrentThread()
+      );
+    } catch (EvalException e) {
+      throw StructBinOp.uncheckedEvalError(e, this.getCurrentThread());
+    }
+  }
+
+  /**
+   * Python's rule: a struct that defines {@code __hash__} is hashable (if immutable) and hashed by
+   * it; one that defines {@code __eq__} without {@code __hash__} is unhashable, since hashing by
+   * identity would put structs that {@code __eq__} calls equal in different buckets; one that
+   * defines neither is hashed by identity, matching its identity equality.
+   */
+  @Override
+  public void checkHashable() throws EvalException {
+    if (!isImmutable()
+          || (!definesSpecialMethod(PyProtocols.__HASH__) && definesSpecialMethod(PyProtocols.__EQ__))) {
+      throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
+    }
+    if (definesSpecialMethod(PyProtocols.__HASH__)) {
+      // Report a failing or ill-typed __hash__ here, as an EvalException, rather than from
+      // hashCode(), which the dict calls next and which can only throw unchecked exceptions.
+      callDunderHash();
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    if (!definesSpecialMethod(PyProtocols.__HASH__)) {
+      return System.identityHashCode(this);
+    }
+    try {
+      return callDunderHash();
+    } catch (EvalException e) {
+      throw StructBinOp.uncheckedEvalError(e, this.getCurrentThread());
+    }
+  }
+
+  private int callDunderHash() throws EvalException {
+    Object res = invoke(getCurrentThread(), fields.get(PyProtocols.__HASH__), Tuple.empty(), Dict.empty());
+    if (res instanceof StarlarkInt) {
+      return res.hashCode();
+    } else if (res instanceof Boolean) {
+      // bool is an int in Python: hash(True) == hash(1)
+      return StarlarkInt.of((Boolean) res ? 1 : 0).hashCode();
+    }
+    throw Starlark.errorf("TypeError: __hash__ method should return an integer");
+  }
+
+  /**
+   * The below does not belong in LarkyObject because LarkyObject does not dictate what operations should exist on an
+   * object. That is left to the interface implementer.
+   *
+   * However, for SimpleStruct and its hierarchy tree, in Larky, we can simply "tack-on" the magic method (i.e. __len__
+   * or __contains__, etc.) and we expect various operations to work on that object, which is why we want to enable
+   * binaryOp on SimpleStruct.
+   */
+  @Nullable
+  @Override
+  public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    return StructBinOp.operatorDispatch(this, op, that, thisLeft, this.getCurrentThread());
+  }
+
+  @Override
+  public Object get__call__() {
+    return getField(PyProtocols.__CALL__);
+  }
+
+  @Override
+  public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) throws EvalException, InterruptedException {
+    // we have to pass the execution thread here b/c otherwise
+    // we will pass the thread that was responsible for capturing the
+    // the closure -- which is not what we want.
+    return invoke(thread, callable(), args, kwargs);
+  }
+
+  @Override
+  public int compareTo(@Nonnull Object o) {
+    SimpleStruct other = (SimpleStruct) o;
+    Object result;
+    final boolean lt;
+    final boolean gt;
+
+    try {
+      // This code is a bit tricky. If we return null from operatorDispatch,
+      // it most likely not a proper comparison operation.
+      //
+      // To make the IDE happy, we have to do the checks below.
+      result = StructBinOp.operatorDispatch(
+        this,
+        TokenKind.LESS,
+        other,
+        true,
+        this.getCurrentThread()
+      );
+      if (result instanceof Boolean) {
+        lt = (boolean) result;
+        if (lt) {
+          return -1;
+        }
+      }
+      result = StructBinOp.operatorDispatch(
+        this,
+        TokenKind.GREATER,
+        other,
+        true,
+        this.getCurrentThread()
+      );
+      if (result instanceof Boolean) {
+        gt = (boolean) result;
+        if (gt) {
+          return 1;
+        }
+      }
+      // if result is null, let's throw an Error
+      if (result == null) {
+        throw new RuntimeException(String.format(
+          "unsupported binary operation: %s and %s",
+          this, other
+        ));
+      }
+    } catch (EvalException e) {
+      throw new RuntimeException(e);
+    }
+    return 0;
+  }
+
+}

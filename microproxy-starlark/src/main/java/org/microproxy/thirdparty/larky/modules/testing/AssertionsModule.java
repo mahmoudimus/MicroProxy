@@ -1,0 +1,120 @@
+package org.microproxy.thirdparty.larky.modules.testing;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.FormatMethod;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+import java.util.Objects;
+
+import org.microproxy.thirdparty.larky.modules.utils.Reporter;
+
+import org.microproxy.thirdparty.starlark.annot.Param;
+import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
+import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.EvalException;
+import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
+import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
+import org.microproxy.thirdparty.starlark.eval.StarlarkValue;
+
+
+@StarlarkBuiltin(
+    name = "assertions",
+    category = "BUILTIN",
+    doc = "This module implements a ")
+public class AssertionsModule implements StarlarkValue {
+
+  public static final AssertionsModule INSTANCE = new AssertionsModule();
+
+  @StarlarkMethod(
+      name = "assert_",
+      documented = false,
+      parameters = {
+          @Param(name = "cond"),
+          @Param(name = "msg", defaultValue = "'assertion failed'"),
+      },
+      useStarlarkThread = true)
+  public Object assertStarlark(Object cond, String msg, StarlarkThread thread)
+      throws EvalException {
+    if (!Starlark.truth(cond)) {
+      Reporter.of(thread)
+          .reportError(thread, "assert_: " + msg);
+    }
+    return Starlark.NONE;
+  }
+
+  @StarlarkMethod(
+      name = "assert_eq",
+      documented = false,
+      parameters = {
+          @Param(name = "x"),
+          @Param(name = "y"),
+      },
+      useStarlarkThread = true)
+  public Object assertEq(Object x, Object y, StarlarkThread thread) throws EvalException {
+    if (!x.equals(y)) {
+      String msg = String.format("assert_eq: %s != %s", Starlark.repr(x, thread.getSemantics()), Starlark.repr(y, thread.getSemantics()));
+      Reporter.of(thread).reportError(thread, msg);
+    }
+    return Starlark.NONE;
+  }
+
+  @StarlarkMethod(
+      name = "assert_fails",
+      doc = "assert_fails asserts that evaluation of f() fails with the specified error",
+      parameters = {
+          @Param(name = "f", doc = "the Starlark function to call"),
+          @Param(
+              name = "wantError",
+              doc = "a regular expression matching the expected error message"),
+      },
+      useStarlarkThread = true)
+  public Object assertFails(StarlarkCallable f, String wantError, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    Pattern pattern;
+    try {
+      pattern = Pattern.compile(wantError);
+    } catch (PatternSyntaxException unused) {
+      throw Starlark.errorf("invalid regexp: %s", wantError);
+    }
+
+    String errorMsg;
+    try {
+      Starlark.call(thread, f, ImmutableList.of(), ImmutableMap.of());
+      errorMsg = String.format("evaluation succeeded unexpectedly (want error matching %s)", wantError);
+    } catch (Starlark.UncheckedEvalException ex) {
+      // Verify error matches UncheckedEvalException message.
+      // For WrappedUncheckedEvalException, getMessage() returns the full formatted traceback.
+      // For regular UncheckedEvalException, we need to also check the cause message.
+      // We concatenate both to allow regex matching against either.
+      String msg = ex.getMessage();
+      if (ex.getCause() != null && ex.getCause().getMessage() != null) {
+        // Include both the wrapper message and the cause message for regex matching
+        msg = msg + "\n" + ex.getCause().getMessage();
+      }
+      if (pattern.matcher(msg).find()) {
+        return Starlark.NONE;
+      }
+      errorMsg = String.format("regular expression (%s) did not match error (%s)", pattern, msg);
+    } catch(EvalException ex) {
+      // Verify error matches expectation.
+      String msg = ex.getMessage();
+      if (pattern.matcher(msg).find()) {
+        return Starlark.NONE;
+      }
+      errorMsg = String.format("regular expression (%s) did not match error (%s)", pattern, msg);
+    }
+    reportErrorf(thread, "%s", errorMsg);
+    throw Starlark.errorf("%s", errorMsg);
+
+  }
+
+  @FormatMethod
+  private static void reportErrorf(StarlarkThread thread, String format, Object... args) {
+    Reporter.of(thread)
+        .reportError(thread, String.format(format, args));
+  }
+
+
+}

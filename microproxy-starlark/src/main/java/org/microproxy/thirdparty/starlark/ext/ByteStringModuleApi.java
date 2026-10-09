@@ -134,8 +134,9 @@ public interface ByteStringModuleApi {
         parameters = {
             @Param(name = "encoding", defaultValue = "'utf-8'"),
             @Param(name ="errors", defaultValue = "'strict'")
-        })
-  String decode(String encoding, String errors) throws EvalException;
+        },
+        useStarlarkThread = true)
+  String decode(String encoding, String errors, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
     name = "endswith",
