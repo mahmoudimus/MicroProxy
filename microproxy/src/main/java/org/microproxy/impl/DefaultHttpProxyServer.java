@@ -90,6 +90,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final String[] tlsProtocols;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
+    /** Whether HTTP/3 alternatives are removed from Alt-Svc response headers. */
+    final boolean stripAltSvcH3;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -132,6 +134,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.littleProxyCompatibility = b.littleProxyCompatibility;
         this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
+        this.stripAltSvcH3 = b.stripsAltSvcH3();
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
         this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);

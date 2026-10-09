@@ -71,6 +71,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).tlsProtocols;
     }
 
+    /** Whether HTTP/3 alternatives would be removed from Alt-Svc response headers, defaults applied. */
+    public static boolean stripsAltSvcH3(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).stripsAltSvcH3();
+    }
+
     /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServerBootstrap bootstrap) {
         DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;

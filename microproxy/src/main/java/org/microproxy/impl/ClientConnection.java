@@ -969,6 +969,9 @@ final class ClientConnection implements Runnable {
         if (!server.transparent) {
             modifyResponseHeadersToReflectProxying(res);
         }
+        if (server.stripAltSvcH3) {
+            AltSvc.stripHttp3(res.headers());
+        }
         if (switching) {
             if (upgrade != null) res.headers().set(HttpHeaderNames.UPGRADE, upgrade);
             res.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
@@ -1938,6 +1941,9 @@ final class ClientConnection implements Runnable {
         }
         if (rewriteHeaders && !server.transparent) {
             modifyResponseHeadersToReflectProxying(res);
+        }
+        if (rewriteHeaders && server.stripAltSvcH3) {
+            AltSvc.stripHttp3(res.headers());
         }
         HttpUtil.setKeepAlive(res, keepAlive);
         boolean bodyAllowed = Framing.responseMayHaveBody(res, ex.request.method());

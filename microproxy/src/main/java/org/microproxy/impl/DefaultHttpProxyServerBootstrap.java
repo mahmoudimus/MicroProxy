@@ -86,6 +86,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
+    /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
+    Boolean altSvcH3Stripping;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -132,6 +134,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.chainedProxyBackoffMax = chainedProxyBackoffMax;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
+        c.altSvcH3Stripping = altSvcH3Stripping;
         return c;
     }
 
@@ -230,6 +233,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("strip_request_headers")) {
             plusStrippedRequestHeaders(p.getProperty("strip_request_headers").split(","));
         }
+        if (p.containsKey("strip_alt_svc_h3")) withAltSvcH3Stripping(bool(p, "strip_alt_svc_h3"));
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
             withServerResolver(DnssecHostResolver.builder().resolver(p.getProperty("dnssec_resolver")).build());
@@ -471,6 +475,20 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             strippedRequestHeaders.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
         }
         return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAltSvcH3Stripping(boolean strip) {
+        this.altSvcH3Stripping = strip;
+        return this;
+    }
+
+    /**
+     * Whether HTTP/3 alternatives are removed from Alt-Svc: as configured, else whenever traffic is
+     * intercepted or the proxy is transparent, where a client moving to QUIC would bypass it.
+     */
+    boolean stripsAltSvcH3() {
+        return altSvcH3Stripping != null ? altSvcH3Stripping : mitmManager != null || transparent;
     }
 
     @Override

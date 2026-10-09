@@ -57,6 +57,11 @@ public final class Launcher {
               --strip-tracing-headers      remove traceparent, tracestate, baggage, B3 and other
                                            tracing headers from requests sent upstream
               --strip-request-headers <list>  also remove these comma-separated request headers
+              --no-alt-svc-h3              remove h3 (HTTP/3, QUIC) alternatives from Alt-Svc
+                                           response headers, so clients stay on TCP through the
+                                           proxy (default with --mitm or --transparent)
+              --keep-alt-svc-h3            pass Alt-Svc h3 alternatives on even with --mitm or
+                                           --transparent
               --dnssec                     resolve server names with DNSSEC validation
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
               --activity-log-format <fmt>  access log: CLF, ELF, JSON, JSON_EXTENDED, SQUID,
@@ -180,6 +185,8 @@ public final class Launcher {
                 case "--env-proxy" -> envProxy = true;
                 case "--strip-tracing-headers" -> bootstrap.withoutTracingHeadersUpstream();
                 case "--strip-request-headers" -> bootstrap.plusStrippedRequestHeaders(value(queue, arg).split(","));
+                case "--no-alt-svc-h3" -> bootstrap.withAltSvcH3Stripping(true);
+                case "--keep-alt-svc-h3" -> bootstrap.withAltSvcH3Stripping(false);
                 case "--dnssec" -> dnssec = true;
                 case "--dnssec-resolver" -> {
                     dnssec = true;

@@ -154,6 +154,32 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Whether to remove HTTP/3 alternatives ({@code h3}, {@code h3-29}, {@code h3-Q050}, ...,
+     * and Google QUIC's {@code quic}) from {@code Alt-Svc} response headers, keeping the other
+     * alternatives (such as {@code h2=":443"}) and their parameters as they are. A header left
+     * with no alternative is removed; {@code Alt-Svc: clear} is never touched.
+     *
+     * <p>A client that learns an origin speaks HTTP/3 may move to QUIC over UDP, which bypasses
+     * the proxy: browsers never send QUIC through an HTTP proxy, and a transparent deployment
+     * only redirects TCP. Where the proxy is meant to see the traffic, that is a hole, so this is
+     * on by default when {@link #withManInTheMiddle interception} or {@link #withTransparent
+     * transparent mode} is configured, and off otherwise. Clients can still learn about HTTP/3
+     * from DNS {@code HTTPS} records, so transparent deployments should also block UDP port 443,
+     * which makes clients fall back to TCP.
+     *
+     * <p>Responses from servers are rewritten before {@link HttpFilters#proxyToClientResponse}
+     * sees them; short-circuit responses from filters (and the cache) after it.
+     */
+    default HttpProxyServerBootstrap withAltSvcH3Stripping(boolean strip) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support Alt-Svc rewriting");
+    }
+
+    /** Same as {@code withAltSvcH3Stripping(true)}: clients are not told about HTTP/3 (see there). */
+    default HttpProxyServerBootstrap withoutHttp3Advertisement() {
+        return withAltSvcH3Stripping(true);
+    }
+
+    /**
      * Waits between attempts when a connection through one chained proxy (or the direct
      * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
      * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *
