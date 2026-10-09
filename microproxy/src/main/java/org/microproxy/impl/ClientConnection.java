@@ -42,6 +42,7 @@ import org.microproxy.HttpFiltersAdapter;
 import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
+import org.microproxy.MitmManager;
 import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseSource;
 import org.microproxy.cache.HttpCache;
@@ -118,6 +119,24 @@ final class ClientConnection implements Runnable {
             "clientToProxyRequest", "proxyToServerRequest");
     /** Whether a chained proxy filters request body pieces. */
     private static final ClassValue<Boolean> FILTERS_REQUEST_CONTENT = overrides(ChainedProxy.class, "filterRequest");
+
+    /**
+     * Whether a MITM manager may set up server connections differently per client connection, so
+     * that one client's server connection must not be handed to another.
+     */
+    private static final ClassValue<Boolean> SERVER_TLS_PER_CLIENT = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("serverSslContext", String.class, int.class, FlowContext.class)
+                                .getDeclaringClass() != MitmManager.class
+                        || type.getMethod("configureServerSocket", SSLSocket.class, FlowContext.class)
+                                .getDeclaringClass() != MitmManager.class;
+            } catch (NoSuchMethodException e) {
+                return true;
+            }
+        }
+    };
 
     private static ClassValue<Boolean> overrides(Class<?> base, String... methods) {
         return new ClassValue<>() {
@@ -310,6 +329,9 @@ final class ClientConnection implements Runnable {
     private boolean authenticated;
     /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
     private String mitmHostAndPort;
+    /** The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked. */
+    private MitmManager connectionMitm;
+    private boolean mitmChosen;
 
     ClientConnection(DefaultHttpProxyServer server, Socket socket) {
         this.server = server;
@@ -1068,7 +1090,8 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
         }
         String hostAndPort = target.toString();
-        boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm();
+        boolean mitm = server.mitmManager != null && mitmHostAndPort == null && ex.filters.proxyToServerAllowMitm()
+                && mitmManager() != null;
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
 
         List<ChainedProxy> route = lookupRoute(request);
@@ -1146,7 +1169,7 @@ final class ClientConnection implements Runnable {
         }
 
         SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
-        SSLContext clientContext = server.mitmManager.clientSslContextFor(request, serverSession);
+        SSLContext clientContext = connectionMitm.clientSslContextFor(request, serverSession, flowContext);
         handshakeWithClient(clientContext, socket, false, null, target.host());
 
         mitmHostAndPort = hostAndPort;
@@ -1163,11 +1186,31 @@ final class ClientConnection implements Runnable {
     // Connecting to servers
     // ---------------------------------------------------------------------------------------
 
+    /** The MITM manager for this connection, chosen when first needed; null if it declined. */
+    private MitmManager mitmManager() {
+        if (!mitmChosen) {
+            connectionMitm = server.mitmManager.forConnection(flowContext);
+            mitmChosen = true;
+        }
+        return connectionMitm;
+    }
+
     /** Whether server connections for {@code mode} come from the shared pool. */
     private boolean usesPool(Mode mode) {
-        // A PROXY header names one client, so connections that carry it are never shared.
+        // A PROXY header names one client, so connections that carry it are never shared; nor are
+        // TLS connections set up by a manager that may decide differently for each client.
         return server.pool != null && !server.sendProxyProtocol
-                && (mode == Mode.PLAIN || (mode == Mode.TLS && server.poolSharedMitmConnections));
+                && (mode == Mode.PLAIN || (mode == Mode.TLS && server.poolSharedMitmConnections
+                        && !SERVER_TLS_PER_CLIENT.get(connectionMitm.getClass())));
+    }
+
+    /**
+     * The pool key part that keeps TLS connections made with a manager chosen for this connection
+     * away from clients given another manager.
+     */
+    private String mitmPoolKey(Mode mode) {
+        return mode == Mode.TLS && connectionMitm != server.mitmManager
+                ? "|mitm" + server.mitmManagerId(connectionMitm) : "";
     }
 
     /** Whether pooled connections for {@code mode} are returned after every request. */
@@ -1182,7 +1225,8 @@ final class ClientConnection implements Runnable {
     private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
         String hostKey = mode + "|" + hostAndPort;
-        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()), hostKey,
+        String managerKey = mitmPoolKey(mode);
+        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey,
                 Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
             if (LOG.isLoggable(Level.DEBUG)) {
@@ -1198,7 +1242,7 @@ final class ClientConnection implements Runnable {
             }
             ChainedProxy actual = conn.chainedProxy == null
                     ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : conn.chainedProxy;
-            server.pool.register(conn, hostKey + "|" + routeKey(actual), hostKey);
+            server.pool.register(conn, hostKey + "|" + routeKey(actual) + managerKey, hostKey);
         }
         ServerConnection leased = conn;
         leased.onDetach = () -> serverConnections.remove(leased.key, leased);
@@ -1402,11 +1446,12 @@ final class ClientConnection implements Runnable {
                     throw new ProtocolException("unexpected data from server before TLS handshake");
                 }
                 filters.proxyToServerConnectionSSLHandshakeStarted();
-                SSLContext context = server.mitmManager.serverSslContext(target.host(), target.port());
+                MitmManager manager = connectionMitm;
+                SSLContext context = manager.serverSslContext(target.host(), target.port(), serverContext);
                 try {
                     flowContext.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                            server.mitmManager::configureServerSocket, server.tlsHandshakeTimeout,
+                            s -> manager.configureServerSocket(s, serverContext), server.tlsHandshakeTimeout,
                             new TlsLog.Peer(logPrefix, "server", target.host()));
                     flowContext.mark(ClientFlowContext.TLS_END);
                 } catch (IOException e) {

@@ -11,14 +11,17 @@ import java.net.SocketException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Deque;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
@@ -66,6 +69,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final SharedConnectionPool pool;
     final boolean poolSharedMitmConnections;
     final boolean poolPerRequestInMitm;
+    /** Numbers the MITM managers chosen per connection, for pool keys; weak, so they can be collected. */
+    private final Map<MitmManager, Long> mitmManagerIds = new WeakHashMap<>();
+    private final ReentrantLock mitmManagerIdsLock = new ReentrantLock();
+    private long nextMitmManagerId;
     final Trackers trackers = new Trackers();
     final RateLimiter readLimiter;
     final RateLimiter writeLimiter;
@@ -170,6 +177,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
 
     void unregister(ClientConnection connection) {
         connections.remove(connection);
+    }
+
+    /** A number identifying {@code manager} among the MITM managers this server has used. */
+    long mitmManagerId(MitmManager manager) {
+        mitmManagerIdsLock.lock();
+        try {
+            return mitmManagerIds.computeIfAbsent(manager, m -> ++nextMitmManagerId);
+        } finally {
+            mitmManagerIdsLock.unlock();
+        }
     }
 
     boolean isStopping() {

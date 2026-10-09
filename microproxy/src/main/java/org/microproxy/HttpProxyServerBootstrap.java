@@ -33,6 +33,11 @@ public interface HttpProxyServerBootstrap {
         return null;
     }
 
+    /**
+     * Intercepts CONNECT tunnels with {@code mitmManager}. To decide per client connection (per
+     * user, client address, ...), override its {@link FlowContext} overloads or use {@link
+     * MitmManager#perConnection}.
+     */
     HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager);
 
     HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
@@ -167,6 +172,9 @@ public interface HttpProxyServerBootstrap {
     /**
      * Lets intercepted (MITM) sessions take their server connection from the pool and return it
      * when the client disconnects, so other clients can reuse it. Requires the shared pool.
+     * Connections are only shared by clients given the same {@link MitmManager#forConnection
+     * manager}, and not at all when the manager sets up server connections per client (see {@link
+     * MitmManager}).
      */
     HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections);
 
