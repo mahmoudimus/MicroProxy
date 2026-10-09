@@ -218,13 +218,13 @@ Command-line flags override values from the file.
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
-| MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`) |
+| MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
-| Proxy authentication | `ProxyAuthenticator` (Basic) |
+| Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
 | WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
@@ -314,6 +314,99 @@ java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --no-proxy "loc
 For servers or proxies signed by a private CA, `SslContexts.systemDefaultPlus(caCert)` trusts the
 JDK's roots plus extra anchors and keeps host-name checks. Use it as the MITM manager's upstream
 context, or as a chained proxy's.
+
+### Proxy authentication
+
+`withProxyAuthenticator` makes clients authenticate. A `ProxyAuthenticator` that only implements
+`authenticate(user, password)` checks `Proxy-Authorization: Basic` and answers failures with
+`407` and `Proxy-Authenticate: Basic realm="..."` (`getRealm()`). For other schemes, override
+`authenticate(HttpRequest, FlowContext)`, which sees the whole request and the client connection
+and returns an `AuthResult`:
+
+- `AuthResult.accept(user)`: the request proceeds, and `user` (which may be `null`) becomes
+  `ClientDetails.getUserName()` for filters, trackers, access logs, the `ChainedProxyManager`,
+  MITM decisions and Starlark's `ctx.user`.
+- `AuthResult.reject(response)`: the client gets `response`, for instance a `407` with your own
+  `Proxy-Authenticate` header and body, or a `403`. `AuthResult.reject()` sends the default
+  Basic `407`.
+
+```java
+MicroProxy.bootstrap()
+        .withProxyAuthenticator(new ProxyAuthenticator() {
+            @Override
+            public AuthResult authenticate(HttpRequest request, FlowContext flow) {
+                String value = request.headers().get(HttpHeaderNames.PROXY_AUTHORIZATION);
+                if (value != null && value.startsWith("Bearer ")) {
+                    String user = tokens.userFor(value.substring(7));   // your token check
+                    if (user != null) return AuthResult.accept(user);
+                }
+                FullHttpResponse challenge = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+                        HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, "{\"error\":\"invalid_token\"}");
+                challenge.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE, "Bearer realm=\"proxy\"");
+                return AuthResult.reject(challenge);
+            }
+
+            @Override
+            public boolean authenticate(String userName, String password) {
+                return false;   // no Basic credentials
+            }
+
+            @Override
+            public boolean authenticateEveryRequest() {
+                return true;    // tokens expire
+            }
+        })
+        .start();
+```
+
+- **Once per connection:** by default the first accepted request authenticates its client
+  connection, and later requests on it are not checked. `authenticateEveryRequest()` checks every
+  request instead. When the accepted user changes on a connection, the server connections made
+  for the previous user are given up, so routing is decided again.
+- **CONNECT and interception:** a `CONNECT` is authenticated like any request. The requests inside
+  an intercepted session carry no proxy credentials and are covered by their `CONNECT`, even with
+  `authenticateEveryRequest()`.
+- **Credentials stay here:** whatever the scheme, `Proxy-Authorization` is removed from every
+  request before filters see it, so it is never forwarded, even by a transparent proxy.
+- To accept Basic as well, fall back to `ProxyAuthenticator.super.authenticate(request, flow)`.
+
+### Interception per client connection
+
+The proxy hands every `MitmManager` call the client connection's `FlowContext`, with its
+authenticated user (`getClientDetails().getUserName()`) and address (`getClientAddress()`). Two
+ways to use it:
+
+- **One manager per tenant:** `MitmManager.perConnection(flow -> ...)` picks a manager when a
+  connection is first intercepted and keeps it for that connection. Return the same instance for
+  clients that may share server connections; `null` tunnels without interception.
+
+  ```java
+  Map<String, MitmManager> byTenant = Map.of(
+          "alice", new CertificateAuthorityMitmManager(aliceCa, aliceUpstreamContext),
+          "bob", new CertificateAuthorityMitmManager(bobCa, bobUpstreamContext));
+  MicroProxy.bootstrap()
+          .withProxyAuthenticator(authenticator)
+          .withManInTheMiddle(MitmManager.perConnection(
+                  flow -> byTenant.get(flow.getClientDetails().getUserName())))
+          .start();
+  ```
+
+- **One manager deciding per call:** override the `FlowContext` overloads,
+  `serverSslContext(host, port, flow)` (upstream trust store and client certificate; `flow` is a
+  `FullFlowContext` naming the server and route), `clientSslContextFor(connect, session, flow)`
+  (the certificate shown to the client) or `configureServerSocket(socket, flow)`. They default to
+  the methods without `FlowContext`, so existing managers work unchanged.
+
+An upstream context with a key (`SslContexts.withKey(key, chain, trustManagers)`) presents that
+client certificate to servers that ask for one.
+
+With `withPoolSharedMitmConnections(true)`, a pooled TLS connection carries the trust and client
+certificate it was made with, so the pool keeps them apart. Connections made by a manager chosen
+with `forConnection` (which `perConnection` uses) are pooled under that manager and only reused by
+clients given the same one. A manager overriding `serverSslContext(host, port, flow)` or
+`configureServerSocket(socket, flow)` may decide differently for every client, so its server
+connections are not pooled: each client connection keeps its own. Overriding only
+`clientSslContextFor(..., flow)` does not affect pooling.
 
 ### Rewriting bodies
 
@@ -625,7 +718,9 @@ By default, as in LittleProxy, server connections are kept per client connection
   connection the server closed while idle is retried transparently.
 - **Intercepted TLS:** `withPoolSharedMitmConnections(true)` lets intercepted sessions take their
   upstream TLS connection from the pool and return it when the client leaves.
-  `withPoolPerRequestInMitm(true)` leases it per request instead.
+  `withPoolPerRequestInMitm(true)` leases it per request instead. Managers chosen per client
+  connection only share with clients given the same manager (see
+  [Interception per client connection](#interception-per-client-connection)).
 - **Metrics:** `HttpProxyServer.getServerConnectionPoolMetrics()` reports counts.
 
 ### DNSSEC
@@ -775,6 +870,13 @@ it; see that method's Javadoc for the list:
   (see [Observability](#observability)).
 - Full messages are written with a `Content-Length` that matches their actual body. Filters that
   replace a body don't need to fix the header themselves.
+- `ProxyAuthenticator` and `MitmManager` keep LittleProxy's methods. The overloads that take the
+  request or a `FlowContext` are optional additions: other authentication schemes and challenges,
+  per-request checks, and MITM decisions per user or client (see
+  [Proxy authentication](#proxy-authentication) and
+  [Interception per client connection](#interception-per-client-connection)).
+- With an authenticator configured, `Proxy-Authorization` is removed from every request before
+  filters run, not only from the one that authenticated the connection.
 - All interface methods have defaults, so the `*Adapter` classes are only conveniences.
 - The `org.microproxy.http` message types are a sealed hierarchy. Filters create (and may subclass)
   the `Default*` classes but cannot implement `HttpRequest` and the other interfaces from scratch,
