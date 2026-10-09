@@ -7,10 +7,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.microproxy.starlark.stdlib.Stdlib;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Module;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
@@ -19,9 +21,11 @@ import org.microproxy.thirdparty.starlark.eval.StarlarkCallable;
 import org.microproxy.thirdparty.starlark.eval.StarlarkSemantics;
 import org.microproxy.thirdparty.starlark.eval.StarlarkThread;
 import org.microproxy.thirdparty.starlark.syntax.FileOptions;
+import org.microproxy.thirdparty.starlark.syntax.LoadStatement;
 import org.microproxy.thirdparty.starlark.syntax.ParserInput;
 import org.microproxy.thirdparty.starlark.syntax.Program;
 import org.microproxy.thirdparty.starlark.syntax.StarlarkFile;
+import org.microproxy.thirdparty.starlark.syntax.Statement;
 import org.microproxy.thirdparty.starlark.syntax.SyntaxError;
 
 /**
@@ -29,6 +33,11 @@ import org.microproxy.thirdparty.starlark.syntax.SyntaxError;
  * script is safely shared by every connection: each call gets its own {@link StarlarkThread}, and
  * functions cannot change global state. Calls are bounded by a step count and a wall-clock
  * timeout ({@link Limits}).
+ *
+ * <p>A script may {@code load()} modules of the standard library ported from starlarky ({@link
+ * Stdlib}), e.g. {@code load("@stdlib//urllib/parse", "parse")}. Such a script runs with Python's
+ * string semantics ({@link Stdlib#withPythonStrings}), which the library relies on; a script without
+ * {@code load} statements runs exactly as before.
  */
 public final class StarlarkScript {
 
@@ -44,6 +53,14 @@ public final class StarlarkScript {
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build();
 
+    /**
+     * {@link #SEMANTICS} for scripts that load standard library modules (in a holder, so that the
+     * library initializes only when a script loads from it).
+     */
+    private static final class StdlibSemantics {
+        static final StarlarkSemantics VALUE = Stdlib.withPythonStrings(SEMANTICS);
+    }
+
     /** Bounds on each call into a script (and on running its top level). */
     public record Limits(long maxSteps, Duration timeout) {
         /** Ten million steps and five seconds per call. */
@@ -58,11 +75,13 @@ public final class StarlarkScript {
     private final String name;
     private final Module module;
     private final Limits limits;
+    private final StarlarkSemantics semantics;
 
-    private StarlarkScript(String name, Module module, Limits limits) {
+    private StarlarkScript(String name, Module module, Limits limits, StarlarkSemantics semantics) {
         this.name = name;
         this.module = module;
         this.limits = limits;
+        this.semantics = semantics;
     }
 
     /** Loads and runs the script in {@code file}. */
@@ -98,11 +117,21 @@ public final class StarlarkScript {
         if (!file.ok()) {
             throw new ScriptException(file.errors().stream().map(Object::toString).collect(Collectors.joining("\n")));
         }
-        Module module = Module.withPredeclared(SEMANTICS, values.isEmpty() ? Builtins.PREDECLARED
+        List<String> loads = loads(file);
+        StarlarkSemantics semantics = loads.isEmpty() ? SEMANTICS : StdlibSemantics.VALUE;
+        Module module = Module.withPredeclared(semantics, values.isEmpty() ? Builtins.PREDECLARED
                 : ImmutableMap.<String, Object>builder().putAll(Builtins.PREDECLARED).putAll(values).buildOrThrow());
+        Map<String, Module> loaded;
+        try {
+            loaded = loads.isEmpty() ? Map.of() : Stdlib.loadAll(loads);
+        } catch (EvalException e) {
+            throw new ScriptException(name + ": " + e.getMessage(), e);
+        }
         try (Mutability mu = Mutability.create(name)) {
-            Program program = Starlark.maybeWithTypeInfo(Program.compileFile(file, module), module, SEMANTICS, null);
-            Starlark.execFileProgram(program, module, newThread(mu, limits));
+            Program program = Starlark.maybeWithTypeInfo(Program.compileFile(file, module), module, semantics, loaded::get);
+            StarlarkThread thread = newThread(mu, limits, semantics);
+            thread.setLoader(loaded::get);
+            Starlark.execFileProgram(program, module, thread);
         } catch (SyntaxError.Exception e) {
             throw new ScriptException(e.errors().stream().map(Object::toString).collect(Collectors.joining("\n")), e);
         } catch (EvalException e) {
@@ -117,7 +146,18 @@ public final class StarlarkScript {
             }
         }
         // Closing the mutability froze the globals.
-        return new StarlarkScript(name, module, limits);
+        return new StarlarkScript(name, module, limits, semantics);
+    }
+
+    /** The labels of the file's load statements. */
+    private static List<String> loads(StarlarkFile file) {
+        List<String> loads = new ArrayList<>();
+        for (Statement st : file.getStatements()) {
+            if (st instanceof LoadStatement load) {
+                loads.add(load.getImport().getValue());
+            }
+        }
+        return loads;
     }
 
     /** The name given at compile time (the file path for loaded scripts). */
@@ -144,11 +184,11 @@ public final class StarlarkScript {
         if (!(fn instanceof StarlarkCallable)) {
             throw Starlark.errorf("%s does not define %s()", name, function);
         }
-        return Starlark.call(newThread(mu, limits), fn, List.of(args), Map.of());
+        return Starlark.call(newThread(mu, limits, semantics), fn, List.of(args), Map.of());
     }
 
-    private static StarlarkThread newThread(Mutability mu, Limits limits) {
-        StarlarkThread thread = StarlarkThread.createTransient(mu, SEMANTICS);
+    private static StarlarkThread newThread(Mutability mu, Limits limits, StarlarkSemantics semantics) {
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
         thread.setMaxExecutionSteps(limits.maxSteps());
         long timeout = limits.timeout().toMillis();
         if (timeout > 0) {
