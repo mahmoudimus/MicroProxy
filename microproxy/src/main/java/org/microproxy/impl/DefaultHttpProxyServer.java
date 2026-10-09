@@ -150,6 +150,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         b.activityTrackers.forEach(trackers::add);
         this.http2 = b.http2;
         this.http2Options = b.http2Options;
+        if (http2 && mitmManager == null) {
+            LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
+                    + " clients are only offered HTTP/2 inside intercepted TLS sessions");
+        }
     }
 
     public static HttpProxyServerBootstrap bootstrap() {
