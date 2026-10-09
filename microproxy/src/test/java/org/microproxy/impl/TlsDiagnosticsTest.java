@@ -319,7 +319,10 @@ class TlsDiagnosticsTest {
         @Override public void checkValidity(Date date) { throw broken(); }
         @Override public int getVersion() { throw broken(); }
         @Override public BigInteger getSerialNumber() { throw broken(); }
+        // X509Certificate still requires implementations of these deprecated abstract methods.
+        @Deprecated
         @Override public Principal getIssuerDN() { throw broken(); }
+        @Deprecated
         @Override public Principal getSubjectDN() { throw broken(); }
         @Override public javax.security.auth.x500.X500Principal getSubjectX500Principal() { throw broken(); }
         @Override public Date getNotBefore() { throw broken(); }
