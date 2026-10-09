@@ -256,6 +256,11 @@ class SharedConnectionPoolTest {
         })) {
             proxy = bootstrap().withSharedServerConnectionPool(true).start();
             assertEquals("ok", get(client(proxy), "http://127.0.0.1:" + keepAlive.port() + "/").body());
+            // The connection goes back to the pool just after the response is relayed.
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (proxy.getServerConnectionPoolMetrics().idleConnections() == 0 && System.nanoTime() < deadline) {
+                Thread.sleep(5);
+            }
             assertEquals(1, proxy.getServerConnectionPoolMetrics().idleConnections());
             assertEquals(1, serverSawClose.getCount(), "the pooled connection stays open while the proxy runs");
 
