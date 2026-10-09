@@ -4,11 +4,9 @@ import io.github.mahmoudimus.http2.ErrorCode;
 import io.github.mahmoudimus.http2.FlowController;
 import io.github.mahmoudimus.http2.Frame;
 import io.github.mahmoudimus.http2.FrameReader;
-import io.github.mahmoudimus.http2.FrameWriter;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.HeaderListSizeException;
 import io.github.mahmoudimus.http2.HpackDecoder;
-import io.github.mahmoudimus.http2.HpackEncoder;
 import io.github.mahmoudimus.http2.Http2Exception;
 import io.github.mahmoudimus.http2.Http2Headers;
 import io.github.mahmoudimus.http2.Http2Settings;
@@ -17,25 +15,18 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.lang.System.Logger.Level;
 import java.net.SocketTimeoutException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLSocket;
-import org.microproxy.Http2Options;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
@@ -51,7 +42,7 @@ import org.microproxy.http.HttpVersion;
  * same exchange logic as HTTP/1 requests ({@link ClientConnection#handleStream}) through an {@link
  * Http2StreamChannel}, on a virtual thread of its own.
  *
- * <p>Threads and locks:
+ * <p>Threads and locks (writing and flow control are {@link Http2Endpoint}'s):
  *
  * <ul>
  *   <li>The client connection's thread reads frames ({@link #serve}) and hands them to streams.
@@ -72,24 +63,14 @@ import org.microproxy.http.HttpVersion;
  * their data; data a stream will never read is credited back when the stream ends. Response data
  * waits for window: a stream's thread blocks until the client opens it.
  */
-final class Http2Connection {
+final class Http2Connection extends Http2Endpoint {
 
     private static final System.Logger LOG = System.getLogger(Http2Connection.class.getName());
 
-    /** The largest DATA frame sent, whatever the client allows, so streams take turns. */
-    private static final int MAX_DATA_FRAME = 16_384;
     /** Streams recently reset or ended early, whose late frames are ignored rather than errors. */
     private static final int RECENTLY_CLOSED = 1024;
     /** How long a connection that sent GOAWAY and has no streams waits for the client to close. */
     private static final long CLOSE_GRACE_NANOS = TimeUnit.SECONDS.toNanos(2);
-    private static final byte[] EMPTY = new byte[0];
-
-    /** Runs every connection's checks; they only read fields and start threads, so one thread serves all. */
-    private static final ScheduledExecutorService TIMERS = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "microproxy-h2-timer");
-        t.setDaemon(true);
-        return t;
-    });
 
     // Frame kinds counted against the rate limits.
     private static final int PING = 0;
@@ -101,14 +82,11 @@ final class Http2Connection {
     private static final String[] KINDS = {"PING", "SETTINGS", "RST_STREAM/PRIORITY", "WINDOW_UPDATE", "empty frame",
         "rapid reset"};
 
-    final DefaultHttpProxyServer server;
     private final ClientConnection client;
     private final SSLSocket socket;
     private final ClientFlowContext connectionFlow;
-    final String logPrefix;
     /** The {@code CONNECT} target: requests for another authority get 421. */
     private final HostAndPort target;
-    final Http2Options options;
     private final int maxHeaderListSize;
     private final int[] limits;
     private final long rateWindowNanos;
@@ -120,19 +98,7 @@ final class Http2Connection {
     private final int[] counts = new int[KINDS.length];
     private long rateWindowStart = System.nanoTime();
 
-    // Guarded by writeLock.
-    final ReentrantLock writeLock = new ReentrantLock();
-    private FrameWriter writer;
-    private HpackEncoder encoder;
-    private boolean writesFailed;
-    /** When the write in progress started (System.nanoTime, never 0), or 0: for stall detection. */
-    private volatile long writeStartedNanos;
-
     // Guarded by stateLock.
-    final ReentrantLock stateLock = new ReentrantLock();
-    /** Signalled whenever send window may have opened, or a stream or the connection ended. */
-    final Condition windowOpened = stateLock.newCondition();
-    private final FlowController flow;
     private final Map<Integer, Http2StreamChannel> streams = new HashMap<>();
     private final Map<Integer, Boolean> recentlyClosed = new LinkedHashMap<>(64, 0.75f, false) {
         @Override
@@ -144,11 +110,9 @@ final class Http2Connection {
     private int lastStreamId;
     /** Received bytes not yet credited back to the connection's receive window. */
     private int pendingConnectionCredit;
-    private Http2Settings peerSettings = Http2Settings.DEFAULT;
     private boolean goAwaySent;
     private boolean peerGoingAway;
 
-    private volatile boolean closed;
     private volatile int activeStreams;
     private volatile long lastFrameNanos = System.nanoTime();
     private volatile long lastStreamEndNanos;
@@ -160,20 +124,28 @@ final class Http2Connection {
 
     Http2Connection(DefaultHttpProxyServer server, ClientConnection client, SSLSocket socket,
             ClientFlowContext connectionFlow, String logPrefix, HostAndPort target) {
-        this.server = server;
+        // The larger receive window applies at once: it only lets the client send more sooner.
+        super(server, logPrefix,
+                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE));
         this.client = client;
         this.socket = socket;
         this.connectionFlow = connectionFlow;
-        this.logPrefix = logPrefix;
         this.target = target;
-        this.options = server.http2Options;
         this.maxHeaderListSize = options.maxHeaderListSize() > 0 ? options.maxHeaderListSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
         this.limits = new int[] {options.maxPings(), options.maxSettings(), options.maxResets(),
             options.maxWindowUpdates(), options.maxEmptyFrames(), options.maxRapidResets()};
         this.rateWindowNanos = options.rateWindow().toNanos();
-        // The larger receive window applies at once: it only lets the client send more sooner.
-        this.flow = new FlowController(options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE);
+    }
+
+    @Override
+    String peer() {
+        return "client";
+    }
+
+    @Override
+    void writeFailed() {
+        client.close();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -197,13 +169,7 @@ final class Http2Connection {
         // Any string a block can carry (Huffman expands at most 8/5): an oversized field is then
         // caught by the header list limit, a stream error, rather than ending the connection.
         decoder.setMaxStringLength(maxBlock * 2);
-        writeLock.lock();
-        try {
-            writer = new FrameWriter(new BufferedOutputStream(os, 16_384));
-            encoder = new HpackEncoder();
-        } finally {
-            writeLock.unlock();
-        }
+        startWriting(new BufferedOutputStream(os, 16_384));
         long tick = tickMillis();
         watchdog = TIMERS.scheduleWithFixedDelay(this::tick, tick, tick, TimeUnit.MILLISECONDS);
         LOG.log(Level.DEBUG, logPrefix + "serving HTTP/2 (ALPN h2)");
@@ -476,30 +442,12 @@ final class Http2Connection {
             settingsSentNanos = 0;
             return;
         }
-        Http2Settings next;
-        stateLock.lock();
-        try {
-            next = peerSettings.apply(settings);
-            if (next.initialWindowSize() != peerSettings.initialWindowSize()) {
-                flow.onPeerInitialWindowSize(next.initialWindowSize());
-            }
-            peerSettings = next;
-            windowOpened.signalAll();
-        } finally {
-            stateLock.unlock();
-        }
-        write(null, () -> {
-            writer.setMaxFrameSize(next.maxFrameSize());
-            encoder.setMaxHeaderTableSize(next.headerTableSize());
-            writer.writeSettingsAck();
-        }, true);
+        applySettings(settings);
     }
 
     private void onPing(Frame.Ping ping) throws IOException {
         count(PING);
-        if (!ping.ack()) {
-            write(null, () -> writer.writePing(true, ping.opaqueData()), true);
-        }
+        answerPing(ping);
     }
 
     private void onWindowUpdate(Frame.WindowUpdate update) throws IOException {
@@ -712,28 +660,6 @@ final class Http2Connection {
         if (serverConnection != null) serverConnection.close();
     }
 
-    private void writeReset(Http2StreamChannel s, int id, ErrorCode code) {
-        writeLock.lock();
-        try {
-            if (s != null) {
-                if (s.rstWritten) return;
-                s.rstWritten = true;
-            }
-            if (writesFailed || closed) return;
-            writeStartedNanos = nanoTime();
-            try {
-                writer.writeRstStream(id, code);
-                writer.flush();
-            } catch (IOException e) {
-                writesFailed = true;
-            } finally {
-                writeStartedNanos = 0;
-            }
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
     // ---------------------------------------------------------------------------------------
     // Called by streams
     // ---------------------------------------------------------------------------------------
@@ -771,99 +697,6 @@ final class Http2Connection {
         return credit;
     }
 
-    private void sendWindowUpdates(int streamId, int streamCredit, int connectionCredit) throws IOException {
-        if (streamCredit <= 0 && connectionCredit <= 0) return;
-        write(null, () -> {
-            if (streamCredit > 0) writer.writeWindowUpdate(streamId, streamCredit);
-            if (connectionCredit > 0) writer.writeWindowUpdate(0, connectionCredit);
-        }, true);
-    }
-
-    /** Writes a header block for stream {@code s}: a response head, an interim response or trailers. */
-    void writeHeaders(Http2StreamChannel s, List<HeaderField> fields, boolean endStream) throws IOException {
-        write(s, () -> writer.writeHeaders(s.id, encoder.encode(fields), endStream), true);
-    }
-
-    /**
-     * Writes response data for stream {@code s} as DATA frames, waiting for send window as needed
-     * (the stream's thread blocks until the client opens it).
-     */
-    void writeData(Http2StreamChannel s, byte[] data, int off, int len, boolean endStream, boolean flush)
-            throws IOException {
-        do {
-            int n = reserveSendWindow(s, len);
-            boolean end = endStream && n == len;
-            int at = off;
-            write(s, () -> writer.writeData(s.id, data, at, n, end), flush || end || n < len);
-            off += n;
-            len -= n;
-        } while (len > 0);
-    }
-
-    /** Waits until {@code s} may send some of {@code len} bytes and debits the windows for them. */
-    private int reserveSendWindow(Http2StreamChannel s, int len) throws IOException {
-        if (len == 0) return 0;
-        int idle = server.idleTimeoutMillis();
-        long remaining = idle > 0 ? TimeUnit.MILLISECONDS.toNanos(idle) : Long.MAX_VALUE;
-        stateLock.lock();
-        try {
-            while (true) {
-                if (s.reset) throw s.failure();
-                if (closed) throw new IOException("HTTP/2 connection closed");
-                int n = Math.min(len, Math.min(flow.sendable(s.id), Math.min(peerSettings.maxFrameSize(), MAX_DATA_FRAME)));
-                if (n > 0) {
-                    flow.onDataSent(s.id, n);
-                    return n;
-                }
-                if (remaining <= 0) {
-                    throw new SocketTimeoutException("the client opened no flow-control window for " + idle + " ms");
-                }
-                remaining = windowOpened.awaitNanos(remaining);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new InterruptedIOException("interrupted waiting for flow-control window");
-        } finally {
-            stateLock.unlock();
-        }
-    }
-
-    void flush() throws IOException {
-        write(null, () -> {}, true);
-    }
-
-    @FunctionalInterface
-    interface FrameWrite {
-        void run() throws IOException;
-    }
-
-    /**
-     * Runs {@code action} with the writer to itself, then flushes if asked. Fails if stream {@code
-     * s} (if given) was reset, so nothing more is written for it.
-     */
-    private void write(Http2StreamChannel s, FrameWrite action, boolean flush) throws IOException {
-        boolean failed = false;
-        writeLock.lock();
-        try {
-            if (writesFailed || closed) throw new IOException("HTTP/2 connection closed");
-            if (s != null && s.rstWritten) throw s.failure();
-            writeStartedNanos = nanoTime();
-            try {
-                action.run();
-                if (flush) writer.flush();
-            } catch (IOException e) {
-                writesFailed = true;
-                failed = true;
-                throw e;
-            } finally {
-                writeStartedNanos = 0;
-            }
-        } finally {
-            writeLock.unlock();
-            if (failed) client.close();
-        }
-    }
-
     // ---------------------------------------------------------------------------------------
     // Ending
     // ---------------------------------------------------------------------------------------
@@ -893,16 +726,10 @@ final class Http2Connection {
             stateLock.unlock();
         }
         goAwayNanos = nanoTime();
-        byte[] debugData = debug == null || debug.isEmpty() ? EMPTY
-                : debug.substring(0, Math.min(debug.length(), 200)).getBytes(StandardCharsets.US_ASCII);
         if (code != ErrorCode.NO_ERROR) {
             LOG.log(Level.DEBUG, logPrefix + "sending GOAWAY " + code + ": " + debug);
         }
-        try {
-            write(null, () -> writer.writeGoAway(last, code, debugData), true);
-        } catch (IOException e) {
-            // closing anyway
-        }
+        writeGoAway(last, code, debug);
     }
 
     /** Graceful stop: GOAWAY now, close once the open streams have finished. Does not block. */
@@ -1010,9 +837,4 @@ final class Http2Connection {
         Thread.ofVirtual().start(client::close);
     }
 
-    /** {@link System#nanoTime()}, never 0 (which means "none"). */
-    private static long nanoTime() {
-        long t = System.nanoTime();
-        return t == 0 ? 1 : t;
-    }
 }

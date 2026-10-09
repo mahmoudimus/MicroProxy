@@ -44,12 +44,11 @@ import org.microproxy.http.LastHttpContent;
  * sent only to a client that asked for it; other interim responses are forwarded as interim
  * HEADERS.
  */
-final class Http2StreamChannel implements ClientChannel {
+final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientChannel {
 
     private static final Object CANCELLED = new Object();
 
     final Http2Connection connection;
-    final int id;
     private final ClientFlowContext flow;
     private final String logPrefix;
     /** The request as the client sent it. */
@@ -73,12 +72,6 @@ final class Http2StreamChannel implements ClientChannel {
     /** END_STREAM received: the request is complete. */
     boolean remoteClosed;
     HttpHeaders trailers;
-    /** Reset (by either side) or abandoned: the exchange's waits and writes fail with {@link #resetCause}. */
-    boolean reset;
-    volatile IOException resetCause;
-
-    /** No more frames may be written for the stream (RST_STREAM sent or received). Written under writeLock or stateLock. */
-    volatile boolean rstWritten;
     /** END_STREAM has been sent: the response is complete. */
     volatile boolean responseEnded;
 
@@ -110,6 +103,7 @@ final class Http2StreamChannel implements ClientChannel {
     }
 
     /** What the exchange's waits and writes fail with once the stream is reset. */
+    @Override
     IOException failure() {
         IOException cause = resetCause;
         return new ClientConnection.ClientFailure(cause != null ? cause : new EOFException("stream " + id + " reset"));
