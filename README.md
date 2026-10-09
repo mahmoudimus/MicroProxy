@@ -223,7 +223,7 @@ Command-line flags override values from the file.
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
-| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` hooks in Starlark, sandboxed, with hot reload (see below) |
+| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
@@ -286,6 +286,7 @@ MicroProxy.bootstrap()
         .start();
 ```
 
+Starlark scripts answer through `on_failure` (see [Scripting with Starlark](#scripting-with-starlark)).
 The proxy frames whatever is returned (`Content-Length`, keep-alive, no body for `HEAD`), and it
 passes `proxyToClientResponse` like the default answers. A responder that throws is logged and the
 default is sent. Requests the proxy cannot parse at all are answered with a plain `4xx` without
@@ -369,6 +370,8 @@ MicroProxy.bootstrap()
 - **Credentials stay here:** whatever the scheme, `Proxy-Authorization` is removed from every
   request before filters see it, so it is never forwarded, even by a transparent proxy.
 - To accept Basic as well, fall back to `ProxyAuthenticator.super.authenticate(request, flow)`.
+- A Starlark script can be the authenticator, with an `authenticate` hook (see
+  [Scripting with Starlark](#scripting-with-starlark)).
 
 ### Interception per client connection
 
@@ -573,11 +576,14 @@ java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar 
 <!-- x-release-please-end -->
 
 Or from Java, install one `ScriptedProxy` as both the filters source and the chained proxy
-manager:
+manager, and as the authenticator when the script defines `authenticate` (`--script` does this
+by itself):
 
 ```java
 ScriptedProxy script = ScriptedProxy.builder(Path.of("proxy.star")).build();
-MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).start();
+HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script);
+if (script.definesAuthenticate()) bootstrap.withProxyAuthenticator(script);
+bootstrap.start();
 ```
 
 **Hooks.** All are optional.
@@ -591,19 +597,28 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
+| `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
+| `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
 
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`.
-- `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`.
+- `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`, plus `source` and
+  `upstream_status` (below).
 - `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
   streamed rather than buffered. Assigning either re-encodes the body.
 - `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
-  and `vars`, a dict that lives for one request so `on_request` can pass values to
-  `on_response`. For a WebSocket it lives as long as the connection.
+  `timings` (below), and `vars`, a dict that lives for one request so `on_request` can pass
+  values to `on_response`. For a WebSocket it lives as long as the connection.
+- `failure`: `kind` (`"unresolved_host"`, `"connect_failed"`, `"tls_failed"`,
+  `"server_timeout"`, `"bad_server_response"`, `"no_route"`, `"no_connection_available"`,
+  `"bad_request"`, `"request_too_large"`), `status` (of the default answer), `host` (the server's
+  name without the port; `None` for `bad_request`, `request_too_large` and a request that names
+  no host), and `message`: the cause's message
+  (`Connection refused`, ...) or the reason, never a stack trace.
 - `frame`: `type` (`"text"`, `"binary"`, `"continuation"`, `"close"`, `"ping"`, `"pong"`),
   `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
   assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
@@ -617,9 +632,119 @@ MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).s
   `escape`. Patterns use java.util.regex syntax plus Python's `(?P<name>...)`, and are
   abandoned at the call's deadline.
 - `base64.encode`/`decode` (`urlsafe=True`), `codecs.encode`/`decode`.
-- `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex).
+- `digest.md5`/`sha1`/`sha256`/`sha512`/`hmac_sha256` (all return hex), and `digest.equal(a, b)`,
+  which compares bytes or strings (as UTF-8) in constant time. Use it, not `==`, for tokens and
+  signatures: `==` stops at the first difference, so how long a guess takes to fail tells an
+  attacker how much of it was right. Compare digests of both sides (as below) so the length does
+  not leak either.
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
+
+**Where a response came from, and how long it took.** `res.source` tells the server's responses
+from the others, like the `source` of the [access log](#access-logs), and `res.upstream_status`
+is the status the server sent (`None` if it sent none). They describe the response as the hook
+received it, not the script's own changes:
+
+| where | `res.source` |
+|---|---|
+| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
+| `response(...)` | `"filter"` |
+
+The script never sees the proxy's own answers or other filters' short-circuits as `res`
+(`on_failure` makes the former), and filters after it (including a cache placed last, as
+`--cache-dir` does) may still replace the response: `ActivityTracker`s and the access log report
+the final source.
+
+`ctx.timings` is a read-only snapshot, taken when read, of the exchange's
+[timings](#observability) in milliseconds: `dns_ms`, `connect_ms`, `tls_ms` (towards the server),
+`client_tls_ms`, `ttfb_ms` (to the first byte of the server's response) and `total_ms` (to the
+last byte sent to the client). Each is a float, or `None` for a phase that did not happen or has
+not happened yet: in `on_request` only `client_tls_ms` can be known, in `on_response` and
+`on_failure` the server phases so far, and `total_ms` only in `on_websocket_frame` (after the
+upgrade's response). A request on a reused connection has no `dns_ms`, `connect_ms` or `tls_ms`;
+inside an intercepted session they belong to the `CONNECT`.
+
+Log slow servers, and tell the client how long the server took:
+
+```python
+def on_response(req, res, ctx):
+    t = ctx.timings
+    if t.ttfb_ms == None:
+        return None
+    if t.ttfb_ms > 1000:
+        log.warn("%s: first byte after %d ms (dns %s, connect %s, tls %s), %s from the %s" % (
+            req.url, t.ttfb_ms, t.dns_ms, t.connect_ms, t.tls_ms, res.upstream_status, res.source))
+    res.headers["Server-Timing"] = "upstream;dur=%d" % t.ttfb_ms
+    return None
+```
+
+**Answering failures.** `on_failure` replaces the proxy's plain-text answers, and leaves the rest
+to the [`FailureResponder`](#failure-responses) or the default by returning `None`:
+
+```python
+def on_failure(req, failure, ctx):
+    if failure.kind in ["unresolved_host", "connect_failed"]:
+        return response(502, "%s is unreachable: %s\n" % (failure.host, failure.message),
+                        headers={"Retry-After": "30"})
+    if failure.kind == "server_timeout":
+        return response(504, json.encode({"error": "timeout", "host": failure.host}),
+                        content_type="application/json")
+    return None  # the FailureResponder's answer, or the proxy's default
+```
+
+**Authenticating clients.** A script that defines `authenticate` decides who may use the proxy
+(see [Proxy authentication](#proxy-authentication)). `req` is read-only there, and still carries
+`Proxy-Authorization`, which the proxy removes before the other hooks see the request. `ctx.user`
+is the user the connection authenticated as before, if any; `ctx.vars` is not shared with the
+other hooks, whose `ctx.user` is the user it accepts. It fails closed: a failing or timed-out
+call, an empty string or any other value rejects the request with the default `407` and is
+logged, and so is every request if a reload removes `authenticate`. By default the first
+accepted request authenticates its connection; `AUTHENTICATE_EVERY_REQUEST = True` checks every
+request.
+
+Bearer tokens, compared in constant time. Never write secrets into a script: here they come from
+constants (below), and only their SHA-256 digests are given to the proxy:
+
+```python
+# TOKENS = "alice:<sha256 of alice's token>,bob:<sha256 of bob's token>", from --script-var(-file)
+USERS = [entry.split(":") for entry in TOKENS.split(",")]
+
+def authenticate(req, ctx):
+    value = req.headers.get("Proxy-Authorization", "")
+    if value.startswith("Bearer "):
+        presented = digest.sha256(value[len("Bearer "):].strip())
+        for user, expected in USERS:
+            if digest.equal(presented, expected):
+                return user
+    return response(407, "a valid token is required\n",
+                    headers={"Proxy-Authenticate": 'Bearer realm="proxy"'})
+```
+
+<!-- x-release-please-start-version -->
+```bash
+echo "TOKENS=alice:$(printf %s "$ALICE_TOKEN" | sha256sum | cut -d' ' -f1)" > tokens.properties
+java -jar microproxy-starlark/target/microproxy-starlark-0.1.0-SNAPSHOT-all.jar --script auth.star --script-var-file tokens.properties
+```
+<!-- x-release-please-end -->
+
+**Constants.** Values a script needs but should not contain (tokens, host lists, per-site
+settings) come from outside as read-only globals. On the command line, `--script-var NAME=VALUE`
+(repeatable) gives a string, and `--script-var-file file.properties` reads a properties file;
+later options win. Arguments are visible to other local users (`ps`), so put secrets in a file.
+From Java, `ScriptedProxy.Builder.constants(Map)` also takes ints, booleans, and lists and dicts
+of these:
+
+```java
+ScriptedProxy script = ScriptedProxy.builder(Path.of("auth.star"))
+        .constants(Map.of("TOKENS", System.getenv("PROXY_TOKENS"), "MAX_BODY", 1 << 20,
+                "ALLOWED", List.of("example.com", "example.org")))
+        .build();
+```
+
+Constants are frozen, predeclared like the built-ins (so the type checker knows their types),
+and cannot be assigned by the script. A name must be an identifier that does not hide a built-in
+(`len`, `json`, `Request`, ...); a script that uses a constant nobody set does not load. They
+are kept when the script reloads.
 
 **WebSocket examples.** `on_websocket_frame` gets the upgrade request, the frame and the
 context. Frames from the client and from the server come through the same hook (`frame.from_client`
@@ -669,8 +794,8 @@ forwarded unchanged.
 
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
-one function at a time. The proxy's objects are named `Request`, `Response`, `Headers` and
-`Context`:
+one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
+`Context`, `WebSocketFrame`, `Failure` and `Timings`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
@@ -690,12 +815,16 @@ def on_response(req: Request, res: Response, ctx: Context) -> None:
 A misspelt field (`req.hots`), an assignment of the wrong type (`req.uri = 3`), or a return of
 the wrong type stops the script from loading, with the line and column. Arguments of the wrong
 type to an annotated function fail the call. `body` and `text` are typed `bytes | None` and
-`str | None`, since a streamed body has neither; `ctx.user` is `str | None`.
+`str | None`, since a streamed body has neither; `ctx.user`, `res.source` and `failure.host` are
+`str | None`, `res.upstream_status` is `int | None`, and the fields of `ctx.timings` are
+`float | None`.
 
 **Errors and reloading.**
 
 - A hook that fails is logged with its Starlark stack trace, and the client gets a bare `500`.
-  A failing `allow_mitm` declines interception; a failing `upstream` gives `502`.
+  A failing `allow_mitm` declines interception; a failing `upstream` gives `502`; a failing
+  `on_failure` leaves the answer to the `FailureResponder` or the default; a failing
+  `authenticate` rejects the request.
 - A script file is re-read when it changes (checked at most once a second). An edit that does
   not compile is logged and the previous version stays in use. `--script-no-reload` turns this
   off.

@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.microproxy.starlark.ScriptedReadmeTest;
 
 /** The {@code --script} option the Starlark module adds to the launcher. */
 class LauncherScriptTest {
@@ -119,6 +120,30 @@ class LauncherScriptTest {
                 new String[] {"--port", "0", "--script", script.toString(), "--script-var-file", file.toString()},
                 System.out));
         assertTrue(e.getMessage().contains("bad.properties") && e.getMessage().contains("json"), e.getMessage());
+    }
+
+    @Test
+    void readmeBearerExampleFromTheCommandLine(@TempDir Path dir) throws Exception {
+        Path script = dir.resolve("auth.star");
+        Files.writeString(script, ScriptedReadmeTest.inReadme(ScriptedReadmeTest.BEARER));
+        // What the README's shell line writes.
+        Path tokens = dir.resolve("tokens.properties");
+        Files.writeString(tokens, "TOKENS=alice:" + ScriptedReadmeTest.sha256("alice's token") + "\n");
+        HttpServer origin = origin(echo());
+        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--script", script.toString(),
+                "--script-var-file", tokens.toString()}, new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+        try {
+            String request = "GET " + url(origin, "/") + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n";
+            String accepted = TestSupport.rawExchange(proxy.getListenAddress(),
+                    request + "Proxy-Authorization: Bearer alice's token\r\n\r\n");
+            assertTrue(accepted.startsWith("HTTP/1.1 200"), accepted);
+            String rejected = TestSupport.rawExchange(proxy.getListenAddress(),
+                    request + "Proxy-Authorization: Bearer someone else's\r\n\r\n");
+            assertTrue(rejected.startsWith("HTTP/1.1 407") && rejected.contains("Bearer realm=\"proxy\""), rejected);
+        } finally {
+            proxy.abort();
+            origin.stop(0);
+        }
     }
 
     @Test
