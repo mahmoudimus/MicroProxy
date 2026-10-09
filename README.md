@@ -216,7 +216,7 @@ Command-line flags override values from the file.
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [HTTP/3 and QUIC](#http3-and-quic)) | `true` with interception or `transparent`, else `false` |
-| `http2` | serve HTTP/2 to clients on intercepted TLS (needs the `http2-codec` jar; see [HTTP/2](#http2)) | `false` |
+| `http2` | serve HTTP/2 to clients on intercepted TLS and the proxy TLS listener (needs the `http2-codec` jar; see [HTTP/2](#http2)) | `false` |
 | `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges (see [HTTP/2 to servers](#http2-to-servers)) | `false` |
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
@@ -236,7 +236,7 @@ Command-line flags override values from the file.
 | | |
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
-| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
+| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
@@ -250,7 +250,7 @@ Command-line flags override values from the file.
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | TLS protocol pinning | every TLS connection (listener, both sides of interception, TLS chained proxies) allows only TLS 1.3 and 1.2 by default; `withTlsProtocols(...)` changes it (see below) |
 | PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
-| WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
+| WebSockets | HTTP/1 `Upgrade` and HTTP/2 extended `CONNECT` (RFC 8441), with the same frame observation and rewriting hooks in both directions (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
 | Access logs | `ActivityLogger` in nine formats, one with per-phase timings |
@@ -613,17 +613,19 @@ All three are off by default. They need the optional `http2-codec` module on the
 them enabled but without the module fails at startup with an `IllegalStateException` that says
 so; without them, nothing loads the module.
 
-**Negotiation.** With HTTP/2 on, the proxy's handshake with an intercepted client offers `h2` and
+**Negotiation.** With HTTP/2 on, both intercepted TLS and the proxy's own TLS listener
+(`withSslContextSource`) offer `h2` and
 `http/1.1` through ALPN. A client that offers `h2` gets it. Any other client keeps HTTP/1.1 as
 before: one that offers only `http/1.1`, one that offers protocols the proxy does not know, and
 one that sends no ALPN at all (the handshake never fails over ALPN). The TLS log line for the
-handshake shows the result (`alpn=h2`). The proxy's own TLS listener (`withSslContextSource`)
-stays HTTP/1.1.
+handshake shows the result (`alpn=h2`). The TLS listener retains its configured certificate,
+client authentication and socket settings. Its HTTP/2 streams are forward-proxy requests, like
+`h2c`, and authenticate separately when proxy authentication is configured.
 
 **What a stream looks like to filters.**
 
 - The request is an `HttpRequest` with version `HTTP/2.0` and an origin-form URI (absolute-form
-  on an `h2c` connection, which is a forward proxy). `:authority` becomes `Host`, split `cookie`
+  on an `h2c` connection or the proxy TLS listener, which are forward proxies). `:authority` becomes `Host`, split `cookie`
   fields are joined, and trailers arrive in the `LastHttpContent`. `FlowContext.getStreamId()` is
   the stream's id (0 for HTTP/1), and each stream has its own `FlowContext` and timings.
 - Towards an HTTP/1.1 server the request becomes HTTP/1.1: the request line says `HTTP/1.1`, `Via`
@@ -634,7 +636,7 @@ stays HTTP/1.1.
   the stream. A `100 Continue` is sent only to a client that asked for one; other 1xx responses
   (such as `103 Early Hints`) are forwarded as interim responses.
 - Proxy authentication happens once, on the `CONNECT` that started the session. Its streams
-  inherit it, as HTTP/1 requests inside an intercepted session do. On an `h2c` connection each
+  inherit it, as HTTP/1 requests inside an intercepted session do. On `h2c` or the proxy TLS listener, each
   stream authenticates on its own (`Proxy-Authorization` per request).
 
 **Concurrency.** The connection's thread reads frames; each stream runs on a virtual thread of its
@@ -647,10 +649,13 @@ may run concurrently, on the streams' threads.
 #### HTTP/2 to servers
 
 With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
-connections to servers, the ones it makes for intercepted HTTPS, offer `h2` and `http/1.1` through
+connections to servers, for intercepted HTTPS and secure WebSocket extended `CONNECT`, offer
+`h2` and `http/1.1` through
 ALPN (before `MitmManager.configureServerSocket`, which may change that). A server that picks `h2`
 is spoken to in HTTP/2; any other keeps HTTP/1.1, so turning it on is safe for servers without
-HTTP/2. WebSocket upgrades always use HTTP/1.1 connections. Plain-HTTP requests (`http://`
+HTTP/2. WebSockets use extended `CONNECT` when the origin advertises
+`SETTINGS_ENABLE_CONNECT_PROTOCOL`; otherwise they use a separate HTTP/1.1 connection.
+Plain-HTTP requests (`http://`
 through the proxy, and plain HTTP chained proxies) stay HTTP/1.1; HTTP/2 inside the tunnel of an
 HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct connection.
 
@@ -715,16 +720,46 @@ section 3.4) is served as HTTP/2. The first bytes are compared without consuming
 HTTP/1 request is told apart by its first byte or two, so HTTP/1 clients are unaffected. Its
 streams are proxy requests: `:scheme` and `:authority` name the target, so any authority is valid
 (the `421` check applies only to intercepted sessions), and they reach servers as HTTP/1.1 (HTTP/2
-to servers needs TLS, which the proxy makes only for intercepted HTTPS). `Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
+to servers needs TLS; secure WebSocket extended `CONNECT` also establishes origin TLS).
+`Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
 before: the request is answered in HTTP/1.1. The same limits as for intercepted HTTP/2 apply.
 
-**What HTTP/2 cannot do here (yet).** There are no protocol switches: a request with `Upgrade`
-or `Connection` is malformed in HTTP/2 and its stream is reset, so WebSockets need HTTP/1.1.
-`CONNECT` inside a stream gets `501`. A request for an authority other than the intercepted one
-(browsers reuse connections for every name a certificate covers) gets `421 Misdirected Request`,
-which makes the client retry it on a connection of its own. The proxy does not originate TLS for
-absolute `https://` URIs sent to it in plain HTTP (or `:scheme https` on `h2c`), so HTTP/2 to
-servers applies to intercepted HTTPS; HTTP/2 chained proxies are not supported.
+#### CONNECT and WebSockets
+
+A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
+opens a byte tunnel on that stream. The successful `200` HEADERS leave it open; DATA carry tunnel
+bytes, and END_STREAM half-closes one direction. RST_STREAM closes the tunnel's origin connection
+and wakes its waits, without closing the client HTTP/2 connection or other streams. These are raw
+tunnels, including when a MITM manager is configured: TLS interception inside an HTTP/2 CONNECT
+stream is not implemented. HTTP/1 CONNECT interception is unchanged.
+
+The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client can open a stream
+with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
+and `:path`. A successful response is `200`, without END_STREAM; WebSocket frames travel in DATA,
+independently of DATA frame boundaries. HTTP/1 `Connection` and `Upgrade` fields remain forbidden
+on the HTTP/2 wire. Other extended protocols get `501`.
+
+WebSockets can use HTTP/1 or HTTP/2 independently on either side. With HTTP/2 to origins enabled,
+a TLS origin that advertises extended CONNECT gets a WebSocket stream on the existing shared
+HTTP/2 connection. An origin that does not advertise it gets a separate HTTP/1.1 upgrade connection.
+The proxy translates `101` and `200` handshakes, and generates the HTTP/1 nonce/accept fields where
+needed. For secure extended CONNECT on a forward-proxy connection, origin TLS uses the configured
+MITM manager's server TLS settings, or the default JVM trust context when there is no manager.
+
+Request filters see an extended WebSocket CONNECT as a GET upgrade request, with version
+`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Origin HTTP/2 WebSocket response
+heads use `101` internally so the existing exchange and upgrade hooks run; the client's response
+hook sees `200` for an HTTP/2 client, and `upstreamStatus` retains the origin's actual status.
+`webSocketFrameReceived` and `filterWebSocketFrame` use the same parser and relay as HTTP/1,
+including masking, rewriting, dropping, fragmentation and the large-frame buffer limit. Filters
+that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.
+A filter that rejects the handshake finishes the exchange without starting the relay.
+
+**Remaining limits.** A request for an authority other than the intercepted one (including
+CONNECT) gets `421 Misdirected Request`, which makes the client retry on a connection of its own.
+The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
+ordinary `:scheme https` requests on a forward-proxy HTTP/2 connection); secure WebSocket extended
+CONNECT is the exception described above. HTTP/2 chained proxies are not supported.
 
 **Limits.** Input is untrusted; every limit has a default, and the configurable ones are set with
 `Http2Options` (or the `http2_*` properties and `--http2-max-streams`). Rate limits count frames
@@ -788,13 +823,13 @@ except one, which CI leaves out:
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
 `.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
 
-**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): extended
-`CONNECT` (RFC 8441) for WebSockets over HTTP/2, HTTP/2 on the proxy's own TLS listener, and
-HTTP/3.
+**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/2 and
+HTTP/3 frame editing for Starlark, followed by HTTP/3 transport integration.
 
 ### HTTP/3 and QUIC
 
-MicroProxy speaks HTTP/1.x, and [HTTP/2](#http2) to clients on intercepted TLS; HTTP/3 is planned
+MicroProxy speaks HTTP/1.x, and [HTTP/2](#http2) on intercepted TLS, the proxy TLS listener and
+optional h2c; HTTP/3 transport is planned
 in [issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2). HTTP/3 runs over QUIC, on UDP,
 and that matters even now. Browsers never send QUIC through an HTTP proxy, and a transparent
 setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
@@ -1362,7 +1397,7 @@ root key or compared DS digests. It fell back to plain DNS on network errors.
 
 ### WebSocket frames
 
-After a `101` upgrade to `websocket`, filters can watch and rewrite every frame, in both
+After a `101` upgrade or HTTP/2 WebSocket extended CONNECT, filters can watch and rewrite every frame, in both
 directions and inside intercepted TLS:
 
 - **Watching:** `webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` sees the

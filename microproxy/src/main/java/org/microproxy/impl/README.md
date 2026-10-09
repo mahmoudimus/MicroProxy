@@ -43,7 +43,7 @@ The channel owns:
   connection's single one; each HTTP/2 stream has its own (`FlowContext.getStreamId()`).
 - **How exchanges share the connection:** `logPrefix()` (`[conn N]` or `[conn N stream S]`),
   `multiplexed()` (exchanges run concurrently and need server connections of their own),
-  `supportsTunnels()` (`CONNECT` and `101` are possible), and `serverConnectionInUse` /
+  `supportsTunnels()` (`CONNECT` and WebSockets are possible), and `serverConnectionInUse` /
   `serverConnectionDone`, through which a transport closes the server connection of an exchange
   the client cancelled. All are constants or no-ops for HTTP/1, which allocates nothing more per
   request.
@@ -86,9 +86,10 @@ are. `Http2UpstreamStream` overrides them for one stream of an HTTP/2 connection
 
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
-When an intercepted handshake negotiates ALPN `h2` (offered only with `withHttp2`, and only when
-the optional `http2-codec` module is present: `Http2Support`), `intercept` hands the TLS socket to
-`Http2Connection.serve`, on the connection's own thread. With `withHttp2Cleartext`, `run` does the
+When an intercepted handshake or the proxy TLS listener negotiates ALPN `h2` (offered with
+`withHttp2`, when the optional `http2-codec` module is present: `Http2Support`), `intercept` hands the TLS socket to
+`Http2Connection.serve`, on the connection's own thread; `run` does the same on the TLS listener.
+With `withHttp2Cleartext`, `run` does the
 same for a plain connection whose first bytes are the connection preface
 (`ByteReader.startsWith`, which consumes nothing; the bytes already read are handed over); that
 connection has no `CONNECT` target, so its requests are made absolute-form from `:scheme` and
@@ -128,11 +129,20 @@ Writing frames, send flow control, SETTINGS and PING are `Http2Endpoint`'s, whic
 
 `Http2StreamChannel` defines what the HTTP/1-only `ClientChannel` operations mean for a stream:
 `clientKeepAlive` is always true; `adaptFraming` only drops `Transfer-Encoding`; `setKeepAlive`
-and `setUpgrade` do nothing; `writeContinue` sends `:status 100` only to a client that sent
+does nothing; `setUpgrade` translates a WebSocket 101 to the extended CONNECT 200; `writeContinue` sends `:status 100` only to a client that sent
 `expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
-copies into DATA frames; `relay` and `close` reset the stream; `reject` answers and ends it. A
-`CONNECT` inside a stream gets `501` from the exchange logic (`supportsTunnels()` is false), and
-a request for an authority other than the intercepted one gets `421` before it gets there.
+copies into DATA frames; `close` resets only the stream; `reject` answers and ends it.
+`relay` runs the shared `Tunnel` parser on the stream's `MessageBody` input and flow-controlled
+DATA output. Successful CONNECT HEADERS leave the stream open even for a FullHttpResponse with
+an empty payload. END_STREAM half-closes a direction; RST closes only the stream's server
+connection (or server stream), not its carrier. A request for another authority in an
+intercepted session, including CONNECT, gets `421` before reaching the exchange.
+
+RFC 8441 `:protocol websocket` is represented internally as a GET upgrade request, with a generated
+HTTP/1 key, so existing exchange and frame filters work unchanged. `tunnelProtocol` and
+`secureWebSocket` retain the stream's tunnel intent independently of rewritten request headers.
+Unknown extended protocols get 501 without dialing a TCP tunnel. Normal CONNECT is a raw tunnel;
+per-stream TLS interception is not implemented.
 
 ### The concurrency audit
 
@@ -155,7 +165,7 @@ running at once:
 ## HTTP/2 to servers: `Http2UpstreamConnection` and `Http2Origins`
 
 With `withHttp2Upstream`, `connectVia` offers ALPN `h2` on TLS connections to servers (for
-intercepted HTTPS; not for WebSocket upgrades). A connection whose handshake picks `h2` is marked
+intercepted HTTPS and secure WebSocket extended CONNECT). A connection whose handshake picks `h2` is marked
 (`ServerConnection.http2`) and handed to `Http2Origins.adopt`, which runs it as an
 `Http2UpstreamConnection` (the "carrier" keeps its socket, pool slot and trackers) and keeps it for
 other exchanges. `proxyRequest` first asks `Http2Origins.stream` for a stream; `handleConnect` asks
@@ -190,18 +200,26 @@ other exchanges. `proxyRequest` first asks `Http2Origins.stream` for a stream; `
 - **Bytes.** The connection reads and writes the carrier's raw socket streams (throttled like it)
   and counts bytes per frame, for the stream's `FullFlowContext`.
 
+### WebSockets to origin servers
+
+`Http2UpstreamStream` sends a WebSocket GET upgrade as extended CONNECT only after the origin
+advertises SETTINGS_ENABLE_CONNECT_PROTOCOL. A successful 2xx response is represented internally
+as 101, with the HTTP/1 accept value where needed; `responseStatus` preserves the actual status for
+exchange timings. Its tunnel I/O uses DATA and END_STREAM, and `close` resets only that origin
+stream. Without the setting, `proxyRequest` releases the reserved stream and opens a separate
+HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary requests.
+
 ## What stays HTTP/1-specific, and why
 
 - **The connection loop** (`serveRequests`): waiting for the next request without holding a
   buffer, pipelining (unread requests wait in the buffer), and answering unparseable request
   heads. An HTTP/2 connection reads frames and starts a thread per stream instead.
-- **The TLS listener and interception** (`handshakeWithClient`, `intercept`). A `CONNECT` that is
-  intercepted turns the whole connection into TLS and serves the decrypted requests with the same
-  loop, or with `Http2Connection` when the client negotiates `h2`, which only an HTTP/1
-  connection can do. Under HTTP/2, `CONNECT` is per stream (not supported yet: `501`). The `h2c`
+- **Connection-wide CONNECT interception** (`intercept`). An HTTP/1 `CONNECT` that is intercepted
+  turns the whole connection into TLS and serves the decrypted requests with the same loop, or
+  with `Http2Connection` when the client negotiates `h2`. Under HTTP/2, `CONNECT` is a raw tunnel per stream. The `h2c`
   preface is recognized only as the first bytes of a plain connection.
 - **`101 Switching Protocols`.** HTTP/2 has no upgrade. Its WebSockets use extended `CONNECT`
-  (RFC 8441), which can implement `relay` for a stream.
+  (RFC 8441). The bridge translates handshake fields/status and uses the same relay and frame hooks.
 - **The PROXY protocol header**, which is read when the connection starts.
 
 ## Notes for later
@@ -209,9 +227,7 @@ other exchanges. `proxyRequest` first asks `Http2Origins.stream` for a stream; `
 - `ALTSVC` frames (RFC 7838 section 4) from HTTP/2 servers are dropped by the frame reader, as a
   frame type the codec does not deliver; forwarding them would need the h3 filtering `Alt-Svc`
   headers get (`AltSvc`).
-- Extended `CONNECT` (RFC 8441) would implement `relay` for a stream, and `supportsTunnels()`
-  would become true for it.
-- TLS for absolute `https://` URIs in plain requests (not made today, whatever the version) would
+- TLS for ordinary absolute `https://` URIs in plain requests (not made today, whatever the version) would
   let HTTP/2 to servers serve forward-proxy and `h2c` requests too.
 - `AllocationTest` guards the allocation per small keep-alive request (about 4 KB with its
   allocation-free client; the README's 4.7 KB includes a simple benchmark client's own); the
