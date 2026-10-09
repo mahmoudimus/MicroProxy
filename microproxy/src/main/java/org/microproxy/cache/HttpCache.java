@@ -186,6 +186,16 @@ public final class HttpCache implements HttpFiltersSource {
         }
     }
 
+    /**
+     * A response made by the cache: a stored response, or its own {@code 504}. The proxy reports
+     * these to trackers as {@link org.microproxy.ResponseSource#CACHE}.
+     */
+    public static final class Answer extends DefaultFullHttpResponse {
+        Answer(HttpResponseStatus status, byte[] content) {
+            super(HttpVersion.HTTP_1_1, status, content);
+        }
+    }
+
     /** Counters since the cache was created. */
     // @value-candidate: becomes a value class in the valhalla build profile
     public record Stats(long hits, long misses, long stores, long revalidations, long staleServed) {}
@@ -426,7 +436,7 @@ public final class HttpCache implements HttpFiltersSource {
 
     private static FullHttpResponse gatewayTimeout(String reason) {
         byte[] body = ("504 Gateway Timeout: " + reason + "\n").getBytes(StandardCharsets.UTF_8);
-        FullHttpResponse r = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(504), body);
+        FullHttpResponse r = new Answer(HttpResponseStatus.valueOf(504), body);
         r.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
         r.headers().set("Content-Length", String.valueOf(body.length));
         return r;

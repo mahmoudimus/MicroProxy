@@ -11,11 +11,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
-import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaders;
 import org.microproxy.http.HttpResponseStatus;
-import org.microproxy.http.HttpVersion;
 
 /**
  * A stored response: status, header fields and body as received, the request header values its
@@ -118,8 +116,8 @@ public final class CachedResponse {
 
     /** The response to send: the stored one with an {@code Age} field, without a body for HEAD. */
     FullHttpResponse toResponse(long now, boolean head) {
-        FullHttpResponse r = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.valueOf(status, reason), head ? new byte[0] : body.clone());
+        FullHttpResponse r = new HttpCache.Answer(HttpResponseStatus.valueOf(status, reason),
+                head ? new byte[0] : body.clone());
         r.headers().set(headers);
         r.headers().set("Content-Length", String.valueOf(body.length));
         r.headers().set("Age", String.valueOf(currentAge(now) / 1000));

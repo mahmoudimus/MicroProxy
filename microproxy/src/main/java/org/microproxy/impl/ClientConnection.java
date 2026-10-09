@@ -42,6 +42,8 @@ import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ResponseSource;
+import org.microproxy.cache.HttpCache;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -301,7 +303,7 @@ final class ClientConnection implements Runnable {
     private final Socket rawSocket;
     private final long id = IDS.incrementAndGet();
     private final ClientDetails clientDetails = new ClientDetails();
-    private final FlowContext flowContext;
+    private final ClientFlowContext flowContext;
     /** Starts every log line about this connection: {@code [conn <id>] }. */
     private final String logPrefix = "[conn " + id + "] ";
     private final Map<String, ServerConnection> serverConnections = new ConcurrentHashMap<>();
@@ -323,7 +325,7 @@ final class ClientConnection implements Runnable {
         this.server = server;
         this.rawSocket = socket;
         this.socket = socket;
-        this.flowContext = new FlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
+        this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
     }
 
     boolean isIdle() {
@@ -431,6 +433,7 @@ final class ClientConnection implements Runnable {
                 return;
             }
             idle = false;
+            flowContext.startExchange();
             if (!handleRequest(request)) {
                 return;
             }
@@ -456,7 +459,7 @@ final class ClientConnection implements Runnable {
                 ProxyUtils.isClientKeepAlive(request));
 
         if (server.proxyAuthenticator != null && !authenticated && !authenticate(request)) {
-            return respondDirect(ex, authenticationRequired(), false);
+            return respondDirect(ex, authenticationRequired(), false, ResponseSource.PROXY);
         }
 
         // With no filters configured, skip the request copy the filters API hands them.
@@ -478,7 +481,7 @@ final class ClientConnection implements Runnable {
 
         HttpResponse shortCircuit = ex.filters.clientToProxyRequest(ex.request);
         if (shortCircuit != null) {
-            return respondDirect(ex, shortCircuit, true);
+            return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
         if (ProxyUtils.isCONNECT(ex.request)) {
@@ -547,7 +550,7 @@ final class ClientConnection implements Runnable {
 
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
         if (shortCircuit != null) {
-            return respondDirect(ex, shortCircuit, true);
+            return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
         boolean replayable = ex.request instanceof FullHttpRequest || !ex.framing.hasBody();
@@ -776,6 +779,8 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = ex.filters;
         HttpRequest request = ex.request;
         filters.serverToProxyResponseReceiving();
+        int upstreamStatus = response.status().code();
+        flowContext.upstreamStatus(upstreamStatus);
         server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
 
         Framing framing;
@@ -861,7 +866,8 @@ final class ClientConnection implements Runnable {
         ex.responseStarted = true;
         boolean writeBody = Framing.responseMayHaveBody(finalResponse, request.method());
         writeToClient(() -> writer.writeHead(finalResponse, writeBody));
-        server.trackers.fire(t -> t.responseSentToClient(flowContext, finalResponse));
+        ResponseSource source = source(ResponseSource.SERVER, head, upstreamStatus, finalResponse);
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, finalResponse, source));
 
         if (body != null && prefetched.isEmpty() && !observes(filters, OBSERVES_RESPONSE_CONTENT)) {
             relayResponseBody(body);
@@ -1043,7 +1049,7 @@ final class ClientConnection implements Runnable {
         modifyRequestHeadersToReflectProxying(request, false, false);
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(request);
         if (shortCircuit != null) {
-            return respondDirect(ex, shortCircuit, true);
+            return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
         ServerConnection conn = null;
@@ -1090,7 +1096,8 @@ final class ClientConnection implements Runnable {
             return abort(conn);
         }
         writeToClient(() -> writer.writeHead(response, response.status().code() / 100 != 2));
-        server.trackers.fire(t -> t.responseSentToClient(flowContext, response));
+        ResponseSource source = source(ResponseSource.PROXY, established, 200, response);
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, response, source));
         if (response.status().code() / 100 != 2) {
             // A filter turned the CONNECT into a failure.
             if (conn != null) conn.close();
@@ -1621,11 +1628,14 @@ final class ClientConnection implements Runnable {
      * and proxy-generated errors. The response passes through {@link HttpFilters#proxyToClientResponse}.
      *
      * @param rewriteHeaders apply the proxy's response header rewriting (Via, Date, hop-by-hop)
+     * @param source who made {@code response}
      * @return whether the client connection stays open
      */
-    private boolean respondDirect(Exchange ex, HttpResponse response, boolean rewriteHeaders) throws IOException {
+    private boolean respondDirect(Exchange ex, HttpResponse response, boolean rewriteHeaders, ResponseSource source)
+            throws IOException {
         boolean keepAlive = HttpUtil.isKeepAlive(response) && ex.clientKeepAlive
                 && !ex.bodyUnread() && !ex.bodyAbandoned;
+        int status = response.status().code();
         HttpObject filtered = ex.filters.proxyToClientResponse(response);
         if (!(filtered instanceof HttpResponse res)) {
             close();
@@ -1645,7 +1655,8 @@ final class ClientConnection implements Runnable {
         if (bare && bodyAllowed && HttpUtil.isTransferEncodingChunked(res)) {
             writeToClient(() -> writer.writeContent(LastHttpContent.empty()));
         }
-        server.trackers.fire(t -> t.responseSentToClient(flowContext, res));
+        ResponseSource sent = source(source, response, status, res);
+        server.trackers.fire(t -> t.responseSentToClient(flowContext, res, sent));
         if (!keepAlive) {
             close();
         }
@@ -1659,6 +1670,7 @@ final class ClientConnection implements Runnable {
      */
     private boolean respondFailure(Exchange ex, ProxyFailure failure, boolean rewriteHeaders) throws IOException {
         HttpResponse response = ex.filters.proxyToServerFailure(failure);
+        ResponseSource source = response != null ? ResponseSource.FILTER : ResponseSource.PROXY;
         if (response == null && server.failureResponder != null) {
             try {
                 response = server.failureResponder.respond(ex.request, failure);
@@ -1676,7 +1688,22 @@ final class ClientConnection implements Runnable {
             // The rest of the body is never read, so the connection cannot be reused.
             HttpUtil.setKeepAlive(response, false);
         }
-        return respondDirect(ex, response, rewriteHeaders);
+        return respondDirect(ex, response, rewriteHeaders, source);
+    }
+
+    /**
+     * Where {@code sent} came from, given that filters made it out of {@code made} (with status
+     * {@code madeStatus}, from {@code source}): a cache answer, a filter's replacement or status
+     * change, or {@code made} as it was.
+     */
+    private static ResponseSource source(ResponseSource source, HttpObject made, int madeStatus, HttpResponse sent) {
+        if (sent instanceof HttpCache.Answer) {
+            return ResponseSource.CACHE;
+        }
+        if (sent != made || sent.status().code() != madeStatus) {
+            return ResponseSource.FILTER;
+        }
+        return source;
     }
 
     /** The proxy's own plain-text answer to {@code failure}. */

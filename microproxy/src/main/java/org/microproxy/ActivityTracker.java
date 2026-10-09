@@ -35,6 +35,15 @@ public interface ActivityTracker {
 
     default void responseSentToClient(FlowContext flowContext, HttpResponse httpResponse) {}
 
+    /**
+     * Called when a response head has been sent to the client, with where the response came from.
+     * The default calls {@link #responseSentToClient(FlowContext, HttpResponse)}, so override
+     * one or the other. The status the server sent, if any, is {@link FlowContext#upstreamStatus()}.
+     */
+    default void responseSentToClient(FlowContext flowContext, HttpResponse httpResponse, ResponseSource source) {
+        responseSentToClient(flowContext, httpResponse);
+    }
+
     default void serverConnected(FullFlowContext flowContext, InetSocketAddress serverAddress) {}
 
     default void serverDisconnected(FullFlowContext flowContext, InetSocketAddress serverAddress) {}
