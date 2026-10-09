@@ -281,7 +281,7 @@ When the proxy has to answer a request itself, it sends a short plain-text body 
 | `ProxyFailure` | when | default |
 |---|---|---|
 | `UnresolvedHost` | the server's name did not resolve | `502` |
-| `ConnectFailed` | connection refused, unreachable or timed out; a chained proxy refused | `502` |
+| `ConnectFailed` | connection refused, unreachable or timed out; a chained proxy refused, or its own name did not resolve | `502` |
 | `TlsFailed` | the TLS handshake with the server (MITM) or a TLS chained proxy failed or timed out | `502` |
 | `ServerTimeout` | no response within the idle timeout | `504` |
 | `BadServerResponse` | malformed response, or the server closed or failed before the head was complete | `502` |

@@ -29,7 +29,8 @@ public sealed interface ProxyFailure {
 
     /**
      * No connection could be made to the server or any chained proxy offered for it: refused,
-     * unreachable, timed out, or a chained proxy that refused the {@code CONNECT} or SOCKS request.
+     * unreachable, timed out, a chained proxy whose own name did not resolve, or a chained proxy
+     * that refused the {@code CONNECT} or SOCKS request.
      * With several chained proxies, {@code cause} is the last one's failure. Default {@code 502}.
      */
     record ConnectFailed(String hostAndPort, IOException cause) implements ProxyFailure {

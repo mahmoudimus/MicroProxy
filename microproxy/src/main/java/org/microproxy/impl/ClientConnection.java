@@ -234,6 +234,14 @@ final class ClientConnection implements Runnable {
         return e instanceof TlsHandshakeFailed ? (IOException) e.getCause() : e;
     }
 
+    /** A chained proxy's own host name did not resolve. */
+    private static final class UnresolvedChainedProxy extends ConnectException {
+        UnresolvedChainedProxy(InetSocketAddress proxy, UnknownHostException cause) {
+            super("chained proxy " + proxy.getHostString() + ":" + proxy.getPort() + " did not resolve");
+            initCause(cause);
+        }
+    }
+
     /** The server did not answer within the idle timeout. */
     private static final class ServerTimeout extends IOException {
         ServerTimeout(Throwable cause) {
@@ -1384,7 +1392,7 @@ final class ClientConnection implements Runnable {
                 last = e;
                 failures++;
                 // A name that did not resolve never got as far as connecting.
-                connecting |= !(e instanceof UnknownHostException);
+                connecting |= !(e instanceof UnknownHostException || e instanceof UnresolvedChainedProxy);
                 if (proxy != null) {
                     proxy.connectionFailed(cause);
                 }
@@ -1524,7 +1532,12 @@ final class ClientConnection implements Runnable {
             }
             if (remote.isUnresolved()) {
                 flowContext.markFirst(ClientFlowContext.DNS_START);
-                remote = new InetSocketAddress(InetAddress.getByName(remote.getHostString()), remote.getPort());
+                try {
+                    remote = new InetSocketAddress(InetAddress.getByName(remote.getHostString()), remote.getPort());
+                } catch (UnknownHostException e) {
+                    // The route failed, not the server's name: a ConnectFailed, not an UnresolvedHost.
+                    throw new UnresolvedChainedProxy(remote, e);
+                }
                 flowContext.mark(ClientFlowContext.DNS_END);
             }
         }
