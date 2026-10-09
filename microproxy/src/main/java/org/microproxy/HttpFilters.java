@@ -189,6 +189,19 @@ public interface HttpFilters {
     default void proxyToServerResolutionSucceeded(
             String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {}
 
+    /**
+     * The connect timeout for this request's connection attempts: to the server, or to each
+     * chained proxy tried. {@code null} (the default), zero or a negative duration keeps the
+     * server's ({@link HttpProxyServerBootstrap#withConnectTimeout(int)}). Asked when the request
+     * needs a new connection, after {@link #proxyToServerRequest}; a request that reuses a
+     * connection makes none. It bounds the TCP connect only, not name resolution or TLS handshakes
+     * ({@link HttpProxyServerBootstrap#withTlsHandshakeTimeout}). In a {@link HttpFiltersChain} the
+     * shortest timeout wins.
+     */
+    default java.time.Duration proxyToServerConnectTimeout() {
+        return null;
+    }
+
     default void proxyToServerConnectionStarted() {}
 
     default void proxyToServerConnectionSSLHandshakeStarted() {}

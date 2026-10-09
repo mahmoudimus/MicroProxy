@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -20,7 +21,7 @@ import org.microproxy.http.WebSocketFrame;
  *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) and {@code
  *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
  *       {@code null} aborts (or drops the frame).
- *   <li>Buffer sizes are the largest any filter asks for.
+ *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
  *   <li>Interception needs every filter's consent ({@code proxyToServerAllowMitm}), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
  *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
@@ -218,6 +219,16 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         @Override
         public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
             members.forEach(f -> f.proxyToServerResolutionSucceeded(serverHostAndPort, resolvedRemoteAddress));
+        }
+
+        @Override
+        public Duration proxyToServerConnectTimeout() {
+            Duration shortest = null;
+            for (HttpFilters f : members) {
+                Duration d = f.proxyToServerConnectTimeout();
+                if (d != null && d.isPositive() && (shortest == null || d.compareTo(shortest) < 0)) shortest = d;
+            }
+            return shortest;
         }
 
         @Override

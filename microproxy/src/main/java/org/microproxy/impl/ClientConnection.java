@@ -304,6 +304,8 @@ final class ClientConnection implements Runnable {
         boolean completed;
         /** {@link HttpFilters#exchangeEnded} has been called. */
         boolean ended;
+        /** The connect timeout for this exchange, once asked; -1 before. */
+        int connectTimeoutMillis = -1;
 
         Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
             this.request = request;
@@ -1415,9 +1417,23 @@ final class ClientConnection implements Runnable {
         return connectTimeout > 0 ? Math.min(connectTimeout, MAX_BACKOFF_TOTAL_NANOS) : MAX_BACKOFF_TOTAL_NANOS;
     }
 
-    /** The connect timeout for {@code ex}'s connection attempts, in milliseconds (0 = none). */
+    /**
+     * The connect timeout for {@code ex}'s connection attempts, in milliseconds (0 = none): the
+     * filters' ({@link HttpFilters#proxyToServerConnectTimeout()}), else the server's.
+     */
     private int connectTimeoutMillis(Exchange ex) {
-        return Math.max(0, server.getConnectTimeout());
+        if (ex.connectTimeoutMillis < 0) {
+            java.time.Duration own = null;
+            try {
+                own = ex.filters.proxyToServerConnectTimeout();
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, logPrefix + "proxyToServerConnectTimeout threw; using the server's", e);
+            }
+            ex.connectTimeoutMillis = own != null && own.isPositive()
+                    ? (int) Math.max(1, Math.min(Integer.MAX_VALUE, own.toMillis()))
+                    : Math.max(0, server.getConnectTimeout());
+        }
+        return ex.connectTimeoutMillis;
     }
 
     /**

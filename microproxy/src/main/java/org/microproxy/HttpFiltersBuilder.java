@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
@@ -65,6 +66,7 @@ public final class HttpFiltersBuilder {
     private int requestBuffer;
     private int responseBuffer;
     private HttpLogger logger;
+    private Duration connectTimeout;
 
     HttpFiltersBuilder() {}
 
@@ -149,6 +151,16 @@ public final class HttpFiltersBuilder {
         return this;
     }
 
+    /**
+     * The connect timeout for these requests' new connections, instead of the server's (see
+     * {@link HttpFilters#proxyToServerConnectTimeout()}).
+     */
+    public HttpFiltersBuilder connectTimeout(Duration timeout) {
+        if (timeout == null || !timeout.isPositive()) throw new IllegalArgumentException("must be positive: " + timeout);
+        this.connectTimeout = timeout;
+        return this;
+    }
+
     /** Buffer request bodies up to {@code maxBytes}, so {@link #onRequest} gets the whole request. */
     public HttpFiltersBuilder bufferRequests(int maxBytes) {
         this.requestBuffer = positive(maxBytes);
@@ -227,6 +239,7 @@ public final class HttpFiltersBuilder {
         private final int requestBuffer;
         private final int responseBuffer;
         private final HttpLogger logger;
+        private final Duration connectTimeout;
         /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
         private final SelectiveFilters logged;
 
@@ -244,6 +257,7 @@ public final class HttpFiltersBuilder {
             requestBuffer = b.requestBuffer;
             responseBuffer = b.responseBuffer;
             logger = b.logger;
+            connectTimeout = b.connectTimeout;
             logged = null;
         }
 
@@ -262,6 +276,7 @@ public final class HttpFiltersBuilder {
             requestBuffer = base.requestBuffer;
             responseBuffer = base.responseBuffer;
             logger = base.logger;
+            connectTimeout = base.connectTimeout;
             this.logged = logged;
         }
 
@@ -404,6 +419,11 @@ public final class HttpFiltersBuilder {
         @Override
         public boolean proxyToServerAllowMitm() {
             return allowMitm == null || allowMitm.getAsBoolean();
+        }
+
+        @Override
+        public Duration proxyToServerConnectTimeout() {
+            return connectTimeout;
         }
     }
 }

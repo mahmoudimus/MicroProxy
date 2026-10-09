@@ -186,7 +186,7 @@ Command-line flags override values from the file.
 | `allow_local_only` | listen on loopback only | `true` |
 | `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
-| `connect_timeout` | milliseconds | `40000` |
+| `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
@@ -262,10 +262,22 @@ MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
 ```
 
 Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `resolveWith`,
-`allowMitm`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
+`allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
 `log(httpLogger)` logs each exchange around the lambdas (see [Request/response
 logging](#requestresponse-logging)). The built filters are also an `HttpFiltersSource` that returns
 them for every request, so `withFiltersSource(filters)` works as well.
+
+**Per-request connect timeout:** `HttpFilters.proxyToServerConnectTimeout()` (or `connectTimeout(Duration)`
+in the builder) bounds the TCP connect of the request's new connections, direct or to each chained
+proxy tried, instead of the server's `withConnectTimeout`. `null` (the default) or a non-positive
+duration keeps the server's; in a chain the shortest timeout wins. It is asked only when a new
+connection is needed, and does not cover name resolution or TLS handshakes:
+
+```java
+HttpFilters.builder()
+        .connectTimeout(Duration.ofMillis(500))   // fail fast, e.g. to fall back to the next upstream
+        .build();
+```
 
 Bodies and frames are only split into pieces when a body or frame hook is registered; otherwise they
 take the fast path, as they do for a filters class that doesn't override those hooks. A filters
