@@ -89,9 +89,11 @@ class ExchangeEndedTest {
     @Test
     void completedShortCircuitedFailedAndAbortedExchanges() throws Exception {
         HttpServer origin = TestSupport.origin(TestSupport.fixed(200, "ok"));
+        int refusedPort;
         try (ServerSocket closed = new ServerSocket(0)) {
-            int refusedPort = closed.getLocalPort();
-            closed.close();
+            refusedPort = closed.getLocalPort();
+        }
+        try {
             proxy = recording().start();
             HttpClient client = client(proxy);
             String base = TestSupport.url(origin, "");
