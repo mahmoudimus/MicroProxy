@@ -282,6 +282,8 @@ final class ClientConnection implements Runnable {
     private final long id = IDS.incrementAndGet();
     private final ClientDetails clientDetails = new ClientDetails();
     private final FlowContext flowContext;
+    /** Starts every log line about this connection: {@code [conn <id>] }. */
+    private final String logPrefix = "[conn " + id + "] ";
     private final Map<String, ServerConnection> serverConnections = new ConcurrentHashMap<>();
 
     private volatile Socket socket;
@@ -353,15 +355,15 @@ final class ClientConnection implements Runnable {
             }
             serveRequests();
         } catch (SocketTimeoutException e) {
-            LOG.log(Level.DEBUG, "client connection {0} timed out", id);
+            LOG.log(Level.DEBUG, logPrefix + "client connection timed out");
             server.trackers.fire(t -> t.connectionTimedOut(flowContext));
         } catch (IOException e) {
             if (!closed) {
-                LOG.log(Level.DEBUG, "client connection " + id + " failed", e);
+                LOG.log(Level.DEBUG, logPrefix + "client connection failed", e);
                 server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
             }
         } catch (RuntimeException e) {
-            LOG.log(Level.WARNING, "unexpected error on client connection " + id, e);
+            LOG.log(Level.WARNING, logPrefix + "unexpected error on client connection", e);
             server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
         } finally {
             close();
@@ -399,7 +401,9 @@ final class ClientConnection implements Runnable {
                 in.awaitNext();
                 request = HttpCodec.readRequest(in, server.limits);
             } catch (HttpParseException e) {
-                LOG.log(Level.DEBUG, "bad request from client {0}: {1}", id, e.getMessage());
+                if (LOG.isLoggable(Level.DEBUG)) {
+                    LOG.log(Level.DEBUG, logPrefix + "bad request from client: " + e.getMessage());
+                }
                 writeErrorAndClose(e.status());
                 return;
             }
@@ -538,11 +542,11 @@ final class ClientConnection implements Runnable {
                 try {
                     conn = pooled ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
                 } catch (SharedConnectionPool.PoolExhaustedException e) {
-                    LOG.log(Level.DEBUG, e.getMessage());
+                    LOG.log(Level.DEBUG, logPrefix + e.getMessage());
                     return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                             "Service Unavailable: no server connection available"), false);
                 } catch (IOException e) {
-                    LOG.log(Level.DEBUG, "unable to connect to " + hostAndPort, e);
+                    LOG.log(Level.DEBUG, logPrefix + "unable to connect to " + hostAndPort, e);
                     return respondDirect(ex, badGateway(ex), false);
                 }
                 conn.key = key;
@@ -557,7 +561,7 @@ final class ClientConnection implements Runnable {
                 // (a few times, since a pool can hold several stale ones).
                 return exchange(ex, conn, attempt < 3 && conn.used && replayable);
             } catch (StaleConnection e) {
-                LOG.log(Level.DEBUG, "retrying on a new connection after stale {0}", conn);
+                LOG.log(Level.DEBUG, logPrefix + "retrying on a new connection after stale " + conn);
                 conn.close();
                 conn = null;
                 route = null;
@@ -608,7 +612,7 @@ final class ClientConnection implements Runnable {
                         pumpRequestBody(ex, conn);
                     } catch (ServerWriteFailure e) {
                         // The server may have answered early (e.g. 413) and stopped reading.
-                        LOG.log(Level.DEBUG, "server stopped reading the request body", e);
+                        LOG.log(Level.DEBUG, logPrefix + "server stopped reading the request body", e);
                         early = readResponseHead(ex, conn, false, false);
                     }
                 }
@@ -637,7 +641,7 @@ final class ClientConnection implements Runnable {
             }
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.GATEWAY_TIMEOUT, "Gateway Timeout"), false);
         } catch (ServerFailure e) {
-            LOG.log(Level.DEBUG, "server failure on " + conn, e);
+            LOG.log(Level.DEBUG, logPrefix + "server failure on " + conn, e);
             conn.close();
             if (ex.responseStarted) {
                 close();
@@ -645,7 +649,7 @@ final class ClientConnection implements Runnable {
             }
             return respondDirect(ex, badGateway(ex), false);
         } catch (ClientFailure e) {
-            LOG.log(Level.DEBUG, "client failure", e);
+            LOG.log(Level.DEBUG, logPrefix + "client failure", e);
             conn.close();
             if (e.getCause() instanceof HttpParseException bad && !ex.responseStarted) {
                 // A malformed request body (bad chunk framing): tell the client before closing.
@@ -873,7 +877,7 @@ final class ClientConnection implements Runnable {
                 return rewrite ? filters.filterWebSocketFrame(frame, fromClient) : frame;
             };
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
-                    server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id,
+                    server.getIdleConnectionTimeout(), server.name + "-upgrade-" + id, logPrefix,
                     handler, server.maxWebSocketFrameBufferSize, server.ioBuffers);
             conn.close();
             return false;
@@ -1021,21 +1025,21 @@ final class ClientConnection implements Runnable {
             } catch (NotTlsServer e) {
                 // As LittleProxy does (issue #71, e.g. ws:// through CONNECT): the client has not been
                 // answered yet, so it can still get a plain tunnel to the server instead of a 502.
-                LOG.log(Level.DEBUG, "{0}; tunnelling instead of intercepting", e.getMessage());
+                LOG.log(Level.DEBUG, logPrefix + e.getMessage() + "; tunnelling instead of intercepting");
                 mitm = false;
                 mode = Mode.TUNNEL;
                 conn = connect(hostAndPort, ex, route, mode);
             }
         } catch (SharedConnectionPool.PoolExhaustedException e) {
-            LOG.log(Level.DEBUG, e.getMessage());
+            LOG.log(Level.DEBUG, logPrefix + e.getMessage());
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Service Unavailable: no server connection available"), false);
         } catch (IOException e) {
-            LOG.log(Level.DEBUG, "CONNECT to " + hostAndPort + " failed", e);
+            LOG.log(Level.DEBUG, logPrefix + "CONNECT to " + hostAndPort + " failed", e);
             if (!mitm || !ex.filters.proxyToServerAllowOfflineMitm()) {
                 return respondDirect(ex, badGateway(ex), false);
             }
-            LOG.log(Level.DEBUG, "intercepting {0} without a server connection", hostAndPort);
+            LOG.log(Level.DEBUG, logPrefix + "intercepting " + hostAndPort + " without a server connection");
         }
         if (conn != null) {
             conn.key = mode + "|" + hostAndPort;
@@ -1072,7 +1076,7 @@ final class ClientConnection implements Runnable {
 
         if (!mitm) {
             Tunnel.relay(socket, in.asInputStream(), out, conn.socket, conn.in.asInputStream(), conn.out,
-                    server.getIdleConnectionTimeout(), server.name + "-tunnel-" + id, server.ioBuffers);
+                    server.getIdleConnectionTimeout(), server.name + "-tunnel-" + id, logPrefix, server.ioBuffers);
             conn.close();
             return false;
         }
@@ -1123,7 +1127,9 @@ final class ClientConnection implements Runnable {
         ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()), hostKey,
                 Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
-            LOG.log(Level.DEBUG, "reusing pooled {0}", conn);
+            if (LOG.isLoggable(Level.DEBUG)) {
+                LOG.log(Level.DEBUG, logPrefix + "reusing pooled " + conn);
+            }
             conn.flowContext = new FullFlowContext(flowContext, hostAndPort, conn.chainedProxy, conn.remoteAddress);
         } else {
             try {
@@ -1191,7 +1197,7 @@ final class ClientConnection implements Runnable {
                 // The route works; the server just is not a TLS server. The caller retries as a tunnel.
                 throw e;
             } catch (IOException e) {
-                LOG.log(Level.DEBUG, "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
+                LOG.log(Level.DEBUG, logPrefix + "connection to " + hostAndPort + (proxy != null ? " via " + proxy.getChainedProxyAddress() : "") + " failed", e);
                 last = e;
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException);
@@ -1286,7 +1292,7 @@ final class ClientConnection implements Runnable {
             if (server.sendProxyProtocol && proxy == null) {
                 writeProxyProtocolHeader(rawOut, remote);
             } else if (server.sendProxyProtocol && (socks || mode == Mode.PLAIN)) {
-                LOG.log(Level.DEBUG, "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
+                LOG.log(Level.DEBUG, logPrefix + "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
                         hostAndPort, type, remote);
             }
             if (type == ChainedProxyType.SOCKS4) {
@@ -1369,7 +1375,7 @@ final class ClientConnection implements Runnable {
             destination = remote;
             if (source != null && source.getAddress() != null && destination.getAddress() != null
                     && source.getAddress().getClass() != destination.getAddress().getClass()) {
-                LOG.log(Level.DEBUG, "not sending a PROXY header: {0} and {1} are different address families",
+                LOG.log(Level.DEBUG, logPrefix + "not sending a PROXY header: {0} and {1} are different address families",
                         source, destination);
                 return;
             }
