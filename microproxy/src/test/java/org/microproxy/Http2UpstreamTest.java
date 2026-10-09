@@ -464,6 +464,7 @@ class Http2UpstreamTest {
         AtomicInteger bytesIn = new AtomicInteger();
         AtomicInteger bytesOut = new AtomicInteger();
         List<Integer> statuses = new CopyOnWriteArrayList<>();
+        List<FlowTimings> timings = new CopyOnWriteArrayList<>();
         proxy = mitm().withHttp2(true)
                 .plusActivityTracker(new ActivityTrackerAdapter() {
                     @Override
@@ -493,7 +494,10 @@ class Http2UpstreamTest {
 
                     @Override
                     public void responseCompleted(FlowContext ctx, org.microproxy.http.HttpResponse response) {
-                        if (ctx.getStreamId() != 0) statuses.add(ctx.upstreamStatus().orElse(-1));
+                        if (ctx.getStreamId() != 0) {
+                            statuses.add(ctx.upstreamStatus().orElse(-1));
+                            timings.add(ctx.timings());
+                        }
                     }
                 })
                 .withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
@@ -521,6 +525,12 @@ class Http2UpstreamTest {
         assertEquals(3, events.stream().filter(e -> e.equals("responseReceived 200")).count(), events.toString());
         assertEquals(3, events.stream().filter(e -> e.equals("filter HTTP/2.0")).count(), events.toString());
         assertTrue(bytesIn.get() > 0 && bytesOut.get() > 0);
+        for (FlowTimings t : timings) {
+            assertTrue(t.requestSentNanos() >= 0 && t.firstResponseByteNanos() >= t.requestSentNanos()
+                    && t.responseCompleteNanos() >= t.firstResponseByteNanos(), t.toString());
+            // Streams on a connection made earlier: no connection phases of their own.
+            assertEquals(-1, t.connectStartNanos(), t.toString());
+        }
     }
 
     @Test
@@ -655,5 +665,28 @@ class Http2UpstreamTest {
         }
         assertEquals(1, origin.accepts.get());
         assertEquals(List.of("CONNECT localhost:" + origin.port()), upstreamLog.received);
+    }
+
+    @Test
+    void aServerThatDropsTheConnectionFailsItsExchanges() throws Exception {
+        origin(s -> {
+            s.readBody();
+            if (s.header(":path").equals("/midway")) {
+                s.respond(200, false);
+                s.data(new byte[100], false);
+            }
+            s.conn.socket.close();
+        });
+        proxy = mitm().withHttp2(true).start();
+        assertEquals(502, TestSupport.send(http1Client(), get(origin.url("/before"))).statusCode());
+        try (H2TestClient client = H2TestClient.connect(proxy.getListenAddress(), "localhost:" + origin.port(),
+                proxyCa.clientContext()).handshake()) {
+            client.get(1, "/before");
+            assertEquals(502, client.response(1).status());
+            client.get(3, "/midway");
+            H2TestClient.Response r = client.response(3);
+            assertEquals(200, r.status());
+            assertNotNull(r.reset(), "the response had started: the client's stream is reset");
+        }
     }
 }
