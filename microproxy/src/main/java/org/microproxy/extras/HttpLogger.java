@@ -179,7 +179,9 @@ public final class HttpLogger implements HttpFiltersSource {
      */
     @Override
     public SelectiveFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
-        long seq = sequences.computeIfAbsent(flowContext, k -> new AtomicLong()).incrementAndGet();
+        // Numbered per client connection: an HTTP/2 connection's streams share one sequence.
+        FlowContext connection = flowContext == null ? null : flowContext.getConnectionContext();
+        long seq = sequences.computeIfAbsent(connection, k -> new AtomicLong()).incrementAndGet();
         if (sink == null && !HTTP_LOG.isLoggable(System.Logger.Level.INFO)) return null;
         try {
             if (only != null && !only.test(originalRequest, flowContext)) return null;
@@ -333,6 +335,8 @@ public final class HttpLogger implements HttpFiltersSource {
         private final String prefix;
         private final long connectionId;
         private final long seq;
+        /** The HTTP/2 stream, or 0. */
+        private final int streamId;
         private final RequestHead clientRequest;
         private final String url;
         private final boolean bodies = level == Level.BODY;
@@ -349,7 +353,8 @@ public final class HttpLogger implements HttpFiltersSource {
             this.ctx = ctx;
             this.connectionId = ctx == null ? 0 : ctx.getConnectionId();
             this.seq = seq;
-            this.prefix = "[conn " + connectionId + " #" + seq + "] ";
+            this.streamId = ctx == null ? 0 : ctx.getStreamId();
+            this.prefix = "[conn " + connectionId + " #" + seq + (streamId != 0 ? " stream " + streamId : "") + "] ";
             this.clientRequest = RequestHead.of(original);
             this.url = fullUrl(original, ctx);
         }
@@ -649,6 +654,7 @@ public final class HttpLogger implements HttpFiltersSource {
 
         private Json start(String type) {
             Json j = new Json().field("type", type).field("conn", connectionId).field("seq", seq);
+            if (streamId != 0) j.field("stream", streamId);
             Optional<java.time.Instant> start = ctx == null ? Optional.empty() : ctx.timings().start();
             start.ifPresent(s -> j.field("time", s.toString()));
             return j;

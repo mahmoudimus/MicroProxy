@@ -154,6 +154,32 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Whether to remove HTTP/3 alternatives ({@code h3}, {@code h3-29}, {@code h3-Q050}, ...,
+     * and Google QUIC's {@code quic}) from {@code Alt-Svc} response headers, keeping the other
+     * alternatives (such as {@code h2=":443"}) and their parameters as they are. A header left
+     * with no alternative is removed; {@code Alt-Svc: clear} is never touched.
+     *
+     * <p>A client that learns an origin speaks HTTP/3 may move to QUIC over UDP, which bypasses
+     * the proxy: browsers never send QUIC through an HTTP proxy, and a transparent deployment
+     * only redirects TCP. Where the proxy is meant to see the traffic, that is a hole, so this is
+     * on by default when {@link #withManInTheMiddle interception} or {@link #withTransparent
+     * transparent mode} is configured, and off otherwise. Clients can still learn about HTTP/3
+     * from DNS {@code HTTPS} records, so transparent deployments should also block UDP port 443,
+     * which makes clients fall back to TCP.
+     *
+     * <p>Responses from servers are rewritten before {@link HttpFilters#proxyToClientResponse}
+     * sees them; short-circuit responses from filters (and the cache) after it.
+     */
+    default HttpProxyServerBootstrap withAltSvcH3Stripping(boolean strip) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support Alt-Svc rewriting");
+    }
+
+    /** Same as {@code withAltSvcH3Stripping(true)}: clients are not told about HTTP/3 (see there). */
+    default HttpProxyServerBootstrap withoutHttp3Advertisement() {
+        return withAltSvcH3Stripping(true);
+    }
+
+    /**
      * Waits between attempts when a connection through one chained proxy (or the direct
      * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
      * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *
@@ -166,6 +192,64 @@ public interface HttpProxyServerBootstrap {
      */
     default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
+    }
+
+    /**
+     * Serves HTTP/2 to clients on intercepted TLS ({@link #withManInTheMiddle}) and the proxy
+     * TLS listener ({@link #withSslContextSource}): the client
+     * handshake offers {@code h2} and {@code http/1.1} through ALPN, and a client that picks
+     * {@code h2} has each of its streams handled as an exchange of its own, concurrently, with the
+     * same filters, cache, authentication, failure answers and trackers as HTTP/1 requests.
+     * Requests reach servers as HTTP/1.1, each stream on a server connection of its own, unless
+     * {@link #withHttp2Upstream} lets them share an HTTP/2 connection. Off by default; limits are
+     * set with {@link #withHttp2Options}.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * HTTP/2 enabled without it fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /**
+     * Speaks HTTP/2 to origin servers that offer it: TLS connections to servers (intercepted
+     * HTTPS and secure WebSocket extended CONNECT) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
+     * gets every exchange for it as a stream on one connection, shared by concurrent exchanges up
+     * to the server's stream limit; others keep HTTP/1.1. Independent of {@link #withHttp2}, which
+     * is about clients. Off by default.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * it enabled without the module fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2Upstream(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /**
+     * Serves HTTP/2 with prior knowledge ({@code h2c}, RFC 9113 section 3.3) on the plain listener:
+     * a connection that starts with the HTTP/2 connection preface is served as HTTP/2, its streams
+     * being proxy requests like HTTP/1 ones ({@code :scheme} and {@code :authority} name the
+     * target). Other connections stay HTTP/1.x; {@code Upgrade: h2c} is not supported. Off by
+     * default; limits are set with {@link #withHttp2Options}.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * it enabled without the module fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2Cleartext(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /** The HTTP/2 limits configured so far (never null). */
+    default Http2Options getHttp2Options() {
+        return Http2Options.DEFAULT;
+    }
+
+    /** Limits for HTTP/2 connections (see {@link Http2Options}); null restores the defaults. */
+    default HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
     }
 
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);

@@ -180,7 +180,7 @@ final class HttpCodec {
     }
 
     /** Pulls a message body off the wire in pieces of at most {@code maxChunkSize} bytes. */
-    static final class BodyReader {
+    static final class BodyReader implements MessageBody {
 
         private final ByteReader in;
         private final Framing framing;
@@ -196,7 +196,18 @@ final class HttpCodec {
             this.remaining = framing.length();
         }
 
-        boolean isDone() {
+        @Override
+        public boolean hasBody() {
+            return framing.hasBody();
+        }
+
+        @Override
+        public long declaredLength() {
+            return framing.kind() == Framing.Kind.LENGTH ? framing.length() : -1;
+        }
+
+        @Override
+        public boolean isDone() {
             return done;
         }
 
@@ -204,7 +215,8 @@ final class HttpCodec {
          * Returns the next body piece, ending with a {@link LastHttpContent}; {@code null} once the
          * last piece has been returned.
          */
-        HttpContent next() throws IOException {
+        @Override
+        public HttpContent next() throws IOException {
             if (done) return null;
             return switch (framing.kind()) {
                 case NONE -> finish(new DefaultLastHttpContent());
@@ -268,7 +280,8 @@ final class HttpCodec {
          * filter inspects. Returns -1 once the body is complete; {@link #trailers()} are then
          * available. Do not mix with {@link #next()} on the same body.
          */
-        int read(byte[] dst, int off, int len) throws IOException {
+        @Override
+        public int read(byte[] dst, int off, int len) throws IOException {
             if (done) return -1;
             return switch (framing.kind()) {
                 case NONE -> {
@@ -317,12 +330,14 @@ final class HttpCodec {
         }
 
         /** The trailer fields of a chunked body, once {@link #read} has returned -1. */
-        HttpHeaders trailers() {
+        @Override
+        public HttpHeaders trailers() {
             return trailers;
         }
 
         /** Whether more input is already buffered, so a flush can wait. */
-        boolean hasBufferedInput() {
+        @Override
+        public boolean hasBufferedInput() {
             return in.buffered() > 0;
         }
 

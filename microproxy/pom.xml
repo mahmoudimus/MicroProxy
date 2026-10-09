@@ -26,6 +26,12 @@
             <artifactId>zstd-decoder</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Optional: when on the class path, HTTP/2 can be enabled (withHttp2, or the http2 launcher flag). -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http2-codec</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

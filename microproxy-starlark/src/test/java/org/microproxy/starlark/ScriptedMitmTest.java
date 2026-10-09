@@ -10,6 +10,8 @@ import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpsServer;
 import java.io.UncheckedIOException;
+import java.net.ProxySelector;
+import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -79,6 +81,33 @@ class ScriptedMitmTest {
         assertEquals(List.of(target), echoedHeader(response.body(), "x-url"));
         assertEquals("True", response.headers().firstValue("x-tls").orElseThrow());
         assertEquals("False True", response.headers().firstValue("x-timings").orElseThrow());
+    }
+
+    @Test
+    void scriptsSeeTheHttpVersion() throws Exception {
+        ScriptedProxy script = ScriptedProxy.builder("""
+                def on_request(req, ctx):
+                    if req.method != "CONNECT":
+                        req.headers["X-Seen-Version"] = req.http_version
+
+                def on_response(req, res, ctx):
+                    res.headers["X-Version"] = req.http_version
+                """, "version.star").build();
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                .withHttp2(true)
+                .withFiltersSource(script)
+                .start();
+        HttpClient h2 = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
+                .proxy(ProxySelector.of(proxy.getListenAddress())).sslContext(proxyCa.clientContext()).build();
+        HttpResponse<String> response = get(h2, url(origin, "/v"));
+        assertEquals(HttpClient.Version.HTTP_2, response.version());
+        assertEquals(List.of("HTTP/2"), echoedHeader(response.body(), "x-seen-version"));
+        assertEquals("HTTP/2", response.headers().firstValue("x-version").orElseThrow());
+
+        HttpResponse<String> http1 = get(client(proxy, proxyCa.clientContext()), url(origin, "/v"));
+        assertEquals(List.of("HTTP/1.1"), echoedHeader(http1.body(), "x-seen-version"));
+        assertEquals("HTTP/1.1", http1.headers().firstValue("x-version").orElseThrow());
     }
 
     @Test

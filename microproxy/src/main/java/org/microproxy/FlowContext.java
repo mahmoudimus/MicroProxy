@@ -20,6 +20,10 @@ public class FlowContext {
     private final Instant acceptedAt;
     /** The client connection's own context, which knows the exchange in progress. */
     private final FlowContext root;
+    /** The HTTP/2 stream this flow is, or 0 for an HTTP/1 connection's exchanges. */
+    private final int streamId;
+    /** The context of the client connection: this one, or the connection's for a stream's context. */
+    private final FlowContext connection;
 
     public FlowContext(
             long connectionId,
@@ -27,7 +31,7 @@ public class FlowContext {
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails) {
         this(connectionId, clientAddress, clientSslSession, clientDetails, new ConcurrentHashMap<>(), Instant.now(),
-                null);
+                null, 0, null);
     }
 
     /** Creates a context that shares identity and timing data with {@code parent}. */
@@ -39,7 +43,35 @@ public class FlowContext {
                 parent.clientDetails,
                 parent.timingData,
                 parent.acceptedAt,
-                parent.root);
+                parent.root,
+                parent.streamId,
+                parent.connection);
+    }
+
+    /**
+     * Creates the context of one HTTP/2 stream of the client connection {@code connection}: it
+     * shares the connection's identity (id, addresses, TLS session, client details, acceptance
+     * time) and has its own exchange record and timing data, since a connection's streams run at
+     * the same time.
+     *
+     * @param streamId the stream's identifier, positive
+     */
+    protected FlowContext(FlowContext connection, int streamId) {
+        this(
+                connection.connectionId,
+                connection.clientAddress,
+                connection.clientSslSession,
+                connection.clientDetails,
+                new ConcurrentHashMap<>(),
+                connection.acceptedAt,
+                null,
+                checkStreamId(streamId),
+                connection.connection);
+    }
+
+    private static int checkStreamId(int streamId) {
+        if (streamId <= 0) throw new IllegalArgumentException("stream id must be positive: " + streamId);
+        return streamId;
     }
 
     private FlowContext(
@@ -49,7 +81,9 @@ public class FlowContext {
             ClientDetails clientDetails,
             Map<String, Long> timingData,
             Instant acceptedAt,
-            FlowContext root) {
+            FlowContext root,
+            int streamId,
+            FlowContext connection) {
         this.connectionId = connectionId;
         this.clientAddress = Objects.requireNonNull(clientAddress);
         this.clientSslSession = Objects.requireNonNull(clientSslSession);
@@ -57,6 +91,8 @@ public class FlowContext {
         this.timingData = timingData;
         this.acceptedAt = acceptedAt;
         this.root = root == null ? this : root;
+        this.streamId = streamId;
+        this.connection = connection == null ? this : connection;
     }
 
     /**
@@ -65,6 +101,24 @@ public class FlowContext {
      */
     public long getConnectionId() {
         return connectionId;
+    }
+
+    /**
+     * The HTTP/2 stream that carries this flow's exchange, or 0 when the client connection is
+     * HTTP/1 (whose exchanges run one after another). Streams of one connection run concurrently;
+     * the proxy's log lines about a stream start with {@code [conn <id> stream <streamId>]}.
+     */
+    public int getStreamId() {
+        return streamId;
+    }
+
+    /**
+     * The context of the client connection this flow belongs to: this context itself (or the one
+     * it was made from) for HTTP/1, the connection's own for an HTTP/2 stream's. Use it for state
+     * kept per client connection; contexts of different streams are not {@linkplain #equals equal}.
+     */
+    public FlowContext getConnectionContext() {
+        return connection;
     }
 
     /**
@@ -127,13 +181,17 @@ public class FlowContext {
         return Map.copyOf(timingData);
     }
 
+    /**
+     * Contexts are equal when they belong to the same client connection and the same HTTP/2
+     * stream (0 for HTTP/1), so maps keyed by context keep one entry per exchange in progress.
+     */
     @Override
     public boolean equals(Object o) {
-        return o instanceof FlowContext that && that.connectionId == connectionId;
+        return o instanceof FlowContext that && that.connectionId == connectionId && that.streamId == streamId;
     }
 
     @Override
     public int hashCode() {
-        return Long.hashCode(connectionId);
+        return Long.hashCode(connectionId) * 31 + streamId;
     }
 }

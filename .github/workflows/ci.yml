@@ -19,3 +19,27 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: maven
       - run: mvn --batch-mode verify
+
+  h2spec:
+    # HTTP/2 conformance (h2spec, pinned) against the proxy's h2c listener.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build the proxy and its test classes
+        run: mvn --batch-mode -q -DskipTests test-compile -pl microproxy -am
+      - name: Run h2spec
+        # Every case except http2/3.5/2 (an invalid connection preface): the h2c listener is
+        # shared with HTTP/1, so a connection that does not start with the preface is answered as
+        # HTTP/1. See the README's HTTP/2 section.
+        run: .github/scripts/h2spec.sh --strict generic http2/3.5/1 http2/4 http2/5 http2/6 http2/7 http2/8 hpack
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: h2spec-report
+          path: h2spec-report.xml
+          if-no-files-found: ignore

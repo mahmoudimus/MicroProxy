@@ -11,8 +11,10 @@ import org.microproxy.FlowTimings;
 
 /**
  * The context of one client connection, which also records the exchange in progress (exchanges on
- * a connection run one at a time). {@link org.microproxy.FullFlowContext}s made from it read the
- * same record. Recording costs a few stores into fields allocated once per connection.
+ * an HTTP/1 connection run one at a time), or of one HTTP/2 stream, which records that stream's
+ * exchange (streams run concurrently, so each has its own). {@link org.microproxy.FullFlowContext}s
+ * made from it read the same record. Recording costs a few stores into fields allocated once per
+ * connection (or stream).
  */
 final class ClientFlowContext extends FlowContext {
 
@@ -43,6 +45,14 @@ final class ClientFlowContext extends FlowContext {
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails) {
         super(connectionId, clientAddress, clientSslSession, clientDetails);
+    }
+
+    /** The context of HTTP/2 stream {@code streamId} of {@code connection}'s client connection. */
+    ClientFlowContext(ClientFlowContext connection, int streamId) {
+        super(connection, streamId);
+        // The client handshake that the stream's connection began with.
+        clientTlsStart = connection.clientTlsStart;
+        clientTlsEnd = connection.clientTlsEnd;
     }
 
     /** Forgets the previous exchange: the first byte of a new request has arrived. */

@@ -5,3 +5,4 @@ target/
 *.p12
 *.jks
 .claude/
+h2spec-report.xml

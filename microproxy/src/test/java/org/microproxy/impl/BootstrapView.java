@@ -61,6 +61,21 @@ public record BootstrapView(
                 b.maxHeaderSize, b.maxChunkSize, b.localAddress, b.allowRequestToOriginServer);
     }
 
+    /** Whether HTTP/2 is enabled ({@code withHttp2}). */
+    public static boolean http2(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;
+    }
+
+    /** Whether HTTP/2 to servers is enabled ({@code withHttp2Upstream}). */
+    public static boolean http2Upstream(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Upstream;
+    }
+
+    /** Whether h2c with prior knowledge is enabled ({@code withHttp2Cleartext}). */
+    public static boolean http2Cleartext(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Cleartext;
+    }
+
     /** The headers removed from requests sent upstream, as configured. */
     public static List<String> strippedRequestHeaders(HttpProxyServerBootstrap bootstrap) {
         return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());
@@ -69,6 +84,11 @@ public record BootstrapView(
     /** The TLS versions every TLS socket starts with, as configured; empty for the contexts' defaults. */
     public static List<String> tlsProtocols(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).tlsProtocols;
+    }
+
+    /** Whether HTTP/3 alternatives would be removed from Alt-Svc response headers, defaults applied. */
+    public static boolean stripsAltSvcH3(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).stripsAltSvcH3();
     }
 
     /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */

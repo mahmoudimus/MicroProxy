@@ -98,6 +98,34 @@ final class ByteReader {
         return buf[pos] & 0xff;
     }
 
+    /**
+     * Whether the next bytes are {@code prefix}, without consuming any: reads only as long as the
+     * bytes so far match, so the first one that differs ends the wait. {@code prefix} must be
+     * shorter than a buffer.
+     */
+    boolean startsWith(byte[] prefix) throws IOException {
+        int matched = 0;
+        while (true) {
+            int available = limit - pos;
+            for (int end = Math.min(available, prefix.length); matched < end; matched++) {
+                if (buf[pos + matched] != prefix[matched]) return false;
+            }
+            if (matched == prefix.length) return true;
+            if (buf == null) {
+                buf = pool.take();
+                pos = 0;
+                limit = 0;
+            } else if (pos > 0) {
+                System.arraycopy(buf, pos, buf, 0, available);
+                pos = 0;
+                limit = available;
+            }
+            int n = in.read(buf, limit, buf.length - limit);
+            if (n <= 0) return false;
+            limit += n;
+        }
+    }
+
     /** Gives the buffer back to the pool if everything in it has been consumed. */
     void release() {
         if (buf != null && pos >= limit) {

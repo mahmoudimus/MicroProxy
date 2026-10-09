@@ -72,11 +72,17 @@ final class TlsLog {
             LOG.log(Level.DEBUG, peer.logPrefix() + "TLS handshake with " + peer.peer() + " succeeded in "
                     + (System.nanoTime() - startNanos) / 1_000_000 + " ms: " + describePeer(peer, plain, session)
                     + " mode=" + (clientMode ? "client" : "server") + " protocol=" + session.getProtocol()
-                    + " cipher=" + session.getCipherSuite()
+                    + " cipher=" + session.getCipherSuite() + alpn(socket)
                     + (!clientMode && socket.getNeedClientAuth() ? " clientAuth=required" : ""));
         } catch (RuntimeException e) {
             diagnosticsFailed(peer, e);
         }
+    }
+
+    /** The negotiated application protocol ({@code alpn=h2}), or nothing when none was. */
+    private static String alpn(SSLSocket socket) {
+        String protocol = socket.getApplicationProtocol();
+        return protocol == null || protocol.isEmpty() ? "" : " alpn=" + protocol;
     }
 
     /** Logs a failed handshake; {@code socket} is already closed, so asking it cannot start another. */
