@@ -45,6 +45,7 @@ jobs:
         run: |
           mkdir dist
           cp zstd-decoder/target/zstd-decoder-*.jar \
+             http2-codec/target/http2-codec-*.jar \
              microproxy/target/microproxy-*.jar \
              microproxy-starlark/target/microproxy-starlark-*.jar dist/
           rm -f dist/*-tests.jar

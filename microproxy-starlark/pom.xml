@@ -29,6 +29,11 @@
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>zstd-decoder</artifactId>
         </dependency>
+        <!-- Bundled into the -all jar so the launcher can serve HTTP/2 (the http2 launcher flag). -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http2-codec</artifactId>
+        </dependency>
         <!-- The only runtime dependency of the bundled interpreter. -->
         <dependency>
             <groupId>com.google.guava</groupId>
