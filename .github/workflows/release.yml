@@ -49,5 +49,13 @@ jobs:
              microproxy/target/microproxy-*.jar \
              microproxy-starlark/target/microproxy-starlark-*.jar dist/
           rm -f dist/*-tests.jar
-          (cd dist && sha256sum *.jar > SHA256SUMS)
+          (cd dist && sha256sum ./*.jar > SHA256SUMS)
           gh release upload "$TAG" dist/* --clobber
+
+  central:
+    needs: [release-please, jars]
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/central.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
