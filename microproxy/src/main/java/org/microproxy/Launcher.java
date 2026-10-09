@@ -49,7 +49,8 @@ public final class Launcher {
               --env-proxy                  take upstream proxies from http_proxy/https_proxy/no_proxy
               --dnssec                     resolve server names with DNSSEC validation
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
-              --activity-log-format <fmt>  access log: CLF, ELF, JSON, SQUID, W3C, LTSV, CSV, HAPROXY
+              --activity-log-format <fmt>  access log: CLF, ELF, JSON, JSON_EXTENDED, SQUID,
+                                           W3C, LTSV, CSV, HAPROXY
               --shared-pool                share server connections between clients
               --cache-dir <dir>            cache responses on disk (RFC 9111); survives restarts
               --cache-size <MB>            disk cache limit (default 1024)

@@ -205,7 +205,7 @@ Command-line flags override values from the file.
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
-| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
+| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
 | `cache_dir` / `cache_max_mb` | cache responses on disk (see [HTTP cache](#http-cache)) / its size | off / `1024` |
 | `cache_memory_mb` | cache responses in memory instead | off |
 | `cache_max_entry_mb` | largest response body cached | `8` |
@@ -230,9 +230,9 @@ Command-line flags override values from the file.
 | WebSockets | `Upgrade` is preserved and the connection becomes a tunnel after `101`; filters can observe each frame (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
-| Access logs | `ActivityLogger` in eight formats |
+| Access logs | `ActivityLogger` in nine formats, one with per-phase timings |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
-| Activity tracking | `ActivityTracker` for connections, requests, responses and bytes |
+| Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
 ### Filters from lambdas
@@ -691,6 +691,34 @@ you pass. The formats are `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV
 `HAPROXY`. These are LittleProxy's formats, with three of its bugs fixed: JSON escaping, Squid
 timestamps and RFC 4180 CSV quoting. Lines also include the authenticated user, and URLs inside
 intercepted sessions are logged as `https://`.
+
+`JSON_EXTENDED` adds fields to the `JSON` line: `source` (`SERVER`, `PROXY`, `FILTER` or `CACHE`),
+`upstream_status` (what the server sent, when a filter or the cache changed it), and `ttfb_ms`,
+`total_ms`, `dns_ms`, `connect_ms` and `tls_ms`. Its lines are written when the response is
+complete rather than when its head is sent; see [Observability](#observability).
+
+### Observability
+
+`ActivityTracker` callbacks run on the connection's virtual thread. Besides LittleProxy's events:
+
+- **Where a response came from:** `responseSentToClient(ctx, response, source)` receives a
+  `ResponseSource`: `SERVER` (relayed, maybe with headers or body edited in place), `PROXY` (the
+  proxy's error answers, `407`, the `CONNECT` `200`), `FILTER` (a short-circuit, a failure answer
+  from a filter, or a server or proxy response a filter replaced or gave another status) or `CACHE`.
+  `ctx.upstreamStatus()` is the status the server sent, so a `500` a filter turned into a `200`
+  still shows. The two-argument callback keeps working.
+- **Timings:** `ctx.timings()` returns a `FlowTimings` snapshot for the exchange in progress:
+  `dnsLookup()`, `connect()`, `tlsHandshake()` (towards the server or a TLS chained proxy),
+  `clientTlsHandshake()`, `timeToFirstByte()` and `total()`, plus the raw offsets from the first
+  byte of the request. A request on a reused connection has no lookup or connect; when intercepting,
+  the server handshake belongs to the `CONNECT` exchange. Take the snapshot in
+  `responseCompleted(ctx, response)`, which follows the last byte of the response. Recording costs
+  a few `System.nanoTime()` calls and no allocation per request.
+- **Server-side failures:** `serverConnectionExceptionCaught(serverContext, cause)` reports each
+  failed connection attempt, server timeout or bad response once, with the server (or chained
+  proxy) it concerned. Client-side errors still go to `connectionExceptionCaught`.
+- **Correlation:** `ctx.getConnectionId()` and `ctx.acceptedAt()` identify the client connection,
+  and the proxy's log lines about it start with `[conn <id>]`.
 
 ## Migrating from LittleProxy
 
