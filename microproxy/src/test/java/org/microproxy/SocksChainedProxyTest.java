@@ -13,11 +13,13 @@ import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +63,17 @@ class SocksChainedProxyTest {
     void tearDown() throws Exception {
         proxies.close();
         if (socksServer != null) socksServer.close();
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private HttpProxyServer viaSocks(ChainedProxyType type, String user, String password) throws Exception {
@@ -136,10 +149,7 @@ class SocksChainedProxyTest {
 
     @Test
     void unreachableSocksProxyIsBadGateway() throws Exception {
-        int deadPort;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            deadPort = s.getLocalPort();
-        }
+        int deadPort = closedPort();
         HttpProxyServer down = proxies.start(MicroProxy.bootstrap().withChainProxyManager(always(
                 socks(new InetSocketAddress(TestSupport.LOOPBACK, deadPort), ChainedProxyType.SOCKS5, null, null))));
         assertEquals(502, TestSupport.get(client(down), url(origin, "/")).statusCode());

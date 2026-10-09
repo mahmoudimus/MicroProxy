@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -71,8 +70,9 @@ class FailureResponderTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         proxies.close();
+        for (Socket r : refusing) r.close();
     }
 
     private HttpProxyServerBootstrap bootstrap() {
@@ -83,10 +83,14 @@ class FailureResponderTest {
         return proxies.start(bootstrap().withFailureResponder(responder));
     }
 
-    private static int closedPort() throws IOException {
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            return s.getLocalPort();
-        }
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private static void assertCustom(HttpResponse<String> response, String kind, int defaultStatus) {

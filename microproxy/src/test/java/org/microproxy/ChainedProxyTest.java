@@ -12,8 +12,9 @@ import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +40,20 @@ class ChainedProxyTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         proxies.forEach(HttpProxyServer::abort);
         origin.stop(0);
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private HttpProxyServer start(HttpProxyServerBootstrap bootstrap) {
@@ -116,10 +128,7 @@ class ChainedProxyTest {
 
     @Test
     void failingProxyFallsBackToTheNextOne() throws Exception {
-        int deadPort;
-        try (ServerSocket s = new ServerSocket(0)) {
-            deadPort = s.getLocalPort();
-        }
+        int deadPort = closedPort();
         AtomicInteger failures = new AtomicInteger();
         ChainedProxy dead = new ChainedProxyAdapter() {
             @Override
@@ -141,10 +150,7 @@ class ChainedProxyTest {
 
     @Test
     void fallbackToDirectConnectionStripsTheHost() throws Exception {
-        int deadPort;
-        try (ServerSocket s = new ServerSocket(0)) {
-            deadPort = s.getLocalPort();
-        }
+        int deadPort = closedPort();
         HttpProxyServer down = downstream(http(new InetSocketAddress(TestSupport.LOOPBACK, deadPort)),
                 ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
         HttpResponse<String> response = get(client(down), url(origin, "/direct"));

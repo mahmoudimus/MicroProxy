@@ -13,13 +13,15 @@ import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -59,16 +61,21 @@ class FilterCallbacksTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         if (proxy != null) proxy.abort();
         if (upstream != null) upstream.abort();
         origin.stop(0);
+        for (Socket r : refusing) r.close();
     }
 
-    private static int closedPort() throws Exception {
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            return s.getLocalPort();
-        }
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private static void assertNone(List<String> events, List<String> unexpected) {

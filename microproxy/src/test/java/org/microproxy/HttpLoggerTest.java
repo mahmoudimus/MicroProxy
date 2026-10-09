@@ -15,7 +15,6 @@ import static org.microproxy.TestSupport.url;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -83,9 +82,20 @@ class HttpLoggerTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         if (proxy != null) proxy.abort();
         origin.stop(0);
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private HttpLogger.Builder logger(Level level) {
@@ -319,10 +329,7 @@ class HttpLoggerTest {
         HttpClient client = start(logger(Level.BODY).build(), filters);
         assertEquals(200, get(client, url(origin, "/error")).statusCode());
         assertEquals(403, get(client, url(origin, "/blocked")).statusCode());
-        int closed;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            closed = s.getLocalPort();
-        }
+        int closed = closedPort();
         assertEquals(502, get(client, "http://127.0.0.1:" + closed + "/").statusCode());
         List<String> log = await(6);
 

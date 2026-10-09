@@ -14,15 +14,18 @@ import static org.microproxy.TestSupport.send;
 import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -66,9 +69,20 @@ class SimpleProxyTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         proxy.abort();
         origin.stop(0);
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     static byte[] bigPayload() {
@@ -150,10 +164,7 @@ class SimpleProxyTest {
 
     @Test
     void refusedConnectionGivesBadGateway() throws Exception {
-        int port;
-        try (ServerSocket s = new ServerSocket(0)) {
-            port = s.getLocalPort();
-        }
+        int port = closedPort();
         assertEquals(502, get(client(proxy), "http://127.0.0.1:" + port + "/").statusCode());
     }
 

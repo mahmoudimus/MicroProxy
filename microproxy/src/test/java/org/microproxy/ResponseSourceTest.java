@@ -7,8 +7,9 @@ import static org.microproxy.TestSupport.get;
 import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
-import java.net.ServerSocket;
+import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
@@ -61,9 +62,20 @@ class ResponseSourceTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         proxies.close();
         origin.stop(0);
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     private HttpProxyServer proxy(HttpFilters filters) {
@@ -75,10 +87,7 @@ class ResponseSourceTest {
     @Test
     void filtersHearOfEachResponseOnceItIsSentWithItsSourceAndTotalTime() throws Exception {
         List<String> sent = new CopyOnWriteArrayList<>();
-        int closed;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            closed = s.getLocalPort();
-        }
+        int closed = closedPort();
         HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withFiltersSource((request, ctx) -> new HttpFilters() {
             @Override
             public HttpResponse clientToProxyRequest(org.microproxy.http.HttpObject o) {
@@ -121,10 +130,7 @@ class ResponseSourceTest {
 
     @Test
     void proxyErrorsHaveNoUpstreamStatus() throws Exception {
-        int port;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            port = s.getLocalPort();
-        }
+        int port = closedPort();
         assertEquals(502, get(client(proxy(null)), "http://127.0.0.1:" + port + "/").statusCode());
         assertEquals("PROXY 502 upstream=-", sources.await(1));
     }

@@ -12,7 +12,7 @@ import static org.microproxy.TestSupport.write;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -85,9 +86,20 @@ public class ScriptedReadmeTest {
     private HttpServer origin;
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         if (proxy != null) proxy.abort();
         if (origin != null) origin.stop(0);
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     /** Fails unless the README shows {@code example} as it is. */
@@ -156,10 +168,7 @@ public class ScriptedReadmeTest {
 
     @Test
     void failureExampleUnreachable() throws Exception {
-        int port;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            port = s.getLocalPort();
-        }
+        int port = closedPort();
         startFailures(MicroProxy.bootstrap());
         HttpResponse<String> refused = get(client(proxy), "http://127.0.0.1:" + port + "/");
         assertEquals(502, refused.statusCode());

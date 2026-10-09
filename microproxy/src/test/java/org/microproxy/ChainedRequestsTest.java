@@ -10,14 +10,16 @@ import static org.microproxy.TestSupport.send;
 import static org.microproxy.TestSupport.url;
 
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -65,8 +67,19 @@ class ChainedRequestsTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         proxies.close();
+        for (Socket r : refusing) r.close();
+    }
+
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     /** Downstream proxy chained to a fresh upstream; the upstream cannot resolve {@link #UNRESOLVABLE}. */
@@ -122,10 +135,7 @@ class ChainedRequestsTest {
     @ParameterizedTest(name = "encrypted chain: {0}")
     @ValueSource(booleans = {false, true})
     void unreachableServerIsBadGateway(boolean encryptedChain) throws Exception {
-        int deadPort;
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            deadPort = s.getLocalPort();
-        }
+        int deadPort = closedPort();
         HttpProxyServer down = chain(encryptedChain);
         String target = "127.0.0.1:" + deadPort;
         assertEquals(502, post(client(down), "http://" + target + "/", "body").statusCode());

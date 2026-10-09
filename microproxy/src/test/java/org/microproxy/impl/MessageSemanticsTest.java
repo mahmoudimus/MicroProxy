@@ -13,11 +13,11 @@ import static org.microproxy.TestSupport.write;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
@@ -62,9 +62,10 @@ class MessageSemanticsTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         if (proxy != null) proxy.abort();
         origin.stop(0);
+        for (Socket r : refusing) r.close();
     }
 
     private void start() {
@@ -98,10 +99,14 @@ class MessageSemanticsTest {
         return "GET http://" + authority + path + " HTTP/1.1\r\nHost: " + authority + "\r\n\r\n";
     }
 
-    private static int closedPort() throws IOException {
-        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
-            return s.getLocalPort();
-        }
+    /** Reserved until the test ends, so a server started meanwhile cannot be given the same port. */
+    private final List<Socket> refusing = new ArrayList<>();
+
+    /** A loopback port that refuses connections, reserved until the test ends. */
+    private int closedPort() {
+        Socket s = TestSupport.refusingPort();
+        refusing.add(s);
+        return s.getLocalPort();
     }
 
     /** Asserts the proxy still serves requests on {@code s}. */
