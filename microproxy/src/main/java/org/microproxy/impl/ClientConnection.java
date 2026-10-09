@@ -47,6 +47,7 @@ import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseSource;
+import org.microproxy.SelectiveFilters;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
@@ -161,9 +162,9 @@ final class ClientConnection implements Runnable {
         if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(f -> observes(f, observes));
         }
-        if (filters instanceof HttpFiltersBuilder.Built built) {
-            // One class for every combination of lambdas: ask the instance.
-            return built.sees(observes == OBSERVES_REQUEST_CONTENT
+        if (filters instanceof SelectiveFilters selective) {
+            // The instance knows better than its class (one class for every combination of hooks).
+            return selective.sees(observes == OBSERVES_REQUEST_CONTENT
                     ? HttpFiltersBuilder.Body.REQUEST : HttpFiltersBuilder.Body.RESPONSE);
         }
         return observes.get(filters.getClass());
@@ -173,6 +174,9 @@ final class ClientConnection implements Runnable {
         if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(ClientConnection::observesFrames);
         }
+        if (filters instanceof SelectiveFilters selective) {
+            return selective.sees(HttpFiltersBuilder.Body.OBSERVED_WEBSOCKET_FRAMES);
+        }
         return OBSERVES_FRAMES.get(filters.getClass());
     }
 
@@ -180,10 +184,19 @@ final class ClientConnection implements Runnable {
         if (filters instanceof HttpFiltersChain.Chained chain) {
             return chain.members().stream().anyMatch(ClientConnection::rewritesFrames);
         }
-        if (filters instanceof HttpFiltersBuilder.Built built) {
-            return built.sees(HttpFiltersBuilder.Body.WEBSOCKET_FRAMES);
+        if (filters instanceof SelectiveFilters selective) {
+            return selective.sees(HttpFiltersBuilder.Body.WEBSOCKET_FRAMES);
         }
         return REWRITES_FRAMES.get(filters.getClass());
+    }
+
+    /**
+     * Which streams the proxy parses piece by piece for {@code filters}, as {request bodies,
+     * response bodies, WebSocket frames}; the others take the fast path. For tests.
+     */
+    static boolean[] inspectedStreams(HttpFilters filters) {
+        return new boolean[] {observes(filters, OBSERVES_REQUEST_CONTENT), observes(filters, OBSERVES_RESPONSE_CONTENT),
+            observesFrames(filters) || rewritesFrames(filters)};
     }
 
     /** How a server connection is used. */
@@ -962,7 +975,7 @@ final class ClientConnection implements Runnable {
             }
         }
         filters.serverToProxyResponseReceived();
-        completed(finalResponse);
+        completed(ex, finalResponse, source);
 
         if (switching) {
             boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
@@ -998,9 +1011,10 @@ final class ClientConnection implements Runnable {
     }
 
     /** The response to the current request has been written in full. */
-    private void completed(HttpResponse response) {
+    private void completed(Exchange ex, HttpResponse response, ResponseSource source) {
         flowContext.mark(ClientFlowContext.RESPONSE_COMPLETE);
         server.trackers.fire(t -> t.responseCompleted(flowContext, response));
+        ex.filters.proxyToClientResponseSent(response, source);
     }
 
     private boolean abort(ServerConnection conn) {
@@ -1168,7 +1182,7 @@ final class ClientConnection implements Runnable {
         writeToClient(() -> writer.writeHead(response, response.status().code() / 100 != 2));
         ResponseSource source = source(ResponseSource.PROXY, established, 200, response);
         server.trackers.fire(t -> t.responseSentToClient(flowContext, response, source));
-        completed(response);
+        completed(ex, response, source);
         if (response.status().code() / 100 != 2) {
             // A filter turned the CONNECT into a failure.
             if (conn != null) conn.close();
@@ -1764,7 +1778,7 @@ final class ClientConnection implements Runnable {
         }
         ResponseSource sent = source(source, response, status, res);
         server.trackers.fire(t -> t.responseSentToClient(flowContext, res, sent));
-        completed(res);
+        completed(ex, res, sent);
         if (!keepAlive) {
             close();
         }

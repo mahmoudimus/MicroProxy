@@ -181,6 +181,11 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
 
         @Override
+        public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
+            members.forEach(f -> f.proxyToClientResponseSent(response, source));
+        }
+
+        @Override
         public InetSocketAddress proxyToServerResolutionStarted(String hostAndPort) {
             InetSocketAddress resolved = null;
             for (HttpFilters f : members) {

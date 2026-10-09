@@ -144,6 +144,23 @@ class HttpBodiesTest {
     }
 
     @Test
+    void decodedPrefixCutsInsteadOfFailing() throws IOException {
+        FullHttpResponse bomb = response(gzip(new byte[2_000_000]), "gzip", null);
+        assertEquals(1000, HttpBodies.decodedPrefix(bomb, 1000).length);
+        byte[] text = "stacked and short".getBytes(StandardCharsets.US_ASCII);
+        assertArrayEquals(text, HttpBodies.decodedPrefix(response(gzip(deflate(text, false)), "deflate, gzip", null), 100));
+        assertArrayEquals(text, HttpBodies.decodedPrefix(response(deflate(text, true), "deflate", null), 100));
+        assertEquals("XXXXX", new String(HttpBodies.decodedPrefix(response(BROTLI_10X10Y, "br", null), 5),
+                StandardCharsets.US_ASCII));
+        assertEquals("zstd ", new String(HttpBodies.decodedPrefix(response(ZSTD_SAMPLE, "zstd", null), 5),
+                StandardCharsets.US_ASCII));
+        assertArrayEquals(text, HttpBodies.decodedPrefix(response(text, null, null), 100), "no coding");
+        assertThrows(IOException.class, () -> HttpBodies.decodedPrefix(response(new byte[] {(byte) 0xff, 0x13}, "br", null), 10));
+        assertThrows(IOException.class, () -> HttpBodies.decodedPrefix(response(new byte[] {1, 2}, "gzip", null), 10));
+        assertThrows(IOException.class, () -> HttpBodies.decodedPrefix(response(new byte[] {1, 2}, "dcb", null), 10));
+    }
+
+    @Test
     void charsetAndMediaTypeParsing() {
         assertEquals(StandardCharsets.ISO_8859_1,
                 HttpBodies.charset(response(new byte[0], null, "text/html; Charset=\"iso-8859-1\"; x=y"), StandardCharsets.UTF_8));

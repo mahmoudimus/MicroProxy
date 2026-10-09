@@ -73,6 +73,40 @@ class ResponseSourceTest {
     }
 
     @Test
+    void filtersHearOfEachResponseOnceItIsSentWithItsSourceAndTotalTime() throws Exception {
+        List<String> sent = new CopyOnWriteArrayList<>();
+        int closed;
+        try (ServerSocket s = new ServerSocket(0, 1, TestSupport.LOOPBACK)) {
+            closed = s.getLocalPort();
+        }
+        HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withFiltersSource((request, ctx) -> new HttpFilters() {
+            @Override
+            public HttpResponse clientToProxyRequest(org.microproxy.http.HttpObject o) {
+                return o instanceof org.microproxy.http.HttpRequest r && r.uri().endsWith("/blocked")
+                        ? new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FORBIDDEN, "no") : null;
+            }
+
+            @Override
+            public org.microproxy.http.HttpObject proxyToClientResponse(org.microproxy.http.HttpObject o) {
+                if (o instanceof HttpResponse r) r.headers().set("X-Final", "yes");
+                return o;
+            }
+
+            @Override
+            public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
+                sent.add(source + " " + response.status().code() + " " + response.headers().get("X-Final")
+                        + " total=" + ctx.timings().total().isPresent());
+            }
+        }));
+        var client = client(proxy);
+        assertEquals(200, get(client, url(origin, "/ok")).statusCode());
+        assertEquals(403, get(client, url(origin, "/blocked")).statusCode());
+        assertEquals(502, get(client, "http://127.0.0.1:" + closed + "/").statusCode());
+        for (int i = 0; i < 200 && sent.size() < 3; i++) Thread.sleep(10);
+        assertEquals(List.of("SERVER 200 yes total=true", "FILTER 403 yes total=true", "PROXY 502 yes total=true"), sent);
+    }
+
+    @Test
     void serverResponsesKeepTheirSourceWhenFiltersOnlyEditHeaders() throws Exception {
         HttpFilters filters = HttpFilters.builder()
                 .onResponse(res -> {

@@ -42,8 +42,13 @@ public final class HttpFiltersBuilder {
         REQUEST,
         /** Response body pieces ({@link #onResponseBody}). */
         RESPONSE,
-        /** WebSocket frames ({@link #onWebSocketFrame}). */
-        WEBSOCKET_FRAMES
+        /** WebSocket frames, rewritten ({@link #onWebSocketFrame}). */
+        WEBSOCKET_FRAMES,
+        /**
+         * WebSocket frames, only watched ({@link HttpFilters#webSocketFrameReceived(WebSocketFrame,
+         * boolean)}); the upgrade is left alone.
+         */
+        OBSERVED_WEBSOCKET_FRAMES
     }
 
     private Function<HttpRequest, HttpResponse> onRequest;
@@ -182,7 +187,7 @@ public final class HttpFiltersBuilder {
     }
 
     /** Filters made by {@link HttpFiltersBuilder}. */
-    public static final class Built implements HttpFilters {
+    public static final class Built implements SelectiveFilters {
         private final Function<HttpRequest, HttpResponse> onRequest;
         private final Consumer<HttpContent> onRequestBody;
         private final Function<HttpRequest, HttpResponse> beforeSending;
@@ -215,11 +220,13 @@ public final class HttpFiltersBuilder {
          * Whether these filters inspect {@code body} piece by piece. The proxy relays anything
          * they don't inspect through its fast path.
          */
+        @Override
         public boolean sees(Body body) {
             return switch (body) {
                 case REQUEST -> onRequestBody != null;
                 case RESPONSE -> onResponseBody != null;
                 case WEBSOCKET_FRAMES -> onWebSocketFrame != null;
+                case OBSERVED_WEBSOCKET_FRAMES -> false;
             };
         }
 

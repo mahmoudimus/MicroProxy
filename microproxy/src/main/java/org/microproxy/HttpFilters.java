@@ -33,7 +33,8 @@ import org.microproxy.http.WebSocketFrame;
  *   <li>{@link #proxyToServerRequestSending}, {@link #proxyToServerRequestSent}
  *   <li>{@link #serverToProxyResponseReceiving}, {@link #serverToProxyResponse}, {@link
  *       #serverToProxyResponseReceived} (or {@link #serverToProxyResponseTimedOut})
- *   <li>{@link #proxyToClientResponse}
+ *   <li>{@link #proxyToClientResponse}, then {@link #proxyToClientResponseSent} once the response
+ *       has been written
  * </ol>
  *
  * <p>When the proxy answers a request itself because something failed, {@link
@@ -137,6 +138,18 @@ public interface HttpFilters {
     default HttpObject proxyToClientResponse(HttpObject httpObject) {
         return httpObject;
     }
+
+    /**
+     * Called once the whole response has been written to the client, whoever made it: the server,
+     * the proxy, a filter or the cache. {@link FlowContext#timings()} then covers the whole
+     * exchange. Not called when the exchange was aborted or failed half-way through the response,
+     * or for the {@code 407} challenge sent before filters are created.
+     *
+     * @param response the response head as it was sent (after every filter)
+     * @param source where it came from, as reported to {@link
+     *     ActivityTracker#responseSentToClient(FlowContext, HttpResponse, ResponseSource)}
+     */
+    default void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {}
 
     /**
      * Called before the server's host name is resolved. Return an address to skip resolution and
