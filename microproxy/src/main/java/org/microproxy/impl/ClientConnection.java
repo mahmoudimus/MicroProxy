@@ -840,6 +840,7 @@ final class ClientConnection implements Runnable {
         }
         boolean streamingBody = !(request instanceof FullHttpRequest) && ex.body.hasBody();
         conn.inExchange = true;
+        RequestPump pump = null;
         try {
             // The transport may close it if the client cancels the exchange (an HTTP/2 reset).
             ex.channel.serverConnectionInUse(conn);
@@ -858,7 +859,11 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.requestSentToServer(conn.flowContext, request));
 
             HttpResponse response = null;
-            if (streamingBody) {
+            if (streamingBody && fullDuplex(ex, conn)) {
+                // Both ends are HTTP/2 streams: the body goes on while the response comes back
+                // (bidirectional streaming, as gRPC does).
+                pump = new RequestPump(ex, conn);
+            } else if (streamingBody) {
                 HttpResponse early = null;
                 if (HttpUtil.is100ContinueExpected(request)) {
                     // Let the server decide whether it wants the body before reading it from the
@@ -897,6 +902,7 @@ final class ClientConnection implements Runnable {
             }
             return relayResponse(ex, conn, response);
         } catch (ServerTimeout e) {
+            if (pump != null && pump.clientFailed()) return clientLeft(ex, conn, pump);
             filters.serverToProxyResponseTimedOut();
             conn.close();
             IOException cause = (IOException) e.getCause();
@@ -907,6 +913,7 @@ final class ClientConnection implements Runnable {
             }
             return respondFailure(ex, new ProxyFailure.ServerTimeout(conn.hostAndPort, cause), false);
         } catch (ServerFailure e) {
+            if (pump != null && pump.clientFailed()) return clientLeft(ex, conn, pump);
             LOG.log(Level.DEBUG, ex.log + "server failure on " + conn, e);
             conn.close();
             IOException reason = e.reason();
@@ -932,6 +939,87 @@ final class ClientConnection implements Runnable {
             }
             ex.channel.close();
             return false;
+        } finally {
+            if (pump != null) pump.stop();
+        }
+    }
+
+    /**
+     * Whether the request body may be relayed while the response comes back, on a thread of its
+     * own: only between HTTP/2 streams (an HTTP/1 connection reads its next request after this
+     * one's body), and only when no filter or chained proxy sees the body's pieces, so filters are
+     * never called from two threads at once. Not with {@code Expect: 100-continue}, which decides
+     * about the body first.
+     */
+    private static boolean fullDuplex(Exchange ex, ServerConnection conn) {
+        return ex.channel.multiplexed() && conn.multiplexed() && !HttpUtil.is100ContinueExpected(ex.request)
+                && !observes(ex.filters, OBSERVES_REQUEST_CONTENT)
+                && (conn.chainedProxy == null || !FILTERS_REQUEST_CONTENT.get(conn.chainedProxy.getClass()));
+    }
+
+    /** The client went away while its request body was being relayed: the exchange ends. */
+    private static boolean clientLeft(Exchange ex, ServerConnection conn, RequestPump pump) {
+        LOG.log(Level.DEBUG, ex.log + "client failure while relaying the request body", pump.failure);
+        conn.close();
+        ex.channel.close();
+        return false;
+    }
+
+    /**
+     * Relays a request body to the server on a virtual thread of its own, while the exchange's
+     * thread relays the response ({@link #fullDuplex}). A client that fails stops the server stream
+     * too; a server that stops reading only ends the relay, and its response decides the rest.
+     */
+    private final class RequestPump {
+        private final Exchange ex;
+        private final ServerConnection conn;
+        private final Thread thread;
+        volatile IOException failure;
+        private volatile boolean done;
+
+        RequestPump(Exchange ex, ServerConnection conn) {
+            this.ex = ex;
+            this.conn = conn;
+            this.thread = Thread.ofVirtual().name(server.name + "-request-body-" + id).start(this::run);
+        }
+
+        private void run() {
+            try {
+                relayRequestBody(ex, conn);
+                ex.flow.mark(ClientFlowContext.REQUEST_SENT);
+            } catch (ServerWriteFailure e) {
+                LOG.log(Level.DEBUG, ex.log + "server stopped reading the request body: " + e.getCause());
+                failure = e;
+            } catch (IOException e) {
+                failure = e;
+                conn.close();
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, ex.log + "unexpected error relaying the request body", e);
+                failure = new IOException(e);
+                conn.close();
+            } finally {
+                done = true;
+            }
+        }
+
+        boolean clientFailed() {
+            return failure instanceof ClientFailure;
+        }
+
+        /**
+         * The exchange is over: a body still being relayed is abandoned (the server stream and
+         * the client's are reset), and the relay's thread is waited for.
+         */
+        void stop() {
+            if (!done) {
+                conn.close();
+                ex.channel.close();
+            }
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
