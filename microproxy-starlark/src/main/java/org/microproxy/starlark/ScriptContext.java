@@ -2,6 +2,7 @@ package org.microproxy.starlark;
 
 import com.google.common.collect.ImmutableList;
 import java.net.InetSocketAddress;
+import org.microproxy.FlowContext;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
@@ -28,13 +29,27 @@ public final class ScriptContext implements Structure {
     private final long connectionId;
     private final boolean tls;
     private final Dict<Object, Object> vars;
+    /** The client connection, for timings; null where the hook gets no flow ({@code upstream}). */
+    private final FlowContext flow;
 
     ScriptContext(InetSocketAddress client, String user, long connectionId, boolean tls, Mutability mu) {
+        this(client, user, connectionId, tls, mu, null);
+    }
+
+    /** The context of a request on the client connection {@code flow}. */
+    ScriptContext(FlowContext flow, Mutability mu) {
+        this(flow.getClientAddress(), flow.getClientDetails().getUserName(), flow.getConnectionId(),
+                flow.getClientSslSession() != null, mu, flow);
+    }
+
+    private ScriptContext(InetSocketAddress client, String user, long connectionId, boolean tls, Mutability mu,
+            FlowContext flow) {
         this.client = client;
         this.user = user;
         this.connectionId = connectionId;
         this.tls = tls;
         this.vars = Dict.of(mu);
+        this.flow = flow;
     }
 
     /** Types the builtins that return this class (see {@link ScriptType}). */

@@ -53,6 +53,29 @@ class LauncherScriptTest {
     }
 
     @Test
+    void scriptsWithAuthenticateAuthenticateClients(@TempDir Path dir) throws Exception {
+        Path script = dir.resolve("auth.star");
+        Files.writeString(script, """
+                def authenticate(req, ctx):
+                    return req.headers.get("Proxy-Authorization") == "Bearer letmein"
+                """);
+        HttpServer origin = origin(echo());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--script", script.toString()},
+                new PrintStream(out, true, StandardCharsets.UTF_8));
+        try {
+            assertEquals(407, get(client(proxy), url(origin, "/")).statusCode());
+            String accepted = TestSupport.rawExchange(proxy.getListenAddress(), "GET " + url(origin, "/") + " HTTP/1.1\r\n"
+                    + "Host: 127.0.0.1\r\nProxy-Authorization: Bearer letmein\r\nConnection: close\r\n\r\n");
+            assertTrue(accepted.startsWith("HTTP/1.1 200"), accepted);
+            assertTrue(out.toString(StandardCharsets.UTF_8).contains("authenticate"), out.toString(StandardCharsets.UTF_8));
+        } finally {
+            proxy.abort();
+            origin.stop(0);
+        }
+    }
+
+    @Test
     void brokenScriptsStopStartup(@TempDir Path dir) throws Exception {
         Path script = dir.resolve("bad.star");
         Files.writeString(script, "def on_request(\n");

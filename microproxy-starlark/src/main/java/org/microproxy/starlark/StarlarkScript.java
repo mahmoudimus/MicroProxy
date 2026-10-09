@@ -101,6 +101,11 @@ public final class StarlarkScript {
         return module.getGlobal(function) instanceof StarlarkCallable;
     }
 
+    /** The value of the global {@code name} (frozen), or {@code null} when the script sets none. */
+    public Object global(String name) {
+        return module.getGlobal(name);
+    }
+
     /**
      * Calls {@code function} with {@code args}. Values the call creates belong to {@code mu}, so
      * several calls for one request can share state through it.

@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import org.microproxy.AuthResult;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyManager;
@@ -17,6 +18,7 @@ import org.microproxy.ClientDetails;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.http.DefaultFullHttpResponse;
@@ -45,6 +47,9 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  * MicroProxy.bootstrap().withFiltersSource(script).withChainProxyManager(script).start();
  * }</pre>
  *
+ * <p>Install it as the {@link ProxyAuthenticator} too when the script defines {@code
+ * authenticate} ({@link #definesAuthenticate()}).
+ *
  * <p>The script may define any of these functions; each is optional:
  *
  * <ul>
@@ -64,6 +69,13 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *   <li>{@code on_websocket_frame(req, frame, ctx)}: for each frame of an upgraded WebSocket
  *       connection, in both directions. Assign {@code frame.text} or {@code frame.payload} to
  *       change it; return {@code False} to drop it, or {@code None} to forward it.
+ *   <li>{@code authenticate(req, ctx)}: decides whether a client may use the proxy, when this
+ *       object is also installed as the {@link ProxyAuthenticator} ({@code
+ *       withProxyAuthenticator(script)}). Return the user name (a non-empty string) or {@code
+ *       True} to accept, {@code False} or {@code None} to reject with the default {@code 407}, or
+ *       {@code response(...)} to reject with that answer. Anything else, a failure or a timeout
+ *       rejects. A global {@code AUTHENTICATE_EVERY_REQUEST = True} authenticates every request
+ *       instead of the first accepted one on each connection.
  *   <li>{@code on_failure(req, failure, ctx)}: when the proxy has to answer the request itself
  *       (the server's name did not resolve, the connection was refused, the server timed out,
  *       ...). Return {@code response(...)} to answer, or {@code None} to leave it to the {@link
@@ -76,7 +88,7 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  * the script is a file it is re-read when it changes (checked at most once a second); a version
  * that does not compile is logged and the previous one stays in use.
  */
-public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManager {
+public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManager, ProxyAuthenticator {
 
     private static final System.Logger LOG = System.getLogger(ScriptedProxy.class.getName());
     private static final long RELOAD_CHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
@@ -252,8 +264,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             this.s = s;
             this.original = original;
             this.secure = flow.getClientSslSession() != null;
-            this.ctx = new ScriptContext(flow.getClientAddress(), flow.getClientDetails().getUserName(),
-                    flow.getConnectionId(), secure, mu);
+            this.ctx = new ScriptContext(flow, mu);
         }
 
         @Override
@@ -382,6 +393,64 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
         HttpUtil.setContentLength(response, body.length);
         return response;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // ProxyAuthenticator
+    // ---------------------------------------------------------------------------------------
+
+    /** Whether the script in use defines {@code authenticate}, so this can be the authenticator. */
+    public boolean definesAuthenticate() {
+        return script().defines("authenticate");
+    }
+
+    /** Not used: {@link #authenticate(HttpRequest, FlowContext)} asks the script instead. */
+    @Override
+    public boolean authenticate(String userName, String password) {
+        return false;
+    }
+
+    /**
+     * Calls the script's {@code authenticate(req, ctx)}. Fails closed: a script without the
+     * function (after a reload), a failing or timed-out call, or an unexpected return value
+     * rejects the request with the default challenge, and is logged.
+     */
+    @Override
+    public AuthResult authenticate(HttpRequest request, FlowContext flow) {
+        StarlarkScript s = script();
+        if (!s.defines("authenticate")) {
+            LOG.log(Level.WARNING, s.name() + " defines no authenticate(); rejecting the request");
+            return AuthResult.reject();
+        }
+        Mutability mu = Mutability.create("authenticate");
+        // No filters exist yet for this request: the context comes from the connection.
+        ScriptContext ctx = new ScriptContext(flow, mu);
+        try {
+            Object r = s.call("authenticate", mu, new ScriptRequest(request, flow.getClientSslSession() != null, true), ctx);
+            if (r instanceof String user) {
+                // "" is falsy, like False: `return USERS.get(token, "")` must not let anyone in.
+                return user.isEmpty() ? AuthResult.reject() : AuthResult.accept(user);
+            }
+            if (r == Boolean.TRUE) return AuthResult.accept(null);
+            if (r == Boolean.FALSE || r == Starlark.NONE) return AuthResult.reject();
+            if (r instanceof ScriptResponse res) return AuthResult.reject(res.response());
+            throw Starlark.errorf("authenticate must return a user name, True, False, None or response(...), not %s",
+                    Starlark.type(r));
+        } catch (EvalException e) {
+            LOG.log(Level.WARNING, s.name() + ": authenticate failed; rejecting the request: " + e.getMessageWithStack());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, s.name() + ": authenticate failed; rejecting the request", e);
+        }
+        return AuthResult.reject();
+    }
+
+    /** Whether the script sets {@code AUTHENTICATE_EVERY_REQUEST} to a true value. */
+    @Override
+    public boolean authenticateEveryRequest() {
+        Object every = script().global("AUTHENTICATE_EVERY_REQUEST");
+        return every != null && Starlark.truth(every);
     }
 
     // ---------------------------------------------------------------------------------------

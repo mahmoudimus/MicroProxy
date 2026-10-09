@@ -53,6 +53,11 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
             throw new IllegalArgumentException("cannot load " + script + ":\n" + e.getMessage(), e);
         }
         bootstrap.plusFiltersSource(proxy).withChainProxyManager(proxy);
-        console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : ""));
+        boolean authenticates = proxy.definesAuthenticate();
+        if (authenticates) {
+            bootstrap.withProxyAuthenticator(proxy);
+        }
+        console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : "")
+                + (authenticates ? "; clients authenticate with its authenticate()" : ""));
     }
 }
