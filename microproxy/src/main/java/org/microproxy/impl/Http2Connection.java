@@ -690,13 +690,11 @@ final class Http2Connection {
             s = streams.get(id);
             recentlyClosed.put(id, Boolean.TRUE);
             if (s != null) {
-                if (s.reset) {
-                    s = null;
-                } else {
-                    s.markReset(cause != null ? cause : new IOException("stream " + id + " reset: " + code));
-                    serverConnection = s.cancelServer();
-                    windowOpened.signalAll();
-                }
+                // Already reset (by either side): no second RST_STREAM.
+                if (s.reset) return;
+                s.markReset(cause != null ? cause : new IOException("stream " + id + " reset: " + code));
+                serverConnection = s.cancelServer();
+                windowOpened.signalAll();
             }
         } finally {
             stateLock.unlock();
