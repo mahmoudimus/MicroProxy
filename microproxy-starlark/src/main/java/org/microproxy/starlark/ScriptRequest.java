@@ -18,16 +18,20 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * A request as scripts see it. {@code method}, {@code uri}, {@code body} and {@code text} can be
  * assigned; {@code url}, {@code scheme}, {@code host}, {@code port}, {@code path} and {@code
  * query} are derived from the request target and the {@code Host} header. For {@code CONNECT},
- * {@code url} is the {@code host:port} authority and {@code scheme} is empty.
+ * {@code url} is the {@code host:port} authority and {@code scheme} is empty. {@code http_version}
+ * is the HTTP version the client used: {@code "HTTP/1.1"}, {@code "HTTP/1.0"} or {@code "HTTP/2"}
+ * (requests reach servers as HTTP/1.1 either way).
  */
 @StarlarkBuiltin(name = "request", doc = "An HTTP request.")
 public final class ScriptRequest extends ScriptMessage {
 
     private static final ImmutableList<String> FIELDS = ImmutableList.of(
-            "method", "uri", "url", "scheme", "host", "port", "path", "query", "headers", "body", "text");
+            "method", "uri", "url", "scheme", "host", "port", "path", "query", "headers", "body", "text", "http_version");
 
     private final HttpRequest request;
     private final boolean secure;
+    /** The version the client used, kept as it was: the proxy forwards HTTP/2 requests as HTTP/1.1. */
+    private final String httpVersion;
 
     /**
      * @param secure whether an origin-form request arrived over TLS (an intercepted HTTPS request)
@@ -36,6 +40,13 @@ public final class ScriptRequest extends ScriptMessage {
         super(request, readOnly);
         this.request = request;
         this.secure = secure;
+        this.httpVersion = versionLabel(request.protocolVersion());
+    }
+
+    /** {@code HTTP/2} rather than {@code HTTP/2.0}, as HTTP/2 has no minor version. */
+    static String versionLabel(org.microproxy.http.HttpVersion version) {
+        return version.majorVersion() >= 2 && version.minorVersion() == 0
+                ? "HTTP/" + version.majorVersion() : version.text();
     }
 
     HttpRequest request() {
@@ -66,6 +77,7 @@ public final class ScriptRequest extends ScriptMessage {
             case "headers" -> headers();
             case "body" -> body();
             case "text" -> text();
+            case "http_version" -> httpVersion;
             default -> null;
         };
     }

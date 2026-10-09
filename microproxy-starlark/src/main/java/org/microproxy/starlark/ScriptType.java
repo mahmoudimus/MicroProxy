@@ -41,6 +41,7 @@ final class ScriptType extends StarlarkType {
             .put("headers", HEADERS)
             .put("body", BODY)
             .put("text", TEXT)
+            .put("http_version", Types.STR)
             .buildOrThrow(), true);
 
     private static final StarlarkType MILLIS = Types.union(Types.FLOAT, Types.NONE);
