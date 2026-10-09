@@ -41,6 +41,7 @@ public final class Http2Headers {
         String scheme = null;
         String authority = null;
         String path = null;
+        String protocol = null;
         String host = null;
         long contentLength = -1;
         boolean regularSeen = false;
@@ -58,6 +59,7 @@ public final class Http2Headers {
                     case ":scheme" -> scheme = once(streamId, scheme, f);
                     case ":authority" -> authority = once(streamId, authority, f);
                     case ":path" -> path = once(streamId, path, f);
+                    case ":protocol" -> protocol = once(streamId, protocol, f);
                     default -> throw malformed(streamId, "pseudo-header field " + name + " is not allowed in a request");
                 }
                 continue;
@@ -89,7 +91,14 @@ public final class Http2Headers {
         if (cookie != null) out.set(cookieAt, new HeaderField("cookie", cookie.toString(), cookieSensitive));
 
         if (method == null || method.isEmpty()) throw malformed(streamId, "missing :method");
-        if (method.equals("CONNECT")) {
+        if (protocol != null && !method.equals("CONNECT")) {
+            throw malformed(streamId, "pseudo-header field :protocol is not allowed in a request without CONNECT");
+        }
+        if (protocol != null && (protocol.isEmpty()
+                || !protocol.chars().allMatch(c -> c > 0x20 && c < 0x7f && "()<>@,;:\\\"/[]?={}".indexOf(c) < 0))) {
+            throw malformed(streamId, "invalid :protocol or :protocol without CONNECT");
+        }
+        if (method.equals("CONNECT") && protocol == null) {
             // §8.5: only :method and :authority.
             if (scheme != null || path != null) throw malformed(streamId, "CONNECT with :scheme or :path");
             if (authority == null || authority.isEmpty()) throw malformed(streamId, "CONNECT without :authority");
@@ -112,7 +121,10 @@ public final class Http2Headers {
                 throw malformed(streamId, "host " + host + " differs from :authority " + authority);
             }
         }
-        return new RequestHeaders(method, scheme, authority != null ? authority : host, path, out, contentLength);
+        if (protocol != null && (authority == null || authority.isEmpty())) {
+            throw malformed(streamId, "extended CONNECT without :authority");
+        }
+        return new RequestHeaders(method, scheme, authority != null ? authority : host, path, out, contentLength, protocol);
     }
 
     /** Validates a decoded response header section (final or 1xx). */

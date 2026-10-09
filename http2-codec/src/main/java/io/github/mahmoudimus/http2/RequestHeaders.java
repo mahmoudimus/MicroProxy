@@ -9,14 +9,21 @@ import java.util.Objects;
  * the remaining fields, as {@link Http2Headers#toRequest} produces it.
  *
  * @param method {@code :method}
- * @param scheme {@code :scheme}, or null for CONNECT
+ * @param scheme {@code :scheme}, or null for ordinary CONNECT
  * @param authority {@code :authority}, or the {@code host} field when that is absent; null if
  *     neither is present
- * @param path {@code :path}, or null for CONNECT
+ * @param path {@code :path}, or null for ordinary CONNECT
  * @param fields the regular fields in order (lower-case names; cookie crumbs joined into one field)
  * @param contentLength the {@code content-length}, or -1 if absent
+ * @param protocol RFC 8441 {@code :protocol}, or null without extended CONNECT
  */
-public record RequestHeaders(String method, String scheme, String authority, String path, List<HeaderField> fields, long contentLength) {
+public record RequestHeaders(String method, String scheme, String authority, String path, List<HeaderField> fields,
+        long contentLength, String protocol) {
+
+    public RequestHeaders(String method, String scheme, String authority, String path, List<HeaderField> fields,
+            long contentLength) {
+        this(method, scheme, authority, path, fields, contentLength, null);
+    }
 
     public RequestHeaders {
         Objects.requireNonNull(method, "method");

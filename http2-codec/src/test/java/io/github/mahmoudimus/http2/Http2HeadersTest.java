@@ -45,6 +45,18 @@ class Http2HeadersTest {
     // --- requests ------------------------------------------------------------------------------
 
     @Test
+    void extendedConnectHasSchemeAndPath() throws Exception {
+        RequestHeaders r = Http2Headers.toRequest(1, fields(":method", "CONNECT", ":protocol", "websocket",
+                ":scheme", "https", ":authority", "example.com", ":path", "/chat"));
+        assertEquals("CONNECT", r.method());
+        assertEquals("https", r.scheme());
+        assertEquals("/chat", r.path());
+        assertMalformedRequest(fields(":method", "GET", ":protocol", "websocket", ":scheme", "https",
+                ":authority", "example.com", ":path", "/chat"), ":protocol");
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "websocket", ":authority", "example.com"), ":scheme");
+    }
+
+    @Test
     void validRequest() throws Http2Exception {
         RequestHeaders r = Http2Headers.toRequest(1, get("accept", "*/*", "content-length", "12", "te", "trailers"));
         assertEquals("GET", r.method());

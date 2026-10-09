@@ -89,6 +89,15 @@ class Http2SettingsTest {
     }
 
     @Test
+    void extendedConnectSettingIsBooleanAndCannotBeDisabled() throws Exception {
+        assertSettingError(8, 2, ErrorCode.PROTOCOL_ERROR);
+        Http2Settings enabled = Http2Settings.DEFAULT.apply(new Frame.Settings(false, Map.of(8, 1L)));
+        Http2Exception e = assertThrows(Http2Exception.class,
+                () -> enabled.apply(new Frame.Settings(false, Map.of(8, 0L))));
+        assertEquals(ErrorCode.PROTOCOL_ERROR, e.errorCode());
+    }
+
+    @Test
     void errorCodes() {
         for (ErrorCode c : ErrorCode.values()) assertSame(c, ErrorCode.forCode(c.code()));
         assertSame(ErrorCode.INTERNAL_ERROR, ErrorCode.forCode(0xe));

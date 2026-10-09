@@ -20,6 +20,7 @@ import java.util.Map;
  * @param initialWindowSize SETTINGS_INITIAL_WINDOW_SIZE, 0 to 2^31-1
  * @param maxFrameSize SETTINGS_MAX_FRAME_SIZE, 2^14 to 2^24-1
  * @param maxHeaderListSize SETTINGS_MAX_HEADER_LIST_SIZE, 0 to 2^32-1 or {@link #UNLIMITED}
+ * @param enableConnectProtocol SETTINGS_ENABLE_CONNECT_PROTOCOL (RFC 8441)
  */
 public record Http2Settings(
         long headerTableSize,
@@ -27,7 +28,8 @@ public record Http2Settings(
         long maxConcurrentStreams,
         int initialWindowSize,
         int maxFrameSize,
-        long maxHeaderListSize) {
+        long maxHeaderListSize,
+        boolean enableConnectProtocol) {
 
     public static final int HEADER_TABLE_SIZE = 0x1;
     public static final int ENABLE_PUSH = 0x2;
@@ -35,6 +37,14 @@ public record Http2Settings(
     public static final int INITIAL_WINDOW_SIZE = 0x4;
     public static final int MAX_FRAME_SIZE = 0x5;
     public static final int MAX_HEADER_LIST_SIZE = 0x6;
+    /** RFC 8441: extended CONNECT (including WebSockets). */
+    public static final int ENABLE_CONNECT_PROTOCOL = 0x8;
+
+    /** Source-compatible constructor for the original HTTP/2 settings. */
+    public Http2Settings(long headerTableSize, boolean enablePush, long maxConcurrentStreams,
+            int initialWindowSize, int maxFrameSize, long maxHeaderListSize) {
+        this(headerTableSize, enablePush, maxConcurrentStreams, initialWindowSize, maxFrameSize, maxHeaderListSize, false);
+    }
 
     /** No limit: the initial value of MAX_CONCURRENT_STREAMS and MAX_HEADER_LIST_SIZE. */
     public static final long UNLIMITED = Long.MAX_VALUE;
@@ -88,9 +98,9 @@ public record Http2Settings(
      */
     public static void validate(int id, long value) throws Http2Exception {
         switch (id) {
-            case ENABLE_PUSH -> {
+            case ENABLE_PUSH, ENABLE_CONNECT_PROTOCOL -> {
                 if (value != 0 && value != 1) {
-                    throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "SETTINGS_ENABLE_PUSH must be 0 or 1, got " + value);
+                    throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "boolean setting " + id + " must be 0 or 1, got " + value);
                 }
             }
             case INITIAL_WINDOW_SIZE -> {
@@ -130,6 +140,13 @@ public record Http2Settings(
                 case INITIAL_WINDOW_SIZE -> b.initialWindowSize = (int) v;
                 case MAX_FRAME_SIZE -> b.maxFrameSize = (int) v;
                 case MAX_HEADER_LIST_SIZE -> b.maxHeaderListSize = v;
+                case ENABLE_CONNECT_PROTOCOL -> {
+                    if (b.enableConnectProtocol && v == 0) {
+                        throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR,
+                                "SETTINGS_ENABLE_CONNECT_PROTOCOL cannot be disabled once enabled");
+                    }
+                    b.enableConnectProtocol = v == 1;
+                }
                 default -> {}
             }
         }
@@ -148,6 +165,7 @@ public record Http2Settings(
         if (initialWindowSize != DEFAULT.initialWindowSize) m.put(INITIAL_WINDOW_SIZE, (long) initialWindowSize);
         if (maxFrameSize != DEFAULT.maxFrameSize) m.put(MAX_FRAME_SIZE, (long) maxFrameSize);
         if (maxHeaderListSize != DEFAULT.maxHeaderListSize) m.put(MAX_HEADER_LIST_SIZE, maxHeaderListSize);
+        if (enableConnectProtocol) m.put(ENABLE_CONNECT_PROTOCOL, 1L);
         return m;
     }
 
@@ -164,6 +182,7 @@ public record Http2Settings(
         private int initialWindowSize;
         private int maxFrameSize;
         private long maxHeaderListSize;
+        private boolean enableConnectProtocol;
 
         private Builder(Http2Settings s) {
             headerTableSize = s.headerTableSize;
@@ -172,6 +191,7 @@ public record Http2Settings(
             initialWindowSize = s.initialWindowSize;
             maxFrameSize = s.maxFrameSize;
             maxHeaderListSize = s.maxHeaderListSize;
+            enableConnectProtocol = s.enableConnectProtocol;
         }
 
         public Builder headerTableSize(long v) {
@@ -204,9 +224,15 @@ public record Http2Settings(
             return this;
         }
 
+        public Builder enableConnectProtocol(boolean v) {
+            enableConnectProtocol = v;
+            return this;
+        }
+
         public Http2Settings build() {
             return new Http2Settings(
-                    headerTableSize, enablePush, maxConcurrentStreams, initialWindowSize, maxFrameSize, maxHeaderListSize);
+                    headerTableSize, enablePush, maxConcurrentStreams, initialWindowSize, maxFrameSize, maxHeaderListSize,
+                    enableConnectProtocol);
         }
     }
 }
