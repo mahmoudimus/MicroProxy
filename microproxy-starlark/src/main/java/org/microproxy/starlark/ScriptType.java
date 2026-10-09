@@ -69,11 +69,18 @@ final class ScriptType extends StarlarkType {
             .put("payload", BODY)
             .buildOrThrow(), true);
 
+    static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
+            "kind", Types.STR,
+            "status", Types.INT,
+            "host", Types.union(Types.STR, Types.NONE),
+            "message", Types.STR), false);
+
     static final TypeConstructor REQUEST_CONSTRUCTOR = Types.wrapType("Request", REQUEST);
     static final TypeConstructor RESPONSE_CONSTRUCTOR = Types.wrapType("Response", RESPONSE);
     static final TypeConstructor HEADERS_CONSTRUCTOR = Types.wrapType("Headers", HEADERS);
     static final TypeConstructor CONTEXT_CONSTRUCTOR = Types.wrapType("Context", CONTEXT);
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
+    static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
 
     private final String name;
     private final Class<?> javaClass;

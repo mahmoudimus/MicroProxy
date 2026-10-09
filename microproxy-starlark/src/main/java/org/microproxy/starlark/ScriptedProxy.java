@@ -17,6 +17,7 @@ import org.microproxy.ClientDetails;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -63,10 +64,15 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *   <li>{@code on_websocket_frame(req, frame, ctx)}: for each frame of an upgraded WebSocket
  *       connection, in both directions. Assign {@code frame.text} or {@code frame.payload} to
  *       change it; return {@code False} to drop it, or {@code None} to forward it.
+ *   <li>{@code on_failure(req, failure, ctx)}: when the proxy has to answer the request itself
+ *       (the server's name did not resolve, the connection was refused, the server timed out,
+ *       ...). Return {@code response(...)} to answer, or {@code None} to leave it to the {@link
+ *       org.microproxy.FailureResponder} or the default answer.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm}
- * declines interception and a failing {@code upstream} rejects the request with {@code 502}. When
+ * declines interception, a failing {@code upstream} rejects the request with {@code 502}, and a
+ * failing {@code on_failure} leaves the answer to the responder or the default. When
  * the script is a file it is re-read when it changes (checked at most once a second); a version
  * that does not compile is logged and the previous one stays in use.
  */
@@ -188,13 +194,13 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
         StarlarkScript s = script();
         if (s.defines("on_websocket_frame")) {
-            return new FrameScriptFilters(s, flowContext);
+            return new FrameScriptFilters(s, originalRequest, flowContext);
         }
         if (!s.defines("on_request") && !s.defines("on_response") && !s.defines("allow_mitm")
-                && !s.defines("buffer_request")) {
+                && !s.defines("buffer_request") && !s.defines("on_failure") && !s.defines("authenticate")) {
             return null;
         }
-        return new ScriptFilters(s, flowContext);
+        return new ScriptFilters(s, originalRequest, flowContext);
     }
 
     /**
@@ -205,8 +211,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         /** Frames from both directions arrive concurrently but share ctx.vars. */
         private final ReentrantLock frameLock = new ReentrantLock();
 
-        FrameScriptFilters(StarlarkScript s, FlowContext flow) {
-            super(s, flow);
+        FrameScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
+            super(s, original, flow);
         }
 
         @Override
@@ -238,10 +244,13 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         final Mutability mu = Mutability.create("request");
         final ScriptContext ctx;
         private final boolean secure;
+        /** A copy of the request as it arrived, for hooks that may run before clientToProxyRequest. */
+        private final HttpRequest original;
         private ScriptRequest req;
 
-        ScriptFilters(StarlarkScript s, FlowContext flow) {
+        ScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
             this.s = s;
+            this.original = original;
             this.secure = flow.getClientSslSession() != null;
             this.ctx = new ScriptContext(flow.getClientAddress(), flow.getClientDetails().getUserName(),
                     flow.getConnectionId(), secure, mu);
@@ -335,9 +344,29 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             }
         }
 
+        @Override
+        public HttpResponse proxyToServerFailure(ProxyFailure failure) {
+            if (!s.defines("on_failure")) return null;
+            try {
+                Object r = s.call("on_failure", mu, request(), new ScriptFailure(failure), ctx);
+                if (r instanceof ScriptResponse res) return res.response();
+                if (r != Starlark.NONE) {
+                    throw Starlark.errorf("on_failure must return None or response(...), not %s", Starlark.type(r));
+                }
+            } catch (EvalException e) {
+                // Falls through to the FailureResponder or the default: a failure stays a failure.
+                LOG.log(Level.WARNING, s.name() + ": on_failure failed; sending the default answer: "
+                        + e.getMessageWithStack());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }
+
         ScriptRequest request() {
-            return req != null ? req
-                    : new ScriptRequest(new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/"), secure, true);
+            if (req != null) return req;
+            HttpRequest r = original != null ? original : new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+            return new ScriptRequest(r, secure, true);
         }
 
         private FullHttpResponse failed(String hook, EvalException e) {
