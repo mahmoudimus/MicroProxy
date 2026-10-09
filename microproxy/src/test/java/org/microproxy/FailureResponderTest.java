@@ -343,6 +343,34 @@ class FailureResponderTest {
     }
 
     @Test
+    void aBugWhileTheServerConnectionIsInUseIsReportedOnBothSidesAndClosesTheConnection() throws Exception {
+        List<Throwable> clientSide = new CopyOnWriteArrayList<>();
+        HttpServer origin = TestSupport.origin(TestSupport.fixed(200, "fine"));
+        try {
+            HttpFilters buggy = HttpFilters.builder().onResponse(res -> {
+                throw new IllegalStateException("filter bug");
+            }).build();
+            HttpProxyServer proxy = proxies.start(bootstrap().withFailureResponder(responder)
+                    .withFiltersSource((request, ctx) -> buggy)
+                    .plusActivityTracker(new ActivityTrackerAdapter() {
+                        @Override
+                        public void connectionExceptionCaught(FlowContext ctx, Throwable cause) {
+                            clientSide.add(cause);
+                        }
+                    }));
+            String reply = TestSupport.rawExchange(proxy.getListenAddress(),
+                    "GET " + TestSupport.url(origin, "/") + " HTTP/1.1\r\nHost: x\r\n\r\n");
+            assertEquals("", reply, "the connection closes without an answer");
+            for (int i = 0; i < 100 && clientSide.isEmpty(); i++) Thread.sleep(10);
+            assertInstanceOf(IllegalStateException.class, serverFailures.causes.getFirst());
+            assertInstanceOf(IllegalStateException.class, clientSide.getFirst());
+            assertTrue(failures.isEmpty(), "a bug is no ProxyFailure");
+        } finally {
+            origin.stop(0);
+        }
+    }
+
+    @Test
     void connectFailuresAreAnsweredForConnectRequestsToo() throws Exception {
         HttpProxyServer proxy = withResponder();
         int port = closedPort();
