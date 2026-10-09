@@ -13,7 +13,8 @@ import org.microproxy.HttpFiltersBuilder.Body;
  * this interface replaces the guess with an answer per instance: the proxy relays every stream
  * {@link #sees} declines as raw bytes, and the hooks then receive only heads.
  *
- * <p>{@link HttpFiltersBuilder.Built} implements it.
+ * <p>{@link HttpFiltersBuilder.Built} and {@link org.microproxy.extras.HttpLogger}'s filters
+ * implement it.
  */
 public interface SelectiveFilters extends HttpFilters {
 

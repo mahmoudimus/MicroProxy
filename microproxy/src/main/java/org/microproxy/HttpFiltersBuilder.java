@@ -7,6 +7,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.http.HttpContent;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
@@ -46,7 +47,7 @@ public final class HttpFiltersBuilder {
         WEBSOCKET_FRAMES,
         /**
          * WebSocket frames, only watched ({@link HttpFilters#webSocketFrameReceived(WebSocketFrame,
-         * boolean)}); the upgrade is left alone.
+         * boolean)}), such as an {@link HttpLogger} logging frames; the upgrade is left alone.
          */
         OBSERVED_WEBSOCKET_FRAMES
     }
@@ -63,6 +64,7 @@ public final class HttpFiltersBuilder {
     private BooleanSupplier allowMitm;
     private int requestBuffer;
     private int responseBuffer;
+    private HttpLogger logger;
 
     HttpFiltersBuilder() {}
 
@@ -159,6 +161,23 @@ public final class HttpFiltersBuilder {
         return this;
     }
 
+    /**
+     * Logs each exchange with {@code logger}, around these hooks: requests as the client sent them
+     * (before {@link #onRequest}) and as forwarded (after {@link #beforeSending}), responses as the
+     * server sent them (before {@link #onResponse}) and as delivered (after {@link
+     * #beforeResponding}). Bodies are only parsed when the logger's level needs them.
+     *
+     * <p>The logger keeps state per exchange, so the built filters must be used as their own
+     * source, which binds them to each request: {@code withFiltersSource(built)}, {@code
+     * plusFiltersSource(built)} or a member of an {@link HttpFiltersChain}. Returned from a lambda
+     * source instead, they run their hooks but log nothing (with one warning).
+     */
+    public HttpFiltersBuilder log(HttpLogger logger) {
+        if (this.logger != null) throw new IllegalStateException("a logger is already set");
+        this.logger = Objects.requireNonNull(logger);
+        return this;
+    }
+
     public Built build() {
         return new Built(this);
     }
@@ -186,8 +205,15 @@ public final class HttpFiltersBuilder {
         };
     }
 
-    /** Filters made by {@link HttpFiltersBuilder}. */
-    public static final class Built implements SelectiveFilters {
+    /**
+     * Filters made by {@link HttpFiltersBuilder}. They are also a {@link HttpFiltersSource} that
+     * returns them for every request (bound to the exchange when a {@linkplain #log logger} is
+     * set), so {@code withFiltersSource(built)} works.
+     */
+    public static final class Built implements SelectiveFilters, HttpFiltersSource {
+        private static final System.Logger LOG = System.getLogger(Built.class.getName());
+        private static volatile boolean warnedUnbound;
+
         private final Function<HttpRequest, HttpResponse> onRequest;
         private final Consumer<HttpContent> onRequestBody;
         private final Function<HttpRequest, HttpResponse> beforeSending;
@@ -200,6 +226,9 @@ public final class HttpFiltersBuilder {
         private final BooleanSupplier allowMitm;
         private final int requestBuffer;
         private final int responseBuffer;
+        private final HttpLogger logger;
+        /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
+        private final SelectiveFilters logged;
 
         private Built(HttpFiltersBuilder b) {
             onRequest = b.onRequest;
@@ -214,6 +243,37 @@ public final class HttpFiltersBuilder {
             allowMitm = b.allowMitm;
             requestBuffer = b.requestBuffer;
             responseBuffer = b.responseBuffer;
+            logger = b.logger;
+            logged = null;
+        }
+
+        /** {@code base}'s hooks, logging one exchange with {@code logged}. */
+        private Built(Built base, SelectiveFilters logged) {
+            onRequest = base.onRequest;
+            onRequestBody = base.onRequestBody;
+            beforeSending = base.beforeSending;
+            onResponse = base.onResponse;
+            onResponseBody = base.onResponseBody;
+            beforeResponding = base.beforeResponding;
+            onFailure = base.onFailure;
+            onWebSocketFrame = base.onWebSocketFrame;
+            resolver = base.resolver;
+            allowMitm = base.allowMitm;
+            requestBuffer = base.requestBuffer;
+            responseBuffer = base.responseBuffer;
+            logger = base.logger;
+            this.logged = logged;
+        }
+
+        /**
+         * These filters, for any request. With a {@linkplain HttpFiltersBuilder#log logger}, a copy
+         * bound to this exchange (or these filters alone when the logger skips the request).
+         */
+        @Override
+        public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
+            if (logger == null || logged != null) return this;
+            SelectiveFilters exchange = logger.filterRequest(originalRequest, flowContext);
+            return exchange == null ? this : new Built(this, exchange);
         }
 
         /**
@@ -222,12 +282,13 @@ public final class HttpFiltersBuilder {
          */
         @Override
         public boolean sees(Body body) {
-            return switch (body) {
+            boolean own = switch (body) {
                 case REQUEST -> onRequestBody != null;
                 case RESPONSE -> onResponseBody != null;
                 case WEBSOCKET_FRAMES -> onWebSocketFrame != null;
                 case OBSERVED_WEBSOCKET_FRAMES -> false;
             };
+            return own || logged != null && logged.sees(body);
         }
 
         @Override
@@ -242,6 +303,13 @@ public final class HttpFiltersBuilder {
 
         @Override
         public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+            if (logged != null) {
+                logged.clientToProxyRequest(httpObject);
+            } else if (logger != null && httpObject instanceof HttpRequest && !warnedUnbound) {
+                warnedUnbound = true;
+                LOG.log(System.Logger.Level.WARNING, "filters built with log(...) were used without being bound to"
+                        + " each request; pass them to withFiltersSource or plusFiltersSource to log");
+            }
             return switch (httpObject) {
                 case HttpRequest request -> onRequest == null ? null : onRequest.apply(request);
                 case HttpContent piece -> {
@@ -254,13 +322,27 @@ public final class HttpFiltersBuilder {
 
         @Override
         public HttpResponse proxyToServerRequest(HttpObject httpObject) {
-            return httpObject instanceof HttpRequest request && beforeSending != null
+            HttpResponse answer = httpObject instanceof HttpRequest request && beforeSending != null
                     ? beforeSending.apply(request) : null;
+            if (answer == null && logged != null) logged.proxyToServerRequest(httpObject);
+            return answer;
+        }
+
+        @Override
+        public void proxyToServerRequestSending() {
+            if (logged != null) logged.proxyToServerRequestSending();
+        }
+
+        @Override
+        public void proxyToServerRequestSent() {
+            if (logged != null) logged.proxyToServerRequestSent();
         }
 
         @Override
         public HttpObject serverToProxyResponse(HttpObject httpObject) {
-            return switch (httpObject) {
+            HttpObject o = logged == null ? httpObject : logged.serverToProxyResponse(httpObject);
+            return switch (o) {
+                case null -> null;
                 case HttpResponse response -> onResponse == null ? response : onResponse.apply(response);
                 case HttpContent piece -> onResponseBody == null ? piece : onResponseBody.apply(piece);
                 case HttpRequest request -> request;
@@ -268,14 +350,40 @@ public final class HttpFiltersBuilder {
         }
 
         @Override
+        public void serverToProxyResponseTimedOut() {
+            if (logged != null) logged.serverToProxyResponseTimedOut();
+        }
+
+        @Override
+        public void serverToProxyResponseReceiving() {
+            if (logged != null) logged.serverToProxyResponseReceiving();
+        }
+
+        @Override
+        public void serverToProxyResponseReceived() {
+            if (logged != null) logged.serverToProxyResponseReceived();
+        }
+
+        @Override
         public HttpObject proxyToClientResponse(HttpObject httpObject) {
-            return httpObject instanceof HttpResponse response && beforeResponding != null
+            HttpObject o = httpObject instanceof HttpResponse response && beforeResponding != null
                     ? beforeResponding.apply(response) : httpObject;
+            return logged == null || o == null ? o : logged.proxyToClientResponse(o);
+        }
+
+        @Override
+        public void proxyToClientResponseSent(HttpResponse response, ResponseSource source) {
+            if (logged != null) logged.proxyToClientResponseSent(response, source);
         }
 
         @Override
         public HttpResponse proxyToServerFailure(ProxyFailure failure) {
             return onFailure == null ? null : onFailure.apply(failure);
+        }
+
+        @Override
+        public void webSocketFrameReceived(WebSocketFrame frame, boolean fromClient) {
+            if (logged != null) logged.webSocketFrameReceived(frame, fromClient);
         }
 
         @Override
