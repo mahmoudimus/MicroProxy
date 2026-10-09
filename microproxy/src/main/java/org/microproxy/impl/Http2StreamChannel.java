@@ -221,8 +221,10 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
             writeFull(response, full, bodyAllowed);
             return;
         }
-        this.bodyAllowed = bodyAllowed;
-        sendHead(response, !bodyAllowed);
+        // A declared empty body ends the stream with the head: a response that is all headers
+        // (such as gRPC's Trailers-Only) reaches the client as one HEADERS frame, as it was sent.
+        this.bodyAllowed = bodyAllowed && !"0".equals(response.headers().get(HttpHeaderNames.CONTENT_LENGTH));
+        sendHead(response, !this.bodyAllowed);
     }
 
     @Override
