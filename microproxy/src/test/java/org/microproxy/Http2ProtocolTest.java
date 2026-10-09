@@ -360,4 +360,44 @@ class Http2ProtocolTest {
             }
         }
     }
+
+    @Test
+    void framesAfterTheClientResetAStreamAreStreamClosed() throws Exception {
+        start(Http2Options.DEFAULT);
+        try (H2TestClient h2 = connect().handshake()) {
+            h2.headers(1, h2.request("POST", "/slow"), false);
+            h2.rst(1, ErrorCode.CANCEL);
+            // RFC 9113 section 5.1: a frame other than PRIORITY after RST_STREAM is a stream error.
+            h2.data(1, "late".getBytes(StandardCharsets.UTF_8), false);
+            assertEquals(ErrorCode.STREAM_CLOSED, h2.awaitReset(1).error());
+            // Answered once: more late frames are ignored, and the connection goes on.
+            h2.data(1, "later".getBytes(StandardCharsets.UTF_8), true);
+            h2.get(3, "/after");
+            assertEquals(200, h2.response(3).status());
+        }
+    }
+
+    @Test
+    void headersOnAHalfClosedStreamAreStreamClosed() throws Exception {
+        start(Http2Options.DEFAULT);
+        try (H2TestClient h2 = connect().handshake()) {
+            h2.headers(1, h2.request("GET", "/slow"), true);
+            // A complete request header block again, where only nothing (or a reset) may follow.
+            h2.headers(1, h2.request("GET", "/slow"), true);
+            assertEquals(ErrorCode.STREAM_CLOSED, h2.awaitReset(1).error());
+        }
+    }
+
+    @Test
+    void aStreamThatDependsOnItselfIsMalformed() throws Exception {
+        start(Http2Options.DEFAULT);
+        try (H2TestClient h2 = connect().handshake()) {
+            byte[] block = h2.encoder.encode(h2.request("GET", "/self"));
+            h2.writer.writeFrame(new Frame.Headers(1, block, true, true, new Frame.PrioritySpec(1, false, 16), 0));
+            h2.writer.flush();
+            assertEquals(ErrorCode.PROTOCOL_ERROR, h2.awaitReset(1).error());
+            h2.get(3, "/next");
+            assertEquals(200, h2.response(3).status());
+        }
+    }
 }

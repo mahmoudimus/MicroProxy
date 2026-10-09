@@ -73,6 +73,12 @@ final class Http2Connection extends Http2Endpoint {
 
     /** Streams recently reset or ended early, whose late frames are ignored rather than errors. */
     private static final int RECENTLY_CLOSED = 1024;
+    /** The proxy reset or ended the stream: frames the client sent meanwhile are ignored. */
+    private static final int CLOSED_HERE = 0;
+    /** The client reset the stream: a frame it sends after that is a stream error STREAM_CLOSED. */
+    private static final int RESET_BY_CLIENT = 1;
+    /** ... answered once with RST_STREAM STREAM_CLOSED; later frames are ignored. */
+    private static final int ANSWERED = 2;
     /** How long a connection that sent GOAWAY and has no streams waits for the client to close. */
     private static final long CLOSE_GRACE_NANOS = TimeUnit.SECONDS.toNanos(2);
 
@@ -109,9 +115,10 @@ final class Http2Connection extends Http2Endpoint {
 
     // Guarded by stateLock.
     private final Map<Integer, Http2StreamChannel> streams = new HashMap<>();
-    private final Map<Integer, Boolean> recentlyClosed = new LinkedHashMap<>(64, 0.75f, false) {
+    /** How each recently closed stream ended: {@link #CLOSED_HERE}, {@link #RESET_BY_CLIENT} or {@link #ANSWERED}. */
+    private final Map<Integer, Integer> recentlyClosed = new LinkedHashMap<>(64, 0.75f, false) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Boolean> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) {
             return size() > RECENTLY_CLOSED;
         }
     };
@@ -310,15 +317,25 @@ final class Http2Connection extends Http2Endpoint {
         }
         Http2StreamChannel existing;
         boolean recent;
+        boolean afterReset;
         int last;
         stateLock.lock();
         try {
             existing = streams.get(id);
             recent = recentlyClosed.containsKey(id);
+            afterReset = answerAfterReset(id);
             last = lastStreamId;
             if (existing == null && id > last) lastStreamId = id;
         } finally {
             stateLock.unlock();
+        }
+        if (afterReset) {
+            writeReset(null, id, ErrorCode.STREAM_CLOSED);
+            return;
+        }
+        if (h.priority() != null && h.priority().streamDependency() == id && (existing != null || id > last)) {
+            // (Checked here, not by the reader, which leaves decoding the block to the caller.)
+            throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "stream depends on itself");
         }
         if (existing != null) {
             onTrailers(existing, h, fields, tooLarge);
@@ -372,6 +389,14 @@ final class Http2Connection extends Http2Endpoint {
     private void onTrailers(Http2StreamChannel s, Frame.Headers h, List<HeaderField> fields, HeaderListSizeException tooLarge)
             throws IOException {
         int id = s.id;
+        stateLock.lock();
+        try {
+            if (s.remoteClosed && !s.reset) {
+                throw Http2Exception.streamError(id, ErrorCode.STREAM_CLOSED, "HEADERS after END_STREAM");
+            }
+        } finally {
+            stateLock.unlock();
+        }
         if (tooLarge != null) throw tooLarge;
         if (!h.endStream()) {
             throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "trailers without END_STREAM");
@@ -401,6 +426,7 @@ final class Http2Connection extends Http2Endpoint {
         byte[] data = d.data();
         if (data.length == 0 && !d.endStream()) count(EMPTY_FRAME);
         int credit;
+        boolean afterReset = false;
         stateLock.lock();
         try {
             if ((id & 1) == 0 || id > lastStreamId) throw idleStream("DATA", id);
@@ -420,6 +446,7 @@ final class Http2Connection extends Http2Endpoint {
                 if (s == null && !recentlyClosed.containsKey(id)) {
                     throw Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, "DATA on closed stream " + id);
                 }
+                afterReset = answerAfterReset(id);
             } else {
                 try {
                     Http2Headers.checkContentLength(id, s.declaredLength, s.received + data.length, d.endStream());
@@ -445,6 +472,19 @@ final class Http2Connection extends Http2Endpoint {
             stateLock.unlock();
         }
         sendWindowUpdates(0, 0, credit);
+        if (afterReset) writeReset(null, id, ErrorCode.STREAM_CLOSED);
+    }
+
+    /**
+     * Whether a frame on stream {@code id} must be answered with RST_STREAM STREAM_CLOSED: the
+     * client reset the stream and then sent more (RFC 9113 section 5.1). Answered once per stream;
+     * frames on streams the proxy reset are ignored. Holds stateLock.
+     */
+    private boolean answerAfterReset(int id) {
+        Integer how = recentlyClosed.get(id);
+        if (how == null || how != RESET_BY_CLIENT) return false;
+        recentlyClosed.put(id, ANSWERED);
+        return true;
     }
 
     private void onSettings(Frame.Settings settings) throws IOException {
@@ -484,7 +524,7 @@ final class Http2Connection extends Http2Endpoint {
         try {
             if ((id & 1) == 0 || id > lastStreamId) throw idleStream("RST_STREAM", id);
             s = streams.get(id);
-            recentlyClosed.put(id, Boolean.TRUE);
+            recentlyClosed.putIfAbsent(id, s == null || !s.reset ? RESET_BY_CLIENT : CLOSED_HERE);
             if (s != null && !s.reset) {
                 early = !s.responseEnded;
                 s.markReset(new IOException("stream " + id + " reset by the client (" + rst.error() + ")"));
@@ -614,7 +654,7 @@ final class Http2Connection extends Http2Endpoint {
                 }
                 if (code != null) s.markReset(new IOException("stream " + s.id + " ended"));
             }
-            if (s.reset) recentlyClosed.put(s.id, Boolean.TRUE);
+            if (s.reset) recentlyClosed.putIfAbsent(s.id, CLOSED_HERE);
             if (streams.remove(s.id, s)) {
                 flow.removeStream(s.id);
                 pendingConnectionCredit += (int) s.buffered;
@@ -647,7 +687,7 @@ final class Http2Connection extends Http2Endpoint {
             code = !s.responseEnded ? ErrorCode.CANCEL : !s.remoteClosed ? ErrorCode.NO_ERROR : null;
             if (code == null) return;
             s.markReset(new IOException("stream " + s.id + " closed"));
-            recentlyClosed.put(s.id, Boolean.TRUE);
+            recentlyClosed.putIfAbsent(s.id, CLOSED_HERE);
             windowOpened.signalAll();
         } finally {
             stateLock.unlock();
@@ -662,7 +702,7 @@ final class Http2Connection extends Http2Endpoint {
         stateLock.lock();
         try {
             s = streams.get(id);
-            recentlyClosed.put(id, Boolean.TRUE);
+            recentlyClosed.putIfAbsent(id, CLOSED_HERE);
             if (s != null) {
                 // Already reset (by either side): no second RST_STREAM.
                 if (s.reset) return;
