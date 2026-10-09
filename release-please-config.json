@@ -6,7 +6,6 @@
   "packages": {
     ".": {
       "package-name": "microproxy",
-      "release-as": "0.1.0",
       "extra-files": ["README.md"]
     }
   }
