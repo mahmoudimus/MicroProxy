@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/mahmoudimus/MicroProxy/compare/v0.1.0...v0.1.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **build:** prepare signed artifacts for Maven Central ([634bac0](https://github.com/mahmoudimus/MicroProxy/commit/634bac02a42e0d9a2eca5d81f54a42ea3a02ad36))
+* **build:** preserve project URLs in published child POMs ([cc5bf5a](https://github.com/mahmoudimus/MicroProxy/commit/cc5bf5ade0b77ca2e94517653fe6d6dd590dc813))
+
 ## 0.1.0 (2026-10-09)
 
 
