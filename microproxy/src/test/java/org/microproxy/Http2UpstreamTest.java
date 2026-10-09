@@ -35,7 +35,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.microproxy.http.HttpObject;
 import org.microproxy.tls.CertificateAuthority;
@@ -48,19 +47,13 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
  */
 class Http2UpstreamTest {
 
-    static CertificateAuthority originCa;
-    static CertificateAuthority proxyCa;
+    static final CertificateAuthority originCa = CertificateAuthority.generate("H2 Upstream Origin CA");
+    static final CertificateAuthority proxyCa = CertificateAuthority.generate("H2 Upstream Proxy CA");
 
     private H2TestOrigin origin;
     private HttpsServer http1Origin;
     private HttpProxyServer proxy;
     private final List<AutoCloseable> closeables = new ArrayList<>();
-
-    @BeforeAll
-    static void authorities() {
-        originCa = CertificateAuthority.generate("H2 Upstream Origin CA");
-        proxyCa = CertificateAuthority.generate("H2 Upstream Proxy CA");
-    }
 
     @AfterEach
     void tearDown() throws Exception {
