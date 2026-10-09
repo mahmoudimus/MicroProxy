@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Check release tag and credentials
@@ -46,7 +46,7 @@ jobs:
           for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD MAVEN_GPG_PRIVATE_KEY MAVEN_GPG_PASSPHRASE; do
             [[ -n "${!name}" ]] || { echo "Missing Actions secret: $name"; exit 1; }
           done
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
@@ -65,14 +65,14 @@ jobs:
           if root.find("m:profiles/m:profile[m:id='central']", ns) is None:
               raise SystemExit('This release predates the Central publishing profile')
           PY
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
           server-id: central
-          server-username: MAVEN_CENTRAL_USERNAME
-          server-password: MAVEN_CENTRAL_PASSWORD
+          server-username-env-var: MAVEN_CENTRAL_USERNAME
+          server-password-env-var: MAVEN_CENTRAL_PASSWORD
       - name: Install Maven 3.9.16 for Central publishing
         # Maven 3.10 writes maven-metadata-local.xml into the publishing plugin's
         # bundle. Central rejects those files outside version directories.
