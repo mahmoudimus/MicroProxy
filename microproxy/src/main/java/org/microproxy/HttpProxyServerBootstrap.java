@@ -144,8 +144,9 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * Removes distributed tracing headers ({@link org.microproxy.http.HttpHeaderNames#TRACING_HEADERS}:
-     * {@code traceparent}, {@code tracestate}, {@code baggage}, B3, Jaeger, X-Ray, Cloud Trace,
-     * {@code grpc-trace-bin}, {@code sentry-trace}) from requests sent upstream, so clients' trace
+     * {@code traceparent}, {@code tracestate}, {@code baggage}, the B3 headers, {@code uber-trace-id},
+     * {@code X-Amzn-Trace-Id}, {@code X-Cloud-Trace-Context}, {@code grpc-trace-bin}, {@code
+     * sentry-trace}) from requests sent upstream, so clients' trace
      * ids and baggage do not leak to servers. Adds to {@link #plusStrippedRequestHeaders}.
      */
     default HttpProxyServerBootstrap withoutTracingHeadersUpstream() {

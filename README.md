@@ -244,7 +244,7 @@ Command-line flags override values from the file.
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Concurrency limiting | `ConcurrencyLimiter` caps the exchanges in progress per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics (see below) |
 | Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
-| Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3, Jaeger, X-Ray, Cloud Trace, Sentry) and any other named headers from requests sent upstream, after all filters (see below) |
+| Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3 and other common trace headers) and any other named headers from requests sent upstream, after all filters (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
 ### Filters from lambdas
