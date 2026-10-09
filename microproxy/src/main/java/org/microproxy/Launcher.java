@@ -16,6 +16,7 @@ import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.simd.Simd;
 import org.microproxy.tls.CertificateAuthority;
@@ -51,6 +52,9 @@ public final class Launcher {
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
               --activity-log-format <fmt>  access log: CLF, ELF, JSON, JSON_EXTENDED, SQUID,
                                            W3C, LTSV, CSV, HAPROXY
+              --log-http <level>           log whole requests and responses: basic, headers or
+                                           body (to the System.Logger org.microproxy.http)
+              --log-http-json              write --log-http as JSON lines (headers if no level)
               --shared-pool                share server connections between clients
               --cache-dir <dir>            cache responses on disk (RFC 9111); survives restarts
               --cache-size <MB>            disk cache limit (default 1024)
@@ -118,6 +122,8 @@ public final class Launcher {
         long cacheMemoryMb = 0;
         boolean offline = false;
         Path warcDir = null;
+        HttpLogger.Level logHttp = null;
+        boolean logHttpJson = false;
         List<AutoCloseable> resources = new ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
@@ -164,6 +170,8 @@ public final class Launcher {
                     dnssecResolver = value(queue, arg);
                 }
                 case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(logFormat(value(queue, arg))));
+                case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
+                case "--log-http-json" -> logHttpJson = true;
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
                 case "--cache-dir" -> cacheDir = Path.of(value(queue, arg));
                 case "--cache-size" -> cacheSizeMb = longValue(queue, arg);
@@ -207,6 +215,19 @@ public final class Launcher {
             bootstrap.withFiltersSource(HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
             resources.add(recorder);
             console.println("Recording WARC files in " + warcDir.toAbsolutePath());
+        }
+        if (logHttp != null || logHttpJson) {
+            HttpLogger fromConfig = findHttpLogger(bootstrap.getFiltersSource());
+            HttpLogger.Level level = logHttp != null ? logHttp
+                    : fromConfig != null ? fromConfig.level() : HttpLogger.Level.HEADERS;
+            HttpLogger.Format format = logHttpJson ? HttpLogger.Format.JSON
+                    : fromConfig != null ? fromConfig.format() : HttpLogger.Format.TEXT;
+            // First among the filters, replacing one from the properties file.
+            bootstrap.withFiltersSource(HttpFiltersChain.of(HttpLogger.builder().level(level).format(format).build(),
+                    withoutHttpLoggers(bootstrap.getFiltersSource())));
+            console.println("Logging requests and responses (" + level.name().toLowerCase(Locale.ROOT)
+                    + (format == HttpLogger.Format.JSON ? ", JSON" : "") + ") to the System.Logger "
+                    + HttpLogger.LOGGER_NAME);
         }
         if (cacheDir != null || cacheMemoryMb > 0) {
             HttpCache.Builder cache = HttpCache.builder().offline(offline);
@@ -264,6 +285,33 @@ public final class Launcher {
             throw new IllegalArgumentException("unknown --activity-log-format: " + name + "; expected one of "
                     + java.util.Arrays.toString(LogFormat.values()));
         }
+    }
+
+    private static HttpLogger.Level logHttpLevel(String name) {
+        try {
+            return HttpLogger.Level.valueOf(name.strip().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("unknown --log-http: " + name + "; expected basic, headers or body");
+        }
+    }
+
+    private static HttpLogger findHttpLogger(HttpFiltersSource source) {
+        if (source instanceof HttpLogger logger) return logger;
+        if (source instanceof HttpFiltersChain chain) {
+            for (HttpFiltersSource s : chain.sources()) {
+                if (s instanceof HttpLogger logger) return logger;
+            }
+        }
+        return null;
+    }
+
+    private static HttpFiltersSource withoutHttpLoggers(HttpFiltersSource source) {
+        if (source instanceof HttpLogger) return null;
+        if (source instanceof HttpFiltersChain chain) {
+            return HttpFiltersChain.of(chain.sources().stream().filter(s -> !(s instanceof HttpLogger))
+                    .toArray(HttpFiltersSource[]::new));
+        }
+        return source;
     }
 
     private static String stripExtension(String name) {

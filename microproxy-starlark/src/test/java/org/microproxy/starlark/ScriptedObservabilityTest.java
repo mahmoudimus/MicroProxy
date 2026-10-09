@@ -23,6 +23,7 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
 import org.microproxy.WebSocketTestSupport;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.WebSocketFrame;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
@@ -70,6 +71,27 @@ class ScriptedObservabilityTest {
         HttpResponse<String> changed = get(client(proxy), url(origin, "/restatus"));
         assertEquals(299, changed.statusCode());
         assertEquals("server 200", header(changed, "x-after"));
+    }
+
+    @Test
+    void anHttpLoggerChainedBeforeAScriptShowsWhatTheScriptChanged() throws Exception {
+        origin = origin(echo());
+        List<String> log = new java.util.concurrent.CopyOnWriteArrayList<>();
+        ScriptedProxy script = script("""
+                def on_request(req, ctx):
+                    req.headers["X-Script"] = "1"
+
+                def on_response(req, res, ctx):
+                    res.headers["X-Scripted"] = "yes"
+                """);
+        HttpLogger logger = HttpLogger.builder().level(HttpLogger.Level.HEADERS).sink(log::add).build();
+        proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(HttpFiltersChain.of(logger, script)).start();
+        assertEquals("yes", header(get(client(proxy), url(origin, "/")), "x-scripted"));
+        for (int i = 0; i < 200 && log.size() < 2; i++) Thread.sleep(10);
+        assertEquals(2, log.size(), log.toString());
+        assertTrue(log.get(0).contains("] + X-Script: 1\n"), log.get(0));
+        assertTrue(log.get(1).contains("] <-- delivered as HTTP/1.1 200 OK\n"), log.get(1));
+        assertTrue(log.get(1).contains("] + X-Scripted: yes\n"), log.get(1));
     }
 
     @Test

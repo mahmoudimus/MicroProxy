@@ -41,6 +41,7 @@ import org.microproxy.cache.DiskCacheStore;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.HttpMethod;
@@ -111,8 +112,8 @@ class LauncherTest {
                 "--throttle",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
-                "--dnssec", "--dnssec-resolver", "--activity-log-format", "--shared-pool", "--cache-dir",
-                "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
+                "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
+                "--shared-pool", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
@@ -157,7 +158,7 @@ class LauncherTest {
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
         "--proxy-alias", "--throttle", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
-        "--dnssec-resolver", "--activity-log-format", "--cache-dir", "--cache-size", "--cache-memory",
+        "--dnssec-resolver", "--activity-log-format", "--log-http", "--cache-dir", "--cache-size", "--cache-memory",
         "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--port", "0", flag));
@@ -458,6 +459,68 @@ class LauncherTest {
         }
     }
 
+    @Test
+    void logHttpInstallsAnHttpLoggerFirstAmongTheFilters(@TempDir Path dir) throws IOException {
+        HttpLogger body = assertInstanceOf(HttpLogger.class, view("--log-http", "BODY").filtersSource());
+        assertEquals(HttpLogger.Level.BODY, body.level());
+        assertEquals(HttpLogger.Format.TEXT, body.format());
+        assertTrue(console.toString(StandardCharsets.UTF_8)
+                .contains("Logging requests and responses (body) to the System.Logger org.microproxy.http"));
+
+        HttpLogger json = assertInstanceOf(HttpLogger.class, view("--log-http-json").filtersSource());
+        assertEquals(HttpLogger.Level.HEADERS, json.level(), "JSON alone logs headers");
+        assertEquals(HttpLogger.Format.JSON, json.format());
+        assertEquals(HttpLogger.Level.BASIC,
+                ((HttpLogger) view("--log-http-json", "--log-http", "basic").filtersSource()).level());
+
+        HttpFiltersChain chain = assertInstanceOf(HttpFiltersChain.class,
+                view("--warc-dir", dir.resolve("warc").toString(), "--log-http", "headers").filtersSource());
+        assertInstanceOf(HttpLogger.class, chain.sources().get(0));
+        assertInstanceOf(WarcRecorder.class, chain.sources().get(1));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--log-http", "loud"));
+        assertEquals("unknown --log-http: loud; expected basic, headers or body", e.getMessage());
+    }
+
+    @Test
+    void logHttpWritesToTheSystemLogger() throws Exception {
+        java.util.logging.Logger jul = java.util.logging.Logger.getLogger(HttpLogger.LOGGER_NAME);
+        List<String> records = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.logging.Handler handler = new java.util.logging.Handler() {
+            @Override
+            public void publish(java.util.logging.LogRecord r) {
+                records.add(r.getLevel() + " " + r.getMessage());
+            }
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
+        };
+        // The tests' logging.properties only lets warnings through: turn this logger on, as a
+        // java.util.logging configuration with "org.microproxy.http.level = INFO" would.
+        java.util.logging.Level level = jul.getLevel();
+        boolean parents = jul.getUseParentHandlers();
+        jul.setLevel(java.util.logging.Level.INFO);
+        jul.setUseParentHandlers(false);
+        jul.addHandler(handler);
+        try {
+            HttpServer origin = origin(TestSupport.fixed(200, "logged"));
+            HttpProxyServer proxy = launch("--port", "0", "--log-http", "headers");
+            assertEquals("logged", get(client(proxy), url(origin, "/l")).body());
+            for (int i = 0; i < 200 && records.size() < 2; i++) Thread.sleep(10);
+            assertEquals(2, records.size(), records.toString());
+            assertTrue(records.get(0).startsWith("INFO [conn "), records.get(0));
+            assertTrue(records.get(0).contains("--> GET http://127.0.0.1:"), records.get(0));
+            assertTrue(records.get(1).contains("<-- 200 OK "), records.get(1));
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(level);
+            jul.setUseParentHandlers(parents);
+        }
+    }
+
     // --- MITM ----------------------------------------------------------------------------------
 
     @Test
@@ -615,11 +678,37 @@ class LauncherTest {
     }
 
     @Test
+    void propertiesConfigureTheHttpLoggerAndFlagsOverrideIt(@TempDir Path dir) throws IOException {
+        Path props = dir.resolve("log.properties");
+        Files.writeString(props, """
+                log_http=body
+                log_http_format=json
+                """);
+        HttpLogger logger = assertInstanceOf(HttpLogger.class, view("--config", props.toString()).filtersSource());
+        assertEquals(HttpLogger.Level.BODY, logger.level());
+        assertEquals(HttpLogger.Format.JSON, logger.format());
+
+        // The flag replaces the file's logger (one logger, not two), keeping the file's format.
+        logger = assertInstanceOf(HttpLogger.class,
+                view("--config", props.toString(), "--log-http", "basic").filtersSource());
+        assertEquals(HttpLogger.Level.BASIC, logger.level());
+        assertEquals(HttpLogger.Format.JSON, logger.format());
+
+        Files.writeString(props, "log_http=headers\n");
+        logger = assertInstanceOf(HttpLogger.class, view("--config", props.toString()).filtersSource());
+        assertEquals(HttpLogger.Format.TEXT, logger.format());
+    }
+
+    @Test
     void badPropertyValuesAreRejected(@TempDir Path dir) throws IOException {
         Path props = dir.resolve("bad.properties");
         Files.writeString(props, "connect_timeout=soon\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
         Files.writeString(props, "activity_log_format=fancy\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+        Files.writeString(props, "log_http=loud\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+        Files.writeString(props, "log_http=body\nlog_http_format=xml\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
         Files.writeString(props, "max_header_size=0\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));

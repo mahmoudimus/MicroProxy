@@ -33,6 +33,7 @@ import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 
 /** Default {@link HttpProxyServerBootstrap}. */
@@ -206,6 +207,22 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("activity_log_format")) {
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
                     p.getProperty("activity_log_format").strip().toUpperCase(Locale.ROOT))));
+        }
+        if (p.containsKey("log_http")) {
+            String level = p.getProperty("log_http").strip();
+            String format = p.getProperty("log_http_format", "text").strip();
+            HttpLogger logger;
+            try {
+                logger = HttpLogger.builder()
+                        .level(HttpLogger.Level.valueOf(level.toUpperCase(Locale.ROOT)))
+                        .format(HttpLogger.Format.valueOf(format.toUpperCase(Locale.ROOT)))
+                        .build();
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("unknown log_http=" + level + " or log_http_format=" + format
+                        + "; expected basic, headers or body, and text or json");
+            }
+            // First among the filters, so it sees requests as clients sent them.
+            withFiltersSource(HttpFiltersChain.of(logger, filtersSource));
         }
         if (p.containsKey("cache_dir") || p.containsKey("cache_memory_mb") || bool(p, "offline")) {
             HttpCache.Builder cache = HttpCache.builder().offline(bool(p, "offline"));
