@@ -489,6 +489,11 @@ final class Builtins {
         }
     }
 
+    /**
+     * Hashes and HMACs as lowercase hex, and {@code equal}, which compares secrets in constant
+     * time: {@code ==} stops at the first differing character, so the time a comparison takes
+     * tells an attacker how much of a guessed token was right.
+     */
     @StarlarkBuiltin(name = "digest", doc = "Hashes and HMACs, returned as lowercase hex.")
     public static final class DigestModule implements StarlarkValue {
 
@@ -518,6 +523,16 @@ final class Builtins {
         @StarlarkMethod(name = "sha512", doc = "SHA-512 of data, as hex.", parameters = {@Param(name = "data")})
         public String sha512(Object data) throws EvalException {
             return hash("SHA-512", data);
+        }
+
+        @StarlarkMethod(
+                name = "equal",
+                doc = "Whether a and b (bytes, or strings as UTF-8) are equal, in time that does not depend on "
+                        + "where they differ. Use it to compare secrets; compare digests of both sides so that "
+                        + "lengths do not leak either.",
+                parameters = {@Param(name = "a"), @Param(name = "b")})
+        public boolean equal(Object a, Object b) throws EvalException {
+            return MessageDigest.isEqual(bytes(a, "a"), bytes(b, "b"));
         }
 
         @StarlarkMethod(name = "hmac_sha256", doc = "HMAC-SHA256 of data with key, as hex.",
