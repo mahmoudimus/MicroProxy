@@ -444,12 +444,18 @@ final class Http2Connection {
                     throw Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, "DATA on closed stream " + id);
                 }
             } else {
+                try {
+                    Http2Headers.checkContentLength(id, s.declaredLength, s.received + data.length, d.endStream());
+                } catch (Http2Exception e) {
+                    // Malformed: the stream is reset and this frame dropped, its credit given back.
+                    pendingConnectionCredit += length;
+                    throw e;
+                }
                 // Padding is never read: it is credited back now.
                 int padding = length - data.length;
                 pendingConnectionCredit += padding;
                 s.unacked += padding;
                 s.received += data.length;
-                Http2Headers.checkContentLength(id, s.declaredLength, s.received, d.endStream());
                 if (data.length > 0) {
                     s.inbound.addLast(data);
                     s.buffered += data.length;

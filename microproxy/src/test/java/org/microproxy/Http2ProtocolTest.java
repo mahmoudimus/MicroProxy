@@ -237,6 +237,18 @@ class Http2ProtocolTest {
     }
 
     @Test
+    void dataBeyondTheContentLengthResetsTheStream() throws IOException {
+        start(Http2Options.DEFAULT);
+        try (H2TestClient h2 = connect().handshake()) {
+            h2.headers(1, h2.request("POST", "/cl", "content-length", "3"), false);
+            h2.data(1, "too long".getBytes(StandardCharsets.UTF_8), true);
+            assertEquals(ErrorCode.PROTOCOL_ERROR, h2.awaitReset(1).error());
+            h2.get(3, "/fine");
+            assertEquals("/fine", echoedUri(h2.response(3).text()));
+        }
+    }
+
+    @Test
     void evenStreamIdIsAConnectionError() throws IOException {
         start(Http2Options.DEFAULT);
         try (H2TestClient h2 = connect().handshake()) {
