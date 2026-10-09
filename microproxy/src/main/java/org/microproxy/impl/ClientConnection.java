@@ -291,8 +291,8 @@ final class ClientConnection implements Runnable {
         /** The request-target as the client sent it, before any rewriting. */
         final String originalUri;
         final HttpVersion clientVersion;
-        final Framing framing;
-        final HttpCodec.BodyReader body;
+        /** The request body, as the client sends it. */
+        final MessageBody body;
         final boolean clientKeepAlive;
         HttpFilters filters = NOOP;
         boolean responseStarted;
@@ -307,17 +307,16 @@ final class ClientConnection implements Runnable {
         /** The connect timeout for this exchange, once asked; -1 before. */
         int connectTimeoutMillis = -1;
 
-        Exchange(HttpRequest request, Framing framing, HttpCodec.BodyReader body, boolean clientKeepAlive) {
+        Exchange(HttpRequest request, MessageBody body, boolean clientKeepAlive) {
             this.request = request;
             this.originalUri = request.uri();
             this.clientVersion = request.protocolVersion();
-            this.framing = framing;
             this.body = body;
             this.clientKeepAlive = clientKeepAlive;
         }
 
         boolean bodyUnread() {
-            return !(request instanceof FullHttpRequest) && framing.hasBody() && !body.isDone();
+            return !(request instanceof FullHttpRequest) && body.hasBody() && !body.isDone();
         }
 
         /** The server address resolved ahead of connecting (LittleProxy compatibility). */
@@ -529,7 +528,7 @@ final class ClientConnection implements Runnable {
             return false;
         }
         Exchange ex = new Exchange(
-                request, framing, new HttpCodec.BodyReader(in, framing, server.limits),
+                request, new HttpCodec.BodyReader(in, framing, server.limits),
                 ProxyUtils.isClientKeepAlive(request));
 
         if (server.proxyAuthenticator != null) {
@@ -661,7 +660,7 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
-        boolean replayable = ex.request instanceof FullHttpRequest || !ex.framing.hasBody();
+        boolean replayable = ex.request instanceof FullHttpRequest || !ex.body.hasBody();
         for (int attempt = 0; ; attempt++) {
             if (conn == null) {
                 if (route == null) {
@@ -715,7 +714,7 @@ final class ClientConnection implements Runnable {
         if (chainedProxy != null) {
             chainedProxy.filterRequest(request);
         }
-        boolean streamingBody = !(request instanceof FullHttpRequest) && ex.framing.hasBody();
+        boolean streamingBody = !(request instanceof FullHttpRequest) && ex.body.hasBody();
         conn.inExchange = true;
         try {
             filters.proxyToServerRequestSending();
@@ -1835,11 +1834,11 @@ final class ClientConnection implements Runnable {
 
     private FullHttpRequest aggregateRequest(Exchange ex, int maxBytes) throws IOException {
         HttpRequest request = ex.request;
-        if (ex.framing.kind() == Framing.Kind.LENGTH && ex.framing.length() > maxBytes) {
+        if (ex.body.declaredLength() > maxBytes) {
             respondFailure(ex, new ProxyFailure.RequestTooLarge(maxBytes), false);
             return null;
         }
-        if (ex.framing.hasBody() && HttpUtil.is100ContinueExpected(request)) {
+        if (ex.body.hasBody() && HttpUtil.is100ContinueExpected(request)) {
             writer.writeHead(new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE), false);
         }
         request.headers().remove(HttpHeaderNames.EXPECT);
@@ -1861,7 +1860,7 @@ final class ClientConnection implements Runnable {
         if (trailers != null) {
             full.trailingHeaders().set(trailers);
         }
-        if (ex.framing.hasBody()) {
+        if (ex.body.hasBody()) {
             HttpUtil.setTransferEncodingChunked(full, false);
             HttpUtil.setContentLength(full, full.content().length);
         }
