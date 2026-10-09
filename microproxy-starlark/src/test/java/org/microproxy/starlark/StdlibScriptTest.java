@@ -25,6 +25,24 @@ import org.microproxy.thirdparty.starlark.eval.Mutability;
 /** Scripts that {@code load()} the standard library ported from starlarky. */
 class StdlibScriptTest {
 
+    /** The README's example. */
+    static final String SIGNED_LINKS = """
+            load("@stdlib//hmac", "hmac")
+            load("@stdlib//urllib/parse", "parse")
+
+            # SECRET, from --script-var(-file), signs links as hmac_sha256(SECRET, path + expires)
+            def on_request(req, ctx):
+                query = parse.parse_qs(req.query)
+                expires = query.get("expires", ["0"])[0]
+                signature = query.get("signature", [""])[0]
+                expected = hmac.new(bytes(SECRET), bytes(req.path + expires), "sha256").hexdigest()
+                if not hmac.compare_digest(signature, expected):
+                    return response(403, "bad signature\\n")
+                if int(expires) < time.now():
+                    return response(410, "link expired\\n")
+                return None
+            """;
+
     private static StarlarkScript compile(String source) throws ScriptException {
         return StarlarkScript.compile(source, "stdlib.star", StarlarkScript.Limits.DEFAULT);
     }
@@ -66,6 +84,36 @@ class StdlibScriptTest {
             if (proxy != null) proxy.abort();
             origin.stop(0);
         }
+    }
+
+    @Test
+    void readmeSignedLinks() throws Exception {
+        HttpServer origin = origin(echo());
+        HttpProxyServer proxy = null;
+        try {
+            ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inReadme(SIGNED_LINKS), "links.star")
+                    .constants(java.util.Map.of("SECRET", "s3cret"))
+                    .build();
+            proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(script).start();
+            long later = System.currentTimeMillis() / 1000 + 3600;
+            long earlier = System.currentTimeMillis() / 1000 - 3600;
+            assertEquals(200, get(client(proxy), url(origin, "/file?expires=" + later + "&signature="
+                    + hmacSha256("s3cret", "/file" + later))).statusCode());
+            assertEquals(410, get(client(proxy), url(origin, "/file?expires=" + earlier + "&signature="
+                    + hmacSha256("s3cret", "/file" + earlier))).statusCode());
+            assertEquals(403, get(client(proxy), url(origin, "/file?expires=" + later + "&signature="
+                    + hmacSha256("other", "/file" + later))).statusCode());
+            assertEquals(403, get(client(proxy), url(origin, "/file")).statusCode());
+        } finally {
+            if (proxy != null) proxy.abort();
+            origin.stop(0);
+        }
+    }
+
+    private static String hmacSha256(String key, String data) throws Exception {
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(key.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+        return java.util.HexFormat.of().formatHex(mac.doFinal(data.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
     private static String sha256(String s) throws Exception {

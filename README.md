@@ -639,6 +639,8 @@ bootstrap.start();
   not leak either.
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
+- More with `load()`: Python's `hashlib`, `hmac`, `re`, `urllib.parse`, `json`, `zlib`, ... (see
+  **Standard library** below).
 
 **Where a response came from, and how long it took.** `res.source` tells the server's responses
 from the others, like the `source` of the [access log](#access-logs), and `res.upstream_status`
@@ -818,6 +820,76 @@ type to an annotated function fail the call. `body` and `text` are typed `bytes 
 `str | None`, since a streamed body has neither; `ctx.user`, `res.source` and `failure.host` are
 `str | None`, `res.upstream_status` is `int | None`, and the fields of `ctx.timings` are
 `float | None`.
+
+**Standard library.** Scripts can `load()` a Python-compatible standard library, ported from
+[starlarky](https://github.com/verygoodsecurity/starlarky) and running on the JDK alone (no
+dependency besides the interpreter's Guava). Load a module by its label, `@stdlib//<module>` or
+`@vendor//<module>`, and name the bindings to take from it:
+
+```python
+load("@stdlib//hmac", "hmac")
+load("@stdlib//urllib/parse", "parse")
+
+# SECRET, from --script-var(-file), signs links as hmac_sha256(SECRET, path + expires)
+def on_request(req, ctx):
+    query = parse.parse_qs(req.query)
+    expires = query.get("expires", ["0"])[0]
+    signature = query.get("signature", [""])[0]
+    expected = hmac.new(bytes(SECRET), bytes(req.path + expires), "sha256").hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return response(403, "bad signature\n")
+    if int(expires) < time.now():
+        return response(410, "link expired\n")
+    return None
+```
+
+| Module | |
+|---|---|
+| `base64`, `binascii`, `codecs`, `struct`, `zlib` | Python's APIs over bytes (`zlib` on `java.util.zip`, including gzip and raw deflate streams) |
+| `hashlib`, `hmac` | `md5`, `sha1`, `sha224`, `sha256`, `sha384`, `sha512`, `sha512_224`, `sha512_256`, `sha3_224`…`sha3_512`, `new(name)`, `pbkdf2_hmac`; `hmac.new`/`digest`/`compare_digest` (the JDK's `MessageDigest` and `Mac`) |
+| `json` | `dumps`/`loads` and `encode`/`decode`/`indent` (the predeclared `json`, plus Python's names; keys are sorted) |
+| `re` | Python's `re`: `compile`, `match`, `search`, `fullmatch`, `findall`, `finditer`, `sub`/`subn`, `split`, `escape`, flags, match objects (see below) |
+| `urllib/parse`, `urllib/request` | `urlparse`, `urlsplit`, `urljoin`, `quote`, `unquote`, `urlencode`, `parse_qs`, ...; `Request` objects (no network access) |
+| `collections`, `dicts`, `enum`, `functools`, `itertools`, `operator`, `sets`, `types` | containers and functional helpers |
+| `string`, `textwrap`, `reprlib`, `csv`, `io` (`StringIO`, `BytesIO`) | text |
+| `math`, `random`, `uuid` | `random` and `uuid4` use `SecureRandom` (no seeding) |
+| `xml/etree/ElementTree` | parsing, building, `find`/`findall` with ElementPath, serializing (a pure-Starlark parser) |
+| `zipfile` | reading and writing archives in memory (stored and deflated; `bz2` is a stub) |
+| `builtins`, `larky`, `sys` | Python builtins that Starlark lacks (`builtins.bytes(s, "latin-1")`, ...), and starlarky's helpers (`larky.struct`, `larky.mutablestruct`, ...) |
+| `@vendor//option/result` | Rust-style `Ok`/`Error` results, which the library returns internally |
+| `@vendor//asserts`, `six`, `escapes`, `multidict`, `luhn` | test assertions, compatibility helpers, case-insensitive multi-dicts, Luhn checksums |
+
+What loading changes, and what it does not:
+
+- A module is compiled and run once per process, frozen, and shared by every script and
+  connection; loading it costs nothing after the first time. Its functions run in the calling
+  hook, within the hook's step and time limits, under the same sandbox (no files, network or
+  processes). A module's own top level is bounded too (200 million steps, 60 seconds).
+- A script that loads anything runs with Python's string semantics, which the library relies on:
+  `"%5.2f" % x` and the other printf flags, Unicode-aware `upper()`/`isalpha()`/..., Python's
+  bounds for `find`/`count`, and CPython's codec names for `bytes.decode`. Scripts without
+  `load` statements behave exactly as before.
+- The predeclared built-ins (`re`, `json`, `base64`, `digest`, ...) stay available without
+  `load`. A loaded name may hide one: after `load("@stdlib//json", "json")`, `json` is the
+  library's; `load("@stdlib//json", py_json="json")` keeps both.
+- Typed scripts are checked as usual; values from the library are untyped (`Any`).
+- Only the library can be loaded: `load("helpers.star", ...)` is an error, as are unknown modules
+  (the message lists the available ones) and cycles.
+- The library's `re` translates Python patterns to `java.util.regex`. Unlike starlarky's (RE2),
+  it supports look-ahead, look-behind, backreferences, atomic groups and possessive quantifiers;
+  conditional groups (`(?(1)a|b)`) are rejected. `\d`, `\w`, `\s` and `\b` are Unicode-aware
+  for str patterns (ASCII with `re.ASCII` or for bytes), and `.`, `^` and `$` treat only `\n` as
+  a line end, as in Python. Java's engine backtracks, so a pathological pattern can take
+  exponential time: matching is abandoned at the hook's deadline with
+  `re.error: regular expression ran past the deadline`. Matches on bytes are returned as str
+  (Latin-1), as in starlarky.
+
+Not included: starlarky's cryptography, JOSE/JWT, OpenSSL, OpenPGP and XML-signature modules
+(`Crypto`, `cryptography`, `jose`, `OpenSSL`, `OpenPGP`, `xmlsig`, `lxml`), which need
+BouncyCastle, Tink or WSS4J; `iso8583`, `jks` and the company-specific modules of its `vgs`
+namespace; and `hashlib`'s BLAKE2 and SHAKE, which the JDK lacks (`hashlib.blake2b(...)` fails
+with `unsupported hash type`). starlarky's own tests run in the build against the port
+(`StarlarkyStdlibTest`), with the few known differences listed there.
 
 **Errors and reloading.**
 
@@ -1066,6 +1138,8 @@ the `README.md` next to each copy:
 - The Java [Starlark](https://github.com/bazelbuild/bazel) interpreter from Bazel, as extended by
   [starlarky](https://github.com/verygoodsecurity/starlarky) (Apache-2.0), in
   `microproxy-starlark`.
+- starlarky's Larky runtime and Python-compatible standard library (Apache-2.0, with CPython and
+  ElementTree notices in some files), in `microproxy-starlark`.
 
 Besides LittleProxy, these projects contributed ideas only; no code was copied:
 
