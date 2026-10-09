@@ -26,6 +26,8 @@
     <modules>
         <!-- A standalone pure-Java Zstandard decoder; the proxy uses it when present. -->
         <module>zstd-decoder</module>
+        <!-- A standalone HTTP/2 frame codec and HPACK implementation. -->
+        <module>http2-codec</module>
         <!-- The proxy itself: no required runtime dependencies. -->
         <module>microproxy</module>
         <!-- Optional: script the proxy in Starlark. -->
@@ -53,6 +55,11 @@
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>zstd-decoder</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.mahmoudimus</groupId>
+                <artifactId>http2-codec</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
