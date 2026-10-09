@@ -82,6 +82,10 @@ public final class Launcher {
                                            default ./microproxy-ca.p12)
               --mitm-ca-password <pw>      key store password (default "microproxy")
               --mitm-trust-all             do not validate upstream server certificates
+              --http2                      serve HTTP/2 to clients on intercepted TLS (with --mitm;
+                                           needs the http2-codec jar on the class path)
+              --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
+                                           (default 100)
               --help                       show this help
             """;
 
@@ -141,6 +145,7 @@ public final class Launcher {
         HttpLogger.Level logHttp = null;
         boolean logHttpJson = false;
         int maxConcurrentPerClient = 0;
+        int http2MaxStreams = 0;
         List<AutoCloseable> resources = new ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
@@ -211,6 +216,8 @@ public final class Launcher {
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
                 case "--mitm-trust-all" -> mitmTrustAll = true;
+                case "--http2" -> bootstrap.withHttp2(true);
+                case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
                 default -> {
                     if (extensions.stream().noneMatch(e -> e.parseOption(arg, queue))) {
                         throw new IllegalArgumentException("unknown option: " + arg + "\n\n" + usage);
@@ -237,6 +244,9 @@ public final class Launcher {
             bootstrap.withManInTheMiddle(mitmTrustAll
                     ? new CertificateAuthorityMitmManager(ca, SslContexts.trustAll())
                     : new CertificateAuthorityMitmManager(ca));
+        }
+        if (http2MaxStreams > 0) {
+            bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
         }
         if (maxConcurrentPerClient > 0) {
             // In place of a limiter from the properties file, else before the other filters, so

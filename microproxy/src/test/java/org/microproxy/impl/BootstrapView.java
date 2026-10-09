@@ -61,6 +61,11 @@ public record BootstrapView(
                 b.maxHeaderSize, b.maxChunkSize, b.localAddress, b.allowRequestToOriginServer);
     }
 
+    /** Whether HTTP/2 is enabled ({@code withHttp2}). */
+    public static boolean http2(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;
+    }
+
     /** The headers removed from requests sent upstream, as configured. */
     public static List<String> strippedRequestHeaders(HttpProxyServerBootstrap bootstrap) {
         return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());

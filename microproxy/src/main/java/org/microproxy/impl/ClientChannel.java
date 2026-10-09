@@ -19,7 +19,8 @@ import org.microproxy.http.HttpResponseStatus;
  * <ul>
  *   <li>{@link Http1ClientChannel}: an HTTP/1.x connection, which carries its exchanges one after
  *       another and so serves them all through one channel.
- *   <li>A future HTTP/2 stream: one channel per stream, many at once on one connection.
+ *   <li>{@link Http2StreamChannel}: one HTTP/2 stream, one of many running at once on a
+ *       connection, each on its own thread.
  * </ul>
  *
  * <p>The methods are called in exchange order: {@link #requestBody} once the request head has been
@@ -34,6 +35,38 @@ interface ClientChannel {
 
     /** The record of the exchange in progress: its timings and upstream status, for trackers and filters. */
     ClientFlowContext flowContext();
+
+    /** Starts the exchange's log lines: {@code [conn <id>] } for HTTP/1, {@code [conn <id> stream <s>] } for HTTP/2. */
+    String logPrefix();
+
+    /**
+     * Whether this channel's exchanges run concurrently with others of the same client connection
+     * (HTTP/2 streams). Such an exchange takes a server connection of its own rather than the
+     * client connection's, and inherits the authentication of the session it belongs to.
+     */
+    boolean multiplexed();
+
+    /**
+     * Whether {@link #relay} can turn the exchange into a byte tunnel ({@code CONNECT}, {@code
+     * 101 Switching Protocols}). An HTTP/2 stream cannot: {@code CONNECT} there is answered with
+     * {@code 501}.
+     */
+    boolean supportsTunnels();
+
+    /**
+     * The exchange now uses {@code server}: a transport that sees the client cancel the exchange
+     * (an HTTP/2 RST_STREAM) closes it, so the exchange stops waiting on the server.
+     *
+     * @throws ClientConnection.ClientFailure if the client has already cancelled the exchange
+     */
+    void serverConnectionInUse(ServerConnection server) throws IOException;
+
+    /**
+     * The exchange is done with {@code server}, which may be reused. Returns false if the client
+     * cancelled the exchange meanwhile and its transport closed (or is closing) the connection,
+     * which then must not be reused.
+     */
+    boolean serverConnectionDone(ServerConnection server);
 
     // ---------------------------------------------------------------------------------------
     // The request

@@ -130,6 +130,31 @@ final class Http1ClientChannel implements ClientChannel {
     }
 
     @Override
+    public String logPrefix() {
+        return logPrefix;
+    }
+
+    @Override
+    public boolean multiplexed() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsTunnels() {
+        return true;
+    }
+
+    @Override
+    public void serverConnectionInUse(ServerConnection server) {
+        // A client that goes away is seen when the response is written to it.
+    }
+
+    @Override
+    public boolean serverConnectionDone(ServerConnection server) {
+        return true;
+    }
+
+    @Override
     public MessageBody requestBody(HttpRequest request) throws HttpParseException {
         requestVersion = request.protocolVersion();
         return new HttpCodec.BodyReader(in, Framing.forRequest(request), server.limits);

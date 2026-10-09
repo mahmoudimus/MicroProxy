@@ -27,6 +27,7 @@ import java.util.function.DoubleSupplier;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
+import org.microproxy.Http2Options;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
@@ -92,6 +93,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final String[] strippedRequestHeaders;
     /** Whether HTTP/3 alternatives are removed from Alt-Svc response headers. */
     final boolean stripAltSvcH3;
+    /** Whether intercepted TLS offers HTTP/2 (ALPN {@code h2}); the codec is known to be present. */
+    final boolean http2;
+    final Http2Options http2Options;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -103,6 +107,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private InetSocketAddress boundAddress;
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
+        if (b.http2 && !Http2Support.available()) {
+            // Fail at startup, not on the first client that asks for h2.
+            throw new IllegalStateException(Http2Support.MISSING);
+        }
         this.config = b;
         this.name = b.name;
         this.transparent = b.transparent;
@@ -140,6 +148,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
+        this.http2 = b.http2;
+        this.http2Options = b.http2Options;
     }
 
     public static HttpProxyServerBootstrap bootstrap() {
@@ -270,7 +280,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
         Tls.closeQuietly(serverSocket);
         for (ClientConnection c : connections) {
-            if (!graceful || c.isIdle()) c.close();
+            // Idle connections close now; busy ones finish what they are doing (HTTP/2 ones are
+            // sent GOAWAY and finish their open streams), for up to the graceful stop timeout.
+            if (graceful) {
+                c.stopGracefully();
+            } else {
+                c.close();
+            }
         }
         executor.shutdown();
         try {

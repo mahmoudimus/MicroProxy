@@ -194,6 +194,32 @@ public interface HttpProxyServerBootstrap {
         throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
     }
 
+    /**
+     * Serves HTTP/2 to clients on intercepted TLS ({@link #withManInTheMiddle}): the client
+     * handshake offers {@code h2} and {@code http/1.1} through ALPN, and a client that picks
+     * {@code h2} has each of its streams handled as an exchange of its own, concurrently, with the
+     * same filters, cache, authentication, failure answers and trackers as HTTP/1 requests.
+     * Requests reach servers as HTTP/1.1, each stream on a server connection of its own. Off by
+     * default; limits are set with {@link #withHttp2Options}.
+     *
+     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
+     * HTTP/2 enabled without it fails with {@link IllegalStateException}.
+     */
+    default HttpProxyServerBootstrap withHttp2(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /** The HTTP/2 limits configured so far (never null). */
+    default Http2Options getHttp2Options() {
+        return Http2Options.DEFAULT;
+    }
+
+    /** Limits for HTTP/2 connections (see {@link Http2Options}); null restores the defaults. */
+    default HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
     /** Global bandwidth limits for server traffic; 0 means unlimited. */

@@ -17,6 +17,7 @@ import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
+import org.microproxy.Http2Options;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpFiltersSourceAdapter;
@@ -88,6 +89,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
     /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
     Boolean altSvcH3Stripping;
+    /** Whether intercepted TLS offers HTTP/2. */
+    boolean http2;
+    Http2Options http2Options = Http2Options.DEFAULT;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -135,6 +139,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
         c.altSvcH3Stripping = altSvcH3Stripping;
+        c.http2 = http2;
+        c.http2Options = http2Options;
         return c;
     }
 
@@ -234,6 +240,21 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             plusStrippedRequestHeaders(p.getProperty("strip_request_headers").split(","));
         }
         if (p.containsKey("strip_alt_svc_h3")) withAltSvcH3Stripping(bool(p, "strip_alt_svc_h3"));
+        if (p.containsKey("http2")) withHttp2(bool(p, "http2"));
+        if (p.containsKey("http2_max_concurrent_streams") || p.containsKey("http2_initial_window_size")
+                || p.containsKey("http2_connection_window_size")) {
+            Http2Options.Builder h2 = http2Options.toBuilder();
+            if (p.containsKey("http2_max_concurrent_streams")) {
+                h2.maxConcurrentStreams(Integer.parseInt(p.getProperty("http2_max_concurrent_streams").strip()));
+            }
+            if (p.containsKey("http2_initial_window_size")) {
+                h2.initialWindowSize(Integer.parseInt(p.getProperty("http2_initial_window_size").strip()));
+            }
+            if (p.containsKey("http2_connection_window_size")) {
+                h2.connectionWindowSize(Integer.parseInt(p.getProperty("http2_connection_window_size").strip()));
+            }
+            withHttp2Options(h2.build());
+        }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
             withServerResolver(DnssecHostResolver.builder().resolver(p.getProperty("dnssec_resolver")).build());
@@ -489,6 +510,23 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
      */
     boolean stripsAltSvcH3() {
         return altSvcH3Stripping != null ? altSvcH3Stripping : mitmManager != null || transparent;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp2(boolean enabled) {
+        this.http2 = enabled;
+        return this;
+    }
+
+    @Override
+    public Http2Options getHttp2Options() {
+        return http2Options;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
+        this.http2Options = options == null ? Http2Options.DEFAULT : options;
+        return this;
     }
 
     @Override
