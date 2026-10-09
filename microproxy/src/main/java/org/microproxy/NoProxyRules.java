@@ -32,10 +32,21 @@ public final class NoProxyRules {
         this.rules = List.copyOf(rules);
     }
 
+    /**
+     * Returns rules that never bypass the upstream proxy.
+     *
+     * @return rules that never match a destination
+     */
     public static NoProxyRules none() {
         return new NoProxyRules(List.of());
     }
 
+    /**
+     * Parses a comma-separated NO_PROXY rule list.
+     *
+     * @param list the comma-separated NO_PROXY rule list
+     * @return the parsed bypass rules
+     */
     public static NoProxyRules parse(String list) {
         List<Rule> rules = new ArrayList<>();
         if (list == null) return new NoProxyRules(rules);
@@ -84,11 +95,22 @@ public final class NoProxyRules {
         return new NoProxyRules(rules);
     }
 
+    /**
+     * Reports whether there are no bypass rules.
+     *
+     * @return whether there are no bypass rules
+     */
     public boolean isEmpty() {
         return rules.isEmpty();
     }
 
-    /** Whether requests to {@code host:port} should bypass the proxy. */
+    /**
+     * Whether requests to {@code host:port} should bypass the proxy.
+     *
+     * @param host the destination host name
+     * @param port the destination port
+     * @return whether requests to {@code host:port} should bypass the proxy
+     */
     public boolean matches(String host, int port) {
         if (rules.isEmpty() || host == null) return false;
         String h = host.toLowerCase(Locale.ROOT);

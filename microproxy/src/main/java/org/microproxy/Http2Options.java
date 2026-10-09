@@ -52,10 +52,20 @@ public final class Http2Options {
         maxEmptyFrames = b.maxEmptyFrames;
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Starts a builder initialized with these settings.
+     *
+     * @return a new builder initialized with these settings
+     */
     public Builder toBuilder() {
         Builder b = new Builder();
         b.maxConcurrentStreams = maxConcurrentStreams;
@@ -73,17 +83,25 @@ public final class Http2Options {
         return b;
     }
 
-    /** SETTINGS_MAX_CONCURRENT_STREAMS: streams a client may have open at once. */
+    /**
+     * SETTINGS_MAX_CONCURRENT_STREAMS: streams a client may have open at once.
+     *
+     * @return the maximum simultaneous client streams
+     */
     public int maxConcurrentStreams() {
         return maxConcurrentStreams;
     }
 
-    /** SETTINGS_INITIAL_WINDOW_SIZE: request body bytes buffered per stream, at most. */
+    /**
+     * SETTINGS_INITIAL_WINDOW_SIZE: request body bytes buffered per stream, at most.
+     *
+     * @return the stream receive window size in bytes
+     */
     public int initialWindowSize() {
         return initialWindowSize;
     }
 
-    /** The connection's receive window: request body bytes buffered per connection, at most. */
+    /** {@return the connection's receive window: request body bytes buffered per connection, at most} */
     public int connectionWindowSize() {
         return connectionWindowSize;
     }
@@ -91,47 +109,69 @@ public final class Http2Options {
     /**
      * SETTINGS_MAX_HEADER_LIST_SIZE, or 0 for the default: the proxy's {@code max_header_size}
      * plus {@code max_initial_line_length}, the same room an HTTP/1 request head has.
+     *
+     * @return the maximum header list size in bytes, or zero to derive it from HTTP/1 limits
      */
     public int maxHeaderListSize() {
         return maxHeaderListSize;
     }
 
-    /** How long the client may take to acknowledge the proxy's SETTINGS. */
+    /** {@return how long the client may take to acknowledge the proxy's SETTINGS} */
     public Duration settingsAckTimeout() {
         return settingsAckTimeout;
     }
 
-    /** The window the rate limits count frames in. */
+    /** {@return the window the rate limits count frames in} */
     public Duration rateWindow() {
         return rateWindow;
     }
 
-    /** Streams the client may reset (or open past the concurrency limit) before they complete, per window. */
+    /** {@return streams the client may reset (or open past the concurrency limit) before they complete, per window} */
     public int maxRapidResets() {
         return maxRapidResets;
     }
 
-    /** PING frames per window. */
+    /**
+     * PING frames per window.
+     *
+     * @return the maximum PING frames per rate window
+     */
     public int maxPings() {
         return maxPings;
     }
 
-    /** SETTINGS frames per window. */
+    /**
+     * SETTINGS frames per window.
+     *
+     * @return the maximum SETTINGS frames per rate window
+     */
     public int maxSettings() {
         return maxSettings;
     }
 
-    /** RST_STREAM and PRIORITY frames per window. */
+    /**
+     * RST_STREAM and PRIORITY frames per window.
+     *
+     * @return the maximum RST_STREAM and PRIORITY frames per rate window
+     */
     public int maxResets() {
         return maxResets;
     }
 
-    /** WINDOW_UPDATE frames per window. */
+    /**
+     * WINDOW_UPDATE frames per window.
+     *
+     * @return the maximum WINDOW_UPDATE frames per rate window
+     */
     public int maxWindowUpdates() {
         return maxWindowUpdates;
     }
 
-    /** DATA frames without data or END_STREAM, and empty trailing HEADERS, per window. */
+    /**
+     * DATA frames without data or END_STREAM, and empty trailing HEADERS, per window.
+     *
+     * @return the maximum empty frames per rate window
+     */
     public int maxEmptyFrames() {
         return maxEmptyFrames;
     }
@@ -167,6 +207,9 @@ public final class Http2Options {
          * Streams a client may have open at once (default 100). Each runs its own exchange, with
          * its own server connection; streams beyond the limit are refused with {@code
          * REFUSED_STREAM}, which clients retry.
+         *
+         * @param n the maximum streams open at once
+         * @return this builder
          */
         public Builder maxConcurrentStreams(int n) {
             maxConcurrentStreams = positive(n, "maxConcurrentStreams");
@@ -176,6 +219,9 @@ public final class Http2Options {
         /**
          * The flow-control window of each stream's request body (default 256 KiB): the most the
          * proxy buffers for a stream whose body it has not read yet.
+         *
+         * @param bytes the stream receive window size, at least 65535 bytes
+         * @return this builder
          */
         public Builder initialWindowSize(int bytes) {
             if (bytes < 65_535) throw new IllegalArgumentException("initialWindowSize below 65535: " + bytes);
@@ -186,6 +232,9 @@ public final class Http2Options {
         /**
          * The connection's flow-control window (default 1 MiB): the most the proxy buffers for all
          * of a connection's streams together.
+         *
+         * @param bytes the connection receive window size, at least 65535 bytes
+         * @return this builder
          */
         public Builder connectionWindowSize(int bytes) {
             if (bytes < 65_535) throw new IllegalArgumentException("connectionWindowSize below 65535: " + bytes);
@@ -197,6 +246,9 @@ public final class Http2Options {
          * The largest request header section, counted as HTTP/2 counts it (names and values plus 32
          * octets per field); larger requests have their stream reset. 0 (the default) derives it
          * from the HTTP/1 limits: {@code withMaxHeaderSize} plus {@code withMaxInitialLineLength}.
+         *
+         * @param bytes the maximum header list size, or zero to derive it from HTTP/1 limits
+         * @return this builder
          */
         public Builder maxHeaderListSize(int bytes) {
             if (bytes < 0) throw new IllegalArgumentException("negative maxHeaderListSize: " + bytes);
@@ -204,13 +256,23 @@ public final class Http2Options {
             return this;
         }
 
-        /** How long the client may take to acknowledge the proxy's SETTINGS (default 10 s) before {@code GOAWAY SETTINGS_TIMEOUT}. */
+        /**
+         * How long the client may take to acknowledge the proxy's SETTINGS (default 10 s) before {@code GOAWAY SETTINGS_TIMEOUT}.
+         *
+         * @param timeout the maximum wait for a SETTINGS acknowledgement
+         * @return this builder
+         */
         public Builder settingsAckTimeout(Duration timeout) {
             settingsAckTimeout = positive(timeout, "settingsAckTimeout");
             return this;
         }
 
-        /** The window the rate limits below count frames in (default 10 s). */
+        /**
+         * The window the rate limits below count frames in (default 10 s).
+         *
+         * @param window the frame-counting window duration
+         * @return this builder
+         */
         public Builder rateWindow(Duration window) {
             rateWindow = positive(window, "rateWindow");
             return this;
@@ -220,31 +282,54 @@ public final class Http2Options {
          * Streams the client may reset before their response completes, or open past the
          * concurrency limit, per window (default 100), against the Rapid Reset attack
          * (CVE-2023-44487); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum rapid resets per window
+         * @return this builder
          */
         public Builder maxRapidResets(int n) {
             maxRapidResets = positive(n, "maxRapidResets");
             return this;
         }
 
-        /** PING frames per window (default 100); more is {@code GOAWAY ENHANCE_YOUR_CALM}. */
+        /**
+         * PING frames per window (default 100); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum PING frames per window
+         * @return this builder
+         */
         public Builder maxPings(int n) {
             maxPings = positive(n, "maxPings");
             return this;
         }
 
-        /** SETTINGS frames per window (default 100); more is {@code GOAWAY ENHANCE_YOUR_CALM}. */
+        /**
+         * SETTINGS frames per window (default 100); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum SETTINGS frames per window
+         * @return this builder
+         */
         public Builder maxSettings(int n) {
             maxSettings = positive(n, "maxSettings");
             return this;
         }
 
-        /** RST_STREAM and PRIORITY frames per window (default 1000); more is {@code GOAWAY ENHANCE_YOUR_CALM}. */
+        /**
+         * RST_STREAM and PRIORITY frames per window (default 1000); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum RST_STREAM and PRIORITY frames per window
+         * @return this builder
+         */
         public Builder maxResets(int n) {
             maxResets = positive(n, "maxResets");
             return this;
         }
 
-        /** WINDOW_UPDATE frames per window (default 10000); more is {@code GOAWAY ENHANCE_YOUR_CALM}. */
+        /**
+         * WINDOW_UPDATE frames per window (default 10000); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum WINDOW_UPDATE frames per window
+         * @return this builder
+         */
         public Builder maxWindowUpdates(int n) {
             maxWindowUpdates = positive(n, "maxWindowUpdates");
             return this;
@@ -253,12 +338,20 @@ public final class Http2Options {
         /**
          * Frames that carry nothing, DATA frames with no data and no END_STREAM, per window
          * (default 1000); more is {@code GOAWAY ENHANCE_YOUR_CALM}.
+         *
+         * @param n the maximum empty frames per window
+         * @return this builder
          */
         public Builder maxEmptyFrames(int n) {
             maxEmptyFrames = positive(n, "maxEmptyFrames");
             return this;
         }
 
+        /**
+         * Creates the configured HTTP/2 limits.
+         *
+         * @return the configured HTTP/2 limits
+         */
         public Http2Options build() {
             return new Http2Options(this);
         }

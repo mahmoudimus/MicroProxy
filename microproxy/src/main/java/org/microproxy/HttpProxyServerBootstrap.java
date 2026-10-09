@@ -7,32 +7,76 @@ import org.microproxy.cache.HttpCache;
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
 
-    /** Name used for thread names and logging. */
+    /**
+     * Name used for thread names and logging.
+     *
+     * @param name the name used for logging and thread names
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withName(String name);
 
+    /**
+     * Sets the proxy listener address.
+     *
+     * @param address the proxy listener address
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withAddress(InetSocketAddress address);
 
-    /** Port to listen on; 0 picks an ephemeral port. */
+    /**
+     * Port to listen on; 0 picks an ephemeral port.
+     *
+     * @param port the listening port, or zero for an ephemeral port
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withPort(int port);
 
-    /** Listen on the loopback interface only. */
+    /**
+     * Listen on the loopback interface only.
+     *
+     * @param allowLocalOnly whether to listen only on the loopback interface
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withAllowLocalOnly(boolean allowLocalOnly);
 
-    /** Serve the proxy itself over TLS (an "HTTPS proxy"). */
+    /**
+     * Serve the proxy itself over TLS (an "HTTPS proxy").
+     *
+     * @param sslContextSource the TLS context provider for the proxy listener
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withSslContextSource(SslContextSource sslContextSource);
 
-    /** Require client certificates on the proxy's TLS listener. */
+    /**
+     * Require client certificates on the proxy's TLS listener.
+     *
+     * @param authenticateSslClients whether the TLS listener requires client certificates
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateSslClients);
 
     /**
      * Requires clients to authenticate: with Basic credentials by default, or with any scheme
      * through {@link ProxyAuthenticator#authenticate(org.microproxy.http.HttpRequest, FlowContext)}.
+     *
+     * @param proxyAuthenticator the client authentication policy
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
 
+    /**
+     * Sets the manager selecting upstream proxies.
+     *
+     * @param chainProxyManager the manager selecting upstream proxies
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withChainProxyManager(ChainedProxyManager chainProxyManager);
 
-    /** The chained proxy manager configured so far, or {@code null}; lets extensions wrap it. */
+    /**
+     * The chained proxy manager configured so far, or {@code null}; lets extensions wrap it.
+     *
+     * @return the configured chained proxy manager, or {@code null}
+     */
     default ChainedProxyManager getChainProxyManager() {
         return null;
     }
@@ -41,23 +85,38 @@ public interface HttpProxyServerBootstrap {
      * Intercepts CONNECT tunnels with {@code mitmManager}. To decide per client connection (per
      * user, client address, ...), override its {@link FlowContext} overloads or use {@link
      * MitmManager#perConnection}.
+     *
+     * @param mitmManager the manager providing interception TLS contexts
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withManInTheMiddle(MitmManager mitmManager);
 
+    /**
+     * Sets the source of per-request filters.
+     *
+     * @param filtersSource the source of per-request filters
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withFiltersSource(HttpFiltersSource filtersSource);
 
     /**
      * Adds a filters source after those already configured; they run as a {@link
      * HttpFiltersChain}.
+     *
+     * @param filtersSource the source of per-request filters
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap plusFiltersSource(HttpFiltersSource filtersSource);
 
-    /** The filters source configured so far (never null). */
+    /** {@return the filters source configured so far (never null)} */
     HttpFiltersSource getFiltersSource();
 
     /**
      * Caches responses ({@link org.microproxy.cache.HttpCache}). The cache always runs after the
      * filters sources, whichever order they were configured in.
+     *
+     * @param cache the HTTP cache to use
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withHttpCache(HttpCache cache);
 
@@ -66,23 +125,51 @@ public interface HttpProxyServerBootstrap {
      * misbehaving servers, timeouts, an exhausted connection pool, refused requests. Filters'
      * {@link HttpFilters#proxyToServerFailure} answers take precedence; {@code null} (the
      * default) or a responder returning {@code null} keeps the proxy's plain-text answers.
+     *
+     * @param responder the function creating a rejection or failure response
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withFailureResponder(FailureResponder responder);
 
-    /** Forward messages without adding {@code Via} or stripping hop-by-hop headers. */
+    /**
+     * Forward messages without adding {@code Via} or stripping hop-by-hop headers.
+     *
+     * @param transparent whether to preserve headers for transparent proxying
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withTransparent(boolean transparent);
 
+    /**
+     * Sets the maximum idle time for client and server connections.
+     *
+     * @param idleConnectionTimeoutInSeconds the maximum idle time in seconds
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withIdleConnectionTimeout(int idleConnectionTimeoutInSeconds);
 
+    /**
+     * Sets the maximum idle time for client and server connections.
+     *
+     * @param idleConnectionTimeout the maximum time a connection may remain idle
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withIdleConnectionTimeout(Duration idleConnectionTimeout);
 
-    /** Connect timeout for outbound connections in milliseconds. */
+    /**
+     * Connect timeout for outbound connections in milliseconds.
+     *
+     * @param connectTimeoutMs the outbound connect timeout in milliseconds; zero uses the system default
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs);
 
     /**
      * The longest a TLS handshake may take, with clients and with servers (default 10 seconds;
      * zero for no limit). The idle timeout alone does not bound it, since it restarts with every
      * byte received.
+     *
+     * @param timeout the maximum TLS handshake duration
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout);
 
@@ -96,6 +183,9 @@ public interface HttpProxyServerBootstrap {
      * FlowContext)} or {@link ChainedProxy#configure} run, so a hook that sets its own protocols
      * wins. No protocols leaves every context's own defaults; the JDK's {@code
      * jdk.tls.disabledAlgorithms} applies either way.
+     *
+     * @param protocols the enabled TLS protocol names, such as {@code TLSv1.3}
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support TLS protocol pinning");
@@ -116,14 +206,27 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not
      * affected. Off by default.
+     *
+     * @param compatible whether to enable the documented LittleProxy compatibility behaviors
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withLittleProxyCompatibility(boolean compatible);
 
-    /** Same as {@code withLittleProxyCompatibility(true)}. */
+    /**
+     * Same as {@code withLittleProxyCompatibility(true)}.
+     *
+     * @return this bootstrap
+     */
     default HttpProxyServerBootstrap withLittleProxyCompatibility() {
         return withLittleProxyCompatibility(true);
     }
 
+    /**
+     * Sets the resolver used for upstream host names.
+     *
+     * @param serverResolver the resolver for upstream host names
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
     /**
@@ -132,12 +235,20 @@ public interface HttpProxyServerBootstrap {
      * plain requests, requests inside intercepted (MITM) sessions, upgrade requests, and the
      * {@code CONNECT} requests sent to HTTP chained proxies; the bytes of an uninspected tunnel
      * are never touched. Replaces the names set so far; no names turns it off.
+     *
+     * @param names the request header names to strip before forwarding
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withStrippedRequestHeaders(String... names) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
     }
 
-    /** Adds to the headers removed from requests sent upstream (see {@link #withStrippedRequestHeaders}). */
+    /**
+     * Adds to the headers removed from requests sent upstream (see {@link #withStrippedRequestHeaders}).
+     *
+     * @param names the additional request header names to strip before forwarding
+     * @return this bootstrap
+     */
     default HttpProxyServerBootstrap plusStrippedRequestHeaders(String... names) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
     }
@@ -148,6 +259,8 @@ public interface HttpProxyServerBootstrap {
      * {@code X-Amzn-Trace-Id}, {@code X-Cloud-Trace-Context}, {@code grpc-trace-bin}, {@code
      * sentry-trace}) from requests sent upstream, so clients' trace
      * ids and baggage do not leak to servers. Adds to {@link #plusStrippedRequestHeaders}.
+     *
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withoutTracingHeadersUpstream() {
         return plusStrippedRequestHeaders(org.microproxy.http.HttpHeaderNames.TRACING_HEADERS.toArray(String[]::new));
@@ -169,12 +282,19 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Responses from servers are rewritten before {@link HttpFilters#proxyToClientResponse}
      * sees them; short-circuit responses from filters (and the cache) after it.
+     *
+     * @param strip whether to remove HTTP/3 and QUIC advertisements from Alt-Svc headers
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withAltSvcH3Stripping(boolean strip) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support Alt-Svc rewriting");
     }
 
-    /** Same as {@code withAltSvcH3Stripping(true)}: clients are not told about HTTP/3 (see there). */
+    /**
+     * Same as {@code withAltSvcH3Stripping(true)}: clients are not told about HTTP/3 (see there).
+     *
+     * @return this bootstrap
+     */
     default HttpProxyServerBootstrap withoutHttp3Advertisement() {
         return withAltSvcH3Stripping(true);
     }
@@ -189,6 +309,10 @@ public interface HttpProxyServerBootstrap {
      * whichever is less; once that is spent, the remaining candidates are tried without waiting.
      * The wait counts towards the connect phase of {@link FlowContext#timings()}. Off by default;
      * {@code null} turns it off again.
+     *
+     * @param initial the delay before the first retry
+     * @param max the maximum retry delay
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
@@ -206,6 +330,9 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
      * HTTP/2 enabled without it fails with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withHttp2(boolean enabled) {
         if (!enabled) return this;
@@ -221,6 +348,9 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
      * it enabled without the module fails with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withHttp2Upstream(boolean enabled) {
         if (!enabled) return this;
@@ -236,45 +366,102 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
      * it enabled without the module fails with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
      */
     default HttpProxyServerBootstrap withHttp2Cleartext(boolean enabled) {
         if (!enabled) return this;
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
     }
 
-    /** The HTTP/2 limits configured so far (never null). */
+    /** {@return the HTTP/2 limits configured so far (never null)} */
     default Http2Options getHttp2Options() {
         return Http2Options.DEFAULT;
     }
 
-    /** Limits for HTTP/2 connections (see {@link Http2Options}); null restores the defaults. */
+    /**
+     * Limits for HTTP/2 connections (see {@link Http2Options}); null restores the defaults.
+     *
+     * @param options the HTTP/2 connection limits
+     * @return this bootstrap
+     */
     default HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
     }
 
+    /**
+     * Adds an observer alongside the configured activity trackers.
+     *
+     * @param activityTracker the observer to add
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
-    /** Global bandwidth limits for server traffic; 0 means unlimited. */
+    /**
+     * Global bandwidth limits for server traffic; 0 means unlimited.
+     *
+     * @param readThrottleBytesPerSecond the inbound bandwidth limit in bytes per second, or zero for unlimited
+     * @param writeThrottleBytesPerSecond the outbound bandwidth limit in bytes per second, or zero for unlimited
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withThrottling(
             long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 
-    /** Local address to bind for outbound connections. */
+    /**
+     * Local address to bind for outbound connections.
+     *
+     * @param inetSocketAddress the local address to bind for outbound connections
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
 
+    /**
+     * Sets the maximum HTTP request or status line length in bytes.
+     *
+     * @param maxInitialLineLength the maximum request or status line length in bytes
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withMaxInitialLineLength(int maxInitialLineLength);
 
+    /**
+     * Sets the maximum HTTP header section size in bytes.
+     *
+     * @param maxHeaderSize the maximum header section size in bytes
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withMaxHeaderSize(int maxHeaderSize);
 
-    /** Largest body piece handed to filters when streaming. */
+    /**
+     * Largest body piece handed to filters when streaming.
+     *
+     * @param maxChunkSize the maximum streamed body chunk size in bytes
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withMaxChunkSize(int maxChunkSize);
 
-    /** Accept origin-form requests ({@code GET /path}) as if the proxy were the origin. */
+    /**
+     * Accept origin-form requests ({@code GET /path}) as if the proxy were the origin.
+     *
+     * @param allowRequestToOriginServer whether to accept origin-form requests
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withAllowRequestToOriginServer(boolean allowRequestToOriginServer);
 
-    /** Name used in the {@code Via} header; defaults to the host name. */
+    /**
+     * Name used in the {@code Via} header; defaults to the host name.
+     *
+     * @param alias the name used in Via headers
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withProxyAlias(String alias);
 
-    /** Require a PROXY protocol (v1 or v2) header on every inbound connection. */
+    /**
+     * Require a PROXY protocol (v1 or v2) header on every inbound connection.
+     *
+     * @param acceptProxyProtocol whether to accept PROXY protocol on client connections
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol);
 
     /**
@@ -283,6 +470,9 @@ public interface HttpProxyServerBootstrap {
      * there is no tunnel to the final server: through SOCKS chained proxies, or with plain
      * requests forwarded to an HTTP chained proxy. Server connections that carry the header belong
      * to one client, so the shared server connection pool is not used while this is on.
+     *
+     * @param sendProxyProtocol whether to send PROXY protocol to upstream servers
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
@@ -290,6 +480,9 @@ public interface HttpProxyServerBootstrap {
      * Largest WebSocket frame payload buffered for {@link
      * HttpFilters#webSocketFrameReceived(org.microproxy.http.WebSocketFrame, boolean)}; larger
      * frames are streamed and reported as truncated. Default 1 MiB.
+     *
+     * @param maxBytes the maximum buffered WebSocket frame size in bytes
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes);
 
@@ -297,21 +490,43 @@ public interface HttpProxyServerBootstrap {
      * Shares server connections between all clients instead of keeping them per client
      * connection. A connection is leased for one exchange and returned to the pool when the
      * response completes with keep-alive. Disabled by default.
+     *
+     * @param useSharedServerConnectionPool whether to share reusable upstream connections
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withSharedServerConnectionPool(boolean useSharedServerConnectionPool);
 
+    /**
+     * Selects the shared upstream connection pool implementation.
+     *
+     * @param poolType the shared connection pool implementation
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withServerConnectionPoolType(ServerConnectionPoolType poolType);
 
-    /** Pooled connections per target ({@code host:port}); default 10. */
+    /**
+     * Pooled connections per target ({@code host:port}); default 10.
+     *
+     * @param maxConnectionsPerHost the maximum pooled connections per destination
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withMaxConnectionsPerHost(int maxConnectionsPerHost);
 
     /**
      * Pooled connections in total; default 200. When the limit is reached, requests wait up to the
      * connect timeout for a connection and then get {@code 503}.
+     *
+     * @param maxConnections the maximum pooled connections across destinations
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withMaxConnections(int maxConnections);
 
-    /** Closes pooled connections idle for longer than this; {@code null} keeps them. */
+    /**
+     * Closes pooled connections idle for longer than this; {@code null} keeps them.
+     *
+     * @param idleTimeout the maximum idle time before a pooled connection is closed
+     * @return this bootstrap
+     */
     HttpProxyServerBootstrap withPoolIdleTimeout(Duration idleTimeout);
 
     /**
@@ -320,20 +535,34 @@ public interface HttpProxyServerBootstrap {
      * Connections are only shared by clients given the same {@link MitmManager#forConnection
      * manager}, and not at all when the manager sets up server connections per client (see {@link
      * MitmManager}).
+     *
+     * @param poolSharedMitmConnections whether intercepted sessions share upstream connections
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withPoolSharedMitmConnections(boolean poolSharedMitmConnections);
 
     /**
      * With {@link #withPoolSharedMitmConnections}, leases the server connection per intercepted
      * request rather than per session.
+     *
+     * @param poolPerRequestInMitm whether intercepted requests lease upstream connections individually
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withPoolPerRequestInMitm(boolean poolPerRequestInMitm);
 
     /**
      * Resolves server names with the validating DNSSEC resolver ({@link
      * org.microproxy.dns.DnssecHostResolver}) instead of the system resolver.
+     *
+     * @param useDnsSec whether to validate DNSSEC locally
+     * @return this bootstrap
      */
     HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
 
+    /**
+     * Starts the proxy with this configuration.
+     *
+     * @return the running proxy server
+     */
     HttpProxyServer start();
 }

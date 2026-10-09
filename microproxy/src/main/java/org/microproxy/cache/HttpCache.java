@@ -112,6 +112,11 @@ public final class HttpCache implements HttpFiltersSource {
         this.name = b.name;
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -130,38 +135,69 @@ public final class HttpCache implements HttpFiltersSource {
 
         private Builder() {}
 
-        /** Where responses are kept (default: 64 MiB in memory). */
+        /**
+         * Where responses are kept (default: 64 MiB in memory).
+         *
+         * @param store the backing response store
+         * @return this builder
+         */
         public Builder store(CacheStore store) {
             this.store = Objects.requireNonNull(store);
             return this;
         }
 
-        /** The largest response body stored (default 8 MiB); larger ones stream past. */
+        /**
+         * The largest response body stored (default 8 MiB); larger ones stream past.
+         *
+         * @param bytes the maximum stored response body size in bytes
+         * @return this builder
+         */
         public Builder maxEntrySize(int bytes) {
             if (bytes <= 0) throw new IllegalArgumentException("maxEntrySize must be positive");
             this.maxEntrySize = bytes;
             return this;
         }
 
-        /** Whether the rules for shared caches apply (default true). False makes a private cache. */
+        /**
+         * Whether the rules for shared caches apply (default true). False makes a private cache.
+         *
+         * @param shared whether shared-cache rules apply
+         * @return this builder
+         */
         public Builder shared(boolean shared) {
             this.shared = shared;
             return this;
         }
 
-        /** Answer only from the cache, never contacting servers (default false). */
+        /**
+         * Answer only from the cache, never contacting servers (default false).
+         *
+         * @param offline whether to answer only from cached responses
+         * @return this builder
+         */
         public Builder offline(boolean offline) {
             this.offline = offline;
             return this;
         }
 
-        /** Serve stale entries when servers cannot be reached (default true). */
+        /**
+         * Serve stale entries when servers cannot be reached (default true).
+         *
+         * @param serveStaleOnError whether stale responses may be served on upstream failures
+         * @return this builder
+         */
         public Builder serveStaleOnError(boolean serveStaleOnError) {
             this.serveStaleOnError = serveStaleOnError;
             return this;
         }
 
-        /** The heuristic lifetime: this fraction of the time since {@code Last-Modified}, at most {@code max}. */
+        /**
+         * The heuristic lifetime: this fraction of the time since {@code Last-Modified}, at most {@code max}.
+         *
+         * @param fraction the fraction of time since Last-Modified used as a heuristic lifetime
+         * @param max the maximum heuristic freshness lifetime
+         * @return this builder
+         */
         public Builder heuristic(double fraction, Duration max) {
             if (fraction < 0 || fraction > 1) throw new IllegalArgumentException("fraction must be between 0 and 1");
             this.heuristicFraction = fraction;
@@ -169,18 +205,33 @@ public final class HttpCache implements HttpFiltersSource {
             return this;
         }
 
-        /** The clock for ages and freshness (for tests). */
+        /**
+         * The clock for ages and freshness (for tests).
+         *
+         * @param clock the clock used for timestamps and expiry checks
+         * @return this builder
+         */
         public Builder clock(Clock clock) {
             this.clock = Objects.requireNonNull(clock);
             return this;
         }
 
-        /** The cache's name in {@code Cache-Status} (default "MicroProxy"). */
+        /**
+         * The cache's name in {@code Cache-Status} (default "MicroProxy").
+         *
+         * @param name the cache name reported in Cache-Status
+         * @return this builder
+         */
         public Builder name(String name) {
             this.name = Objects.requireNonNull(name);
             return this;
         }
 
+        /**
+         * Creates the configured HTTP cache.
+         *
+         * @return the configured HTTP cache
+         */
         public HttpCache build() {
             return new HttpCache(this);
         }
@@ -196,18 +247,37 @@ public final class HttpCache implements HttpFiltersSource {
         }
     }
 
-    /** Counters since the cache was created. */
+    /**
+     * Counters since the cache was created.
+     *
+     * @param hits the number of requests answered from cached entries without revalidation
+     * @param misses the number of cache lookups without a usable entry
+     * @param stores the number of responses stored
+     * @param revalidations the number of cached responses revalidated
+     * @param staleServed the number of stale responses served
+     */
     // @value-candidate: becomes a value class in the valhalla build profile
     public record Stats(long hits, long misses, long stores, long revalidations, long staleServed) {}
 
+    /** {@return a snapshot of the cache counters} */
     public Stats stats() {
         return new Stats(hits.get(), misses.get(), stores.get(), revalidations.get(), staleServed.get());
     }
 
+    /**
+     * Returns the backing response store.
+     *
+     * @return the backing cache store
+     */
     public CacheStore store() {
         return store;
     }
 
+    /**
+     * Reports whether the cache operates without contacting servers.
+     *
+     * @return whether upstream requests are disabled
+     */
     public boolean isOffline() {
         return offline;
     }

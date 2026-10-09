@@ -35,12 +35,23 @@ public final class CertificateAuthority {
     private final PrivateKey privateKey;
     private final X509Certificate certificate;
 
+    /**
+     * Uses an existing CA private key and certificate.
+     *
+     * @param privateKey the CA signing private key
+     * @param certificate the CA certificate
+     */
     public CertificateAuthority(PrivateKey privateKey, X509Certificate certificate) {
         this.privateKey = privateKey;
         this.certificate = certificate;
     }
 
-    /** Generates a new CA with an EC P-256 key, valid for ten years. */
+    /**
+     * Generates a new CA with an EC P-256 key, valid for ten years.
+     *
+     * @param commonName the certificate subject common name
+     * @return the new certificate authority
+     */
     public static CertificateAuthority generate(String commonName) {
         try {
             KeyPair keyPair = newEcKeyPair();
@@ -57,7 +68,14 @@ public final class CertificateAuthority {
         }
     }
 
-    /** Loads the first key entry of a PKCS#12 (or JKS) key store. */
+    /**
+     * Loads the first key entry of a PKCS#12 (or JKS) key store.
+     *
+     * @param keyStore the key-store file
+     * @param password the key-store password
+     * @return the loaded certificate authority
+     * @throws IOException if the key store cannot be read or contains no usable CA key entry
+     */
     public static CertificateAuthority load(Path keyStore, char[] password) throws IOException {
         try (InputStream in = Files.newInputStream(keyStore)) {
             KeyStore store = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -79,7 +97,15 @@ public final class CertificateAuthority {
         }
     }
 
-    /** Loads the CA from {@code keyStore}, generating and saving a new one if it does not exist. */
+    /**
+     * Loads the CA from {@code keyStore}, generating and saving a new one if it does not exist.
+     *
+     * @param keyStore the key-store file
+     * @param password the key-store password
+     * @param commonName the certificate subject common name
+     * @return the loaded or newly generated certificate authority
+     * @throws IOException if the CA key store cannot be loaded or saved
+     */
     public static CertificateAuthority loadOrCreate(Path keyStore, char[] password, String commonName)
             throws IOException {
         if (Files.isRegularFile(keyStore)) {
@@ -90,7 +116,13 @@ public final class CertificateAuthority {
         return ca;
     }
 
-    /** Saves key and certificate as PKCS#12. */
+    /**
+     * Saves key and certificate as PKCS#12.
+     *
+     * @param keyStore the key-store file
+     * @param password the key-store password
+     * @throws IOException if the CA key store cannot be written
+     */
     public void save(Path keyStore, char[] password) throws IOException {
         try {
             KeyStore store = KeyStore.getInstance("PKCS12");
@@ -106,15 +138,17 @@ public final class CertificateAuthority {
         }
     }
 
+    /** {@return the signing CA certificate} */
     public X509Certificate getCertificate() {
         return certificate;
     }
 
+    /** {@return the CA private key} */
     public PrivateKey getPrivateKey() {
         return privateKey;
     }
 
-    /** The CA certificate in PEM format. */
+    /** {@return the CA certificate in PEM format} */
     public String getCertificatePem() {
         try {
             String b64 = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
@@ -125,6 +159,12 @@ public final class CertificateAuthority {
         }
     }
 
+    /**
+     * Writes the CA certificate in PEM format.
+     *
+     * @param file the destination PEM file
+     * @throws IOException if the certificate file cannot be written
+     */
     public void writeCertificatePem(Path file) throws IOException {
         Files.writeString(file, getCertificatePem(), StandardCharsets.US_ASCII);
     }
@@ -132,6 +172,10 @@ public final class CertificateAuthority {
     /**
      * Issues a server certificate for {@code names} (DNS names or IP literals; the first is also
      * the common name), valid for at most a year and never beyond the CA's own expiry.
+     *
+     * @param subjectKey the public key of the certificate subject
+     * @param names the DNS names or IP literals to include in the certificate
+     * @return the signed server certificate
      */
     public X509Certificate issue(PublicKey subjectKey, Collection<String> names) {
         if (names.isEmpty()) throw new IllegalArgumentException("at least one name required");
@@ -152,14 +196,19 @@ public final class CertificateAuthority {
         }
     }
 
-    /** A server-side SSLContext presenting a fresh certificate for {@code names}. */
+    /**
+     * A server-side SSLContext presenting a fresh certificate for {@code names}.
+     *
+     * @param names the DNS names or IP literals to include in the certificate
+     * @return a server-side SSLContext presenting a fresh certificate for {@code names}
+     */
     public SSLContext serverContext(String... names) {
         KeyPair keyPair = newEcKeyPair();
         X509Certificate leaf = issue(keyPair.getPublic(), List.of(names));
         return SslContexts.withKey(keyPair.getPrivate(), new X509Certificate[] {leaf, certificate}, null);
     }
 
-    /** A client-side SSLContext that trusts only this CA. */
+    /** {@return a client-side SSLContext that trusts only this CA} */
     public SSLContext clientContext() {
         return SslContexts.trusting(certificate);
     }

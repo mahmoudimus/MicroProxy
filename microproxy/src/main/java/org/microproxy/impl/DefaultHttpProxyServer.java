@@ -166,10 +166,22 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
     }
 
+    /**
+     * Starts a proxy configuration with default settings.
+     *
+     * @return a new proxy bootstrap
+     */
     public static HttpProxyServerBootstrap bootstrap() {
         return new DefaultHttpProxyServerBootstrap();
     }
 
+    /**
+     * Loads a proxy configuration from a properties file.
+     *
+     * @param path the properties file to read
+     * @return a bootstrap initialized from the properties file
+     * @throws IOException if the properties file cannot be read
+     */
     public static HttpProxyServerBootstrap bootstrapFromFile(Path path) throws IOException {
         return DefaultHttpProxyServerBootstrap.fromProperties(path);
     }
@@ -342,7 +354,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         return pool == null ? null : pool.metrics();
     }
 
-    /** Number of open client connections (for tests and monitoring). */
+    /** {@return number of open client connections (for tests and monitoring)} */
     public int getOpenConnectionCount() {
         return connections.size();
     }

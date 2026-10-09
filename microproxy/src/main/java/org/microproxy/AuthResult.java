@@ -23,16 +23,31 @@ public sealed interface AuthResult {
      */
     record Rejected(HttpResponse challenge) implements AuthResult {}
 
+    /**
+     * Accepts the client with the given user name.
+     *
+     * @param userName the authenticated user name, or {@code null} if unknown
+     * @return an accepted authentication result
+     */
     static AuthResult accept(String userName) {
         return new Accepted(userName);
     }
 
-    /** Rejects with the proxy's default {@code 407} challenge. */
+    /**
+     * Rejects with the proxy's default {@code 407} challenge.
+     *
+     * @return a rejected authentication result
+     */
     static AuthResult reject() {
         return new Rejected(null);
     }
 
-    /** Rejects with {@code challenge}; see {@link Rejected}. */
+    /**
+     * Rejects with {@code challenge}; see {@link Rejected}.
+     *
+     * @param challenge the response to send when rejecting the client
+     * @return a rejected authentication result
+     */
     static AuthResult reject(HttpResponse challenge) {
         return new Rejected(challenge);
     }

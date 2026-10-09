@@ -38,7 +38,11 @@ public final class ScriptFailure implements Structure {
         this.failure = failure;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a failure value
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.FAILURE_CONSTRUCTOR;
     }

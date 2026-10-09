@@ -35,7 +35,14 @@ public final class Http2Headers {
 
     private Http2Headers() {}
 
-    /** Validates a decoded request header section. */
+    /**
+     * Validates a decoded request header section.
+     *
+     * @param streamId the stream identifier used for protocol errors
+     * @param fields the decoded fields in wire order
+     * @return the validated request control data and regular fields
+     * @throws Http2Exception if the field section is malformed
+     */
     public static RequestHeaders toRequest(int streamId, List<HeaderField> fields) throws Http2Exception {
         String method = null;
         String scheme = null;
@@ -127,7 +134,14 @@ public final class Http2Headers {
         return new RequestHeaders(method, scheme, authority != null ? authority : host, path, out, contentLength, protocol);
     }
 
-    /** Validates a decoded response header section (final or 1xx). */
+    /**
+     * Validates a decoded response header section (final or 1xx).
+     *
+     * @param streamId the stream identifier used for protocol errors
+     * @param fields the decoded fields in wire order
+     * @return the validated response status and regular fields
+     * @throws Http2Exception if the field section is malformed
+     */
     public static ResponseHeaders toResponse(int streamId, List<HeaderField> fields) throws Http2Exception {
         String status = null;
         long contentLength = -1;
@@ -154,7 +168,14 @@ public final class Http2Headers {
         return new ResponseHeaders(Integer.parseInt(status), out, contentLength);
     }
 
-    /** Validates a trailer section: regular fields only. */
+    /**
+     * Validates a trailer section: regular fields only.
+     *
+     * @param streamId the stream identifier used for protocol errors
+     * @param fields the decoded fields in wire order
+     * @return an immutable copy of the validated trailers
+     * @throws Http2Exception if the field section is malformed
+     */
     public static List<HeaderField> validateTrailers(int streamId, List<HeaderField> fields) throws Http2Exception {
         for (HeaderField f : fields) {
             checkValue(streamId, f);
@@ -170,6 +191,10 @@ public final class Http2Headers {
      * content is empty whatever the field says: responses to HEAD, and 204 and 304 responses.
      *
      * @param declared the content length, or -1 if none was declared (then nothing is checked)
+     * @param streamId the stream identifier used for protocol errors
+     * @param received the running content octet count, excluding padding
+     * @param endStream whether the stream has ended
+     * @throws Http2Exception if the received content exceeds the declaration or ends with a different length
      */
     public static void checkContentLength(int streamId, long declared, long received, boolean endStream) throws Http2Exception {
         if (declared < 0) return;
@@ -189,6 +214,11 @@ public final class Http2Headers {
      *
      * @param authority the target authority, or null to take it from the {@code host} field
      * @throws IllegalArgumentException if a name or value cannot be sent in HTTP/2
+     * @param method the HTTP request method
+     * @param scheme the URI scheme, ignored for CONNECT
+     * @param path the request target path, ignored for CONNECT
+     * @param headers the HTTP/1-style fields in order
+     * @return the HTTP/2 fields, beginning with the request pseudo-headers
      */
     public static List<HeaderField> fromHttp1Request(
             String method, String scheme, String authority, String path, Collection<? extends Map.Entry<String, String>> headers) {
@@ -214,7 +244,13 @@ public final class Http2Headers {
         return out;
     }
 
-    /** An HTTP/2 response header list for an HTTP/1-style response; see {@link #fromHttp1Request}. */
+    /**
+     * An HTTP/2 response header list for an HTTP/1-style response; see {@link #fromHttp1Request}.
+     *
+     * @param status the response status from 100 to 999
+     * @param headers the HTTP/1-style fields in order
+     * @return the HTTP/2 fields, beginning with :status
+     */
     public static List<HeaderField> fromHttp1Response(int status, Collection<? extends Map.Entry<String, String>> headers) {
         if (status < 100 || status > 999) throw new IllegalArgumentException("invalid status " + status);
         List<HeaderField> out = new ArrayList<>(headers.size() + 1);

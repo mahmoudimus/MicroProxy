@@ -33,7 +33,14 @@ package org.microproxy.thirdparty.starlark.eval;
  */
 public interface StarlarkIndexable extends StarlarkMembershipTestable {
 
-  /** Returns the value associated with the given key. */
+  /**
+   * Returns the value associated with the given key.
+   *
+   * @param semantics the interpreter settings used for indexed access
+   * @param key the index or mapping key to look up
+   * @return the associated Starlark value
+   * @throws EvalException if the key is invalid or has no associated value
+   */
   Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException;
 
   /**

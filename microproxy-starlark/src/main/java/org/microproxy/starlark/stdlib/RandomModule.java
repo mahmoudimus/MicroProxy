@@ -48,6 +48,13 @@ public final class RandomModule implements StarlarkValue {
         return count;
     }
 
+    /**
+     * Produces cryptographically strong random bytes.
+     *
+     * @param n the number of bytes, from zero through 16 MiB
+     * @return immutable random bytes
+     * @throws EvalException if the byte count is negative or exceeds the limit
+     */
     @StarlarkMethod(name = "urandom", doc = "n random bytes.", parameters = {@Param(name = "n")})
     public StarlarkBytes urandom(StarlarkInt n) throws EvalException {
         byte[] out = new byte[count(n, "n")];
@@ -55,11 +62,25 @@ public final class RandomModule implements StarlarkValue {
         return StarlarkBytes.immutableOf(out);
     }
 
+    /**
+     * Produces random bytes using the same generator as {@link #urandom}.
+     *
+     * @param n the number of bytes, from zero through 16 MiB
+     * @return immutable random bytes
+     * @throws EvalException if the byte count is negative or exceeds the limit
+     */
     @StarlarkMethod(name = "randbytes", doc = "n random bytes.", parameters = {@Param(name = "n")})
     public StarlarkBytes randbytes(StarlarkInt n) throws EvalException {
         return urandom(n);
     }
 
+    /**
+     * Produces a non-negative integer with at most the requested number of bits.
+     *
+     * @param k the number of random bits, from zero through 134,217,728 bits
+     * @return an integer sampled uniformly from {@code [0, 2**k)}
+     * @throws EvalException if the bit count is negative or exceeds the limit
+     */
     @StarlarkMethod(name = "getrandbits", doc = "An int with k random bits.", parameters = {@Param(name = "k")})
     public StarlarkInt getrandbits(StarlarkInt k) throws EvalException {
         int bits = k.toInt("k");
@@ -81,6 +102,15 @@ public final class RandomModule implements StarlarkValue {
         return r;
     }
 
+    /**
+     * Chooses an integer uniformly from a stepped, stop-exclusive range.
+     *
+     * @param start the first value, or the stop value when {@code stop} is {@code None}
+     * @param stop the exclusive endpoint, or {@code None} for a range starting at zero
+     * @param step the nonzero difference between successive values
+     * @return a randomly selected range member
+     * @throws EvalException if the step is zero or the range is empty
+     */
     @StarlarkMethod(name = "randrange", doc = "randrange(stop) or randrange(start, stop[, step]).",
             parameters = {
                 @Param(name = "start"),
@@ -112,6 +142,14 @@ public final class RandomModule implements StarlarkValue {
         return StarlarkInt.of(lo.add(st.multiply(below(n))));
     }
 
+    /**
+     * Chooses an integer uniformly between inclusive endpoints.
+     *
+     * @param a the inclusive lower endpoint
+     * @param b the inclusive upper endpoint
+     * @return a randomly selected integer from {@code a} through {@code b}
+     * @throws EvalException if {@code b} is less than {@code a}
+     */
     @StarlarkMethod(name = "randint", doc = "A random int N with a <= N <= b.",
             parameters = {@Param(name = "a"), @Param(name = "b")})
     public StarlarkInt randint(StarlarkInt a, StarlarkInt b) throws EvalException {
@@ -122,11 +160,24 @@ public final class RandomModule implements StarlarkValue {
         return StarlarkInt.of(a.toBigInteger().add(below(n)));
     }
 
+    /**
+     * Produces a uniformly distributed random fraction.
+     *
+     * @return a random float in {@code [0.0, 1.0)}
+     */
     @StarlarkMethod(name = "random", doc = "A random float in [0.0, 1.0).")
     public StarlarkFloat random() {
         return StarlarkFloat.of(RANDOM.nextDouble());
     }
 
+    /**
+     * Interpolates between two numeric endpoints using a random fraction.
+     *
+     * @param a the first integer or float endpoint
+     * @param b the second integer or float endpoint
+     * @return a randomly interpolated float
+     * @throws EvalException if an endpoint is not a supported number
+     */
     @StarlarkMethod(name = "uniform", doc = "A random float between a and b.",
             parameters = {@Param(name = "a"), @Param(name = "b")})
     public StarlarkFloat uniform(Object a, Object b) throws EvalException {
@@ -141,6 +192,13 @@ public final class RandomModule implements StarlarkValue {
         throw Starlark.errorf("TypeError: must be real number, not %s", Starlark.type(x));
     }
 
+    /**
+     * Selects an element uniformly from a non-empty sequence.
+     *
+     * @param seq the sequence to choose from
+     * @return one of the sequence elements
+     * @throws EvalException if the sequence is empty
+     */
     @StarlarkMethod(name = "choice", doc = "A random element of a non-empty sequence.",
             parameters = {@Param(name = "seq")})
     public Object choice(Sequence<?> seq) throws EvalException {
@@ -150,6 +208,12 @@ public final class RandomModule implements StarlarkValue {
         return seq.get(RANDOM.nextInt(seq.size()));
     }
 
+    /**
+     * Randomly permutes a mutable list in place.
+     *
+     * @param x the list to reorder
+     * @throws EvalException if the list cannot be mutated
+     */
     @StarlarkMethod(name = "shuffle", doc = "Shuffles a list in place.", parameters = {@Param(name = "x")})
     public void shuffle(StarlarkList<?> x) throws EvalException {
         List<Object> items = new ArrayList<>(x);
@@ -161,6 +225,15 @@ public final class RandomModule implements StarlarkValue {
         }
     }
 
+    /**
+     * Samples sequence positions without replacement.
+     *
+     * @param population the source sequence; repeated values remain distinct positions
+     * @param k the number of positions to choose
+     * @param thread the calling thread that owns the result list
+     * @return a list of the selected elements in sampling order
+     * @throws EvalException if {@code k} is negative, too large or not representable as an int
+     */
     @StarlarkMethod(name = "sample", doc = "A list of k unique elements chosen from population.",
             parameters = {@Param(name = "population"), @Param(name = "k")},
             useStarlarkThread = true)

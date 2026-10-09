@@ -83,7 +83,12 @@ public final class Stdlib {
     /** Bounds on running one module's top level (each module separately). */
     public static final Limits MODULE_LIMITS = new Limits(200_000_000, Duration.ofSeconds(60));
 
-    /** Bounds on running a module's top-level statements. */
+    /**
+     * Bounds on running a module's top-level statements.
+     *
+     * @param maxSteps the maximum number of interpreter steps for one module
+     * @param timeout the wall-clock duration allowed to initialize one module
+     */
     public record Limits(long maxSteps, Duration timeout) {}
 
     /**
@@ -91,6 +96,9 @@ public final class Stdlib {
      * printf flags and widths, Unicode-aware case mapping and classification, Python's bounds for
      * {@code find}/{@code count}/..., and CPython's codec names and error handlers for
      * {@code bytes.decode}. Applied to the modules and to every script that loads one.
+     *
+     * @param semantics the base interpreter settings
+     * @return settings with the library's Python compatibility options applied
      */
     public static StarlarkSemantics withPythonStrings(StarlarkSemantics semantics) {
         return semantics.toBuilder()
@@ -161,6 +169,10 @@ public final class Stdlib {
     /**
      * Loads the modules a script's {@code load} statements name, by label (in order); see {@link
      * Loader#loadAll}.
+     *
+     * @param labels the standard-library or vendor module labels to load
+     * @return modules indexed by their labels as supplied
+     * @throws EvalException if a label is invalid or a module cannot be loaded or initialized
      */
     public static Map<String, Module> loadAll(List<String> labels) throws EvalException {
         return DEFAULT.loadAll(labels);

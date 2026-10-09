@@ -19,6 +19,13 @@ package org.microproxy.thirdparty.starlark.eval;
  * object}).
  */
 public interface StarlarkMembershipTestable extends StarlarkValue {
-  /** Returns whether the key is in the object. */
+  /**
+   * Returns whether the key is in the object.
+   *
+   * @param semantics the interpreter settings used for the membership test
+   * @param key the value whose membership is tested
+   * @return whether the object contains the key
+   * @throws EvalException if the key is invalid or membership cannot be evaluated
+   */
   boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException;
 }

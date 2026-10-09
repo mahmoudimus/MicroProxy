@@ -40,7 +40,12 @@ public final class DnssecHostResolver implements HostResolver {
         REQUIRE_SECURE
     }
 
-    /** The result of a lookup. */
+    /**
+     * The result of a lookup.
+     *
+     * @param addresses the resolved IP addresses
+     * @param secure whether DNSSEC authenticated the answer
+     */
     // @value-candidate: becomes a value class in the valhalla build profile
     public record Resolution(List<InetAddress> addresses, boolean secure) {}
 
@@ -74,6 +79,11 @@ public final class DnssecHostResolver implements HostResolver {
         this.clock = b.clock;
     }
 
+    /**
+     * Starts a builder with the default settings.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -93,6 +103,9 @@ public final class DnssecHostResolver implements HostResolver {
      * @throws DnssecValidationException if the answer is bogus, or insecure under {@link
      *     Policy#REQUIRE_SECURE}
      * @throws UnknownHostException if the name does not exist or DNS cannot be reached
+     *
+     * @param host the destination host name
+     * @return the resolved addresses and their DNSSEC security state
      */
     public Resolution lookup(String host) throws UnknownHostException {
         Objects.requireNonNull(host, "host");
@@ -182,7 +195,12 @@ public final class DnssecHostResolver implements HostResolver {
 
         private Builder() {}
 
-        /** Recursive resolvers to query; they must pass DNSSEC records through. */
+        /**
+         * Recursive resolvers to query; they must pass DNSSEC records through.
+         *
+         * @param servers the recursive DNS server addresses
+         * @return this builder
+         */
         public Builder servers(List<InetSocketAddress> servers) {
             this.servers = List.copyOf(servers);
             return this;
@@ -191,6 +209,9 @@ public final class DnssecHostResolver implements HostResolver {
         /**
          * Where to send queries, as a DNS-over-HTTPS URL ({@code https://cloudflare-dns.com/dns-query})
          * or a comma-separated list of resolver addresses ({@code 9.9.9.9,149.112.112.112:53}).
+         *
+         * @param spec the resolver URL or comma-separated resolver addresses
+         * @return this builder
          */
         public Builder resolver(String spec) {
             String s = spec.strip();
@@ -216,36 +237,67 @@ public final class DnssecHostResolver implements HostResolver {
             return servers(list);
         }
 
-        /** A custom transport (e.g. DNS over HTTPS); overrides {@link #servers}. */
+        /**
+         * A custom transport (e.g. DNS over HTTPS); overrides {@link #servers}.
+         *
+         * @param transport the DNS query transport
+         * @return this builder
+         */
         public Builder transport(DnsTransport transport) {
             this.transport = transport;
             return this;
         }
 
-        /** Per-attempt UDP/TCP timeout. */
+        /**
+         * Per-attempt UDP/TCP timeout.
+         *
+         * @param timeout the per-attempt UDP/TCP query timeout
+         * @return this builder
+         */
         public Builder timeout(Duration timeout) {
             this.timeout = Objects.requireNonNull(timeout);
             return this;
         }
 
+        /**
+         * Sets the policy for accepting insecure DNS responses.
+         *
+         * @param policy the policy for accepting DNS answers without a secure chain
+         * @return this builder
+         */
         public Builder policy(Policy policy) {
             this.policy = Objects.requireNonNull(policy);
             return this;
         }
 
-        /** Root DS records in the form {@code ". 20326 8 2 E06D..."}; defaults to the IANA anchors. */
+        /**
+         * Root DS records in the form {@code ". 20326 8 2 E06D..."}; defaults to the IANA anchors.
+         *
+         * @param dsRecords the root DS trust-anchor records
+         * @return this builder
+         */
         public Builder trustAnchors(List<String> dsRecords) {
             if (dsRecords.isEmpty()) throw new IllegalArgumentException("at least one trust anchor required");
             this.trustAnchors = List.copyOf(dsRecords);
             return this;
         }
 
-        /** The clock used for signature validity and caching. */
+        /**
+         * The clock used for signature validity and caching.
+         *
+         * @param clock the clock used for timestamps and expiry checks
+         * @return this builder
+         */
         public Builder clock(Clock clock) {
             this.clock = Objects.requireNonNull(clock);
             return this;
         }
 
+        /**
+         * Creates the configured validating DNS resolver.
+         *
+         * @return the configured validating DNS resolver
+         */
         public DnssecHostResolver build() {
             return new DnssecHostResolver(this);
         }

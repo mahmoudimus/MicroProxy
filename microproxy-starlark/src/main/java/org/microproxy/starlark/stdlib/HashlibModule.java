@@ -81,11 +81,26 @@ public final class HashlibModule implements StarlarkValue {
         throw Starlark.errorf("TypeError: object supporting the buffer API required for %s, not %s", what, Starlark.type(data));
     }
 
+    /**
+     * Lists the supported Python hash algorithm names in sorted order.
+     *
+     * @param thread the calling thread that owns the result list
+     * @return the supported algorithm names
+     */
     @StarlarkMethod(name = "algorithms", doc = "The names new() accepts.", useStarlarkThread = true)
     public StarlarkList<String> algorithms(StarlarkThread thread) {
         return StarlarkList.copyOf(thread.mutability(), new java.util.TreeSet<>(ALGORITHMS.keySet()));
     }
 
+    /**
+     * Creates a hash object initialized with supplied bytes.
+     *
+     * @param name the Python hash algorithm name
+     * @param data the initial Starlark bytes
+     * @param thread the calling thread that owns the hash object
+     * @return a mutable hash object
+     * @throws EvalException if the algorithm is unavailable or data is not bytes
+     */
     @StarlarkMethod(name = "new", doc = "A new hash object for algorithm name (hashlib's names), fed data.",
             parameters = {@Param(name = "name"), @Param(name = "data", defaultValue = "b''")},
             useStarlarkThread = true)
@@ -100,6 +115,16 @@ public final class HashlibModule implements StarlarkValue {
         }
     }
 
+    /**
+     * Creates a keyed HMAC object, optionally initialized with message bytes.
+     *
+     * @param key the Starlark bytes used as the HMAC key
+     * @param msg the initial Starlark bytes, or {@code None} for an empty message
+     * @param digestmod the Python digest algorithm name
+     * @param thread the calling thread that owns the HMAC object
+     * @return a mutable HMAC object
+     * @throws EvalException if the algorithm or key is unsupported or an input is not bytes
+     */
     @StarlarkMethod(name = "hmac", doc = "A new HMAC object keyed with key, for digest algorithm name, fed msg.",
             parameters = {
                 @Param(name = "key"),
@@ -129,6 +154,14 @@ public final class HashlibModule implements StarlarkValue {
         }
     }
 
+    /**
+     * Compares like-typed byte strings or ASCII strings with the JDK digest comparison.
+     *
+     * @param a the first Starlark bytes or ASCII string
+     * @param b the second value, of the same type as {@code a}
+     * @return whether the byte representations are equal
+     * @throws EvalException if the types differ, are unsupported or contain non-ASCII text
+     */
     @StarlarkMethod(name = "compare_digest", doc = "Compares two str or bytes values in constant time.",
             parameters = {@Param(name = "a"), @Param(name = "b")})
     public boolean compareDigest(Object a, Object b) throws EvalException {
@@ -150,6 +183,18 @@ public final class HashlibModule implements StarlarkValue {
         return MessageDigest.isEqual(x, y);
     }
 
+    /**
+     * Derives a key using PBKDF2 with the requested HMAC digest.
+     *
+     * @param hashName the Python digest algorithm name
+     * @param password the password as Starlark bytes
+     * @param salt the salt as Starlark bytes
+     * @param iterations the positive iteration count
+     * @param dklen the positive key length in bytes, or {@code None} for the digest size
+     * @param thread the calling interpreter thread supplying ownership and the deadline
+     * @return the derived key as immutable bytes
+     * @throws EvalException if arguments are invalid, the digest is unsupported or the deadline expires
+     */
     @StarlarkMethod(name = "pbkdf2_hmac", doc = "PBKDF2 with HMAC (RFC 8018), as hashlib.pbkdf2_hmac.",
             parameters = {
                 @Param(name = "hash_name"),
@@ -214,37 +259,77 @@ public final class HashlibModule implements StarlarkValue {
             return mutability.isFrozen();
         }
 
+        /**
+         * Returns the hash algorithm name.
+         *
+         * @return the Python algorithm name
+         */
         @StarlarkMethod(name = "name", structField = true, doc = "The algorithm's name.")
         public String name() {
             return algorithm.name();
         }
 
+        /**
+         * Returns the size of this hash result.
+         *
+         * @return the output length in bytes
+         */
         @StarlarkMethod(name = "digest_size", structField = true, doc = "The digest's size in bytes.")
         public int digestSize() {
             return digest.getDigestLength();
         }
 
+        /**
+         * Returns the underlying digest algorithm block size.
+         *
+         * @return the block size in bytes
+         */
         @StarlarkMethod(name = "block_size", structField = true, doc = "The algorithm's block size in bytes.")
         public int blockSize() {
             return algorithm.blockSize();
         }
 
+        /**
+         * Feeds additional bytes into this hash object.
+         *
+         * @param data the Starlark bytes to append
+         * @throws EvalException if the object is frozen or the input is not bytes
+         */
         @StarlarkMethod(name = "update", doc = "Feeds data (bytes).", parameters = {@Param(name = "data")})
         public void update(Object data) throws EvalException {
             if (mutability.isFrozen()) throw Starlark.errorf("trying to mutate a frozen %s value", name());
             digest.update(bytes(data, "data"));
         }
 
+        /**
+         * Computes the hash of bytes fed so far without changing this object.
+         *
+         * @return the result as immutable bytes
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "digest", doc = "The digest of the data so far, as bytes.")
         public StarlarkBytes digest() throws EvalException {
             return StarlarkBytes.immutableOf(snapshot().digest());
         }
 
+        /**
+         * Computes the hash as hexadecimal without changing this object.
+         *
+         * @return the lowercase hexadecimal result
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "hexdigest", doc = "The digest of the data so far, as hex.")
         public String hexdigest() throws EvalException {
             return HexFormat.of().formatHex(snapshot().digest());
         }
 
+        /**
+         * Copies the accumulated state into an independent hash object.
+         *
+         * @param thread the calling thread that owns the copy
+         * @return a mutable copy of this object
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "copy", doc = "A copy of this hash object.", useStarlarkThread = true)
         public HashObject copy(StarlarkThread thread) throws EvalException {
             return new HashObject(algorithm, snapshot(), thread.mutability());
@@ -282,37 +367,77 @@ public final class HashlibModule implements StarlarkValue {
             return mutability.isFrozen();
         }
 
+        /**
+         * Returns the HMAC algorithm name.
+         *
+         * @return {@code hmac-} followed by the digest name
+         */
         @StarlarkMethod(name = "name", structField = true, doc = "hmac-<digest name>.")
         public String name() {
             return "hmac-" + algorithm.name();
         }
 
+        /**
+         * Returns the size of this HMAC result.
+         *
+         * @return the output length in bytes
+         */
         @StarlarkMethod(name = "digest_size", structField = true, doc = "The MAC's size in bytes.")
         public int digestSize() {
             return mac.getMacLength();
         }
 
+        /**
+         * Returns the underlying digest algorithm block size.
+         *
+         * @return the block size in bytes
+         */
         @StarlarkMethod(name = "block_size", structField = true, doc = "The digest's block size in bytes.")
         public int blockSize() {
             return algorithm.blockSize();
         }
 
+        /**
+         * Feeds additional bytes into this HMAC object.
+         *
+         * @param msg the Starlark bytes to append
+         * @throws EvalException if the object is frozen or the input is not bytes
+         */
         @StarlarkMethod(name = "update", doc = "Feeds msg (bytes).", parameters = {@Param(name = "msg")})
         public void update(Object msg) throws EvalException {
             if (mutability.isFrozen()) throw Starlark.errorf("trying to mutate a frozen %s value", name());
             mac.update(bytes(msg, "msg"));
         }
 
+        /**
+         * Computes the HMAC of bytes fed so far without changing this object.
+         *
+         * @return the result as immutable bytes
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "digest", doc = "The MAC of the data so far, as bytes.")
         public StarlarkBytes digest() throws EvalException {
             return StarlarkBytes.immutableOf(snapshot().doFinal());
         }
 
+        /**
+         * Computes the HMAC as hexadecimal without changing this object.
+         *
+         * @return the lowercase hexadecimal result
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "hexdigest", doc = "The MAC of the data so far, as hex.")
         public String hexdigest() throws EvalException {
             return HexFormat.of().formatHex(snapshot().doFinal());
         }
 
+        /**
+         * Copies the accumulated state into an independent HMAC object.
+         *
+         * @param thread the calling thread that owns the copy
+         * @return a mutable copy of this object
+         * @throws EvalException if the JDK provider cannot copy its state
+         */
         @StarlarkMethod(name = "copy", doc = "A copy of this HMAC object.", useStarlarkThread = true)
         public HmacObject copy(StarlarkThread thread) throws EvalException {
             return new HmacObject(algorithm, snapshot(), thread.mutability());

@@ -74,13 +74,21 @@ public final class HttpFiltersBuilder {
      * The request head as the client sent it ({@code clientToProxyRequest}); a whole {@link
      * org.microproxy.http.FullHttpRequest} when buffered ({@link #bufferRequests}). Return a
      * response to answer without contacting the server, or {@code null} to continue.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
      */
     public HttpFiltersBuilder onRequest(Function<HttpRequest, HttpResponse> hook) {
         onRequest = firstAnswer(onRequest, hook);
         return this;
     }
 
-    /** Each piece of a streamed request body, ending with a {@code LastHttpContent}. */
+    /**
+     * Each piece of a streamed request body, ending with a {@code LastHttpContent}.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
+     */
     public HttpFiltersBuilder onRequestBody(Consumer<HttpContent> hook) {
         onRequestBody = onRequestBody == null ? hook : onRequestBody.andThen(hook);
         return this;
@@ -89,6 +97,9 @@ public final class HttpFiltersBuilder {
     /**
      * The request head just before it goes to the server ({@code proxyToServerRequest}), with the
      * proxy's own header changes applied. Return a response to answer instead, or {@code null}.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
      */
     public HttpFiltersBuilder beforeSending(Function<HttpRequest, HttpResponse> hook) {
         beforeSending = firstAnswer(beforeSending, hook);
@@ -99,19 +110,32 @@ public final class HttpFiltersBuilder {
      * The response head from the server ({@code serverToProxyResponse}); a whole {@link
      * org.microproxy.http.FullHttpResponse} when buffered ({@link #bufferResponses}). Return it
      * (changed or not), a replacement, or {@code null} to abort the exchange.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
      */
     public HttpFiltersBuilder onResponse(UnaryOperator<HttpResponse> hook) {
         onResponse = chain(onResponse, hook);
         return this;
     }
 
-    /** Each piece of a streamed response body: return it, a replacement, or {@code null} to abort. */
+    /**
+     * Each piece of a streamed response body: return it, a replacement, or {@code null} to abort.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
+     */
     public HttpFiltersBuilder onResponseBody(UnaryOperator<HttpContent> hook) {
         onResponseBody = chain(onResponseBody, hook);
         return this;
     }
 
-    /** The response head just before it goes to the client ({@code proxyToClientResponse}). */
+    /**
+     * The response head just before it goes to the client ({@code proxyToClientResponse}).
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
+     */
     public HttpFiltersBuilder beforeResponding(UnaryOperator<HttpResponse> hook) {
         beforeResponding = chain(beforeResponding, hook);
         return this;
@@ -120,6 +144,9 @@ public final class HttpFiltersBuilder {
     /**
      * The proxy's own answer when the request fails ({@code proxyToServerFailure}): return a
      * response to send instead of the default, or {@code null}.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
      */
     public HttpFiltersBuilder onFailure(Function<ProxyFailure, HttpResponse> hook) {
         onFailure = firstAnswer(onFailure, hook);
@@ -129,6 +156,9 @@ public final class HttpFiltersBuilder {
     /**
      * Each WebSocket frame, with whether it came from the client: return it, a replacement, or
      * {@code null} to drop it (see {@link HttpFilters#filterWebSocketFrame}).
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
      */
     public HttpFiltersBuilder onWebSocketFrame(BiFunction<WebSocketFrame, Boolean, WebSocketFrame> hook) {
         BiFunction<WebSocketFrame, Boolean, WebSocketFrame> previous = onWebSocketFrame;
@@ -139,13 +169,23 @@ public final class HttpFiltersBuilder {
         return this;
     }
 
-    /** Chooses the server address for {@code host:port}; {@code null} resolves as usual. */
+    /**
+     * Chooses the server address for {@code host:port}; {@code null} resolves as usual.
+     *
+     * @param resolver the function selecting a destination address
+     * @return this builder
+     */
     public HttpFiltersBuilder resolveWith(Function<String, InetSocketAddress> resolver) {
         this.resolver = Objects.requireNonNull(resolver);
         return this;
     }
 
-    /** Whether CONNECT requests may be intercepted (default true when MITM is configured). */
+    /**
+     * Whether CONNECT requests may be intercepted (default true when MITM is configured).
+     *
+     * @param allow the supplier deciding whether interception is allowed
+     * @return this builder
+     */
     public HttpFiltersBuilder allowMitm(BooleanSupplier allow) {
         this.allowMitm = Objects.requireNonNull(allow);
         return this;
@@ -154,6 +194,9 @@ public final class HttpFiltersBuilder {
     /**
      * The connect timeout for these requests' new connections, instead of the server's (see
      * {@link HttpFilters#proxyToServerConnectTimeout()}).
+     *
+     * @param timeout the outbound connection timeout override
+     * @return this builder
      */
     public HttpFiltersBuilder connectTimeout(Duration timeout) {
         if (timeout == null || !timeout.isPositive()) throw new IllegalArgumentException("must be positive: " + timeout);
@@ -161,13 +204,23 @@ public final class HttpFiltersBuilder {
         return this;
     }
 
-    /** Buffer request bodies up to {@code maxBytes}, so {@link #onRequest} gets the whole request. */
+    /**
+     * Buffer request bodies up to {@code maxBytes}, so {@link #onRequest} gets the whole request.
+     *
+     * @param maxBytes the maximum number of body bytes
+     * @return this builder
+     */
     public HttpFiltersBuilder bufferRequests(int maxBytes) {
         this.requestBuffer = positive(maxBytes);
         return this;
     }
 
-    /** Buffer response bodies up to {@code maxBytes}, so {@link #onResponse} gets the whole response. */
+    /**
+     * Buffer response bodies up to {@code maxBytes}, so {@link #onResponse} gets the whole response.
+     *
+     * @param maxBytes the maximum number of body bytes
+     * @return this builder
+     */
     public HttpFiltersBuilder bufferResponses(int maxBytes) {
         this.responseBuffer = positive(maxBytes);
         return this;
@@ -185,6 +238,9 @@ public final class HttpFiltersBuilder {
      * from another source, such as {@code withFiltersSource((request, ctx) -> built)}. Wrapped in
      * filters of your own that delegate to them, they run their hooks but log nothing (with one
      * warning).
+     *
+     * @param logger the exchange logger
+     * @return this builder
      */
     public HttpFiltersBuilder log(HttpLogger logger) {
         if (this.logger != null) throw new IllegalStateException("a logger is already set");
@@ -192,6 +248,11 @@ public final class HttpFiltersBuilder {
         return this;
     }
 
+    /**
+     * Creates a filter source combining the configured hooks.
+     *
+     * @return the combined per-request filter source
+     */
     public Built build() {
         return new Built(this);
     }

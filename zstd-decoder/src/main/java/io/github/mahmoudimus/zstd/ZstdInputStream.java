@@ -16,7 +16,11 @@ public final class ZstdInputStream extends InputStream {
     private final byte[] one = new byte[1];
     private boolean closed;
 
-    /** Decodes {@code in} with default settings. */
+    /**
+     * Decodes {@code in} with default settings.
+     *
+     * @param in compressed input; closing this stream also closes the input
+     */
     public ZstdInputStream(InputStream in) {
         this(in, ZstdDecompressor.create());
     }

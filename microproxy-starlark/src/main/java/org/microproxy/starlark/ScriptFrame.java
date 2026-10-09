@@ -40,7 +40,11 @@ public final class ScriptFrame implements Structure {
         return frame;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a WebSocket frame value
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.FRAME_CONSTRUCTOR;
     }

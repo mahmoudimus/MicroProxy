@@ -39,7 +39,11 @@ public final class ScriptTimings implements Structure {
         this.timings = timings;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a timing snapshot
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.TIMINGS_CONSTRUCTOR;
     }

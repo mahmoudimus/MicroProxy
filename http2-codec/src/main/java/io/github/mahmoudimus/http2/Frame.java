@@ -33,20 +33,50 @@ public sealed interface Frame
     /** The largest stream identifier, 2^31 - 1. */
     int MAX_STREAM_ID = Integer.MAX_VALUE;
 
-    /** The stream this frame belongs to, or 0 for the connection. */
+    /**
+     * The stream this frame belongs to, or 0 for the connection.
+     *
+     * @return the stream identifier, or 0 for the connection
+     */
     int streamId();
 
-    /** The frame type code, one of the {@link FrameType} constants (or any value for {@link Unknown}). */
+    /**
+     * The frame type code, one of the {@link FrameType} constants (or any value for {@link Unknown}).
+     *
+     * @return the unsigned frame type code
+     */
     int type();
 
-    /** DATA (§6.1): part of a stream's content. */
+    /**
+     * DATA (§6.1): part of a stream's content.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param data the content bytes, retained without copying
+     * @param endStream whether this frame ends the stream
+     * @param padding padding octets including the Pad Length octet, or 0 for no padding
+     */
     record Data(int streamId, byte[] data, boolean endStream, int padding) implements Frame {
+        /**
+         * Creates DATA with a nonzero stream and valid padding.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param data the content bytes, retained without copying
+         * @param endStream whether this frame ends the stream
+         * @param padding padding octets including the Pad Length octet, or 0 for no padding
+         */
         public Data {
             requireStream(streamId, "DATA");
             Objects.requireNonNull(data, "data");
             checkPadding(padding);
         }
 
+        /**
+         * Creates an unpadded DATA frame.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param data the content bytes, retained without copying
+         * @param endStream whether this frame ends the stream
+         */
         public Data(int streamId, byte[] data, boolean endStream) {
             this(streamId, data, endStream, 0);
         }
@@ -56,7 +86,11 @@ public sealed interface Frame
             return FrameType.DATA;
         }
 
-        /** The bytes this frame counts against flow-control windows: data plus padding. */
+        /**
+         * The bytes this frame counts against flow-control windows: data plus padding.
+         *
+         * @return the content length plus padding, in octets
+         */
         public int flowControlledLength() {
             return data.length + padding;
         }
@@ -67,16 +101,39 @@ public sealed interface Frame
      * already joined with its CONTINUATION frames, so {@code endHeaders} is true. The (deprecated)
      * priority signal is parsed into {@code priority}, which is null when absent; it has no other
      * effect.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+     * @param endStream whether this frame ends the stream
+     * @param endHeaders whether this fragment completes the field block
+     * @param priority the deprecated priority signal, or null when absent
+     * @param padding padding octets including the Pad Length octet, or 0 for no padding
      */
     record Headers(int streamId, byte[] fieldBlock, boolean endStream, boolean endHeaders, PrioritySpec priority, int padding)
             implements Frame {
+        /**
+         * Creates HEADERS with a nonzero stream and valid padding.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+         * @param endStream whether this frame ends the stream
+         * @param endHeaders whether this fragment completes the field block
+         * @param priority the deprecated priority signal, or null when absent
+         * @param padding padding octets including the Pad Length octet, or 0 for no padding
+         */
         public Headers {
             requireStream(streamId, "HEADERS");
             Objects.requireNonNull(fieldBlock, "fieldBlock");
             checkPadding(padding);
         }
 
-        /** A complete, unpadded field block without priority. */
+        /**
+         * A complete, unpadded field block without priority.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+         * @param endStream whether this frame ends the stream
+         */
         public Headers(int streamId, byte[] fieldBlock, boolean endStream) {
             this(streamId, fieldBlock, endStream, true, null, 0);
         }
@@ -93,16 +150,36 @@ public sealed interface Frame
      * acts on it.
      *
      * @param weight 1 to 256 (the wire value plus one)
+     * @param streamDependency the dependency stream identifier, or 0 for the root
+     * @param exclusive whether the dependency is exclusive
      */
     record PrioritySpec(int streamDependency, boolean exclusive, int weight) {
+        /**
+         * Creates a priority signal with a valid dependency and weight.
+         *
+         * @param streamDependency the dependency stream identifier, or 0 for the root
+         * @param exclusive whether the dependency is exclusive
+         * @param weight the weight from 1 to 256
+         */
         public PrioritySpec {
             if (streamDependency < 0) throw new IllegalArgumentException("bad stream dependency " + streamDependency);
             if (weight < 1 || weight > 256) throw new IllegalArgumentException("weight must be 1-256, got " + weight);
         }
     }
 
-    /** PRIORITY (§6.3): parsed and otherwise ignored. */
+    /**
+     * PRIORITY (§6.3): parsed and otherwise ignored.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param spec the deprecated priority signal
+     */
     record Priority(int streamId, PrioritySpec spec) implements Frame {
+        /**
+         * Creates PRIORITY with a nonzero stream and a priority signal.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param spec the deprecated priority signal
+         */
         public Priority {
             requireStream(streamId, "PRIORITY");
             Objects.requireNonNull(spec, "spec");
@@ -114,12 +191,29 @@ public sealed interface Frame
         }
     }
 
-    /** RST_STREAM (§6.4). {@code errorCode} is the raw wire value; see {@link #error()}. */
+    /**
+     * RST_STREAM (§6.4). {@code errorCode} is the raw wire value; see {@link #error()}.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param errorCode the raw 32-bit error code
+     */
     record RstStream(int streamId, int errorCode) implements Frame {
+        /**
+         * Creates RST_STREAM for a nonzero stream.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param errorCode the raw 32-bit error code
+         */
         public RstStream {
             requireStream(streamId, "RST_STREAM");
         }
 
+        /**
+         * Creates a frame with the given error code.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param error the error code to send
+         */
         public RstStream(int streamId, ErrorCode error) {
             this(streamId, error.code());
         }
@@ -129,6 +223,11 @@ public sealed interface Frame
             return FrameType.RST_STREAM;
         }
 
+        /**
+         * Interprets the raw wire error code.
+         *
+         * @return the known code, or INTERNAL_ERROR for an unknown value
+         */
         public ErrorCode error() {
             return ErrorCode.forCode(errorCode);
         }
@@ -139,8 +238,17 @@ public sealed interface Frame
      * the order they first appeared; a repeated identifier keeps its last value, which is what
      * processing them in order would give. Unknown identifiers are kept so callers can see them,
      * and must be ignored. An ACK has no values.
+     *
+     * @param ack whether this acknowledges the peer settings
+     * @param values setting identifiers and unsigned 32-bit values; empty for an ACK
      */
     record Settings(boolean ack, Map<Integer, Long> values) implements Frame {
+        /**
+         * Creates SETTINGS with an immutable copy of its values.
+         *
+         * @param ack whether this acknowledges the peer settings
+         * @param values setting identifiers and unsigned 32-bit values; empty for an ACK
+         */
         public Settings {
             Objects.requireNonNull(values, "values");
             if (ack && !values.isEmpty()) throw new IllegalArgumentException("a SETTINGS ACK carries no values");
@@ -153,7 +261,11 @@ public sealed interface Frame
             values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
         }
 
-        /** The acknowledgement of a peer's SETTINGS. */
+        /**
+         * The acknowledgement of a peer's SETTINGS.
+         *
+         * @return an empty SETTINGS frame with ACK set
+         */
         public static Settings acknowledgement() {
             return new Settings(true, Map.of());
         }
@@ -175,9 +287,24 @@ public sealed interface Frame
      * PROTOCOL_ERROR (§8.4). The reader still returns it, with the field block (which must be
      * decoded to keep HPACK state in step if the connection is to continue), and leaves the decision
      * to the caller.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param promisedStreamId the nonzero identifier reserved for the promised stream
+     * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+     * @param endHeaders whether this fragment completes the field block
+     * @param padding padding octets including the Pad Length octet, or 0 for no padding
      */
     record PushPromise(int streamId, int promisedStreamId, byte[] fieldBlock, boolean endHeaders, int padding)
             implements Frame {
+        /**
+         * Creates PUSH_PROMISE with nonzero stream identifiers and valid padding.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param promisedStreamId the nonzero identifier reserved for the promised stream
+         * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+         * @param endHeaders whether this fragment completes the field block
+         * @param padding padding octets including the Pad Length octet, or 0 for no padding
+         */
         public PushPromise {
             requireStream(streamId, "PUSH_PROMISE");
             requireStream(promisedStreamId, "PUSH_PROMISE promised stream");
@@ -191,7 +318,12 @@ public sealed interface Frame
         }
     }
 
-    /** PING (§6.7). The 8 opaque octets are carried as a big-endian long. */
+    /**
+     * PING (§6.7). The 8 opaque octets are carried as a big-endian long.
+     *
+     * @param ack whether this acknowledges a peer PING
+     * @param opaqueData the eight opaque octets represented as a big-endian long
+     */
     record Ping(boolean ack, long opaqueData) implements Frame {
         @Override
         public int streamId() {
@@ -204,13 +336,33 @@ public sealed interface Frame
         }
     }
 
-    /** GOAWAY (§6.8). {@code errorCode} is the raw wire value; see {@link #error()}. */
+    /**
+     * GOAWAY (§6.8). {@code errorCode} is the raw wire value; see {@link #error()}.
+     *
+     * @param lastStreamId the last peer-initiated stream that might have been processed
+     * @param errorCode the raw 32-bit error code
+     * @param debugData the diagnostic bytes, retained without copying
+     */
     record GoAway(int lastStreamId, int errorCode, byte[] debugData) implements Frame {
+        /**
+         * Creates GOAWAY with a nonnegative last stream identifier.
+         *
+         * @param lastStreamId the last peer-initiated stream that might have been processed
+         * @param errorCode the raw 32-bit error code
+         * @param debugData the diagnostic bytes, retained without copying
+         */
         public GoAway {
             if (lastStreamId < 0) throw new IllegalArgumentException("bad last stream id " + lastStreamId);
             Objects.requireNonNull(debugData, "debugData");
         }
 
+        /**
+         * Creates a frame with the given error code.
+         *
+         * @param lastStreamId the last peer-initiated stream that might have been processed
+         * @param error the error code to send
+         * @param debugData the diagnostic bytes, retained without copying
+         */
         public GoAway(int lastStreamId, ErrorCode error, byte[] debugData) {
             this(lastStreamId, error.code(), debugData);
         }
@@ -225,13 +377,29 @@ public sealed interface Frame
             return FrameType.GOAWAY;
         }
 
+        /**
+         * Interprets the raw wire error code.
+         *
+         * @return the known code, or INTERNAL_ERROR for an unknown value
+         */
         public ErrorCode error() {
             return ErrorCode.forCode(errorCode);
         }
     }
 
-    /** WINDOW_UPDATE (§6.9) for a stream, or for the connection when {@code streamId} is 0. */
+    /**
+     * WINDOW_UPDATE (§6.9) for a stream, or for the connection when {@code streamId} is 0.
+     *
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param increment the flow-control credit from 1 to 2^31-1
+     */
     record WindowUpdate(int streamId, int increment) implements Frame {
+        /**
+         * Creates WINDOW_UPDATE with a positive credit increment.
+         *
+         * @param streamId the stream identifier, or 0 for the connection
+         * @param increment the flow-control credit from 1 to 2^31-1
+         */
         public WindowUpdate {
             if (streamId < 0) throw new IllegalArgumentException("bad stream id " + streamId);
             if (increment <= 0) throw new IllegalArgumentException("window increment must be 1 to 2^31-1, got " + increment);
@@ -246,8 +414,19 @@ public sealed interface Frame
     /**
      * CONTINUATION (§6.10). Only written: {@link FrameReader} joins CONTINUATION frames into the
      * HEADERS or PUSH_PROMISE they continue, and never returns one.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+     * @param endHeaders whether this fragment completes the field block
      */
     record Continuation(int streamId, byte[] fieldBlock, boolean endHeaders) implements Frame {
+        /**
+         * Creates CONTINUATION for a nonzero stream.
+         *
+         * @param streamId the nonzero stream identifier
+         * @param fieldBlock the HPACK-encoded field block bytes, retained without copying
+         * @param endHeaders whether this fragment completes the field block
+         */
         public Continuation {
             requireStream(streamId, "CONTINUATION");
             Objects.requireNonNull(fieldBlock, "fieldBlock");
@@ -263,8 +442,21 @@ public sealed interface Frame
      * A frame of a type this codec does not know (an extension). The reader discards these unless
      * {@link FrameReader#setDeliverUnknownFrames(boolean)} asks for them; either way they must not
      * change any state (§5.5).
+     *
+     * @param type the extension frame type code from 10 to 255
+     * @param flags the raw eight-bit flags
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param payload the payload bytes, retained without copying
      */
     record Unknown(int type, int flags, int streamId, byte[] payload) implements Frame {
+        /**
+         * Creates an extension frame with an eight-bit type and flags.
+         *
+         * @param type the extension frame type code from 10 to 255
+         * @param flags the raw eight-bit flags
+         * @param streamId the stream identifier, or 0 for the connection
+         * @param payload the payload bytes, retained without copying
+         */
         public Unknown {
             if (type <= FrameType.CONTINUATION || type > 0xff) {
                 throw new IllegalArgumentException("not an extension frame type: " + type);

@@ -53,8 +53,15 @@ public final class WarcWriter implements Closeable {
     private boolean closed;
 
     /**
+     * Creates a WARC writer with file rotation and optional compression.
+     *
      * @param maxFileSize start a new file once the current one reaches this many bytes
      * @param gzip compress each record ({@code .warc.gz}); otherwise plain {@code .warc}
+     *
+     * @param dir the directory in which to create WARC files
+     * @param prefix the WARC file-name prefix
+     * @param software the software identification written to warcinfo records
+     * @throws IOException if the output directory cannot be created
      */
     public WarcWriter(Path dir, String prefix, long maxFileSize, boolean gzip, String software) throws IOException {
         this.dir = dir;

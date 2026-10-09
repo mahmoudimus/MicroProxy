@@ -53,7 +53,11 @@ public final class ScriptRequest extends ScriptMessage {
         return request;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a request value
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.REQUEST_CONSTRUCTOR;
     }

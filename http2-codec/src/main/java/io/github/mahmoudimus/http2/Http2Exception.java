@@ -22,10 +22,27 @@ public class Http2Exception extends IOException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * The error code to report to the peer.
+     */
     private final ErrorCode errorCode;
+    /**
+     * The affected stream identifier, or 0 for the connection.
+     */
     private final int streamId;
+    /**
+     * Whether the error invalidates the entire connection.
+     */
     private final boolean connectionError;
 
+    /**
+     * Creates an error with an explicit protocol scope.
+     *
+     * @param errorCode the non-null code to report to the peer
+     * @param message the diagnostic message
+     * @param streamId the affected stream identifier, or 0 for the connection
+     * @param connectionError whether the entire connection is unusable
+     */
     protected Http2Exception(ErrorCode errorCode, int streamId, boolean connectionError, String message) {
         super(message);
         this.errorCode = Objects.requireNonNull(errorCode, "errorCode");
@@ -33,12 +50,25 @@ public class Http2Exception extends IOException {
         this.connectionError = connectionError;
     }
 
-    /** An error that ends the connection. */
+    /**
+     * An error that ends the connection.
+     *
+     * @param errorCode the non-null code to report to the peer
+     * @param message the diagnostic message
+     * @return a connection-scoped exception
+     */
     public static Http2Exception connectionError(ErrorCode errorCode, String message) {
         return new Http2Exception(errorCode, 0, true, message);
     }
 
-    /** An error that ends only the given stream. */
+    /**
+     * An error that ends only the given stream.
+     *
+     * @param streamId the positive identifier of the affected stream
+     * @param errorCode the non-null code to report to the peer
+     * @param message the diagnostic message
+     * @return a stream-scoped exception
+     */
     public static Http2Exception streamError(int streamId, ErrorCode errorCode, String message) {
         if (streamId <= 0) {
             throw new IllegalArgumentException("a stream error needs a stream, got " + streamId);
@@ -46,16 +76,29 @@ public class Http2Exception extends IOException {
         return new Http2Exception(errorCode, streamId, false, message);
     }
 
-    /** The code to send in GOAWAY (connection error) or RST_STREAM (stream error). */
+    /**
+     * The code to send in GOAWAY (connection error) or RST_STREAM (stream error).
+     *
+     * @return the code to report to the peer
+     */
     public ErrorCode errorCode() {
         return errorCode;
     }
 
-    /** The stream in error, or 0 for a connection error. */
+    /**
+     * The stream in error, or 0 for a connection error.
+     *
+     * @return the affected stream identifier, or 0 for a connection error
+     */
     public int streamId() {
         return streamId;
     }
 
+    /**
+     * Reports whether the connection must be closed.
+     *
+     * @return true for a connection error, false for a stream error
+     */
     public boolean isConnectionError() {
         return connectionError;
     }

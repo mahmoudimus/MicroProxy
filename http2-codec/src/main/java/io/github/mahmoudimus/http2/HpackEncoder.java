@@ -48,6 +48,8 @@ public final class HpackEncoder {
      * An encoder whose dynamic table starts at {@code maxHeaderTableSize}, which both sides must
      * already agree on (in HTTP/2, 4096). The table never grows beyond this, however large a
      * SETTINGS_HEADER_TABLE_SIZE the peer allows.
+     *
+     * @param maxHeaderTableSize the nonnegative initial and maximum table capacity in octets
      */
     public HpackEncoder(int maxHeaderTableSize) {
         if (maxHeaderTableSize < 0) throw new IllegalArgumentException("negative table size");
@@ -55,13 +57,23 @@ public final class HpackEncoder {
         this.table = new DynamicTable(maxHeaderTableSize);
     }
 
-    /** Whether to Huffman-code strings that do not get longer for it (default true). */
+    /**
+     * Whether to Huffman-code strings that do not get longer for it (default true).
+     *
+     * @param huffman whether to use Huffman coding when it saves space
+     * @return this encoder
+     */
     public HpackEncoder setHuffman(boolean huffman) {
         this.huffman = huffman;
         return this;
     }
 
-    /** Whether to send fields named in {@link #SENSITIVE_NAMES} never-indexed (default true). */
+    /**
+     * Whether to send fields named in {@link #SENSITIVE_NAMES} never-indexed (default true).
+     *
+     * @param neverIndexSensitiveNames whether fields with sensitive names must be sent never-indexed
+     * @return this encoder
+     */
     public HpackEncoder setNeverIndexSensitiveNames(boolean neverIndexSensitiveNames) {
         this.neverIndexSensitiveNames = neverIndexSensitiveNames;
         return this;
@@ -71,6 +83,8 @@ public final class HpackEncoder {
      * Applies the peer's SETTINGS_HEADER_TABLE_SIZE. The table is resized to the smaller of that and
      * this encoder's own limit, and the change is signalled at the start of the next block (both
      * the smallest size and the final one, if it shrank and grew again in between).
+     *
+     * @param peerMaxHeaderTableSize the nonnegative table size allowed by the peer, in octets
      */
     public void setMaxHeaderTableSize(long peerMaxHeaderTableSize) {
         if (peerMaxHeaderTableSize < 0) throw new IllegalArgumentException("negative table size");
@@ -81,25 +95,49 @@ public final class HpackEncoder {
         table.setCapacity(capacity);
     }
 
-    /** The current size of the dynamic table in octets. */
+    /**
+     * The current size of the dynamic table in octets.
+     *
+     * @return the current table size in octets, including per-entry overhead
+     */
     public int dynamicTableSize() {
         return table.size();
     }
 
+    /**
+     * Returns the current dynamic table capacity.
+     *
+     * @return the table capacity in octets
+     */
     public int dynamicTableCapacity() {
         return table.capacity();
     }
 
+    /**
+     * Returns the number of dynamic table entries.
+     *
+     * @return the current entry count
+     */
     public int dynamicTableLength() {
         return table.length();
     }
 
-    /** A dynamic table entry, 1 being the newest. */
+    /**
+     * A dynamic table entry, 1 being the newest.
+     *
+     * @param index the one-based dynamic table index, with 1 the newest entry
+     * @return the field at that dynamic table index
+     */
     public HeaderField dynamicTableEntry(int index) {
         return table.get(index);
     }
 
-    /** Encodes one field section into a field block. */
+    /**
+     * Encodes one field section into a field block.
+     *
+     * @param fields the fields to encode in wire order
+     * @return the encoded HPACK field block
+     */
     public byte[] encode(List<HeaderField> fields) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         encode(fields, out);
@@ -110,6 +148,8 @@ public final class HpackEncoder {
      * Encodes one field section, appending the field block to {@code out}.
      *
      * @throws IllegalArgumentException if a name or value has a char above U+00FF (not an octet)
+     * @param fields the fields to encode in wire order
+     * @param out the output buffer to append to
      */
     public void encode(List<HeaderField> fields, ByteArrayOutputStream out) {
         for (HeaderField f : fields) {

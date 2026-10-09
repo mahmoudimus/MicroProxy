@@ -94,7 +94,11 @@ public class BrotliInputStream extends InputStream {
     }
   }
 
-  /** Attach "RAW" dictionary (chunk) to decoder. */
+  /**
+   * Attach "RAW" dictionary (chunk) to decoder.
+   *
+   * @param data the additional dictionary bytes
+   */
   public void attachDictionaryChunk(byte[] data) {
     Decode.attachDictionaryChunk(state, data);
   }

@@ -75,6 +75,11 @@ public final class FrameReader {
     private int flags;
     private int streamId;
 
+    /**
+     * Creates a reader for the supplied input stream.
+     *
+     * @param in the non-null stream to read
+     */
     public FrameReader(InputStream in) {
         this.in = Objects.requireNonNull(in, "in");
     }
@@ -82,6 +87,8 @@ public final class FrameReader {
     /**
      * The largest frame payload accepted: the SETTINGS_MAX_FRAME_SIZE this endpoint advertised
      * (16384 until the peer acknowledges a larger one).
+     *
+     * @param maxFrameSize the maximum payload size from 2^14 to 2^24-1 octets
      */
     public void setMaxFrameSize(int maxFrameSize) {
         if (maxFrameSize < Http2Settings.DEFAULT_MAX_FRAME_SIZE || maxFrameSize > Http2Settings.MAX_MAX_FRAME_SIZE) {
@@ -90,27 +97,49 @@ public final class FrameReader {
         this.maxFrameSize = maxFrameSize;
     }
 
+    /**
+     * Returns the current frame payload limit.
+     *
+     * @return the maximum payload size in octets
+     */
     public int maxFrameSize() {
         return maxFrameSize;
     }
 
-    /** The largest encoded field block (HEADERS or PUSH_PROMISE plus CONTINUATION payloads) accepted. */
+    /**
+     * The largest encoded field block (HEADERS or PUSH_PROMISE plus CONTINUATION payloads) accepted.
+     *
+     * @param maxHeaderBlockSize the nonnegative encoded field block limit in octets
+     */
     public void setMaxHeaderBlockSize(int maxHeaderBlockSize) {
         if (maxHeaderBlockSize < 0) throw new IllegalArgumentException("negative limit");
         this.maxHeaderBlockSize = maxHeaderBlockSize;
     }
 
+    /**
+     * Returns the encoded field block limit.
+     *
+     * @return the encoded field block limit in octets
+     */
     public int maxHeaderBlockSize() {
         return maxHeaderBlockSize;
     }
 
-    /** The most CONTINUATION frames accepted in one field block. */
+    /**
+     * The most CONTINUATION frames accepted in one field block.
+     *
+     * @param maxContinuationFrames the nonnegative maximum number of continuation frames
+     */
     public void setMaxContinuationFrames(int maxContinuationFrames) {
         if (maxContinuationFrames < 0) throw new IllegalArgumentException("negative limit");
         this.maxContinuationFrames = maxContinuationFrames;
     }
 
-    /** Return frames of unknown types as {@link Frame.Unknown} instead of skipping them. */
+    /**
+     * Return frames of unknown types as {@link Frame.Unknown} instead of skipping them.
+     *
+     * @param deliverUnknownFrames true to return extension frames, false to discard them
+     */
     public void setDeliverUnknownFrames(boolean deliverUnknownFrames) {
         this.deliverUnknownFrames = deliverUnknownFrames;
     }
@@ -121,6 +150,7 @@ public final class FrameReader {
      *
      * @throws Http2Exception a connection error PROTOCOL_ERROR if the bytes differ
      * @throws EOFException if the stream ends first
+     * @throws IOException if reading the underlying stream fails
      */
     public void readClientPreface() throws IOException {
         for (int i = 0; i < CLIENT_PREFACE_BYTES.length; i++) {
@@ -138,6 +168,7 @@ public final class FrameReader {
      * @return the frame, or null if the stream ended cleanly between frames
      * @throws Http2Exception if the frame breaks the protocol or a limit
      * @throws EOFException if the stream ends inside a frame or a field block
+     * @throws IOException if reading the underlying stream fails
      */
     public Frame readFrame() throws IOException {
         while (true) {

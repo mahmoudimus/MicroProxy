@@ -69,22 +69,39 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     private final Map<FlowContext, TimedRequest> requests = new ConcurrentHashMap<>();
     private final Map<FlowContext, InetSocketAddress> servers = new ConcurrentHashMap<>();
 
-    /** Logs to the {@code System.Logger} named {@code org.microproxy.extras.ActivityLogger}. */
+    /**
+     * Logs to the {@code System.Logger} named {@code org.microproxy.extras.ActivityLogger}.
+     *
+     * @param logFormat the access log format
+     */
     public ActivityLogger(LogFormat logFormat) {
         this(logFormat, null, Clock.systemUTC());
     }
 
-    /** Logs each line to {@code sink}, e.g. a file writer. */
+    /**
+     * Logs each line to {@code sink}, e.g. a file writer.
+     *
+     * @param logFormat the access log format
+     * @param sink the consumer receiving each formatted log entry
+     */
     public ActivityLogger(LogFormat logFormat, Consumer<String> sink) {
         this(logFormat, sink, Clock.systemUTC());
     }
 
+    /**
+     * Creates an access logger with the supplied format, sink and clock.
+     *
+     * @param logFormat the access log format
+     * @param sink the consumer receiving each formatted log entry
+     * @param clock the clock used for log timestamps
+     */
     public ActivityLogger(LogFormat logFormat, Consumer<String> sink, Clock clock) {
         this.logFormat = Objects.requireNonNull(logFormat);
         this.sink = sink;
         this.clock = Objects.requireNonNull(clock);
     }
 
+    /** {@return the configured access log format} */
     public LogFormat getLogFormat() {
         return logFormat;
     }
@@ -191,7 +208,11 @@ public class ActivityLogger extends ActivityTrackerAdapter {
         return d.map(x -> String.format(Locale.ROOT, "%.3f", x.toNanos() / 1e6)).orElse("null");
     }
 
-    /** Writes a finished line. Override to send lines elsewhere. */
+    /**
+     * Writes a finished line. Override to send lines elsewhere.
+     *
+     * @param line the formatted log entry
+     */
     protected void log(String line) {
         if (sink != null) {
             sink.accept(line);
@@ -200,7 +221,15 @@ public class ActivityLogger extends ActivityTrackerAdapter {
         }
     }
 
-    /** Formats one line; visible for subclasses that want to post-process it. */
+    /**
+     * Formats one line; visible for subclasses that want to post-process it.
+     *
+     * @param ctx the client connection or exchange context
+     * @param request the request being handled
+     * @param response the response being handled
+     * @param durationMillis the exchange duration in milliseconds
+     * @return the formatted access log line
+     */
     protected String formatLogEntry(FlowContext ctx, HttpRequest request, HttpResponse response, long durationMillis) {
         ZonedDateTime now = ZonedDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         String client = clientIp(ctx);
@@ -249,6 +278,10 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     /**
      * The absolute URL of a request: as received for absolute-form and CONNECT requests, otherwise
      * rebuilt from the Host header ({@code https} inside an intercepted TLS session).
+     *
+     * @param request the request being handled
+     * @param ctx the client connection or exchange context
+     * @return the absolute request URL
      */
     protected String getFullUrl(HttpRequest request, FlowContext ctx) {
         String uri = request.uri();

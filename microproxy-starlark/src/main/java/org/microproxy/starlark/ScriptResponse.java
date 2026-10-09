@@ -49,7 +49,11 @@ public final class ScriptResponse extends ScriptMessage {
         return response;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a response value
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.RESPONSE_CONSTRUCTOR;
     }

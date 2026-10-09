@@ -28,6 +28,15 @@ public final class JsonModule implements StarlarkValue {
 
     private JsonModule() {}
 
+    /**
+     * Encodes a value as compact JSON with sorted object keys.
+     *
+     * @param x the Starlark value to encode
+     * @param thread the calling interpreter thread
+     * @return the JSON text
+     * @throws EvalException if the value cannot be represented as JSON
+     * @throws InterruptedException if encoding is interrupted
+     */
     @StarlarkMethod(name = "encode", doc = "Encodes x as JSON (keys sorted, no spaces).",
             parameters = {@Param(name = "x")}, useStarlarkThread = true)
     public String encode(Object x, StarlarkThread thread) throws EvalException, InterruptedException {
@@ -35,6 +44,16 @@ public final class JsonModule implements StarlarkValue {
         return Json.INSTANCE.encode(x, thread);
     }
 
+    /**
+     * Encodes a value using Python-style optional indentation.
+     *
+     * @param x the Starlark value to encode
+     * @param indent the number of spaces, an indentation string or {@code None} for compact output
+     * @param thread the calling interpreter thread
+     * @return the JSON text
+     * @throws EvalException if the value or indentation cannot be encoded
+     * @throws InterruptedException if encoding is interrupted
+     */
     @StarlarkMethod(name = "dumps", doc = "Python's json.dumps: encode(x), or encode_indent with indent spaces.",
             parameters = {
                 @Param(name = "x"),
@@ -52,6 +71,15 @@ public final class JsonModule implements StarlarkValue {
         return Json.INSTANCE.encodeIndent(x, "", unit, thread);
     }
 
+    /**
+     * Parses JSON, optionally returning a fallback for malformed input.
+     *
+     * @param x the JSON text
+     * @param defaultValue the fallback, or {@code Starlark.UNBOUND} to report invalid JSON
+     * @param thread the calling thread that owns decoded containers
+     * @return the decoded Starlark value or the supplied fallback
+     * @throws EvalException if JSON is invalid and no fallback was supplied
+     */
     @StarlarkMethod(name = "decode", doc = "Decodes a JSON string; returns default (if given) for invalid JSON.",
             parameters = {@Param(name = "x"), @Param(name = "default", named = true, defaultValue = "unbound")},
             useStarlarkThread = true)
@@ -59,6 +87,14 @@ public final class JsonModule implements StarlarkValue {
         return Json.INSTANCE.decode(x, defaultValue, thread);
     }
 
+    /**
+     * Parses JSON from text or strictly decoded UTF-8 bytes.
+     *
+     * @param s the JSON string or bytes
+     * @param thread the calling thread that owns decoded containers
+     * @return the decoded Starlark value
+     * @throws EvalException if UTF-8 decoding or JSON parsing fails
+     */
     @StarlarkMethod(name = "loads", doc = "Python's json.loads: decodes a JSON string (or UTF-8 bytes).",
             parameters = {
                 @Param(name = "s", allowedTypes = {@ParamType(type = String.class), @ParamType(type = StarlarkBytes.class)})
@@ -69,6 +105,15 @@ public final class JsonModule implements StarlarkValue {
         return Json.INSTANCE.decode(text, Starlark.UNBOUND, thread);
     }
 
+    /**
+     * Reformats JSON with a line prefix and indentation unit.
+     *
+     * @param s the JSON text to reformat
+     * @param prefix the prefix for output lines
+     * @param indent the indentation added per nesting level
+     * @return the reformatted JSON text
+     * @throws EvalException if the input is invalid JSON
+     */
     @StarlarkMethod(name = "indent", doc = "Reformats a valid JSON string with indentation.",
             parameters = {
                 @Param(name = "s"),
@@ -79,6 +124,17 @@ public final class JsonModule implements StarlarkValue {
         return Json.INSTANCE.indent(s, prefix, indent);
     }
 
+    /**
+     * Encodes a value as JSON and formats it with indentation.
+     *
+     * @param x the Starlark value to encode
+     * @param prefix the prefix for output lines
+     * @param indent the indentation added per nesting level
+     * @param thread the calling interpreter thread
+     * @return the formatted JSON text
+     * @throws EvalException if the value cannot be represented as JSON
+     * @throws InterruptedException if encoding is interrupted
+     */
     @StarlarkMethod(name = "encode_indent", doc = "encode(x), then indent.",
             parameters = {
                 @Param(name = "x"),

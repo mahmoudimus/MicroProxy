@@ -39,7 +39,12 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         this.sources = sources;
     }
 
-    /** Chains {@code sources}, flattening nested chains. */
+    /**
+     * Chains {@code sources}, flattening nested chains.
+     *
+     * @param sources the filter sources, in execution order
+     * @return the combined filter source
+     */
     public static HttpFiltersSource of(HttpFiltersSource... sources) {
         List<HttpFiltersSource> flat = new ArrayList<>();
         for (HttpFiltersSource source : sources) {
@@ -54,7 +59,7 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         return new HttpFiltersChain(List.copyOf(flat));
     }
 
-    /** The chained sources, in order. */
+    /** {@return the chained sources, in order} */
     public List<HttpFiltersSource> sources() {
         return sources;
     }
@@ -93,7 +98,7 @@ public final class HttpFiltersChain implements HttpFiltersSource {
             this.members = members;
         }
 
-        /** The member filters, in order. */
+        /** {@return the member filters, in order} */
         public List<HttpFilters> members() {
             return members;
         }

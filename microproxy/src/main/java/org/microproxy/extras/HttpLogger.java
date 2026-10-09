@@ -141,34 +141,41 @@ public final class HttpLogger implements HttpFiltersSource {
         webSocketFrames = b.webSocketFrames;
     }
 
-    /** Starts a logger at {@link Level#HEADERS}, writing {@link Format#TEXT} with the default redaction. */
+    /**
+     * Starts a logger at {@link Level#HEADERS}, writing {@link Format#TEXT} with the default redaction.
+     *
+     * @return a new builder with default settings
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /** {@return the configured logging detail} */
     public Level level() {
         return level;
     }
 
+    /** {@return the configured log output format} */
     public Format format() {
         return format;
     }
 
-    /** The redacted header names, in lower case. */
+    /** {@return the redacted header names, in lower case} */
     public Set<String> redactedHeaders() {
         return redactedHeaders;
     }
 
-    /** The redacted query parameter names, in lower case. */
+    /** {@return the redacted query parameter names, in lower case} */
     public Set<String> redactedQueryParams() {
         return redactedQueryParams;
     }
 
+    /** {@return the maximum body bytes retained per log entry} */
     public int maxBodyBytes() {
         return maxBodyBytes;
     }
 
-    /** Whether WebSocket frames are logged (at {@link Level#BODY}). */
+    /** {@return whether WebSocket frames are logged (at {@link Level#BODY})} */
     public boolean logsWebSocketFrames() {
         return webSocketFrames && level == Level.BODY;
     }
@@ -946,13 +953,23 @@ public final class HttpLogger implements HttpFiltersSource {
 
         private Builder() {}
 
-        /** How much to log (default {@link Level#HEADERS}). */
+        /**
+         * How much to log (default {@link Level#HEADERS}).
+         *
+         * @param level the amount of HTTP detail to log
+         * @return this builder
+         */
         public Builder level(Level level) {
             this.level = Objects.requireNonNull(level);
             return this;
         }
 
-        /** Readable blocks (default) or JSON lines. */
+        /**
+         * Readable blocks (default) or JSON lines.
+         *
+         * @param format the log output format
+         * @return this builder
+         */
         public Builder format(Format format) {
             this.format = Objects.requireNonNull(format);
             return this;
@@ -961,19 +978,31 @@ public final class HttpLogger implements HttpFiltersSource {
         /**
          * Also replaces the values of these headers (any case) with {@value HttpLogger#REDACTED}, on
          * both sides of the proxy. {@link HttpLogger#DEFAULT_REDACTED_HEADERS} are redacted already.
+         *
+         * @param headerNames the header names whose values to redact
+         * @return this builder
          */
         public Builder redact(String... headerNames) {
             for (String name : headerNames) redactedHeaders.add(Objects.requireNonNull(name));
             return this;
         }
 
-        /** Also replaces the values of these query parameters (any case) in logged URLs. */
+        /**
+         * Also replaces the values of these query parameters (any case) in logged URLs.
+         *
+         * @param names the query parameter names whose values to redact
+         * @return this builder
+         */
         public Builder redactQueryParams(String... names) {
             for (String name : names) redactedQueryParams.add(Objects.requireNonNull(name));
             return this;
         }
 
-        /** Redacts nothing, not even the default headers; later {@code redact} calls add to that. */
+        /**
+         * Redacts nothing, not even the default headers; later {@code redact} calls add to that.
+         *
+         * @return this builder
+         */
         public Builder redactNothing() {
             redactedHeaders.clear();
             redactedQueryParams.clear();
@@ -984,6 +1013,9 @@ public final class HttpLogger implements HttpFiltersSource {
          * At {@link Level#BODY}, keeps at most this many bytes of each body (and of each WebSocket
          * frame's text); the rest is counted but not kept. Default {@value
          * HttpLogger#DEFAULT_MAX_BODY_BYTES}.
+         *
+         * @param maxBodyBytes the maximum body bytes to retain in each log entry
+         * @return this builder
          */
         public Builder maxBodyBytes(int maxBodyBytes) {
             if (maxBodyBytes < 0) throw new IllegalArgumentException("maxBodyBytes must not be negative");
@@ -991,7 +1023,12 @@ public final class HttpLogger implements HttpFiltersSource {
             return this;
         }
 
-        /** Logs only the exchanges whose request (as the client sent it) matches. */
+        /**
+         * Logs only the exchanges whose request (as the client sent it) matches.
+         *
+         * @param predicate the predicate deciding which exchanges to log
+         * @return this builder
+         */
         public Builder only(BiPredicate<HttpRequest, FlowContext> predicate) {
             this.only = Objects.requireNonNull(predicate);
             return this;
@@ -1000,6 +1037,9 @@ public final class HttpLogger implements HttpFiltersSource {
         /**
          * Where each message goes, as one string (several lines in {@link Format#TEXT}). Default:
          * the {@code System.Logger} {@value HttpLogger#LOGGER_NAME} at INFO.
+         *
+         * @param sink the consumer receiving each formatted log entry
+         * @return this builder
          */
         public Builder sink(Consumer<String> sink) {
             this.sink = Objects.requireNonNull(sink);
@@ -1010,12 +1050,20 @@ public final class HttpLogger implements HttpFiltersSource {
          * At {@link Level#BODY}, also logs WebSocket frames after an upgrade: text frames' text
          * (up to {@link #maxBodyBytes}), other frames' sizes. Off by default, since it makes the
          * proxy parse every frame.
+         *
+         * @param log whether to log WebSocket frames
+         * @return this builder
          */
         public Builder webSocketFrames(boolean log) {
             this.webSocketFrames = log;
             return this;
         }
 
+        /**
+         * Creates the configured HTTP exchange logger.
+         *
+         * @return the configured exchange logger
+         */
         public HttpLogger build() {
             return new HttpLogger(this);
         }

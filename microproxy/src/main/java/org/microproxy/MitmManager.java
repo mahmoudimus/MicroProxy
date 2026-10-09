@@ -29,7 +29,13 @@ import org.microproxy.http.HttpRequest;
  */
 public interface MitmManager {
 
-    /** TLS configuration for the proxy's connection to the real server (proxy is TLS client). */
+    /**
+     * TLS configuration for the proxy's connection to the real server (proxy is TLS client).
+     *
+     * @param peerHost the real server host name
+     * @param peerPort the real server port
+     * @return the TLS context used towards the real server
+     */
     SSLContext serverSslContext(String peerHost, int peerPort);
 
     /**
@@ -39,6 +45,10 @@ public interface MitmManager {
      * #serverSslContext(String, int)}.
      *
      * @param flow a {@link FullFlowContext} naming the server and the chained proxy, if any
+     *
+     * @param peerHost the real server host name
+     * @param peerPort the real server port
+     * @return the TLS context used towards the real server
      */
     default SSLContext serverSslContext(String peerHost, int peerPort, FlowContext flow) {
         return serverSslContext(peerHost, peerPort);
@@ -50,6 +60,8 @@ public interface MitmManager {
      *
      * @param connectRequest the client's CONNECT request
      * @param serverSslSession the established session with the real server
+     *
+     * @return the TLS context presented to the client
      */
     SSLContext clientSslContextFor(HttpRequest connectRequest, SSLSession serverSslSession);
 
@@ -60,6 +72,9 @@ public interface MitmManager {
      * @param serverSslSession the established session with the real server, or {@code null} when
      *     intercepting without one ({@link HttpFilters#proxyToServerAllowOfflineMitm})
      * @param flow the client connection's context
+     *
+     * @param connectRequest the CONNECT request naming the server
+     * @return the TLS context presented to the client
      */
     default SSLContext clientSslContextFor(HttpRequest connectRequest, SSLSession serverSslSession, FlowContext flow) {
         return clientSslContextFor(connectRequest, serverSslSession);
@@ -68,6 +83,8 @@ public interface MitmManager {
     /**
      * Customizes the socket to the real server before its handshake. By default the proxy enables
      * SNI and HTTPS host-name verification; override to relax that.
+     *
+     * @param socket the TLS socket to configure
      */
     default void configureServerSocket(SSLSocket socket) {}
 
@@ -76,6 +93,8 @@ public interface MitmManager {
      * to {@link #configureServerSocket(SSLSocket)}.
      *
      * @param flow a {@link FullFlowContext} naming the server and the chained proxy, if any
+     *
+     * @param socket the TLS socket to configure
      */
     default void configureServerSocket(SSLSocket socket, FlowContext flow) {
         configureServerSocket(socket);
@@ -87,6 +106,9 @@ public interface MitmManager {
      * first CONNECT (after proxy authentication, so the user is known), and uses the answer for
      * every interception on that connection. {@code null} declines: the connection's CONNECTs are
      * tunnelled without interception.
+     *
+     * @param flow the client connection or exchange context
+     * @return the manager to use for this client connection
      */
     default MitmManager forConnection(FlowContext flow) {
         return this;
@@ -100,6 +122,9 @@ public interface MitmManager {
      *
      * <p>The returned manager only selects: its own methods throw {@link
      * UnsupportedOperationException}.
+     *
+     * @param choose the function selecting a manager for each client connection
+     * @return the manager delegating selection to {@code choose}
      */
     static MitmManager perConnection(Function<? super FlowContext, ? extends MitmManager> choose) {
         Objects.requireNonNull(choose);

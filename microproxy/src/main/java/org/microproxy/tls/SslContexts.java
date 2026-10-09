@@ -21,7 +21,7 @@ public final class SslContexts {
 
     private SslContexts() {}
 
-    /** A context using the JDK's default trust store and no client certificate. */
+    /** {@return a context using the JDK's default trust store and no client certificate} */
     public static SSLContext systemDefault() {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
@@ -32,7 +32,11 @@ public final class SslContexts {
         }
     }
 
-    /** A context that trusts every server. Insecure; for tests and debugging. */
+    /**
+     * A context that trusts every server. Insecure; for tests and debugging.
+     *
+     * @return a context that trusts every server
+     */
     public static SSLContext trustAll() {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
@@ -43,7 +47,12 @@ public final class SslContexts {
         }
     }
 
-    /** A context that trusts only the given certificates. */
+    /**
+     * A context that trusts only the given certificates.
+     *
+     * @param anchors the trusted CA certificates
+     * @return a context that trusts only the given certificates
+     */
     public static SSLContext trusting(X509Certificate... anchors) {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
@@ -58,6 +67,9 @@ public final class SslContexts {
      * A context that trusts the JDK's default trust store and, in addition, {@code extraAnchors}
      * (e.g. a corporate or test CA). Host names are still verified where endpoint identification
      * is enabled.
+     *
+     * @param extraAnchors the CA certificates trusted in addition to the system defaults
+     * @return a context that trusts the JDK's default trust store and, in addition, {@code extraAnchors} (e.g. a corporate or test CA)
      */
     public static SSLContext systemDefaultPlus(X509Certificate... extraAnchors) {
         try {
@@ -86,6 +98,11 @@ public final class SslContexts {
     /**
      * A context presenting {@code chain} (leaf first) with {@code key}, trusting {@code trustAnchors}
      * (or the system default when none are given).
+     *
+     * @param key the private key matching the leaf certificate
+     * @param chain the certificate chain, leaf first
+     * @param trustManagers the peer certificate validators, or {@code null} for system defaults
+     * @return a TLS context using the supplied private key, chain and peer validators
      */
     public static SSLContext withKey(PrivateKey key, X509Certificate[] chain, TrustManager[] trustManagers) {
         try {

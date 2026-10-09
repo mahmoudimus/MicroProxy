@@ -54,7 +54,11 @@ public final class ScriptContext implements Structure {
         this.flow = flow;
     }
 
-    /** Types the builtins that return this class (see {@link ScriptType}). */
+    /**
+     * Types the builtins that return this class (see {@link ScriptType}).
+     *
+     * @return the Starlark type constructor for a context value
+     */
     public static TypeConstructor getAssociatedTypeConstructor() {
         return ScriptType.CONTEXT_CONSTRUCTOR;
     }

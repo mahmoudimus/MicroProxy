@@ -30,7 +30,13 @@ public final class ZstdDictionary {
         this.repeatOffsets = repeatOffsets;
     }
 
-    /** Parses {@code data}: a formatted dictionary if it starts with the dictionary magic, else raw content. */
+    /**
+     * Parses {@code data}: a formatted dictionary if it starts with the dictionary magic, else raw content.
+     *
+     * @param data encoded dictionary or raw dictionary content
+     * @return a dictionary containing a copy of the content
+     * @throws ZstdException if a formatted dictionary is malformed
+     */
     public static ZstdDictionary of(byte[] data) throws ZstdException {
         if (data.length < 8 || FrameDecoder.int32(data, 0) != MAGIC) {
             return raw(data);
@@ -56,12 +62,21 @@ public final class ZstdDictionary {
         return new ZstdDictionary(id, content, huffman, offsets, matchLengths, literalLengths, reps);
     }
 
-    /** Treats all of {@code content} as a raw-content dictionary (ID 0). */
+    /**
+     * Treats all of {@code content} as a raw-content dictionary (ID 0).
+     *
+     * @param content bytes available as history before a frame's first output byte
+     * @return a dictionary containing a copy of the supplied content
+     */
     public static ZstdDictionary raw(byte[] content) {
         return new ZstdDictionary(0, content.clone(), null, null, null, null, null);
     }
 
-    /** The dictionary ID frames refer to it by (an unsigned 32-bit value); 0 for raw content. */
+    /**
+     * Returns the dictionary ID frames refer to it by.
+     *
+     * @return the unsigned 32-bit dictionary ID, or 0 for raw content
+     */
     public long id() {
         return Integer.toUnsignedLong(id);
     }
@@ -70,7 +85,11 @@ public final class ZstdDictionary {
         return id;
     }
 
-    /** The size of the content frames can copy from. */
+    /**
+     * Returns the size of the content frames can copy from.
+     *
+     * @return the dictionary content size in bytes
+     */
     public int contentSize() {
         return content.length;
     }

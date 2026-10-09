@@ -32,6 +32,9 @@ public interface SelectiveFilters extends HttpFilters {
      *       #webSocketFrameReceived(org.microproxy.http.WebSocketFrame, boolean)} and forwarded
      *       unchanged.
      * </ul>
+     *
+     * @param stream the request or response body stream
+     * @return whether this body stream is inspected piece by piece
      */
     boolean sees(Body stream);
 }

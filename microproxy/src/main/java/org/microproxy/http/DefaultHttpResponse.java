@@ -9,10 +9,23 @@ public non-sealed class DefaultHttpResponse implements HttpResponse {
     private HttpResponseStatus status;
     private final HttpHeaders headers;
 
+    /**
+     * Creates a response with empty headers.
+     *
+     * @param version protocol version
+     * @param status response status
+     */
     public DefaultHttpResponse(HttpVersion version, HttpResponseStatus status) {
         this(version, status, new HttpHeaders());
     }
 
+    /**
+     * Creates a response head using the supplied headers.
+     *
+     * @param version protocol version
+     * @param status response status
+     * @param headers mutable headers, retained without copying
+     */
     public DefaultHttpResponse(HttpVersion version, HttpResponseStatus status, HttpHeaders headers) {
         this.version = Objects.requireNonNull(version, "version");
         this.status = Objects.requireNonNull(status, "status");

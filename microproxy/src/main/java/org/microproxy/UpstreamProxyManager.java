@@ -37,8 +37,12 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
     private volatile boolean fallbackToDirect;
 
     /**
+     * Creates upstream routing with protocol-specific proxies and bypass rules.
+     *
      * @param httpProxyUrl proxy for plain HTTP requests, or {@code null} for direct
      * @param httpsProxyUrl proxy for CONNECT / HTTPS, or {@code null} to use {@code httpProxyUrl}
+     *
+     * @param noProxy the rules identifying destinations that bypass upstream proxies
      */
     public UpstreamProxyManager(String httpProxyUrl, String httpsProxyUrl, NoProxyRules noProxy) {
         this.httpProxy = httpProxyUrl == null || httpProxyUrl.isBlank() ? null : proxy(httpProxyUrl);
@@ -52,6 +56,8 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
      * ignored, as curl does, because CGI servers set it from the request's {@code Proxy} header.
      *
      * @return the manager, or {@code null} when no proxy variable is set
+     *
+     * @param env the environment variable map
      */
     public static UpstreamProxyManager fromEnvironment(Map<String, String> env) {
         String all = first(env, "all_proxy", "ALL_PROXY");
@@ -63,7 +69,12 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         return new UpstreamProxyManager(http, https, NoProxyRules.parse(first(env, "no_proxy", "NO_PROXY")));
     }
 
-    /** Also try a direct connection when the upstream proxy cannot be reached. */
+    /**
+     * Also try a direct connection when the upstream proxy cannot be reached.
+     *
+     * @param fallbackToDirect whether to try connecting directly after upstream proxy failure
+     * @return this manager
+     */
     public UpstreamProxyManager withFallbackToDirect(boolean fallbackToDirect) {
         this.fallbackToDirect = fallbackToDirect;
         return this;
@@ -137,7 +148,12 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         return null;
     }
 
-    /** Parses a proxy URL into a {@link ChainedProxy}. */
+    /**
+     * Parses a proxy URL into a {@link ChainedProxy}.
+     *
+     * @param url the upstream proxy URL
+     * @return the parsed upstream proxy
+     */
     public static ChainedProxy proxy(String url) {
         String text = url.strip();
         if (!text.contains("://")) text = "http://" + text;

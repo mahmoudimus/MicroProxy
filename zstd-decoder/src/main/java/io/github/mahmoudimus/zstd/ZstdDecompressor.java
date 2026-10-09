@@ -39,11 +39,20 @@ public final class ZstdDecompressor {
         this.dictionaries = Map.copyOf(b.dictionaries);
     }
 
-    /** A decompressor with default settings. */
+    /**
+     * Returns a decompressor with default settings.
+     *
+     * @return the shared, immutable default decompressor
+     */
     public static ZstdDecompressor create() {
         return DEFAULT;
     }
 
+    /**
+     * Creates a builder initialized with the default settings.
+     *
+     * @return a new builder
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -56,14 +65,25 @@ public final class ZstdDecompressor {
 
         private Builder() {}
 
-        /** Rejects frames whose window (history) is larger than this many bytes. */
+        /**
+         * Rejects frames whose window (history) is larger than this many bytes.
+         *
+         * @param maxWindowSize maximum history size in bytes, at least 1 KiB
+         * @return this builder
+         * @throws IllegalArgumentException if the limit is less than 1 KiB
+         */
         public Builder maxWindowSize(int maxWindowSize) {
             if (maxWindowSize < 1 << 10) throw new IllegalArgumentException("maxWindowSize must be at least 1 KiB");
             this.maxWindowSize = maxWindowSize;
             return this;
         }
 
-        /** Whether to check frames' content checksums when present (default true). */
+        /**
+         * Sets whether to check frames' content checksums when present (default true).
+         *
+         * @param verifyChecksums whether to verify content checksums
+         * @return this builder
+         */
         public Builder verifyChecksums(boolean verifyChecksums) {
             this.verifyChecksums = verifyChecksums;
             return this;
@@ -72,28 +92,54 @@ public final class ZstdDecompressor {
         /**
          * Makes a dictionary available to frames that name its ID. A raw-content dictionary (ID 0)
          * is used for frames that name no dictionary.
+         *
+         * @param dictionary dictionary to register, replacing any dictionary with the same ID
+         * @return this builder
          */
         public Builder dictionary(ZstdDictionary dictionary) {
             dictionaries.put(dictionary.rawId(), Objects.requireNonNull(dictionary));
             return this;
         }
 
+        /**
+         * Creates an immutable decompressor with the current settings.
+         *
+         * @return a new decompressor
+         */
         public ZstdDecompressor build() {
             return new ZstdDecompressor(this);
         }
     }
 
-    /** A stream of the data decoded from {@code in}. */
+    /**
+     * Creates a stream of the data decoded from {@code in}.
+     *
+     * @param in compressed input; closing the returned stream also closes this input
+     * @return a new decompression stream using this decompressor's settings
+     */
     public ZstdInputStream inputStream(InputStream in) {
         return new ZstdInputStream(in, this);
     }
 
-    /** Decodes all of {@code data}. */
+    /**
+     * Decodes all of {@code data}.
+     *
+     * @param data compressed frames
+     * @return the concatenated decompressed contents
+     * @throws ZstdException if the data is invalid or exceeds the decoder's limits
+     */
     public byte[] decompress(byte[] data) throws ZstdException {
         return decompress(data, Integer.MAX_VALUE - 8);
     }
 
-    /** Decodes all of {@code data}, failing if the output would exceed {@code maxOutputSize} bytes. */
+    /**
+     * Decodes all of {@code data}, failing if the output would exceed {@code maxOutputSize} bytes.
+     *
+     * @param data compressed frames
+     * @param maxOutputSize maximum decompressed output size in bytes
+     * @return the concatenated decompressed contents
+     * @throws ZstdException if the data is invalid or exceeds the output or decoder limits
+     */
     public byte[] decompress(byte[] data, int maxOutputSize) throws ZstdException {
         try (ZstdInputStream in = inputStream(new ByteArrayInputStream(data))) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();

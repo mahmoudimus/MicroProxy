@@ -19,6 +19,9 @@ import org.microproxy.LauncherExtension;
 /** Adds {@code --script} to the command line when this module is on the class path. */
 public final class StarlarkLauncherExtension implements LauncherExtension {
 
+    /** Creates an extension with script reloading enabled and no script selected. */
+    public StarlarkLauncherExtension() {}
+
     private Path script;
     private boolean reload = true;
     /** {@code --script-var} entries and {@code --script-var-file} paths, in command-line order. */

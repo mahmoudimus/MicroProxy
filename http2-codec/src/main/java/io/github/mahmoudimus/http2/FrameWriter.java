@@ -24,11 +24,20 @@ public final class FrameWriter {
     private final OutputStream out;
     private int maxFrameSize = Http2Settings.DEFAULT_MAX_FRAME_SIZE;
 
+    /**
+     * Creates a writer for the supplied output stream.
+     *
+     * @param out the non-null stream to write
+     */
     public FrameWriter(OutputStream out) {
         this.out = Objects.requireNonNull(out, "out");
     }
 
-    /** The largest payload the peer accepts: its SETTINGS_MAX_FRAME_SIZE (16384 until it says otherwise). */
+    /**
+     * The largest payload the peer accepts: its SETTINGS_MAX_FRAME_SIZE (16384 until it says otherwise).
+     *
+     * @param maxFrameSize the maximum payload size from 2^14 to 2^24-1 octets
+     */
     public void setMaxFrameSize(int maxFrameSize) {
         if (maxFrameSize < Http2Settings.DEFAULT_MAX_FRAME_SIZE || maxFrameSize > Http2Settings.MAX_MAX_FRAME_SIZE) {
             throw new IllegalArgumentException("max frame size must be 2^14 to 2^24-1, got " + maxFrameSize);
@@ -36,11 +45,20 @@ public final class FrameWriter {
         this.maxFrameSize = maxFrameSize;
     }
 
+    /**
+     * Returns the current frame payload limit.
+     *
+     * @return the maximum payload size in octets
+     */
     public int maxFrameSize() {
         return maxFrameSize;
     }
 
-    /** Writes the client connection preface; a client then sends its SETTINGS. */
+    /**
+     * Writes the client connection preface; a client then sends its SETTINGS.
+     *
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeClientPreface() throws IOException {
         out.write(FrameReader.CLIENT_PREFACE_BYTES);
     }
@@ -48,12 +66,24 @@ public final class FrameWriter {
     /**
      * Writes one frame exactly as given. A HEADERS or PUSH_PROMISE without END_HEADERS must be
      * followed by its CONTINUATION frames, with nothing in between.
+     *
+     * @param frame the frame to serialize
+     * @throws IOException if writing to the underlying stream fails
      */
     public void writeFrame(Frame frame) throws IOException {
         out.write(encode(frame));
     }
 
-    /** One DATA frame, unpadded. */
+    /**
+     * One DATA frame, unpadded.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param data the content byte array
+     * @param offset the first byte to send
+     * @param length the number of bytes to send
+     * @param endStream whether this frame ends the stream
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeData(int streamId, byte[] data, int offset, int length, boolean endStream) throws IOException {
         Objects.checkFromIndexSize(offset, length, data.length);
         checkStream(streamId);
@@ -64,13 +94,27 @@ public final class FrameWriter {
         out.write(f);
     }
 
-    /** A complete field block: one HEADERS frame, followed by CONTINUATION frames if it is too long for one. */
+    /**
+     * A complete field block: one HEADERS frame, followed by CONTINUATION frames if it is too long for one.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param fieldBlock the complete HPACK-encoded field block
+     * @param endStream whether the HEADERS frame ends the stream
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeHeaders(int streamId, byte[] fieldBlock, boolean endStream) throws IOException {
         checkStream(streamId);
         writeFieldBlock(FrameType.HEADERS, endStream ? FrameType.FLAG_END_STREAM : 0, streamId, EMPTY, fieldBlock);
     }
 
-    /** A complete PUSH_PROMISE field block, with CONTINUATION frames as needed. */
+    /**
+     * A complete PUSH_PROMISE field block, with CONTINUATION frames as needed.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param promisedStreamId the nonzero identifier of the promised stream
+     * @param fieldBlock the complete HPACK-encoded field block
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writePushPromise(int streamId, int promisedStreamId, byte[] fieldBlock) throws IOException {
         checkStream(streamId);
         checkStream(promisedStreamId);
@@ -79,34 +123,85 @@ public final class FrameWriter {
         writeFieldBlock(FrameType.PUSH_PROMISE, 0, streamId, prefix, fieldBlock);
     }
 
+    /**
+     * Writes the settings that differ from the protocol defaults.
+     *
+     * @param settings the local settings to advertise
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeSettings(Http2Settings settings) throws IOException {
         writeFrame(settings.toFrame());
     }
 
+    /**
+     * Writes the supplied setting identifiers and values.
+     *
+     * @param values the settings to advertise
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeSettings(Map<Integer, Long> values) throws IOException {
         writeFrame(new Frame.Settings(false, values));
     }
 
+    /**
+     * Acknowledges the peer SETTINGS.
+     *
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeSettingsAck() throws IOException {
         writeFrame(Frame.Settings.acknowledgement());
     }
 
+    /**
+     * Writes a connection PING.
+     *
+     * @param ack whether to acknowledge a peer PING
+     * @param opaqueData the eight opaque octets as a big-endian long
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writePing(boolean ack, long opaqueData) throws IOException {
         writeFrame(new Frame.Ping(ack, opaqueData));
     }
 
+    /**
+     * Writes a connection shutdown frame.
+     *
+     * @param lastStreamId the last peer-initiated stream that might have been processed
+     * @param error the shutdown error code
+     * @param debugData diagnostic bytes, or null for none
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeGoAway(int lastStreamId, ErrorCode error, byte[] debugData) throws IOException {
         writeFrame(new Frame.GoAway(lastStreamId, error, debugData == null ? EMPTY : debugData));
     }
 
+    /**
+     * Terminates one stream.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param error the termination error code
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeRstStream(int streamId, ErrorCode error) throws IOException {
         writeFrame(new Frame.RstStream(streamId, error));
     }
 
+    /**
+     * Returns flow-control credit to the peer.
+     *
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param increment the positive credit in octets
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void writeWindowUpdate(int streamId, int increment) throws IOException {
         writeFrame(new Frame.WindowUpdate(streamId, increment));
     }
 
+    /**
+     * Flushes buffered output to the underlying stream.
+     *
+     * @throws IOException if writing to the underlying stream fails
+     */
     public void flush() throws IOException {
         out.flush();
     }

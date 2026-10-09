@@ -10,10 +10,25 @@ public non-sealed class DefaultHttpRequest implements HttpRequest {
     private String uri;
     private final HttpHeaders headers;
 
+    /**
+     * Creates a request with empty headers.
+     *
+     * @param version protocol version
+     * @param method request method
+     * @param uri request-target, without whitespace or control characters
+     */
     public DefaultHttpRequest(HttpVersion version, HttpMethod method, String uri) {
         this(version, method, uri, new HttpHeaders());
     }
 
+    /**
+     * Creates a request head using the supplied headers.
+     *
+     * @param version protocol version
+     * @param method request method
+     * @param uri request-target, without whitespace or control characters
+     * @param headers mutable headers, retained without copying
+     */
     public DefaultHttpRequest(HttpVersion version, HttpMethod method, String uri, HttpHeaders headers) {
         this.version = Objects.requireNonNull(version, "version");
         this.method = Objects.requireNonNull(method, "method");

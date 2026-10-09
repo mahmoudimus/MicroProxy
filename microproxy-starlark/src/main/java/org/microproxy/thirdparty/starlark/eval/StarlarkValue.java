@@ -32,6 +32,9 @@ public interface StarlarkValue {
    * the annotated class doesn't need an auto-generated {@link StarlarkType} implementation.
    * Therefore, a null return in an override will cause {@link Starlark#getStarlarkType} to fall
    * back to reporting the type as {@code Any}.
+   *
+   * @param semantics the interpreter settings used to determine the type
+   * @return the type of this value, or null when no type information is provided
    */
   // LINT.IfChange // Callutils#buildClassDescriptor looks for this specific method signature.
   @Nullable
@@ -48,6 +51,7 @@ public interface StarlarkValue {
    * {@code "<foo object>"}.
    *
    * @param printer a printer to be used for formatting nested values.
+   * @param semantics the interpreter settings used to format nested values
    */
   default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
@@ -85,7 +89,11 @@ public interface StarlarkValue {
     return true;
   }
 
-  /** Reports whether the value is deeply immutable. */
+  /**
+   * Reports whether the value is deeply immutable.
+   *
+   * @return whether this value and all values reachable from it are immutable
+   */
   // TODO(adonovan): eliminate this concept. All uses really need to know is, is it hashable?,
   // because Starlark values must have stable hashes: a hashable value must either be immutable or
   // its hash must be part of its identity.

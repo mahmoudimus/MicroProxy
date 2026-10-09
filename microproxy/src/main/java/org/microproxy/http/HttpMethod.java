@@ -6,14 +6,23 @@ import java.util.Objects;
 /** An HTTP request method. Well-known methods are interned, so {@code ==} works for them. */
 public final class HttpMethod {
 
+    /** The {@code GET} request method. */
     public static final HttpMethod GET = new HttpMethod("GET");
+    /** The {@code HEAD} request method. */
     public static final HttpMethod HEAD = new HttpMethod("HEAD");
+    /** The {@code POST} request method. */
     public static final HttpMethod POST = new HttpMethod("POST");
+    /** The {@code PUT} request method. */
     public static final HttpMethod PUT = new HttpMethod("PUT");
+    /** The {@code DELETE} request method. */
     public static final HttpMethod DELETE = new HttpMethod("DELETE");
+    /** The {@code CONNECT} request method. */
     public static final HttpMethod CONNECT = new HttpMethod("CONNECT");
+    /** The {@code OPTIONS} request method. */
     public static final HttpMethod OPTIONS = new HttpMethod("OPTIONS");
+    /** The {@code TRACE} request method. */
     public static final HttpMethod TRACE = new HttpMethod("TRACE");
+    /** The {@code PATCH} request method. */
     public static final HttpMethod PATCH = new HttpMethod("PATCH");
 
     private static final Map<String, HttpMethod> KNOWN =
@@ -27,7 +36,12 @@ public final class HttpMethod {
         this.name = name;
     }
 
-    /** Returns the method with the given (case-sensitive) name. */
+    /**
+     * Returns the method with the given (case-sensitive) name.
+     * @param name method token
+     * @return the interned well-known method or a new extension method
+     * @throws IllegalArgumentException if the name is not a valid HTTP token
+     */
     public static HttpMethod valueOf(String name) {
         HttpMethod known = KNOWN.get(name);
         if (known != null) {
@@ -39,6 +53,7 @@ public final class HttpMethod {
         return new HttpMethod(name);
     }
 
+    /** {@return the case-sensitive method name} */
     public String name() {
         return name;
     }

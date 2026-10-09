@@ -38,20 +38,35 @@ public class CertificateAuthorityMitmManager implements MitmManager {
     private final int maxCachedHosts;
     private final Map<String, CachedContext> contexts;
 
-    /** Intercepts with {@code authority}, validating real servers against the JDK trust store. */
+    /**
+     * Intercepts with {@code authority}, validating real servers against the JDK trust store.
+     *
+     * @param authority the CA used to issue interception certificates
+     */
     public CertificateAuthorityMitmManager(CertificateAuthority authority) {
         this(authority, SslContexts.systemDefault());
     }
 
     /**
+     * Creates an interception manager using this CA and upstream TLS context.
+     *
      * @param upstreamContext how real servers are validated, e.g. {@link SslContexts#trustAll()}
      *     to accept any server
+     *
+     * @param authority the CA used to issue interception certificates
      */
     public CertificateAuthorityMitmManager(CertificateAuthority authority, SSLContext upstreamContext) {
         this(authority, upstreamContext, DEFAULT_MAX_CACHED_HOSTS);
     }
 
-    /** @param maxCachedHosts how many hosts' certificates to keep (least recently used are dropped) */
+    /**
+     * Creates an interception manager using this CA and upstream TLS context.
+     *
+     * @param maxCachedHosts how many hosts' certificates to keep (least recently used are dropped)
+     *
+     * @param authority the CA used to issue interception certificates
+     * @param upstreamContext the TLS context used to validate real servers
+     */
     public CertificateAuthorityMitmManager(CertificateAuthority authority, SSLContext upstreamContext, int maxCachedHosts) {
         if (maxCachedHosts <= 0) throw new IllegalArgumentException("maxCachedHosts must be positive");
         this.authority = authority;
@@ -65,7 +80,7 @@ public class CertificateAuthorityMitmManager implements MitmManager {
         };
     }
 
-    /** Number of hosts with a cached certificate. */
+    /** {@return number of hosts with a cached certificate} */
     public int cachedHostCount() {
         cacheLock.lock();
         try {
@@ -75,6 +90,7 @@ public class CertificateAuthorityMitmManager implements MitmManager {
         }
     }
 
+    /** {@return the authority used to issue interception certificates} */
     public CertificateAuthority getCertificateAuthority() {
         return authority;
     }

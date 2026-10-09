@@ -121,12 +121,23 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.lastCheck = System.nanoTime();
     }
 
-    /** A proxy driven by the script in {@code file}. */
+    /**
+     * A proxy driven by the script in {@code file}.
+     *
+     * @param file the UTF-8 script file, reloaded on changes by default
+     * @return a builder configured to load the file
+     */
     public static Builder builder(Path file) {
         return new Builder(Objects.requireNonNull(file), null, null);
     }
 
-    /** A proxy driven by {@code source}, for embedding and tests. */
+    /**
+     * A proxy driven by {@code source}, for embedding and tests.
+     *
+     * @param source the Starlark source to compile
+     * @param name the script name used in diagnostics
+     * @return a builder configured to compile the supplied source
+     */
     public static Builder builder(String source, String name) {
         return new Builder(null, Objects.requireNonNull(source), Objects.requireNonNull(name));
     }
@@ -148,19 +159,35 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             this.name = name;
         }
 
-        /** Re-read the file when it changes (default true). */
+        /**
+         * Re-read the file when it changes (default true).
+         *
+         * @param reload whether to check for file changes; ignored for source strings
+         * @return this builder
+         */
         public Builder reload(boolean reload) {
             this.reload = reload;
             return this;
         }
 
-        /** Step and time limits for each hook call. */
+        /**
+         * Step and time limits for each hook call.
+         *
+         * @param limits the execution bounds for loading and calling the script
+         * @return this builder
+         */
         public Builder limits(StarlarkScript.Limits limits) {
             this.limits = Objects.requireNonNull(limits);
             return this;
         }
 
-        /** The most body bytes buffered for a script (default 10 MiB). */
+        /**
+         * The most body bytes buffered for a script (default 10 MiB).
+         *
+         * @param maxBodySize the positive buffer limit in bytes
+         * @return this builder
+         * @throws IllegalArgumentException if the limit is not positive
+         */
         public Builder maxBodySize(int maxBodySize) {
             if (maxBodySize <= 0) throw new IllegalArgumentException("maxBodySize must be positive");
             this.maxBodySize = maxBodySize;
@@ -170,6 +197,9 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         /**
          * Routes requests when the script has no {@code upstream} function or it returns {@code
          * None}; by default such requests connect directly.
+         *
+         * @param fallback the routing manager, or null to connect directly
+         * @return this builder
          */
         public Builder fallback(ChainedProxyManager fallback) {
             this.fallback = fallback;
@@ -184,6 +214,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
          * type checker knows their types, and the script cannot assign them. Later calls add to
          * earlier ones.
          *
+         * @param constants the additional globals, merged with earlier calls
+         * @return this builder
          * @throws IllegalArgumentException for a name that is not an identifier or would hide a
          *     built-in ({@code len}, {@code json}, {@code Request}, ...), or a value of another type
          */
@@ -194,7 +226,13 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             return this;
         }
 
-        /** Compiles the script and runs its top level. */
+        /**
+         * Compiles the script and runs its top level.
+         *
+         * @return a proxy using the compiled script
+         * @throws IOException if the script file cannot be read or inspected
+         * @throws ScriptException if compilation or top-level execution fails
+         */
         public ScriptedProxy build() throws IOException, ScriptException {
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
@@ -204,7 +242,11 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         }
     }
 
-    /** The script in use, re-reading the file first if it changed. */
+    /**
+     * The script in use, re-reading the file first if it changed.
+     *
+     * @return the current successfully compiled script
+     */
     public StarlarkScript script() {
         if (reload && System.nanoTime() - lastCheck >= RELOAD_CHECK_NANOS && reloadLock.tryLock()) {
             try {
@@ -449,7 +491,11 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     // ProxyAuthenticator
     // ---------------------------------------------------------------------------------------
 
-    /** Whether the script in use defines {@code authenticate}, so this can be the authenticator. */
+    /**
+     * Whether the script in use defines {@code authenticate}, so this can be the authenticator.
+     *
+     * @return whether the current script provides the authentication hook
+     */
     public boolean definesAuthenticate() {
         return script().defines("authenticate");
     }

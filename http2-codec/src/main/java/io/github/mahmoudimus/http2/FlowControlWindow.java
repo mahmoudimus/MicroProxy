@@ -13,6 +13,12 @@ public final class FlowControlWindow {
     private final int streamId;
     private long size;
 
+    /**
+     * Creates a flow-control window.
+     *
+     * @param streamId the stream identifier, or 0 for the connection
+     * @param initialSize the nonnegative initial credit in octets
+     */
     public FlowControlWindow(int streamId, int initialSize) {
         if (streamId < 0) throw new IllegalArgumentException("bad stream id " + streamId);
         if (initialSize < 0) throw new IllegalArgumentException("negative initial window " + initialSize);
@@ -20,16 +26,29 @@ public final class FlowControlWindow {
         this.size = initialSize;
     }
 
+    /**
+     * Identifies the scope of this window.
+     *
+     * @return the stream identifier, or 0 for the connection
+     */
     public int streamId() {
         return streamId;
     }
 
-    /** The space left; negative if a SETTINGS change shrank the window below what was in flight. */
+    /**
+     * The space left; negative if a SETTINGS change shrank the window below what was in flight.
+     *
+     * @return the signed window size in octets
+     */
     public long size() {
         return size;
     }
 
-    /** How much may be sent now: the size, or 0 if it is negative. */
+    /**
+     * How much may be sent now: the size, or 0 if it is negative.
+     *
+     * @return the nonnegative available octet count
+     */
     public int available() {
         return (int) Math.max(0, size);
     }
@@ -39,6 +58,8 @@ public final class FlowControlWindow {
      *
      * @throws Http2Exception FLOW_CONTROL_ERROR if the window would exceed 2^31-1: a connection
      *     error for the connection window, a stream error for a stream's
+     *
+     * @param increment the positive number of octets to credit
      */
     public void increment(int increment) throws Http2Exception {
         if (increment <= 0) throw new IllegalArgumentException("window increment must be positive, got " + increment);
@@ -57,6 +78,8 @@ public final class FlowControlWindow {
      *
      * @throws Http2Exception FLOW_CONTROL_ERROR if the peer sent more than the window allowed
      *     (connection error for the connection window, stream error for a stream's)
+     *
+     * @param length the nonnegative flow-controlled octet count received
      */
     public void receive(int length) throws Http2Exception {
         if (length < 0) throw new IllegalArgumentException("negative length");
@@ -74,6 +97,7 @@ public final class FlowControlWindow {
      * Debits the window for a frame about to be sent.
      *
      * @throws IllegalStateException if the window does not allow it: a bug in the caller
+     * @param length the nonnegative flow-controlled octet count being sent
      */
     public void send(int length) {
         if (length < 0) throw new IllegalArgumentException("negative length");
@@ -89,6 +113,7 @@ public final class FlowControlWindow {
      * window (§6.9.2). The result may be negative.
      *
      * @throws Http2Exception a connection error FLOW_CONTROL_ERROR if the window would exceed 2^31-1
+     * @param delta the new initial window size minus the old size, in octets
      */
     public void adjust(long delta) throws Http2Exception {
         long next = size + delta;
