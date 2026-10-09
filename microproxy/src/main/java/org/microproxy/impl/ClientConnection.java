@@ -404,6 +404,10 @@ final class ClientConnection implements Runnable {
         }
     }
 
+    // ---------------------------------------------------------------------------------------
+    // The HTTP/1 connection: TLS, the PROXY header, reading request heads
+    // ---------------------------------------------------------------------------------------
+
     @Override
     public void run() {
         boolean connectedFired = false;
@@ -503,6 +507,10 @@ final class ClientConnection implements Runnable {
             }
         }
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Exchanges: the same for every transport, which they reach through a ClientChannel
+    // ---------------------------------------------------------------------------------------
 
     /**
      * Handles one request that arrived on {@code channel}: everything from here on is the same for
@@ -1239,6 +1247,7 @@ final class ClientConnection implements Runnable {
      */
     private boolean intercept(Exchange ex, ServerConnection conn, HostAndPort target, String hostAndPort)
             throws IOException {
+        assert ex.channel == http1 : "only an HTTP/1 connection turns into TLS";
         SSLSession serverSession = conn == null ? null : ((SSLSocket) conn.socket).getSession();
         SSLContext clientContext = connectionMitm.clientSslContextFor(ex.request, serverSession, flowContext);
         handshakeWithClient(clientContext, false, null, target.host());
