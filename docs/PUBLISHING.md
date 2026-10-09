@@ -61,6 +61,12 @@ Central workflow with the same tag. Central publication rebuilds and tests the
 tagged source on JDK 21, attaches sources and Javadoc, signs all artifacts,
 uploads the reactor bundle, and waits for Sonatype to report `PUBLISHED`.
 
+The publishing workflow installs Maven 3.9.16 and verifies its SHA-512 checksum.
+Maven 3.10.0 leaves `maven-metadata-local.xml` in the Central plugin's staging
+tree, which makes Sonatype reject the bundle. Keep the publishing runtime
+pinned until the plugin supports that metadata change. Local signing and
+deployment checks should use Maven 3.9.16 too.
+
 Missing secrets fail before building. Tags must be stable `vX.Y.Z` versions and
 match the root POM; snapshots are rejected by the workflow. Central releases
 are immutable: do not move tags or attempt to replace published artifacts.
