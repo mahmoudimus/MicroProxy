@@ -129,8 +129,8 @@ class ActivityTrackerTest {
 
         @Override
         public void clientDisconnected(FlowContext ctx, SSLSession session) {
-            events.add("clientDisconnected");
             disconnects.add(String.valueOf(ctx.getClientAddress()));
+            events.add("clientDisconnected");
         }
 
         @Override
