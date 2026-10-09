@@ -117,12 +117,22 @@ class LauncherTest {
                 "--strip-tracing-headers", "--strip-request-headers",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
-                "--mitm-ca-password", "--mitm-trust-all", "--help")) {
+                "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-max-streams", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
         console.reset();
         assertNull(Launcher.parse(new String[] {"--port", "0", "-h"}, out()), "-h also only prints help");
         assertTrue(console.toString(StandardCharsets.UTF_8).startsWith("Usage:"));
+    }
+
+    @Test
+    void http2Flags() throws IOException {
+        HttpProxyServerBootstrap off = parse().bootstrap();
+        assertFalse(BootstrapView.http2(off));
+        HttpProxyServerBootstrap on = parse("--http2", "--http2-max-streams", "250").bootstrap();
+        assertTrue(BootstrapView.http2(on));
+        assertEquals(250, on.getHttp2Options().maxConcurrentStreams());
+        assertEquals(Http2Options.DEFAULT.initialWindowSize(), on.getHttp2Options().initialWindowSize());
     }
 
     @Test
