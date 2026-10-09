@@ -117,7 +117,8 @@ class LauncherTest {
                 "--strip-tracing-headers", "--strip-request-headers",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
-                "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-max-streams", "--help")) {
+                "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
+                "--http2-max-streams", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
         console.reset();
@@ -133,6 +134,12 @@ class LauncherTest {
         assertTrue(BootstrapView.http2(on));
         assertEquals(250, on.getHttp2Options().maxConcurrentStreams());
         assertEquals(Http2Options.DEFAULT.initialWindowSize(), on.getHttp2Options().initialWindowSize());
+        assertFalse(BootstrapView.http2Upstream(on));
+        assertFalse(BootstrapView.http2Cleartext(on));
+        HttpProxyServerBootstrap both = parse("--http2-upstream", "--http2-cleartext").bootstrap();
+        assertTrue(BootstrapView.http2Upstream(both));
+        assertTrue(BootstrapView.http2Cleartext(both));
+        assertFalse(BootstrapView.http2(both));
     }
 
     @Test

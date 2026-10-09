@@ -28,8 +28,9 @@ import javax.net.ssl.SSLSocket;
 
 /**
  * A hand-written HTTP/2 client for protocol tests: it tunnels through the proxy with {@code
- * CONNECT}, negotiates {@code h2} with ALPN on the intercepted TLS session, and then writes
- * whatever frames a test wants, including ones a real client never would.
+ * CONNECT}, negotiates {@code h2} with ALPN on the intercepted TLS session (or speaks {@code h2c}
+ * with prior knowledge to the plain listener), and then writes whatever frames a test wants,
+ * including ones a real client never would.
  */
 final class H2TestClient implements AutoCloseable {
 
@@ -53,7 +54,10 @@ final class H2TestClient implements AutoCloseable {
     }
 
     final Socket raw;
-    final SSLSocket tls;
+    /** The socket frames go over: the TLS session, or the plain connection for h2c. */
+    final Socket tls;
+    /** The {@code :scheme} of requests built with {@link #request}. */
+    final String scheme;
     final FrameReader reader;
     final FrameWriter writer;
     final HpackEncoder encoder = new HpackEncoder();
@@ -68,10 +72,11 @@ final class H2TestClient implements AutoCloseable {
     private final OutputStream out;
     private final InputStream in;
 
-    private H2TestClient(Socket raw, SSLSocket tls, String authority) throws IOException {
+    private H2TestClient(Socket raw, Socket tls, String authority, String scheme) throws IOException {
         this.raw = raw;
         this.tls = tls;
         this.authority = authority;
+        this.scheme = scheme;
         this.in = new BufferedInputStream(tls.getInputStream());
         this.out = new BufferedOutputStream(tls.getOutputStream());
         this.reader = new FrameReader(in);
@@ -116,7 +121,17 @@ final class H2TestClient implements AutoCloseable {
             tls.close();
             throw new IOException("ALPN did not select h2 but '" + tls.getApplicationProtocol() + "'");
         }
-        return new H2TestClient(raw, tls, target);
+        return new H2TestClient(raw, tls, target, "https");
+    }
+
+    /**
+     * Connects to the proxy's plain listener and speaks HTTP/2 with prior knowledge; requests
+     * built with {@link #request} name {@code authority} with {@code :scheme http}.
+     */
+    static H2TestClient cleartext(InetSocketAddress proxy, String authority) throws IOException {
+        Socket raw = new Socket(proxy.getAddress(), proxy.getPort());
+        raw.setSoTimeout(10_000);
+        return new H2TestClient(raw, raw, authority, "http");
     }
 
     /** Sends the preface and empty SETTINGS, reads the server's SETTINGS and acknowledges them. */
@@ -145,7 +160,7 @@ final class H2TestClient implements AutoCloseable {
     List<HeaderField> request(String method, String path, String... extra) {
         List<HeaderField> fields = new ArrayList<>();
         fields.add(new HeaderField(":method", method));
-        fields.add(new HeaderField(":scheme", "https"));
+        fields.add(new HeaderField(":scheme", scheme));
         fields.add(new HeaderField(":authority", authority));
         fields.add(new HeaderField(":path", path));
         for (int i = 0; i < extra.length; i += 2) fields.add(new HeaderField(extra[i], extra[i + 1]));

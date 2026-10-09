@@ -35,6 +35,64 @@ class Http2SupportTest {
     }
 
     @Test
+    void upstreamAndCleartextHttp2NeedTheCodecToo() {
+        Http2Support.presentForTesting = false;
+        IllegalStateException upstream = assertThrows(IllegalStateException.class,
+                () -> MicroProxy.bootstrap().withPort(0).withHttp2Upstream(true).start());
+        assertTrue(upstream.getMessage().contains("http2-codec"), upstream.getMessage());
+        IllegalStateException cleartext = assertThrows(IllegalStateException.class,
+                () -> MicroProxy.bootstrap().withPort(0).withHttp2Cleartext(true).start());
+        assertTrue(cleartext.getMessage().contains("withHttp2Cleartext"), cleartext.getMessage());
+    }
+
+    @Test
+    void propertiesEnableUpstreamAndCleartextHttp2() {
+        Properties p = new Properties();
+        p.setProperty("http2_upstream", "true");
+        p.setProperty("http2_cleartext", "true");
+        DefaultHttpProxyServerBootstrap b = DefaultHttpProxyServerBootstrap.fromProperties(p);
+        assertTrue(b.http2Upstream);
+        assertTrue(b.http2Cleartext);
+        assertFalse(b.http2);
+        assertTrue(b.copy().http2Upstream);
+        assertTrue(b.copy().http2Cleartext);
+        DefaultHttpProxyServerBootstrap none = DefaultHttpProxyServerBootstrap.fromProperties(new Properties());
+        assertFalse(none.http2Upstream);
+        assertFalse(none.http2Cleartext);
+    }
+
+    @Test
+    void thePrefaceIsRecognizedWithoutConsumingAnything() throws Exception {
+        byte[] preface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        // Delivered a byte at a time, as a slow client would.
+        java.io.InputStream oneByOne = new java.io.InputStream() {
+            private int pos;
+
+            @Override
+            public int read() {
+                return pos < preface.length ? preface[pos++] & 0xff : -1;
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) {
+                if (pos >= preface.length) return -1;
+                b[off] = preface[pos++];
+                return 1;
+            }
+        };
+        ByteReader reader = new ByteReader(oneByOne, 64);
+        assertTrue(reader.startsWith(preface));
+        assertEquals(preface.length, reader.buffered());
+        assertEquals('P', reader.read());
+        // An HTTP/1 request is told apart at its second byte, and nothing is lost.
+        ByteReader post = new ByteReader(new java.io.ByteArrayInputStream("POST / HTTP/1.1\r\n".getBytes(
+                java.nio.charset.StandardCharsets.US_ASCII)), 64);
+        assertFalse(post.startsWith(preface));
+        assertEquals("POST / HTTP/1.1", post.readLine(100, org.microproxy.http.HttpResponseStatus.BAD_REQUEST));
+        assertFalse(new ByteReader(java.io.InputStream.nullInputStream(), 64).startsWith(preface));
+    }
+
+    @Test
     void withoutHttp2TheCodecIsNotNeeded() {
         Http2Support.presentForTesting = false;
         HttpProxyServer proxy = MicroProxy.bootstrap().withPort(0).withHttp2(false).start();

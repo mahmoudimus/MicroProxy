@@ -66,6 +66,16 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;
     }
 
+    /** Whether HTTP/2 to servers is enabled ({@code withHttp2Upstream}). */
+    public static boolean http2Upstream(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Upstream;
+    }
+
+    /** Whether h2c with prior knowledge is enabled ({@code withHttp2Cleartext}). */
+    public static boolean http2Cleartext(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Cleartext;
+    }
+
     /** The headers removed from requests sent upstream, as configured. */
     public static List<String> strippedRequestHeaders(HttpProxyServerBootstrap bootstrap) {
         return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());
