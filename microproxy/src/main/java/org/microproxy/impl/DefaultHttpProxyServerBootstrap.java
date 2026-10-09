@@ -80,6 +80,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Backoff between chained proxy attempts; null when off. */
     Duration chainedProxyBackoffInitial;
     Duration chainedProxyBackoffMax;
+    /** Headers removed from requests sent upstream, in the order given, without duplicates. */
+    final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -124,6 +126,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.poolPerRequestInMitm = poolPerRequestInMitm;
         c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
         c.chainedProxyBackoffMax = chainedProxyBackoffMax;
+        c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         return c;
     }
 
@@ -214,6 +217,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withChainedProxyRetryBackoff(initial, max);
         } else if (p.containsKey("chained_proxy_backoff_max_ms")) {
             throw new IllegalArgumentException("chained_proxy_backoff_max_ms needs chained_proxy_backoff_initial_ms");
+        }
+        if (bool(p, "strip_tracing_headers")) withoutTracingHeadersUpstream();
+        if (p.containsKey("strip_request_headers")) {
+            plusStrippedRequestHeaders(p.getProperty("strip_request_headers").split(","));
         }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
@@ -436,6 +443,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         chainedProxyBackoffInitial = initial;
         chainedProxyBackoffMax = cap;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withStrippedRequestHeaders(String... names) {
+        strippedRequestHeaders.clear();
+        return plusStrippedRequestHeaders(names);
+    }
+
+    @Override
+    public HttpProxyServerBootstrap plusStrippedRequestHeaders(String... names) {
+        for (String name : names) {
+            String n = Objects.requireNonNull(name, "header name").strip();
+            if (n.isEmpty()) continue;
+            if (!n.chars().allMatch(c -> c > ' ' && c < 127 && "\"(),/:;<=>?@[\\]{}".indexOf(c) < 0)) {
+                throw new IllegalArgumentException("not a header name: " + n);
+            }
+            strippedRequestHeaders.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
+        }
         return this;
     }
 

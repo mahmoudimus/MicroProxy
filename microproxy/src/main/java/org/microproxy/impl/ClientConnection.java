@@ -703,6 +703,7 @@ final class ClientConnection implements Runnable {
         conn.inExchange = true;
         try {
             filters.proxyToServerRequestSending();
+            stripRequestHeaders(request.headers());
             try {
                 conn.writer.writeHead(request, true);
             } catch (IOException e) {
@@ -1591,6 +1592,7 @@ final class ClientConnection implements Runnable {
             if (type == ChainedProxyType.HTTP && mode != Mode.PLAIN) {
                 HttpRequest connectRequest = upstreamConnectRequest(ex.request, hostAndPort, proxy);
                 proxy.filterRequest(connectRequest);
+                stripRequestHeaders(connectRequest.headers());
                 new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
                 HttpResponse reply = HttpCodec.readResponse(reader, server.limits);
                 if (reply == null || reply.status().code() / 100 != 2) {
@@ -1693,6 +1695,13 @@ final class ClientConnection implements Runnable {
         }
         addUpstreamProxyAuthorization(connect.headers(), proxy);
         return connect;
+    }
+
+    /** Removes the headers configured with {@code withStrippedRequestHeaders}, after every filter. */
+    private void stripRequestHeaders(HttpHeaders headers) {
+        for (String name : server.strippedRequestHeaders) {
+            headers.remove(name);
+        }
     }
 
     private static void addUpstreamProxyAuthorization(HttpHeaders headers, ChainedProxy proxy) {

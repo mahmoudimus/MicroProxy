@@ -25,5 +25,18 @@ public final class HttpHeaderNames {
     public static final String USER_AGENT = "User-Agent";
     public static final String VIA = "Via";
 
+    /**
+     * Distributed tracing headers: W3C Trace Context and Baggage, Zipkin B3 (single and multi
+     * header), Jaeger, AWS X-Ray, Google Cloud Trace, gRPC's binary trace context and Sentry.
+     * {@link org.microproxy.HttpProxyServerBootstrap#withoutTracingHeadersUpstream()} removes them
+     * from requests sent upstream. {@code X-Request-Id} is not among them: it is often wanted by
+     * the server, and can be added with {@link
+     * org.microproxy.HttpProxyServerBootstrap#plusStrippedRequestHeaders(String...)}.
+     */
+    public static final java.util.List<String> TRACING_HEADERS = java.util.List.of(
+            "traceparent", "tracestate", "baggage",
+            "b3", "X-B3-TraceId", "X-B3-SpanId", "X-B3-ParentSpanId", "X-B3-Sampled", "X-B3-Flags",
+            "uber-trace-id", "X-Amzn-Trace-Id", "X-Cloud-Trace-Context", "grpc-trace-bin", "sentry-trace");
+
     private HttpHeaderNames() {}
 }

@@ -49,6 +49,9 @@ public final class Launcher {
               --upstream-https-proxy <url> different upstream for HTTPS / CONNECT
               --no-proxy <list>            hosts to reach directly (NO_PROXY syntax)
               --env-proxy                  take upstream proxies from http_proxy/https_proxy/no_proxy
+              --strip-tracing-headers      remove traceparent, tracestate, baggage, B3 and other
+                                           tracing headers from requests sent upstream
+              --strip-request-headers <list>  also remove these comma-separated request headers
               --dnssec                     resolve server names with DNSSEC validation
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
               --activity-log-format <fmt>  access log: CLF, ELF, JSON, JSON_EXTENDED, SQUID,
@@ -168,6 +171,8 @@ public final class Launcher {
                 case "--upstream-https-proxy" -> upstreamHttps = value(queue, arg);
                 case "--no-proxy" -> noProxy = value(queue, arg);
                 case "--env-proxy" -> envProxy = true;
+                case "--strip-tracing-headers" -> bootstrap.withoutTracingHeadersUpstream();
+                case "--strip-request-headers" -> bootstrap.plusStrippedRequestHeaders(value(queue, arg).split(","));
                 case "--dnssec" -> dnssec = true;
                 case "--dnssec-resolver" -> {
                     dnssec = true;

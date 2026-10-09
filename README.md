@@ -206,6 +206,8 @@ Command-line flags override values from the file.
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
 | `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](#retries-and-backoff)) | off / 8 × initial |
+| `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](#removing-tracing-headers)) | `false` |
+| `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
@@ -240,6 +242,7 @@ Command-line flags override values from the file.
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Concurrency limiting | `ConcurrencyLimiter` caps the exchanges in progress per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics (see below) |
 | Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
+| Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3, Jaeger, X-Ray, Cloud Trace, Sentry) and any other named headers from requests sent upstream, after all filters (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
 ### Filters from lambdas
@@ -456,6 +459,34 @@ Waiting blocks only the client connection's virtual thread. The limiter reads re
 so bodies keep the fast path. Lambda-built filters keep no state per exchange, so combine them
 with a limiter in a chain rather than inside the builder. On the command line,
 `--max-concurrent-per-client N` (or `max_concurrent_per_client=N`) installs one keyed by client IP.
+
+### Removing tracing headers
+
+Clients and services often send distributed tracing headers that carry trace ids, sampling
+decisions and baggage (sometimes user ids) to whatever server they talk to. To keep them from
+leaving through the proxy:
+
+```java
+MicroProxy.bootstrap()
+        .withoutTracingHeadersUpstream()                 // HttpHeaderNames.TRACING_HEADERS
+        .plusStrippedRequestHeaders("X-Request-Id")      // and any others
+        .start();
+```
+
+- **The list:** `traceparent`, `tracestate`, `baggage`, `b3`, `X-B3-TraceId`, `X-B3-SpanId`,
+  `X-B3-ParentSpanId`, `X-B3-Sampled`, `X-B3-Flags`, `uber-trace-id`, `X-Amzn-Trace-Id`,
+  `X-Cloud-Trace-Context`, `grpc-trace-bin` and `sentry-trace`. `X-Request-Id` is not on it,
+  because servers often want it; add it with `plusStrippedRequestHeaders` if yours do not.
+- **When:** right before a request is written to the server or chained proxy, after every filter,
+  so headers a filter added are removed too. Filters, `HttpLogger`'s "forwarded as" view and
+  `ActivityTracker.requestReceivedFromClient` still see them; `requestSentToServer` does not.
+- **Where:** plain requests, requests inside intercepted (MITM) sessions, WebSocket upgrade
+  requests, and the `CONNECT` requests sent to HTTP chained proxies. The bytes of a tunnel that is
+  not intercepted cannot be touched.
+- `withStrippedRequestHeaders(names...)` replaces the list instead of adding to it; names are
+  matched case-insensitively.
+- On the command line: `--strip-tracing-headers` and `--strip-request-headers a,b`; in properties
+  files: `strip_tracing_headers=true` and `strip_request_headers=a,b`.
 
 ### Interception per client connection
 

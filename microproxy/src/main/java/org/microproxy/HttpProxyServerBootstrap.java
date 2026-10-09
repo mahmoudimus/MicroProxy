@@ -112,6 +112,32 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
     /**
+     * Removes these headers (case-insensitively) from every request right before it is written
+     * upstream: after all filters, so headers that filters added are removed too. It applies to
+     * plain requests, requests inside intercepted (MITM) sessions, upgrade requests, and the
+     * {@code CONNECT} requests sent to HTTP chained proxies; the bytes of an uninspected tunnel
+     * are never touched. Replaces the names set so far; no names turns it off.
+     */
+    default HttpProxyServerBootstrap withStrippedRequestHeaders(String... names) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
+    }
+
+    /** Adds to the headers removed from requests sent upstream (see {@link #withStrippedRequestHeaders}). */
+    default HttpProxyServerBootstrap plusStrippedRequestHeaders(String... names) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support stripping headers");
+    }
+
+    /**
+     * Removes distributed tracing headers ({@link org.microproxy.http.HttpHeaderNames#TRACING_HEADERS}:
+     * {@code traceparent}, {@code tracestate}, {@code baggage}, B3, Jaeger, X-Ray, Cloud Trace,
+     * {@code grpc-trace-bin}, {@code sentry-trace}) from requests sent upstream, so clients' trace
+     * ids and baggage do not leak to servers. Adds to {@link #plusStrippedRequestHeaders}.
+     */
+    default HttpProxyServerBootstrap withoutTracingHeadersUpstream() {
+        return plusStrippedRequestHeaders(org.microproxy.http.HttpHeaderNames.TRACING_HEADERS.toArray(String[]::new));
+    }
+
+    /**
      * Waits between attempts when a connection through one chained proxy (or the direct
      * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
      * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *

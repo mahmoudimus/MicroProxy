@@ -113,6 +113,7 @@ class LauncherTest {
                 "--throttle",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
+                "--strip-tracing-headers", "--strip-request-headers",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--help")) {

@@ -61,6 +61,11 @@ public record BootstrapView(
                 b.maxHeaderSize, b.maxChunkSize, b.localAddress, b.allowRequestToOriginServer);
     }
 
+    /** The headers removed from requests sent upstream, as configured. */
+    public static List<String> strippedRequestHeaders(HttpProxyServerBootstrap bootstrap) {
+        return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());
+    }
+
     /** The settings a running server was started with. */
     public static BootstrapView of(HttpProxyServer server) {
         return of(((DefaultHttpProxyServer) server).config);
