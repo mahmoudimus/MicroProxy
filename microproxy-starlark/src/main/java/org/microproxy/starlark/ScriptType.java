@@ -20,7 +20,10 @@ import org.microproxy.thirdparty.starlark.syntax.Types;
  */
 final class ScriptType extends StarlarkType {
 
-    /** Bodies (and frame payloads) are {@code None} when they were streamed rather than buffered. */
+    /**
+     * Bodies (and frame payloads) are {@code None} when they were streamed rather than buffered, or
+     * the frame has none.
+     */
     private static final StarlarkType BODY = Types.union(
             Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT), Types.NONE);
 
@@ -83,6 +86,35 @@ final class ScriptType extends StarlarkType {
             .put("payload", BODY)
             .buildOrThrow(), true);
 
+    private static final StarlarkType INT_OR_NONE = Types.union(Types.INT, Types.NONE);
+
+    /** An HTTP/2 or HTTP/3 frame ({@code on_frame}); named {@code Frame}. */
+    static final ScriptType HTTP_FRAME = new ScriptType("Frame", ScriptHttpFrame.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("protocol", Types.STR)
+            .put("type", Types.STR)
+            .put("type_code", Types.INT)
+            .put("stream_id", Types.INT)
+            .put("end_stream", Types.BOOL)
+            .put("direction", TEXT)
+            .put("ack", Types.BOOL)
+            .put("payload", BODY)
+            .put("text", TEXT)
+            .put("headers", Types.union(HEADERS, Types.NONE))
+            .put("settings", Types.union(Types.dict(Types.STR, Types.INT), Types.NONE))
+            .put("error_code", INT_OR_NONE)
+            .put("error", TEXT)
+            .put("debug_data", BODY)
+            .put("last_stream_id", INT_OR_NONE)
+            .buildOrThrow(), true);
+
+    static final ScriptType FRAME_CONTEXT = new ScriptType("FrameContext", ScriptFrameContext.class, ImmutableMap.of(
+            "protocol", Types.STR,
+            "connection_id", Types.INT,
+            "stream_id", Types.INT,
+            "client_ip", Types.STR,
+            "client_port", Types.INT,
+            "server", TEXT), false);
+
     static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
             "kind", Types.STR,
             "status", Types.INT,
@@ -96,6 +128,8 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
+    static final TypeConstructor HTTP_FRAME_CONSTRUCTOR = Types.wrapType("Frame", HTTP_FRAME);
+    static final TypeConstructor FRAME_CONTEXT_CONSTRUCTOR = Types.wrapType("FrameContext", FRAME_CONTEXT);
 
     private final String name;
     private final Class<?> javaClass;

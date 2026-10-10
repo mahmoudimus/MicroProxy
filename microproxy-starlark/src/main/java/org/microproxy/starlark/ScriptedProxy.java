@@ -6,8 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -26,6 +28,11 @@ import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.frames.FrameContext;
+import org.microproxy.frames.FrameDirection;
+import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.frames.Http3FramePipeline;
+import org.microproxy.frames.HttpFrame;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
@@ -42,6 +49,8 @@ import org.microproxy.http.WebSocketFrame;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkList;
+import org.microproxy.thirdparty.starlark.eval.Tuple;
 
 /**
  * Drives the proxy from a Starlark script. Install it as both the filters source and the chained
@@ -85,6 +94,13 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *       (the server's name did not resolve, the connection was refused, the server timed out,
  *       ...). Return {@code response(...)} to answer, or {@code None} to leave it to the {@link
  *       org.microproxy.FailureResponder} or the default answer.
+ *   <li>{@code on_frame(frame, ctx)}: for each HTTP/2 frame, in each direction, when this object's
+ *       {@link #frameInterceptor()} is installed ({@code withFrameInterceptor}); and for HTTP/3
+ *       frames run through an {@link Http3FramePipeline} with it. Change the frame in place and
+ *       return {@code None} (or the frame) to pass it on, {@code False} to drop it, another frame
+ *       to replace it, or a list of frames to replace it with (an empty list drops it). The rules
+ *       of {@link FrameInterceptor} apply; a result that breaks them is logged, and the frame
+ *       passed on unchanged.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm}
@@ -485,6 +501,65 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=utf-8");
         HttpUtil.setContentLength(response, body.length);
         return response;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // FrameInterceptor
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether the script in use defines {@code on_frame}, so {@link #frameInterceptor()} is worth
+     * installing. A proxy without it pays nothing per frame.
+     *
+     * @return whether the current script provides the frame hook
+     */
+    public boolean definesFrameHook() {
+        return script().defines("on_frame");
+    }
+
+    /**
+     * An interceptor that calls the script's {@code on_frame(frame, ctx)}, for {@link
+     * org.microproxy.HttpProxyServerBootstrap#withFrameInterceptor} (HTTP/2) or {@link
+     * Http3FramePipeline#builder} (HTTP/3). Frames pass on unchanged when the script in use (after
+     * a reload) has no {@code on_frame}, and when the call fails, which is logged.
+     *
+     * @return the interceptor
+     */
+    public FrameInterceptor frameInterceptor() {
+        return this::onFrame;
+    }
+
+    private HttpFrame onFrame(HttpFrame frame, FrameDirection direction, FrameContext context) {
+        StarlarkScript s = script();
+        if (!s.defines("on_frame")) return frame;
+        Mutability mu = Mutability.create("frame");
+        ScriptHttpFrame f = new ScriptHttpFrame(frame, direction, context.streamId(), mu);
+        try {
+            Object r = s.call("on_frame", mu, f, new ScriptFrameContext(context));
+            if (r == Starlark.NONE || r == Boolean.TRUE || r == f) return f.toFrame();
+            if (r == Boolean.FALSE) return null;
+            if (r instanceof ScriptHttpFrame other) return other.toFrame();
+            if (r instanceof StarlarkList<?> || r instanceof Tuple) {
+                List<HttpFrame> frames = new ArrayList<>();
+                for (Object item : Starlark.toIterable(r)) {
+                    if (!(item instanceof ScriptHttpFrame x)) {
+                        throw Starlark.errorf("on_frame lists hold frames, not %s", Starlark.type(item));
+                    }
+                    frames.add(x.toFrame());
+                }
+                if (frames.isEmpty()) return null;
+                for (HttpFrame added : frames.subList(1, frames.size())) context.send(added);
+                return frames.getFirst();
+            }
+            throw Starlark.errorf("on_frame must return None, True, False, a frame or a list of frames, not %s",
+                    Starlark.type(r));
+        } catch (EvalException e) {
+            LOG.log(Level.WARNING, s.name() + ": on_frame failed; passing the frame on: " + e.getMessageWithStack());
+            return frame;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return frame;
+        }
     }
 
     // ---------------------------------------------------------------------------------------

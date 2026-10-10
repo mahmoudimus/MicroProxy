@@ -209,6 +209,47 @@ exchange timings. Its tunnel I/O uses DATA and END_STREAM, and `close` resets on
 stream. Without the setting, `proxyRequest` releases the reserved stream and opens a separate
 HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary requests.
 
+## Frame interception: `Http2Frames`
+
+With a `FrameInterceptor` (`withFrameInterceptor`), each `Http2Endpoint` gets an `Http2Frames`
+(`frames`); without one, `frames` is null and every path below is the old one, behind a null
+check, so frames cost nothing extra. `Http2Frames` converts between the codec's frames and the
+public `org.microproxy.frames.Http2Frame`, runs the interceptor, and checks what it returns
+against the rules `FrameInterceptor` documents (`check`), putting END_STREAM where it belongs
+(`withEndStream`); a result that breaks a rule, or a throwing interceptor, is logged and the
+original frame used.
+
+- **Received frames.** Both connections' `onFrame` count the frame against the rate limits first
+  (`countReceived`, on the client side), then `intercepted` shows it to the interceptor and acts on
+  what comes back as if the peer had sent it. HEADERS are decoded before interception and the
+  result's fields handed to `onHeaders(id, endStream, ..., fields, ...)`, so HPACK state never
+  depends on the interceptor; a block over the header list limit skips interception. DATA goes to
+  `onData(id, wireLength, data, endStream)`: the first DATA acted on carries the frame's wire
+  length (or an empty one does, if none is), and the difference between what the window counted
+  and what the stream gets is credited back at once (padding, data removed) or owed from later
+  credit (data added, a negative `unacked`). Bytes nobody will read are credited back as soon as
+  they are worth a WINDOW_UPDATE, without waiting for reads that may never come. The reader
+  delivers extension frames (`setDeliverUnknownFrames`) only when there is an interceptor.
+- **Sent frames.** `writeHeaders`, `writeData`, `writeReset`, `writeGoAway`, `writePreface`,
+  `sendWindowUpdates`, `applySettings` and `answerPing` show their frame to the interceptor before
+  taking `writeLock`, and write what comes back (`writeFrames`, which encodes HEADERS under
+  `writeLock` as before). `writeData` cuts data into pieces of at most `MAX_DATA_FRAME` first, and
+  each DATA result then waits for window at its own size (`writeDataFrames`), so flow control
+  counts what is actually sent. `Http2UpstreamConnection.open` is the exception: the HEADERS that
+  open a stream are intercepted under `writeLock`, after the stream got its id, so ids reach the
+  server in order.
+- **Context.** `flowOf(stream)` and `flowOf(id)` give the exchange's `FlowContext` (the stream
+  channel's, or the upstream stream's `FullFlowContext`); `frameConnectionId`,
+  `frameClientAddress` and `frameServer` describe the connection for frames that belong to no
+  exchange. A private upstream connection reports its owner's client connection; a shared one, -1.
+- **SETTINGS received** are checked by `stricterSettings`, which applies both the original and the
+  edited frame to the current peer settings and refuses an edit that would make the proxy less
+  strict than the original; the edited values are then applied, as received ones would be.
+
+HTTP/3 has no transport here: `org.microproxy.frames.Http3FramePipeline` (with `Http3Streams`,
+which alone touches `http3-codec`, loaded once the pipeline is built) applies the same rules to
+stream bytes.
+
 ## What stays HTTP/1-specific, and why
 
 - **The connection loop** (`serveRequests`): waiting for the next request without holding a

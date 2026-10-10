@@ -37,6 +37,7 @@ import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
+import org.microproxy.frames.FrameInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -96,6 +97,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Whether the plain listener serves HTTP/2 with prior knowledge. */
     boolean http2Cleartext;
     Http2Options http2Options = Http2Options.DEFAULT;
+    /** Sees every HTTP/2 frame; null for none. */
+    FrameInterceptor frameInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -147,6 +150,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2Upstream = http2Upstream;
         c.http2Cleartext = http2Cleartext;
         c.http2Options = http2Options;
+        c.frameInterceptor = frameInterceptor;
         return c;
     }
 
@@ -547,6 +551,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
         this.http2Options = options == null ? Http2Options.DEFAULT : options;
         return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withFrameInterceptor(FrameInterceptor interceptor) {
+        this.frameInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public FrameInterceptor getFrameInterceptor() {
+        return frameInterceptor;
     }
 
     @Override

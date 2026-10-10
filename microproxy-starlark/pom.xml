@@ -32,6 +32,11 @@
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>http2-codec</artifactId>
         </dependency>
+        <!-- Bundled into the -all jar so scripts can run on_frame over HTTP/3 streams (Http3FramePipeline). -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http3-codec</artifactId>
+        </dependency>
         <!-- The only runtime dependency of the bundled interpreter. -->
         <dependency>
             <groupId>com.google.guava</groupId>
