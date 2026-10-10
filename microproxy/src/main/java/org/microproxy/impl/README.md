@@ -129,8 +129,9 @@ Writing frames, send flow control, SETTINGS and PING are `Http2Endpoint`'s, whic
 
 `Http2StreamChannel` defines what the HTTP/1-only `ClientChannel` operations mean for a stream:
 `clientKeepAlive` is always true; `adaptFraming` only drops `Transfer-Encoding`; `setKeepAlive`
-does nothing; `setUpgrade` translates a WebSocket 101 to the extended CONNECT 200; `writeContinue` sends `:status 100` only to a client that sent
-`expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
+does nothing; `setUpgrade` adds the upgrade fields to a WebSocket's 101, which filters see as
+for HTTP/1, and `writeHead` sends it as the extended CONNECT's `:status 200`; `writeContinue`
+sends `:status 100` only to a client that sent `expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
 copies into DATA frames; `close` resets only the stream; `reject` answers and ends it.
 `relay` runs the shared `Tunnel` parser on the stream's `MessageBody` input and flow-controlled
 DATA output. Successful CONNECT HEADERS leave the stream open even for a FullHttpResponse with

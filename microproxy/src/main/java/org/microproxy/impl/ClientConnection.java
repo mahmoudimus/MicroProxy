@@ -1215,8 +1215,7 @@ final class ClientConnection implements Runnable {
             serverKeepAlive &= drain(body);
             body = null;
         }
-        if (switching && (ex.channel.multiplexed() ? finalResponse.status().code() / 100 != 2
-                : finalResponse.status().code() != 101)) {
+        if (switching && finalResponse.status().code() != 101) {
             // A filter rejected the opening handshake: complete its response and release the
             // origin now, rather than entering a relay that can never become a WebSocket.
             ex.responseStarted = true;

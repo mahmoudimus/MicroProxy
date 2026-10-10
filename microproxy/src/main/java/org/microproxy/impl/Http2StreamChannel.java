@@ -237,26 +237,30 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public void setUpgrade(HttpResponse response, String upgrade) {
-        if ("websocket".equals(protocol) && response.status().code() == 101) {
-            response.setStatus(HttpResponseStatus.OK);
-            response.headers().remove("Sec-WebSocket-Accept");
-            response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
-            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+        // HTTP/2 has no protocol switch: writeHead turns the 101 of an extended CONNECT into a 200.
+        // Until then, filters see the 101 as an HTTP/1.1 client's upgrade would show it.
+        if ("websocket".equals(protocol)) {
+            if (upgrade != null) response.headers().set(HttpHeaderNames.UPGRADE, upgrade);
+            response.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
         }
     }
 
     @Override
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
-        if (response.status().code() / 100 == 2
-                && (ProxyUtils.isCONNECT(request) || "websocket".equals(protocol))) {
-            // The response opens a tunnel. DATA are tunnel bytes, not a message body: even a
-            // FullHttpResponse with an empty payload must leave the stream open.
+        int code = response.status().code();
+        if ("websocket".equals(protocol) ? code == 101 : code / 100 == 2 && ProxyUtils.isCONNECT(request)) {
+            // The response opens a tunnel: HEADERS :status 200 without END_STREAM. DATA are tunnel
+            // bytes, not a message body: even a FullHttpResponse with an empty payload must leave
+            // the stream open. The 101 itself stays as filters and trackers saw it.
+            HttpHeaders headers = response.headers().copy();
+            headers.remove("Sec-WebSocket-Accept");
+            headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+            headers.remove(HttpHeaderNames.TRANSFER_ENCODING);
             this.bodyAllowed = true;
-            response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
-            response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            headersSent = true;
             // Before the HEADERS go out: the client may reset the stream as soon as it reads them.
             tunnelOpen = true;
-            sendHead(response, false);
+            connection.writeHeaders(this, responseFields(code == 101 ? 200 : code, headers), false);
             return;
         }
         if (response instanceof FullHttpMessage full) {

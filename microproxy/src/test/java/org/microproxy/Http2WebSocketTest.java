@@ -124,6 +124,68 @@ class Http2WebSocketTest {
     }
 
     @Test
+    void framesAreFilteredAsForHttp1Upgrades() throws Exception {
+        List<String> requests = new CopyOnWriteArrayList<>();
+        List<String> responses = new CopyOnWriteArrayList<>();
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = h2c().withFiltersSource((original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+            @Override
+            public HttpResponse clientToProxyRequest(HttpObject o) {
+                if (o instanceof HttpRequest r) {
+                    requests.add(r.method() + " " + r.uri() + " " + r.protocolVersion() + " upgrade=" + r.headers().get("Upgrade")
+                            + " stream=" + ctx.getStreamId());
+                }
+                return null;
+            }
+
+            @Override
+            public HttpObject proxyToClientResponse(HttpObject o) {
+                if (o instanceof HttpResponse r) responses.add(r.status().code() + " " + r.headers().get("Upgrade"));
+                return o;
+            }
+
+            @Override
+            public void webSocketFrameReceived(WebSocketFrame frame, boolean fromClient) {
+                if (frame.isText()) seen.add((fromClient ? "> " : "< ") + frame.payloadAsText() + (frame.isMasked() ? " (masked)" : ""));
+            }
+
+            @Override
+            public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+                if (!frame.isText()) return frame;
+                String text = frame.payloadAsText();
+                if (fromClient && text.contains("secret")) return null;
+                return fromClient ? frame.withText(text.toUpperCase(Locale.ROOT)) : frame.withText(text + " (filtered)");
+            }
+        }).start();
+        try (EchoServer server = new EchoServer(); H2StreamClient c = client(server.raw())) {
+            H2StreamClient.Stream ws = c.open(c.webSocket("/chat", "sec-websocket-extensions",
+                    "permessage-deflate; client_max_window_bits"), false);
+            assertEquals(200, ws.status());
+            sendFromClient(ws.out(), WebSocketFrame.text("hello"));
+            sendFromClient(ws.out(), WebSocketFrame.text("my secret"));
+            sendFromClient(ws.out(), WebSocketFrame.text("ping"));
+            WebSocketFrame echo = readFrame(ws.in());
+            assertEquals("echo:PING (filtered)", echo.payloadAsText());
+            assertFalse(echo.isMasked());
+            sendFromClient(ws.out(), WebSocketFrame.close(1000, ""));
+            assertTrue(readFrame(ws.in()).isClose());
+            ws.end();
+            assertNull(ws.awaitEnd());
+
+            List<String> texts = server.received.stream().map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
+            assertEquals(List.of("HELLO", "PING", "<close>"), texts);
+            // Rewritten frames are masked again towards the server.
+            assertTrue(server.received.stream().allMatch(WebSocketFrame::isMasked));
+            // Compression is negotiated away, so payloads can be rewritten.
+            assertNull(header(server.upgradeRequest, "Sec-WebSocket-Extensions"), server.upgradeRequest);
+            String target = "http://127.0.0.1:" + server.raw().port() + "/chat";
+            assertEquals(List.of("GET " + target + " HTTP/2.0 upgrade=websocket stream=1"), requests);
+            assertEquals(List.of("101 websocket"), responses);
+            assertEquals(List.of("> hello (masked)", "> my secret (masked)", "> ping (masked)", "< echo:PING"), seen);
+        }
+    }
+
+    @Test
     void withoutFrameFiltersBytesAreRelayedAsTheyCome() throws Exception {
         proxy = h2c().start();
         AtomicInteger bytes = new AtomicInteger();
