@@ -254,6 +254,22 @@ class ClientHelloInterceptionTest {
         }
     }
 
+    @Test
+    void aClientHelloMustArriveWithinTheHandshakeTimeout() throws Exception {
+        HttpProxyServer proxy = proxies.start(mitm().withTlsHandshakeTimeout(java.time.Duration.ofMillis(300)));
+        byte[] records = TlsHellos.fromJdkClient("localhost", "http/1.1");
+        try (Socket s = ChainTestSupport.open(proxy.getListenAddress())) {
+            assertEquals(200, ChainTestSupport.status(ChainTestSupport.connect(s, target)));
+            // Half of the ClientHello, then nothing: the proxy gives up after 300 ms, well before
+            // the idle timeout (or this socket's 20 s read timeout).
+            s.getOutputStream().write(records, 0, records.length / 2);
+            s.getOutputStream().flush();
+            long start = System.nanoTime();
+            assertEquals(-1, s.getInputStream().read());
+            assertTrue(System.nanoTime() - start < java.util.concurrent.TimeUnit.SECONDS.toNanos(10));
+        }
+    }
+
     /** Echoes every byte back until the peer closes. */
     static void echoBytes(Socket s) throws Exception {
         InputStream in = s.getInputStream();

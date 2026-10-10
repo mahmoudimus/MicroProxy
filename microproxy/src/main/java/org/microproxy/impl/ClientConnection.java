@@ -1832,9 +1832,15 @@ final class ClientConnection implements Runnable {
         }
         int first = in.peek();
         if (first == 0x16) {
+            // The whole ClientHello must arrive within the handshake deadline, as the rest of the
+            // handshake must: a client cannot hold the connection by sending it a byte at a time.
+            long deadline = server.tlsHandshakeTimeout.isZero() ? 0
+                    : System.nanoTime() + server.tlsHandshakeTimeout.toNanos();
             int[] need = {5};
             while (true) {
-                if (!in.ensureBuffered(need[0])) return ClientStart.other("the client closed within its ClientHello");
+                if (!ensureBuffered(in, need[0], deadline)) {
+                    return ClientStart.other("the client closed within its ClientHello");
+                }
                 byte[] data = in.peekBuffered();
                 try {
                     byte[] message = TlsClientHello.message(data, data.length, TlsClientHello.MAX_MESSAGE_SIZE, need);
@@ -1857,6 +1863,26 @@ final class ClientConnection implements Runnable {
             if (b < 'A' || b > 'Z') break;
         }
         return ClientStart.other("neither TLS nor HTTP");
+    }
+
+    /**
+     * {@link ByteReader#ensureBuffered} on the client's reader, failing with a {@link
+     * SocketTimeoutException} once {@code deadline} ({@link System#nanoTime()}, 0 for none) passes.
+     */
+    private boolean ensureBuffered(ByteReader in, int n, long deadline) throws IOException {
+        if (in.buffered() >= n || deadline == 0) return in.ensureBuffered(n);
+        long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+        if (remaining <= 0) {
+            throw new SocketTimeoutException("ClientHello not complete within " + server.tlsHandshakeTimeout.toMillis() + " ms");
+        }
+        Socket client = http1.socket();
+        int original = client.getSoTimeout();
+        client.setSoTimeout((int) Math.max(1, original > 0 ? Math.min(original, remaining) : Math.min(Integer.MAX_VALUE, remaining)));
+        try {
+            return in.ensureBuffered(n);
+        } finally {
+            if (!client.isClosed()) client.setSoTimeout(original);
+        }
     }
 
     /**
