@@ -123,7 +123,9 @@ Two pieces of the `CONNECT` exchange wait for this: its completion (`connectResp
 `responseCompleted` and the timings include the server handshake), and the claim on making the
 `Http2Origins` connection for its key (`http2Claim`), which is reported once the server handshake
 has told whether the server speaks `h2`, so that concurrent `CONNECT`s still share one HTTP/2
-connection. `releaseHttp2Claim` and `completeConnect` run on every path out.
+connection. Until the ClientHello has come, the claim is marked (`awaitingClientHello`), and
+others wait for it at most `CLIENT_HELLO_GRACE_NANOS` (200 ms) from when it was marked: a client
+that is slow to send its ClientHello, or never does, cannot hold up other clients' connections. `releaseHttp2Claim` and `completeConnect` run on every path out.
 
 The same flow serves connections that never sent a `CONNECT`: `serveImplicitConnect` makes one up
 (`Exchange.implicit`), for TLS on a transparent listener (`serveTransparentTls`, routed by SNI)

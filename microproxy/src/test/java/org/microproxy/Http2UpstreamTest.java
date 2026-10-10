@@ -610,6 +610,29 @@ class Http2UpstreamTest {
     }
 
     @Test
+    void aClientThatNeverSendsItsClientHelloDoesNotHoldUpOthers() throws Exception {
+        origin(Http2UpstreamTest::echo);
+        // Shared connections, so the second client would wait for the first one's.
+        proxy = mitm().withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true).start();
+        try (Socket silent = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+            silent.setSoTimeout(20_000);
+            String target = "localhost:" + origin.port();
+            TestSupport.write(silent.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
+            String head = TestSupport.readUntil(silent.getInputStream(), "\r\n\r\n");
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            // The first client's connection to the server is made, and waits for a ClientHello
+            // that never comes. Another client's request completes well within the connect
+            // timeout (40 s), which it would otherwise wait out.
+            long start = System.nanoTime();
+            HttpResponse<String> response = TestSupport.send(http1Client(), get(origin.url("/other")));
+            long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+            assertEquals(200, response.statusCode());
+            assertTrue(millis < 5_000, "took " + millis + " ms");
+            assertEquals(List.of("/other"), lines(response.body(), ":path"));
+        }
+    }
+
+    @Test
     void theProxyStoppingClosesServerConnections() throws Exception {
         origin(Http2UpstreamTest::echo);
         proxy = mitm().withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true).start();

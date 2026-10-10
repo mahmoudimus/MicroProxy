@@ -1657,8 +1657,10 @@ final class ClientConnection implements Runnable {
                 reported = true;
                 adoptForSession(ex, carrier, mode, hostAndPort, http2Key);
             } else if (conn != null && conn.tlsPending && http2Key != null) {
-                // What the server speaks is known only after the ClientHello: reported then.
+                // What the server speaks is known only after the ClientHello: reported then. Others
+                // wait for this connection only briefly until the ClientHello has come.
                 ex.http2Claim = http2Key;
+                server.http2Origins.awaitingClientHello(http2Key);
                 reported = true;
             } else if (conn != null && http2Key != null && mode == Mode.TLS) {
                 server.http2Origins.negotiatedHttp1(http2Key);
@@ -1941,6 +1943,7 @@ final class ClientConnection implements Runnable {
     private boolean interceptOrTunnel(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
             HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key) throws IOException {
         ClientStart start = peekClient(conn != null && conn.tlsPending ? conn : null);
+        if (ex.http2Claim != null) server.http2Origins.clientHelloArrived(ex.http2Claim);
         switch (start.kind()) {
             case CLOSED -> {
                 releaseHttp2Claim(ex);
