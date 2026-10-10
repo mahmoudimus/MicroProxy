@@ -1,6 +1,7 @@
 package org.microproxy.starlark;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -20,17 +21,86 @@ import org.microproxy.thirdparty.starlark.syntax.StarlarkType;
 import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
- * The headers of a request or response. Names are case-insensitive; {@code h[name]} is the first
- * value (an error if absent), {@code h[name] = v} replaces all values, {@code name in h} tests
- * presence and iterating yields the distinct names.
+ * The headers of a request or response, or the header block of an HTTP/2 or HTTP/3 frame. Names
+ * are case-insensitive; {@code h[name]} is the first value (an error if absent), {@code h[name] =
+ * v} replaces all values, {@code name in h} tests presence and iterating yields the distinct names.
+ * A frame's header block includes its pseudo-headers ({@code :method}, {@code :status}, ...).
  */
 @StarlarkBuiltin(name = "headers", doc = "HTTP headers, case-insensitive.")
 public final class ScriptHeaders implements StarlarkSetIndexable, StarlarkIterable<String> {
 
-    private final HttpHeaders headers;
+    /** Where the fields live: {@link HttpHeaders}, or a frame's field list ({@link FrameFields}). */
+    interface Store {
+        String get(String name);
+
+        List<String> getAll(String name);
+
+        boolean contains(String name);
+
+        Collection<String> names();
+
+        List<Map.Entry<String, String>> entries();
+
+        void set(String name, Iterable<?> values);
+
+        void add(String name, Iterable<?> values);
+
+        boolean remove(String name);
+    }
+
+    private final Store headers;
     private final boolean readOnly;
 
     ScriptHeaders(HttpHeaders headers, boolean readOnly) {
+        this(new Store() {
+            @Override
+            public String get(String name) {
+                return headers.get(name);
+            }
+
+            @Override
+            public List<String> getAll(String name) {
+                return headers.getAll(name);
+            }
+
+            @Override
+            public boolean contains(String name) {
+                return headers.contains(name);
+            }
+
+            @Override
+            public Collection<String> names() {
+                return headers.names();
+            }
+
+            @Override
+            public List<Map.Entry<String, String>> entries() {
+                return headers.entries();
+            }
+
+            @Override
+            public void set(String name, Iterable<?> values) {
+                headers.set(name, values);
+            }
+
+            @Override
+            public void add(String name, Iterable<?> values) {
+                headers.add(name, values);
+            }
+
+            @Override
+            public boolean remove(String name) {
+                return headers.remove(name);
+            }
+
+            @Override
+            public String toString() {
+                return headers.toString();
+            }
+        }, readOnly);
+    }
+
+    ScriptHeaders(Store headers, boolean readOnly) {
         this.headers = headers;
         this.readOnly = readOnly;
     }

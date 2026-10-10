@@ -46,7 +46,7 @@ import org.microproxy.thirdparty.starlark.lib.json.Json;
 /**
  * The names every proxy script sees besides the Starlark built-ins: {@code response()} and the
  * modules {@code json}, {@code re}, {@code base64}, {@code digest}, {@code codecs}, {@code url},
- * {@code time} and {@code log}.
+ * {@code time}, {@code log}, and {@code h2} and {@code h3}, which make frames for {@code on_frame}.
  */
 final class Builtins {
 
@@ -62,6 +62,8 @@ final class Builtins {
         env.put("url", new UrlModule());
         env.put("time", new TimeModule());
         env.put("log", new LogModule());
+        env.put("h2", new H2Module());
+        env.put("h3", new H3Module());
         Starlark.addMethods(env, new Functions());
         // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
         env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));
@@ -71,6 +73,8 @@ final class Builtins {
         env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
         env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
+        env.put("Frame", TypeConstructorValue.of(ScriptType.HTTP_FRAME_CONSTRUCTOR));
+        env.put("FrameContext", TypeConstructorValue.of(ScriptType.FRAME_CONTEXT_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 
@@ -691,6 +695,178 @@ final class Builtins {
         @StarlarkMethod(name = "error", useStarlarkThread = true, parameters = {@Param(name = "msg")})
         public void error(Object msg, StarlarkThread thread) {
             log(Level.ERROR, msg, thread);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // h2, h3: frames for on_frame
+    // ---------------------------------------------------------------------------------------
+
+    /** A header block from a dict (name to value or list of values), a list of (name, value) pairs, or headers. */
+    static List<org.microproxy.frames.Field> fields(Object headers) throws EvalException {
+        List<org.microproxy.frames.Field> out = new ArrayList<>();
+        if (headers instanceof Dict<?, ?> dict) {
+            for (Map.Entry<?, ?> e : dict.entrySet()) {
+                if (e.getValue() instanceof StarlarkList<?> || e.getValue() instanceof Tuple) {
+                    for (Object v : Starlark.toIterable(e.getValue())) out.add(field(e.getKey(), v));
+                } else {
+                    out.add(field(e.getKey(), e.getValue()));
+                }
+            }
+        } else if (headers instanceof ScriptHeaders h) {
+            for (Object item : h.items()) {
+                Tuple pair = (Tuple) item;
+                out.add(field(pair.get(0), pair.get(1)));
+            }
+        } else if (headers instanceof StarlarkList<?> || headers instanceof Tuple) {
+            for (Object item : Starlark.toIterable(headers)) {
+                if (!(item instanceof Tuple || item instanceof StarlarkList<?>) || Starlark.len(item) != 2) {
+                    throw Starlark.errorf("header pairs are (name, value) tuples, not %s", Starlark.type(item));
+                }
+                List<Object> pair = new ArrayList<>();
+                for (Object x : Starlark.toIterable(item)) pair.add(x);
+                out.add(field(pair.get(0), pair.get(1)));
+            }
+        } else {
+            throw Starlark.errorf("headers must be a dict, a list of (name, value) pairs or headers, not %s",
+                    Starlark.type(headers));
+        }
+        // Pseudo-headers first, as the protocols want them.
+        List<org.microproxy.frames.Field> ordered = new ArrayList<>(out.size());
+        for (org.microproxy.frames.Field f : out) if (f.isPseudo()) ordered.add(f);
+        for (org.microproxy.frames.Field f : out) if (!f.isPseudo()) ordered.add(f);
+        return ordered;
+    }
+
+    private static org.microproxy.frames.Field field(Object name, Object value) throws EvalException {
+        if (!(name instanceof String n)) throw Starlark.errorf("header names are strings, not %s", Starlark.type(name));
+        if (!(value instanceof String v)) throw Starlark.errorf("header values are strings, not %s", Starlark.type(value));
+        return new org.microproxy.frames.Field(n.toLowerCase(java.util.Locale.ROOT), v);
+    }
+
+    private static ScriptHttpFrame made(org.microproxy.frames.HttpFrame frame, StarlarkThread thread) {
+        return new ScriptHttpFrame(frame, null, -1, thread.mutability());
+    }
+
+    /** Makes HTTP/2 frames to return from, or add in, {@code on_frame}. */
+    @StarlarkBuiltin(name = "h2", doc = "Makes HTTP/2 frames for on_frame to return.")
+    public static final class H2Module implements StarlarkValue {
+
+        /**
+         * A DATA frame.
+         *
+         * @param streamId the stream
+         * @param payload bytes, or a string sent as UTF-8
+         * @param endStream whether it ends the stream (the proxy decides in the end)
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "data", doc = "A DATA frame.", useStarlarkThread = true, parameters = {
+            @Param(name = "stream_id"), @Param(name = "payload"), @Param(name = "end_stream", named = true, defaultValue = "False")})
+        public ScriptHttpFrame data(StarlarkInt streamId, Object payload, boolean endStream, StarlarkThread thread)
+                throws EvalException {
+            try {
+                return made(org.microproxy.frames.Http2Frame.data(streamId.toInt("stream_id"), bytes(payload, "payload"), endStream),
+                        thread);
+            } catch (IllegalArgumentException e) {
+                throw Starlark.errorf("%s", e.getMessage());
+            }
+        }
+
+        /**
+         * A HEADERS frame.
+         *
+         * @param streamId the stream
+         * @param headers a dict, a list of (name, value) pairs, or headers; pseudo-headers included
+         * @param endStream whether it ends the stream (the proxy decides in the end)
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "headers", doc = "A HEADERS frame.", useStarlarkThread = true, parameters = {
+            @Param(name = "stream_id"), @Param(name = "headers"), @Param(name = "end_stream", named = true, defaultValue = "False")})
+        public ScriptHttpFrame headers(StarlarkInt streamId, Object headers, boolean endStream, StarlarkThread thread)
+                throws EvalException {
+            try {
+                return made(org.microproxy.frames.Http2Frame.headers(streamId.toInt("stream_id"), fields(headers), endStream), thread);
+            } catch (IllegalArgumentException e) {
+                throw Starlark.errorf("%s", e.getMessage());
+            }
+        }
+
+        /**
+         * A frame of an extension type.
+         *
+         * @param type the type code, 10 to 255
+         * @param streamId the stream, or 0 for the connection
+         * @param payload bytes, or a string sent as UTF-8
+         * @param flags the flags, 0 to 255
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "unknown", doc = "A frame of an extension type (10 to 255).", useStarlarkThread = true,
+                parameters = {@Param(name = "type"), @Param(name = "stream_id"), @Param(name = "payload"),
+                    @Param(name = "flags", named = true, defaultValue = "0")})
+        public ScriptHttpFrame unknown(StarlarkInt type, StarlarkInt streamId, Object payload, StarlarkInt flags,
+                StarlarkThread thread) throws EvalException {
+            try {
+                return made(org.microproxy.frames.Http2Frame.unknown(type.toInt("type"), flags.toInt("flags"),
+                        streamId.toInt("stream_id"), bytes(payload, "payload")), thread);
+            } catch (IllegalArgumentException e) {
+                throw Starlark.errorf("%s", e.getMessage());
+            }
+        }
+    }
+
+    /** Makes HTTP/3 frames to return from, or add in, {@code on_frame}. */
+    @StarlarkBuiltin(name = "h3", doc = "Makes HTTP/3 frames for on_frame to return.")
+    public static final class H3Module implements StarlarkValue {
+
+        /**
+         * A DATA frame.
+         *
+         * @param payload bytes, or a string sent as UTF-8
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "data", doc = "A DATA frame.", useStarlarkThread = true, parameters = {@Param(name = "payload")})
+        public ScriptHttpFrame data(Object payload, StarlarkThread thread) throws EvalException {
+            return made(org.microproxy.frames.Http3Frame.data(bytes(payload, "payload")), thread);
+        }
+
+        /**
+         * A HEADERS frame.
+         *
+         * @param headers a dict, a list of (name, value) pairs, or headers; pseudo-headers included
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "headers", doc = "A HEADERS frame.", useStarlarkThread = true, parameters = {@Param(name = "headers")})
+        public ScriptHttpFrame headers(Object headers, StarlarkThread thread) throws EvalException {
+            return made(org.microproxy.frames.Http3Frame.headers(fields(headers)), thread);
+        }
+
+        /**
+         * A frame of an extension or reserved type.
+         *
+         * @param type the type code: not one HTTP/3 defines or forbids
+         * @param payload bytes, or a string sent as UTF-8
+         * @param thread the calling thread
+         * @return the frame
+         * @throws EvalException for a bad argument
+         */
+        @StarlarkMethod(name = "unknown", doc = "A frame of an extension or reserved type.", useStarlarkThread = true,
+                parameters = {@Param(name = "type"), @Param(name = "payload")})
+        public ScriptHttpFrame unknown(StarlarkInt type, Object payload, StarlarkThread thread) throws EvalException {
+            try {
+                return made(org.microproxy.frames.Http3Frame.unknown(type.toLong("type"), bytes(payload, "payload")), thread);
+            } catch (IllegalArgumentException e) {
+                throw Starlark.errorf("%s", e.getMessage());
+            }
         }
     }
 }
