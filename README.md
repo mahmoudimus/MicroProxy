@@ -731,9 +731,16 @@ before: the request is answered in HTTP/1.1. The same limits as for intercepted 
 A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
 opens a byte tunnel on that stream. The successful `200` HEADERS leave it open; DATA carry tunnel
 bytes, and END_STREAM half-closes one direction. RST_STREAM closes the tunnel's origin connection
-and wakes its waits, without closing the client HTTP/2 connection or other streams. These are raw
-tunnels, including when a MITM manager is configured: TLS interception inside an HTTP/2 CONNECT
-stream is not implemented. HTTP/1 CONNECT interception is unchanged.
+and wakes its waits, without closing the client HTTP/2 connection or other streams. A reset that
+ends an open tunnel is not counted as a rapid reset. A `CONNECT` stream to a chained HTTP proxy
+reaches it as an HTTP/1.1 `CONNECT`.
+
+With a MITM manager, a `CONNECT` stream on `h2c` or the proxy TLS listener is intercepted as an
+HTTP/1 `CONNECT` is: the client's TLS session runs over the stream's DATA frames, and its decrypted
+requests (HTTP/1.1, or HTTP/2 inside the stream when the client negotiates `h2`) are exchanges of a
+client connection of their own, with the same filters, hooks and server connections; the
+`CONNECT`'s credentials cover them. A server that does not speak TLS gets a plain tunnel instead. A
+`CONNECT` inside an intercepted session is a plain tunnel to that session's authority.
 
 The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client can open a stream
 with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
@@ -749,9 +756,10 @@ needed. For secure extended CONNECT on a forward-proxy connection, origin TLS us
 MITM manager's server TLS settings, or the default JVM trust context when there is no manager.
 
 Request filters see an extended WebSocket CONNECT as a GET upgrade request, with version
-`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Origin HTTP/2 WebSocket response
-heads use `101` internally so the existing exchange and upgrade hooks run; the client's response
-hook sees `200` for an HTTP/2 client, and `upstreamStatus` retains the origin's actual status.
+`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Response filters and trackers
+see the handshake's answer as a `101` with `Upgrade: websocket` and `Connection: Upgrade`, as for an
+HTTP/1.1 client, whichever protocol the origin speaks; the proxy sends it to an HTTP/2 client as
+`200`, and `upstreamStatus` retains the origin's actual status.
 `webSocketFrameReceived` and `filterWebSocketFrame` use the same parser and relay as HTTP/1,
 including masking, rewriting, dropping, fragmentation and the large-frame buffer limit. Filters
 that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.

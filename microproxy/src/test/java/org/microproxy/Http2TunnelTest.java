@@ -120,7 +120,9 @@ class Http2TunnelTest {
     }
 
     @Test
-    void connectIsARawTunnelEvenWhenMitmIsConfigured() throws Exception {
+    void connectToANonTlsServerTunnelsEvenWhenMitmIsConfigured() throws Exception {
+        // CONNECT streams are intercepted (Http2ConnectTest); a server that does not speak TLS
+        // gets a plain tunnel instead, as an HTTP/1 CONNECT does (MitmNonTlsServerTest).
         CertificateAuthority ca = CertificateAuthority.generate("stream tunnel CA");
         try (TestSupport.RawServer origin = TestSupport.rawServer(s -> {
             s.getOutputStream().write(s.getInputStream().readNBytes(4));
