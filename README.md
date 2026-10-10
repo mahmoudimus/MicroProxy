@@ -13,7 +13,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
-  decode `zstd` bodies, and the `http2-codec` jar for [HTTP/2](#http2) to clients and servers.
+  decode `zstd` bodies, the `http2-codec` jar for [HTTP/2](#http2) to clients and servers, and
+  the `http3-codec` jar to run [frame interceptors over HTTP/3 streams](#http3-frames).
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
   Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
@@ -23,8 +24,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 |---|---|---|
 | `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](zstd-decoder/README.md)) |
 | `http2-codec/` | `io.github.mahmoudimus:http2-codec` | a standalone HTTP/2 frame codec and HPACK implementation ([README](http2-codec/README.md)) |
-| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, not yet used by the proxy ([README](http3-codec/README.md)) |
-| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder` and `http2-codec` are optional) |
+| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, used by the HTTP/3 frame pipeline ([README](http3-codec/README.md)) |
+| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder`, `http2-codec` and `http3-codec` are optional) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
 ```java
@@ -116,7 +117,7 @@ zstd-decoder/target/zstd-decoder-${MICROPROXY_VERSION}.jar org.microproxy.Launch
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar:\
 http2-codec/target/http2-codec-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
 
-# The same launcher with scripting, zstd and HTTP/2 built in (one self-contained jar):
+# The same launcher with scripting, zstd, HTTP/2 and the HTTP/3 codec built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --script proxy.star
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --http2
 ```
@@ -826,8 +827,87 @@ except one, which CI leaves out:
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
 `.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
 
-**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/2 and
-HTTP/3 frame editing for Starlark, followed by HTTP/3 transport integration.
+**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/3
+transport integration (QUIC termination), which [frame interception](#frame-interception) is
+ready for.
+
+#### Frame interception
+
+A `FrameInterceptor` (`org.microproxy.frames`) sees every HTTP/2 frame on live connections and may
+edit, drop and add frames. It is set once per proxy, not per exchange, because SETTINGS, PING and
+GOAWAY belong to a connection:
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp2(true).withHttp2Upstream(true)
+        .withFrameInterceptor((frame, direction, ctx) -> switch (frame) {
+            case Http2Frame.Headers h when direction == FrameDirection.TO_SERVER -> h.withHeader("x-via-h2", "1");
+            case Http2Frame.Data d when direction == FrameDirection.FROM_SERVER ->
+                    d.withText(d.text().replace("secret", "******"));        // same length: content-length still holds
+            case Http2Frame.Priority p -> null;                              // drop
+            default -> frame;                                                // pass through
+        })
+        .start();
+```
+
+- **Frames.** `Http2Frame` is a sealed interface of records: `Data`, `Headers` (the decoded field
+  list, pseudo-headers included, with CONTINUATION folded in), `Priority`, `RstStream`, `Settings`,
+  `PushPromise`, `Ping`, `GoAway`, `WindowUpdate` and `Unknown` (extension frames, which the proxy
+  otherwise discards unread). `Http3Frame` has `Data`, `Headers`, `Settings`, `GoAway`,
+  `CancelPush`, `MaxPushId`, `PushPromise` and `Unknown`. Edit them with their `with...` methods.
+- **Directions.** The proxy terminates HTTP/2 on each side, so each hop has its own frames:
+  `FROM_CLIENT` (after decoding, before the proxy acts on them), `TO_CLIENT` (before encoding),
+  `FROM_SERVER` and `TO_SERVER`. A request seen `FROM_CLIENT` is a different set of frames from the
+  one later seen `TO_SERVER`: other stream ids, header blocks and DATA boundaries.
+- **Context.** `FrameContext` gives the protocol, the client connection's id, the client's address,
+  the server (`host:port`, on the server side), the stream id, the exchange's `FlowContext` when
+  the frame belongs to one, and `send(frame)`, which adds a frame after this one on the same hop
+  and in the same direction (going out it is sent next; coming in the proxy processes it as if the
+  peer had sent it).
+- **Coverage.** Clients on intercepted TLS, `h2c` and the TLS listener; connections to servers
+  with all their multiplexed streams; full-duplex gRPC; `CONNECT` tunnels and WebSockets over
+  HTTP/2, whose bytes are DATA frames. DATA the proxy sends is shown in pieces of at most 16 KiB.
+- **Cost.** Without an interceptor nothing changes: no conversion, no allocation, no call.
+
+The proxy stays protocol-correct whatever the interceptor returns. What it accepts:
+
+| Frame | May be edited | May be dropped | May be followed by (`ctx.send`) |
+|---|---|---|---|
+| DATA | the payload, to any size | yes | DATA; HEADERS (trailers), last, when the frame ends the stream; extension frames |
+| HEADERS | the fields | no | HEADERS; extension frames |
+| PRIORITY | everything but the stream | yes | extension frames |
+| RST_STREAM | the error code | no | extension frames |
+| SETTINGS | received: values, only to make the proxy stricter; sent: only extension settings | no | extension frames |
+| GOAWAY | the error code and debug data | no | extension frames |
+| extension (`Unknown`) | everything | yes | extension frames |
+| SETTINGS ACK, PING, WINDOW_UPDATE | nothing (the proxy's own flow control and liveness) | no | nothing |
+
+- **Stream ids and END_STREAM are the proxy's.** Frames stay on their stream (extension frames may
+  also use stream 0). When the frame ended its stream, the last DATA or HEADERS frame of the result
+  does; a dropped DATA frame that ended its stream is replaced by an empty DATA frame with
+  END_STREAM. What the interceptor sets is ignored.
+- **Header fields** must be valid (`Field.validate`: lower-case token names, known pseudo-headers
+  first, no connection-specific fields, no CR, LF or NUL in values). HPACK is never at risk: blocks
+  are decoded once on arrival and encoded once on sending. A malformed request or response the
+  proxy receives resets its stream, as usual. Changing a body's length while its HEADERS declare
+  `content-length`: fix or remove the field in the HEADERS too (the interceptor sees them first),
+  or the proxy resets the stream as malformed.
+- **SETTINGS received** may lower `HEADER_TABLE_SIZE`, `INITIAL_WINDOW_SIZE`, `MAX_FRAME_SIZE` (not
+  below 16384), `MAX_CONCURRENT_STREAMS` and `MAX_HEADER_LIST_SIZE`, or clear `ENABLE_PUSH` and
+  `ENABLE_CONNECT_PROTOCOL`; the proxy then uses the edited values (fewer streams to a server, say).
+- **Flow control.** Received DATA counts against the windows, and is credited back, at its size on
+  the wire, whatever the interceptor makes of it. DATA the proxy sends waits for window at its size
+  after interception. Rate limits count frames as they arrive.
+- **Illegal results and failures.** A result that breaks a rule is rejected as a whole: it is
+  logged (logger `org.microproxy.impl.Http2Frames`, `WARNING`) and the original frame goes on, as
+  it does when the interceptor throws. `ctx.send` after the call has returned throws
+  `IllegalStateException`.
+- **Threads.** The interceptor is called from many threads at once and must be thread-safe. The
+  HEADERS that open a stream to a server are intercepted while that connection's writes are held,
+  so stream ids stay in order: keep that call short.
+
+Scripts get the same with [`on_frame`](#frames).
 
 ### HTTP/3 and QUIC
 
@@ -839,8 +919,28 @@ setup usually redirects only TCP. So a client that learns that an origin speaks 
 switch to it and bypass the proxy, and with it interception, filters and logging.
 
 The [`http3-codec`](http3-codec/README.md) module is a first step: it encodes and decodes HTTP/3
-frames and QPACK field sections over a QUIC stream's bytes. The proxy does not use it yet, since
-it has no QUIC transport to supply those bytes.
+frames and QPACK field sections over a QUIC stream's bytes. **Live HTTP/3 interception needs QUIC
+termination, which is not implemented**: the proxy has no QUIC transport to supply those bytes,
+and steers HTTP/3 clients to HTTP/2 by removing `h3` from `Alt-Svc` (below).
+
+<a id="http3-frames"></a>**HTTP/3 frames.** `Http3FramePipeline` runs a
+[frame interceptor](#frame-interception) over HTTP/3 traffic given as stream bytes, captured or
+relayed by other means today, and the seam a QUIC layer will plug into. It reads a request stream
+or a control stream with `http3-codec`, decodes HEADERS through QPACK, shows each frame to the
+interceptor as an `Http3Frame`, checks the result against the same rules as HTTP/2 (HTTP/3 has no
+END_STREAM or stream ids in frames; GOAWAY, MAX_PUSH_ID, CANCEL_PUSH and PUSH_PROMISE are
+read-only; frames keep the message's order), and writes it back with static-only QPACK, so no
+encoder stream is needed. Unknown and grease frames pass through. It needs the optional
+`http3-codec` jar (`Http3FramePipeline.available()`; the starlark `-all` jar bundles it).
+
+```java
+Http3FramePipeline pipeline = Http3FramePipeline.builder(interceptor)
+        .direction(FrameDirection.FROM_CLIENT)            // whose frames these are
+        .build();
+pipeline.controlStream(2, clientControlStream, out);      // stream type, SETTINGS, ...
+pipeline.encoderStream(clientQpackEncoderStream);         // only when the client's QPACK uses its dynamic table
+pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trailers
+```
 
 Clients learn about HTTP/3 in two ways:
 
@@ -1051,6 +1151,7 @@ bootstrap.start();
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
+| `on_frame(frame, ctx)` | for each HTTP/2 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -1077,7 +1178,7 @@ bootstrap.start();
 - `frame`: `type` (`"text"`, `"binary"`, `"continuation"`, `"close"`, `"ping"`, `"pong"`),
   `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
   assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
-  frame.
+  frame. (In `on_frame`, `frame` is an HTTP/2 or HTTP/3 frame: see [Frames](#frames).)
 
 **Built-ins.**
 
@@ -1093,6 +1194,10 @@ bootstrap.start();
   attacker how much of it was right. Compare digests of both sides (as below) so the length does
   not leak either.
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
+- `h2.data(stream_id, payload, end_stream=False)`, `h2.headers(stream_id, headers,
+  end_stream=False)`, `h2.unknown(type, stream_id, payload, flags=0)`, and `h3.data(payload)`,
+  `h3.headers(headers)`, `h3.unknown(type, payload)`: frames for `on_frame` to return. `headers`
+  is a dict, a list of `(name, value)` pairs, or a `Headers`; `payload` is bytes or a string.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
 - More with `load()`: Python's `hashlib`, `hmac`, `re`, `urllib.parse`, `json`, `zlib`, ... (see
   **Standard library** below).
@@ -1250,10 +1355,122 @@ Binary protocols work on `frame.payload` (bytes): for example, replace a magic p
 they can be forwarded or dropped but not rewritten. A failing hook is logged and the frame is
 forwarded unchanged.
 
+<a id="frames"></a>**Frames.** A script that defines `on_frame(frame, ctx)` sees HTTP/2 frames on
+live connections ([Frame interception](#frame-interception) describes where, and which changes
+the proxy accepts) and HTTP/3 frames run through an `Http3FramePipeline`. `--script` installs it
+as the proxy's frame interceptor only when the script defines `on_frame` when it loads, so other
+scripts cost nothing per frame (a reload that removes the hook passes frames on unchanged; one
+that adds it takes effect after a restart). From Java: `bootstrap.withFrameInterceptor(script.frameInterceptor())`
+when `script.definesFrameHook()`, and `Http3FramePipeline.builder(script.frameInterceptor())` for
+HTTP/3. Like `on_websocket_frame`, the hook edits the frame in place: returning `None` (or the
+frame) passes it on with its changes, so a hook that only looks drops nothing; `False` drops it,
+and a list of frames replaces it (`[frame, extra]` adds a frame after it; `[]` drops it).
+
+- `frame`: `protocol` (`"h2"` or `"h3"`), `type` (`"DATA"`, `"HEADERS"`, `"PRIORITY"`,
+  `"RST_STREAM"`, `"SETTINGS"`, `"PUSH_PROMISE"`, `"PING"`, `"GOAWAY"`, `"WINDOW_UPDATE"`,
+  `"CANCEL_PUSH"`, `"MAX_PUSH_ID"`, or `"UNKNOWN"` for extension and grease frames), `type_code`,
+  `stream_id`, `end_stream`, `ack`, `direction` (`"from_client"`, `"to_client"`, `"from_server"`,
+  `"to_server"`; `None` for frames the script made), and, where the frame type has them:
+  `payload` and `text` (DATA and extension frames; assignable; `text` is `None` for a payload that
+  is not UTF-8), `headers` (HEADERS: a `Headers`, live, pseudo-headers included, names lower-cased
+  as they are set), `settings` (a live dict of name to value: `"MAX_CONCURRENT_STREAMS"`, ...,
+  `"0x..."` for others), `error_code` (assignable) and `error` (its name, RST_STREAM and GOAWAY),
+  `debug_data` (GOAWAY, assignable) and `last_stream_id` (GOAWAY). The others are `None`.
+- `ctx`: `protocol`, `connection_id`, `stream_id`, `client_ip`, `client_port`, and `server` (the
+  server's `host:port` for frames to and from servers, else `None`). Frames from the two
+  directions and from many streams are seen concurrently; there is no `ctx.vars`.
+- A failing hook, a wrong return value or a result that breaks the rules is logged, and the frame
+  passed on unchanged.
+
+Rewrite a header in the HEADERS frames clients send:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type == "HEADERS" and frame.direction == "from_client":
+        frame.headers["user-agent"] = "MicroProxy"
+        frame.headers.remove("x-debug")
+```
+
+Redact card numbers in DATA frames, in both directions. A pattern split across two frames is not
+seen; a body whose length changes needs its `content-length` gone:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type == "HEADERS":
+        frame.headers.remove("content-length")  # redacting changes the body's length
+    elif frame.type == "DATA" and frame.text != None:
+        frame.text = re.sub(r"\b[0-9]{13,16}\b", "<card>", frame.text)
+```
+
+Drop PRIORITY and extension frames:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type in ("PRIORITY", "UNKNOWN"):
+        return False
+```
+
+Log what servers say about their connections:
+
+```python
+def on_frame(frame, ctx):
+    if frame.direction != "from_server":
+        return None
+    if frame.type == "SETTINGS" and not frame.ack:
+        log.info("%s settings: %s" % (ctx.server, frame.settings))
+    elif frame.type == "GOAWAY":
+        log.warn("%s goes away: %s after stream %d (%s)" % (
+            ctx.server, frame.error, frame.last_stream_id, frame.debug_data))
+```
+
+Add frames: trailers after every response's last DATA frame (END_STREAM moves to them), and an
+extension frame:
+
+```python
+def on_frame(frame, ctx):
+    # Trailers after the last DATA frame of every response, and a hint before it.
+    if frame.type == "DATA" and frame.direction == "to_client" and frame.end_stream:
+        hint = h2.unknown(0xf0, 0, "checked")
+        return [frame, hint, h2.headers(frame.stream_id, {"x-proxied-by": "MicroProxy"})]
+```
+
+The same hook over HTTP/3, through the pipeline:
+
+```python
+def on_frame(frame, ctx):
+    if frame.protocol != "h3":
+        return None
+    if frame.type == "HEADERS" and ":method" in frame.headers:
+        frame.headers["x-seen-by"] = "MicroProxy"
+    elif frame.type == "DATA" and frame.text != None:
+        return [frame, h3.data(" (checked)")]
+    elif frame.type == "SETTINGS":
+        frame.settings["MAX_FIELD_SECTION_SIZE"] = 16384
+```
+
+```java
+ScriptedProxy script = ScriptedProxy.builder(Path.of("frames.star")).build();
+Http3FramePipeline pipeline = Http3FramePipeline.builder(script.frameInterceptor()).build();
+pipeline.requestStream(0, capturedRequestStream, rewritten);
+```
+
+With types: `Frame` and `FrameContext`. `headers`, `settings`, `payload` and the like are typed
+`... | None`, so typed code casts them:
+
+```python
+def on_frame(frame: Frame, ctx: FrameContext) -> list[Frame] | bool | None:
+    if frame.type == "UNKNOWN":
+        return False
+    if frame.type == "HEADERS" and frame.direction == "from_client":
+        headers = cast(Headers, frame.headers)
+        headers["x-stream"] = str(ctx.stream_id)
+    return None
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
-`Context`, `WebSocketFrame`, `Failure` and `Timings`:
+`Context`, `WebSocketFrame`, `Failure`, `Timings`, `Frame` and `FrameContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
