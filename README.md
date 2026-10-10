@@ -958,6 +958,9 @@ evaluated lazily, with three-valued logic: `~m GET & ~bq x` never buffers a `POS
 over the limit (10 MiB by default, `maxBodySize`) get `413`, as for any filter that buffers
 requests; response bodies over it stream through unchanged.
 
+The addon, HAR and replay options are command-line flags (and Java builders); properties files
+do not take them.
+
 **Order.** The command line chains them as mitmproxy does: `--save-har`, `--warc-dir` and
 `--log-http` first, then `--block-list` and `--anticache`, then a `--script`, then
 `--server-replay`, `--map-remote`, `--map-local`, `--modify-body`, `--modify-headers` and
