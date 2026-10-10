@@ -57,7 +57,6 @@ import org.microproxy.http.HttpBodies;
 import org.microproxy.http.HttpContent;
 import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpHeaders;
-import org.microproxy.http.HttpMessage;
 import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
