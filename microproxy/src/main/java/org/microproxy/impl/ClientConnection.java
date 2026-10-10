@@ -2118,6 +2118,8 @@ final class ClientConnection implements Runnable {
         HttpRequest connect;
         if (ProxyUtils.isCONNECT(clientRequest)) {
             connect = copy(clientRequest);
+            // A CONNECT stream of an HTTP/2 client reaches the chained proxy as HTTP/1.1.
+            if (connect.protocolVersion().majorVersion() >= 2) connect.setProtocolVersion(HttpVersion.HTTP_1_1);
         } else {
             connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
             connect.headers().set(HttpHeaderNames.HOST, hostAndPort);

@@ -229,6 +229,25 @@ class Http2ConnectTest {
         assertEquals(List.of("request CONNECT 1", "response 403 FILTER", "request CONNECT 3", "response 200 PROXY"), tracked);
     }
 
+    @Test
+    void aConnectStreamGoesThroughAChainedProxy() throws Exception {
+        TestSupport.RawServer echo = echoServer(null);
+        try (ChainTestSupport.RecordingConnectProxy upstream = new ChainTestSupport.RecordingConnectProxy()) {
+            proxy = h2c().withChainProxyManager(ChainTestSupport.always(ChainTestSupport.authenticated(upstream.address(),
+                    "chain", "pw"))).start();
+            try (H2StreamClient c = h2c("unused:1")) {
+                H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target(echo)), false);
+                assertEquals(200, tunnel.status());
+                assertEquals("chained", roundTrip(tunnel, "chained"));
+            }
+            String head = upstream.firstHeads.getFirst();
+            // The chained proxy gets an HTTP/1.1 CONNECT, with its own credentials.
+            assertTrue(head.startsWith("CONNECT " + target(echo) + " HTTP/1.1\r\n"), head);
+            assertEquals("Basic " + Base64.getEncoder().encodeToString("chain:pw".getBytes(StandardCharsets.UTF_8)),
+                    WebSocketTestSupport.header(head, "Proxy-Authorization"));
+        }
+    }
+
     // -------------------------------------------------------------------------------------------
     // Proxy authentication
     // -------------------------------------------------------------------------------------------
