@@ -30,6 +30,12 @@
             <artifactId>http2-codec</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Optional: when on the class path, Http3FramePipeline runs frame interceptors over HTTP/3 streams. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http3-codec</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
