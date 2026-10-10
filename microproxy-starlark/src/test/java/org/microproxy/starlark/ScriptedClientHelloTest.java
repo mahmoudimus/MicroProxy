@@ -106,6 +106,27 @@ class ScriptedClientHelloTest {
         assertEquals(List.of("True"), TestSupport.echoedHeader(body, "x-suites"));
     }
 
+    static final String README_EXAMPLE = """
+            def on_client_hello(hello, ctx):
+                # Banks keep their own certificates: tunnel them untouched.
+                return not (hello.sni or "").endswith(".bank.example")
+
+            def on_request(req, ctx):
+                hello = ctx.client_hello
+                if hello != None:
+                    req.headers["X-Client-Alpn"] = ",".join(hello.alpn)
+            """;
+
+    @Test
+    void theReadmeExampleRunsAsWritten() throws Exception {
+        start(ScriptedReadmeTest.inReadme(README_EXAMPLE));
+        assertEquals(issuerName(originCa), visit("www.bank.example", originCa.clientContext(), "http/1.1")[0]);
+        String[] intercepted = visit("localhost", proxyCa.clientContext(), "http/1.1");
+        assertEquals(issuerName(proxyCa), intercepted[0]);
+        String body = intercepted[1].substring(intercepted[1].indexOf("\r\n\r\n") + 4);
+        assertEquals(List.of("http/1.1"), TestSupport.echoedHeader(body, "x-client-alpn"));
+    }
+
     @Test
     void aFailingHookDeclinesInterception() throws Exception {
         start("""
