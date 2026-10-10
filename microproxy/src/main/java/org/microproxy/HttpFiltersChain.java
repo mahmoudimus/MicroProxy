@@ -22,7 +22,7 @@ import org.microproxy.http.WebSocketFrame;
  *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
  *       {@code null} aborts (or drops the frame).
  *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
- *   <li>Interception needs every filter's consent ({@code proxyToServerAllowMitm}), while {@code
+ *   <li>Interception needs every filter's consent (both {@code proxyToServerAllowMitm} hooks), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
  *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
  *       one of them throws.
@@ -262,6 +262,14 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         public boolean proxyToServerAllowMitm() {
             for (HttpFilters f : members) {
                 if (!f.proxyToServerAllowMitm()) return false;
+            }
+            return true;
+        }
+
+        @Override
+        public boolean proxyToServerAllowMitm(ClientHello clientHello) {
+            for (HttpFilters f : members) {
+                if (!f.proxyToServerAllowMitm(clientHello)) return false;
             }
             return true;
         }

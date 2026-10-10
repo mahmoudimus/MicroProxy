@@ -105,6 +105,8 @@ java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm   # intercept HTTPS
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --dnssec --activity-log-format clf
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --log-http headers   # dump traffic
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --ignore-hosts '\.bank\.example:443$'
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8443 --reverse https://example.com   # reverse proxy
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --help
 
 # With zstd decoding:
@@ -192,7 +194,11 @@ Command-line flags override values from the file.
 | `name` | thread / log name | `MicroProxy` |
 | `port` / `address` | listen port / `host:port` | `8080` |
 | `allow_local_only` | listen on loopback only | `true` |
-| `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
+| `transparent` | don't add `Via` or strip hop-by-hop headers, and route TLS that arrives without `CONNECT` by its SNI (see [Transparent mode](#transparent-mode)) | `false` |
+| `transparent_tls_port` | the port SNI-routed transparent TLS goes to | `443` |
+| `mode` | `regular`, `transparent`, or `reverse:<scheme>://<host>[:<port>]` with `http`, `https` or `tcp` (see [Reverse proxy mode](#reverse-proxy-mode)) | `regular` |
+| `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
+| `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -243,6 +249,8 @@ Command-line flags override values from the file.
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
+| ClientHello inspection | after `CONNECT`, the client's ClientHello is read without consuming it (SNI, ALPN, versions, cipher suites), and interception is decided by it: ignore / allow host rules as in mitmproxy, `MitmManager` and filter hooks; plain HTTP after `CONNECT` is served as HTTP, other protocols are tunnelled; ALPN is mirrored between client and server (see below) |
+| Transparent and reverse modes | TLS redirected to the proxy without `CONNECT` is routed by SNI; `--mode reverse:https://host` serves one upstream over HTTP, HTTPS or raw TCP (see below) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection, optionally with exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
@@ -554,7 +562,9 @@ ways to use it:
   `serverSslContext(host, port, flow)` (upstream trust store and client certificate; `flow` is a
   `FullFlowContext` naming the server and route), `clientSslContextFor(connect, session, flow)`
   (the certificate shown to the client) or `configureServerSocket(socket, flow)`. They default to
-  the methods without `FlowContext`, so existing managers work unchanged.
+  the methods without `FlowContext`, so existing managers work unchanged. `shouldIntercept(hello,
+  flow)` decides by the client's ClientHello whether to intercept at all (see
+  [below](#deciding-what-to-intercept-the-clienthello)).
 
 An upstream context with a key (`SslContexts.withKey(key, chain, trustManagers)`) presents that
 client certificate to servers that ask for one.
@@ -566,6 +576,164 @@ clients given the same one. A manager overriding `serverSslContext(host, port, f
 `configureServerSocket(socket, flow)` may decide differently for every client, so its server
 connections are not pooled: each client connection keeps its own. Overriding only
 `clientSslContextFor(..., flow)` does not affect pooling.
+
+### Deciding what to intercept: the ClientHello
+
+With a MITM manager, a `CONNECT` is not intercepted blindly. The proxy connects to the server (TCP,
+and through any chained proxy), answers `200`, and reads what the client sends first without
+consuming it, as mitmproxy does:
+
+- **A TLS ClientHello** is read across as many TLS records as it spans (post-quantum key shares
+  make it several), up to 64 KiB and within the TLS handshake timeout, and parsed into a
+  `ClientHello`: the server name (SNI), the ALPN protocols, the TLS versions and the cipher
+  suites, GREASE values included. The rules below decide whether to intercept. If they do, the
+  proxy shakes hands with the server first and then with the client, replaying the bytes it read
+  into the JDK's handshake with `SSLSocketFactory.createSocket(socket, consumed, autoClose)`. If
+  not, the bytes are relayed to the server first and the connection is a plain tunnel, so the
+  client sees the real server's certificate.
+- **Plain HTTP** (a request line, as a `ws://` WebSocket through a proxy sends) is served as
+  HTTP: its requests go to the `CONNECT` target through the filters, as in an intercepted session
+  but without TLS. With `--littleproxy-compat` it is tunnelled, as LittleProxy does.
+- **Anything else** is tunnelled, the bytes read so far first: other protocols, HTTP/2 with prior
+  knowledge, and a malformed or oversized ClientHello. A server that speaks first (SMTP, SSH) is
+  noticed while the proxy waits for the client, and its connection is tunnelled as well.
+
+Interception is decided in this order; the first "no" tunnels the connection untouched:
+
+1. `HttpFilters.proxyToServerAllowMitm()` and the [ignore rules](#ignoring-and-allowing-hosts)
+   against the `CONNECT` target, when the `CONNECT` arrives. Nothing is read from the client
+   then, as before.
+2. With the ClientHello: the host rules against the `CONNECT` target and the SNI; a client whose
+   ALPN offers no protocol the proxy speaks (only `acme-tls/1`, say); then
+   `MitmManager.shouldIntercept(clientHello, flow)` and `HttpFilters.proxyToServerAllowMitm(clientHello)`.
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withIgnoreHosts("\\.bank\\.example:443$")                  // --ignore-hosts, ignore_hosts
+        .withFiltersSource((request, flow) -> HttpFilters.builder()
+                .allowMitmFor(hello -> !"pinned.example.com".equals(hello.sni()))
+                .build())
+        .start();
+```
+
+`FlowContext.getClientHello()` then returns the ClientHello to the session's requests, and to
+`MitmManager.clientSslContextFor(connect, session, flow)`. Scripts get `on_client_hello` and
+`ctx.client_hello` (see [Scripting](#scripting-with-starlark)).
+
+**Server TLS failures.** As the server handshake waits for the ClientHello, it now happens after
+the `CONNECT` is answered. A server whose certificate fails validation, or that refuses the
+proxy's TLS versions, no longer fails the `CONNECT` with `502`. The client's handshake completes
+with a certificate made from the host name, and each request inside the session is answered
+`502` (`ProxyFailure.TlsFailed`, through `proxyToServerFailure` and the `FailureResponder`), as
+mitmproxy answers. A server that turns out not to speak TLS gets the client's bytes tunnelled.
+Unreachable servers still fail the `CONNECT`, since it is connected before it is answered. For
+filters, `proxyToServerConnectionSSLHandshakeStarted` comes after the `CONNECT`'s `200`, and the
+`CONNECT` exchange completes (`proxyToClientResponseSent`, `responseCompleted`) once the server
+handshake is over, so its timings include that handshake.
+
+#### Ignoring and allowing hosts
+
+`withIgnoreHosts(...)` (`--ignore-hosts`, `ignore_hosts`) and `withAllowHosts(...)`
+(`--allow-hosts`, `allow_hosts`) work as mitmproxy's options of the same names. Each pattern is a
+regular expression searched for (not matched whole), ignoring case, in the connection's `host:port`
+names: the `CONNECT` target, and the client's SNI with the same port. An ignored connection is
+tunnelled untouched. With allow patterns, only connections that one of them finds are
+intercepted, and the ignore patterns still apply to those.
+
+| Pattern | Ignores |
+|---|---|
+| `example\.com` | `example.com:443`, `www.example.com:443`, `example.com.evil.test:443` |
+| `^(.+\.)?example\.com:443$` | `example.com` and its subdomains, on port 443 only |
+| `^10\.` | `CONNECT`s to `10.x.x.x` addresses, whatever their SNI |
+
+On the command line each flag takes one pattern and may be repeated; in a properties file the
+patterns are separated by commas (commas inside `{...}` belong to the pattern). A `CONNECT` whose
+target an ignore pattern finds is tunnelled without reading its ClientHello at all. The rules
+apply to TLS only: plain HTTP requests are proxied as usual.
+
+#### ALPN mirroring
+
+When intercepting, the server is offered only the ALPN protocols the client offered, of those the
+proxy speaks and has enabled: `http/1.1`, `http/1.0`, and `h2` only with
+[HTTP/2 to servers](#http2-to-servers) on. The client's own handshake then mirrors the server's
+choice when that choice tells what the server speaks, that is, when the server was offered `h2`.
+
+| Client offers | Server offered | Server picks | Client gets |
+|---|---|---|---|
+| `http/1.1` | `http/1.1` | `http/1.1` | `http/1.1`: never HTTP/2 upstream |
+| `h2`, `http/1.1` | `h2`, `http/1.1` | `h2` | `h2` (with `--http2`): HTTP/2 end to end |
+| `h2`, `http/1.1` | `h2`, `http/1.1` | `http/1.1` | `http/1.1`, the same as the server |
+| `h2`, `http/1.1` (no `--http2-upstream`) | `http/1.1` | `http/1.1` | `h2` with `--http2`: the proxy translates |
+| no ALPN | `h2`, `http/1.1` with `--http2-upstream`, else none | either | no protocol (HTTP/1.1) |
+
+This follows mitmproxy's order (`tlsconfig.py`: the server's handshake first, with the client's
+offers, then the client's with the server's choice). Two differences: a client that sends no ALPN
+keeps the proxy's old offer, so HTTP/1.1 clients without ALPN (such as the JDK's `HttpClient`)
+still reach HTTP/2 servers; and where the server was not offered `h2`,
+clients still get HTTP/2 when `--http2` allows it. Without a server connection of its own, the
+session mirrors nothing: an existing HTTP/2 connection the session shares (a client that did not
+offer `h2` gets none of it, and its requests connect with its own offers), a reused pooled
+connection, or offline interception. The session's requests that connect later offer the same
+protocols.
+
+### Transparent mode
+
+`--transparent` (`withTransparent(true)`, `transparent=true` or `mode=transparent`) is for
+traffic redirected to the proxy rather than sent to it, by a firewall rule or a gateway. Besides
+leaving out `Via` and keeping hop-by-hop headers, the listener then accepts:
+
+- **TLS without `CONNECT`.** A connection that starts with a TLS record is routed by its
+  ClientHello's SNI, to that host's port 443 (`--transparent-tls-port`, `transparent_tls_port`),
+  and treated like a `CONNECT` to it: filters see a `CONNECT` the proxy made up (it gets no answer
+  on the wire), and the host rules, hooks and interception apply. Without a MITM manager, such
+  connections are tunnelled: an SNI proxy.
+- **Plain HTTP**, routed by its `Host` field, when origin-form requests are allowed
+  (`--allow-requests-to-origin-server`, `allow_requests_to_origin_server=true`), as before.
+
+Java cannot read a redirected connection's original destination (Linux's `SO_ORIGINAL_DST`), so
+the server is the one the SNI or the `Host` field names, not the address the client connected to.
+A ClientHello without SNI (clients connecting to an IP address send none) cannot be routed: the
+proxy answers with a TLS `unrecognized_name` alert, closes the connection and reports it to
+`ActivityTracker.connectionExceptionCaught`. Such clients cannot send proxy credentials: with
+proxy authentication, their connections are closed unless the authenticator accepts them without.
+
+Redirecting a machine's outgoing web traffic to a proxy on port 8080, running as the user `proxy`
+so that its own connections are not redirected again:
+
+```bash
+iptables -t nat -A OUTPUT -p tcp -m owner ! --uid-owner proxy --dport 80 -j REDIRECT --to-ports 8080
+iptables -t nat -A OUTPUT -p tcp -m owner ! --uid-owner proxy --dport 443 -j REDIRECT --to-ports 8080
+# On a gateway, for the clients behind it (eth1), use PREROUTING instead:
+#   iptables -t nat -A PREROUTING -i eth1 -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports 8080
+sudo -u proxy java -jar microproxy.jar --server --port 8080 --transparent --mitm \
+    --allow-requests-to-origin-server --ignore-hosts '\.bank\.example:443$'
+```
+
+Clients must trust the proxy's CA (`microproxy-ca.pem`) for the hosts that are intercepted. QUIC
+(UDP 443) is not redirected: block it so that browsers fall back to TCP (see
+[HTTP/3 and QUIC](#http3-and-quic)).
+
+### Reverse proxy mode
+
+`--mode reverse:https://example.com` (or `--reverse https://example.com`,
+`withReverseProxy("https://example.com")`, `mode=reverse:https://example.com`) makes the proxy a
+server for one upstream, in mitmproxy's specification syntax: `[scheme://]host[:port]`, the
+scheme `https` by default, the port 443 for `https` and 80 for `http`.
+
+- Every request goes to the upstream, whatever it names. Origin-form requests (`GET /path`) are
+  accepted, and absolute-form ones are made origin-form.
+- `Host` is set to the upstream's (`example.com`, with the port unless it is the scheme's
+  default) before any filter sees the request, unless `--keep-host-header` (`keep_host_header`,
+  `withKeepHostHeader(true)`) keeps the client's.
+- `https://` upstreams are reached over TLS, validated with the MITM manager's server context
+  when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise; with
+  `--http2-upstream`, over HTTP/2 when the upstream offers it. `http://` upstreams get plain HTTP.
+- `tcp://host:port` relays each client connection to the upstream as raw bytes.
+- With a TLS listener (`withSslContextSource`), the proxy terminates TLS, and with `--http2`
+  serves HTTP/2 to clients that offer it.
+- Filters, scripts, the cache, logging and failure answers work as for any request. `CONNECT` is
+  refused with `400`.
 
 ### TLS protocol versions
 
@@ -587,10 +755,11 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
   run. A hook that sets its own protocols therefore wins.
 - **The JDK still applies** `jdk.tls.disabledAlgorithms`, which turns off TLS 1.1 and older,
   whatever is listed here.
-- A server that refuses the proxy's versions with a `protocol_version` alert gets a `502`
-  (`TlsFailed`). One that just closes the connection on the proxy's `ClientHello` looks like a
-  server that does not speak TLS, and the `CONNECT` is tunnelled without interception, as for
-  any non-TLS server.
+- A server that refuses the proxy's versions with a `protocol_version` alert gets the requests
+  inside the session a `502` (`TlsFailed`; see [server TLS
+  failures](#deciding-what-to-intercept-the-clienthello)). One that just closes the connection on
+  the proxy's `ClientHello` looks like a server that does not speak TLS, and the client's bytes
+  are tunnelled without interception, as for any non-TLS server.
 
 ### HTTP/2
 
@@ -617,7 +786,8 @@ so; without them, nothing loads the module.
 
 **Negotiation.** With HTTP/2 on, both intercepted TLS and the proxy's own TLS listener
 (`withSslContextSource`) offer `h2` and
-`http/1.1` through ALPN. A client that offers `h2` gets it. Any other client keeps HTTP/1.1 as
+`http/1.1` through ALPN. A client that offers `h2` gets it, unless an intercepted server that was
+offered `h2` chose `http/1.1` (see [ALPN mirroring](#alpn-mirroring)). Any other client keeps HTTP/1.1 as
 before: one that offers only `http/1.1`, one that offers protocols the proxy does not know, and
 one that sends no ALPN at all (the handshake never fails over ALPN). The TLS log line for the
 handshake shows the result (`alpn=h2`). The TLS listener retains its configured certificate,
@@ -653,7 +823,9 @@ may run concurrently, on the streams' threads.
 With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
 connections to servers, for intercepted HTTPS and secure WebSocket extended `CONNECT`, offer
 `h2` and `http/1.1` through
-ALPN (before `MitmManager.configureServerSocket`, which may change that). A server that picks `h2`
+ALPN (before `MitmManager.configureServerSocket`, which may change that). An intercepted client
+that sent ALPN has its own offer mirrored instead: one that offered only `http/1.1` never gets
+HTTP/2 upstream (see [ALPN mirroring](#alpn-mirroring)). A server that picks `h2`
 is spoken to in HTTP/2; any other keeps HTTP/1.1, so turning it on is safe for servers without
 HTTP/2. WebSockets use extended `CONNECT` when the origin advertises
 `SETTINGS_ENABLE_CONNECT_PROTOCOL`; otherwise they use a separate HTTP/1.1 connection.
@@ -1042,6 +1214,7 @@ bootstrap.start();
 | `on_response(req, res, ctx)` | for every response head (the whole response when buffered) | `None`, or a new `response(...)` to replace it |
 | `upstream(req, ctx)` | when a server connection is needed | `None` for the default route, `"DIRECT"`, a proxy URL (`http://`, `https://`, `socks4://`, `socks5://`), or a list to try in order |
 | `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
+| `on_client_hello(hello, ctx)` | once a client that may be intercepted has sent its TLS ClientHello (after `allow_mitm` and the host rules) | `False` to tunnel the connection untouched; `True` or `None` to intercept |
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
@@ -1061,8 +1234,12 @@ bootstrap.start();
 - `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
-  `timings` (below), and `vars`, a dict that lives for one request so `on_request` can pass
-  values to `on_response`. For a WebSocket it lives as long as the connection.
+  `timings` (below), `client_hello` (the ClientHello that started the intercepted session, or
+  `None`), and `vars`, a dict that lives for one request so `on_request` can pass values to
+  `on_response`. For a WebSocket it lives as long as the connection.
+- `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
+  the client's order), `versions` (`"TLSv1.3"`, `"TLSv1.2"`, ...) and `cipher_suites` (numbers).
+  Its type is `ClientHello`.
 - `failure`: `kind` (`"unresolved_host"`, `"connect_failed"`, `"tls_failed"`,
   `"server_timeout"`, `"bad_server_response"`, `"no_route"`, `"no_connection_available"`,
   `"bad_request"`, `"request_too_large"`), `status` (of the default answer), `host` (the server's
@@ -1128,6 +1305,21 @@ def on_response(req, res, ctx):
             req.url, t.ttfb_ms, t.dns_ms, t.connect_ms, t.tls_ms, res.upstream_status, res.source))
     res.headers["Server-Timing"] = "upstream;dur=%d" % t.ttfb_ms
     return None
+```
+
+**Deciding by the ClientHello.** `allow_mitm` runs when the `CONNECT` arrives, before the client
+has said which server name it wants. `on_client_hello` runs once it has, and later hooks of the
+session see the same ClientHello as `ctx.client_hello`:
+
+```python
+def on_client_hello(hello, ctx):
+    # Banks keep their own certificates: tunnel them untouched.
+    return not (hello.sni or "").endswith(".bank.example")
+
+def on_request(req, ctx):
+    hello = ctx.client_hello
+    if hello != None:
+        req.headers["X-Client-Alpn"] = ",".join(hello.alpn)
 ```
 
 **Answering failures.** `on_failure` replaces the proxy's plain-text answers, and leaves the rest
@@ -1774,6 +1966,9 @@ the `README.md` next to each copy:
   `microproxy-starlark`.
 - starlarky's Larky runtime and Python-compatible standard library (Apache-2.0, with CPython and
   ElementTree notices in some files), in `microproxy-starlark`.
+- Logic ported from [mitmproxy](https://github.com/mitmproxy/mitmproxy) (MIT), in the core:
+  ClientHello parsing, the ignore / allow host rules and the reverse mode specification. The
+  ported files name their sources in their header comments.
 
 Besides LittleProxy, these projects contributed ideas only; no code was copied:
 

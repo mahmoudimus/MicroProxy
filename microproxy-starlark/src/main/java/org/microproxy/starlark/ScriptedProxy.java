@@ -19,6 +19,7 @@ import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.ClientDetails;
+import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersSource;
@@ -67,6 +68,11 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *       try in order.
  *   <li>{@code allow_mitm(req, ctx)}: for a {@code CONNECT}, whether to intercept it (when a MITM
  *       manager is configured).
+ *   <li>{@code on_client_hello(hello, ctx)}: once the client of a {@code CONNECT} that may be
+ *       intercepted (or of a transparent TLS connection) has sent its TLS ClientHello, whether to
+ *       intercept it: {@code False} tunnels it untouched, {@code True} or {@code None} intercepts.
+ *       {@code hello} has {@code sni}, {@code alpn}, {@code versions} and {@code cipher_suites};
+ *       later hooks of the session see it as {@code ctx.client_hello}.
  *   <li>{@code buffer_request(req, ctx)}: whether to buffer this request's body so {@code
  *       on_request} can read {@code req.body}. Default: no.
  *   <li>{@code buffer_response(req, res, ctx)}: whether to buffer this response's body. Default:
@@ -87,8 +93,8 @@ import org.microproxy.thirdparty.starlark.eval.Starlark;
  *       org.microproxy.FailureResponder} or the default answer.
  * </ul>
  *
- * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm}
- * declines interception, a failing {@code upstream} rejects the request with {@code 502}, and a
+ * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm} or
+ * {@code on_client_hello} declines interception, a failing {@code upstream} rejects the request with {@code 502}, and a
  * failing {@code on_failure} leaves the answer to the responder or the default. When
  * the script is a file it is re-read when it changes (checked at most once a second); a version
  * that does not compile is logged and the previous one stays in use.
@@ -277,7 +283,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             return new FrameScriptFilters(s, originalRequest, flowContext);
         }
         if (!s.defines("on_request") && !s.defines("on_response") && !s.defines("allow_mitm")
-                && !s.defines("buffer_request") && !s.defines("on_failure") && !s.defines("authenticate")) {
+                && !s.defines("on_client_hello") && !s.defines("buffer_request") && !s.defines("on_failure")
+                && !s.defines("authenticate")) {
             return null;
         }
         return new ScriptFilters(s, originalRequest, flowContext);
@@ -382,6 +389,22 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 return Starlark.truth(s.call("allow_mitm", mu, req, ctx));
             } catch (EvalException e) {
                 failed("allow_mitm", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return false;
+        }
+
+        @Override
+        public boolean proxyToServerAllowMitm(ClientHello clientHello) {
+            if (!s.defines("on_client_hello")) return true;
+            try {
+                Object r = s.call("on_client_hello", mu, new ScriptClientHello(clientHello), ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE) return true;
+                if (r == Boolean.FALSE) return false;
+                throw Starlark.errorf("on_client_hello must return True, False or None, not %s", Starlark.type(r));
+            } catch (EvalException e) {
+                failed("on_client_hello", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

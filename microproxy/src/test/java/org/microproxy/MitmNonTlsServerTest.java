@@ -21,7 +21,9 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
  * LittleProxy issue #71 (Issue71NonSslConnectTest): with MITM on, a CONNECT to a server that does
- * not speak TLS (e.g. {@code ws://} through a proxy) falls back to a plain tunnel instead of 502.
+ * not speak TLS (e.g. {@code ws://} through a proxy) is not refused with 502. The proxy now looks at
+ * what the client sends first: plain HTTP is served as HTTP (or, with LittleProxy compatibility,
+ * tunnelled as LittleProxy does), and a TLS client of a server that is not one gets a plain tunnel.
  */
 class MitmNonTlsServerTest {
 
@@ -85,10 +87,36 @@ class MitmNonTlsServerTest {
     }
 
     @Test
+    void plainHttpAfterConnectIsServedAsHttp() throws Exception {
+        plainOrigin = plainHttpServer();
+        AtomicInteger clientHandshakes = new AtomicInteger();
+        List<String> seen = new java.util.concurrent.CopyOnWriteArrayList<>();
+        HttpProxyServer proxy = proxies.start(mitm()
+                .withFiltersSource((request, ctx) -> HttpFilters.builder().onRequest(r -> {
+                    seen.add(r.method() + " " + r.uri());
+                    return null;
+                }).build())
+                .plusActivityTracker(new ActivityTrackerAdapter() {
+                    @Override
+                    public void clientSSLHandshakeStarted(FlowContext ctx) {
+                        clientHandshakes.incrementAndGet();
+                    }
+                }));
+        String target = "127.0.0.1:" + plainOrigin.port();
+        String response = plaintextThroughConnect(proxy, target);
+        assertTrue(response.startsWith("HTTP/1.1 200"), response);
+        assertTrue(response.endsWith("\r\n\r\nplain GET /ws HTTP/1.1"), response);
+        // Proxied as HTTP: filters saw the request, and the response carries the proxy's Via.
+        assertTrue(response.toLowerCase().contains("via:"), response);
+        assertEquals(List.of("CONNECT " + target, "GET /ws"), seen);
+        assertEquals(0, clientHandshakes.get(), "the proxy must not start TLS with the client");
+    }
+
+    @Test
     void connectToPlainHttpServerFallsBackToATunnel() throws Exception {
         plainOrigin = plainHttpServer();
         AtomicInteger clientHandshakes = new AtomicInteger();
-        HttpProxyServer proxy = proxies.start(mitm().plusActivityTracker(new ActivityTrackerAdapter() {
+        HttpProxyServer proxy = proxies.start(mitm().withLittleProxyCompatibility(true).plusActivityTracker(new ActivityTrackerAdapter() {
             @Override
             public void clientSSLHandshakeStarted(FlowContext ctx) {
                 clientHandshakes.incrementAndGet();
@@ -112,8 +140,8 @@ class MitmNonTlsServerTest {
         String target = "127.0.0.1:" + plainOrigin.port();
         String response = plaintextThroughConnect(proxy, target);
         assertTrue(response.startsWith("HTTP/1.1 200"), response);
-        // One CONNECT for the failed TLS attempt, one for the tunnel.
-        assertEquals(List.of("CONNECT " + target, "CONNECT " + target), upstreamLog.received);
+        // One CONNECT: the tunnel through the chained proxy carries the plain request too.
+        assertEquals(List.of("CONNECT " + target), upstreamLog.received);
     }
 
     @Test
@@ -122,7 +150,11 @@ class MitmNonTlsServerTest {
         HttpsServer secure = TestSupport.httpsOrigin(unknown.serverContext("127.0.0.1"), TestSupport.echo());
         try {
             HttpProxyServer proxy = proxies.start(mitm());
-            assertEquals(502, connectStatus(proxy.getListenAddress(), "127.0.0.1:" + secure.getAddress().getPort()));
+            // The server's certificate is checked once the client's ClientHello has arrived, after
+            // the CONNECT's answer: the requests inside the session are refused instead.
+            assertEquals(200, connectStatus(proxy.getListenAddress(), "127.0.0.1:" + secure.getAddress().getPort()));
+            var response = TestSupport.get(TestSupport.client(proxy, proxyCa.clientContext()), TestSupport.url(secure, "/x"));
+            assertEquals(502, response.statusCode());
         } finally {
             secure.stop(0);
         }

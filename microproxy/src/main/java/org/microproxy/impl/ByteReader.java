@@ -126,6 +126,46 @@ final class ByteReader {
         }
     }
 
+    /**
+     * Reads until at least {@code n} bytes are buffered, without consuming any, so that they can be
+     * inspected ({@link #peekBuffered}) and then read as usual. The buffer grows past the pool's
+     * size when {@code n} needs it; callers bound {@code n}.
+     *
+     * @return whether {@code n} bytes are buffered (false if the stream ended first)
+     */
+    boolean ensureBuffered(int n) throws IOException {
+        while (limit - pos < n) {
+            int available = limit - pos;
+            if (buf == null) {
+                buf = pool.take();
+                pos = 0;
+                limit = 0;
+            }
+            if (n > buf.length) {
+                // Larger than a pooled buffer: this array is not the pool's, and give() ignores it.
+                byte[] larger = new byte[Math.max(n, buf.length * 2)];
+                System.arraycopy(buf, pos, larger, 0, available);
+                pool.give(buf);
+                buf = larger;
+                pos = 0;
+                limit = available;
+            } else if (pos + n > buf.length) {
+                System.arraycopy(buf, pos, buf, 0, available);
+                pos = 0;
+                limit = available;
+            }
+            int read = in.read(buf, limit, buf.length - limit);
+            if (read <= 0) return false;
+            limit += read;
+        }
+        return true;
+    }
+
+    /** A copy of the bytes buffered and not yet consumed; nothing is consumed. */
+    byte[] peekBuffered() {
+        return buf == null ? new byte[0] : Arrays.copyOfRange(buf, pos, limit);
+    }
+
     /** Gives the buffer back to the pool if everything in it has been consumed. */
     void release() {
         if (buf != null && pos >= limit) {

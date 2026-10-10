@@ -19,7 +19,6 @@ import com.sun.net.httpserver.HttpsServer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -118,12 +117,53 @@ class LauncherTest {
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
-                "--http2-max-streams", "--help")) {
+                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--transparent-tls-port", "--mode", "--reverse",
+                "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
         console.reset();
         assertNull(Launcher.parse(new String[] {"--port", "0", "-h"}, out()), "-h also only prints help");
         assertTrue(console.toString(StandardCharsets.UTF_8).startsWith("Usage:"));
+    }
+
+    @Test
+    void tlsModeFlags() throws IOException {
+        HttpProxyServerBootstrap b = parse("--ignore-hosts", "example\\.com", "--ignore-hosts", "^10\\.",
+                "--allow-hosts", "\\.test:443$", "--transparent-tls-port", "8443", "--keep-host-header",
+                "--reverse", "http://origin.test:8080").bootstrap();
+        assertEquals(List.of(List.of("example\\.com", "^10\\."), List.of("\\.test:443$")), BootstrapView.hostRules(b));
+        assertEquals(8443, BootstrapView.transparentTlsPort(b));
+        assertTrue(BootstrapView.keepHostHeader(b));
+        assertEquals(new ReverseProxyMode("http", "origin.test", 8080), BootstrapView.reverseProxy(b));
+
+        HttpProxyServerBootstrap mode = parse("--mode", "reverse:tcp://10.0.0.1:22").bootstrap();
+        assertEquals(new ReverseProxyMode("tcp", "10.0.0.1", 22), BootstrapView.reverseProxy(mode));
+        assertTrue(view("--mode", "transparent").transparent());
+        assertNull(BootstrapView.reverseProxy(parse("--mode", "regular").bootstrap()));
+        assertTrue(view("--allow-requests-to-origin-server").allowRequestToOriginServer());
+        assertThrows(IllegalArgumentException.class, () -> parse("--mode", "socks5"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--reverse", "tcp://no-port.test"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--ignore-hosts", "(unclosed"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--transparent-tls-port", "0"));
+    }
+
+    @Test
+    void tlsModeProperties() {
+        java.util.Properties p = new java.util.Properties();
+        p.setProperty("ignore_hosts", "example\\.com:443$, ^a{1,3}\\.test");
+        p.setProperty("allow_hosts", "\\.internal");
+        p.setProperty("mode", "reverse:https://origin.test");
+        p.setProperty("keep_host_header", "true");
+        p.setProperty("transparent_tls_port", "9443");
+        HttpProxyServerBootstrap b = BootstrapView.fromProperties(p);
+        assertEquals(List.of(List.of("example\\.com:443$", "^a{1,3}\\.test"), List.of("\\.internal")),
+                BootstrapView.hostRules(b));
+        assertEquals(new ReverseProxyMode("https", "origin.test", 443), BootstrapView.reverseProxy(b));
+        assertTrue(BootstrapView.keepHostHeader(b));
+        assertEquals(9443, BootstrapView.transparentTlsPort(b));
+        java.util.Properties t = new java.util.Properties();
+        t.setProperty("mode", "transparent");
+        assertTrue(BootstrapView.of(BootstrapView.fromProperties(t)).transparent());
     }
 
     @Test
@@ -621,8 +661,7 @@ class LauncherTest {
 
         HttpProxyServer strict = launch("--port", "0", "--mitm", "--mitm-ca", ca.toString());
         CertificateAuthority launcherCa = CertificateAuthority.load(ca, "microproxy".toCharArray());
-        assertThrows(UncheckedIOException.class,
-                () -> get(client(strict, launcherCa.clientContext()), url(secure, "/")),
+        assertEquals(502, get(client(strict, launcherCa.clientContext()), url(secure, "/")).statusCode(),
                 "the real server's certificate is validated by default");
 
         HttpProxyServer trusting = launch("--port", "0", "--mitm", "--mitm-ca", ca.toString(), "--mitm-trust-all");

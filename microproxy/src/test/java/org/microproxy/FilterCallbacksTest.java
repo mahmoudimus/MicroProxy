@@ -237,10 +237,11 @@ class FilterCallbacksTest {
                     .start();
             assertEquals(200, get(client(proxy, proxyCa.clientContext()), url(secure, "/mitm")).statusCode());
             List<String> connect = byMethod.get("CONNECT").events;
+            // The server handshake waits for the client's ClientHello, after the CONNECT's answer.
             assertInOrder(connect, "clientToProxyRequest:head", "proxyToServerAllowMitm", "proxyToServerRequest:head",
                     "proxyToServerResolutionStarted", "proxyToServerResolutionSucceeded",
-                    "proxyToServerConnectionStarted", "proxyToServerConnectionSSLHandshakeStarted",
-                    "proxyToServerConnectionSucceeded", "serverToProxyResponse:full", "proxyToClientResponse:full");
+                    "proxyToServerConnectionStarted", "proxyToServerConnectionSucceeded", "serverToProxyResponse:full",
+                    "proxyToClientResponse:full", "proxyToServerConnectionSSLHandshakeStarted");
             assertNone(connect, List.of("proxyToServerConnectionFailed", "proxyToServerResolutionFailed"));
             // The decrypted GET goes out on the connection the CONNECT opened.
             List<String> getEvents = byMethod.get("GET").events;

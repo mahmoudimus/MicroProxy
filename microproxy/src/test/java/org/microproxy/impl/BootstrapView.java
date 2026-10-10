@@ -10,6 +10,7 @@ import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
+import org.microproxy.ReverseProxyMode;
 import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.cache.HttpCache;
 
@@ -101,6 +102,32 @@ public record BootstrapView(
     public static Duration[] chainedProxyBackoff(HttpProxyServer server) {
         DefaultHttpProxyServer s = (DefaultHttpProxyServer) server;
         return new Duration[] {Duration.ofNanos(s.backoffInitialNanos), Duration.ofNanos(s.backoffMaxNanos)};
+    }
+
+    /** The host rules as configured: {ignore patterns, allow patterns}. */
+    public static List<List<String>> hostRules(HttpProxyServerBootstrap bootstrap) {
+        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
+        return List.of(b.ignoreHosts, b.allowHosts);
+    }
+
+    /** The reverse proxy upstream as configured, or null. */
+    public static ReverseProxyMode reverseProxy(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).reverseProxy;
+    }
+
+    /** Whether reverse proxying keeps the client's Host ({@code withKeepHostHeader}). */
+    public static boolean keepHostHeader(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).keepHostHeader;
+    }
+
+    /** The port SNI-routed transparent TLS goes to. */
+    public static int transparentTlsPort(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentTlsPort;
+    }
+
+    /** Parses a properties text as a properties file would be read. */
+    public static HttpProxyServerBootstrap fromProperties(java.util.Properties properties) {
+        return DefaultHttpProxyServerBootstrap.fromProperties(properties);
     }
 
     /** The settings a running server was started with. */
