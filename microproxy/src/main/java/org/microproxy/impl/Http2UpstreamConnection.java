@@ -542,6 +542,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
      */
     private void onData(int id, int length, byte[] data, boolean endStream) throws IOException {
         int credit;
+        int streamCredit = 0;
         Http2Exception streamError = null;
         stateLock.lock();
         try {
@@ -553,6 +554,14 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             try {
                 flow.onDataReceived(id, length);
                 buffer(id, length, data, endStream);
+                // Bytes the exchange will not read are credited back without waiting for its reads,
+                // which may never come (when an interceptor emptied the DATA, say).
+                StreamState s = streams.get(id);
+                if (s != null && !s.reset && !s.remoteClosed && s.unacked >= options.initialWindowSize() / 2) {
+                    streamCredit = s.unacked;
+                    s.unacked = 0;
+                    flow.onWindowUpdateSent(id, streamCredit);
+                }
             } catch (Http2Exception e) {
                 if (e.isConnectionError()) throw e;
                 streamError = e;
@@ -561,7 +570,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         } finally {
             stateLock.unlock();
         }
-        sendWindowUpdates(0, 0, credit);
+        sendWindowUpdates(id, streamCredit, credit);
         if (streamError != null) throw streamError;
     }
 

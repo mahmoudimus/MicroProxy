@@ -575,6 +575,7 @@ final class Http2Connection extends Http2Endpoint {
      */
     private void onData(int id, int length, byte[] data, boolean endStream) throws IOException {
         int credit;
+        int streamCredit = 0;
         boolean afterReset = false;
         stateLock.lock();
         try {
@@ -616,12 +617,19 @@ final class Http2Connection extends Http2Endpoint {
                 }
                 if (endStream) s.remoteClosed = true;
                 s.changed.signalAll();
+                // Bytes the stream will not read are credited back without waiting for its reads,
+                // which may never come (when an interceptor emptied its DATA, say).
+                if (!s.remoteClosed && s.unacked >= options.initialWindowSize() / 2) {
+                    streamCredit = s.unacked;
+                    s.unacked = 0;
+                    flow.onWindowUpdateSent(id, streamCredit);
+                }
             }
             credit = takeConnectionCredit();
         } finally {
             stateLock.unlock();
         }
-        sendWindowUpdates(0, 0, credit);
+        sendWindowUpdates(id, streamCredit, credit);
         if (afterReset) writeReset(null, id, ErrorCode.STREAM_CLOSED);
     }
 
