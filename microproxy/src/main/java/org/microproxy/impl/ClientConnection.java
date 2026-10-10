@@ -611,6 +611,8 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
             return;
         }
+        // Known before the made-up CONNECT, whose filters may already look at it.
+        flowContext.clientHello(hello);
         serveImplicitConnect(new HostAndPort(hello.sni(), server.transparentTlsPort).toString());
     }
 
@@ -1644,7 +1646,9 @@ final class ClientConnection implements Runnable {
                     LOG.log(Level.DEBUG, ex.log + "intercepting " + hostAndPort + " without a server connection");
                 }
                 serverSession = conn != null && conn.socket instanceof SSLSocket tls ? tls.getSession() : null;
-                serverAlpn = conn != null && conn.socket instanceof SSLSocket tls ? tls.getApplicationProtocol() : null;
+                // A reused pooled connection: what it was offered is unknown, so only h2 tells anything.
+                serverAlpn = conn != null && conn.socket instanceof SSLSocket tls
+                        && ClientHello.H2.equals(tls.getApplicationProtocol()) ? ClientHello.H2 : null;
             }
             if (conn != null && conn.http2) {
                 // The server chose HTTP/2: the session's requests take streams on the connection.
@@ -1939,17 +1943,17 @@ final class ClientConnection implements Runnable {
         if (conn != null && conn.tlsPending) {
             if (serverSpoke(conn)) return tunnelAfterPeek(ex, conn, hostAndPort, route, "the server spoke first");
             try {
-                startServerTls(ex, conn, hello, target, hostAndPort);
+                List<String> offered = startServerTls(ex, conn, hello, target, hostAndPort);
                 SSLSocket tls = (SSLSocket) conn.socket;
                 serverSession = tls.getSession();
-                serverAlpn = tls.getApplicationProtocol();
+                // The server's choice says what it speaks only if it could have chosen h2.
+                serverAlpn = offered != null && offered.contains(ClientHello.H2) ? tls.getApplicationProtocol() : null;
                 if (conn.http2) {
                     ServerConnection carrier = conn;
                     conn = null;
                     adoptForSession(ex, carrier, Mode.TLS, hostAndPort, http2Key);
                     ex.http2Claim = null;
-                } else if (ex.http2Claim != null && upstreamAlpn(true, hello) != null
-                        && upstreamAlpn(true, hello).contains(ClientHello.H2)) {
+                } else if (ex.http2Claim != null && offered != null && offered.contains(ClientHello.H2)) {
                     // Offered h2 and refused: the server speaks HTTP/1.1.
                     server.http2Origins.negotiatedHttp1(ex.http2Claim);
                     ex.http2Claim = null;
@@ -1998,16 +2002,19 @@ final class ClientConnection implements Runnable {
      * Runs the TLS handshake with the server that {@code conn} waited with, mirroring the client's
      * ClientHello: its ALPN protocols (those the proxy speaks), and its SNI when the {@code
      * CONNECT} named an IP address.
+     *
+     * @return the ALPN protocols offered to the server, or null for none
      */
-    private void startServerTls(Exchange ex, ServerConnection conn, ClientHello hello, HostAndPort target,
+    private List<String> startServerTls(Exchange ex, ServerConnection conn, ClientHello hello, HostAndPort target,
             String hostAndPort) throws IOException {
         String sniHost = Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
-        SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext,
-                upstreamAlpn(ex.offerHttp2, hello));
+        List<String> alpn = upstreamAlpn(ex.offerHttp2, hello);
+        SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
         Supplier<FullFlowContext> context = () -> conn.flowContext;
         conn.layerTls(tls, new ByteReader(serverInput(tls, context), server.ioBuffers),
                 new PooledOutputStream(serverOutput(tls, context), server.ioBuffers));
         conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
+        return alpn;
     }
 
     /**
@@ -2094,7 +2101,8 @@ final class ClientConnection implements Runnable {
      * @param conn the server connection made for the session, or null to intercept without one (or
      *     with an HTTP/2 connection, which the session's requests share with others)
      * @param serverSession the TLS session with the server, or null without one
-     * @param serverAlpn the ALPN protocol the server chose, or null without a server connection
+     * @param serverAlpn the ALPN protocol the server chose when it was offered {@code h2} (so that
+     *     its choice tells what it speaks), else null
      */
     private boolean intercept(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
             HostAndPort target, String hostAndPort) throws IOException {
@@ -2120,11 +2128,11 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * Chooses the client's ALPN protocol in an intercepted handshake: the server's choice when the
-     * client offered it (and the proxy may speak it to clients: {@code h2} needs {@code
-     * withHttp2}), so both sides speak the same protocol. Otherwise, with HTTP/2 to clients on,
-     * {@code h2} if offered, else {@code http/1.1}; without it, no protocol (HTTP/1.1), as before.
-     * The handshake never fails over ALPN.
+     * Chooses the client's ALPN protocol in an intercepted handshake: the server's choice when it
+     * was offered {@code h2} and the client offered that choice (and the proxy may speak it to
+     * clients: {@code h2} needs {@code withHttp2}), so both sides speak the same protocol, as
+     * mitmproxy keeps them. Otherwise, with HTTP/2 to clients on, {@code h2} if offered, else {@code
+     * http/1.1}; without it, no protocol (HTTP/1.1), as before. The handshake never fails over ALPN.
      */
     private static void mirrorAlpn(SSLSocket socket, String serverAlpn, boolean http2) {
         SSLParameters params = socket.getSSLParameters();
