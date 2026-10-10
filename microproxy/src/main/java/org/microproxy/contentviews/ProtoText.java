@@ -117,7 +117,8 @@ final class ProtoText {
             case ProtoValue.Fixed32 f -> fixed32(f.bits());
             case ProtoValue.Fixed64 f -> fixed64(f.bits());
             case ProtoValue.Text t -> new Yaml.Scalar(Yaml.string(t.text()));
-            case ProtoValue.Bytes b -> new Yaml.Scalar("!binary " + Yaml.string(HEX.formatHex(b.data())), packedComment(b.data()));
+            case ProtoValue.Bytes b -> new Yaml.Scalar("!binary " + Yaml.string(HEX.formatHex(b.data())),
+                    declared == null ? packedComment(b.data()) : null);
             case ProtoValue.Message m -> nested(m.message(), null);
             case ProtoValue.Group g -> nested(g.message(), "!group");
             case ProtoValue.Packed p -> {
@@ -143,7 +144,8 @@ final class ProtoText {
             case SINT32 -> value instanceof ProtoValue.Varint v ? number(String.valueOf(Protobuf.zigzagDecode32((int) v.value()))) : null;
             case SINT64 -> value instanceof ProtoValue.Varint v ? number(String.valueOf(v.zigzag())) : null;
             case BOOL -> value instanceof ProtoValue.Varint v
-                    ? new Yaml.Scalar(v.value() != 0 ? "true" : "false", v.value() > 1 ? "varint " + v.unsigned() : null)
+                    ? new Yaml.Scalar(v.value() != 0 ? "true" : "false",
+                            v.value() != 0 && v.value() != 1 ? "varint " + v.unsigned() : null)
                     : null;
             case ENUM -> value instanceof ProtoValue.Varint v ? enumValue(v, type, declared) : null;
             case FIXED32 -> value instanceof ProtoValue.Fixed32 f ? number(String.valueOf(f.unsigned())) : null;
