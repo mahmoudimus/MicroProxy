@@ -252,6 +252,8 @@ public final class H2StreamClient implements AutoCloseable {
         private final ArrayDeque<byte[]> inbound = new ArrayDeque<>();
         private int headOffset;
         private boolean remoteEnded;
+        /** END_STREAM arrived before any reset: a reset after it (NO_ERROR) does not undo the end. */
+        private boolean endedFirst;
         private boolean localEnded;
         private ErrorCode reset;
         private long sendWindow;
@@ -447,7 +449,10 @@ public final class H2StreamClient implements AutoCloseable {
             }
         }
 
-        /** Waits until the proxy ends the stream (END_STREAM, after reading what it sent) or resets it; returns the reset's code, or null. */
+        /**
+         * Waits until the proxy ends the stream (END_STREAM) or resets it; returns the reset's code,
+         * or null if the stream ended first.
+         */
         public ErrorCode awaitEnd() throws IOException {
             lock.lock();
             try {
@@ -456,7 +461,7 @@ public final class H2StreamClient implements AutoCloseable {
                     if (remaining <= 0) throw new SocketTimeoutException("stream " + id + " did not end");
                     remaining = changed.awaitNanos(remaining);
                 }
-                return reset;
+                return endedFirst ? null : reset;
             } catch (InterruptedException e) {
                 throw new InterruptedIOException();
             } finally {
@@ -489,6 +494,12 @@ public final class H2StreamClient implements AutoCloseable {
             } finally {
                 lock.unlock();
             }
+        }
+
+        /** END_STREAM received; holds lock. */
+        private void ended() {
+            remoteEnded = true;
+            if (reset == null) endedFirst = true;
         }
 
         private int read(byte[] b, int off, int len) throws IOException {
@@ -652,7 +663,7 @@ public final class H2StreamClient implements AutoCloseable {
                     Stream st = streams.get(h.streamId());
                     if (st != null) {
                         st.headerBlocks.add(fields);
-                        if (h.endStream()) st.remoteEnded = true;
+                        if (h.endStream()) st.ended();
                     }
                     changed.signalAll();
                 } finally {
@@ -674,7 +685,7 @@ public final class H2StreamClient implements AutoCloseable {
                         }
                         if (d.data().length > 0) st.inbound.addLast(d.data());
                         st.received += d.data().length;
-                        if (d.endStream()) st.remoteEnded = true;
+                        if (d.endStream()) st.ended();
                     }
                     changed.signalAll();
                 } finally {
