@@ -46,7 +46,7 @@ import org.microproxy.thirdparty.starlark.lib.json.Json;
 /**
  * The names every proxy script sees besides the Starlark built-ins: {@code response()} and the
  * modules {@code json}, {@code re}, {@code base64}, {@code digest}, {@code codecs}, {@code url},
- * {@code time} and {@code log}.
+ * {@code time}, {@code log}, {@code protobuf} and {@code grpc} (see {@link ProtoBuiltins}).
  */
 final class Builtins {
 
@@ -62,6 +62,8 @@ final class Builtins {
         env.put("url", new UrlModule());
         env.put("time", new TimeModule());
         env.put("log", new LogModule());
+        env.put("protobuf", new ProtoBuiltins.ProtobufModule());
+        env.put("grpc", new ProtoBuiltins.GrpcModule());
         Starlark.addMethods(env, new Functions());
         // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
         env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));
@@ -71,6 +73,8 @@ final class Builtins {
         env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
         env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
+        env.put("ProtoFixed", TypeConstructorValue.of(ScriptType.PROTO_FIXED_CONSTRUCTOR));
+        env.put("ProtoGroup", TypeConstructorValue.of(ScriptType.PROTO_GROUP_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 
