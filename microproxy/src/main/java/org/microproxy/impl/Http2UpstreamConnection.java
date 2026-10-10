@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.lang.System.Logger.Level;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayDeque;
@@ -34,7 +35,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
+import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
+import org.microproxy.frames.FrameDirection;
+import org.microproxy.frames.Http2Frame;
 import org.microproxy.http.DefaultHttpContent;
 import org.microproxy.http.DefaultHttpResponse;
 import org.microproxy.http.DefaultLastHttpContent;
@@ -79,6 +83,11 @@ import org.microproxy.http.LastHttpContent;
  * process ({@link Unprocessed}), which the exchange retries elsewhere when it can. A stream the
  * server resets fails its exchange (a 502, or a reset client stream once the response started);
  * so do all open streams when the connection fails.
+ *
+ * <p>With a frame interceptor, every frame read is shown to it (header blocks decoded first) and
+ * what it returns is acted on in its place, DATA counting against the windows at its size on the
+ * wire; the HEADERS that open a stream are shown to it under {@link #writeLock}, once the stream
+ * has its id.
  */
 final class Http2UpstreamConnection extends Http2Endpoint {
 
@@ -209,6 +218,48 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         close(new IOException("writing to the server failed"));
     }
 
+    @Override
+    FrameDirection receivedDirection() {
+        return FrameDirection.FROM_SERVER;
+    }
+
+    @Override
+    FrameDirection sentDirection() {
+        return FrameDirection.TO_SERVER;
+    }
+
+    @Override
+    FlowContext flowOf(Stream s) {
+        return ((StreamState) s).flowContext;
+    }
+
+    @Override
+    FlowContext flowOf(int streamId) {
+        if (streamId == 0) return null;
+        stateLock.lock();
+        try {
+            StreamState s = streams.get(streamId);
+            return s == null ? null : s.flowContext;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    @Override
+    long frameConnectionId() {
+        return owner instanceof ClientConnection c ? c.connectionFlowContext().getConnectionId() : -1;
+    }
+
+    @Override
+    InetSocketAddress frameClientAddress() {
+        return owner instanceof ClientConnection c ? c.connectionFlowContext().getClientAddress() : null;
+    }
+
+    @Override
+    String frameServer() {
+        return carrier.hostAndPort;
+    }
+
     // ---------------------------------------------------------------------------------------
     // The connection
     // ---------------------------------------------------------------------------------------
@@ -225,6 +276,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         countedIn = new CountingInput(is);
         countedOut = new CountingOutput(new BufferedOutputStream(server.writeLimiter.wrap(socket.getOutputStream()), 16_384));
         reader = new FrameReader(countedIn);
+        // Extension frames are skipped unread unless an interceptor is to see them.
+        reader.setDeliverUnknownFrames(frames != null);
         int maxBlock = Math.max(FrameReader.DEFAULT_MAX_HEADER_BLOCK_SIZE, maxHeaderListSize + 4096);
         reader.setMaxHeaderBlockSize(maxBlock);
         decoder = new HpackDecoder();
@@ -244,11 +297,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             stateLock.unlock();
         }
         try {
-            write(null, () -> {
-                writer.writeClientPreface();
-                writer.writeSettings(ours);
-                if (connectionIncrement > 0) writer.writeWindowUpdate(0, connectionIncrement);
-            }, true);
+            writePreface(true, ours, connectionIncrement);
             int idle = server.idleTimeoutMillis();
             socket.setSoTimeout(idle > 0 ? idle : (int) options.settingsAckTimeout().toMillis());
             Frame first = reader.readFrame();
@@ -256,7 +305,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "the server preface must be SETTINGS");
             }
             countRead(first);
-            applySettings(settings);
+            onFrame(settings);
             socket.setSoTimeout(0);
         } catch (IOException | RuntimeException e) {
             if (e instanceof Http2Exception h2) writeGoAway(0, h2.errorCode(), h2.getMessage());
@@ -315,9 +364,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     }
 
     private void onFrame(Frame frame) throws IOException {
+        if (frames != null) {
+            intercepted(frame);
+            return;
+        }
         switch (frame) {
             case Frame.Headers h -> onHeaders(h);
-            case Frame.Data d -> onData(d);
+            case Frame.Data d -> onData(d.streamId(), d.flowControlledLength(), d.data(), d.endStream());
             case Frame.Settings s -> {
                 if (!s.ack()) applySettings(s);
             }
@@ -337,6 +390,52 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         }
     }
 
+    /**
+     * {@link #onFrame} with a frame interceptor: the interceptor sees the frame and the proxy acts on
+     * what it returns (frames that are read-only are acted on as they arrived). DATA is counted
+     * against the windows at its size on the wire, by the first DATA acted on in its place, or on
+     * its own if there is none.
+     */
+    private void intercepted(Frame frame) throws IOException {
+        switch (frame) {
+            case Frame.Headers h -> onHeaders(h);
+            case Frame.Data d -> {
+                int id = d.streamId();
+                int wire = d.flowControlledLength();
+                for (Http2Frame f : received(Http2Frames.toPublic(d))) {
+                    if (f instanceof Http2Frame.Data x) {
+                        onData(id, wire, x.data(), x.endStream());
+                        wire = 0;
+                    } else if (f instanceof Http2Frame.Headers x) {
+                        if (wire > 0) onData(id, wire, EMPTY, false);
+                        wire = 0;
+                        onHeaders(id, x.endStream(), Http2Frames.codecFields(x.fields()), null);
+                    }
+                }
+                if (wire > 0) onData(id, wire, EMPTY, false);
+            }
+            case Frame.Settings s -> {
+                List<Http2Frame> out = received(Http2Frames.toPublic(s));
+                if (!s.ack()) applySettings((Frame.Settings) Http2Frames.toCodec(out.getFirst()));
+            }
+            case Frame.RstStream r -> onRstStream((Frame.RstStream) Http2Frames.toCodec(received(Http2Frames.toPublic(r)).getFirst()));
+            case Frame.GoAway g -> onGoAway((Frame.GoAway) Http2Frames.toCodec(received(Http2Frames.toPublic(g)).getFirst()));
+            case Frame.Ping p -> {
+                received(Http2Frames.toPublic(p));
+                answerPing(p);
+            }
+            case Frame.WindowUpdate w -> {
+                received(Http2Frames.toPublic(w));
+                onWindowUpdate(w);
+            }
+            case Frame.Priority p -> received(Http2Frames.toPublic(p)); // then ignored, edited or not
+            case Frame.Unknown u -> received(Http2Frames.toPublic(u)); // then ignored, edited or not
+            case Frame.PushPromise p ->
+                    throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "PUSH_PROMISE with push disabled");
+            case Frame.Continuation c -> throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "stray CONTINUATION");
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // Frames from the server
     // ---------------------------------------------------------------------------------------
@@ -351,6 +450,18 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         } catch (HeaderListSizeException e) {
             tooLarge = e;
         }
+        if (frames == null || tooLarge != null) {
+            onHeaders(id, h.endStream(), fields, tooLarge);
+            return;
+        }
+        for (Http2Frame f : received(new Http2Frame.Headers(id, Http2Frames.fields(fields), h.endStream()))) {
+            if (f instanceof Http2Frame.Headers x) onHeaders(id, x.endStream(), Http2Frames.codecFields(x.fields()), null);
+        }
+    }
+
+    /** A HEADERS frame on stream {@code id}, its block decoded ({@code tooLarge} if it was over the limit). */
+    private void onHeaders(int id, boolean endStream, List<HeaderField> fields, HeaderListSizeException tooLarge)
+            throws IOException {
         StreamState s;
         boolean trailers;
         stateLock.lock();
@@ -364,7 +475,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         }
         if (tooLarge != null) throw tooLarge;
         if (trailers) {
-            if (!h.endStream()) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "trailers without END_STREAM");
+            if (!endStream) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "trailers without END_STREAM");
             HttpHeaders t = new HttpHeaders();
             for (HeaderField f : Http2Headers.validateTrailers(id, fields)) t.add(f.name(), f.value());
             stateLock.lock();
@@ -384,18 +495,18 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         int status = head.status();
         if (head.isInformational()) {
             if (status == 101) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "101 in HTTP/2");
-            if (h.endStream()) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "interim response with END_STREAM");
+            if (endStream) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "interim response with END_STREAM");
         }
         stateLock.lock();
         try {
             if (s.reset) return;
             boolean bodyless = !(s.webSocket && status / 100 == 2) && (s.headRequest || status == 204 || status == 304);
-            s.heads.addLast(toHttp1(head, h.endStream(), bodyless));
+            s.heads.addLast(toHttp1(head, endStream, bodyless));
             if (!head.isInformational()) {
                 s.finalHead = true;
                 s.bodyless = bodyless;
                 s.declaredLength = s.webSocket && status / 100 == 2 ? -1 : head.contentLength();
-                if (h.endStream()) {
+                if (endStream) {
                     if (!bodyless) Http2Headers.checkContentLength(id, s.declaredLength, 0, true);
                     s.remoteClosed = true;
                 }
@@ -424,10 +535,12 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         return new DefaultHttpResponse(HttpVersion.HTTP_2_0, HttpResponseStatus.valueOf(head.status()), headers);
     }
 
-    private void onData(Frame.Data d) throws IOException {
-        int id = d.streamId();
-        int length = d.flowControlledLength();
-        byte[] data = d.data();
+    /**
+     * DATA on stream {@code id}: {@code length} bytes on the wire (with padding), counted against
+     * the windows, and {@code data} for the stream. They differ by the padding, or when an
+     * interceptor changed the data (and {@code length} is 0 for DATA it added).
+     */
+    private void onData(int id, int length, byte[] data, boolean endStream) throws IOException {
         int credit;
         Http2Exception streamError = null;
         stateLock.lock();
@@ -439,7 +552,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             pendingConnectionCredit += length;
             try {
                 flow.onDataReceived(id, length);
-                buffer(id, d, data, length);
+                buffer(id, length, data, endStream);
             } catch (Http2Exception e) {
                 if (e.isConnectionError()) throw e;
                 streamError = e;
@@ -453,7 +566,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     }
 
     /** Hands a DATA frame's data to its stream. Holds stateLock. */
-    private void buffer(int id, Frame.Data d, byte[] data, int length) throws Http2Exception {
+    private void buffer(int id, int length, byte[] data, boolean endStream) throws Http2Exception {
         StreamState s = streams.get(id);
         if (s == null || s.reset) {
             if (s == null && !recentlyClosed.containsKey(id)) {
@@ -463,8 +576,9 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         }
         if (!s.finalHead) throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "DATA before the response head");
         if (s.remoteClosed) throw Http2Exception.streamError(id, ErrorCode.STREAM_CLOSED, "DATA after END_STREAM");
-        if (!s.bodyless) Http2Headers.checkContentLength(id, s.declaredLength, s.received + data.length, d.endStream());
-        // Padding is never read: it is credited back with the data.
+        if (!s.bodyless) Http2Headers.checkContentLength(id, s.declaredLength, s.received + data.length, endStream);
+        // Padding is never read: it is credited back with the data. So is what an interceptor
+        // removed, and what it added (negative) is taken from the credit the exchange's reads give back.
         s.unacked += length - data.length;
         s.received += data.length;
         if (data.length > 0 && !s.bodyless) {
@@ -473,7 +587,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         } else {
             s.unacked += data.length;
         }
-        if (d.endStream()) s.remoteClosed = true;
+        if (endStream) s.remoteClosed = true;
         s.changed.signalAll();
         closeIfDone(s);
     }
@@ -632,7 +746,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             } finally {
                 stateLock.unlock();
             }
-            write(s, () -> writer.writeHeaders(s.id, encoder.encode(fields), endStream), true);
+            if (frames == null) {
+                write(s, () -> writer.writeHeaders(s.id, encoder.encode(fields), endStream), true);
+            } else {
+                // Under writeLock, so that ids reach the server in order whatever the interceptor does.
+                List<Http2Frame> out = sent(s, new Http2Frame.Headers(s.id, Http2Frames.fields(fields), endStream));
+                write(s, () -> writeFrames(out), true);
+            }
         } finally {
             writeLock.unlock();
         }
