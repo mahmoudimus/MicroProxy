@@ -7,6 +7,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import javax.net.ssl.SNIHostName;
@@ -14,10 +15,52 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 
-/** ClientHellos for tests: real ones from the JDK's TLS client, and hand-built ones. */
+/**
+ * ClientHellos for tests: real ones from the JDK's TLS client, hand-built ones, and TLS clients
+ * that send them through a proxy.
+ */
 public final class TlsHellos {
 
     private TlsHellos() {}
+
+    /**
+     * Starts TLS over {@code socket}, as a client sending {@code sni} (none when null) and {@code
+     * alpn} (no extension when empty), trusting {@code trust}.
+     */
+    public static SSLSocket startTls(Socket socket, String sni, SSLContext trust, String... alpn) throws IOException {
+        SSLSocket tls = (SSLSocket) trust.getSocketFactory().createSocket(socket,
+                sni == null ? socket.getInetAddress().getHostAddress() : sni, socket.getPort(), true);
+        SSLParameters params = tls.getSSLParameters();
+        params.setServerNames(sni == null ? List.of() : List.of(new SNIHostName(sni)));
+        if (alpn.length > 0) params.setApplicationProtocols(alpn);
+        tls.setSSLParameters(params);
+        tls.startHandshake();
+        return tls;
+    }
+
+    /** CONNECTs to {@code target} through {@code proxy}, then starts TLS as {@link #startTls} does. */
+    public static SSLSocket throughConnect(HttpProxyServer proxy, String target, String sni, SSLContext trust,
+            String... alpn) throws IOException {
+        Socket raw = ChainTestSupport.open(proxy.getListenAddress());
+        String head = ChainTestSupport.connect(raw, target);
+        if (ChainTestSupport.status(head) != 200) {
+            raw.close();
+            throw new IOException("CONNECT refused: " + head);
+        }
+        return startTls(raw, sni, trust, alpn);
+    }
+
+    /** The common name of the certificate's issuer that {@code tls}'s peer presented. */
+    public static String issuer(SSLSocket tls) throws IOException {
+        X509Certificate leaf = (X509Certificate) tls.getSession().getPeerCertificates()[0];
+        return leaf.getIssuerX500Principal().getName();
+    }
+
+    /** Sends {@code GET path} with {@code host} on {@code s}, closing after the answer, and returns all of it. */
+    public static String get(Socket s, String host, String path) throws IOException {
+        TestSupport.write(s.getOutputStream(), "GET " + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n");
+        return new String(s.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+    }
 
     /**
      * The TLS records a JDK client sends first, with {@code sni} (or none when null) and {@code

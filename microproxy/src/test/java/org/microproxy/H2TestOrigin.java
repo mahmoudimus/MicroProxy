@@ -74,6 +74,8 @@ final class H2TestOrigin implements AutoCloseable {
     final List<ErrorCode> resets = new CopyOnWriteArrayList<>();
     /** The PROXY protocol lines connections started with ({@link Options#proxyProtocol}). */
     final List<String> proxyHeaders = new CopyOnWriteArrayList<>();
+    /** The ALPN protocols each connection's client offered (connections that sent ALPN only). */
+    final List<List<String>> offeredAlpn = new CopyOnWriteArrayList<>();
     private final SSLContext context;
     final List<Conn> connections = new CopyOnWriteArrayList<>();
 
@@ -136,6 +138,12 @@ final class H2TestOrigin implements AutoCloseable {
             Thread.ofVirtual().name("h2-origin-conn").start(() -> {
                 try {
                     SSLSocket tls = options.proxyProtocol ? afterProxyHeader(s) : (SSLSocket) s;
+                    // h2 when offered; http/1.1 for the HTTP/1 handler, if there is one.
+                    tls.setHandshakeApplicationProtocolSelector((socket, offered) -> {
+                        offeredAlpn.add(List.copyOf(offered));
+                        if (offered.contains("h2")) return "h2";
+                        return options.http1Handler != null && offered.contains("http/1.1") ? "http/1.1" : null;
+                    });
                     tls.startHandshake();
                     if (!"h2".equals(tls.getApplicationProtocol()) && options.http1Handler != null) {
                         try {
