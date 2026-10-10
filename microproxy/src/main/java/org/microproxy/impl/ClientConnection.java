@@ -391,7 +391,10 @@ final class ClientConnection implements Runnable {
     /** Whether a request has been accepted on this connection, and as whom. */
     private boolean accepted;
     private String acceptedUser;
-    /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
+    /**
+     * While serving intercepted (MITM) traffic: the CONNECT target that requests go to, unless
+     * filters give one an absolute URI of its own ({@link #redirected}).
+     */
     private String mitmHostAndPort;
     /** The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked. */
     private MitmManager connectionMitm;
@@ -693,19 +696,48 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("the proxy needs an absolute URI"), true);
         }
 
-        String hostAndPort = mitmHostAndPort != null ? mitmHostAndPort : identifyHostAndPort(ex.request);
+        // Requests in an intercepted session go to the CONNECT target, unless a filter pointed the
+        // request at an absolute URI of its own (map_remote, a script assigning req.uri): then it
+        // goes where that URI says, over TLS for https.
+        boolean pinned = mitmHostAndPort != null && !redirected(ex);
+        String hostAndPort = pinned ? mitmHostAndPort : identifyHostAndPort(ex.request);
         if (hostAndPort == null) {
             return respondFailure(ex, new ProxyFailure.NoRoute(null), false);
         }
-        return proxyRequest(ex, hostAndPort);
+        return proxyRequest(ex, hostAndPort, pinned || isSecureUri(ex.request.uri()));
+    }
+
+    /**
+     * Whether filters gave a request inside an intercepted session an absolute URI it did not
+     * arrive with (requests there arrive in origin-form), so that it leaves the session's server.
+     */
+    private static boolean redirected(Exchange ex) {
+        String uri = ex.request.uri();
+        return ProxyUtils.isAbsoluteUri(uri) && !uri.equals(ex.originalUri);
+    }
+
+    /** Whether {@code uri} is an absolute {@code https://} (or {@code wss://}) URI. */
+    private static boolean isSecureUri(String uri) {
+        return uri.regionMatches(true, 0, "https://", 0, 8) || uri.regionMatches(true, 0, "wss://", 0, 6);
     }
 
     // ---------------------------------------------------------------------------------------
     // Plain HTTP requests
     // ---------------------------------------------------------------------------------------
 
-    private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
-        Mode mode = mitmHostAndPort != null || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+    /**
+     * Proxies a request (not a {@code CONNECT}) to {@code hostAndPort}.
+     *
+     * @param tls whether the server connection uses TLS: inside an intercepted session, or for an
+     *     absolute {@code https://} URI
+     */
+    private boolean proxyRequest(Exchange ex, String hostAndPort, boolean tls) throws IOException {
+        Mode mode = tls || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+        if (mode == Mode.TLS && mitmHostAndPort == null && server.mitmManager != null) {
+            // TLS to an https:// URI outside an intercepted session: the manager's server trust
+            // applies, as it does to intercepted requests. (HTTP/2 streams chose it beforehand.)
+            mitmManager();
+        }
         String key = mode + "|" + hostAndPort;
         boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
         boolean pooled = !webSocket && usesPool(mode);

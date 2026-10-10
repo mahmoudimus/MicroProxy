@@ -216,7 +216,13 @@ HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary reques
   heads. An HTTP/2 connection reads frames and starts a thread per stream instead.
 - **Connection-wide CONNECT interception** (`intercept`). An HTTP/1 `CONNECT` that is intercepted
   turns the whole connection into TLS and serves the decrypted requests with the same loop, or
-  with `Http2Connection` when the client negotiates `h2`. Under HTTP/2, `CONNECT` is a raw tunnel per stream. The `h2c`
+  with `Http2Connection` when the client negotiates `h2`. The session's requests go to the `CONNECT`
+  target (`mitmHostAndPort`), unless a filter gives one an absolute URI it did not arrive with
+  (`redirected`: map_remote, a script assigning `req.uri`). That request goes to the URI's server,
+  over TLS for `https://`, with a server connection keyed by its own target (`Mode|host:port`), so
+  pooling, HTTP/2 to servers and `Host` follow the new server. Absolute `https://` URIs outside
+  interception (forward requests, client replay, `h2c` streams) are fetched over TLS too, with the
+  MITM manager's server trust when one is configured. Under HTTP/2, `CONNECT` is a raw tunnel per stream. The `h2c`
   preface is recognized only as the first bytes of a plain connection.
 - **`101 Switching Protocols`.** HTTP/2 has no upgrade. Its WebSockets use extended `CONNECT`
   (RFC 8441). The bridge translates handshake fields/status and uses the same relay and frame hooks.
@@ -227,8 +233,6 @@ HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary reques
 - `ALTSVC` frames (RFC 7838 section 4) from HTTP/2 servers are dropped by the frame reader, as a
   frame type the codec does not deliver; forwarding them would need the h3 filtering `Alt-Svc`
   headers get (`AltSvc`).
-- TLS for ordinary absolute `https://` URIs in plain requests (not made today, whatever the version) would
-  let HTTP/2 to servers serve forward-proxy and `h2c` requests too.
 - `AllocationTest` guards the allocation per small keep-alive request (about 4 KB with its
   allocation-free client; the README's 4.7 KB includes a simple benchmark client's own); the
   HTTP/2 additions cost HTTP/1 requests nothing.
