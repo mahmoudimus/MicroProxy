@@ -2,11 +2,13 @@ package org.microproxy;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
@@ -16,9 +18,21 @@ import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
+import org.microproxy.extras.AntiCache;
+import org.microproxy.extras.BlockList;
+import org.microproxy.extras.ClientReplay;
 import org.microproxy.extras.ConcurrencyLimiter;
+import org.microproxy.extras.FlowFilter;
+import org.microproxy.extras.HarRecorder;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
+import org.microproxy.extras.MapLocal;
+import org.microproxy.extras.MapRemote;
+import org.microproxy.extras.ModifyBody;
+import org.microproxy.extras.ModifyHeaders;
+import org.microproxy.extras.RecordedExchange;
+import org.microproxy.extras.ServerReplay;
+import org.microproxy.extras.StickyCookie;
 import org.microproxy.simd.Simd;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
@@ -77,6 +91,11 @@ public final class Launcher {
               --cache-memory <MB>          cache responses in memory instead
               --offline                    answer only from the cache (needs --cache-dir or --cache-memory)
               --warc-dir <dir>             record traffic with servers as WARC files
+              --save-har <file>            record exchanges as a HAR file, written on exit
+                                           (.zhar: zlib-compressed)
+              --save-har-filter <filter>   record only the exchanges a filter expression matches
+              --save-har-stream            write HAR entries as they complete, not on exit
+              --save-har-max-body <bytes>  bytes kept of each body (default 1048576; 0 = none)
               --mitm                       intercept HTTPS with a generated CA
               --mitm-ca <file.p12>         CA key store for --mitm (created if missing;
                                            default ./microproxy-ca.p12)
@@ -91,6 +110,33 @@ public final class Launcher {
                                            listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
+
+              Addons, as in mitmproxy (repeatable; a spec starts with its separator, here |):
+              --map-local <spec>           answer from local files: [|filter]|url-regex|file-or-dir
+              --map-remote <spec>          send requests elsewhere: [|filter]|url-regex|replacement
+              --modify-body <spec>         replace in bodies: [|filter]|regex|[@]replacement
+              --modify-headers <spec>      set headers: [|filter]|name|[@]value (empty removes)
+              --block-list <spec>          answer |filter|status (444: close without a response)
+              --anticache                  remove If-None-Match and If-Modified-Since from requests
+              --stickycookie <filter>      add remembered cookies to requests the filter matches
+              --server-replay <path>       answer from responses recorded in HAR or WARC files
+                                           (a file or a directory of them)
+              --server-replay-reuse        let each recording answer any number of times
+              --server-replay-extra <x>    unmatched requests: forward (default), kill or a status
+              --server-replay-kill-extra   the same as --server-replay-extra kill
+              --server-replay-no-refresh   keep the recorded Date, Expires, Last-Modified and
+                                           cookie expiry instead of shifting them to now
+              --server-replay-ignore-content  match without comparing request bodies
+              --server-replay-ignore-host  match without comparing hosts
+              --server-replay-ignore-port  match without comparing ports
+              --server-replay-ignore-params <list>  query parameters left out of the match
+              --server-replay-ignore-payload-params <list>  form fields left out of the match
+              --server-replay-use-headers <list>  request headers that must match too
+              --client-replay <path>       send the requests recorded in HAR or WARC files
+                                           through the proxy once it runs, then exit
+              --client-replay-concurrency <n>  requests replayed at once (default 1)
+              --keepserving                keep running after --client-replay
+
               --help                       show this help
             """;
 
@@ -122,14 +168,47 @@ public final class Launcher {
         if (Simd.isVectorized()) {
             console.println("SIMD: " + Simd.ops().description());
         }
+        if (parsed.clientReplay() != null) {
+            clientReplay(server, parsed.clientReplay(), console);
+        }
         return server;
+    }
+
+    /** Replays recorded requests through {@code server}, then stops it unless asked to keep serving. */
+    private static void clientReplay(HttpProxyServer server, ClientReplayPlan plan, PrintStream console)
+            throws IOException {
+        List<RecordedExchange> exchanges = new ArrayList<>();
+        for (Path recording : plan.recordings()) exchanges.addAll(RecordedExchange.load(recording));
+        InetSocketAddress listen = server.getListenAddress();
+        if (listen.getAddress() != null && listen.getAddress().isAnyLocalAddress()) {
+            listen = new InetSocketAddress(InetAddress.getLoopbackAddress(), listen.getPort());
+        }
+        console.println("Replaying " + exchanges.size() + " recorded requests through the proxy");
+        ClientReplay.Result result;
+        try {
+            result = ClientReplay.builder(listen).concurrency(plan.concurrency()).build().replay(exchanges);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("client replay interrupted", e);
+        }
+        console.println("Client replay done: " + result.sent() + " sent, " + result.failed() + " failed");
+        if (!plan.keepServing()) {
+            server.stop();
+        }
     }
 
     /**
      * A parsed command line: the configured bootstrap, and resources (such as a WARC recorder) to
      * close when the server stops.
      */
-    record Parsed(HttpProxyServerBootstrap bootstrap, List<AutoCloseable> resources) {}
+    record Parsed(HttpProxyServerBootstrap bootstrap, List<AutoCloseable> resources, ClientReplayPlan clientReplay) {
+        Parsed(HttpProxyServerBootstrap bootstrap, List<AutoCloseable> resources) {
+            this(bootstrap, resources, null);
+        }
+    }
+
+    /** Requests to replay through the proxy once it runs ({@code --client-replay}). */
+    record ClientReplayPlan(List<Path> recordings, int concurrency, boolean keepServing) {}
 
     /** Parses {@code args} into a bootstrap without starting it; returns null if only help was printed. */
     static Parsed parse(String[] args, PrintStream console) throws IOException {
@@ -159,6 +238,23 @@ public final class Launcher {
         int http2MaxStreams = 0;
         List<AutoCloseable> resources = new ArrayList<>();
         String caPassword = "microproxy";
+        Path saveHar = null;
+        String saveHarFilter = null;
+        boolean saveHarStream = false;
+        int saveHarMaxBody = -1;
+        List<String> mapLocal = new ArrayList<>();
+        List<String> mapRemote = new ArrayList<>();
+        List<String> modifyBody = new ArrayList<>();
+        List<String> modifyHeaders = new ArrayList<>();
+        List<String> blockList = new ArrayList<>();
+        boolean anticache = false;
+        String stickyCookie = null;
+        List<Path> serverReplay = new ArrayList<>();
+        ServerReplay.Builder replayOptions = ServerReplay.builder();
+        String replayOption = null;
+        List<Path> clientReplay = new ArrayList<>();
+        int clientReplayConcurrency = 1;
+        boolean keepServing = false;
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
             int i = all.indexOf("--config");
@@ -223,6 +319,67 @@ public final class Launcher {
                 case "--cache-memory" -> cacheMemoryMb = longValue(queue, arg);
                 case "--offline" -> offline = true;
                 case "--warc-dir" -> warcDir = Path.of(value(queue, arg));
+                case "--save-har" -> saveHar = Path.of(value(queue, arg));
+                case "--save-har-filter" -> saveHarFilter = value(queue, arg);
+                case "--save-har-stream" -> saveHarStream = true;
+                case "--save-har-max-body" -> {
+                    saveHarMaxBody = intValue(queue, arg);
+                    if (saveHarMaxBody < 0) throw new IllegalArgumentException(arg + " needs a non-negative number");
+                }
+                case "--map-local" -> mapLocal.add(value(queue, arg));
+                case "--map-remote" -> mapRemote.add(value(queue, arg));
+                case "--modify-body" -> modifyBody.add(value(queue, arg));
+                case "--modify-headers" -> modifyHeaders.add(value(queue, arg));
+                case "--block-list" -> blockList.add(value(queue, arg));
+                case "--anticache" -> anticache = true;
+                case "--stickycookie" -> stickyCookie = value(queue, arg);
+                case "--server-replay" -> serverReplay.add(Path.of(value(queue, arg)));
+                case "--server-replay-reuse", "--server-replay-nopop" -> {
+                    replayOptions.reuse(true);
+                    replayOption = arg;
+                }
+                case "--server-replay-extra" -> {
+                    replayOptions.extra(ServerReplay.Extra.parse(value(queue, arg)));
+                    replayOption = arg;
+                }
+                case "--server-replay-kill-extra" -> {
+                    replayOptions.extra(ServerReplay.Extra.kill());
+                    replayOption = arg;
+                }
+                case "--server-replay-no-refresh" -> {
+                    replayOptions.refresh(false);
+                    replayOption = arg;
+                }
+                case "--server-replay-ignore-content" -> {
+                    replayOptions.ignoreContent(true);
+                    replayOption = arg;
+                }
+                case "--server-replay-ignore-host" -> {
+                    replayOptions.ignoreHost(true);
+                    replayOption = arg;
+                }
+                case "--server-replay-ignore-port" -> {
+                    replayOptions.ignorePort(true);
+                    replayOption = arg;
+                }
+                case "--server-replay-ignore-params" -> {
+                    replayOptions.ignoreParams(list(value(queue, arg)));
+                    replayOption = arg;
+                }
+                case "--server-replay-ignore-payload-params" -> {
+                    replayOptions.ignorePayloadParams(list(value(queue, arg)));
+                    replayOption = arg;
+                }
+                case "--server-replay-use-headers" -> {
+                    replayOptions.useHeaders(list(value(queue, arg)));
+                    replayOption = arg;
+                }
+                case "--client-replay" -> clientReplay.add(Path.of(value(queue, arg)));
+                case "--client-replay-concurrency" -> {
+                    clientReplayConcurrency = intValue(queue, arg);
+                    if (clientReplayConcurrency <= 0) throw new IllegalArgumentException(arg + " needs a positive number");
+                }
+                case "--keepserving" -> keepServing = true;
                 case "--mitm" -> mitm = true;
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
@@ -274,6 +431,23 @@ public final class Launcher {
             resources.add(recorder);
             console.println("Recording WARC files in " + warcDir.toAbsolutePath());
         }
+        if (saveHar != null) {
+            // First among the filters too: requests as clients sent them, responses as delivered.
+            HarRecorder.Builder har = HarRecorder.builder(saveHar).stream(saveHarStream);
+            if (saveHarFilter != null) har.filter(FlowFilter.parse(saveHarFilter));
+            if (saveHarMaxBody == 0) har.content(false);
+            if (saveHarMaxBody > 0) har.maxBodySize(saveHarMaxBody);
+            HarRecorder recorder = har.build();
+            bootstrap.withFiltersSource(HttpFiltersChain.of(recorder, bootstrap.getFiltersSource()));
+            resources.add(recorder);
+            console.println("Recording HAR to " + saveHar.toAbsolutePath()
+                    + (saveHarStream ? " (as exchanges complete)" : " (written on exit)"));
+        } else if (saveHarFilter != null || saveHarStream || saveHarMaxBody >= 0) {
+            throw new IllegalArgumentException("--save-har-filter, --save-har-stream and --save-har-max-body need --save-har");
+        }
+        // As in mitmproxy, block_list and anticache act before scripts, the other addons after them.
+        if (!blockList.isEmpty()) bootstrap.plusFiltersSource(BlockList.of(blockList.toArray(String[]::new)));
+        if (anticache) bootstrap.plusFiltersSource(AntiCache.create());
         if (logHttp != null || logHttpJson) {
             HttpLogger fromConfig = findHttpLogger(bootstrap.getFiltersSource());
             HttpLogger.Level level = logHttp != null ? logHttp
@@ -300,7 +474,26 @@ public final class Launcher {
         for (LauncherExtension extension : extensions) {
             extension.configure(bootstrap, console);
         }
-        return new Parsed(bootstrap, List.copyOf(resources));
+        if (!serverReplay.isEmpty()) {
+            for (Path recording : serverReplay) replayOptions.load(recording);
+            ServerReplay replay = replayOptions.build();
+            bootstrap.plusFiltersSource(replay);
+            console.println("Replaying " + replay.remaining() + " recorded responses");
+        } else if (replayOption != null) {
+            throw new IllegalArgumentException(replayOption + " needs --server-replay");
+        }
+        if (!mapRemote.isEmpty()) bootstrap.plusFiltersSource(MapRemote.of(mapRemote.toArray(String[]::new)));
+        if (!mapLocal.isEmpty()) bootstrap.plusFiltersSource(MapLocal.of(mapLocal.toArray(String[]::new)));
+        if (!modifyBody.isEmpty()) bootstrap.plusFiltersSource(ModifyBody.of(modifyBody.toArray(String[]::new)));
+        if (!modifyHeaders.isEmpty()) bootstrap.plusFiltersSource(ModifyHeaders.of(modifyHeaders.toArray(String[]::new)));
+        if (stickyCookie != null) bootstrap.plusFiltersSource(StickyCookie.of(stickyCookie));
+        ClientReplayPlan plan = null;
+        if (!clientReplay.isEmpty()) {
+            plan = new ClientReplayPlan(List.copyOf(clientReplay), clientReplayConcurrency, keepServing);
+        } else if (keepServing || clientReplayConcurrency != 1) {
+            throw new IllegalArgumentException("--keepserving and --client-replay-concurrency need --client-replay");
+        }
+        return new Parsed(bootstrap, List.copyOf(resources), plan);
     }
 
     private static String usage(List<LauncherExtension> extensions) {
@@ -310,6 +503,11 @@ public final class Launcher {
             sb.append(extension.usage().stripTrailing()).append('\n');
         }
         return sb.toString();
+    }
+
+    /** A comma-separated option value as an array, blanks dropped. */
+    private static String[] list(String value) {
+        return Arrays.stream(value.split(",")).map(String::strip).filter(v -> !v.isEmpty()).toArray(String[]::new);
     }
 
     private static String value(Deque<String> queue, String option) {

@@ -112,4 +112,35 @@ class FastPathDetectionTest {
         assertArrayEquals(new boolean[] {true, true, false},
                 streams(filtersFor(HttpFilters.builder().log(logger(Level.BODY).build()).build())));
     }
+
+    @Test
+    void headAddonsKeepTheFastPath() {
+        HttpFiltersSource addons = HttpFiltersChain.of(
+                org.microproxy.extras.BlockList.of("|~d ads|404"),
+                org.microproxy.extras.AntiCache.create(),
+                org.microproxy.extras.MapRemote.of("|example.com|example.net"),
+                org.microproxy.extras.MapLocal.of("|/static/|" + System.getProperty("java.io.tmpdir")),
+                org.microproxy.extras.ModifyHeaders.of("|X-A|1"),
+                org.microproxy.extras.StickyCookie.of("~all"),
+                // Buffers the messages it may edit through the buffer hooks; never reads pieces.
+                org.microproxy.extras.ModifyBody.of("|a|b"));
+        HttpFilters filters = filtersFor(addons);
+        assertArrayEquals(new boolean[] {false, false, false}, streams(filters));
+        for (HttpFilters member : ((HttpFiltersChain.Chained) filters).members()) {
+            assertArrayEquals(new boolean[] {false, false, false}, streams(member), member.getClass().getName());
+        }
+    }
+
+    @Test
+    void harRecordingReadsBodiesOnlyWhenItKeepsThem() throws java.io.IOException {
+        java.nio.file.Path file = java.nio.file.Files.createTempFile("fastpath", ".har");
+        try {
+            assertArrayEquals(new boolean[] {true, true, false},
+                    streams(filtersFor(org.microproxy.extras.HarRecorder.builder(file).build())));
+            assertArrayEquals(new boolean[] {false, false, false},
+                    streams(filtersFor(org.microproxy.extras.HarRecorder.builder(file).content(false).build())));
+        } finally {
+            java.nio.file.Files.deleteIfExists(file);
+        }
+    }
 }
