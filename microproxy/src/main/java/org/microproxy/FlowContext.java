@@ -195,6 +195,18 @@ public class FlowContext {
         return root == this ? FlowTimings.NONE : root.timings();
     }
 
+    /**
+     * The TLS {@code ClientHello} the client sent to start the intercepted (or tunnelled) session
+     * this flow belongs to: after a {@code CONNECT} whose client was asked for one, and on a
+     * transparent TLS connection. {@code null} before then, for plain HTTP, for tunnels that were
+     * never inspected, and for contexts made outside the proxy.
+     *
+     * @return the client's ClientHello, or {@code null}
+     */
+    public ClientHello getClientHello() {
+        return root == this ? null : root.getClientHello();
+    }
+
     /** {@return the client address and authentication details} */
     public ClientDetails getClientDetails() {
         return clientDetails;

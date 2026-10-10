@@ -276,6 +276,22 @@ public interface HttpFilters {
     }
 
     /**
+     * Whether this CONNECT (or transparent TLS connection) may be intercepted, now that the
+     * client's TLS {@code ClientHello} is known: return false to tunnel the bytes untouched, so the
+     * client sees the real server's certificate. Called once the client has sent its {@code
+     * ClientHello}, after {@link #proxyToServerAllowMitm()}, the host rules ({@link
+     * HttpProxyServerBootstrap#withIgnoreHosts}, {@link HttpProxyServerBootstrap#withAllowHosts})
+     * and {@link MitmManager#shouldIntercept} have allowed interception; not called for clients
+     * that do not speak TLS. True by default.
+     *
+     * @param clientHello the client's ClientHello, with its server name (SNI) and ALPN protocols
+     * @return whether the connection may be intercepted
+     */
+    default boolean proxyToServerAllowMitm(ClientHello clientHello) {
+        return true;
+    }
+
+    /**
      * For a CONNECT that is being intercepted but whose server cannot be reached: return true to
      * intercept it anyway, with a certificate made from the requested host name alone, so these
      * filters can answer the requests inside the session (from a cache, for example). Those

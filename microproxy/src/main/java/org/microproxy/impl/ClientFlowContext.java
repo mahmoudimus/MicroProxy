@@ -6,6 +6,7 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLSession;
 import org.microproxy.ClientDetails;
+import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FlowTimings;
 
@@ -38,6 +39,10 @@ final class ClientFlowContext extends FlowContext {
     private long clientTlsEnd;
     /** Status of the server's final response for the current exchange; 0 for none. */
     private int upstreamStatus;
+    /** The connection's context, for a stream's; null for the connection's own. */
+    private final ClientFlowContext connectionFlow;
+    /** The ClientHello that started the connection's session, once read. */
+    private volatile ClientHello clientHello;
 
     ClientFlowContext(
             long connectionId,
@@ -45,11 +50,13 @@ final class ClientFlowContext extends FlowContext {
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails) {
         super(connectionId, clientAddress, clientSslSession, clientDetails);
+        this.connectionFlow = null;
     }
 
     /** The context of HTTP/2 stream {@code streamId} of {@code connection}'s client connection. */
     ClientFlowContext(ClientFlowContext connection, int streamId) {
         super(connection, streamId);
+        this.connectionFlow = connection;
         // The client handshake that the stream's connection began with.
         clientTlsStart = connection.clientTlsStart;
         clientTlsEnd = connection.clientTlsEnd;
@@ -82,6 +89,16 @@ final class ClientFlowContext extends FlowContext {
 
     void clientTlsFinished() {
         clientTlsEnd = now();
+    }
+
+    /** Records the ClientHello the client connection's session started with. */
+    void clientHello(ClientHello hello) {
+        clientHello = hello;
+    }
+
+    @Override
+    public ClientHello getClientHello() {
+        return connectionFlow != null ? connectionFlow.getClientHello() : clientHello;
     }
 
     void upstreamStatus(int status) {
