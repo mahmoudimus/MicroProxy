@@ -1,9 +1,9 @@
 # Maven Central publishing
 
 MicroProxy publishes under the verified `io.github.mahmoudimus` namespace. The
-parent POM and all four modules are published together at the release version:
-`microproxy-parent`, `zstd-decoder`, `http2-codec`, `microproxy`, and
-`microproxy-starlark`. Sources and Javadoc accompany each module. The core test
+parent POM and all five modules are published together at the release version:
+`microproxy-parent`, `zstd-decoder`, `http2-codec`, `http3-codec`, `microproxy`,
+and `microproxy-starlark`. Sources and Javadoc accompany each module. The core test
 JAR and the executable Starlark `all` JAR are attached artifacts.
 
 The first release configured for Central is 0.1.1. The existing GitHub-only
