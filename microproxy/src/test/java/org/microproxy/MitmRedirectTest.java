@@ -174,4 +174,24 @@ class MitmRedirectTest {
         assertEquals("/secure", echoedUri(response.body()));
         assertTrue(echoedHeader(response.body(), HttpHeaderNames.HOST).contains(authority(other)));
     }
+
+    @Test
+    void mapRemoteMovesInterceptedRequestsToAnotherHost() {
+        String from = "https://" + authority(origin).replace(".", "\\.") + "/api/";
+        proxy = MicroProxy.bootstrap().withPort(0)
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                .withFiltersSource(org.microproxy.extras.MapRemote.of(
+                        "|~m GET|" + from + "|https://localhost:" + other.getAddress().getPort() + "/v2/"))
+                .start();
+        HttpClient client = client(proxy, proxyCa.clientContext());
+        HttpResponse<String> moved = get(client, url(origin, "/api/users?id=7"));
+        assertEquals("other", moved.headers().firstValue("X-Origin").orElseThrow());
+        assertEquals("/v2/users?id=7", echoedUri(moved.body()));
+        // Host is the new server's, as written in the replacement; TLS used its name (SNI, checked).
+        assertEquals(List.of("localhost:" + other.getAddress().getPort()), echoedHeader(moved.body(), HttpHeaderNames.HOST));
+        // The filter keeps POSTs on the intercepted server.
+        HttpResponse<String> post = TestSupport.send(client, java.net.http.HttpRequest.newBuilder(
+                java.net.URI.create(url(origin, "/api/users"))).POST(java.net.http.HttpRequest.BodyPublishers.ofString("x")).build());
+        assertEquals("first", post.headers().firstValue("X-Origin").orElseThrow());
+    }
 }

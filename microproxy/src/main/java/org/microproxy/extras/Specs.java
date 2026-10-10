@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -81,6 +83,28 @@ final class Specs {
             }
         }
         return unescape(value);
+    }
+
+    /**
+     * The source of a replacement value: fixed text, or a file ({@code @path}) read again for each
+     * use, as mitmproxy does, so edits to it apply at once. The file must be readable now; later
+     * read failures fall back to its last contents.
+     */
+    static Supplier<byte[]> replacementSource(String value) {
+        byte[] initial = replacement(value);
+        if (!value.startsWith("@")) return () -> initial;
+        AtomicReference<byte[]> last = new AtomicReference<>(initial);
+        return () -> {
+            try {
+                byte[] now = replacement(value);
+                last.set(now);
+                return now;
+            } catch (UncheckedIOException e) {
+                System.getLogger(Specs.class.getName()).log(System.Logger.Level.WARNING,
+                        "could not read replacement file; using its last contents: " + e.getMessage());
+                return last.get();
+            }
+        };
     }
 
     static String expandHome(String path) {
