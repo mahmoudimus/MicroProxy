@@ -32,7 +32,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -575,10 +574,9 @@ class Http2UpstreamTest {
         TestSupport.write(raw.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
         String head = TestSupport.readUntil(raw.getInputStream(), "\r\n\r\n");
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        // An HTTP/1.1 client that sends no ALPN: one that offered only http/1.1 would have that
+        // offer mirrored to the server, and never get HTTP/2 there (see AlpnMirroringTest).
         SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(raw, "localhost", 443, true);
-        SSLParameters params = tls.getSSLParameters();
-        params.setApplicationProtocols(new String[] {"http/1.1"});
-        tls.setSSLParameters(params);
         tls.startHandshake();
         return tls;
     }

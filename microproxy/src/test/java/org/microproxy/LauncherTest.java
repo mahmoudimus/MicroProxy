@@ -19,7 +19,6 @@ import com.sun.net.httpserver.HttpsServer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -621,8 +620,7 @@ class LauncherTest {
 
         HttpProxyServer strict = launch("--port", "0", "--mitm", "--mitm-ca", ca.toString());
         CertificateAuthority launcherCa = CertificateAuthority.load(ca, "microproxy".toCharArray());
-        assertThrows(UncheckedIOException.class,
-                () -> get(client(strict, launcherCa.clientContext()), url(secure, "/")),
+        assertEquals(502, get(client(strict, launcherCa.clientContext()), url(secure, "/")).statusCode(),
                 "the real server's certificate is validated by default");
 
         HttpProxyServer trusting = launch("--port", "0", "--mitm", "--mitm-ca", ca.toString(), "--mitm-trust-all");

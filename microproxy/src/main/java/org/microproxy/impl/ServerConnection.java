@@ -29,10 +29,12 @@ class ServerConnection {
     final String hostAndPort;
     final ChainedProxy chainedProxy;
     final boolean tlsToOrigin;
-    final Socket socket;
-    final ByteReader in;
-    final OutputStream out;
-    final HttpCodec.HttpWriter writer;
+    // Not final: a connection made before its client's ClientHello was read gets TLS layered over
+    // it afterwards (layerTls), before anything else uses it.
+    Socket socket;
+    ByteReader in;
+    OutputStream out;
+    HttpCodec.HttpWriter writer;
     final InetSocketAddress remoteAddress;
 
     /** The flow this connection currently serves; replaced when another client borrows it. */
@@ -56,6 +58,12 @@ class ServerConnection {
      * {@link Http2UpstreamConnection} to take over, never for HTTP/1.1 exchanges.
      */
     volatile boolean http2;
+    /**
+     * Made for interception, but its TLS handshake waits for the client's ClientHello, whose ALPN
+     * protocols and server name it mirrors: until {@link #layerTls}, the socket is the plain
+     * connection (or tunnel) to the server.
+     */
+    volatile boolean tlsPending;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Trackers trackers;
@@ -98,6 +106,15 @@ class ServerConnection {
         this.remoteAddress = remoteAddress;
         this.flowContext = flowContext;
         this.trackers = trackers;
+    }
+
+    /** Switches to {@code tls}, a TLS socket over this connection's socket, and its streams. */
+    void layerTls(Socket tls, ByteReader tlsIn, OutputStream tlsOut) {
+        this.socket = tls;
+        this.in = tlsIn;
+        this.out = tlsOut;
+        this.writer = new HttpCodec.HttpWriter(tlsOut);
+        this.tlsPending = false;
     }
 
     // ---------------------------------------------------------------------------------------
