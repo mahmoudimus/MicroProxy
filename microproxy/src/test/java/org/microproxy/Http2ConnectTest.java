@@ -158,6 +158,23 @@ class Http2ConnectTest {
     }
 
     @Test
+    void endingTunnelsWithResetsIsNotARapidReset() throws Exception {
+        TestSupport.RawServer echo = echoServer(null);
+        proxy = h2c().withHttp2Options(Http2Options.builder().maxRapidResets(3).build()).start();
+        try (H2StreamClient c = h2c("unused:1")) {
+            for (int i = 0; i < 10; i++) {
+                H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target(echo)), false);
+                assertEquals(200, tunnel.status());
+                tunnel.reset(ErrorCode.CANCEL);
+            }
+            H2StreamClient.Stream last = c.open(H2StreamClient.connect(target(echo)), false);
+            assertEquals(200, last.status());
+            assertEquals("still open", roundTrip(last, "still open"));
+            assertNull(c.goAway());
+        }
+    }
+
+    @Test
     void anUnreachableTargetIsABadGateway() throws Exception {
         proxy = h2c().start();
         try (Socket refusing = TestSupport.refusingPort(); H2StreamClient c = h2c("unused:1")) {

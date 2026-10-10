@@ -77,6 +77,11 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     HttpHeaders trailers;
     /** END_STREAM has been sent: the response is complete. */
     volatile boolean responseEnded;
+    /**
+     * The response that opens a tunnel ({@code CONNECT}, a WebSocket) has been sent: a reset from
+     * now on is how a client ends the tunnel, not a request it gave up on.
+     */
+    volatile boolean tunnelOpen;
 
     // The stream thread's own.
     private boolean headersSent;
@@ -249,6 +254,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
             this.bodyAllowed = true;
             response.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
             response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            // Before the HEADERS go out: the client may reset the stream as soon as it reads them.
+            tunnelOpen = true;
             sendHead(response, false);
             return;
         }

@@ -532,7 +532,8 @@ final class Http2Connection extends Http2Endpoint {
             s = streams.get(id);
             recentlyClosed.putIfAbsent(id, s == null || !s.reset ? RESET_BY_CLIENT : CLOSED_HERE);
             if (s != null && !s.reset) {
-                early = !s.responseEnded;
+                // Resetting an open tunnel is how a client ends it: not a rapid reset.
+                early = !s.responseEnded && !s.tunnelOpen;
                 s.markReset(new IOException("stream " + id + " reset by the client (" + rst.error() + ")"));
                 s.rstWritten = true;
                 serverConnection = s.cancelServer();
