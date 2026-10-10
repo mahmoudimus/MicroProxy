@@ -130,4 +130,17 @@ class FastPathDetectionTest {
             assertArrayEquals(new boolean[] {false, false, false}, streams(member), member.getClass().getName());
         }
     }
+
+    @Test
+    void harRecordingReadsBodiesOnlyWhenItKeepsThem() throws java.io.IOException {
+        java.nio.file.Path file = java.nio.file.Files.createTempFile("fastpath", ".har");
+        try {
+            assertArrayEquals(new boolean[] {true, true, false},
+                    streams(filtersFor(org.microproxy.extras.HarRecorder.builder(file).build())));
+            assertArrayEquals(new boolean[] {false, false, false},
+                    streams(filtersFor(org.microproxy.extras.HarRecorder.builder(file).content(false).build())));
+        } finally {
+            java.nio.file.Files.deleteIfExists(file);
+        }
+    }
 }
