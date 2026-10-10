@@ -756,9 +756,10 @@ needed. For secure extended CONNECT on a forward-proxy connection, origin TLS us
 MITM manager's server TLS settings, or the default JVM trust context when there is no manager.
 
 Request filters see an extended WebSocket CONNECT as a GET upgrade request, with version
-`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Origin HTTP/2 WebSocket response
-heads use `101` internally so the existing exchange and upgrade hooks run; the client's response
-hook sees `200` for an HTTP/2 client, and `upstreamStatus` retains the origin's actual status.
+`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Response filters and trackers
+see the handshake's answer as a `101` with `Upgrade: websocket` and `Connection: Upgrade`, as for an
+HTTP/1.1 client, whichever protocol the origin speaks; the proxy sends it to an HTTP/2 client as
+`200`, and `upstreamStatus` retains the origin's actual status.
 `webSocketFrameReceived` and `filterWebSocketFrame` use the same parser and relay as HTTP/1,
 including masking, rewriting, dropping, fragmentation and the large-frame buffer limit. Filters
 that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.
