@@ -51,6 +51,7 @@ import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.extras.ServerReplay;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -2409,12 +2410,15 @@ final class ClientConnection implements Runnable {
 
     /**
      * Where {@code sent} came from, given that filters made it out of {@code made} (with status
-     * {@code madeStatus}, from {@code source}): a cache answer, a filter's replacement or status
-     * change, or {@code made} as it was.
+     * {@code madeStatus}, from {@code source}): a cache answer, a replayed response, a filter's
+     * replacement or status change, or {@code made} as it was.
      */
     private static ResponseSource source(ResponseSource source, HttpObject made, int madeStatus, HttpResponse sent) {
         if (sent instanceof HttpCache.Answer) {
             return ResponseSource.CACHE;
+        }
+        if (sent instanceof ServerReplay.Replayed) {
+            return ResponseSource.REPLAY;
         }
         if (sent != made || sent.status().code() != madeStatus) {
             return ResponseSource.FILTER;
