@@ -37,6 +37,11 @@ public final class Http3Headers {
      * Validates a decoded request header section, accepting extended CONNECT (the caller rejects
      * it if it did not send SETTINGS_ENABLE_CONNECT_PROTOCOL; see
      * {@link #toRequest(long, List, boolean)}).
+     *
+     * @param streamId the stream, for errors
+     * @param fields the decoded section
+     * @return the request
+     * @throws Http3Exception a stream error H3_MESSAGE_ERROR if it is malformed
      */
     public static RequestHeaders toRequest(long streamId, List<HeaderField> fields) throws Http3Exception {
         return toRequest(streamId, fields, true);
@@ -47,6 +52,10 @@ public final class Http3Headers {
      *
      * @param extendedConnect whether this endpoint sent SETTINGS_ENABLE_CONNECT_PROTOCOL = 1, which
      *     allows {@code :protocol} (RFC 9220 §3)
+     * @param streamId the stream, for errors
+     * @param fields the decoded section
+     * @return the request
+     * @throws Http3Exception a stream error H3_MESSAGE_ERROR if it is malformed
      */
     public static RequestHeaders toRequest(long streamId, List<HeaderField> fields, boolean extendedConnect) throws Http3Exception {
         String method = null;
@@ -139,7 +148,14 @@ public final class Http3Headers {
         return new RequestHeaders(method, scheme, authority != null ? authority : host, path, protocol, out, contentLength);
     }
 
-    /** Validates a decoded response header section (final or 1xx). */
+    /**
+     * Validates a decoded response header section (final or 1xx).
+     *
+     * @param streamId the stream, for errors
+     * @param fields the decoded section
+     * @return the response
+     * @throws Http3Exception a stream error H3_MESSAGE_ERROR if it is malformed
+     */
     public static ResponseHeaders toResponse(long streamId, List<HeaderField> fields) throws Http3Exception {
         String status = null;
         long contentLength = -1;
@@ -166,7 +182,14 @@ public final class Http3Headers {
         return new ResponseHeaders(Integer.parseInt(status), out, contentLength);
     }
 
-    /** Validates a trailer section: regular fields only. */
+    /**
+     * Validates a trailer section: regular fields only.
+     *
+     * @param streamId the stream, for errors
+     * @param fields the decoded section
+     * @return the fields
+     * @throws Http3Exception a stream error H3_MESSAGE_ERROR if it is malformed
+     */
     public static List<HeaderField> validateTrailers(long streamId, List<HeaderField> fields) throws Http3Exception {
         for (HeaderField f : fields) {
             checkValue(streamId, f);
@@ -181,7 +204,11 @@ public final class Http3Headers {
      * after each DATA frame with the running total of content octets. Skip it where the content is
      * empty whatever the field says: responses to HEAD, and 204 and 304 responses.
      *
+     * @param streamId the stream, for errors
      * @param declared the content length, or -1 if none was declared (then nothing is checked)
+     * @param received the content octets received so far
+     * @param endStream whether the stream has ended
+     * @throws Http3Exception a stream error H3_MESSAGE_ERROR if the content does not match
      */
     public static void checkContentLength(long streamId, long declared, long received, boolean endStream) throws Http3Exception {
         if (declared < 0) return;

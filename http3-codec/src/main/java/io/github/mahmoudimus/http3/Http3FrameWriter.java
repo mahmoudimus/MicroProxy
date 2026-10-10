@@ -21,21 +21,43 @@ public final class Http3FrameWriter {
 
     private final OutputStream out;
 
+    /**
+     * A writer for one stream.
+     *
+     * @param out the stream's bytes; give it a buffered stream and flush it as needed
+     */
     public Http3FrameWriter(OutputStream out) {
         this.out = Objects.requireNonNull(out, "out");
     }
 
-    /** Writes the stream type that must start a unidirectional stream; see {@link Http3StreamType}. */
+    /**
+     * Writes the stream type that must start a unidirectional stream; see {@link Http3StreamType}.
+     *
+     * @param streamType the stream type
+     * @throws IOException if writing fails
+     */
     public void writeStreamType(long streamType) throws IOException {
         out.write(QuicVarInt.encode(streamType));
     }
 
-    /** Writes one frame exactly as given. */
+    /**
+     * Writes one frame exactly as given.
+     *
+     * @param frame the frame
+     * @throws IOException if writing fails
+     */
     public void writeFrame(Http3Frame frame) throws IOException {
         out.write(encode(frame));
     }
 
-    /** One DATA frame. */
+    /**
+     * One DATA frame.
+     *
+     * @param data the content
+     * @param offset where it starts in {@code data}
+     * @param length how many bytes
+     * @throws IOException if writing fails
+     */
     public void writeData(byte[] data, int offset, int length) throws IOException {
         Objects.checkFromIndexSize(offset, length, data.length);
         int header = QuicVarInt.length(Http3FrameType.DATA) + QuicVarInt.length(length);
@@ -46,40 +68,92 @@ public final class Http3FrameWriter {
         out.write(f);
     }
 
+    /**
+     * One DATA frame with all of {@code data}.
+     *
+     * @param data the content
+     * @throws IOException if writing fails
+     */
     public void writeData(byte[] data) throws IOException {
         writeData(data, 0, data.length);
     }
 
-    /** A HEADERS frame carrying an encoded field section from {@link QpackEncoder}. */
+    /**
+     * A HEADERS frame carrying an encoded field section from {@link QpackEncoder}.
+     *
+     * @param fieldSection the encoded field section
+     * @throws IOException if writing fails
+     */
     public void writeHeaders(byte[] fieldSection) throws IOException {
         writeFrame(new Http3Frame.Headers(fieldSection));
     }
 
+    /**
+     * A SETTINGS frame.
+     *
+     * @param settings the settings
+     * @throws IOException if writing fails
+     */
     public void writeSettings(Http3Settings settings) throws IOException {
         writeFrame(settings.toFrame());
     }
 
+    /**
+     * A PUSH_PROMISE frame.
+     *
+     * @param pushId the push it promises
+     * @param fieldSection the encoded field section of the promised request
+     * @throws IOException if writing fails
+     */
     public void writePushPromise(long pushId, byte[] fieldSection) throws IOException {
         writeFrame(new Http3Frame.PushPromise(pushId, fieldSection));
     }
 
+    /**
+     * A CANCEL_PUSH frame.
+     *
+     * @param pushId the push to cancel
+     * @throws IOException if writing fails
+     */
     public void writeCancelPush(long pushId) throws IOException {
         writeFrame(new Http3Frame.CancelPush(pushId));
     }
 
+    /**
+     * A GOAWAY frame.
+     *
+     * @param id the stream or push id
+     * @throws IOException if writing fails
+     */
     public void writeGoAway(long id) throws IOException {
         writeFrame(new Http3Frame.GoAway(id));
     }
 
+    /**
+     * A MAX_PUSH_ID frame.
+     *
+     * @param pushId the largest push id the server may use
+     * @throws IOException if writing fails
+     */
     public void writeMaxPushId(long pushId) throws IOException {
         writeFrame(new Http3Frame.MaxPushId(pushId));
     }
 
+    /**
+     * Flushes the stream.
+     *
+     * @throws IOException if flushing fails
+     */
     public void flush() throws IOException {
         out.flush();
     }
 
-    /** The bytes of one frame. */
+    /**
+     * The bytes of one frame.
+     *
+     * @param frame the frame
+     * @return its type, length and payload
+     */
     public static byte[] encode(Http3Frame frame) {
         byte[] payload = payload(frame);
         long type = frame.type();
@@ -93,6 +167,8 @@ public final class Http3FrameWriter {
     /**
      * Puts the bytes of one frame at the buffer's position.
      *
+     * @param frame the frame
+     * @param buf where to put it
      * @throws BufferOverflowException if it does not fit; nothing is written then
      */
     public static void encode(Http3Frame frame, ByteBuffer buf) {

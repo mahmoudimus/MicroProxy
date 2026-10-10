@@ -29,14 +29,19 @@ public final class Http3StreamValidator {
 
     /** Which end of the connection this endpoint is. */
     public enum Role {
+        /** The client, which opens request streams. */
         CLIENT,
+        /** The server, which answers them. */
         SERVER
     }
 
     /** The kind of stream a validator checks. */
     public enum Kind {
+        /** A control stream. */
         CONTROL,
+        /** A request stream: a request, or the response to it. */
         REQUEST,
+        /** A push stream. */
         PUSH
     }
 
@@ -66,7 +71,12 @@ public final class Http3StreamValidator {
         this.streamId = streamId;
     }
 
-    /** A validator for the peer's control stream. */
+    /**
+     * A validator for the peer's control stream.
+     *
+     * @param local which end this endpoint is
+     * @return the validator
+     */
     public static Http3StreamValidator forControlStream(Role local) {
         return new Http3StreamValidator(Kind.CONTROL, local, -1);
     }
@@ -74,39 +84,71 @@ public final class Http3StreamValidator {
     /**
      * A validator for the frames received on a request stream: a request when {@code local} is
      * the server, a response when it is the client.
+     *
+     * @param streamId the stream
+     * @param local which end this endpoint is
+     * @return the validator
      */
     public static Http3StreamValidator forRequestStream(long streamId, Role local) {
         checkStreamId(streamId);
         return new Http3StreamValidator(Kind.REQUEST, local, streamId);
     }
 
-    /** A validator for a push stream, after its push ID; only clients receive these. */
+    /**
+     * A validator for a push stream, after its push ID; only clients receive these.
+     *
+     * @param streamId the stream
+     * @param local which end this endpoint is; only {@link Role#CLIENT}
+     * @return the validator
+     */
     public static Http3StreamValidator forPushStream(long streamId, Role local) {
         checkStreamId(streamId);
         if (local != Role.CLIENT) throw new IllegalArgumentException("only clients receive push streams");
         return new Http3StreamValidator(Kind.PUSH, local, streamId);
     }
 
+    /**
+     * The kind of stream this validator checks.
+     *
+     * @return the kind
+     */
     public Kind kind() {
         return kind;
     }
 
-    /** Whether the control stream's SETTINGS frame has arrived. */
+    /**
+     * Whether the control stream's SETTINGS frame has arrived.
+     *
+     * @return whether SETTINGS arrived
+     */
     public boolean settingsReceived() {
         return settingsReceived;
     }
 
-    /** Whether a complete header section has been received on a request or push stream. */
+    /**
+     * Whether a complete header section has been received on a request or push stream.
+     *
+     * @return whether a header section arrived
+     */
     public boolean headersReceived() {
         return state != State.HEADERS;
     }
 
-    /** Whether trailers have been received on a request or push stream. */
+    /**
+     * Whether trailers have been received on a request or push stream.
+     *
+     * @return whether trailers arrived
+     */
     public boolean trailersReceived() {
         return state == State.DONE;
     }
 
-    /** Checks the next frame, including the identifiers in GOAWAY, MAX_PUSH_ID and CANCEL_PUSH. */
+    /**
+     * Checks the next frame, including the identifiers in GOAWAY, MAX_PUSH_ID and CANCEL_PUSH.
+     *
+     * @param frame the frame
+     * @throws Http3Exception a connection error if the frame is not allowed here
+     */
     public void onFrame(Http3Frame frame) throws Http3Exception {
         onFrame(frame.type());
         if (kind != Kind.CONTROL) return;
@@ -136,7 +178,12 @@ public final class Http3StreamValidator {
         }
     }
 
-    /** Checks the next frame by type alone. */
+    /**
+     * Checks the next frame by type alone.
+     *
+     * @param type the frame type
+     * @throws Http3Exception a connection error if the frame is not allowed here
+     */
     public void onFrame(long type) throws Http3Exception {
         if (kind == Kind.CONTROL) {
             onControlFrame(type);
@@ -241,6 +288,11 @@ public final class Http3StreamValidator {
         private boolean encoder;
         private boolean decoder;
 
+        /**
+         * Tracks the peer's unidirectional streams.
+         *
+         * @param local which end this endpoint is
+         */
         public UnidirectionalStreams(Role local) {
             this.local = local;
         }
@@ -248,6 +300,7 @@ public final class Http3StreamValidator {
         /**
          * Checks a new stream of the given type.
          *
+         * @param type the stream type
          * @return true if the stream is to be read; false for an unknown or reserved type, whose
          *     stream the caller abandons (reading stopped with H3_STREAM_CREATION_ERROR) or discards
          * @throws Http3Exception a connection error H3_STREAM_CREATION_ERROR for a second control,
@@ -273,6 +326,7 @@ public final class Http3StreamValidator {
         /**
          * Reports that a stream of this type ended or was reset.
          *
+         * @param type the stream type
          * @throws Http3Exception a connection error H3_CLOSED_CRITICAL_STREAM for a control, encoder
          *     or decoder stream
          */

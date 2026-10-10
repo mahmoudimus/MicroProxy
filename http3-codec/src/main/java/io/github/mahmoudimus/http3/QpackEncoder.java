@@ -89,6 +89,8 @@ public final class QpackEncoder {
      * An encoder that will use a dynamic table of up to {@code maxTableCapacity} octets (memory it
      * is willing to spend), and no more than the peer's SETTINGS_QPACK_MAX_TABLE_CAPACITY. Until
      * {@link #applyPeerSettings} it works in static-only mode, which is valid with any peer.
+     *
+     * @param maxTableCapacity the largest dynamic table this encoder will use, in octets
      */
     public QpackEncoder(long maxTableCapacity) {
         if (maxTableCapacity < 0 || maxTableCapacity > QuicVarInt.MAX_VALUE) {
@@ -97,19 +99,33 @@ public final class QpackEncoder {
         this.tableCapacityLimit = maxTableCapacity;
     }
 
-    /** Whether to Huffman-code strings that do not get longer for it (default true). */
+    /**
+     * Whether to Huffman-code strings that do not get longer for it (default true).
+     *
+     * @param huffman whether to Huffman-code
+     * @return this encoder
+     */
     public QpackEncoder setHuffman(boolean huffman) {
         this.huffman = huffman;
         return this;
     }
 
-    /** Whether to send fields named in {@link #SENSITIVE_NAMES} never-indexed (default true). */
+    /**
+     * Whether to send fields named in {@link #SENSITIVE_NAMES} never-indexed (default true).
+     *
+     * @param neverIndexSensitiveNames whether to
+     * @return this encoder
+     */
     public QpackEncoder setNeverIndexSensitiveNames(boolean neverIndexSensitiveNames) {
         this.neverIndexSensitiveNames = neverIndexSensitiveNames;
         return this;
     }
 
-    /** Applies the QPACK settings and MAX_FIELD_SECTION_SIZE from the peer's SETTINGS. */
+    /**
+     * Applies the QPACK settings and MAX_FIELD_SECTION_SIZE from the peer's SETTINGS.
+     *
+     * @param peer the peer's settings
+     */
     public void applyPeerSettings(Http3Settings peer) {
         setPeerSettings(peer.qpackMaxTableCapacity(), peer.qpackBlockedStreams());
         peerMaxFieldSectionSize = peer.maxFieldSectionSize();
@@ -118,6 +134,9 @@ public final class QpackEncoder {
     /**
      * Applies the peer's SETTINGS_QPACK_MAX_TABLE_CAPACITY and SETTINGS_QPACK_BLOCKED_STREAMS. HTTP/3
      * sends SETTINGS once, so call this once.
+     *
+     * @param maxTableCapacity the peer's SETTINGS_QPACK_MAX_TABLE_CAPACITY
+     * @param maxBlockedStreams the peer's SETTINGS_QPACK_BLOCKED_STREAMS
      */
     public void setPeerSettings(long maxTableCapacity, long maxBlockedStreams) {
         if (maxTableCapacity < 0 || maxBlockedStreams < 0) throw new IllegalArgumentException("negative setting");
@@ -126,43 +145,85 @@ public final class QpackEncoder {
         this.maxEntries = maxTableCapacity / HeaderField.ENTRY_OVERHEAD;
     }
 
-    /** The largest capacity the dynamic table may have: the smaller of our limit and the peer's. */
+    /**
+     * The largest capacity the dynamic table may have: the smaller of our limit and the peer's.
+     *
+     * @return the capacity in octets
+     */
     public long maxDynamicTableCapacity() {
         return Math.min(tableCapacityLimit, peerMaxTableCapacity);
     }
 
+    /**
+     * The number of entries inserted so far (the Insert Count).
+     *
+     * @return the Insert Count
+     */
     public long insertCount() {
         return table.insertCount();
     }
 
-    /** How many inserts the peer's decoder has acknowledged (§2.1.4). */
+    /**
+     * How many inserts the peer's decoder has acknowledged (§2.1.4).
+     *
+     * @return the Known Received Count
+     */
     public long knownReceivedCount() {
         return knownReceivedCount;
     }
 
+    /**
+     * The current size of the dynamic table in octets (entries plus 32 each).
+     *
+     * @return the size in octets
+     */
     public long dynamicTableSize() {
         return table.size();
     }
 
+    /**
+     * The current capacity of the dynamic table.
+     *
+     * @return the capacity in octets
+     */
     public long dynamicTableCapacity() {
         return table.capacity();
     }
 
+    /**
+     * The number of entries in the dynamic table.
+     *
+     * @return the number of entries
+     */
     public int dynamicTableLength() {
         return table.length();
     }
 
-    /** The dynamic table entry with this absolute index, or null if absent. */
+    /**
+     * The dynamic table entry with this absolute index, or null if absent.
+     *
+     * @param absoluteIndex the absolute index
+     * @return the entry, or null
+     */
     public HeaderField dynamicTableEntry(long absoluteIndex) {
         return table.contains(absoluteIndex) ? table.get(absoluteIndex) : null;
     }
 
-    /** The number of unacknowledged field sections that reference this entry. */
+    /**
+     * The number of unacknowledged field sections that reference this entry.
+     *
+     * @param absoluteIndex the absolute index
+     * @return the number of sections
+     */
     public int referenceCount(long absoluteIndex) {
         return references.getOrDefault(absoluteIndex, 0);
     }
 
-    /** The number of streams with a section that the peer cannot decode until it receives more inserts. */
+    /**
+     * The number of streams with a section that the peer cannot decode until it receives more inserts.
+     *
+     * @return the number of streams
+     */
     public int blockedStreams() {
         int n = 0;
         for (ArrayDeque<Section> sections : outstanding.values()) {
@@ -187,6 +248,7 @@ public final class QpackEncoder {
      * Sets the dynamic table capacity, emitting a Set Dynamic Table Capacity instruction (§4.3.1).
      * Without this call, the first section or insert sets it to {@link #maxDynamicTableCapacity()}.
      *
+     * @param capacity the new capacity in octets
      * @throws IllegalArgumentException above {@link #maxDynamicTableCapacity()}
      * @throws IllegalStateException if shrinking would evict an entry that is not evictable
      */
@@ -205,6 +267,8 @@ public final class QpackEncoder {
      * Inserts a field into the dynamic table without referencing it, for later sections (a
      * speculative insert), choosing a name reference where one exists.
      *
+     * @param name the field name
+     * @param value the field value
      * @return the new entry's absolute index, or -1 if it did not fit
      */
     public long insert(String name, String value) {
@@ -218,6 +282,7 @@ public final class QpackEncoder {
      * Re-inserts an existing entry with a Duplicate instruction (§4.3.4), so that sections can
      * reference a fresh copy while the old one becomes evictable.
      *
+     * @param absoluteIndex the entry to duplicate
      * @return the new entry's absolute index, or -1 if there was no room
      * @throws IllegalArgumentException if the entry is not in the table
      */
@@ -234,9 +299,12 @@ public final class QpackEncoder {
      * Encodes one field section for a HEADERS or PUSH_PROMISE frame on the given stream, queuing
      * any encoder-stream instructions it needs.
      *
+     * @param streamId the stream the section goes on
+     * @param fields the fields
      * @throws IllegalArgumentException if a name or value has a char above U+00FF (not an octet),
      *     or the section is larger than the peer's SETTINGS_MAX_FIELD_SECTION_SIZE; nothing has
      *     changed then
+     * @return the encoded field section
      */
     public byte[] encode(long streamId, List<HeaderField> fields) {
         if (streamId < 0 || streamId > QuicVarInt.MAX_VALUE) throw new IllegalArgumentException("bad stream ID " + streamId);
@@ -334,6 +402,12 @@ public final class QpackEncoder {
         return out.toByteArray();
     }
 
+    /**
+     * Processes bytes from the peer's QPACK decoder stream; see {@link #onDecoderStream(byte[], int, int)}.
+     *
+     * @param data the bytes
+     * @throws Http3Exception a connection error QPACK_DECODER_STREAM_ERROR for an invalid instruction
+     */
     public void onDecoderStream(byte[] data) throws Http3Exception {
         onDecoderStream(data, 0, data.length);
     }
@@ -342,6 +416,9 @@ public final class QpackEncoder {
      * Processes bytes from the peer's QPACK decoder stream (§4.4), in any pieces: an instruction
      * split between calls is completed by the next.
      *
+     * @param data the bytes
+     * @param offset where they start in {@code data}
+     * @param length how many
      * @throws Http3Exception a connection error QPACK_DECODER_STREAM_ERROR for an acknowledgment of
      *     a section that was not sent, an Insert Count Increment of 0 or past the inserts sent, or
      *     an integer overflow

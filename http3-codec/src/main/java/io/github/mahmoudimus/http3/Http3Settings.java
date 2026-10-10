@@ -48,6 +48,16 @@ public record Http3Settings(
     /** The initial values, in force until the peer's SETTINGS frame arrives. */
     public static final Http3Settings DEFAULT = new Http3Settings(0, UNLIMITED, 0, false, false, Map.of());
 
+    /**
+     * Creates settings.
+     *
+     * @param qpackMaxTableCapacity SETTINGS_QPACK_MAX_TABLE_CAPACITY, 0 to 2^62-1
+     * @param maxFieldSectionSize SETTINGS_MAX_FIELD_SECTION_SIZE, 0 to 2^62-1, or {@link #UNLIMITED}
+     * @param qpackBlockedStreams SETTINGS_QPACK_BLOCKED_STREAMS, 0 to 2^62-1
+     * @param enableConnectProtocol SETTINGS_ENABLE_CONNECT_PROTOCOL
+     * @param h3Datagram SETTINGS_H3_DATAGRAM
+     * @param extensions the other settings, in order, copied
+     */
     public Http3Settings {
         checkValue(qpackMaxTableCapacity, "qpackMaxTableCapacity");
         if (maxFieldSectionSize != UNLIMITED) checkValue(maxFieldSectionSize, "maxFieldSectionSize");
@@ -64,10 +74,20 @@ public record Http3Settings(
         extensions = Collections.unmodifiableMap(new LinkedHashMap<>(extensions));
     }
 
+    /**
+     * A builder starting from the defaults.
+     *
+     * @return the builder
+     */
     public static Builder builder() {
         return new Builder(DEFAULT);
     }
 
+    /**
+     * A builder starting from these settings.
+     *
+     * @return the builder
+     */
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -76,12 +96,20 @@ public record Http3Settings(
      * Whether {@code id} is an HTTP/2 setting with no HTTP/3 counterpart (0x00, 0x02, 0x03, 0x04 and
      * 0x05), which must not be sent; receiving one is a connection error H3_SETTINGS_ERROR
      * (RFC 9114 §7.2.4.1).
+     *
+     * @param id the setting identifier
+     * @return whether HTTP/3 forbids it
      */
     public static boolean isHttp2Reserved(long id) {
         return id == 0x00 || id == 0x02 || id == 0x03 || id == 0x04 || id == 0x05;
     }
 
-    /** Whether {@code id} is one of the settings this class has a component for. */
+    /**
+     * Whether {@code id} is one of the settings this class has a component for.
+     *
+     * @param id the setting identifier
+     * @return whether it has a component
+     */
     public static boolean isDefined(long id) {
         return id == QPACK_MAX_TABLE_CAPACITY || id == MAX_FIELD_SECTION_SIZE || id == QPACK_BLOCKED_STREAMS
                 || id == ENABLE_CONNECT_PROTOCOL || id == H3_DATAGRAM;
@@ -90,6 +118,8 @@ public record Http3Settings(
     /**
      * Checks one received setting. Unknown identifiers are accepted, since they must be ignored.
      *
+     * @param id the setting identifier
+     * @param value its value
      * @throws Http3Exception a connection error H3_SETTINGS_ERROR for an HTTP/2-only identifier, or
      *     for ENABLE_CONNECT_PROTOCOL or H3_DATAGRAM other than 0 or 1
      */
@@ -103,7 +133,13 @@ public record Http3Settings(
         }
     }
 
-    /** The settings a peer's SETTINGS frame establishes: its values on top of the defaults. */
+    /**
+     * The settings a peer's SETTINGS frame establishes: its values on top of the defaults.
+     *
+     * @param frame the peer's SETTINGS frame
+     * @return the settings
+     * @throws Http3Exception a connection error H3_SETTINGS_ERROR for an invalid setting
+     */
     public static Http3Settings fromFrame(Http3Frame.Settings frame) throws Http3Exception {
         Builder b = builder();
         for (Map.Entry<Long, Long> e : frame.values().entrySet()) {
@@ -123,6 +159,8 @@ public record Http3Settings(
     /**
      * The values that differ from the defaults, in identifier order, followed by the extensions:
      * what the SETTINGS frame must carry.
+     *
+     * @return the identifiers and values, in order
      */
     public Map<Long, Long> values() {
         Map<Long, Long> m = new LinkedHashMap<>();
@@ -135,7 +173,11 @@ public record Http3Settings(
         return m;
     }
 
-    /** A SETTINGS frame carrying {@link #values()}. */
+    /**
+     * A SETTINGS frame carrying {@link #values()}.
+     *
+     * @return the frame
+     */
     public Http3Frame.Settings toFrame() {
         return new Http3Frame.Settings(values());
     }
@@ -166,42 +208,89 @@ public record Http3Settings(
             extensions = new LinkedHashMap<>(s.extensions);
         }
 
+        /**
+         * Sets SETTINGS_QPACK_MAX_TABLE_CAPACITY.
+         *
+         * @param v the capacity in octets
+         * @return this builder
+         */
         public Builder qpackMaxTableCapacity(long v) {
             qpackMaxTableCapacity = v;
             return this;
         }
 
+        /**
+         * Sets SETTINGS_MAX_FIELD_SECTION_SIZE.
+         *
+         * @param v the size in octets, or {@link #UNLIMITED}
+         * @return this builder
+         */
         public Builder maxFieldSectionSize(long v) {
             maxFieldSectionSize = v;
             return this;
         }
 
+        /**
+         * Sets SETTINGS_QPACK_BLOCKED_STREAMS.
+         *
+         * @param v the number of streams
+         * @return this builder
+         */
         public Builder qpackBlockedStreams(long v) {
             qpackBlockedStreams = v;
             return this;
         }
 
+        /**
+         * Sets SETTINGS_ENABLE_CONNECT_PROTOCOL.
+         *
+         * @param v whether extended CONNECT is accepted
+         * @return this builder
+         */
         public Builder enableConnectProtocol(boolean v) {
             enableConnectProtocol = v;
             return this;
         }
 
+        /**
+         * Sets SETTINGS_H3_DATAGRAM.
+         *
+         * @param v whether HTTP Datagrams are accepted
+         * @return this builder
+         */
         public Builder h3Datagram(boolean v) {
             h3Datagram = v;
             return this;
         }
 
-        /** Adds an extension or reserved setting, sent after the defined ones. */
+        /**
+         * Adds an extension or reserved setting, sent after the defined ones.
+         *
+         * @param id the setting identifier
+         * @param value its value
+         * @return this builder
+         */
         public Builder extension(long id, long value) {
             extensions.put(id, value);
             return this;
         }
 
-        /** Adds the reserved (greasing) setting 0x1f * n + 0x21 with the given value. */
+        /**
+         * Adds the reserved (greasing) setting 0x1f * n + 0x21 with the given value.
+         *
+         * @param n which reserved identifier, from 0
+         * @param value its value
+         * @return this builder
+         */
         public Builder grease(long n, long value) {
             return extension(Http3FrameType.reserved(n), value);
         }
 
+        /**
+         * Builds the settings.
+         *
+         * @return the settings
+         */
         public Http3Settings build() {
             return new Http3Settings(
                     qpackMaxTableCapacity, maxFieldSectionSize, qpackBlockedStreams, enableConnectProtocol, h3Datagram, extensions);

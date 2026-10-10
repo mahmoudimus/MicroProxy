@@ -25,17 +25,30 @@ public final class Http3StreamType {
     /**
      * Whether the type is reserved for greasing, 0x1f * N + 0x21 (§6.2.3). Such streams carry no
      * meaning; the receiver discards or abandons them.
+     *
+     * @param type the stream type
+     * @return whether it is reserved
      */
     public static boolean isReserved(long type) {
         return Http3FrameType.isReserved(type);
     }
 
-    /** Whether the type is one of the four defined ones. */
+    /**
+     * Whether the type is one of the four defined ones.
+     *
+     * @param type the stream type
+     * @return whether it is defined
+     */
     public static boolean isKnown(long type) {
         return type == CONTROL || type == PUSH || type == QPACK_ENCODER || type == QPACK_DECODER;
     }
 
-    /** Whether closing a stream of this type is a connection error H3_CLOSED_CRITICAL_STREAM. */
+    /**
+     * Whether closing a stream of this type is a connection error H3_CLOSED_CRITICAL_STREAM.
+     *
+     * @param type the stream type
+     * @return whether the connection needs the stream
+     */
     public static boolean isCritical(long type) {
         return type == CONTROL || type == QPACK_ENCODER || type == QPACK_DECODER;
     }
@@ -43,8 +56,10 @@ public final class Http3StreamType {
     /**
      * Reads a stream type from the start of a unidirectional stream.
      *
+     * @param in the stream
      * @return the type, or -1 if the stream ended before all of it arrived, which a receiver must
      *     tolerate (§6.2)
+     * @throws IOException if reading fails
      */
     public static long read(InputStream in) throws IOException {
         int first = in.read();
@@ -59,12 +74,22 @@ public final class Http3StreamType {
         return v;
     }
 
-    /** The bytes that open a unidirectional stream of this type. */
+    /**
+     * The bytes that open a unidirectional stream of this type.
+     *
+     * @param type the stream type
+     * @return its encoding
+     */
     public static byte[] encode(long type) {
         return QuicVarInt.encode(type);
     }
 
-    /** A readable name for a stream type, for messages. */
+    /**
+     * A readable name for a stream type, for messages.
+     *
+     * @param type the stream type
+     * @return its name
+     */
     public static String name(long type) {
         if (type == CONTROL) return "control";
         if (type == PUSH) return "push";

@@ -25,21 +25,43 @@ public class Http3Exception extends IOException {
     /** The {@link #streamId()} of a connection error. */
     public static final long NO_STREAM = -1;
 
+    /** The code to send. */
     private final Http3ErrorCode errorCode;
+    /** The stream in error, or {@link #NO_STREAM}. */
     private final long streamId;
 
+    /**
+     * Creates an error; {@link #connectionError} and {@link #streamError} are the usual way.
+     *
+     * @param errorCode the code to send
+     * @param streamId the stream in error, or {@link #NO_STREAM} for a connection error
+     * @param message what went wrong
+     */
     protected Http3Exception(Http3ErrorCode errorCode, long streamId, String message) {
         super(message);
         this.errorCode = Objects.requireNonNull(errorCode, "errorCode");
         this.streamId = streamId;
     }
 
-    /** An error that ends the connection. */
+    /**
+     * An error that ends the connection.
+     *
+     * @param errorCode the code to close the connection with
+     * @param message what went wrong
+     * @return the exception
+     */
     public static Http3Exception connectionError(Http3ErrorCode errorCode, String message) {
         return new Http3Exception(errorCode, NO_STREAM, message);
     }
 
-    /** An error that ends only the given stream. */
+    /**
+     * An error that ends only the given stream.
+     *
+     * @param streamId the stream, 0 to 2^62-1
+     * @param errorCode the code to reset the stream with
+     * @param message what went wrong
+     * @return the exception
+     */
     public static Http3Exception streamError(long streamId, Http3ErrorCode errorCode, String message) {
         if (streamId < 0 || streamId > QuicVarInt.MAX_VALUE) {
             throw new IllegalArgumentException("a stream error needs a stream, got " + streamId);
@@ -47,16 +69,29 @@ public class Http3Exception extends IOException {
         return new Http3Exception(errorCode, streamId, message);
     }
 
-    /** The code to close the connection (connection error) or reset the stream (stream error) with. */
+    /**
+     * The code to close the connection (connection error) or reset the stream (stream error) with.
+     *
+     * @return the error code
+     */
     public Http3ErrorCode errorCode() {
         return errorCode;
     }
 
-    /** The stream in error, or {@link #NO_STREAM} for a connection error. */
+    /**
+     * The stream in error, or {@link #NO_STREAM} for a connection error.
+     *
+     * @return the stream id, or -1
+     */
     public long streamId() {
         return streamId;
     }
 
+    /**
+     * Whether the error ends the connection rather than one stream.
+     *
+     * @return whether this is a connection error
+     */
     public boolean isConnectionError() {
         return streamId == NO_STREAM;
     }

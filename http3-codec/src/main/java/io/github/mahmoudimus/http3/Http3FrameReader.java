@@ -63,16 +63,30 @@ public final class Http3FrameReader {
     // What is left of a DATA frame longer than the limit, returned in pieces.
     private long dataRemaining;
 
+    /**
+     * A reader for one stream.
+     *
+     * @param in the stream's bytes; give it a buffered stream
+     */
     public Http3FrameReader(InputStream in) {
         this.in = Objects.requireNonNull(in, "in");
     }
 
-    /** A reader over the remaining bytes of a buffer, which it consumes. */
+    /**
+     * A reader over the remaining bytes of a buffer, which it consumes.
+     *
+     * @param buf the bytes
+     * @return the reader
+     */
     public static Http3FrameReader of(ByteBuffer buf) {
         return new Http3FrameReader(new ByteBufferInputStream(buf));
     }
 
-    /** The largest payload accepted (and the largest piece a long DATA frame is returned in). */
+    /**
+     * The largest payload accepted (and the largest piece a long DATA frame is returned in).
+     *
+     * @param maxFramePayloadSize the limit in bytes, 1 to 2^31-9
+     */
     public void setMaxFramePayloadSize(int maxFramePayloadSize) {
         if (maxFramePayloadSize < 1 || maxFramePayloadSize > Integer.MAX_VALUE - 8) {
             throw new IllegalArgumentException("max frame payload size must be 1 to 2^31-9, got " + maxFramePayloadSize);
@@ -80,11 +94,20 @@ public final class Http3FrameReader {
         this.maxFramePayloadSize = maxFramePayloadSize;
     }
 
+    /**
+     * The largest payload accepted.
+     *
+     * @return the limit in bytes
+     */
     public int maxFramePayloadSize() {
         return maxFramePayloadSize;
     }
 
-    /** Return frames of unknown and reserved types as {@link Http3Frame.Unknown} (the default) or skip them. */
+    /**
+     * Return frames of unknown and reserved types as {@link Http3Frame.Unknown} (the default) or skip them.
+     *
+     * @param deliverUnknownFrames whether to return them
+     */
     public void setDeliverUnknownFrames(boolean deliverUnknownFrames) {
         this.deliverUnknownFrames = deliverUnknownFrames;
     }
@@ -95,6 +118,7 @@ public final class Http3FrameReader {
      *
      * @return the type, or -1 if the stream ended before all of it arrived (which a receiver must
      *     tolerate)
+     * @throws IOException if reading fails
      */
     public long readStreamType() throws IOException {
         return Http3StreamType.read(in);
@@ -138,6 +162,8 @@ public final class Http3FrameReader {
      * a buffer. The limit applies to every frame type here, DATA included; read long DATA frames
      * with a reader over a stream instead.
      *
+     * @param buf the stream's bytes so far
+     * @param maxFramePayloadSize the largest payload accepted
      * @return the frame, with the position moved past it; or null, with the position unchanged, if
      *     the buffer holds only part of it
      * @throws Http3Exception as {@link #readFrame()}, and H3_EXCESSIVE_LOAD for a DATA frame longer

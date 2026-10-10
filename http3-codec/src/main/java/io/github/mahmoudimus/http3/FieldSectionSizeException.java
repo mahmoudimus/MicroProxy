@@ -11,7 +11,9 @@ public final class FieldSectionSizeException extends Http3Exception {
 
     private static final long serialVersionUID = 1L;
 
+    /** The size of the field section. */
     private final long size;
+    /** The limit it exceeded. */
     private final long limit;
 
     FieldSectionSizeException(long streamId, long size, long limit) {
@@ -21,11 +23,20 @@ public final class FieldSectionSizeException extends Http3Exception {
         this.limit = limit;
     }
 
-    /** The size of the field section, counted as SETTINGS_MAX_FIELD_SECTION_SIZE counts it. */
+    /**
+     * The size of the field section, counted as SETTINGS_MAX_FIELD_SECTION_SIZE counts it.
+     *
+     * @return the size in octets, at least as far as decoding counted
+     */
     public long size() {
         return size;
     }
 
+    /**
+     * The limit the section exceeded: the decoder's SETTINGS_MAX_FIELD_SECTION_SIZE.
+     *
+     * @return the limit in octets
+     */
     public long limit() {
         return limit;
     }

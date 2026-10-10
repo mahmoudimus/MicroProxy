@@ -27,7 +27,12 @@ public final class QuicVarInt {
 
     private QuicVarInt() {}
 
-    /** The length of the shortest encoding of {@code value}. */
+    /**
+     * The length of the shortest encoding of {@code value}.
+     *
+     * @param value the value, 0 to 2^62-1
+     * @return 1, 2, 4 or 8
+     */
     public static int length(long value) {
         check(value);
         if (value < (1L << 6)) return 1;
@@ -36,12 +41,22 @@ public final class QuicVarInt {
         return 8;
     }
 
-    /** The total length of an encoding, from its first byte. */
+    /**
+     * The total length of an encoding, from its first byte.
+     *
+     * @param firstByte the first byte of the encoding
+     * @return 1, 2, 4 or 8
+     */
     public static int lengthOf(int firstByte) {
         return 1 << ((firstByte & 0xff) >>> 6);
     }
 
-    /** The shortest encoding of {@code value}. */
+    /**
+     * The shortest encoding of {@code value}.
+     *
+     * @param value the value, 0 to 2^62-1
+     * @return its encoding
+     */
     public static byte[] encode(long value) {
         byte[] b = new byte[length(value)];
         write(value, b, 0);
@@ -51,6 +66,9 @@ public final class QuicVarInt {
     /**
      * Writes the shortest encoding of {@code value} at {@code offset}.
      *
+     * @param value the value, 0 to 2^62-1
+     * @param dst where to write
+     * @param offset where in {@code dst}
      * @return the offset just past it
      * @throws IndexOutOfBoundsException if it does not fit
      */
@@ -65,6 +83,13 @@ public final class QuicVarInt {
         return offset + n;
     }
 
+    /**
+     * Writes the shortest encoding of {@code value}.
+     *
+     * @param value the value, 0 to 2^62-1
+     * @param out where to write
+     * @throws IOException if writing fails
+     */
     public static void write(long value, OutputStream out) throws IOException {
         out.write(encode(value));
     }
@@ -72,6 +97,8 @@ public final class QuicVarInt {
     /**
      * Writes the shortest encoding of {@code value} at the buffer's position.
      *
+     * @param value the value, 0 to 2^62-1
+     * @param buf where to write
      * @throws BufferOverflowException if it does not fit; nothing is written then
      */
     public static void write(long value, ByteBuffer buf) {
@@ -84,6 +111,7 @@ public final class QuicVarInt {
     /**
      * Reads one integer.
      *
+     * @param in the stream
      * @return the value, or -1 if the stream ended before its first byte
      * @throws EOFException if the stream ends inside it
      */
@@ -103,6 +131,7 @@ public final class QuicVarInt {
     /**
      * Reads one integer from the buffer's position.
      *
+     * @param buf the buffer
      * @return the value, with the position moved past it; or -1, with the position unchanged, if
      *     the buffer does not hold all of it
      */
@@ -121,6 +150,9 @@ public final class QuicVarInt {
     /**
      * Reads one integer from {@code src[offset..end)}.
      *
+     * @param src the bytes
+     * @param offset where the integer starts
+     * @param end the end of the range, exclusive
      * @return the value, or -1 if the range does not hold all of it; {@link #lengthOf(int)} of the
      *     first byte tells how many bytes it took
      */

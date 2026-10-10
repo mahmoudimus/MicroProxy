@@ -51,6 +51,9 @@ import java.util.Objects;
  */
 public final class QpackDecoder {
 
+    /**
+     * The default limit on a decoded field section, 64 KiB.
+     */
     public static final long DEFAULT_MAX_FIELD_SECTION_SIZE = 64 * 1024;
 
     private static final Http3ErrorCode SECTION_ERROR = Http3ErrorCode.QPACK_DECOMPRESSION_FAILED;
@@ -106,55 +109,104 @@ public final class QpackDecoder {
         this.maxEntries = maxTableCapacity / HeaderField.ENTRY_OVERHEAD;
     }
 
-    /** SETTINGS_MAX_FIELD_SECTION_SIZE: the largest decoded field section accepted. */
+    /**
+     * SETTINGS_MAX_FIELD_SECTION_SIZE: the largest decoded field section accepted.
+     *
+     * @param maxFieldSectionSize the limit in octets
+     */
     public void setMaxFieldSectionSize(long maxFieldSectionSize) {
         if (maxFieldSectionSize < 0) throw new IllegalArgumentException("negative limit");
         this.maxFieldSectionSize = maxFieldSectionSize;
     }
 
+    /**
+     * The largest decoded field section accepted.
+     *
+     * @return the limit in octets
+     */
     public long maxFieldSectionSize() {
         return maxFieldSectionSize;
     }
 
+    /**
+     * The largest dynamic table the encoder may use: our SETTINGS_QPACK_MAX_TABLE_CAPACITY.
+     *
+     * @return the capacity in octets
+     */
     public long maxTableCapacity() {
         return maxTableCapacity;
     }
 
+    /**
+     * How many streams may wait for the encoder stream: our SETTINGS_QPACK_BLOCKED_STREAMS.
+     *
+     * @return the number of streams
+     */
     public int maxBlockedStreams() {
         return maxBlockedStreams;
     }
 
-    /** The number of entries inserted so far (the Insert Count). */
+    /**
+     * The number of entries inserted so far (the Insert Count).
+     *
+     * @return the Insert Count
+     */
     public long insertCount() {
         return table.insertCount();
     }
 
-    /** The current size of the dynamic table in octets (entries plus 32 each). */
+    /**
+     * The current size of the dynamic table in octets (entries plus 32 each).
+     *
+     * @return the size in octets
+     */
     public long dynamicTableSize() {
         return table.size();
     }
 
-    /** The current capacity of the dynamic table, as last set by the peer's encoder. */
+    /**
+     * The current capacity of the dynamic table, as last set by the peer's encoder.
+     *
+     * @return the capacity in octets
+     */
     public long dynamicTableCapacity() {
         return table.capacity();
     }
 
-    /** The number of entries in the dynamic table. */
+    /**
+     * The number of entries in the dynamic table.
+     *
+     * @return the number of entries
+     */
     public int dynamicTableLength() {
         return table.length();
     }
 
-    /** The dynamic table entry with this absolute index (0 is the first ever inserted), or null if absent. */
+    /**
+     * The dynamic table entry with this absolute index (0 is the first ever inserted), or null if absent.
+     *
+     * @param absoluteIndex the absolute index
+     * @return the entry, or null
+     */
     public HeaderField dynamicTableEntry(long absoluteIndex) {
         return table.contains(absoluteIndex) ? table.get(absoluteIndex) : null;
     }
 
-    /** Whether a field section of this stream is waiting for encoder-stream updates. */
+    /**
+     * Whether a field section of this stream is waiting for encoder-stream updates.
+     *
+     * @param streamId the stream
+     * @return whether it is blocked
+     */
     public boolean isBlocked(long streamId) {
         return blocked.containsKey(streamId);
     }
 
-    /** The number of streams with a blocked field section. */
+    /**
+     * The number of streams with a blocked field section.
+     *
+     * @return the number of blocked streams
+     */
     public int blockedStreams() {
         return blocked.size();
     }
@@ -162,6 +214,8 @@ public final class QpackDecoder {
     /**
      * Decodes one encoded field section (the payload of a HEADERS or PUSH_PROMISE frame).
      *
+     * @param streamId the stream the section came on
+     * @param section the encoded field section
      * @return the fields in order, with never-indexed literals marked {@link HeaderField#sensitive()};
      *     or null if the section is blocked, in which case the decoder keeps a copy of it
      * @throws FieldSectionSizeException if the section is larger than the limit (a stream error)
@@ -188,7 +242,10 @@ public final class QpackDecoder {
      * Decodes the blocked field section of a stream that {@link #onEncoderStream} reported as
      * ready.
      *
+     * @param streamId the stream
      * @throws IllegalStateException if the stream has no blocked section, or it is still blocked
+     * @return the decoded fields
+     * @throws Http3Exception as {@link #decode}
      */
     public List<HeaderField> resume(long streamId) throws Http3Exception {
         BlockedSection b = blocked.get(streamId);
@@ -202,6 +259,8 @@ public final class QpackDecoder {
      * Reports that a stream was reset, or that its reading was abandoned, before all its field
      * sections were decoded. Drops any blocked section and queues a Stream Cancellation (§4.4.2),
      * unless the table capacity is 0 and the encoder cannot have referenced the table.
+     *
+     * @param streamId the stream
      */
     public void cancelStream(long streamId) {
         if (streamId < 0 || streamId > QuicVarInt.MAX_VALUE) throw new IllegalArgumentException("bad stream ID " + streamId);
@@ -226,6 +285,13 @@ public final class QpackDecoder {
         return b;
     }
 
+    /**
+     * Processes bytes from the peer's QPACK encoder stream; see {@link #onEncoderStream(byte[], int, int)}.
+     *
+     * @param data the bytes
+     * @return the streams that can now be resumed
+     * @throws Http3Exception a connection error QPACK_ENCODER_STREAM_ERROR for an invalid instruction
+     */
     public List<Long> onEncoderStream(byte[] data) throws Http3Exception {
         return onEncoderStream(data, 0, data.length);
     }
@@ -234,6 +300,9 @@ public final class QpackDecoder {
      * Processes bytes from the peer's QPACK encoder stream (§4.3), in any pieces: an instruction
      * split between calls is completed by the next.
      *
+     * @param data the bytes
+     * @param offset where they start in {@code data}
+     * @param length how many
      * @return the streams whose blocked field sections can now be decoded with {@link #resume},
      *     each reported once, in the order they blocked
      * @throws Http3Exception a connection error QPACK_ENCODER_STREAM_ERROR for an invalid instruction
