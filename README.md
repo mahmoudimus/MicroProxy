@@ -843,7 +843,7 @@ MicroProxy.bootstrap()
         .withHttp2(true).withHttp2Upstream(true)
         .withFrameInterceptor((frame, direction, ctx) -> switch (frame) {
             case Http2Frame.Headers h when direction == FrameDirection.TO_SERVER -> h.withHeader("x-via-h2", "1");
-            case Http2Frame.Data d when direction == FrameDirection.FROM_SERVER ->
+            case Http2Frame.Data d when direction == FrameDirection.FROM_SERVER && d.text().contains("secret") ->
                     d.withText(d.text().replace("secret", "******"));        // same length: content-length still holds
             case Http2Frame.Priority p -> null;                              // drop
             default -> frame;                                                // pass through
