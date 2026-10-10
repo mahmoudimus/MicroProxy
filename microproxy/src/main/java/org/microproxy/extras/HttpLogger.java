@@ -31,6 +31,8 @@ import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
+import org.microproxy.contentviews.ContentView;
+import org.microproxy.contentviews.ContentViews;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.FullHttpMessage;
 import org.microproxy.http.HttpBodies;
@@ -73,7 +75,10 @@ import org.microproxy.http.WebSocketFrame;
  * fast path. {@link Level#BODY} reads bodies piece by piece and keeps at most {@link
  * Builder#maxBodyBytes} of each; it never changes what is forwarded. Bodies are decoded ({@code
  * gzip}, {@code deflate}, {@code br}, {@code zstd}, see {@link HttpBodies}) when the whole body was
- * kept, and shown as text in their charset, or summarised when they are binary.
+ * kept, and shown as text in their charset, or summarised when they are binary. With {@link
+ * Builder#contentViews} they are rendered through {@link ContentViews} instead where a view
+ * applies: protobuf and gRPC (message by message) as YAML with field numbers, JSON indented, form
+ * data, GraphQL, msgpack. Trailers are shown after the body, and gRPC's status fields explained.
  *
  * <p>The values of {@code Authorization}, {@code Cookie}, {@code Set-Cookie} and {@code
  * Proxy-Authorization} are replaced with {@value #REDACTED} unless {@link Builder#redactNothing()}
@@ -125,6 +130,8 @@ public final class HttpLogger implements HttpFiltersSource {
     private final BiPredicate<HttpRequest, FlowContext> only;
     private final Consumer<String> sink;
     private final boolean webSocketFrames;
+    private final ContentViews views;
+    private final String view;
     private final AtomicBoolean sinkFailed = new AtomicBoolean();
     private final AtomicBoolean loggerFailed = new AtomicBoolean();
     /** The number of requests seen on each client connection. */
@@ -139,6 +146,8 @@ public final class HttpLogger implements HttpFiltersSource {
         only = b.only;
         sink = b.sink;
         webSocketFrames = b.webSocketFrames;
+        views = b.views;
+        view = b.view;
     }
 
     /**
@@ -173,6 +182,16 @@ public final class HttpLogger implements HttpFiltersSource {
     /** {@return the maximum body bytes retained per log entry} */
     public int maxBodyBytes() {
         return maxBodyBytes;
+    }
+
+    /** {@return the content views bodies are rendered with, or {@code null} when they are not} */
+    public ContentViews contentViews() {
+        return views;
+    }
+
+    /** {@return the content view bodies are rendered with ({@value ContentViews#AUTO} for the best one)} */
+    public String contentView() {
+        return view;
     }
 
     /** {@return whether WebSocket frames are logged (at {@link Level#BODY})} */
@@ -306,6 +325,8 @@ public final class HttpLogger implements HttpFiltersSource {
         private int length;
         long total;
         boolean complete;
+        /** The trailer fields of the last piece, if it had any. */
+        List<Header> trailers = List.of();
 
         Capture(int cap) {
             this.cap = cap;
@@ -329,13 +350,19 @@ public final class HttpLogger implements HttpFiltersSource {
         boolean truncated() {
             return total > length;
         }
+
+        void end(LastHttpContent last) {
+            complete = true;
+            if (!last.trailingHeaders().isEmpty()) trailers = Header.of(last.trailingHeaders());
+        }
     }
 
     /**
      * What to show of a body: the text (or {@code null} when it is binary or could not be
      * decoded), what to show instead, and remarks for the summary.
      */
-    private record BodyView(long bytes, String text, String placeholder, List<String> remarks) {}
+    private record BodyView(long bytes, String text, String placeholder, List<String> remarks, String view,
+            List<Header> trailers) {}
 
     private final class Exchange implements SelectiveFilters {
         private final FlowContext ctx;
@@ -383,13 +410,13 @@ public final class HttpLogger implements HttpFiltersSource {
                         request = r;
                         if (bodies && r instanceof FullHttpMessage full) {
                             requestBody.add(full.content());
-                            requestBody.complete = true;
+                            requestBody.end(full);
                         }
                     }
                     case HttpContent piece -> {
                         if (bodies) {
                             requestBody.add(piece.content());
-                            if (piece instanceof LastHttpContent) requestBody.complete = true;
+                            if (piece instanceof LastHttpContent last) requestBody.end(last);
                         }
                     }
                     case HttpResponse r -> {}
@@ -430,14 +457,14 @@ public final class HttpLogger implements HttpFiltersSource {
                             serverResponse = ResponseHead.of(r);
                             if (bodies && r instanceof FullHttpMessage full) {
                                 responseBody.add(full.content());
-                                responseBody.complete = true;
+                                responseBody.end(full);
                             }
                         }
                     }
                     case HttpContent piece -> {
                         if (bodies && serverResponse != null && !responseBody.complete) {
                             responseBody.add(piece.content());
-                            if (piece instanceof LastHttpContent) responseBody.complete = true;
+                            if (piece instanceof LastHttpContent last) responseBody.end(last);
                         }
                     }
                     case HttpRequest r -> {}
@@ -477,7 +504,7 @@ public final class HttpLogger implements HttpFiltersSource {
             if (sent != null && sent.sameLine(clientRequest) && Diff.between(clientRequest.headers, sent.headers).isEmpty()) {
                 sent = null;
             }
-            BodyView body = bodies ? view(requestBody, clientRequest.headers) : null;
+            BodyView body = bodies ? view(requestBody, clientRequest.headers, true) : null;
             emit(format == Format.JSON ? requestJson(sent, body) : requestText(sent, body));
         }
 
@@ -497,6 +524,7 @@ public final class HttpLogger implements HttpFiltersSource {
             String end = "--> END " + clientRequest.method;
             if (body != null) {
                 bodyText(sb, body);
+                trailersText(sb, "--> ", body);
                 end += summary(body);
             } else {
                 end += sizeRemark(declaredSize(clientRequest.headers), isChunked(clientRequest.headers));
@@ -536,13 +564,16 @@ public final class HttpLogger implements HttpFiltersSource {
                 if (serverResponse == null || response instanceof FullHttpMessage && response != serverObject) {
                     // Made by the proxy or a filter, or replaced by a complete response.
                     Capture made = new Capture(maxBodyBytes);
-                    if (response instanceof FullHttpMessage full) made.add(full.content());
+                    if (response instanceof FullHttpMessage full) {
+                        made.add(full.content());
+                        made.end(full);
+                    }
                     made.complete = true;
-                    BodyView view = view(made, delivered.headers);
+                    BodyView view = view(made, delivered.headers, false);
                     if (serverResponse == null) body = view;
                     else deliveredBody = view;
                 }
-                if (serverResponse != null) body = view(responseBody, serverResponse.headers);
+                if (serverResponse != null) body = view(responseBody, serverResponse.headers, false);
             }
             emit(format == Format.JSON ? responseJson(delivered, main, changed, source, body, deliveredBody)
                     : responseText(delivered, main, changed, source, body, deliveredBody));
@@ -574,10 +605,12 @@ public final class HttpLogger implements HttpFiltersSource {
             String end = "<-- END HTTP";
             if (body != null) {
                 bodyText(sb, body);
+                trailersText(sb, "<-- ", body);
                 end += summary(body);
                 if (deliveredBody != null) {
                     line(sb, "<-- delivered body" + summary(deliveredBody));
                     bodyText(sb, deliveredBody);
+                    trailersText(sb, "<-- ", deliveredBody);
                 }
             } else {
                 end += sizeRemark(declaredSize(main.headers), isChunked(main.headers));
@@ -678,12 +711,44 @@ public final class HttpLogger implements HttpFiltersSource {
         }
 
         private void headers(StringBuilder sb, List<Header> headers) {
-            for (Header h : headers) line(sb, h.name + ": " + redactHeader(h));
+            for (Header h : headers) header(sb, "", h);
+        }
+
+        /**
+         * One field; with content views, what a gRPC field means as a comment, or as indented
+         * lines when it is a message ({@code grpc-status-details-bin}).
+         */
+        private void header(StringBuilder sb, String mark, Header h) {
+            String value = redactHeader(h);
+            String described = views == null || !value.equals(h.value) ? null : describe(h);
+            if (described == null) {
+                line(sb, mark + h.name + ": " + value);
+            } else if (described.indexOf('\n') < 0) {
+                line(sb, mark + h.name + ": " + value + "  # " + described);
+            } else {
+                line(sb, mark + h.name + ": " + value);
+                described.lines().forEach(l -> line(sb, mark + "  " + l));
+            }
+        }
+
+        private String describe(Header h) {
+            try {
+                return views.describeHeader(h.name, h.value);
+            } catch (RuntimeException e) {
+                failed(e);
+                return null;
+            }
+        }
+
+        private void trailersText(StringBuilder sb, String arrow, BodyView body) {
+            if (body.trailers.isEmpty()) return;
+            line(sb, arrow + "trailers");
+            for (Header h : body.trailers) header(sb, "", h);
         }
 
         private void diff(StringBuilder sb, Diff diff) {
-            for (Header h : diff.removed) line(sb, "- " + h.name + ": " + redactHeader(h));
-            for (Header h : diff.added) line(sb, "+ " + h.name + ": " + redactHeader(h));
+            for (Header h : diff.removed) header(sb, "- ", h);
+            for (Header h : diff.added) header(sb, "+ ", h);
         }
 
         private void diffJson(Json j, Diff diff) {
@@ -709,9 +774,11 @@ public final class HttpLogger implements HttpFiltersSource {
                 return;
             }
             j.field("body_bytes", body.bytes);
+            if (!body.trailers.isEmpty()) j.headers("trailers", redacted(body.trailers));
             if (body.bytes == 0) return;
             j.raw("body", body.text == null ? "null" : "\"" + ActivityLogger.json(body.text) + "\"");
             if (body.text == null) j.field("body_note", body.placeholder);
+            if (body.view != null) j.field("body_view", body.view);
             if (!body.remarks.isEmpty()) j.field("body_remarks", String.join(", ", body.remarks));
         }
 
@@ -723,10 +790,10 @@ public final class HttpLogger implements HttpFiltersSource {
             return " (" + String.join(", ", parts) + ")";
         }
 
-        private BodyView view(Capture capture, List<Header> headers) {
+        private BodyView view(Capture capture, List<Header> headers, boolean request) {
             List<String> remarks = new ArrayList<>();
             if (!capture.complete) remarks.add("incomplete");
-            if (capture.total == 0) return new BodyView(0, null, null, remarks);
+            if (capture.total == 0) return new BodyView(0, null, null, remarks, null, capture.trailers);
             HttpHeaders h = new HttpHeaders();
             for (Header header : headers) {
                 if (header.name.equalsIgnoreCase(HttpHeaderNames.CONTENT_TYPE)
@@ -763,6 +830,15 @@ public final class HttpLogger implements HttpFiltersSource {
             } else {
                 data = message.content();
             }
+            if (views != null) {
+                Optional<ContentViews.Rendered> rendered = render(data, headers, request);
+                if (rendered.isPresent()) {
+                    if (cut) remarks.add("first " + maxBodyBytes + " bytes viewed");
+                    remarks.add(rendered.get().view() + " view");
+                    return new BodyView(capture.total, rendered.get().text(), null, remarks, rendered.get().view(),
+                            capture.trailers);
+                }
+            }
             String mediaType = HttpBodies.mediaType(message);
             if (!HttpBodies.isText(message) && !(mediaType.isEmpty() && looksLikeText(data))) {
                 String type = mediaType.isEmpty() ? "application/octet-stream" : mediaType;
@@ -770,11 +846,25 @@ public final class HttpLogger implements HttpFiltersSource {
             }
             if (cut) remarks.add("first " + maxBodyBytes + " bytes shown");
             Charset charset = HttpBodies.charset(message, StandardCharsets.UTF_8);
-            return new BodyView(capture.total, new String(data, charset), null, remarks);
+            return new BodyView(capture.total, new String(data, charset), null, remarks, null, capture.trailers);
+        }
+
+        /** The body rendered by a content view, or empty when none applies or none could. */
+        private Optional<ContentViews.Rendered> render(byte[] data, List<Header> headers, boolean request) {
+            HttpHeaders h = new HttpHeaders();
+            for (Header header : headers) h.add(header.name, header.value);
+            ContentView.Metadata metadata = new ContentView.Metadata(h.get(HttpHeaderNames.CONTENT_TYPE), h, null,
+                    clientRequest.uri, request);
+            try {
+                return views.render(view, data, metadata);
+            } catch (RuntimeException e) {
+                failed(e);
+                return Optional.empty();
+            }
         }
 
         private static BodyView placeholder(Capture capture, String text, List<String> remarks) {
-            return new BodyView(capture.total, null, text, remarks);
+            return new BodyView(capture.total, null, text, remarks, null, capture.trailers);
         }
     }
 
@@ -950,6 +1040,8 @@ public final class HttpLogger implements HttpFiltersSource {
         private BiPredicate<HttpRequest, FlowContext> only;
         private Consumer<String> sink;
         private boolean webSocketFrames;
+        private ContentViews views;
+        private String view = ContentViews.AUTO;
 
         private Builder() {}
 
@@ -1056,6 +1148,40 @@ public final class HttpLogger implements HttpFiltersSource {
          */
         public Builder webSocketFrames(boolean log) {
             this.webSocketFrames = log;
+            return this;
+        }
+
+        /**
+         * At {@link Level#BODY}, renders bodies through {@code views} where one applies (see
+         * {@link #contentView}): protobuf and gRPC message by message, JSON indented, form data,
+         * GraphQL, msgpack. Bodies no view renders are shown as before. With views, gRPC's {@code
+         * grpc-status}, {@code grpc-message} and {@code grpc-status-details-bin} fields are
+         * explained at {@link Level#HEADERS} and {@link Level#BODY}. Off by default.
+         *
+         * @param views the views, such as {@link ContentViews#defaults()} or one with a schema
+         * @return this builder
+         */
+        public Builder contentViews(ContentViews views) {
+            this.views = Objects.requireNonNull(views);
+            return this;
+        }
+
+        /**
+         * The content view to render bodies with: {@value ContentViews#AUTO} (the default) for
+         * the best one for each body, or a view's name, such as {@code grpc}. Turns content views
+         * on with {@link ContentViews#defaults()} if {@link #contentViews} was not called.
+         *
+         * @param name {@value ContentViews#AUTO} or a view's name
+         * @return this builder
+         * @throws IllegalArgumentException if there is no view of that name
+         */
+        public Builder contentView(String name) {
+            if (views == null) views = ContentViews.defaults();
+            if (!views.names().contains(name.toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("unknown content view " + name + "; expected one of "
+                        + String.join(", ", views.names()));
+            }
+            this.view = name.toLowerCase(Locale.ROOT);
             return this;
         }
 

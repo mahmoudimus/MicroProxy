@@ -61,13 +61,14 @@ public interface ContentView {
      * @param contentType the {@code Content-Type} field, or {@code null}
      * @param headers the message's header fields (never {@code null})
      * @param trailers the message's trailer fields (never {@code null})
-     * @param path the request's path and query (for a response, its request's), or {@code null}
+     * @param path the request's path and query (for a response, its request's), or {@code null};
+     *     an absolute URI is reduced to its path and query
      * @param request whether the body is a request's
      */
     record Metadata(String contentType, HttpHeaders headers, HttpHeaders trailers, String path, boolean request) {
 
         /**
-         * Fills in empty header fields for {@code null}.
+         * Fills in empty header fields for {@code null}, and reduces an absolute URI to its path.
          *
          * @param contentType the {@code Content-Type} field, or {@code null}
          * @param headers the header fields, or {@code null}
@@ -78,6 +79,7 @@ public interface ContentView {
         public Metadata {
             headers = headers != null ? headers : new HttpHeaders();
             trailers = trailers != null ? trailers : new HttpHeaders();
+            path = pathOf(path);
         }
 
         /**
@@ -100,7 +102,7 @@ public interface ContentView {
          */
         public static Metadata forRequest(HttpRequest request) {
             return new Metadata(request.headers().get(HttpHeaderNames.CONTENT_TYPE), request.headers(),
-                    null, pathOf(request.uri()), true);
+                    null, request.uri(), true);
         }
 
         /**
@@ -112,7 +114,7 @@ public interface ContentView {
          */
         public static Metadata forResponse(HttpRequest request, HttpMessage response) {
             return new Metadata(response.headers().get(HttpHeaderNames.CONTENT_TYPE), response.headers(),
-                    null, request == null ? null : pathOf(request.uri()), false);
+                    null, request == null ? null : request.uri(), false);
         }
 
         /**
