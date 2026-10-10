@@ -3,6 +3,7 @@ package org.microproxy;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.frames.FrameInterceptor;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -388,6 +389,27 @@ public interface HttpProxyServerBootstrap {
      */
     default HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
+    /**
+     * Shows every HTTP/2 frame the proxy receives or sends, on the client side and on connections
+     * to servers, to {@code interceptor}, which may edit, drop and add frames within the rules
+     * {@link FrameInterceptor} describes. One per proxy: a later call replaces it, and null removes
+     * it. Without one (the default), frames cost nothing extra. It takes effect where HTTP/2 is
+     * enabled ({@link #withHttp2}, {@link #withHttp2Upstream}, {@link #withHttp2Cleartext}); the
+     * proxy does not terminate QUIC, so HTTP/3 frames reach an interceptor only through an {@link
+     * org.microproxy.frames.Http3FramePipeline}.
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withFrameInterceptor(FrameInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support frame interception");
+    }
+
+    /** {@return the frame interceptor configured so far, or null} */
+    default FrameInterceptor getFrameInterceptor() {
+        return null;
     }
 
     /**
