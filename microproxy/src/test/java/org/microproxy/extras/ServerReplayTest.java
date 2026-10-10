@@ -26,27 +26,32 @@ class ServerReplayTest {
 
     private static final Instant RECORDED = Instant.parse("2020-01-01T00:00:00Z");
 
+    /** A recorded exchange; {@code requestHeaders} are names and values, alternately. */
     private static RecordedExchange recorded(String method, String url, String requestBody, String responseBody,
-            Map.Entry<String, String>... requestHeaders) {
-        return new RecordedExchange(RECORDED, method, url, List.of(requestHeaders),
+            String... requestHeaders) {
+        return new RecordedExchange(RECORDED, method, url, pairs(requestHeaders),
                 requestBody.getBytes(StandardCharsets.UTF_8), 200, "OK",
                 List.of(Map.entry("Content-Type", "text/plain"), Map.entry("Content-Length", "999"),
                         Map.entry("Connection", "close")),
                 responseBody.getBytes(StandardCharsets.UTF_8), true);
     }
 
-    @SafeVarargs
-    private static String ask(ServerReplay replay, String method, String uri, String body, Map.Entry<String, String>... headers) {
+    private static List<Map.Entry<String, String>> pairs(String... namesAndValues) {
+        List<Map.Entry<String, String>> out = new java.util.ArrayList<>();
+        for (int i = 0; i + 1 < namesAndValues.length; i += 2) out.add(Map.entry(namesAndValues[i], namesAndValues[i + 1]));
+        return out;
+    }
+
+    private static String ask(ServerReplay replay, String method, String uri, String body, String... headers) {
         HttpResponse r = response(replay, method, uri, body, headers);
         return r == null ? null : new String(((FullHttpResponse) r).content(), StandardCharsets.UTF_8);
     }
 
-    @SafeVarargs
     private static HttpResponse response(ServerReplay replay, String method, String uri, String body,
-            Map.Entry<String, String>... headers) {
+            String... headers) {
         FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.valueOf(method), uri,
                 body.getBytes(StandardCharsets.UTF_8));
-        for (Map.Entry<String, String> h : headers) request.headers().add(h.getKey(), h.getValue());
+        for (Map.Entry<String, String> h : pairs(headers)) request.headers().add(h.getKey(), h.getValue());
         HttpFilters f = replay.filterRequest(request, null);
         return f.clientToProxyRequest(request);
     }
@@ -80,22 +85,22 @@ class ServerReplayTest {
         assertEquals("loose", ask(ServerReplay.builder().add(flows).ignoreParams("_").ignoreHost(true).ignorePort(true)
                 .build(), "POST", "http://other.test:8080/a?x=1", "user=bob&nonce=1"));
         RecordedExchange form = recorded("POST", "http://example.com/f", "user=bob&nonce=1", "form",
-                Map.entry("Content-Type", "application/x-www-form-urlencoded"));
+                "Content-Type", "application/x-www-form-urlencoded");
         assertEquals("form", ask(ServerReplay.builder().add(List.of(form)).ignorePayloadParams("nonce").build(),
                 "POST", "http://example.com/f", "user=bob&nonce=2",
-                Map.entry("Content-Type", "application/x-www-form-urlencoded")));
+                "Content-Type", "application/x-www-form-urlencoded"));
         assertNull(ask(ServerReplay.builder().add(List.of(form)).ignorePayloadParams("nonce").build(),
                 "POST", "http://example.com/f", "user=eve&nonce=2",
-                Map.entry("Content-Type", "application/x-www-form-urlencoded")));
+                "Content-Type", "application/x-www-form-urlencoded"));
     }
 
     @Test
     void useHeadersMakesHeadersPartOfTheMatch() {
         ServerReplay replay = ServerReplay.builder().useHeaders("Accept").add(List.of(
-                recorded("GET", "http://e.test/", "", "json", Map.entry("Accept", "application/json")),
-                recorded("GET", "http://e.test/", "", "html", Map.entry("Accept", "text/html")))).build();
-        assertEquals("html", ask(replay, "GET", "http://e.test/", "", Map.entry("accept", "text/html")));
-        assertEquals("json", ask(replay, "GET", "http://e.test/", "", Map.entry("Accept", "application/json")));
+                recorded("GET", "http://e.test/", "", "json", "Accept", "application/json"),
+                recorded("GET", "http://e.test/", "", "html", "Accept", "text/html"))).build();
+        assertEquals("html", ask(replay, "GET", "http://e.test/", "", "accept", "text/html"));
+        assertEquals("json", ask(replay, "GET", "http://e.test/", "", "Accept", "application/json"));
         assertNull(ask(replay, "GET", "http://e.test/", ""));
     }
 
