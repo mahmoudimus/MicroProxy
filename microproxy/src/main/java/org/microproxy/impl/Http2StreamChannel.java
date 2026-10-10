@@ -4,8 +4,9 @@ import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.InterruptedIOException;
+import java.io.OutputStream;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import org.microproxy.http.DefaultHttpContent;
 import org.microproxy.http.DefaultLastHttpContent;
 import org.microproxy.http.FullHttpMessage;
@@ -41,7 +43,8 @@ import org.microproxy.http.LastHttpContent;
  * #clientKeepAlive} is always true, {@link #setKeepAlive} does nothing, and {@link #close} resets
  * the stream), framing is the protocol's ({@link #adaptFraming} only drops {@code
  * Transfer-Encoding}). CONNECT tunnels and WebSockets use DATA through the shared {@link Tunnel}
- * relay; END_STREAM half-closes only that direction. A {@code 100 Continue} is
+ * relay; END_STREAM half-closes only that direction, and {@link #tunnelSocket} shows an intercepted
+ * {@code CONNECT} stream as a socket for TLS. A {@code 100 Continue} is
  * sent only to a client that asked for it; other interim responses are forwarded as interim
  * HEADERS.
  */
@@ -58,6 +61,10 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     private final Body body = new Body();
     private final String protocol;
     private final String scheme;
+    /** Serializes the tunnel's writes with ending its output from another thread. */
+    private final ReentrantLock tunnelOutput = new ReentrantLock();
+    /** How long a read of the request body or tunnel waits, in ms; 0 for ever. */
+    private volatile int readTimeoutMillis;
 
     // Guarded by connection.stateLock.
     final Condition changed;
@@ -82,6 +89,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
      * now on is how a client ends the tunnel, not a request it gave up on.
      */
     volatile boolean tunnelOpen;
+    /** The stream, shown as a socket ({@link #tunnelSocket}), was closed: reads fail. */
+    private boolean inputClosed;
 
     // The stream thread's own.
     private boolean headersSent;
@@ -108,6 +117,7 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
         this.declaredLength = declaredLength;
         this.emptyRequest = endStream;
         this.remoteClosed = endStream;
+        this.readTimeoutMillis = Math.max(0, connection.server.idleTimeoutMillis());
     }
 
     /** Marks the stream reset; holds stateLock. */
@@ -342,26 +352,97 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public void relay(ServerConnection conn, Tunnel.FrameHandler frames, String name) {
-        OutputStream output = new OutputStream() {
-            @Override
-            public void write(int b) throws IOException {
-                write(new byte[] {(byte) b}, 0, 1);
-            }
-
-            @Override
-            public void write(byte[] bytes, int off, int len) throws IOException {
-                sendData(bytes, off, len, false, false);
-            }
-
-            @Override
-            public void flush() throws IOException {
-                connection.flush();
-            }
-        };
-        Tunnel.relay(body.asInputStream(), output, () -> sendData(new byte[0], 0, 0, true, true),
+        Tunnel.relay(body.asInputStream(), new TunnelOutput(), this::endTunnelOutput,
                 conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
                 () -> { close(); conn.close(); }, connection.server.getIdleConnectionTimeout(), name, logPrefix,
                 frames, connection.server.maxWebSocketFrameBufferSize, connection.server.ioBuffers);
+    }
+
+    /**
+     * The stream as a connected socket, for a TLS session layered over it (an intercepted {@code
+     * CONNECT}): its streams are the tunnel's bytes, {@code shutdownOutput} sends END_STREAM, and
+     * {@code close} ends the output and fails reads, as closing a TCP socket does. Null until the
+     * tunnel is open.
+     */
+    @Override
+    public StreamSocket tunnelSocket() {
+        if (!tunnelOpen) return null;
+        return new StreamSocket(this, body.asInputStream(), new TunnelOutput(), flow.getClientAddress(),
+                connection.localAddress());
+    }
+
+    /** Sets how long reads of the tunnel's bytes wait (a socket's read timeout); 0 for ever. */
+    void setReadTimeout(int millis) {
+        readTimeoutMillis = Math.max(0, millis);
+    }
+
+    int readTimeout() {
+        return readTimeoutMillis;
+    }
+
+    /** Ends the tunnel's output with END_STREAM, unless it has ended. */
+    void endTunnelOutput() throws IOException {
+        tunnelOutput.lock();
+        try {
+            if (!responseEnded) sendData(Http2Endpoint.EMPTY, 0, 0, true, true);
+        } finally {
+            tunnelOutput.unlock();
+        }
+    }
+
+    /**
+     * Closes the stream as a socket is closed: reads fail from now on, and the output ends with
+     * END_STREAM, or, if a write is in progress on another thread, the stream is reset.
+     */
+    void closeTunnel() {
+        connection.stateLock.lock();
+        try {
+            inputClosed = true;
+            changed.signalAll();
+        } finally {
+            connection.stateLock.unlock();
+        }
+        if (!tunnelOutput.tryLock()) {
+            close();
+            return;
+        }
+        try {
+            if (!responseEnded) sendData(Http2Endpoint.EMPTY, 0, 0, true, true);
+        } catch (IOException e) {
+            close();
+        } finally {
+            tunnelOutput.unlock();
+        }
+    }
+
+    /** The tunnel's bytes to the client, in DATA frames that wait for send window. */
+    private final class TunnelOutput extends OutputStream {
+        @Override
+        public void write(int b) throws IOException {
+            write(new byte[] {(byte) b}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (len == 0) return;
+            tunnelOutput.lock();
+            try {
+                if (responseEnded) throw new SocketException("the stream's output has ended");
+                sendData(b, off, len, false, false);
+            } finally {
+                tunnelOutput.unlock();
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            connection.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            endTunnelOutput();
+        }
     }
 
     @Override
@@ -505,19 +586,20 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
         /** The first buffered chunk, waiting for one; null at the end of the body. Holds stateLock. */
         private byte[] awaitChunk() throws IOException {
-            int idle = connection.server.idleTimeoutMillis();
-            long remaining = idle > 0 ? TimeUnit.MILLISECONDS.toNanos(idle) : Long.MAX_VALUE;
+            int timeout = readTimeoutMillis;
+            long remaining = timeout > 0 ? TimeUnit.MILLISECONDS.toNanos(timeout) : Long.MAX_VALUE;
             try {
-                while (inbound.isEmpty()) {
+                while (true) {
+                    if (inputClosed) throw new SocketException("the stream was closed");
+                    if (!inbound.isEmpty()) return inbound.peekFirst();
                     if (reset) throw failure();
                     if (remoteClosed) return null;
                     if (remaining <= 0) {
                         // As an HTTP/1 client connection's read times out.
-                        throw new SocketTimeoutException("no request body from the client for " + idle + " ms");
+                        throw new SocketTimeoutException("no data from the client for " + timeout + " ms");
                     }
                     remaining = changed.awaitNanos(remaining);
                 }
-                return inbound.peekFirst();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new InterruptedIOException("interrupted reading the request body");

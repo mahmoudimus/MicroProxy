@@ -134,6 +134,11 @@ final class H2TestClient implements AutoCloseable {
         return new H2TestClient(raw, raw, authority, "http");
     }
 
+    /** Speaks HTTP/2 over {@code tls}, an established TLS session that negotiated {@code h2}. */
+    static H2TestClient over(Socket tls, String authority) throws IOException {
+        return new H2TestClient(tls, tls, authority, "https");
+    }
+
     /** Connects directly to the proxy's TLS listener and negotiates HTTP/2. */
     static H2TestClient directTls(InetSocketAddress proxy, String authority, SSLContext trust) throws IOException {
         SSLSocket socket = (SSLSocket) trust.getSocketFactory().createSocket(proxy.getAddress(), proxy.getPort());

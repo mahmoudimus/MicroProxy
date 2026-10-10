@@ -27,6 +27,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
@@ -359,6 +360,12 @@ final class ClientConnection implements Runnable {
     private final DefaultHttpProxyServer server;
     private final Socket rawSocket;
     private final long id = IDS.incrementAndGet();
+    /**
+     * The client connection whose HTTP/2 connections to servers this one's requests share: itself,
+     * or for the TLS session of an intercepted {@code CONNECT} stream ({@link #interceptStream}),
+     * the client connection the stream belongs to.
+     */
+    private final ClientConnection owner;
     private final ClientDetails clientDetails = new ClientDetails();
     private final ClientFlowContext flowContext;
     /** Starts every log line about this connection: {@code [conn <id>] }. */
@@ -381,27 +388,52 @@ final class ClientConnection implements Runnable {
     private volatile boolean idle = true;
     private volatile boolean closed;
 
-    // Connection-level state the exchange logic reads. Exchanges outside an intercepted session
-    // run one at a time on the connection's thread (HTTP/1), so the authentication state and the
-    // MITM choice are only ever touched by one thread. HTTP/2 streams, which run concurrently,
-    // exist only inside an intercepted session: they inherit its authentication (and never
-    // authenticate again) and only read mitmHostAndPort and connectionMitm, which were written
-    // before their threads started.
+    // Connection-level state the exchange logic reads. HTTP/1 exchanges run one at a time on the
+    // connection's thread, so the authentication state is only ever touched by one thread. HTTP/2
+    // streams run concurrently: inside an intercepted session they inherit its authentication,
+    // and on a forward-proxy connection (h2c, the TLS listener) each authenticates on its own.
+    // They only read mitmHostAndPort, which was written before their threads started; the MITM
+    // choice is made under mitmLock, since CONNECT streams may ask for it at once.
     private boolean authenticated;
     /** Whether a request has been accepted on this connection, and as whom. */
     private boolean accepted;
     private String acceptedUser;
     /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
     private String mitmHostAndPort;
-    /** The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked. */
+    /**
+     * The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked.
+     * Guarded by {@link #mitmLock}.
+     */
     private MitmManager connectionMitm;
     private boolean mitmChosen;
+    private final ReentrantLock mitmLock = new ReentrantLock();
 
     ClientConnection(DefaultHttpProxyServer server, Socket socket) {
         this.server = server;
         this.rawSocket = socket;
+        this.owner = this;
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         this.http1 = new Http1ClientChannel(server, socket, flowContext, logPrefix, this::close);
+    }
+
+    /**
+     * The client connection inside an intercepted {@code CONNECT} stream of {@code parent}'s HTTP/2
+     * connection: {@code tunnel} is the stream as a socket, over which the client speaks TLS. It
+     * has the parent's client details, PROXY header and MITM manager, and its requests share the
+     * parent's HTTP/2 connections to servers.
+     */
+    private ClientConnection(ClientConnection parent, Socket tunnel) {
+        this.server = parent.server;
+        this.rawSocket = tunnel;
+        this.owner = parent;
+        clientDetails.setClientAddress(parent.clientDetails.getClientAddress());
+        clientDetails.setUserName(parent.clientDetails.getUserName());
+        this.proxyHeader = parent.proxyHeader;
+        this.connectionMitm = parent.mitmManager();
+        this.mitmChosen = true;
+        this.authenticated = true;
+        this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
+        this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
     boolean isIdle() {
@@ -438,7 +470,7 @@ final class ClientConnection implements Runnable {
         StreamServerConnections streams = streamConnections;
         if (streams != null) streams.releaseAll();
         // HTTP/2 connections to servers that only this client could use.
-        if (ownsHttp2Connections) server.http2Origins.closeOwnedBy(this);
+        if (ownsHttp2Connections && owner == this) server.http2Origins.closeOwnedBy(this);
         for (ServerConnection c : List.copyOf(serverConnections.values())) {
             if (c.pool != null && !c.inExchange && c.isOpen()) {
                 // An intercepted session's idle server connection outlives the client.
@@ -1426,7 +1458,9 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
         }
         String hostAndPort = target.toString();
-        boolean mitm = !ex.channel.multiplexed() && server.mitmManager != null && mitmHostAndPort == null
+        // A CONNECT inside an intercepted session tunnels; an HTTP/2 stream's CONNECT is
+        // intercepted inside the stream (interceptStream), as an HTTP/1 connection's is.
+        boolean mitm = server.mitmManager != null && mitmHostAndPort == null
                 && ex.filters.proxyToServerAllowMitm() && mitmManager() != null;
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
         // The session's requests may take streams on an HTTP/2 connection made now.
@@ -1514,7 +1548,8 @@ final class ClientConnection implements Runnable {
                 throw e;
             }
             if (ex.channel.multiplexed()) {
-                streamConnections.add(conn);
+                // An intercepted stream's session takes the connection over (serveTunnel).
+                if (!mitm) streamConnections.add(conn);
             } else {
                 serverConnections.put(conn.key, conn);
             }
@@ -1555,6 +1590,9 @@ final class ClientConnection implements Runnable {
             conn.close();
             return false;
         }
+        if (ex.channel.multiplexed()) {
+            return interceptStream(ex, conn, serverSession, target, hostAndPort);
+        }
         return intercept(ex, conn, serverSession, target, hostAndPort);
     }
 
@@ -1570,7 +1608,20 @@ final class ClientConnection implements Runnable {
     private boolean intercept(Exchange ex, ServerConnection conn, SSLSession serverSession, HostAndPort target,
             String hostAndPort) throws IOException {
         assert ex.channel == http1 : "only an HTTP/1 connection turns into TLS";
-        SSLContext clientContext = connectionMitm.clientSslContextFor(ex.request, serverSession, flowContext);
+        intercept(ex.request, conn, serverSession, target, hostAndPort, () -> endExchange(ex));
+        return false;
+    }
+
+    /**
+     * Runs the TLS handshake with the client as {@code target}, then serves the session's
+     * decrypted requests (HTTP/1, or HTTP/2 if the client negotiates {@code h2}).
+     *
+     * @param connect the {@code CONNECT} that started the session
+     * @param connectDone ends the {@code CONNECT} exchange, once the session is established
+     */
+    private void intercept(HttpRequest connect, ServerConnection conn, SSLSession serverSession, HostAndPort target,
+            String hostAndPort, Runnable connectDone) throws IOException {
+        SSLContext clientContext = connectionMitm.clientSslContextFor(connect, serverSession, flowContext);
         SSLSocket tls = handshakeWithClient(clientContext, false, server.http2 ? s -> offerHttp2(s, true) : null,
                 target.host());
 
@@ -1581,13 +1632,78 @@ final class ClientConnection implements Runnable {
             conn.pool.release(conn);
         }
         // The CONNECT exchange is over; the requests inside the session are exchanges of their own.
-        endExchange(ex);
+        connectDone.run();
         if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
             serveHttp2(tls, new byte[0], target);
-            return false;
+            return;
         }
         serveRequests();
+    }
+
+    /**
+     * Intercepts a {@code CONNECT} stream of an HTTP/2 connection: the stream, shown as a socket
+     * ({@link ClientChannel#tunnelSocket}), carries the client's TLS session with {@code target},
+     * which a client connection of its own serves on this stream's thread, as {@link #intercept}
+     * serves an HTTP/1 connection's. The stream ends when that connection does.
+     */
+    private boolean interceptStream(Exchange ex, ServerConnection conn, SSLSession serverSession, HostAndPort target,
+            String hostAndPort) {
+        Socket tunnel = ex.channel.tunnelSocket();
+        if (tunnel == null) {
+            if (conn != null) conn.close();
+            ex.channel.close();
+            return false;
+        }
+        // The session's connection takes the server connection over: the stream's end must not
+        // close it once that connection has given it back to the pool.
+        if (conn != null && !ex.channel.serverConnectionDone(conn)) {
+            // The client reset the stream meanwhile.
+            conn.close();
+            ex.channel.close();
+            return false;
+        }
+        ClientConnection inner = new ClientConnection(this, tunnel);
+        LOG.log(Level.DEBUG, ex.log + "intercepting " + hostAndPort + " inside the stream: " + inner.logPrefix.strip());
+        inner.serveTunnel(ex.request, conn, serverSession, target, hostAndPort, () -> endExchange(ex));
         return false;
+    }
+
+    /**
+     * Serves the TLS session inside an intercepted {@code CONNECT} stream (this connection was made
+     * by {@link #interceptStream}) until it ends, then closes the stream.
+     */
+    private void serveTunnel(HttpRequest connect, ServerConnection conn, SSLSession serverSession, HostAndPort target,
+            String hostAndPort, Runnable connectDone) {
+        boolean connectedFired = false;
+        try {
+            rawSocket.setSoTimeout(server.idleTimeoutMillis());
+            http1.attach(rawSocket);
+            server.trackers.fire(t -> t.clientConnected(flowContext));
+            connectedFired = true;
+            if (conn != null) {
+                // The server connection made for the CONNECT is this connection's now.
+                conn.onDetach = () -> detach(conn);
+                serverConnections.put(conn.key, conn);
+            }
+            intercept(connect, conn, serverSession, target, hostAndPort, connectDone);
+        } catch (SocketTimeoutException e) {
+            LOG.log(Level.DEBUG, logPrefix + "client connection timed out");
+            server.trackers.fire(t -> t.connectionTimedOut(flowContext));
+        } catch (IOException e) {
+            if (!closed) {
+                LOG.log(Level.DEBUG, logPrefix + "intercepted stream failed: " + e);
+                server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+            }
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "unexpected error on an intercepted stream", e);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+        } finally {
+            close();
+            if (connectedFired) {
+                SSLSession session = sslSession;
+                server.trackers.fire(t -> t.clientDisconnected(flowContext, session));
+            }
+        }
     }
 
     /**
@@ -1650,11 +1766,16 @@ final class ClientConnection implements Runnable {
 
     /** The MITM manager for this connection, chosen when first needed; null if it declined. */
     private MitmManager mitmManager() {
-        if (!mitmChosen) {
-            connectionMitm = server.mitmManager.forConnection(flowContext);
-            mitmChosen = true;
+        mitmLock.lock();
+        try {
+            if (!mitmChosen) {
+                connectionMitm = server.mitmManager.forConnection(flowContext);
+                mitmChosen = true;
+            }
+            return connectionMitm;
+        } finally {
+            mitmLock.unlock();
         }
-        return connectionMitm;
     }
 
     /** Whether server connections for {@code mode} come from the shared pool. */
@@ -1730,7 +1851,7 @@ final class ClientConnection implements Runnable {
      */
     private String http2Key(Mode mode, String hostAndPort, ChainedProxy route) {
         return mode + "|" + hostAndPort + "|" + routeKey(route) + mitmPoolKey(mode)
-                + (http2Owner(mode) == null ? "" : "|conn" + id);
+                + (http2Owner(mode) == null ? "" : "|conn" + owner.id);
     }
 
     /**
@@ -1741,8 +1862,9 @@ final class ClientConnection implements Runnable {
      */
     private Object http2Owner(Mode mode) {
         if (server.pool != null && usesPool(mode)) return null;
-        ownsHttp2Connections = true;
-        return this;
+        // An intercepted stream's session shares its client connection's, which closes them.
+        owner.ownsHttp2Connections = true;
+        return owner;
     }
 
     /**

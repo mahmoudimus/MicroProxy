@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.SequenceInputStream;
 import java.lang.System.Logger.Level;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
@@ -159,6 +160,11 @@ final class Http2Connection extends Http2Endpoint {
     @Override
     String peer() {
         return "client";
+    }
+
+    /** The address the client connected to, or null if it is unknown. */
+    InetSocketAddress localAddress() {
+        return socket.getLocalSocketAddress() instanceof InetSocketAddress a ? a : null;
     }
 
     @Override

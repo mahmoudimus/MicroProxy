@@ -11,6 +11,7 @@ import static org.microproxy.TestSupport.eventually;
 import static org.microproxy.TestSupport.write;
 
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsServer;
 import io.github.mahmoudimus.http2.ErrorCode;
 import io.github.mahmoudimus.http2.Http2Settings;
 import java.io.IOException;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,7 @@ import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.tls.CertificateAuthority;
+import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
  * {@code CONNECT} inside HTTP/2 streams (RFC 9113 section 8.5), on {@code h2c} and on the proxy's
@@ -79,6 +82,10 @@ class Http2ConnectTest {
 
     private static HttpProxyServerBootstrap tlsListener() {
         return MicroProxy.bootstrap().withPort(0).withProxyAlias("cx").withSslContextSource(LISTENER_TLS).withHttp2(true);
+    }
+
+    private static CertificateAuthorityMitmManager mitmManager() {
+        return new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext());
     }
 
     private H2StreamClient h2c(String authority) throws IOException {
@@ -373,6 +380,127 @@ class Http2ConnectTest {
             tls.setSSLParameters(params);
             tls.startHandshake();
             assertFalse("h2".equals(tls.getApplicationProtocol()));
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Interception: TLS over the stream
+    // -------------------------------------------------------------------------------------------
+
+    private HttpsServer httpsOrigin() {
+        HttpsServer origin = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), TestSupport.echo());
+        closeables.add(() -> origin.stop(0));
+        return origin;
+    }
+
+    /** Runs a TLS handshake over a CONNECT stream, as a client trusting the proxy's CA. */
+    private static SSLSocket tlsOver(H2StreamClient.Stream tunnel, int port, String... alpn) throws IOException {
+        SSLContext trust = proxyCa.clientContext();
+        SSLSocket tls = (SSLSocket) trust.getSocketFactory().createSocket(tunnel.asSocket(), "localhost", port, true);
+        tls.setUseClientMode(true);
+        if (alpn.length > 0) {
+            javax.net.ssl.SSLParameters params = tls.getSSLParameters();
+            params.setApplicationProtocols(alpn);
+            tls.setSSLParameters(params);
+        }
+        tls.startHandshake();
+        return tls;
+    }
+
+    @Test
+    void anInterceptedConnectStreamServesHttp11InsideTls() throws Exception {
+        HttpsServer origin = httpsOrigin();
+        List<String> requests = new CopyOnWriteArrayList<>();
+        List<String> connections = new CopyOnWriteArrayList<>();
+        proxy = h2c().withManInTheMiddle(mitmManager())
+                .withFiltersSource((original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+                    @Override
+                    public HttpResponse clientToProxyRequest(HttpObject o) {
+                        if (o instanceof HttpRequest r) {
+                            requests.add(r.method() + " " + r.uri() + " " + r.protocolVersion() + " stream=" + ctx.getStreamId());
+                        }
+                        return null;
+                    }
+                })
+                .plusActivityTracker(new ActivityTrackerAdapter() {
+                    @Override
+                    public void clientSSLHandshakeSucceeded(FlowContext ctx, javax.net.ssl.SSLSession session) {
+                        connections.add("tls " + ctx.getClientAddress().getAddress().getHostAddress());
+                    }
+
+                    @Override
+                    public void clientDisconnected(FlowContext ctx, javax.net.ssl.SSLSession session) {
+                        connections.add("disconnected");
+                    }
+                })
+                .start();
+        String target = "localhost:" + origin.getAddress().getPort();
+        try (H2StreamClient c = h2c("unused:1")) {
+            H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target), false);
+            assertEquals(200, tunnel.status());
+            // The client trusts only the proxy's CA: this works only if the stream is intercepted.
+            SSLSocket tls = tlsOver(tunnel, origin.getAddress().getPort(), "http/1.1");
+            tls.setSoTimeout(10_000);
+            write(tls.getOutputStream(), "GET /inside?a=1 HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
+            String first = TestSupport.readUntil(tls.getInputStream(), "\r\n\r\n");
+            assertTrue(first.startsWith("HTTP/1.1 200"), first);
+            int length = Integer.parseInt(WebSocketTestSupport.header(first, "Content-Length"));
+            String body = new String(tls.getInputStream().readNBytes(length), StandardCharsets.UTF_8);
+            assertEquals("/inside?a=1", echoedUri(body));
+            write(tls.getOutputStream(), "GET /second HTTP/1.1\r\nHost: " + target + "\r\nConnection: close\r\n\r\n");
+            String second = new String(tls.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(second.startsWith("HTTP/1.1 200"), second);
+            tls.close();
+            assertNull(tunnel.awaitEnd());
+        }
+        assertEquals(List.of("CONNECT " + target + " HTTP/2.0 stream=1", "GET /inside?a=1 HTTP/1.1 stream=0",
+                "GET /second HTTP/1.1 stream=0"), requests);
+        eventually("the inner connection to end", () -> connections.contains("disconnected"));
+        // The session inside the stream is a client connection of its own, from the same client.
+        assertEquals("tls 127.0.0.1", connections.getFirst());
+    }
+
+    @Test
+    void anInterceptedConnectStreamServesHttp2InsideTls() throws Exception {
+        HttpsServer origin = httpsOrigin();
+        proxy = tlsListener().withManInTheMiddle(mitmManager()).start();
+        String target = "localhost:" + origin.getAddress().getPort();
+        try (H2StreamClient outer = tls("unused:1")) {
+            H2StreamClient.Stream tunnel = outer.open(H2StreamClient.connect(target), false);
+            assertEquals(200, tunnel.status());
+            SSLSocket tls = tlsOver(tunnel, origin.getAddress().getPort(), "h2");
+            assertEquals("h2", tls.getApplicationProtocol());
+            // HTTP/2 inside HTTP/2: the inner connection is the intercepted session's.
+            try (H2TestClient inner = H2TestClient.over(tls, target).handshake()) {
+                assertEquals(1L, inner.setting(Http2Settings.ENABLE_CONNECT_PROTOCOL));
+                inner.get(1, "/nested", "x-inner", "1");
+                inner.get(3, "/other");
+                H2TestClient.Response first = inner.response(1);
+                H2TestClient.Response second = inner.response(3);
+                assertEquals(200, first.status());
+                assertEquals("/nested", echoedUri(first.text()));
+                assertEquals(List.of("1"), echoedHeader(first.text(), "x-inner"));
+                assertEquals(200, second.status());
+            }
+        }
+    }
+
+    @Test
+    void anInterceptedConnectStreamWithAnHttp11ClientInsideOnTheTlsListener() throws Exception {
+        HttpsServer origin = httpsOrigin();
+        proxy = tlsListener().withManInTheMiddle(mitmManager()).withProxyAuthenticator(basic()).start();
+        String target = "localhost:" + origin.getAddress().getPort();
+        try (H2StreamClient outer = tls("unused:1")) {
+            assertEquals(407, outer.open(H2StreamClient.connect(target), false).status());
+            H2StreamClient.Stream tunnel = outer.open(H2StreamClient.connect(target, "proxy-authorization", CREDENTIALS), false);
+            assertEquals(200, tunnel.status());
+            SSLSocket tls = tlsOver(tunnel, origin.getAddress().getPort());
+            tls.setSoTimeout(10_000);
+            // Requests inside the intercepted session are covered by the CONNECT's credentials.
+            write(tls.getOutputStream(), "GET /in HTTP/1.1\r\nHost: " + target + "\r\nConnection: close\r\n\r\n");
+            String response = new String(tls.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(response.startsWith("HTTP/1.1 200"), response);
+            assertTrue(response.contains("/in"), response);
         }
     }
 

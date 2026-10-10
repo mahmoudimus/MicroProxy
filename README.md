@@ -731,9 +731,16 @@ before: the request is answered in HTTP/1.1. The same limits as for intercepted 
 A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
 opens a byte tunnel on that stream. The successful `200` HEADERS leave it open; DATA carry tunnel
 bytes, and END_STREAM half-closes one direction. RST_STREAM closes the tunnel's origin connection
-and wakes its waits, without closing the client HTTP/2 connection or other streams. These are raw
-tunnels, including when a MITM manager is configured: TLS interception inside an HTTP/2 CONNECT
-stream is not implemented. HTTP/1 CONNECT interception is unchanged.
+and wakes its waits, without closing the client HTTP/2 connection or other streams. A reset that
+ends an open tunnel is not counted as a rapid reset. A `CONNECT` stream to a chained HTTP proxy
+reaches it as an HTTP/1.1 `CONNECT`.
+
+With a MITM manager, a `CONNECT` stream on `h2c` or the proxy TLS listener is intercepted as an
+HTTP/1 `CONNECT` is: the client's TLS session runs over the stream's DATA frames, and its decrypted
+requests (HTTP/1.1, or HTTP/2 inside the stream when the client negotiates `h2`) are exchanges of a
+client connection of their own, with the same filters, hooks and server connections; the
+`CONNECT`'s credentials cover them. A server that does not speak TLS gets a plain tunnel instead. A
+`CONNECT` inside an intercepted session is a plain tunnel to that session's authority.
 
 The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client can open a stream
 with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
