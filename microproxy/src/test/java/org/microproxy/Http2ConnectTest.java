@@ -227,6 +227,8 @@ class Http2ConnectTest {
             H2StreamClient.Stream blocked = c.open(H2StreamClient.connect("blocked.test:443"), false);
             assertEquals(403, blocked.status());
             assertEquals("no", blocked.text());
+            // Streams run concurrently: the 403 is tracked on its stream's thread after it is sent.
+            eventually("the 403 to be tracked", () -> tracked.contains("response 403 FILTER"));
             H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target(echo)), false);
             assertEquals(200, tunnel.status());
             assertEquals("ok", roundTrip(tunnel, "ok"));
