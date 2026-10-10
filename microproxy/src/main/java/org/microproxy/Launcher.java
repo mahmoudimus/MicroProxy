@@ -14,6 +14,8 @@ import java.util.ServiceLoader;
 import org.microproxy.cache.DiskCacheStore;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
+import org.microproxy.contentviews.ContentViews;
+import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.ConcurrencyLimiter;
@@ -69,6 +71,12 @@ public final class Launcher {
               --log-http <level>           log whole requests and responses: basic, headers or
                                            body (to the System.Logger org.microproxy.http)
               --log-http-json              write --log-http as JSON lines (headers if no level)
+              --log-http-view <name>       render logged bodies through content views: auto (the
+                                           best view per body), or grpc, protobuf, json, msgpack,
+                                           ... (body if no level)
+              --proto-descriptors <file>   a protobuf FileDescriptorSet (protoc
+                                           --descriptor_set_out) for field names in the protobuf
+                                           and gRPC views (implies --log-http-view auto)
               --shared-pool                share server connections between clients
               --max-concurrent-per-client <n>  exchanges each client IP may run at once; more
                                            get 429 (CONNECT tunnels count while open)
@@ -155,6 +163,8 @@ public final class Launcher {
         Path warcDir = null;
         HttpLogger.Level logHttp = null;
         boolean logHttpJson = false;
+        String logHttpView = null;
+        Path protoDescriptors = null;
         int maxConcurrentPerClient = 0;
         int http2MaxStreams = 0;
         List<AutoCloseable> resources = new ArrayList<>();
@@ -211,6 +221,8 @@ public final class Launcher {
                 case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(logFormat(value(queue, arg))));
                 case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
                 case "--log-http-json" -> logHttpJson = true;
+                case "--log-http-view" -> logHttpView = value(queue, arg);
+                case "--proto-descriptors" -> protoDescriptors = Path.of(value(queue, arg));
                 case "--shared-pool" -> bootstrap.withSharedServerConnectionPool(true);
                 case "--max-concurrent-per-client" -> {
                     maxConcurrentPerClient = intValue(queue, arg);
@@ -274,17 +286,32 @@ public final class Launcher {
             resources.add(recorder);
             console.println("Recording WARC files in " + warcDir.toAbsolutePath());
         }
-        if (logHttp != null || logHttpJson) {
+        if (logHttp != null || logHttpJson || logHttpView != null || protoDescriptors != null) {
             HttpLogger fromConfig = findHttpLogger(bootstrap.getFiltersSource());
+            boolean views = logHttpView != null || protoDescriptors != null;
             HttpLogger.Level level = logHttp != null ? logHttp
-                    : fromConfig != null ? fromConfig.level() : HttpLogger.Level.HEADERS;
+                    : fromConfig != null ? fromConfig.level()
+                    : views ? HttpLogger.Level.BODY : HttpLogger.Level.HEADERS;
             HttpLogger.Format format = logHttpJson ? HttpLogger.Format.JSON
                     : fromConfig != null ? fromConfig.format() : HttpLogger.Format.TEXT;
+            HttpLogger.Builder logger = HttpLogger.builder().level(level).format(format);
+            ContentViews contentViews = fromConfig != null ? fromConfig.contentViews() : null;
+            if (protoDescriptors != null) {
+                contentViews = ContentViews.defaults().withSchema(ProtoSchema.load(protoDescriptors));
+            }
+            if (contentViews != null) logger.contentViews(contentViews);
+            if (logHttpView != null) {
+                logger.contentView(logHttpView);
+            } else if (fromConfig != null && fromConfig.contentViews() != null) {
+                logger.contentView(fromConfig.contentView());
+            } else if (protoDescriptors != null) {
+                logger.contentView(ContentViews.AUTO);
+            }
             // First among the filters, replacing one from the properties file.
-            bootstrap.withFiltersSource(HttpFiltersChain.of(HttpLogger.builder().level(level).format(format).build(),
-                    withoutHttpLoggers(bootstrap.getFiltersSource())));
+            bootstrap.withFiltersSource(HttpFiltersChain.of(logger.build(), withoutHttpLoggers(bootstrap.getFiltersSource())));
             console.println("Logging requests and responses (" + level.name().toLowerCase(Locale.ROOT)
-                    + (format == HttpLogger.Format.JSON ? ", JSON" : "") + ") to the System.Logger "
+                    + (format == HttpLogger.Format.JSON ? ", JSON" : "")
+                    + (views || contentViews != null ? ", content views" : "") + ") to the System.Logger "
                     + HttpLogger.LOGGER_NAME);
         }
         if (cacheDir != null || cacheMemoryMb > 0) {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.client;
 import static org.microproxy.TestSupport.echo;
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.WebSocketTestSupport.EchoServer;
+import org.microproxy.contentviews.ContentViews;
+import org.microproxy.contentviews.Grpc;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.HttpLogger.Format;
 import org.microproxy.extras.HttpLogger.Level;
@@ -250,6 +253,83 @@ class HttpLoggerTest {
         List<String> response = lines(await(2).get(1));
         assertTrue(response.contains("<1000 bytes of application/octet-stream>"), response.toString());
         assertEquals("<-- END HTTP (1000-byte body)", response.getLast());
+    }
+
+    // --- content views ---------------------------------------------------------------------------
+
+    /** Serves {@code body} as {@code type}, with extra header pairs. */
+    private void serve(String path, String type, byte[] body, String... headers) {
+        origin.createContext(path, exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            exchange.getResponseHeaders().set("Content-Type", type);
+            for (int i = 0; i < headers.length; i += 2) exchange.getResponseHeaders().set(headers[i], headers[i + 1]);
+            exchange.sendResponseHeaders(200, body.length == 0 ? -1 : body.length);
+            if (body.length > 0) exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+    }
+
+    @Test
+    void contentViewsRenderProtobufAndJsonBodies() throws Exception {
+        serve("/proto", "application/x-protobuf", new byte[] {0x08, (byte) 0x96, 0x01, 0x12, 0x05, 'h', 'e', 'l', 'l', 'o'});
+        HttpClient client = start(logger(Level.BODY).contentViews(ContentViews.defaults()).build());
+        get(client, url(origin, "/proto"));
+        List<String> response = lines(await(2).get(1));
+        int blank = response.indexOf("");
+        assertEquals(List.of("1: 150  # !sint: 75", "2: hello", "<-- END HTTP (10-byte body, protobuf view)"),
+                response.subList(blank + 1, response.size()), response.toString());
+
+        out.clear();
+        send(client, HttpRequest.newBuilder(URI.create(url(origin, "/proto"))).timeout(Duration.ofSeconds(20))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{\"a\":[1,2]}")).build());
+        List<String> request = lines(await(2).get(0));
+        blank = request.indexOf("");
+        assertEquals(List.of("{", "  \"a\": [", "    1,", "    2", "  ]", "}", "--> END POST (11-byte body, json view)"),
+                request.subList(blank + 1, request.size()), request.toString());
+    }
+
+    @Test
+    void withoutContentViewsBinaryBodiesStaySummarised() throws Exception {
+        serve("/proto", "application/x-protobuf", new byte[] {0x08, (byte) 0x96, 0x01});
+        HttpClient client = start(logger(Level.BODY).build());
+        get(client, url(origin, "/proto"));
+        List<String> response = lines(await(2).get(1));
+        assertTrue(response.contains("<3 bytes of application/x-protobuf>"), response.toString());
+    }
+
+    @Test
+    void aNamedContentViewRendersEveryBodyItCan() throws Exception {
+        serve("/text", "text/plain", "hi".getBytes(StandardCharsets.UTF_8));
+        HttpClient client = start(logger(Level.BODY).contentView("hex").build());
+        get(client, url(origin, "/text"));
+        List<String> response = lines(await(2).get(1));
+        assertTrue(response.contains("00000000  68 69                                             hi"), response.toString());
+        assertEquals("<-- END HTTP (2-byte body, hex view)", response.getLast());
+        assertThrows(IllegalArgumentException.class, () -> HttpLogger.builder().contentView("nope"));
+    }
+
+    @Test
+    void contentViewsExplainGrpcStatusFieldsAndShowInJson() throws Exception {
+        String details = new Grpc.Status(5, "no such order", List.of()).toTrailer();
+        serve("/grpc", "application/grpc", new byte[0], "grpc-status", "5", "grpc-message", "no%20such%20order",
+                "grpc-status-details-bin", details);
+        HttpClient client = start(logger(Level.HEADERS).contentViews(ContentViews.defaults()).build());
+        get(client, url(origin, "/grpc"));
+        List<String> response = lines(await(2).get(1));
+        assertTrue(response.contains("Grpc-status: 5  # NOT_FOUND"), response.toString());
+        assertTrue(response.contains("Grpc-message: no%20such%20order  # no such order"), response.toString());
+        int at = response.indexOf("Grpc-status-details-bin: " + details);
+        assertEquals(List.of("  code: 5", "  message: no such order"), response.subList(at + 1, at + 3), response.toString());
+
+        out.clear();
+        proxy.abort();
+        serve("/proto", "application/x-protobuf", new byte[] {0x08, 0x01});
+        client = start(logger(Level.BODY).format(Format.JSON).contentViews(ContentViews.defaults()).build());
+        get(client, url(origin, "/proto"));
+        String json = await(2).get(1);
+        assertTrue(json.contains("\"body\":\"1: 1  # !sint: -1\\n\""), json);
+        assertTrue(json.contains("\"body_view\":\"protobuf\""), json);
+        assertTrue(json.contains("\"body_remarks\":\"protobuf view\""), json);
     }
 
     // --- redaction and changes ------------------------------------------------------------------

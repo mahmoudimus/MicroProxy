@@ -43,6 +43,7 @@ import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
 import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.ConcurrencyLimiter;
+import org.microproxy.contentviews.ContentViews;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.http.DefaultHttpRequest;
@@ -116,7 +117,7 @@ class LauncherTest {
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
-                "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
+                "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
@@ -178,7 +179,8 @@ class LauncherTest {
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
         "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
-        "--dnssec-resolver", "--activity-log-format", "--log-http", "--cache-dir", "--cache-size", "--cache-memory",
+        "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-view", "--proto-descriptors",
+        "--cache-dir", "--cache-size", "--cache-memory",
         "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--port", "0", flag));
@@ -552,6 +554,44 @@ class LauncherTest {
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--log-http", "loud"));
         assertEquals("unknown --log-http: loud; expected basic, headers or body", e.getMessage());
+    }
+
+    @Test
+    void logHttpViewRendersBodiesThroughContentViews(@TempDir Path dir) throws IOException {
+        HttpLogger logger = assertInstanceOf(HttpLogger.class, view("--log-http-view", "auto").filtersSource());
+        assertEquals(HttpLogger.Level.BODY, logger.level(), "views alone log bodies");
+        assertEquals(ContentViews.AUTO, logger.contentView());
+        assertNotNull(logger.contentViews());
+        assertTrue(console.toString(StandardCharsets.UTF_8).contains("(body, content views)"));
+
+        logger = assertInstanceOf(HttpLogger.class, view("--log-http", "headers", "--log-http-view", "GRPC").filtersSource());
+        assertEquals(HttpLogger.Level.HEADERS, logger.level());
+        assertEquals("grpc", logger.contentView());
+        assertThrows(IllegalArgumentException.class, () -> parse("--log-http-view", "nope"));
+
+        // A descriptor set turns views on, with its types.
+        Path desc = dir.resolve("types.desc");
+        try (var in = LauncherTest.class.getResourceAsStream("/org/microproxy/contentviews/tiny.desc")) {
+            Files.write(desc, in.readAllBytes());
+        }
+        logger = assertInstanceOf(HttpLogger.class, view("--proto-descriptors", desc.toString()).filtersSource());
+        assertEquals(ContentViews.AUTO, logger.contentView());
+        assertTrue(logger.contentViews().schema().message("shop.Order").isPresent());
+        assertThrows(IOException.class, () -> parse("--proto-descriptors", dir.resolve("missing.desc").toString()));
+
+        // And in a properties file.
+        Path props = dir.resolve("views.properties");
+        Files.writeString(props, "log_http=body\nlog_http_view=msgpack\nproto_descriptors=" + desc.toString().replace("\\", "/")
+                + "\n");
+        logger = assertInstanceOf(HttpLogger.class, view("--config", props.toString()).filtersSource());
+        assertEquals("msgpack", logger.contentView());
+        assertTrue(logger.contentViews().schema().message("shop.Order").isPresent());
+        // A flag keeps the file's views.
+        logger = assertInstanceOf(HttpLogger.class, view("--config", props.toString(), "--log-http", "headers")
+                .filtersSource());
+        assertEquals("msgpack", logger.contentView());
+        Files.writeString(props, "log_http=body\nlog_http_view=nope\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
     }
 
     @Test

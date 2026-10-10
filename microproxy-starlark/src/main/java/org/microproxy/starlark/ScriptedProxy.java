@@ -26,6 +26,7 @@ import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.FullHttpResponse;
@@ -104,6 +105,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private final int maxBodySize;
     private final ChainedProxyManager fallback;
     private final Map<String, Object> constants;
+    private final ProtoSchema protoSchema;
     private final ReentrantLock reloadLock = new ReentrantLock();
     private volatile StarlarkScript script;
     private volatile FileTime loadedModified;
@@ -116,6 +118,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.maxBodySize = b.maxBodySize;
         this.fallback = b.fallback;
         this.constants = b.constants;
+        this.protoSchema = b.protoSchema;
         this.script = script;
         this.loadedModified = modified;
         this.lastCheck = System.nanoTime();
@@ -152,6 +155,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private int maxBodySize = 10 << 20;
         private ChainedProxyManager fallback;
         private Map<String, Object> constants = Map.of();
+        private ProtoSchema protoSchema;
 
         private Builder(Path path, String source, String name) {
             this.path = path;
@@ -227,6 +231,19 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         }
 
         /**
+         * A protobuf schema for the script's {@code protobuf} and {@code grpc} modules: with it,
+         * {@code protobuf.decode(data, type="pkg.Message")} keys fields by name and {@code
+         * protobuf.encode(fields, type="pkg.Message")} takes names.
+         *
+         * @param schema the schema, as from {@link ProtoSchema#load}
+         * @return this builder
+         */
+        public Builder protoSchema(ProtoSchema schema) {
+            this.protoSchema = Objects.requireNonNull(schema);
+            return this;
+        }
+
+        /**
          * Compiles the script and runs its top level.
          *
          * @return a proxy using the compiled script
@@ -236,9 +253,11 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public ScriptedProxy build() throws IOException, ScriptException {
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
-                return new ScriptedProxy(this, StarlarkScript.load(path, limits, constants), modified);
+                return new ScriptedProxy(this,
+                        StarlarkScript.load(path, limits, constants).withProtoSchema(protoSchema), modified);
             }
-            return new ScriptedProxy(this, StarlarkScript.compile(source, name, limits, constants), null);
+            return new ScriptedProxy(this,
+                    StarlarkScript.compile(source, name, limits, constants).withProtoSchema(protoSchema), null);
         }
     }
 
@@ -254,7 +273,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 FileTime modified = Files.getLastModifiedTime(path);
                 if (!modified.equals(loadedModified)) {
                     loadedModified = modified;
-                    script = StarlarkScript.load(path, limits, constants);
+                    script = StarlarkScript.load(path, limits, constants).withProtoSchema(protoSchema);
                     LOG.log(Level.INFO, "reloaded {0}", path);
                 }
             } catch (IOException | ScriptException e) {

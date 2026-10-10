@@ -301,7 +301,20 @@ public final class HttpBodies {
                 || type.equals("application/x-www-form-urlencoded");
     }
 
-    private static byte[] decode(String coding, byte[] data, int max) throws IOException {
+    /**
+     * Removes one content coding from {@code data}, as {@link #decoded(FullHttpMessage, int)} does
+     * for each coding of a message. Also used for gRPC messages, which are compressed one by one
+     * with the coding their {@code grpc-encoding} names.
+     *
+     * @param coding the coding, in lower case: {@code gzip}, {@code x-gzip}, {@code deflate}
+     *     (zlib-wrapped or raw), {@code br}, or {@code zstd} when the module is present
+     * @param data the encoded bytes
+     * @param max the maximum decoded size in bytes
+     * @return the decoded bytes
+     * @throws IOException if the coding is unsupported, the data corrupt, or the result larger
+     *     than {@code max}
+     */
+    public static byte[] decode(String coding, byte[] data, int max) throws IOException {
         return switch (coding) {
             case "gzip", "x-gzip" -> readCapped(new GZIPInputStream(new ByteArrayInputStream(data)), max);
             case "deflate" -> inflate(data, max);
@@ -360,7 +373,16 @@ public final class HttpBodies {
         }
     }
 
-    private static byte[] encode(String coding, byte[] data) throws IOException {
+    /**
+     * Applies one content coding to {@code data}: {@code gzip} (or {@code x-gzip}) or {@code
+     * deflate} (zlib-wrapped), the codings this class can produce.
+     *
+     * @param coding the coding, in lower case
+     * @param data the bytes to encode
+     * @return the encoded bytes
+     * @throws IOException if the coding is not one of those
+     */
+    public static byte[] encode(String coding, byte[] data) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, data.length / 2));
         OutputStream encoder = switch (coding) {
             case "gzip", "x-gzip" -> new GZIPOutputStream(out);
