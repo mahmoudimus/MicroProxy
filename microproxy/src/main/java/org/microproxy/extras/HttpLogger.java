@@ -508,7 +508,7 @@ public final class HttpLogger implements HttpFiltersSource {
             Json j = start("request");
             j.field("method", clientRequest.method).field("url", redactUri(url)).field("version", clientRequest.version);
             if (level != Level.BASIC) {
-                j.headers("headers", redacted(clientRequest.headers));
+                j.raw("headers", headersJson(redacted(clientRequest.headers)));
                 if (sent != null) {
                     Json f = new Json().field("method", sent.method).field("uri", redactUri(sent.uri))
                             .field("version", sent.version);
@@ -596,7 +596,7 @@ public final class HttpLogger implements HttpFiltersSource {
             j.raw("ttfb_ms", t.timeToFirstByte().map(HttpLogger::jsonMillis).orElse("null"));
             j.raw("total_ms", t.total().map(HttpLogger::jsonMillis).orElse("null"));
             if (level != Level.BASIC) {
-                j.headers("headers", redacted(main.headers));
+                j.raw("headers", headersJson(redacted(main.headers)));
                 if (changed != null) {
                     Json d = new Json().field("status", changed.status).field("reason", changed.reason)
                             .field("version", changed.version);
@@ -638,7 +638,7 @@ public final class HttpLogger implements HttpFiltersSource {
             j.field("from", fromClient ? "client" : "server").field("opcode", opcode(frame))
                     .raw("fin", String.valueOf(frame.isFinal())).field("bytes", frame.payloadLength());
             String text = frameTextPayload(frame);
-            j.raw("payload", text == null ? "null" : "\"" + ActivityLogger.json(text) + "\"");
+            j.raw("payload", Json.string(text));
             j.raw("truncated", String.valueOf(frame.isTruncated() || text != null && frame.payloadLength() > maxBodyBytes));
             return j.end();
         }
@@ -687,7 +687,7 @@ public final class HttpLogger implements HttpFiltersSource {
         }
 
         private void diffJson(Json j, Diff diff) {
-            j.headers("removed", redacted(diff.removed)).headers("added", redacted(diff.added));
+            j.raw("removed", headersJson(redacted(diff.removed))).raw("added", headersJson(redacted(diff.added)));
         }
 
         private void bodyText(StringBuilder sb, BodyView body) {
@@ -710,7 +710,7 @@ public final class HttpLogger implements HttpFiltersSource {
             }
             j.field("body_bytes", body.bytes);
             if (body.bytes == 0) return;
-            j.raw("body", body.text == null ? "null" : "\"" + ActivityLogger.json(body.text) + "\"");
+            j.raw("body", Json.string(body.text));
             if (body.text == null) j.field("body_note", body.placeholder);
             if (!body.remarks.isEmpty()) j.field("body_remarks", String.join(", ", body.remarks));
         }
@@ -907,37 +907,11 @@ public final class HttpLogger implements HttpFiltersSource {
         return String.format(Locale.ROOT, "%.3f", d.toNanos() / 1_000_000.0);
     }
 
-    /** A JSON object written field by field. */
-    private static final class Json {
-        private final StringBuilder sb = new StringBuilder("{");
-
-        Json field(String name, String value) {
-            return raw(name, "\"" + ActivityLogger.json(value) + "\"");
-        }
-
-        Json field(String name, long value) {
-            return raw(name, String.valueOf(value));
-        }
-
-        Json headers(String name, List<Header> headers) {
-            StringBuilder a = new StringBuilder("[");
-            for (Header h : headers) {
-                if (a.length() > 1) a.append(',');
-                a.append("[\"").append(ActivityLogger.json(h.name)).append("\",\"")
-                        .append(ActivityLogger.json(h.value)).append("\"]");
-            }
-            return raw(name, a.append(']').toString());
-        }
-
-        Json raw(String name, String json) {
-            if (sb.length() > 1) sb.append(',');
-            sb.append('"').append(name).append("\":").append(json);
-            return this;
-        }
-
-        String end() {
-            return sb + "}";
-        }
+    /** The headers as a JSON array of {@code [name, value]} pairs. */
+    private static String headersJson(List<Header> headers) {
+        List<String> pairs = new ArrayList<>(headers.size());
+        for (Header h : headers) pairs.add("[" + Json.string(h.name) + "," + Json.string(h.value) + "]");
+        return Json.array(pairs);
     }
 
     /** Configures an {@link HttpLogger}. */
