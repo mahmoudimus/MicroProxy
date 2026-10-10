@@ -185,7 +185,24 @@ class ProtoModulesTest {
         assertTrue(e.getMessage().contains("ProtoFixed"), e.getMessage());
     }
 
-    /** A script that rewrites a gRPC response's messages, through the proxy. */
+    /** The README's example. */
+    static final String GRPC_REWRITE = """
+            def buffer_response(req, res, ctx):
+                return res.headers.get("content-type", "").startswith("application/grpc")
+
+            def on_response(req, res, ctx):
+                if res.body == None:
+                    return None
+                encoding = res.headers.get("grpc-encoding")
+                messages = grpc.decode(res.body, encoding=encoding)
+                for m in messages:
+                    m[1] = m[1].upper()
+                    m[2] = m[2] + 41
+                res.body = grpc.encode(messages, encoding=encoding)
+                return None
+            """;
+
+    /** A script that rewrites a gRPC response's messages, through the proxy: the README's example. */
     @Test
     void onResponseRewritesGrpcMessages() throws Exception {
         byte[] body = Grpc.join(List.of(Protobuf.encode(Map.of(1, "hello", 2, 1L))), "gzip");
@@ -197,21 +214,7 @@ class ProtoModulesTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
-        ScriptedProxy script = ScriptedProxy.builder("""
-                def buffer_response(req, res, ctx):
-                    return res.headers.get("content-type", "").startswith("application/grpc")
-
-                def on_response(req, res, ctx):
-                    if res.body == None:
-                        return None
-                    encoding = res.headers.get("grpc-encoding")
-                    messages = grpc.decode(res.body, encoding=encoding)
-                    for m in messages:
-                        m[1] = m[1].upper()
-                        m[2] = m[2] + 41
-                    res.body = grpc.encode(messages, encoding=encoding)
-                    return None
-                """, "grpc.star").build();
+        ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inReadme(GRPC_REWRITE), "grpc.star").build();
         proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(script).start();
         HttpResponse<byte[]> response = client(proxy).send(HttpRequest.newBuilder(URI.create(url(origin, "/pkg.Svc/Get")))
                         .timeout(Duration.ofSeconds(20)).POST(HttpRequest.BodyPublishers.ofByteArray(Grpc.join(List.of())))
