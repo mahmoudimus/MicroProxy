@@ -35,6 +35,7 @@ import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 
 /**
@@ -49,6 +50,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final DefaultHttpProxyServerBootstrap config;
     final String name;
     final boolean transparent;
+    /** The port transparent TLS connections go to, on the host their SNI names. */
+    final int transparentTlsPort;
+    /** Which TLS connections are intercepted by host name; null when every one may be. */
+    final HostRules hostRules;
+    /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
+    final ReverseProxyMode reverseProxy;
+    final boolean keepHostHeader;
     final SslContextSource sslContextSource;
     final boolean authenticateSslClients;
     final ProxyAuthenticator proxyAuthenticator;
@@ -120,6 +128,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.config = b;
         this.name = b.name;
         this.transparent = b.transparent;
+        this.transparentTlsPort = b.transparentTlsPort;
+        this.hostRules = HostRules.of(b.ignoreHosts, b.allowHosts);
+        this.reverseProxy = b.reverseProxy;
+        this.keepHostHeader = b.keepHostHeader;
         this.sslContextSource = b.sslContextSource;
         this.authenticateSslClients = b.authenticateSslClients;
         this.proxyAuthenticator = b.proxyAuthenticator;
