@@ -58,6 +58,19 @@ class GrpcTest {
         assertEquals("# deflate-compressed, 5 bytes\n1: 150  # !sint: 75\n", VIEW.render(TEST_DEFLATE, grpc("deflate")));
     }
 
+    /** A zstd frame with one raw block, written by hand: there is no zstd encoder in the JDK. */
+    @Test
+    void zstdCompressedMessage() throws DecodeException {
+        byte[] zstd = bytes(0x28, 0xb5, 0x2f, 0xfd, 0x20, 0x03, 0x19, 0x00, 0x00, 8, 150, 1);
+        assertArrayEquals(bytes(8, 150, 1), Grpc.decompress(zstd, "zstd", 100));
+        byte[] body = new byte[5 + zstd.length];
+        body[0] = 1;
+        body[4] = (byte) zstd.length;
+        System.arraycopy(zstd, 0, body, 5, zstd.length);
+        assertEquals("# zstd-compressed, 12 bytes\n1: 150  # !sint: 75\n", VIEW.render(body, grpc("zstd")));
+        assertThrows(DecodeException.class, () -> Grpc.decompress(zstd, "zstd", 2));
+    }
+
     @Test
     void compressionRoundTrips() throws DecodeException {
         List<byte[]> messages = List.of("one".getBytes(StandardCharsets.UTF_8), new byte[0], bytes(8, 1));
