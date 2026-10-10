@@ -20,7 +20,7 @@ import java.util.Objects;
  * Http3FramePipeline pipeline = Http3FramePipeline.builder(interceptor)
  *         .direction(FrameDirection.FROM_CLIENT)   // whose frames these are
  *         .build();
- * pipeline.controlStream(clientControlIn, controlOut);       // stream type, SETTINGS, ...
+ * pipeline.controlStream(2, clientControlIn, controlOut);    // stream type, SETTINGS, ...
  * pipeline.encoderStream(clientQpackEncoderIn);              // only if the client's QPACK uses a dynamic table
  * pipeline.requestStream(0, requestStreamIn, requestOut);    // HEADERS, DATA, trailers
  * }</pre>
