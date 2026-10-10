@@ -20,7 +20,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * query} are derived from the request target and the {@code Host} header. For {@code CONNECT},
  * {@code url} is the {@code host:port} authority and {@code scheme} is empty. {@code http_version}
  * is the HTTP version the client used: {@code "HTTP/1.1"}, {@code "HTTP/1.0"} or {@code "HTTP/2"}
- * (requests reach servers as HTTP/1.1 either way).
+ * (requests reach servers as HTTP/1.1 either way). Assigning an absolute {@code uri} in {@code
+ * on_request} sends the request to that URI's server, with a {@code Host} header to match, also
+ * from inside an intercepted session (over TLS for {@code https://}).
  */
 @StarlarkBuiltin(name = "request", doc = "An HTTP request.")
 public final class ScriptRequest extends ScriptMessage {
