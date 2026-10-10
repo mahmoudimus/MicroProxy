@@ -30,6 +30,8 @@ import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.SslContextSource;
 import org.microproxy.cache.DiskCacheStore;
+import org.microproxy.contentviews.ContentViews;
+import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.dns.DnssecHostResolver;
@@ -280,16 +282,29 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("log_http")) {
             String level = p.getProperty("log_http").strip();
             String format = p.getProperty("log_http_format", "text").strip();
-            HttpLogger logger;
+            HttpLogger.Builder builder;
             try {
-                logger = HttpLogger.builder()
+                builder = HttpLogger.builder()
                         .level(HttpLogger.Level.valueOf(level.toUpperCase(Locale.ROOT)))
-                        .format(HttpLogger.Format.valueOf(format.toUpperCase(Locale.ROOT)))
-                        .build();
+                        .format(HttpLogger.Format.valueOf(format.toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("unknown log_http=" + level + " or log_http_format=" + format
                         + "; expected basic, headers or body, and text or json");
             }
+            if (p.containsKey("proto_descriptors")) {
+                Path descriptors = Path.of(p.getProperty("proto_descriptors").strip());
+                try {
+                    builder.contentViews(ContentViews.defaults().withSchema(ProtoSchema.load(descriptors)));
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("proto_descriptors=" + descriptors + ": " + e.getMessage(), e);
+                }
+            }
+            if (p.containsKey("log_http_view")) {
+                builder.contentView(p.getProperty("log_http_view").strip());
+            } else if (p.containsKey("proto_descriptors")) {
+                builder.contentView(ContentViews.AUTO);
+            }
+            HttpLogger logger = builder.build();
             // First among the filters, so it sees requests as clients sent them.
             withFiltersSource(HttpFiltersChain.of(logger, filtersSource));
         }
