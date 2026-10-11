@@ -7,6 +7,7 @@ import io.github.mahmoudimus.quic.connection.StreamId;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -156,6 +157,44 @@ public final class QuicStream implements Closeable {
             driver.lock.unlock();
         }
         driver.wake();
+    }
+
+    /**
+     * Waits until the peer asks this side to stop sending (STOP_SENDING), which otherwise shows only
+     * when a write fails: for a relay that passes the request on while it is not writing.
+     *
+     * @return the peer's error code, or -1 once the peer can no longer stop the stream: the output
+     *     was finished or reset here, or the connection is gone
+     * @throws InterruptedIOException if interrupted while waiting
+     * @throws IllegalStateException for a unidirectional stream the peer opened
+     */
+    public long awaitStopped() throws InterruptedIOException {
+        if (output == null) {
+            throw new IllegalStateException("receive-only stream " + id);
+        }
+        driver.lock.lock();
+        try {
+            while (true) {
+                if (driver.lostReason() != null) {
+                    return -1;
+                }
+                long code;
+                try {
+                    code = conn.stopped(id);
+                } catch (StreamException e) {
+                    return -1; // the send side is gone
+                }
+                if (code >= 0) {
+                    return code;
+                }
+                if (output.closed) {
+                    return -1;
+                }
+                connection.await();
+            }
+        } finally {
+            driver.lock.unlock();
+        }
     }
 
     /**

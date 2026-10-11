@@ -28,6 +28,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * is guarded by a lock that is only held while routing; lock order is connection, then endpoint.
  * A server may have a {@link QuicServer.DatagramFilter}, which sees the datagrams no connection
  * claims before the endpoint does, and hands back those it wants routed ({@link #inject}).
+ *
+ * <p>An unbound endpoint has no socket: its owner hands it the datagrams it receives ({@link
+ * #receive}), and it hands those it sends to a {@link QuicServer.DatagramSink}, so that QUIC can
+ * run over another transport, such as the datagrams of a CONNECT-UDP flow.
  */
 final class EndpointDriver implements AutoCloseable {
 
@@ -37,12 +41,16 @@ final class EndpointDriver implements AutoCloseable {
     private static final long CLOSE_FLUSH_NANOS = TimeUnit.MILLISECONDS.toNanos(300);
 
     final NanoClock clock = NanoClock.system();
+    /** The socket; null for an unbound endpoint. */
     private final DatagramChannel channel;
+    /** Where an unbound endpoint's datagrams go; null for one with a socket. */
+    private final QuicServer.DatagramSink sink;
     private final Endpoint endpoint;
     private final ReentrantLock endpointLock = new ReentrantLock();
     private final ConcurrentHashMap<Connection, ConnectionDriver> drivers = new ConcurrentHashMap<>();
     private final LinkedBlockingQueue<Object> accepted;
     private final InetSocketAddress localAddress;
+    /** Receives from the socket; null for an unbound endpoint. */
     private final Thread receiver;
     private final String name;
     /** Sees datagrams for no known connection first; null for none. */
@@ -60,6 +68,7 @@ final class EndpointDriver implements AutoCloseable {
             QuicServer.DatagramFilter filter) throws IOException {
         this.name = name;
         this.filter = filter;
+        this.sink = null;
         DatagramChannel ch = bind.getAddress() != null && bind.getAddress() instanceof java.net.Inet6Address
                 ? DatagramChannel.open(StandardProtocolFamily.INET6)
                 : DatagramChannel.open(StandardProtocolFamily.INET);
@@ -78,6 +87,23 @@ final class EndpointDriver implements AutoCloseable {
         this.accepted = serverConfig != null ? new LinkedBlockingQueue<>() : null;
         this.receiver = Thread.ofVirtual().name(name + "-recv-" + localAddress.getPort()).unstarted(this::receiveLoop);
         receiver.start();
+    }
+
+    /**
+     * An unbound endpoint: no socket and no receiving thread; {@link #receive} takes the datagrams
+     * it gets, and {@code sink} the datagrams it sends. Path MTU discovery stays off, since the
+     * transport underneath is unknown.
+     */
+    EndpointDriver(InetSocketAddress local, EndpointConfig config, ServerConfig serverConfig, String name,
+            QuicServer.DatagramFilter filter, QuicServer.DatagramSink sink) {
+        this.name = name;
+        this.filter = filter;
+        this.sink = sink;
+        this.channel = null;
+        this.receiver = null;
+        this.localAddress = local;
+        this.endpoint = new Endpoint(config, serverConfig, false);
+        this.accepted = serverConfig != null ? new LinkedBlockingQueue<>() : null;
     }
 
     /** Sets IP_DONTFRAGMENT, which path MTU discovery needs; false where the runtime lacks it. */
@@ -123,12 +149,22 @@ final class EndpointDriver implements AutoCloseable {
             }
             buf.flip();
             // Each datagram gets its own buffer: connections keep views of received data
-            ByteBuffer datagram = ByteBuffer.allocate(buf.remaining()).put(buf).flip();
-            if (filter != null && !knows(from, datagram) && filtered(from, datagram)) {
-                continue;
-            }
-            route(from, datagram);
+            receive(from, ByteBuffer.allocate(buf.remaining()).put(buf).flip());
         }
+    }
+
+    /**
+     * Takes a received datagram: to the connection it belongs to, else past the filter to the
+     * endpoint. The datagram's buffer becomes the endpoint's. Any thread may call it.
+     */
+    void receive(InetSocketAddress from, ByteBuffer datagram) {
+        if (closed) {
+            return;
+        }
+        if (filter != null && !knows(from, datagram) && filtered(from, datagram)) {
+            return;
+        }
+        route(from, datagram, null);
     }
 
     /** Whether the endpoint routes {@code datagram} to one of its connections. */
@@ -155,19 +191,20 @@ final class EndpointDriver implements AutoCloseable {
      * Routes a datagram as if it had just been received, past the filter: for datagrams the filter
      * held back. Any thread may call it.
      */
-    void inject(InetSocketAddress from, ByteBuffer datagram) {
+    void inject(InetSocketAddress from, ByteBuffer datagram, ServerConfig accept) {
         if (!closed) {
-            route(from, datagram);
+            route(from, datagram, accept);
         }
     }
 
-    private void route(InetSocketAddress from, ByteBuffer datagram) {
+    /** Routes a datagram; a connection it starts is accepted with {@code accept}, or the endpoint's configuration. */
+    private void route(InetSocketAddress from, ByteBuffer datagram, ServerConfig accept) {
         long now = clock.nanoTime();
         Endpoint.DatagramEvent event;
         ConnectionDriver created = null;
         endpointLock.lock();
         try {
-            event = endpoint.handle(now, from, 0, datagram.duplicate());
+            event = endpoint.handle(now, from, 0, datagram.duplicate(), accept);
             if (event instanceof Endpoint.DatagramEvent.NewConnection n) {
                 created = new ConnectionDriver(this, n.connection(), true);
                 drivers.put(n.connection(), created);
@@ -196,6 +233,17 @@ final class EndpointDriver implements AutoCloseable {
 
     /** Sends a datagram; DatagramChannel serializes concurrent senders itself. */
     void send(ByteBuffer datagram, InetSocketAddress to) {
+        if (sink != null) {
+            if (closed) {
+                return;
+            }
+            try {
+                sink.send(datagram, to);
+            } catch (RuntimeException e) {
+                LOG.log(System.Logger.Level.DEBUG, "the datagram sink failed", e);
+            }
+            return;
+        }
         try {
             channel.send(datagram, to);
         } catch (ClosedChannelException e) {
@@ -320,15 +368,17 @@ final class EndpointDriver implements AutoCloseable {
         for (ConnectionDriver d : all) {
             d.join(deadline + CLOSE_FLUSH_NANOS);
         }
-        try {
-            channel.close();
-        } catch (IOException e) {
-            LOG.log(System.Logger.Level.DEBUG, "close failed", e);
-        }
-        try {
-            receiver.join(TimeUnit.NANOSECONDS.toMillis(CLOSE_FLUSH_NANOS) + 1);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        if (channel != null) {
+            try {
+                channel.close();
+            } catch (IOException e) {
+                LOG.log(System.Logger.Level.DEBUG, "close failed", e);
+            }
+            try {
+                receiver.join(TimeUnit.NANOSECONDS.toMillis(CLOSE_FLUSH_NANOS) + 1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         if (accepted != null) {
             accepted.add(CLOSED);

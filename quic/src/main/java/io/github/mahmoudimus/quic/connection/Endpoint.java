@@ -131,6 +131,23 @@ public final class Endpoint {
      * @return what to do with it, or null to drop it
      */
     public DatagramEvent handle(long now, InetSocketAddress remote, int ecn, ByteBuffer datagram) {
+        return handle(now, remote, ecn, datagram, null);
+    }
+
+    /**
+     * Routes a datagram, accepting a connection it starts with {@code accept} instead of the
+     * endpoint's server configuration: for a server whose connections differ, such as a proxy
+     * that offers each client the protocols and transport parameters of the server it reaches.
+     *
+     * @param now the current time
+     * @param remote the sender
+     * @param ecn the ECN codepoint
+     * @param datagram the datagram, between its position and limit; not modified
+     * @param accept how to accept a connection the datagram starts, or null for the endpoint's
+     *     own configuration
+     * @return what to do with it, or null to drop it
+     */
+    public DatagramEvent handle(long now, InetSocketAddress remote, int ecn, ByteBuffer datagram, ServerConfig accept) {
         int length = datagram.remaining();
         ProtectedPacket first;
         try {
@@ -150,7 +167,7 @@ public final class Endpoint {
             return new DatagramEvent.Deliver(c);
         }
         if (first.type() == PacketType.INITIAL) {
-            return handleFirstPacket(now, remote, length, datagram, first);
+            return handleFirstPacket(now, remote, length, datagram, first, accept != null ? accept : serverConfig);
         }
         if (first.type().isLongHeader()) {
             return null; // a non-Initial packet for an unknown connection
@@ -225,7 +242,7 @@ public final class Endpoint {
     }
 
     private DatagramEvent handleFirstPacket(long now, InetSocketAddress remote, int length, ByteBuffer datagram,
-            ProtectedPacket first) {
+            ProtectedPacket first, ServerConfig accept) {
         if (serverConfig == null || length < Connection.MIN_INITIAL_SIZE) {
             return null;
         }
@@ -254,7 +271,7 @@ public final class Endpoint {
         } catch (PacketDecodeException | QuicException | RuntimeException e) {
             return null;
         }
-        if (connections.size() >= serverConfig.maxConnections) {
+        if (connections.size() >= accept.maxConnections) {
             return new DatagramEvent.Response(initialClose(version, keys, scid, QuicException.CONNECTION_REFUSED,
                     "server busy"));
         }
@@ -264,11 +281,11 @@ public final class Endpoint {
         } catch (QuicException e) {
             return new DatagramEvent.Response(initialClose(version, keys, scid, QuicException.INVALID_TOKEN, ""));
         }
-        if (serverConfig.retry && !incoming.validated()) {
+        if (accept.retry && !incoming.validated()) {
             return new DatagramEvent.Response(retry(version, remote, dcid, scid));
         }
         ConnectionId localCid = newCid();
-        Connection conn = Connection.server(now, serverConfig, config, remote, version, dcid, scid, localCid,
+        Connection conn = Connection.server(now, accept, config, remote, version, dcid, scid, localCid,
                 incoming.originalDestinationId(), incoming.retrySourceId(), incoming.validated(), token, allowMtud,
                 random.split());
         Routes routes = register(conn, localCid, remote);
