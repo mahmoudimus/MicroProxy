@@ -119,6 +119,8 @@ public final class Recovery {
     /** Ack-eliciting packets in flight. */
     private long inFlightAckEliciting;
     private int ptoCount;
+    /** Probe timeouts so far, which {@link #ptoCount} forgets on every acknowledgment. */
+    private long probeTimeoutCount;
     private boolean appLimited;
     private boolean handshakeConfirmed;
     private boolean closed;
@@ -678,6 +680,7 @@ public final class Recovery {
         PacketSpace space = space(pto.space());
         space.lossProbes = (int) Math.min((long) space.lossProbes + count, Integer.MAX_VALUE);
         ptoCount = ptoCount == Integer.MAX_VALUE ? ptoCount : ptoCount + 1;
+        probeTimeoutCount++;
         setLossDetectionTimer(now);
     }
 
@@ -965,6 +968,33 @@ public final class Recovery {
      */
     public long sentPackets() {
         return sentPacketCount;
+    }
+
+    /**
+     * Bytes of datagrams sent, as UDP payloads.
+     *
+     * @return the count
+     */
+    public long sentBytes() {
+        return totalSent;
+    }
+
+    /**
+     * Bytes of datagrams received, as UDP payloads (those from the peer's address).
+     *
+     * @return the count
+     */
+    public long receivedBytes() {
+        return totalReceived;
+    }
+
+    /**
+     * Probe timeouts so far: unlike {@link #ptoCount()}, never reset.
+     *
+     * @return the count
+     */
+    public long probeTimeouts() {
+        return probeTimeoutCount;
     }
 
     /**

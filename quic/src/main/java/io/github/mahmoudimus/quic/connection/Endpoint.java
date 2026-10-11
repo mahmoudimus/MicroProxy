@@ -105,6 +105,10 @@ public final class Endpoint {
     private final Map<ResetKey, Connection> resetTokens = new HashMap<>();
     private final Map<Connection, Routes> connections = new LinkedHashMap<>();
     private long lastStatelessReset = NanoClock.NONE;
+    private long versionNegotiationsSent;
+    private long retriesSent;
+    private long statelessResetsSent;
+    private long connectionsRefused;
 
     /**
      * An endpoint.
@@ -231,6 +235,7 @@ public final class Endpoint {
     }
 
     private ByteBuffer versionNegotiation(int clientVersion, byte[] dcid, byte[] scid) {
+        versionNegotiationsSent++;
         int grease = clientVersion == 0x0a1a2a3a ? 0x0a1a2a4a : 0x0a1a2a3a;
         int[] versions = new int[config.supportedVersions.size() + 1];
         versions[0] = grease;
@@ -296,6 +301,7 @@ public final class Endpoint {
     }
 
     private ByteBuffer retry(QuicVersion version, InetSocketAddress remote, ConnectionId dcid, ConnectionId scid) {
+        retriesSent++;
         // The client's next Initial is addressed to this ID; it is looked up only through the token
         ConnectionId retryCid = config.cidLength() >= 8 ? config.cidGenerator.generateCid()
                 : ConnectionId.random(secureRandom, 8);
@@ -307,6 +313,7 @@ public final class Endpoint {
     }
 
     private ByteBuffer initialClose(QuicVersion version, Keys keys, ConnectionId clientScid, long code, String reason) {
+        connectionsRefused++;
         ByteBuffer buf = ByteBuffer.allocate(Connection.MIN_INITIAL_SIZE);
         PacketBuilder builder = new PacketBuilder(buf, Connection.MIN_INITIAL_SIZE);
         ConnectionId localCid = ConnectionId.random(secureRandom, Math.max(config.cidLength(), 8));
@@ -329,11 +336,49 @@ public final class Endpoint {
         int idealMin = MIN_RESET_PADDING + ConnectionId.MAX_LENGTH;
         int padding = maxPadding <= idealMin ? maxPadding : random.nextInt(idealMin, maxPadding);
         lastStatelessReset = now;
+        statelessResetsSent++;
         byte[] out = new byte[padding + StatelessResetToken.LENGTH];
         secureRandom.nextBytes(out);
         out[0] = (byte) (0x40 | ((out[0] & 0xff) >>> 2));
         StatelessResetToken.derive(config.resetKey, dcid).writeTo(ByteBuffer.wrap(out, padding, StatelessResetToken.LENGTH));
         return ByteBuffer.wrap(out);
+    }
+
+    /**
+     * Version Negotiation packets sent, to clients that offered no version this endpoint supports.
+     *
+     * @return the count
+     */
+    public long versionNegotiationsSent() {
+        return versionNegotiationsSent;
+    }
+
+    /**
+     * Retry packets sent, to validate clients' addresses.
+     *
+     * @return the count
+     */
+    public long retriesSent() {
+        return retriesSent;
+    }
+
+    /**
+     * Stateless resets sent, for packets of connections this endpoint does not know.
+     *
+     * @return the count
+     */
+    public long statelessResetsSent() {
+        return statelessResetsSent;
+    }
+
+    /**
+     * Connections refused before they started, with CONNECTION_CLOSE in an Initial packet (server
+     * busy, an invalid token or connection ID).
+     *
+     * @return the count
+     */
+    public long connectionsRefused() {
+        return connectionsRefused;
     }
 
     /**

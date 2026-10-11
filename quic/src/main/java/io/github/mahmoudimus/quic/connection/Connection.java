@@ -188,6 +188,12 @@ public final class Connection {
     private final boolean spinEnabled;
     private boolean spin;
     private long totalAuthedPackets;
+    /** Datagrams that came from an address other than the peer's, and were dropped. */
+    private long peerAddressChanges;
+    /** PATH_CHALLENGE frames answered. */
+    private long pathChallenges;
+    /** Whether 0-RTT was attempted and not accepted: a client's rejected by the server, or a server's refused. */
+    private boolean zeroRttRefused;
     private boolean receivingEcn;
     private StatelessResetToken peerResetToken;
     private long pathResponse;
@@ -410,6 +416,7 @@ public final class Connection {
             return;
         }
         if (!remote.equals(from)) {
+            peerAddressChanges++;
             return; // no migration: a client never follows, and the server forbids it
         }
         boolean wasBlocked = recovery.antiAmplificationBlocked(1);
@@ -465,6 +472,8 @@ public final class Connection {
             case ZERO_RTT -> {
                 if (side.isServer() && zeroRttKeys != null) {
                     handleZeroRtt(now, p, ecn);
+                } else if (side.isServer() && !zeroRttAccepted) {
+                    zeroRttRefused = true;
                 }
                 return;
             }
@@ -820,6 +829,7 @@ public final class Connection {
                 case Frame.ApplicationClose c -> close = new ConnectionError(ConnectionError.Kind.APPLICATION_CLOSED,
                         c.errorCode(), 0, c.reasonPhrase());
                 case Frame.PathChallenge c -> {
+                    pathChallenges++;
                     pathResponse = c.data();
                     pathResponsePending = true;
                 }
@@ -1033,6 +1043,7 @@ public final class Connection {
      * control frames again, and send the stream data again in 1-RTT if it fits the server's limits.
      */
     private void zeroRttRejected(long now, TransportParameters params) {
+        zeroRttRefused = true;
         Retransmits pending = recovery.space(SpaceId.DATA).pending();
         for (SentPacket p : recovery.discardZeroRttPackets(now)) {
             if (p.retransmits() != null) {
@@ -2243,6 +2254,45 @@ public final class Connection {
      */
     public long congestionWindow() {
         return recovery.congestion().window();
+    }
+
+    /**
+     * Packets received and authenticated.
+     *
+     * @return the count
+     */
+    public long receivedPackets() {
+        return totalAuthedPackets;
+    }
+
+    /**
+     * Datagrams that came from an address other than the peer's: a NAT rebinding or a migration
+     * attempt, which this connection does not follow, so they were dropped.
+     *
+     * @return the count
+     */
+    public long peerAddressChanges() {
+        return peerAddressChanges;
+    }
+
+    /**
+     * PATH_CHALLENGE frames the peer sent, each answered with PATH_RESPONSE: the peer's path
+     * validations.
+     *
+     * @return the count
+     */
+    public long pathChallengesReceived() {
+        return pathChallenges;
+    }
+
+    /**
+     * Whether 0-RTT was attempted and not accepted: on a client, the server rejected it; on a
+     * server, the client sent 0-RTT packets that it did not accept.
+     *
+     * @return true if 0-RTT was rejected
+     */
+    public boolean zeroRttRejected() {
+        return zeroRttRefused;
     }
 
     /**

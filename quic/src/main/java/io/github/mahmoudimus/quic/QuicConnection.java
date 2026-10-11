@@ -476,29 +476,117 @@ public final class QuicConnection implements AutoCloseable {
     }
 
     /**
-     * A snapshot of the connection's statistics.
+     * A snapshot of the connection's statistics. The connection keeps them as plain fields that
+     * its own thread updates, so taking a snapshot costs a hold of the connection's lock and
+     * nothing else does.
      *
      * @return the statistics
      */
     public Stats stats() {
-        return withLock(() -> new Stats(Duration.ofNanos(conn.rtt()), conn.congestionWindow(), conn.currentMtu(),
-                conn.recovery().sentPackets(), conn.recovery().lostPackets(), conn.keyUpdates(),
-                driver.droppedDatagrams()));
+        return withLock(() -> stats(conn, driver.droppedDatagrams()));
+    }
+
+    /** The statistics of {@code conn}, which the caller has to itself. */
+    static Stats stats(Connection conn, long droppedDatagrams) {
+        io.github.mahmoudimus.quic.connection.Recovery r = conn.recovery();
+        io.github.mahmoudimus.quic.congestion.RttEstimator rtt = r.rtt();
+        return new Stats(Duration.ofNanos(rtt.get()), Duration.ofNanos(rtt.hasSample() ? rtt.min() : 0),
+                Duration.ofNanos(rtt.hasSample() ? rtt.variance() : 0), conn.congestionWindow(), r.bytesInFlight(),
+                conn.currentMtu(), r.sentPackets(), r.sentBytes(), conn.receivedPackets(), r.receivedBytes(),
+                r.lostPackets(), r.lostBytes(), r.probeTimeouts(), r.congestionEvents(), conn.keyUpdates(), 0,
+                conn.peerAddressChanges(), conn.pathChallengesReceived(), conn.earlyDataAccepted(),
+                conn.zeroRttRejected(), controllerName(r), droppedDatagrams);
+    }
+
+    private static String controllerName(io.github.mahmoudimus.quic.connection.Recovery r) {
+        return switch (r.congestion()) {
+            case io.github.mahmoudimus.quic.congestion.Cubic c -> "cubic";
+            case io.github.mahmoudimus.quic.congestion.NewReno n -> "new_reno";
+            case io.github.mahmoudimus.quic.congestion.Bbr b -> "bbr";
+            default -> "other";
+        };
     }
 
     /**
      * Connection statistics.
      *
-     * @param rtt the smoothed round-trip time
+     * @param rtt the smoothed round-trip time (the initial estimate before a sample)
+     * @param minRtt the smallest round-trip time sampled, or zero before a sample
+     * @param rttVariance the round-trip time's variation, or zero before a sample
      * @param congestionWindow the congestion window, in bytes
+     * @param bytesInFlight bytes sent and neither acknowledged nor deemed lost
      * @param mtu the current path MTU
      * @param sentPackets packets sent
+     * @param sentBytes bytes of datagrams sent (UDP payloads)
+     * @param receivedPackets packets received and authenticated
+     * @param receivedBytes bytes of datagrams received from the peer (UDP payloads)
      * @param lostPackets packets deemed lost
+     * @param lostBytes bytes of packets deemed lost
+     * @param probeTimeouts probe timeouts (PTO) that fired
+     * @param congestionEvents congestion events, from loss or ECN
      * @param keyUpdates key updates, by either side
+     * @param migrations connection migrations followed: always 0, since this implementation
+     *     neither migrates nor follows a peer that does
+     * @param peerAddressChanges datagrams from an address other than the peer's (a NAT rebinding,
+     *     or a migration attempt), which were dropped
+     * @param pathValidations PATH_CHALLENGE frames from the peer, each answered
+     * @param zeroRttAccepted whether the server accepted 0-RTT data
+     * @param zeroRttRejected whether 0-RTT was attempted and not accepted
+     * @param congestionController the congestion controller: {@code cubic}, {@code new_reno},
+     *     {@code bbr}, or {@code other} for one of the application's
      * @param droppedDatagrams datagrams dropped because the connection fell behind
      */
-    public record Stats(Duration rtt, long congestionWindow, int mtu, long sentPackets, long lostPackets,
-            long keyUpdates, long droppedDatagrams) {}
+    public record Stats(Duration rtt, Duration minRtt, Duration rttVariance, long congestionWindow, long bytesInFlight,
+            int mtu, long sentPackets, long sentBytes, long receivedPackets, long receivedBytes, long lostPackets,
+            long lostBytes, long probeTimeouts, long congestionEvents, long keyUpdates, long migrations,
+            long peerAddressChanges, long pathValidations, boolean zeroRttAccepted, boolean zeroRttRejected,
+            String congestionController, long droppedDatagrams) {
+
+        /**
+         * The statistics of a sans-I/O connection that the caller drives itself, and which no other
+         * thread uses meanwhile; {@link #droppedDatagrams()} is 0.
+         *
+         * @param connection the connection
+         * @return its statistics
+         */
+        public static Stats of(Connection connection) {
+            return stats(Objects.requireNonNull(connection, "connection"), 0);
+        }
+    }
+
+    /**
+     * Learns of an endpoint's connections as they open, complete their handshakes and close, for
+     * statistics: set with {@link QuicServer#observe} or {@link QuicClient#observe}. Its methods run
+     * on the connection's own thread, never with the connection's lock held, and must not block;
+     * an exception they throw is logged and otherwise ignored.
+     */
+    public interface Observer {
+
+        /**
+         * A connection started: a client's, or one a server is accepting (before its handshake).
+         *
+         * @param connection the connection
+         */
+        default void opened(QuicConnection connection) {}
+
+        /**
+         * A connection's handshake completed.
+         *
+         * @param connection the connection
+         * @param elapsed how long since the connection started
+         */
+        default void handshakeCompleted(QuicConnection connection, Duration elapsed) {}
+
+        /**
+         * A connection {@linkplain #opened opened} has ended, for any reason.
+         *
+         * @param connection the connection
+         * @param stats its statistics at the end
+         * @param reason why it ended
+         * @param handshakeCompleted whether its handshake had completed
+         */
+        default void closed(QuicConnection connection, Stats stats, ConnectionError reason, boolean handshakeCompleted) {}
+    }
 
     <T> T withLock(java.util.function.Supplier<T> s) {
         driver.lock.lock();

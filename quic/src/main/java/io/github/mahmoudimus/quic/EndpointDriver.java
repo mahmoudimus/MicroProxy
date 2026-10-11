@@ -57,6 +57,8 @@ final class EndpointDriver implements AutoCloseable {
     /** Sees datagrams for no known connection first; null for none. */
     private final QuicServer.DatagramFilter filter;
     private volatile boolean closed;
+    /** Learns of connections as they open and close; null for none. Each connection keeps the one set when it started. */
+    private volatile QuicConnection.Observer observer;
 
     private static final Object CLOSED = new Object();
 
@@ -340,6 +342,25 @@ final class EndpointDriver implements AutoCloseable {
 
     int connectionCount() {
         return drivers.size();
+    }
+
+    void observe(QuicConnection.Observer observer) {
+        this.observer = observer;
+    }
+
+    QuicConnection.Observer observer() {
+        return observer;
+    }
+
+    /** The endpoint's own counts, read under its lock. */
+    EndpointStats stats() {
+        endpointLock.lock();
+        try {
+            return new EndpointStats(endpoint.versionNegotiationsSent(), endpoint.retriesSent(),
+                    endpoint.statelessResetsSent(), endpoint.connectionsRefused());
+        } finally {
+            endpointLock.unlock();
+        }
     }
 
     boolean isClosed() {
