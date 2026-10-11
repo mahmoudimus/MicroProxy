@@ -95,7 +95,9 @@ finds the target). When it is, the exchange sets `deferServerTls`, so `connectVi
 connection (TCP, chained proxies, the PROXY header) but leaves its TLS for later: the
 `ServerConnection` is `tlsPending`. Pooled TLS connections and a shared HTTP/2 connection
 (`Http2Origins.session`) are used as before, and need no handshake. The `200` is written, and
-`interceptOrTunnel` takes over (mitmproxy's next-layer decision, `next_layer.py`):
+`serveEstablished` goes on: it relays a tunnel that cannot be intercepted, hands a `CONNECT`
+stream to a connection of its own (`interceptStream`, below), and otherwise lets
+`interceptOrTunnel` take over (mitmproxy's next-layer decision, `next_layer.py`):
 
 - `peekClient` reads the client's first bytes through the connection's `ByteReader` without
   consuming them (`ensureBuffered`, `peekBuffered`, which grow past one pooled buffer when a
@@ -131,6 +133,9 @@ connection. Until the ClientHello has come, the claim is marked (`awaitingClient
 others wait for it at most `CLIENT_HELLO_GRACE_NANOS` (200 ms) from when it was marked: a client
 that is slow to send its ClientHello, or never does, cannot hold up other clients' connections. `releaseHttp2Claim` and `completeConnect` run on every path out.
 
+A tunnel that a session's server opened for a forwarded `CONNECT` (`openForwardedTunnel`, below)
+goes the same way, with its tunnel as the pending connection.
+
 The same flow serves connections that never sent a `CONNECT`: `serveImplicitConnect` makes one up
 (`Exchange.implicit`), for TLS on a transparent listener (`serveTransparentTls`, routed by SNI)
 and for `tcp://` reverse proxying. Nothing is written to such a client in HTTP: `respondDirect`
@@ -152,9 +157,9 @@ or from the refusal's status. Without a MITM manager, `handleConnect` still send
 connection through `interceptOrTunnel` (`inspect`), marking its plain connection `tlsPending` so
 that `peekClient` watches the server and `tunnelAfterPeek` and `servePlainSession` reuse it;
 `declineReason` declines every ClientHello then, and plain HTTP is served as HTTP. Its tunnels
-reach `relay` only through `answerConnect`, `tunnelAfterPeek` and `relayDecrypted`, as a `CONNECT`'s
-and a `tcp://` reverse proxy's do, so each gets the `TcpSession` (`tcpSession`) that runs the TCP
-hooks.
+reach `relay` only through `serveEstablished`, `tunnelAfterPeek` and `relayDecrypted`, as a
+`CONNECT`'s (forwarded or not) and a `tcp://` reverse proxy's do, so each gets the `TcpSession`
+(`tcpSession`) that runs the TCP hooks.
 
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
@@ -226,7 +231,7 @@ it with `serveTunnel`, on the stream's thread. Its server TLS is deferred as for
 `serveTunnel` runs `interceptOrTunnel` (above) on the stream's bytes, with the stream's exchange:
 the ClientHello decides, a declined or non-TLS stream is relayed through the nested connection's
 `ByteReader` (which holds the bytes read), and plain HTTP is served by its loop. Then `intercept`:
-HTTP/1, or HTTP/2 inside HTTP/2. (A forwarded tunnel's session, below, is intercepted at once.) It
+HTTP/1, or HTTP/2 inside HTTP/2. (So is a forwarded tunnel's stream, below, with its hop.) It
 takes the outer connection's client details, PROXY header and MITM manager; its HTTP/2 connections
 to servers are keyed and owned by the outermost connection (`owner`). `mitmManager()` chooses under
 `mitmLock`, since CONNECT streams may ask at once. A reset of an open tunnel is not a rapid reset.
@@ -261,19 +266,25 @@ session's server as a chained proxy for the tunnel:
 - **The exchange.** `forwardConnect` runs `exchange` as for any request (filters, trackers,
   stale-connection retries; a CONNECT never has a streamed body), and `relayResponse` relays a
   refusal as any response, keeping `Proxy-Authenticate`. A 2xx stops there (`Exchange.tunnelOpened`),
-  and `openForwardedTunnel` takes over: the response filters see the 2xx; then `relay`, or, when
-  MITM applies to the target (and the host rules do not ignore it), `serverTlsThrough` runs the
-  proxy's TLS to the target over the tunnel (the
-  HTTP/1.1 connection's socket, or the upstream stream's `StreamSocket`), and the client side is
-  intercepted as usual: `interceptStream` for an HTTP/2 client, with the hop (`via`) given to the
-  nested connection; an HTTP/1 connection gives up the proxy's session (`releaseSessionConnections`)
-  and serves the tunnel's session itself (a plain session's no longer plain). The target alone
-  decides (filters, host rules): the tunnel's ClientHello is not read.
-- **Inside the tunnel** (`via` set), every server connection is a new tunnel through the hop
-  (`connect` → `connectThrough`: `proxyConnection`, CONNECT, then `serverTlsThrough`), whose `through`
-  closes with it. `lookupRoute` offers only that way, `usesPool` is false (the connections carry
-  one client's credentials), and HTTP/2 connections are keyed by the hop's id and owned by the hop
-  (`http2Owner`), which the connection serving the session (`Hop.consumer`) closes when it closes.
+  and `openForwardedTunnel` takes over. The tunnel becomes a connection to the target
+  (`throughTunnel`: over the HTTP/1.1 connection's socket and reader, or the upstream stream's
+  `StreamSocket`; `through` is the tunnel, which closes with it, and `tunnelThroughProxy` keeps
+  half-closes), `tlsPending` when MITM applies to the target (and no ignore rule finds it). The
+  response filters see the 2xx, and `serveEstablished` goes on with the hop as for a `CONNECT` to
+  this proxy: `relay`, or, for an HTTP/2 client, `interceptStream` with the hop (`via`) given to
+  the nested connection, while an HTTP/1 connection gives up the proxy's session
+  (`releaseSessionConnections`), takes the hop itself, and serves the tunnel. Either way
+  `interceptOrTunnel` reads the tunnel's ClientHello: `serverSpoke` watches the server through the
+  tunnel (the stream's buffered DATA, over HTTP/2), `startServerTls` runs the proxy's TLS to the
+  target inside it (`layerServerTls`), mirroring the client's ALPN and SNI, `tunnelAfterPeek`
+  relays it, and `servePlainSession` serves plain HTTP over it.
+- **Inside the tunnel** (`via` set), every other server connection is a new tunnel through the
+  hop (`connect` → `connectThrough`: `proxyConnection`, CONNECT, `throughTunnel`, then
+  `layerServerTls` for TLS, offering what a direct connection would). `lookupRoute` offers only
+  that way, `usesPool` is false (the connections carry one client's credentials), and HTTP/2
+  connections (the tunnel's own too, when its handshake chose `h2`: `adoptForSession`) are keyed
+  by the hop's id and owned by the hop (`http2Owner`), which the connection serving the session
+  (`Hop.consumer`) closes when it closes.
 - **Half-closes.** Over an HTTP/2 stream, END_STREAM; over an HTTP/1.1 TLS connection, a TLS 1.3
   `close_notify` (`ServerConnection.tunnelThroughProxy`), which leaves the other direction open,
   where other TLS tunnels close the whole socket; over plain TCP, a TCP half-close.
