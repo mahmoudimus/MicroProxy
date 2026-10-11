@@ -49,6 +49,8 @@ import org.microproxy.http.DefaultHttpRequest;
 import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.impl.BootstrapView;
+import org.microproxy.stats.StatsRegistry;
+import org.microproxy.stats.StatsdSink;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 import org.microproxy.warc.WarcRecorder;
@@ -116,7 +118,8 @@ class LauncherTest {
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format",
-                "--access-log-json", "--access-log-filter", "--log-http", "--log-http-json",
+                "--access-log-json", "--access-log-filter", "--metrics", "--statsd", "--dogstatsd", "--stats-prefix",
+                "--stats-max-clusters", "--stats-cluster-lru", "--stats-per-host", "--log-http", "--log-http-json",
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
@@ -279,6 +282,62 @@ class LauncherTest {
     }
 
     @Test
+    void metricsFlags() throws IOException {
+        assertSame(StatsRegistry.NOOP, parse().bootstrap().getStats());
+        StatsRegistry on = parse("--metrics").bootstrap().getStats();
+        assertTrue(on.enabled());
+        assertEquals("envoy", on.prefix());
+        assertEquals(StatsRegistry.Overflow.OTHER, on.clusterOverflow());
+        assertFalse(on.perHostClusters());
+        StatsRegistry tuned = parse("--stats-prefix", "microproxy", "--stats-max-clusters", "5", "--stats-cluster-lru",
+                "--stats-per-host").bootstrap().getStats();
+        assertTrue(tuned.enabled(), "the stats flags imply --metrics");
+        assertEquals("microproxy", tuned.prefix());
+        assertEquals(5, tuned.maxClusters());
+        assertEquals(StatsRegistry.Overflow.LRU, tuned.clusterOverflow());
+        assertTrue(tuned.perHostClusters());
+        Launcher.Parsed statsd = parse("--statsd", "127.0.0.1:8125");
+        assertTrue(statsd.bootstrap().getStats().enabled(), "--statsd implies --metrics");
+        assertTrue(statsd.resources().stream().anyMatch(r -> r instanceof StatsdSink));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--statsd", "nowhere"));
+        assertTrue(e.getMessage().contains("host:port"), e.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> parse("--stats-prefix", "a.b"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--stats-max-clusters", "0"));
+    }
+
+    @Test
+    void metricsProperties() {
+        java.util.Properties p = new java.util.Properties();
+        p.setProperty("metrics", "true");
+        assertTrue(BootstrapView.fromProperties(p).getStats().enabled());
+        java.util.Properties prefixed = new java.util.Properties();
+        prefixed.setProperty("stats_prefix", "edge_");
+        assertEquals("edge", BootstrapView.fromProperties(prefixed).getStats().prefix());
+        assertSame(StatsRegistry.NOOP, BootstrapView.fromProperties(new java.util.Properties()).getStats());
+    }
+
+    @Test
+    void theLaunchedProxyPushesItsStatsToStatsd() throws Exception {
+        HttpServer origin = origin(TestSupport.fixed(200, "ok"));
+        try (java.net.DatagramSocket statsd = new java.net.DatagramSocket(
+                new InetSocketAddress(TestSupport.LOOPBACK, 0))) {
+            statsd.setSoTimeout(10_000);
+            HttpProxyServer server = launch("--port", "0", "--name", "edge", "--statsd",
+                    "127.0.0.1:" + statsd.getLocalPort());
+            assertEquals(200, get(client(server), url(origin, "/")).statusCode());
+            // Stopping flushes once more, whatever the interval.
+            server.stop();
+            StringBuilder received = new StringBuilder();
+            while (!received.toString().contains("envoy.http.edge.downstream_rq_2xx:1|c")) {
+                java.net.DatagramPacket packet = new java.net.DatagramPacket(new byte[65536], 65536);
+                statsd.receive(packet);
+                received.append(new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8)).append('\n');
+            }
+            assertTrue(received.toString().contains("envoy.cluster.direct.upstream_rq_total:1|c"), received.toString());
+        }
+    }
+
+    @Test
     void http2Flags() throws IOException {
         HttpProxyServerBootstrap off = parse().bootstrap();
         assertFalse(BootstrapView.http2(off));
@@ -366,7 +425,8 @@ class LauncherTest {
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
         "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
         "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format", "--access-log-json",
-        "--access-log-filter", "--log-http", "--log-http-view", "--proto-descriptors",
+        "--access-log-filter", "--statsd", "--dogstatsd", "--stats-prefix", "--stats-max-clusters",
+        "--log-http", "--log-http-view", "--proto-descriptors",
         "--cache-dir", "--cache-size", "--cache-memory",
         "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
