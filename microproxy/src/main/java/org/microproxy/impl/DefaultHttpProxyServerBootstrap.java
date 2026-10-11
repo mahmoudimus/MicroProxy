@@ -18,6 +18,7 @@ import org.microproxy.DefaultHostResolver;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
+import org.microproxy.Http3Options;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpFiltersSourceAdapter;
@@ -115,7 +116,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Whether the plain listener serves HTTP/2 with prior knowledge. */
     boolean http2Cleartext;
     Http2Options http2Options = Http2Options.DEFAULT;
-    /** Sees every HTTP/2 frame; null for none. */
+    /** Whether a reverse proxy serves HTTP/3 on UDP. */
+    boolean http3;
+    /** Whether servers known to speak HTTP/3 are reached over it. */
+    boolean http3Upstream;
+    /** Servers reached over HTTP/3 without an Alt-Svc advertisement. */
+    List<String> http3UpstreamHosts = List.of();
+    Http3Options http3Options = Http3Options.DEFAULT;
+    /** Sees every HTTP/2 and HTTP/3 frame; null for none. */
     FrameInterceptor frameInterceptor;
     /** Sees the bytes of raw TCP tunnels; null for none. */
     TcpInterceptor tcpInterceptor;
@@ -179,6 +187,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2Upstream = http2Upstream;
         c.http2Cleartext = http2Cleartext;
         c.http2Options = http2Options;
+        c.http3 = http3;
+        c.http3Upstream = http3Upstream;
+        c.http3UpstreamHosts = http3UpstreamHosts;
+        c.http3Options = http3Options;
         c.frameInterceptor = frameInterceptor;
         c.tcpInterceptor = tcpInterceptor;
         return c;
@@ -316,6 +328,28 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 h2.connectionWindowSize(Integer.parseInt(p.getProperty("http2_connection_window_size").strip()));
             }
             withHttp2Options(h2.build());
+        }
+        if (p.containsKey("http3")) withHttp3(bool(p, "http3"));
+        if (p.containsKey("http3_upstream")) withHttp3Upstream(bool(p, "http3_upstream"));
+        if (p.containsKey("http3_upstream_hosts")) {
+            withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc")) {
+            Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("http3_max_concurrent_streams")) {
+                h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
+            }
+            if (p.containsKey("http3_alt_svc")) h3.altSvc(bool(p, "http3_alt_svc"));
+            withHttp3Options(h3.build());
+        }
+        if (p.containsKey("listener_keystore")) {
+            String password = p.getProperty("listener_keystore_password", "");
+            try {
+                withSslContextSource(new org.microproxy.tls.KeyStoreSslContextSource(
+                        Path.of(p.getProperty("listener_keystore").strip()), password.toCharArray()));
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
         }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
@@ -668,6 +702,37 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
         this.http2Options = options == null ? Http2Options.DEFAULT : options;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp3(boolean enabled) {
+        this.http3 = enabled;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp3Upstream(boolean enabled) {
+        this.http3Upstream = enabled;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp3UpstreamHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.http3UpstreamHosts = rules;
+        return this;
+    }
+
+    @Override
+    public Http3Options getHttp3Options() {
+        return http3Options;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp3Options(Http3Options options) {
+        this.http3Options = options == null ? Http3Options.DEFAULT : options;
         return this;
     }
 

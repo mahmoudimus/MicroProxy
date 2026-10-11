@@ -525,12 +525,97 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Serves HTTP/3 (RFC 9114, over QUIC) in reverse proxy mode ({@link #withReverseProxy}): a UDP
+     * listener on the TCP listener's port number takes QUIC connections with ALPN {@code h3}, and
+     * each request stream is an exchange of its own, concurrently, with the same filters, cache,
+     * authentication, failure answers, logging and trackers as HTTP/1 and HTTP/2 requests. Requests
+     * reach the upstream as HTTP/1.1, HTTP/2 ({@link #withHttp2Upstream}) or HTTP/3 ({@link
+     * #withHttp3Upstream}), as it speaks. Responses sent over TCP advertise the listener with
+     * {@code Alt-Svc: h3=":<port>"} (see {@link Http3Options.Builder#altSvc}). Off by default;
+     * limits are set with {@link #withHttp3Options}.
+     *
+     * <p>The listener presents the certificate of the proxy's TLS listener ({@link
+     * #withSslContextSource}), which must provide it as {@link KeyMaterial} ({@link
+     * SslContextSource#getKeyMaterial}), or, without a TLS listener, one that a {@link
+     * org.microproxy.tls.CertificateAuthorityMitmManager} issues for the name the client asks for.
+     * {@code CONNECT} and extended {@code CONNECT} are answered {@code 501}.
+     *
+     * <p>Only reverse proxies serve HTTP/3: clients of an explicit proxy never speak HTTP/3 to it
+     * (that would be MASQUE's CONNECT-UDP), and so their HTTP/3 is steered to TCP instead ({@link
+     * #withAltSvcH3Stripping}). Starting any other proxy with HTTP/3 enabled fails.
+     *
+     * <p>Needs the optional {@code quic} and {@code http3-codec} modules on the class path:
+     * starting a server with HTTP/3 enabled without them fails with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withHttp3(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/3");
+    }
+
+    /**
+     * Speaks HTTP/3 to origin servers known to support it, whatever the client spoke: one QUIC
+     * connection per server, shared by concurrent exchanges as streams. A server is known to
+     * support HTTP/3 once one of its responses over TLS advertised {@code h3} on the same host in
+     * {@code Alt-Svc} (remembered for its {@code ma}, and learned before the advertisement is
+     * removed for clients), or when its host matches {@link #withHttp3UpstreamHosts}. A QUIC
+     * handshake that fails or takes longer than {@link Http3Options#upstreamHandshakeTimeout()}
+     * sends the request over TCP instead, and keeps the server on TCP for {@link
+     * Http3Options#upstreamFailureTimeout()}. Only direct connections use HTTP/3: not those
+     * through chained proxies or tunnels, nor those with a PROXY protocol header. Off by default.
+     *
+     * <p>Servers are validated with the MITM manager's trust ({@link
+     * MitmManager#serverTrustManager}), or the JDK's default trust store without one.
+     *
+     * <p>Needs the optional {@code quic} and {@code http3-codec} modules on the class path:
+     * starting a server with it enabled without them fails with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withHttp3Upstream(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/3");
+    }
+
+    /**
+     * Servers reached over HTTP/3 without waiting for an {@code Alt-Svc} advertisement, on the
+     * port of their {@code https} URI: those whose {@code host:port} one of these regular
+     * expressions is found in, case-insensitively, as for {@link #withIgnoreHosts}. Takes effect with {@link #withHttp3Upstream}; replaces any
+     * previous patterns, and none (the default) relies on {@code Alt-Svc} alone.
+     *
+     * @param patterns regular expressions for {@code host:port} names
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withHttp3UpstreamHosts(String... patterns) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/3");
+    }
+
+    /** {@return the HTTP/3 limits configured so far (never null)} */
+    default Http3Options getHttp3Options() {
+        return Http3Options.DEFAULT;
+    }
+
+    /**
+     * Limits and timers for HTTP/3 (see {@link Http3Options}); null restores the defaults.
+     *
+     * @param options the HTTP/3 options
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withHttp3Options(Http3Options options) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/3");
+    }
+
+    /**
      * Shows every HTTP/2 frame the proxy receives or sends, on the client side and on connections
      * to servers, to {@code interceptor}, which may edit, drop and add frames within the rules
      * {@link FrameInterceptor} describes. One per proxy: a later call replaces it, and null removes
      * it. Without one (the default), frames cost nothing extra. It takes effect where HTTP/2 is
-     * enabled ({@link #withHttp2}, {@link #withHttp2Upstream}, {@link #withHttp2Cleartext}); the
-     * proxy does not terminate QUIC, so HTTP/3 frames reach an interceptor only through an {@link
+     * enabled ({@link #withHttp2}, {@link #withHttp2Upstream}, {@link #withHttp2Cleartext}), and
+     * sees HTTP/3 frames where HTTP/3 is ({@link #withHttp3}, {@link #withHttp3Upstream}); other
+     * HTTP/3 traffic reaches an interceptor through an {@link
      * org.microproxy.frames.Http3FramePipeline}.
      *
      * @param interceptor the interceptor, or null for none
