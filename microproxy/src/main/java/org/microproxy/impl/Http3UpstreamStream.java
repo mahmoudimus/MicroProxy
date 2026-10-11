@@ -36,6 +36,11 @@ import org.microproxy.http.LastHttpContent;
  * H3_REQUEST_REJECTED}) {@link Http3UpstreamConnection.Unprocessed}, which is sent again, and
  * other resets and connection errors {@link IOException}s (a {@code 502}, or a reset client stream
  * once the response has started).
+ *
+ * <p>A request the proxy chose to send as 0-RTT data that the server answers with {@code 425 Too
+ * Early} is {@link Http3UpstreamConnection.Unprocessed} too, and goes again once the handshake has
+ * completed; but one that arrived as early data itself, marked {@code Early-Data: 1}, has its
+ * {@code 425} relayed to its client (RFC 8470 section 5.2).
  */
 final class Http3UpstreamStream extends ServerConnection {
 
@@ -49,6 +54,8 @@ final class Http3UpstreamStream extends ServerConnection {
     private final AtomicBoolean done = new AtomicBoolean();
     /** The QUIC connection was made for this stream's exchange: it reports the connection to filters and trackers. */
     volatile boolean newConnection;
+    /** The request went out as 0-RTT data, which the proxy chose to send early. */
+    private boolean sentEarly;
 
     Http3UpstreamStream(Http3UpstreamConnection connection, QuicStream stream, FullFlowContext flowContext, String logPrefix,
             boolean headRequest) {
@@ -92,6 +99,7 @@ final class Http3UpstreamStream extends ServerConnection {
     @Override
     void writeRequestHead(HttpRequest request, boolean bodyFollows, boolean trailersAccepted) throws IOException {
         if (ProxyUtils.isCONNECT(request)) throw new IOException("CONNECT is not sent to servers over HTTP/3");
+        sentEarly = connection.quic.isZeroRtt() && !request.headers().contains(Http3Connection.EARLY_DATA);
         var fields = Http3Messages.requestFields(request, hostAndPort, trailersAccepted);
         try {
             if (request instanceof FullHttpRequest full) {
@@ -192,6 +200,12 @@ final class Http3UpstreamStream extends ServerConnection {
             writer.reset(e.errorCode());
             reader.abort(e.errorCode());
             throw e;
+        }
+        if (response.status() == 425 && sentEarly) {
+            // The server wants it after the handshake, which is complete once its answer is read
+            writer.reset(Http3ErrorCode.H3_REQUEST_CANCELLED);
+            reader.abort(Http3ErrorCode.H3_REQUEST_CANCELLED);
+            throw new Http3UpstreamConnection.Unprocessed("425 Too Early from " + hostAndPort + " for 0-RTT data");
         }
         boolean bodyless = headRequest || response.status() == 204 || response.status() == 304;
         return Http3Messages.toHttp1(response, reader.endsHere(), bodyless);
