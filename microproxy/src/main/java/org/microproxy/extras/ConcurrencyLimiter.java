@@ -21,6 +21,7 @@ import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.http.DefaultFullHttpResponse;
@@ -465,6 +466,9 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
     }
 
     private HttpResponse rejection(String key, HttpRequest request, FlowContext flow) {
+        // An admission limit, answered 429 by default: Envoy's rate-limit flag fits it best.
+        flow.addResponseFlag(ResponseFlag.RATE_LIMITED);
+        flow.setResponseCodeDetails("concurrency_limited");
         if (responder != null) {
             try {
                 HttpResponse custom = responder.respond(key, request, flow);
