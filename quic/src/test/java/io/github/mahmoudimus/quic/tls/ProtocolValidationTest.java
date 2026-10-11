@@ -3,6 +3,7 @@ package io.github.mahmoudimus.quic.tls;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mahmoudimus.quic.EncryptionLevel;
 import io.github.mahmoudimus.quic.QuicException;
@@ -214,19 +215,23 @@ class ProtocolValidationTest {
         Extension modes = new Extension(ExtensionType.PSK_KEY_EXCHANGE_MODES, new byte[] {1, 1});
         serverRejectsExtensions(TlsAlert.ILLEGAL_PARAMETER, exts -> {
             List<Extension> out = new ArrayList<>(List.of(psk, modes));
-            out.addAll(exts);
+            out.addAll(without(exts, ExtensionType.PSK_KEY_EXCHANGE_MODES));
             return out;
         });
-        serverRejectsExtensions(TlsAlert.MISSING_EXTENSION, exts -> with(exts, psk));
-        serverRejectsExtensions(TlsAlert.DECODE_ERROR, exts -> with(exts,
-                new Extension(ExtensionType.PSK_KEY_EXCHANGE_MODES, new byte[] {0})));
+        serverRejectsExtensions(TlsAlert.MISSING_EXTENSION,
+                exts -> with(without(exts, ExtensionType.PSK_KEY_EXCHANGE_MODES), psk));
+        serverRejectsExtensions(TlsAlert.DECODE_ERROR,
+                exts -> replace(exts, ExtensionType.PSK_KEY_EXCHANGE_MODES, new byte[] {0}));
+        serverRejectsExtensions(TlsAlert.DECODE_ERROR, exts -> with(exts, psk));
     }
 
     @Test
-    void pskKeyExchangeModesAreParsedAndIgnored() throws Exception {
+    void pskKeyExchangeModesAreParsed() throws Exception {
+        assertTrue(Extension.find(((ClientHello) Handshakes.decode(firstClientHello())).extensions(),
+                ExtensionType.PSK_KEY_EXCHANGE_MODES) != null, "a client offers psk_dhe_ke, so it gets tickets");
         TlsSession server = newServer();
         server.readHandshake(EncryptionLevel.INITIAL, ByteBuffer.wrap(clientHello(firstClientHello(), exts ->
-                with(exts, new Extension(ExtensionType.PSK_KEY_EXCHANGE_MODES, new byte[] {1, 1})))));
+                replace(exts, ExtensionType.PSK_KEY_EXCHANGE_MODES, new byte[] {2, 1, 1}))));
         assertEquals(EncryptionLevel.HANDSHAKE, server.nextSecrets().level());
     }
 

@@ -96,7 +96,7 @@ public final class Endpoint {
     private final EndpointConfig config;
     private final ServerConfig serverConfig;
     private final boolean allowMtud;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final SecureRandom secureRandom;
     private final SplittableRandom random;
     private final TokenValidator tokenValidator;
     private final Map<ConnectionId, Connection> initialCids = new HashMap<>();
@@ -117,6 +117,7 @@ public final class Endpoint {
         this.config = Objects.requireNonNull(config, "config");
         this.serverConfig = serverConfig;
         this.allowMtud = allowMtud;
+        this.secureRandom = config.newRandom();
         this.random = new SplittableRandom(secureRandom.nextLong());
         this.tokenValidator = serverConfig != null ? serverConfig.tokenValidator(secureRandom) : null;
     }
@@ -270,7 +271,7 @@ public final class Endpoint {
         ConnectionId localCid = newCid();
         Connection conn = Connection.server(now, serverConfig, config, remote, version, dcid, scid, localCid,
                 incoming.originalDestinationId(), incoming.retrySourceId(), incoming.validated(), token, allowMtud,
-                random.split());
+                random.split(), tokenValidator);
         Routes routes = register(conn, localCid, remote);
         initialCids.put(dcid, conn);
         routes.initialCids.add(dcid);
@@ -330,6 +331,26 @@ public final class Endpoint {
      * @throws IllegalArgumentException if the address is unusable or the version is not enabled
      */
     public Connection connect(long now, ClientConfig clientConfig, InetSocketAddress remote, String serverName) {
+        return connect(now, clientConfig, remote, serverName, clientConfig.sessionCache);
+    }
+
+    /**
+     * Starts a client connection with a cache of session tickets and tokens: it resumes with a
+     * ticket from the cache (and sends 0-RTT data if the ticket and the TLS configuration allow it),
+     * presents a token from the cache, and keeps the tickets and tokens it receives.
+     *
+     * @param now the current time
+     * @param clientConfig how to connect
+     * @param remote the server's address
+     * @param serverName the server name for SNI and certificate checks, or null for the TLS
+     *     configuration's
+     * @param cache the cache, or null for none
+     * @return the connection, with its first Initial (and any 0-RTT data) ready in {@link
+     *     Connection#pollTransmit}
+     * @throws IllegalArgumentException if the address is unusable or the version is not enabled
+     */
+    public Connection connect(long now, ClientConfig clientConfig, InetSocketAddress remote, String serverName,
+            SessionCache cache) {
         if (remote.isUnresolved() || remote.getPort() == 0 || remote.getAddress().isAnyLocalAddress()) {
             throw new IllegalArgumentException("invalid remote address " + remote);
         }
@@ -339,7 +360,7 @@ public final class Endpoint {
         ConnectionId initialDcid = ConnectionId.random(secureRandom, clientConfig.initialDcidLength);
         ConnectionId localCid = newCid();
         Connection conn = Connection.client(now, clientConfig, config, remote, serverName, initialDcid, localCid,
-                allowMtud, random.split());
+                allowMtud, random.split(), cache);
         register(conn, localCid, remote);
         return conn;
     }

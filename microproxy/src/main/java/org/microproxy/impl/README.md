@@ -531,6 +531,15 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 - **Graceful stop.** GOAWAY names the first stream not processed; later streams are refused with
   H3_REQUEST_REJECTED, and the connection closes once its streams are done and the client has
   closed it, or after two seconds.
+- **Resumption and early data.** `Http3Listener.serverConfig` gives both QUIC listeners session
+  tickets sealed with the proxy's `Ticketer` (one per `DefaultHttpProxyServer`, `quicTicketer`,
+  typed `Object` so the class loads without the module) and, with `Http3Options.zeroRtt`, 0-RTT.
+  A QUIC server hands out a connection that accepted 0-RTT before its handshake completes, so
+  `serveHttp3` may start on one still handshaking. `readRequest` checks the stream's
+  `receivedEarlyData()`: such a request marks its `ClientFlowContext` (`earlyData`, which
+  `FlowContext.isEarlyData()` and `ctx.early_data` report), gets `425` unless `replaySafe`
+  (`GET`, `HEAD` or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any
+  filter runs. Requests are not held for the handshake.
 
 `Http3StreamChannel` is `Http2StreamChannel` over QUIC: `clientKeepAlive` true, `adaptFraming`
 drops `Transfer-Encoding`, `setKeepAlive` does nothing, `writeContinue` answers only `Expect:
@@ -680,6 +689,16 @@ connection of its own, as without HTTP/2's RFC 8441.
   as does a reset with H3_REQUEST_REJECTED: the exchange logic sends those again. The QUIC idle
   timeout is a `SocketTimeoutException` (`504`); other resets and connection errors are
   `IOException`s (`502`, or a reset client stream once the response has started).
+- **Resumption and 0-RTT.** All `QuicClient`s of an `Http3Origins` share one `SessionCache`
+  (`sessions`), so a new connection to a server resumes with the last ticket it sent (and skips
+  its Retry with a NEW_TOKEN token). `proxyRequest` passes `replaySafe` (`Http3Connection.replaySafe`:
+  `GET`, `HEAD`, `OPTIONS` without a body); with `upstreamZeroRtt`, a connection made for such a
+  request comes from `connectEarly` and may still be handshaking, sending 0-RTT data.
+  `Http3UpstreamConnection.open` lets only replay-safe requests take a stream before the
+  handshake completes; others wait for it (`Unprocessed` past the handshake timeout).
+  `Http3UpstreamStream` notes whether it sent its request early on its own initiative (no
+  `Early-Data` field): a `425` to such a request is `Unprocessed`, sent again after the
+  handshake; a `425` to a request that arrived early from its client goes back to the client.
 
 ### HTTP/3 frames: `Http3Frames`
 

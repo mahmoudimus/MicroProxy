@@ -98,4 +98,24 @@ class Http3SupportTest {
         assertEquals(Http3Options.DEFAULT, none.http3Options);
         assertThrows(IllegalArgumentException.class, () -> MicroProxy.bootstrap().withHttp3UpstreamHosts("("));
     }
+
+    @Test
+    void quicCongestionControl() {
+        assertEquals(Http3Options.QuicCongestionControl.CUBIC, Http3Options.DEFAULT.quicCongestionControl());
+        assertEquals(io.github.mahmoudimus.quic.connection.TransportConfig.CongestionControl.CUBIC,
+                Http3Listener.congestionControl(Http3Options.DEFAULT));
+        for (Http3Options.QuicCongestionControl c : Http3Options.QuicCongestionControl.values()) {
+            Http3Options options = Http3Options.builder().quicCongestionControl(c).build();
+            assertEquals(c.name(), Http3Listener.congestionControl(options).name());
+            assertEquals(c, options.toBuilder().build().quicCongestionControl());
+        }
+        assertEquals(Http3Options.QuicCongestionControl.NEW_RENO, Http3Options.QuicCongestionControl.parse("NewReno"));
+        assertEquals(Http3Options.QuicCongestionControl.BBR, Http3Options.QuicCongestionControl.parse(" bbr "));
+        assertThrows(IllegalArgumentException.class, () -> Http3Options.QuicCongestionControl.parse("vegas"));
+
+        Properties p = new Properties();
+        p.setProperty("quic_congestion", "bbr");
+        assertEquals(Http3Options.QuicCongestionControl.BBR,
+                DefaultHttpProxyServerBootstrap.fromProperties(p).http3Options.quicCongestionControl());
+    }
 }

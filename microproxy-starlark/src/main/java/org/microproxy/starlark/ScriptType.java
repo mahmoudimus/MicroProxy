@@ -84,6 +84,7 @@ final class ScriptType extends StarlarkType {
             .put("forwarded_via", Types.union(Types.STR, Types.NONE))
             .put("socks_version", Types.union(Types.INT, Types.NONE))
             .put("transparent_quic", Types.BOOL)
+            .put("early_data", Types.BOOL)
             .buildOrThrow(), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()

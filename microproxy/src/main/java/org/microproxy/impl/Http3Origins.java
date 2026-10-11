@@ -4,6 +4,7 @@ import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
 import io.github.mahmoudimus.quic.connection.ClientConfig;
 import io.github.mahmoudimus.quic.connection.EndpointConfig;
+import io.github.mahmoudimus.quic.connection.SessionCache;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.IOException;
@@ -47,6 +48,12 @@ import org.microproxy.tls.SslContexts;
  * takes longer than {@link Http3Options#upstreamHandshakeTimeout()}, sends the waiting exchanges
  * over TCP, and keeps the server on TCP for {@link Http3Options#upstreamFailureTimeout()}.
  *
+ * <p>Session tickets and NEW_TOKEN tokens the servers send are kept in one {@link SessionCache}
+ * for all of them, so a new connection to a server resumes the last session (and skips its Retry).
+ * With {@link Http3Options#upstreamZeroRtt()}, an exchange that makes a connection for a request
+ * that is safe to replay sends it as 0-RTT data when the ticket allows; other exchanges wait on the
+ * connection's handshake before using it ({@link Http3UpstreamConnection#open}).
+ *
  * <p>All state is guarded by {@link #lock}; nothing blocks while holding it except waiting on
  * {@link #changed}.
  */
@@ -81,6 +88,8 @@ final class Http3Origins {
     private final Map<String, Alternative> alternatives = lru();
     /** A QUIC client endpoint per trust and address family. */
     private final Map<String, QuicClient> clients = new HashMap<>();
+    /** The servers' session tickets and tokens, for every client endpoint. */
+    final SessionCache sessions = SessionCache.memory();
     private boolean closed;
 
     /** The clock for expiry; replaceable by tests. */
@@ -213,11 +222,12 @@ final class Http3Origins {
      *
      * @param key what must match for exchanges to share a connection, beyond the server
      * @param trust how the server's certificate is checked; null for the JDK's default trust store
+     * @param replaySafe whether the request may go as 0-RTT data: safe to repeat, without a body
      * @param resolve the server's address (its port is replaced by the HTTP/3 one)
      * @throws IOException if the proxy is stopping
      */
     Http3UpstreamStream stream(String key, String hostAndPort, X509TrustManager trust, ClientFlowContext flow, String log,
-            boolean headRequest, Resolver resolve) throws IOException {
+            boolean headRequest, boolean replaySafe, Resolver resolve) throws IOException {
         int port = http3Port(hostAndPort);
         if (port < 0) return null;
         String connectionKey = key + "|" + port;
@@ -225,12 +235,12 @@ final class Http3Origins {
         boolean made = false;
         if (c == null) {
             if (!claimed(connectionKey)) return null;
-            c = connect(connectionKey, hostAndPort, port, trust, resolve, log);
+            c = connect(connectionKey, hostAndPort, port, trust, resolve, log, replaySafe);
             if (c == null) return null;
             made = true;
         }
         try {
-            Http3UpstreamStream stream = c.open(flow, log, headRequest);
+            Http3UpstreamStream stream = c.open(flow, log, headRequest, replaySafe);
             stream.newConnection = made;
             return stream;
         } catch (Http3UpstreamConnection.Unprocessed e) {
@@ -288,19 +298,26 @@ final class Http3Origins {
         }
     }
 
-    /** Makes the connection for {@code key}, which the calling thread claimed; null if it failed. */
+    /**
+     * Makes the connection for {@code key}, which the calling thread claimed; null if it failed.
+     * For a request safe to replay, it returns as soon as the connection can send 0-RTT data, when
+     * the server's ticket allows that.
+     */
     private Http3UpstreamConnection connect(String key, String hostAndPort, int port, X509TrustManager trust, Resolver resolve,
-            String log) {
+            String log, boolean replaySafe) {
         Http3UpstreamConnection c = null;
         try {
             InetSocketAddress tcp = resolve.resolve();
             InetSocketAddress remote = new InetSocketAddress(tcp.getAddress(), port);
             String host = HostAndPort.parse(hostAndPort, 443).host();
             QuicClient client = client(trust, remote.getAddress() instanceof Inet6Address);
-            QuicConnection quic = client.connect(remote, host, options.upstreamHandshakeTimeout());
+            QuicConnection quic = replaySafe && options.upstreamZeroRtt()
+                    ? client.connectEarly(remote, host, options.upstreamHandshakeTimeout(), sessions)
+                    : client.connect(remote, host, options.upstreamHandshakeTimeout(), sessions);
             c = new Http3UpstreamConnection(server, this, quic, key, hostAndPort);
             c.begin();
-            LOG.log(Level.DEBUG, log + "HTTP/3 to " + hostAndPort + " (" + remote + ")");
+            LOG.log(Level.DEBUG, log + "HTTP/3 to " + hostAndPort + " (" + remote + ")"
+                    + (quic.isZeroRtt() ? ", sending 0-RTT data" : quic.isResumed() ? ", resumed" : ""));
             return c;
         } catch (IOException | RuntimeException e) {
             LOG.log(Level.DEBUG, log + "HTTP/3 to " + hostAndPort + " failed (" + e.getMessage() + "); TCP for "
@@ -337,7 +354,7 @@ final class Http3Origins {
             if (closed) throw new IOException("the proxy is stopping");
             QuicClient existing = clients.get(key);
             if (existing != null) return existing;
-            TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3");
+            TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3").earlyData(options.upstreamZeroRtt());
             if (trust != null && SslContexts.trustsAll(trust)) {
                 tls.trustAllCertificates(true);
             } else if (trust != null) {
@@ -351,6 +368,7 @@ final class Http3Origins {
                     .maxConcurrentUniStreams(16)
                     .streamReceiveWindow(options.streamReceiveWindow())
                     .receiveWindow(options.connectionReceiveWindow())
+                    .congestionControl(Http3Listener.congestionControl(options))
                     .build();
             ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
             InetSocketAddress local = server.localAddress;

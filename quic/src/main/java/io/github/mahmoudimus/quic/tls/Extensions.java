@@ -1,7 +1,8 @@
 // Ported from rustls src/msgs/handshake.rs, src/msgs/client_hello.rs and src/msgs/server_hello.rs
 // (the extension payloads: ServerNamePayload, NamedGroups, SignatureSchemes, ProtocolNames,
-// SupportedProtocolVersions, KeyShareEntry, PskKeyExchangeModes, and DuplicateExtensionChecker)
-// (Apache-2.0).
+// SupportedProtocolVersions, KeyShareEntry, PskKeyExchangeModes, PresharedKeyOffer,
+// PresharedKeyIdentity and PresharedKeyBinder, the early_data payloads, and
+// DuplicateExtensionChecker) (Apache-2.0).
 package io.github.mahmoudimus.quic.tls;
 
 import io.github.mahmoudimus.quic.QuicException;
@@ -203,13 +204,92 @@ final class Extensions {
         return cookie;
     }
 
-    // --- psk_key_exchange_modes (RFC 8446 section 4.2.9), parsed only ---
+    // --- psk_key_exchange_modes (RFC 8446 section 4.2.9) ---
+
+    /** {@code psk_ke}: PSK-only key establishment, which this implementation never uses. */
+    static final int PSK_KE = 0;
+    /** {@code psk_dhe_ke}: PSK with (EC)DHE key establishment. */
+    static final int PSK_DHE_KE = 1;
+
+    static byte[] encodePskKeyExchangeModes(int... modes) {
+        Writer w = new Writer();
+        int list = w.open(1);
+        for (int m : modes) w.u8(m);
+        w.close(list);
+        return w.toByteArray();
+    }
 
     static byte[] decodePskKeyExchangeModes(byte[] data) throws QuicException {
         Reader r = new Reader(data);
         byte[] modes = r.vector8(1, "ke_modes");
         r.expectEnd("psk_key_exchange_modes");
         return modes;
+    }
+
+    // --- pre_shared_key (RFC 8446 section 4.2.11) ---
+
+    /** A {@code PskIdentity}: a ticket and its obfuscated age. */
+    record PskIdentity(byte[] identity, long obfuscatedTicketAge) {}
+
+    /**
+     * A ClientHello's {@code OfferedPsks}.
+     *
+     * @param bindersLength the length of the encoded binders list, with its two-byte length: what
+     *     the truncated ClientHello leaves out
+     */
+    record PskOffer(List<PskIdentity> identities, List<byte[]> binders, int bindersLength) {}
+
+    static byte[] encodePskOffer(List<PskIdentity> identities, List<byte[]> binders) {
+        Writer w = new Writer();
+        int ids = w.open(2);
+        for (PskIdentity id : identities) w.vector16(id.identity()).u32(id.obfuscatedTicketAge());
+        w.close(ids);
+        int list = w.open(2);
+        for (byte[] b : binders) w.vector8(b);
+        w.close(list);
+        return w.toByteArray();
+    }
+
+    static PskOffer decodePskOffer(byte[] data) throws QuicException {
+        Reader r = new Reader(data);
+        Reader ids = r.sub16("identities");
+        List<PskIdentity> identities = new ArrayList<>();
+        while (ids.hasRemaining()) {
+            identities.add(new PskIdentity(ids.vector16(1, "identity"), ids.u32("obfuscated_ticket_age")));
+        }
+        int bindersLength = r.remaining();
+        Reader list = r.sub16("binders");
+        r.expectEnd("pre_shared_key");
+        List<byte[]> binders = new ArrayList<>();
+        while (list.hasRemaining()) {
+            binders.add(list.vector8(32, "PskBinderEntry"));
+        }
+        if (identities.isEmpty() || binders.isEmpty()) throw TlsAlert.decodeError("empty pre_shared_key offer");
+        return new PskOffer(identities, binders, bindersLength);
+    }
+
+    static byte[] encodePskSelected(int identity) {
+        return new Writer().u16(identity).toByteArray();
+    }
+
+    static int decodePskSelected(byte[] data) throws QuicException {
+        Reader r = new Reader(data);
+        int selected = r.u16("selected_identity");
+        r.expectEnd("pre_shared_key");
+        return selected;
+    }
+
+    // --- early_data (RFC 8446 section 4.2.10) ---
+
+    static byte[] encodeMaxEarlyDataSize(long size) {
+        return new Writer().u32(size).toByteArray();
+    }
+
+    static long decodeMaxEarlyDataSize(byte[] data) throws QuicException {
+        Reader r = new Reader(data);
+        long size = r.u32("max_early_data_size");
+        r.expectEnd("early_data");
+        return size;
     }
 
     /** Fails with {@code decode_error} unless an extension body is empty, as acknowledgements are. */

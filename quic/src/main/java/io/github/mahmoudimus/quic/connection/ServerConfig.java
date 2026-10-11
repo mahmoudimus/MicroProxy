@@ -1,10 +1,13 @@
 /*
- * Ported from quinn-proto src/config/mod.rs (ServerConfig) (Apache-2.0).
+ * Ported from quinn-proto src/config/mod.rs (ServerConfig and ValidationTokenConfig: the NEW_TOKEN
+ * tokens sent per connection, their lifetime and the reuse log) (Apache-2.0).
  */
 package io.github.mahmoudimus.quic.connection;
 
 import io.github.mahmoudimus.quic.tls.TlsConfig;
+import io.github.mahmoudimus.quic.token.BloomTokenLog;
 import io.github.mahmoudimus.quic.token.TokenKey;
+import io.github.mahmoudimus.quic.token.TokenLog;
 import io.github.mahmoudimus.quic.token.TokenValidator;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -13,8 +16,9 @@ import java.util.Objects;
 
 /**
  * How a server accepts connections: its TLS configuration (certificates, possibly selected per SNI,
- * and ALPN), the transport settings, Retry-based address validation and the connection cap.
- * Immutable and shareable.
+ * ALPN, session tickets and 0-RTT), the transport settings, Retry-based address validation, the
+ * NEW_TOKEN tokens that let returning clients skip the Retry, and the connection cap. Immutable and
+ * shareable.
  */
 public final class ServerConfig {
 
@@ -25,6 +29,8 @@ public final class ServerConfig {
     final Duration retryTokenLifetime;
     final int maxConnections;
     final InstantSource clock;
+    final int newTokens;
+    final Duration validationTokenLifetime;
 
     private ServerConfig(Builder b) {
         this.tls = b.tls;
@@ -34,6 +40,17 @@ public final class ServerConfig {
         this.retryTokenLifetime = b.retryTokenLifetime;
         this.maxConnections = b.maxConnections;
         this.clock = b.clock;
+        this.newTokens = b.newTokens;
+        this.validationTokenLifetime = b.validationTokenLifetime;
+    }
+
+    /**
+     * How many NEW_TOKEN tokens a connection sends the client after its handshake.
+     *
+     * @return the count
+     */
+    public int newTokens() {
+        return newTokens;
     }
 
     /**
@@ -83,10 +100,10 @@ public final class ServerConfig {
         return maxConnections;
     }
 
+    /** A validator for one endpoint, with its own log of the NEW_TOKEN tokens used. */
     TokenValidator tokenValidator(SecureRandom random) {
-        return new TokenValidator(tokenKey, clock, retryTokenLifetime,
-                TokenValidator.DEFAULT_VALIDATION_TOKEN_LIFETIME, io.github.mahmoudimus.quic.token.TokenLog.NONE,
-                random);
+        TokenLog log = newTokens > 0 ? new BloomTokenLog() : TokenLog.NONE;
+        return new TokenValidator(tokenKey, clock, retryTokenLifetime, validationTokenLifetime, log, random);
     }
 
     /** Builds a {@link ServerConfig}. Not thread-safe. */
@@ -98,6 +115,8 @@ public final class ServerConfig {
         private Duration retryTokenLifetime = TokenValidator.DEFAULT_RETRY_TOKEN_LIFETIME;
         private int maxConnections = 4096;
         private InstantSource clock = InstantSource.system();
+        private int newTokens = 2;
+        private Duration validationTokenLifetime = TokenValidator.DEFAULT_VALIDATION_TOKEN_LIFETIME;
 
         private Builder(TlsConfig tls) {
             this.tls = Objects.requireNonNull(tls, "tls");
@@ -144,6 +163,33 @@ public final class ServerConfig {
          */
         public Builder retryTokenLifetime(Duration lifetime) {
             this.retryTokenLifetime = Objects.requireNonNull(lifetime, "lifetime");
+            return this;
+        }
+
+        /**
+         * How many NEW_TOKEN tokens to send each client after its handshake (RFC 9000 section
+         * 8.1.3). A client presents one in its next connection's first Initial, which validates its
+         * address so that Retry is skipped; each token is accepted once.
+         *
+         * @param count 0 to send none; 2 by default, as quinn sends
+         * @return this builder
+         */
+        public Builder newTokens(int count) {
+            if (count < 0 || count > 16) {
+                throw new IllegalArgumentException("newTokens " + count);
+            }
+            this.newTokens = count;
+            return this;
+        }
+
+        /**
+         * How long a NEW_TOKEN token stays valid.
+         *
+         * @param lifetime the lifetime, two weeks by default
+         * @return this builder
+         */
+        public Builder validationTokenLifetime(Duration lifetime) {
+            this.validationTokenLifetime = Objects.requireNonNull(lifetime, "lifetime");
             return this;
         }
 

@@ -5,11 +5,13 @@ import io.github.mahmoudimus.quic.QuicServer;
 import io.github.mahmoudimus.quic.connection.ServerConfig;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.CertifiedKey;
+import io.github.mahmoudimus.quic.tls.Ticketer;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import org.microproxy.Http3Options;
 import org.microproxy.KeyMaterial;
@@ -30,6 +32,8 @@ final class Http3Listener implements AutoCloseable {
 
     /** Unidirectional streams a client may have open: control, QPACK encoder and decoder, and room for extensions. */
     private static final int MAX_UNI_STREAMS = 16;
+    /** Guards the making of a proxy's ticket key. */
+    private static final ReentrantLock TICKETER_LOCK = new ReentrantLock();
 
     /** QUIC DATAGRAM payloads buffered per connection before the oldest are dropped, where they are accepted. */
     private static final int DATAGRAM_BUFFER = 1024 * 1024;
@@ -56,10 +60,21 @@ final class Http3Listener implements AutoCloseable {
         return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys, server.reverseProxy == null)));
     }
 
+    /** The QUIC congestion controller the options choose, for connections to clients and to servers. */
+    static TransportConfig.CongestionControl congestionControl(Http3Options options) {
+        return switch (options.quicCongestionControl()) {
+            case CUBIC -> TransportConfig.CongestionControl.CUBIC;
+            case NEW_RENO -> TransportConfig.CongestionControl.NEW_RENO;
+            case BBR -> TransportConfig.CongestionControl.BBR;
+        };
+    }
+
     /**
      * How the proxy's QUIC servers accept clients: ALPN {@code h3}, the certificate {@code keys}
-     * gives for the client's SNI, the HTTP/3 options' stream limits and windows, the proxy's idle
-     * timeout, and Retry if the options ask for it.
+     * gives for the client's SNI, session tickets sealed with the proxy's ticket key (so that both
+     * listeners resume each other's sessions), 0-RTT if the options turn it on, the HTTP/3 options'
+     * stream limits, windows and congestion controller, the proxy's idle timeout, and Retry if the
+     * options ask for it.
      */
     static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
         return serverConfig(server, keys, false);
@@ -79,6 +94,8 @@ final class Http3Listener implements AutoCloseable {
                     KeyMaterial key = keys.apply(hello.serverName());
                     return key == null ? null : new CertifiedKey(key.chain(), key.privateKey());
                 })
+                .sessionTickets(ticketer(server))
+                .earlyData(options.zeroRtt())
                 .build();
         int idle = server.idleTimeoutMillis();
         TransportConfig transport = TransportConfig.builder()
@@ -88,8 +105,20 @@ final class Http3Listener implements AutoCloseable {
                 .streamReceiveWindow(options.streamReceiveWindow())
                 .receiveWindow(options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(datagrams ? DATAGRAM_BUFFER : 0)
+                .congestionControl(congestionControl(options))
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
+    }
+
+    /** The proxy's ticket key, which rotates every few hours; made on first use. */
+    private static Ticketer ticketer(DefaultHttpProxyServer server) {
+        TICKETER_LOCK.lock();
+        try {
+            if (server.quicTicketer == null) server.quicTicketer = Ticketer.create();
+            return (Ticketer) server.quicTicketer;
+        } finally {
+            TICKETER_LOCK.unlock();
+        }
     }
 
     /** The UDP address the listener is bound to. */

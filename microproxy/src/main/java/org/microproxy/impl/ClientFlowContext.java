@@ -50,6 +50,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile int socksVersion;
     /** Whether the client connection is a flow of the transparent QUIC listener. */
     private volatile boolean transparentQuic;
+    /** Whether this HTTP/3 stream's request arrived as 0-RTT early data. */
+    private volatile boolean earlyData;
 
     ClientFlowContext(
             long connectionId,
@@ -166,6 +168,16 @@ final class ClientFlowContext extends FlowContext {
     @Override
     public boolean isTransparentQuic() {
         return transparentQuic || (connectionFlow != null && connectionFlow.isTransparentQuic());
+    }
+
+    /** Records that this stream's request arrived as 0-RTT early data. */
+    void earlyData() {
+        earlyData = true;
+    }
+
+    @Override
+    public boolean isEarlyData() {
+        return earlyData;
     }
 
     @Override

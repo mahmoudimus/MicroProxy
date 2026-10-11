@@ -9,6 +9,7 @@ package io.github.mahmoudimus.quic.connection;
 
 import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.congestion.Controller;
+import io.github.mahmoudimus.quic.congestion.RateSample;
 import io.github.mahmoudimus.quic.congestion.RttEstimator;
 import io.github.mahmoudimus.quic.frame.Frame;
 import io.github.mahmoudimus.quic.params.TransportParameters;
@@ -108,6 +109,7 @@ public final class Recovery {
     private final RttEstimator rtt;
     private final Controller congestion;
     private final Pacer pacer;
+    private final DeliveryRate deliveryRate = new DeliveryRate();
     private final MtuDiscovery mtud;
     private final AckFrequencyState ackFrequency;
     PacketNumberFilter packetNumberFilter;
@@ -262,6 +264,27 @@ public final class Recovery {
      */
     public void setAppLimited(boolean appLimited) {
         this.appLimited = appLimited;
+        if (appLimited) {
+            deliveryRate.onAppLimited(inFlightBytes);
+        }
+    }
+
+    /**
+     * The delivery rate sampler of the connection's congestion-controlled packets.
+     *
+     * @return the sampler
+     */
+    public DeliveryRate deliveryRate() {
+        return deliveryRate;
+    }
+
+    /**
+     * Whether the application, not the congestion window or the pacer, limited the last send.
+     *
+     * @return the flag ACKs are processed with
+     */
+    public boolean isAppLimited() {
+        return appLimited;
     }
 
     /**
@@ -374,6 +397,9 @@ public final class Recovery {
      */
     public void onPacketSent(long now, SpaceId id, long packetNumber, SentPacket packet) {
         PacketSpace space = space(id);
+        if (packet.size() != 0) {
+            deliveryRate.onPacketSent(now, packet, inFlightBytes);
+        }
         addInFlight(packet);
         SentPacket forgotten = space.sent(packetNumber, packet);
         if (forgotten != null) {
@@ -418,7 +444,13 @@ public final class Recovery {
      * @return the time to try again, or {@link NanoClock#NONE} to send now
      */
     public long pacingDelay(long now, long bytesToSend) {
-        long t = pacer.delay(rtt.get(), bytesToSend, mtud.currentMtu(), congestion.window(), now);
+        long window = congestion.window();
+        long rate = congestion.pacingRate();
+        if (rate > 0) {
+            // The pacer refills 1.25 windows per RTT: a smaller window paces at the controller's rate
+            window = Pacer.rateLimitedWindow(rtt.get(), window, rate);
+        }
+        long t = pacer.delay(rtt.get(), bytesToSend, mtud.currentMtu(), window, now);
         if (t == NanoClock.NONE) {
             timers.stop(Timer.PACING);
         } else {
@@ -534,6 +566,10 @@ public final class Recovery {
             }
             onPacketAcked(now, id, pn, info, listener);
         }
+        RateSample rateSample = deliveryRate.sample(rtt.hasSample() ? rtt.min() : 0);
+        if (rateSample != null) {
+            congestion.onRateSample(now, rateSample);
+        }
         congestion.onEndAcks(now, inFlightBytes, appLimited, space.largestAckedPacket);
 
         if (newLargest && ackElicitingAcked) {
@@ -606,6 +642,9 @@ public final class Recovery {
 
     private void onPacketAcked(long now, SpaceId id, long pn, SentPacket info, Listener listener) {
         removeInFlight(info);
+        if (info.size() != 0) {
+            deliveryRate.onPacketAcked(now, info);
+        }
         if (info.ackEliciting()) {
             congestion.onAck(now, info.timeSent(), info.size(), appLimited, rtt);
         }
@@ -864,6 +903,26 @@ public final class Recovery {
         space.unackedNonAckElicitingTail = 0;
         ptoCount = 0;
         setLossDetectionTimer(now);
+    }
+
+    /**
+     * Forgets the packets sent in the application data space without counting them lost, after the
+     * server rejected 0-RTT: it never processed them (quinn's handling of rejected 0-RTT).
+     *
+     * @param now the current time
+     * @return the packets, whose control frames may be queued again
+     */
+    public List<SentPacket> discardZeroRttPackets(long now) {
+        PacketSpace space = space(SpaceId.DATA);
+        List<SentPacket> out = new ArrayList<>(space.sentPackets.clear());
+        for (SentPacket p : out) {
+            removeInFlight(p);
+        }
+        space.timeOfLastAckElicitingPacket = NanoClock.NONE;
+        space.lossTime = NanoClock.NONE;
+        space.unackedNonAckElicitingTail = 0;
+        setLossDetectionTimer(now);
+        return out;
     }
 
     /**

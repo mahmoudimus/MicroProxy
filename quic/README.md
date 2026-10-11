@@ -10,8 +10,9 @@ under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20
 HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
-endpoint, tested against itself on loopback and against aioquic as client and server. Not yet:
-0-RTT and resumption, connection migration, BBR (see [Connections and
+endpoint, with session resumption, 0-RTT, NEW_TOKEN and a choice of CUBIC, NewReno or BBR
+congestion control, tested against itself on loopback and against aioquic as client and
+server. Not yet: connection migration (see [Connections and
 endpoints](#connections-and-endpoints)).
 
 ## Packets and protection
@@ -144,7 +145,8 @@ byte[] toSend = session.writeHandshake(level);       // for each level
 | Cipher suites | `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, `TLS_CHACHA20_POLY1305_SHA256` |
 | Key exchange | X25519, secp256r1, secp384r1; HelloRetryRequest (with `message_hash` and cookie echo) when the client's key share is not one the server takes |
 | CertificateVerify | `ecdsa_secp256r1_sha256`, `ecdsa_secp384r1_sha384`, `rsa_pss_rsae_sha256/384/512`, `ed25519`; `rsa_pkcs1_*` is advertised for certificate chains only |
-| Extensions | `server_name`, `supported_groups`, `signature_algorithms` (`_cert` parsed), ALPN, `supported_versions`, `key_share`, `cookie`, `quic_transport_parameters` (0x39), `psk_key_exchange_modes` (parsed only) |
+| Extensions | `server_name`, `supported_groups`, `signature_algorithms` (`_cert` parsed), ALPN, `supported_versions`, `key_share`, `cookie`, `quic_transport_parameters` (0x39), `psk_key_exchange_modes` (`psk_dhe_ke` only), `pre_shared_key`, `early_data` |
+| Resumption | NewSessionTicket from a server with a `Ticketer` (stateless, AES-256-GCM, rotating keys); PSK resumption with `psk_dhe_ke` (always a fresh key exchange); 0-RTT with an anti-replay `EarlyDataPolicy` |
 | Certificates | client: an `X509TrustManager` (the JDK default by default) plus host name verification as HTTPS does it, or `trustAllCertificates(true)` for tests; server: one `CertifiedKey` or a per-ClientHello selector (`ClientHelloInfo`: SNI, ALPN, signature schemes, suites, groups) |
 | Client authentication | `clientAuth(REQUEST or REQUIRE)` with a `clientTrustManager`; the client presents `clientCertificate(...)` |
 
@@ -154,13 +156,76 @@ key shares in `supported_groups`, the cipher suite and group kept across a retry
 no KeyUpdate message (QUIC has its own key update). No middlebox compatibility mode and no
 EndOfEarlyData, as RFC 9001 requires.
 
-Tests check the key schedule, Finished values and transcript (including the HelloRetryRequest
-`message_hash`) against RFC 8448 sections 3 and 5, run in-memory handshakes for every suite, group and
-signature scheme with randomly fragmented CRYPTO data, and fuzz the decoders from a fixed seed.
+### Resumption and 0-RTT
 
-Out of scope for now, as follow-ups: session resumption, PSKs, 0-RTT and session tickets (a server sends
-no NewSessionTicket; a client checks and ignores the ones it gets), `rsa_pss_pss` schemes, secp521r1
-and ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
+Session tickets, PSK resumption and early data follow rustls (`client/hs.rs`, `client/tls13.rs`,
+`server/tls13.rs`, `ticketer.rs` and the ring ticketer, `client/handy.rs`, `msgs/persist.rs`,
+`quic.rs`), with the QUIC rules of RFC 9001 section 4.6.
+
+```java
+Ticketer ticketer = Ticketer.create();                // AES-256-GCM, a new key every 6 hours
+TlsConfig server = TlsConfig.builder()
+        .certificate(chain, key).alpnProtocols("h3")
+        .sessionTickets(ticketer)                     // NewSessionTicket and PSK resumption
+        .earlyData(true)                              // tickets allow 0-RTT, and it is accepted
+        .earlyDataPolicy(EarlyDataPolicy.antiReplay().and(attempt -> !"admin".equals(attempt.serverName())))
+        .build();
+TlsConfig client = TlsConfig.builder().serverName("example.com").alpnProtocols("h3")
+        .earlyData(true)                              // offer 0-RTT when the ticket allows it
+        .build();
+TlsSession session = TlsSession.client(client, "example.com", params, cache.take("example.com"));
+for (SessionTicket t; (t = session.pollNewTicket()) != null; ) cache.put("example.com", t);
+```
+
+- **Tickets.** A server with a `Ticketer` sends `ticketsPerConnection` NewSessionTickets (2 by
+  default) at `ONE_RTT` once the client's Finished checks out, to clients that offered
+  `psk_dhe_ke`; none when it asks for client certificates. Each ticket seals, with AES-256-GCM
+  under the ticketer's current key (its 16-byte name as additional data, a random 12-byte nonce),
+  the resumption PSK, suite, `ticket_age_add`, issue time, lifetime, `max_early_data_size`, server
+  name, ALPN protocol, the server's encoded transport parameters and a random ticket id. The key
+  rotates every lifetime (6 hours by default, announced as the ticket lifetime); the previous key
+  still opens tickets for one more lifetime, as rustls' `TicketRotator` does. Servers that share a
+  `Ticketer` resume each other's sessions.
+- **Client.** A client always offers `psk_dhe_ke` and keeps the tickets it receives
+  (`pollNewTicket()`) as `SessionTicket`s, with the server's certificates and transport
+  parameters; a `ClientSessionStore` (`ClientSessionMemoryCache`: up to 256 servers, 8 tickets
+  each, oldest dropped) hands each out once. A ticket is offered only unexpired, for the same
+  server name and with a suite the client offers, in `pre_shared_key`, the last extension, with
+  its obfuscated age and a binder over the ClientHello up to the binders. After a
+  HelloRetryRequest to a suite of another hash the ticket is dropped.
+- **Server.** The first identity that opens, has not expired, and has the server name and a suite
+  of the selected hash is taken; its binder must be right (`decrypt_error` otherwise). Others, and
+  `psk_ke` alone, mean a full handshake. A resumed handshake has no Certificate or
+  CertificateVerify, but always a fresh (EC)DHE exchange.
+- **0-RTT.** With `earlyData(true)` a client offers early data when its ticket allows it (QUIC
+  tickets carry `max_early_data_size` 0xffffffff; any other value is `PROTOCOL_VIOLATION`) and the
+  ticket's ALPN is offered; its `ZERO_RTT` secrets (the client early traffic secret) come first,
+  at once. A server accepts only with the first PSK identity, the ticket's suite, ALPN protocol
+  and server name, no HelloRetryRequest, transport parameters the connection layer accepts
+  (`TlsSession.server(config, params, check)`), and its `EarlyDataPolicy`; it says so with
+  `early_data` in EncryptedExtensions, and hands out the same secrets before the Handshake ones.
+  `isEarlyDataAccepted()` tells either side; `isResumed()` whether a PSK was used.
+- **Replay.** 0-RTT data can be replayed by anyone who captured it (RFC 8446 section 8). The
+  default policy, `EarlyDataPolicy.antiReplay()`, accepts a ticket's early data only while the
+  client's ticket age (de-obfuscated) and the server's agree within 10 seconds, and only once: a
+  record of ticket ids, kept for twice the window and bounded (100,000 by default; when full it
+  refuses rather than forgets). A capture replayed later fails the age check, one replayed sooner
+  hits the record. The record is per process: servers sharing a ticketer but not the record can
+  each accept a replay once. Applications must still send only replay-safe data early, and may
+  veto with `policy.and(veto)` (the veto runs first, so vetoed tickets are not recorded). A
+  rejection costs the client only the data's retransmission after the handshake.
+
+Tests check the key schedule, Finished values and transcript (including the HelloRetryRequest
+`message_hash`) against RFC 8448 sections 3 and 5, and the resumed 0-RTT handshake of section 4
+byte for byte (the PSK from section 3's ticket, the early secret, the PSK binder, the client early
+traffic secret, the resumed handshake, application and resumption secrets); run in-memory
+handshakes for every suite, group and signature scheme with randomly fragmented CRYPTO data, and
+resumptions with early data accepted, rejected (the server's setting, a replay, a stale ticket
+age, an ALPN or suite change, the transport parameter check, a veto, a HelloRetryRequest), expired
+and foreign tickets and bad binders; and fuzz the decoders from a fixed seed.
+
+Out of scope for now, as follow-ups: external PSKs, `psk_ke`, `rsa_pss_pss` schemes, secp521r1 and
+ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
 
 ## Connection internals
 
@@ -204,7 +269,7 @@ for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
 | Streams (RFC 9000 sections 2 to 4) | `StreamsState`, `StreamId`, `Side`, `Dir`, `SendState`, `RecvState`, `StreamEvent`, `StreamException`, `Chunks`, `StreamMeta` | Send states Ready, Send, DataSent, ResetSent, DataRecvd, ResetRecvd and the six receive states; MAX_DATA, MAX_STREAM_DATA and MAX_STREAMS credit moved by an eighth of the window, as quinn does; DATA_BLOCKED, STREAM_DATA_BLOCKED and STREAMS_BLOCKED once per limit; priorities with fair round-robin; events Opened, Readable, Writable, Finished, Stopped, Available |
 | Packet number spaces | `PacketSpace`, `SpaceId`, `SentPacket`, `SentPackets`, `Retransmits`, `PendingAcks`, `Dedup`, `PacketNumberFilter` | Duplicate detection; ACK frames with at most 64 ranges, the ACK delay and ECN counts; an immediate ACK every second ack-eliciting packet or on reordering, else after `max_ack_delay`; skipped packet numbers against optimistic ACKs |
 | Loss detection (RFC 9002) | `Recovery`, `RecoveryConfig`, `RttEstimator` | Packet and time thresholds, PTO with exponential backoff (capped at 2^16) and probes, the client's anti-deadlock probe, discarding Initial and Handshake spaces, persistent congestion, spurious loss detection, ECN validation, the anti-amplification limit |
-| Congestion control | `Controller`, `ControllerFactory`, `NewReno`, `Cubic` (default), `Pacer` | RFC 9002 NewReno and RFC 9438 CUBIC with fast convergence and spurious-loss undo; a token-bucket pacer |
+| Congestion control | `Controller`, `ControllerFactory`, `NewReno`, `Cubic` (default), `Bbr`, `Pacer` | RFC 9002 NewReno and RFC 9438 CUBIC with fast convergence and spurious-loss undo; quinn's experimental BBR (see [BBR](#bbr)); a token-bucket pacer, under the controller's pacing rate when it sets one |
 | MTU discovery | `MtuDiscovery`, `MtuDiscoveryConfig` | DPLPMTUD (RFC 8899) by binary search up to 1452 bytes by default, three retransmissions per probe size, black hole detection |
 | Connection IDs | `ConnectionIdGenerator`, `RandomConnectionIdGenerator`, `LocalCidState`, `RemoteCidQueue`, `IssuedCid` | Sequence numbers, HMAC-derived stateless reset tokens, at most `min(active_connection_id_limit, 8)` issued, rotation through Retire Prior To when IDs have a lifetime, the peer's IDs bounded by our `active_connection_id_limit` |
 | ACK frequency | `AckFrequencyState` | The `max_ack_delay` each side uses, and ACK_FREQUENCY thresholds |
@@ -245,11 +310,94 @@ stricter than quinn:
   client's anti-deadlock probe goes in the Handshake space once it has Handshake keys.
 - MTU probes and black hole detection only count application data packets.
 - No flow-control window auto-tuning (quinn has none); windows can be changed at run time.
-- Not ported: BBR, the hashed connection ID generator, quinn's qlog module (the connection layer
+- A poll that builds datagrams until it runs out of data leaves the connection application
+  limited, as quinn's last `poll_transmit` call, which builds nothing, does.
+- BBR samples the delivery rate as draft-cheng-iccrg-delivery-rate-estimation does and follows
+  the BBRv1 draft where quinn's port does not (see [BBR](#bbr)).
+- Not ported: the hashed connection ID generator, quinn's qlog module (the connection layer
   has a smaller qlog-style sink instead), and connection statistics beyond the loss counters on
   `Recovery`. DATAGRAM buffering lives in the connection layer.
 - ECN: counts on received packets, ACK frames with ECN counts and validation of the peer's
   counts are here; marking outgoing packets is the socket layer's job.
+
+### BBR
+
+`Bbr` (`TransportConfig.CongestionControl.BBR`, or `BbrConfig` as the controller factory) is
+ported from quinn's `congestion/bbr` (`mod.rs`, `bw_estimation.rs`, `min_max.rs`), itself based on
+a BBRv1 sender (`bbr_sender.cc`); quinn calls it experimental. Where quinn's port departs from
+BBRv1 (draft-cardwell-iccrg-bbr-congestion-control), this one follows the draft instead.
+
+It models the path instead of reacting to loss: the bottleneck bandwidth (`BtlBw`, the windowed
+maximum of the delivery rate samples over ten round trips, `BandwidthEstimation` and `MinMax`) and
+the minimum RTT (`RTprop`). From them it sets the window (a gain times the bandwidth-delay
+product, plus the ack aggregation seen) and a pacing rate, in four modes: STARTUP (gain 2.885,
+until the estimate grows less than 25% in three rounds, or a loss in that round), DRAIN (gain
+1/2.885, until the bytes in flight are down to one BDP), PROBE_BW (pacing gains 1.25, 0.75 and six
+rounds of 1.0, from a random point of the cycle; window gain 2) and PROBE_RTT (window 0.75 BDP for
+at least 200 ms and a round) when the minimum RTT is ten seconds old. Losses cap the window in
+conservation, then growth, until a round passes without one. The default initial window is
+quinn's 240000 bytes.
+
+**Delivery rate.** `DeliveryRate` in the connection layer is the sampler of
+draft-cheng-iccrg-delivery-rate-estimation: each packet sent in flight is stamped (`SentPacket`)
+with the connection's delivered bytes, their time, the send time of the first packet of its flight
+and whether sending was application limited (the connection marks the bytes then in flight as an
+application-limited bubble when a poll runs out of data); each ACK yields one `RateSample` from
+the newest packet it acknowledges, over the longer of its send and ACK intervals, with no rate
+when that is shorter than the minimum RTT. `Controller.onRateSample` hands it to the controller
+before `onEndAcks`. An application-limited sample counts only if it beats the estimate.
+
+What the port adds to the controller interface, and where it departs from quinn:
+
+- `Controller.onRateSample` and `RateSample`, with `DeliveryRate` and the delivery fields of
+  `SentPacket`. quinn's estimator took, per acknowledged packet, the lower of the rates between
+  its last two sends and last two acknowledgements: with ACKs covering two packets a sample was
+  half the rate, and its estimate could stay there.
+- The max filter is fed every sample, so a maximum expires after ten round trips and the
+  estimate follows a path that slows down. quinn fed it only samples above the estimate, so its
+  estimate never fell.
+- PROBE_RTT starts only when the minimum RTT has expired: ten seconds without a sample at or
+  below it (`rtprop_expired`); leaving PROBE_RTT renews it. quinn started one at the first
+  acknowledgement that was not application limited, since none had started yet, and skipped
+  them while application limited, which the draft does not.
+- STARTUP grows the window by the bytes acknowledged only below its target or before the
+  initial window is delivered; quinn compared the gain, not the window, with the target, so its
+  window grew without bound, even while application limited.
+- `Controller.pacingRate()` (default -1): the pacer sends at no more than BBR's rate, nor than
+  1.25 windows per smoothed RTT (`Pacer.rateLimitedWindow`). quinn computes the rate but only
+  reports it; its pacer paces the window, so DRAIN could not drain.
+- `ControllerMetrics.bandwidthEstimate()`, in bits per second, as quinn's metrics have.
+- `Bbr.mode()`, `bandwidthEstimate()`, `minRtt()`, `isAtFullBandwidth()` and `roundCount()` for
+  inspection, and a constructor taking the random source of the gain cycle.
+
+Still different from the draft, as in quinn:
+
+- Round trips are counted by packet number (a round ends when a packet sent after the previous
+  round's end is acknowledged), not by delivered bytes.
+- The PROBE_RTT window is 0.75 BDP (quiche's moderate PROBE_RTT), not four packets, and the cwnd
+  is not saved and restored around it; PROBE_RTT ends 200 ms after the bytes in flight first fit
+  that window, at a round start.
+- Loss recovery uses quiche's conservation and growth recovery window, and a loss during STARTUP
+  ends it at the next round without 25% growth. There is no idle restart (`exitingQuiescence` is
+  never set) and no special handling of ECN.
+- The pacing rate in STARTUP starts at the initial window per minimum RTT once there is a
+  bandwidth sample, and never falls during STARTUP; before the first sample the pacer paces the
+  window.
+- The gain cycle's 0.75 phase lasts until the bytes in flight are down to the BDP
+  (`DRAIN_TO_TARGET`), and the ack aggregation seen is added to the window.
+
+**Simulations.** `BbrTest` drives the controller on a fake clock with the connection's
+`DeliveryRate` and `Pacer` and a receiver that acknowledges every second packet: STARTUP, DRAIN
+and PROBE_BW on 100 Mbit/s and 40 ms (99% of the link used), PROBE_RTT exactly when the minimum
+RTT turns ten seconds old (and a new minimum after a route change from 40 to 60 ms), the estimate
+and pacing rate following a drop from 50 to 10 Mbit/s within 12 round trips (the ten-round filter)
+and a rise at once, application-limited phases, and ten gain-cycle seeds on three paths.
+`BbrConnectionTest` runs connections on the in-memory pair through a bottleneck with a drop-tail
+queue (`Pair.bandwidth`, `Pair.queueLimit`), seeded so that every run repeats exactly
+(`Pair.seeded`): on 20 Mbit/s and 40 ms the estimate is 2.5000 MB/s for each of twenty seeds and
+4 MB transfers run at 2.40 MB/s; a drop from 50 to 10 Mbit/s mid-transfer is followed in 13
+round trips (3.9 s, with the queue the drop builds); on 50 Mbit/s and 40 ms with 1% random loss,
+BBR moves 5.98 MB/s (6.02 without loss) where CUBIC manages 0.45 MB/s.
 
 ## Connections and endpoints
 
@@ -314,14 +462,28 @@ try (QuicClient client = QuicClient.create(clientConfig);
 | Type | Role |
 | --- | --- |
 | `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `accept()` (blocks until a handshake completes), `inject(from, datagram)`, `send(datagram, to)`, `localAddress()`, `close()` |
-| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout])`, `close()` |
-| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()` |
-| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread) |
+| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `close()` |
+| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
+| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
+| `...connection.SessionCache` | A client's session tickets (`ClientSessionStore`) and NEW_TOKEN tokens (`TokenStore`, `TokenMemoryCache` after quinn's), by server name: `memory()`, `none()` |
 | `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
 | `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
 | `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `knows(remote, bytes)`; `connect(...)`; `handleEvent(connection, event)` |
 | `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `ConnectionLost(ConnectionError)` |
-| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, connection cap; trust, server name, version; CID length and lifetime, reset key, versions |
+| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, NEW_TOKEN tokens and their lifetime, connection cap; trust, server name, version, session cache; CID length and lifetime, reset key, versions |
+
+With a `Ticketer` and `earlyData(true)` in its TLS configuration, a server's `accept()` hands out
+a connection that accepted 0-RTT data as soon as its handshake data is ready, before the handshake
+completes, so the early requests can be served at once; `QuicStream.receivedEarlyData()` marks
+what may be a replay, and `awaitHandshake` waits for the client's Finished. On the client:
+
+```java
+QuicConnection c = client.connectEarly(address, "example.com", null);   // at once with a 0-RTT ticket
+QuicStream s = c.openBidirectionalStream();       // within the limits of the earlier session
+s.getOutputStream().write(idempotentRequest);    // 0-RTT data
+c.awaitHandshake(null);
+c.earlyDataAccepted();                            // if not, the data went again in 1-RTT
+```
 
 A server's `DatagramFilter` sees the datagrams none of its connections claims (by Destination
 Connection ID: a client's first Initial, unknown versions, unknown connections) before its endpoint
@@ -347,6 +509,24 @@ elsewhere.
   token) a server sends at most three times what it received. With `retry(true)` the endpoint
   answers token-less Initials with Retry and a sealed token from `...quic.token`, and checks it on
   the client's second Initial; an invalid or expired token gets CONNECTION_CLOSE `INVALID_TOKEN`.
+  Once the handshake completes, a server sends `newTokens` NEW_TOKEN frames (2 by default, a fresh
+  token for each loss), bound to the client's IP for two weeks; a client keeps them by server
+  name and presents one in the first Initial of its next connection, which validates its address
+  and skips the Retry. A `BloomTokenLog` per endpoint refuses a token's second use.
+- **Resumption and 0-RTT.** A client takes a ticket and a token for the server from its
+  `SessionCache` (`ClientConfig.sessionCache`, or `QuicClient`'s own) and keeps those it receives.
+  With a ticket that allows 0-RTT, it installs the 0-RTT keys at once and keeps within the
+  transport parameters the ticket remembers (as quinn's `init_0rtt` filters them, RFC 9000
+  section 7.4.1): stream data and datagrams go out in 0-RTT packets, coalesced with the Initial,
+  without ACK, CRYPTO, NEW_CONNECTION_ID or PATH_RESPONSE frames. If the server accepts, its new
+  parameters must not lower those limits (`PROTOCOL_VIOLATION`). If it rejects, the 0-RTT packets
+  are forgotten without counting as lost, their control frames are queued again, and the streams
+  send everything again in 1-RTT packets, when what they used fits the server's new limits; else
+  the local streams are forgotten, as quinn does. A server with 0-RTT on decrypts 0-RTT packets
+  with the client early traffic keys and processes them during the handshake (the endpoint routes
+  them by the Initials' connection ID), refuses 0-RTT when a limit is now below the ticket's,
+  records which streams carried early data (`receivedEarlyData`), and drops the keys three PTOs
+  after the first 1-RTT packet.
 - **Packets.** Coalesced packets are split, protection removed, packet numbers decoded against the
   largest received, duplicates dropped, frames checked against the packet type (RFC 9000 Table 3).
   ACKs go into `Recovery` (RTT, loss detection, congestion, MTU probes); lost STREAM, CRYPTO and
@@ -408,17 +588,27 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
 ### Tests
 
 - `ConnectionTest` ports quinn-proto's connection tests to an in-memory pair (`Pair`): two endpoints
-  on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, and hooks to
-  drop or hold back datagrams. Handshakes over every cipher suite and both versions, stream
+  on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, a bottleneck
+  rate with a drop-tail queue, and hooks to drop or hold back datagrams. `Pair.seeded` also draws
+  both endpoints' randomness (`EndpointConfig.Builder.random`), the TLS randoms, key shares and
+  signatures (`TlsConfig.Builder.secureRandom`) and the certificate from a seed, so a run repeats
+  exactly in any JVM. Handshakes over every cipher suite and both versions, stream
   transfer, flow-control blocking, stream limits, loss recovery and tail loss, key updates (simple,
   reordered, routine), idle timeout and keep-alive, closes in every state, stateless resets (and
   their rate limit), Version Negotiation, Retry (and expired tokens), CID rotation and retirement,
   zero-length CIDs, datagrams, MTU discovery, anti-amplification, the connection cap.
+- `ZeroRttTest` runs resumption between `Pair`s: 0-RTT accepted (the request coalesced with the
+  Initial and read by the server before its handshake completes), rejected and sent again in
+  1-RTT without counting as lost, a captured first flight replayed from another address (no early
+  data, nothing processed), an expired ticket, an ALPN change, smaller transport parameters (the
+  streams that no longer fit are forgotten), an application veto, NEW_TOKEN skipping Retry, and a
+  reused token. `ZeroRttLoopbackTest` does the same over the blocking API on loopback.
 - `LoopbackTest` runs the blocking API over real UDP on loopback: 32 concurrent streams echoing 1 MB
   each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
   updates during a transfer. On a 4-core container, with an 8 KB MTU, the 32-stream echo moves
   100 to 125 MB/s (both directions together) and a single upload 160 to 225 MB/s; with the default 1452-byte
-  MTU a warmed-up single stream uploads 150 to 185 MB/s.
+  MTU a warmed-up single stream uploads 150 to 185 MB/s. A 16 MB echo runs with BBR on both sides.
+- `BbrTest` and `BbrConnectionTest` simulate BBR on bottleneck links (see [BBR](#bbr)).
 - `ConnectionFuzzTest` feeds a connection random and mutated datagrams (nothing may throw or close
   it) and authenticated 1-RTT packets of random frames (they may close it with a protocol error,
   never `INTERNAL_ERROR`).
@@ -426,8 +616,11 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   server in `src/test/resources/interop/` (raw streams, ALPN `microproxy-test`). It covers a Java
   server with an aioquic client and an aioquic server with a Java client: all three cipher suites
   with X25519, P-256 and P-384 (the server choosing), many streams and multi-megabyte transfers,
-  unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2, and
-  closes from either side with their codes and reasons. An HTTP/3 client on aioquic's
+  unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2,
+  closes from either side with their codes and reasons, and resumption with 0-RTT both ways:
+  aioquic's client resumes against the Java server and has its request served from early data
+  (`resume_client.py`), and the Java client resumes against aioquic's server (`--tickets`) through
+  `connectEarly`, both with the early data accepted. An HTTP/3 client on aioquic's
   `H3Connection` also runs GET and POST requests (2 MB down, 1 MB echoed, concurrent and
   sequential) against a small HTTP/3 server built on the blocking API and `http3-codec` (a
   test-scoped dependency; static QPACK only).
@@ -447,9 +640,9 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 
 ### Not yet
 
-0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
-validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
-path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
+Connection migration and path validation (datagrams from another address are dropped;
+PATH_CHALLENGE is answered on the current path), the preferred address, sending ACK_FREQUENCY,
+ECN marking (the JDK cannot set or read
 ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
 `http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see
 the main README's HTTP/3 section), and the interop test's HTTP/3 server is test code.

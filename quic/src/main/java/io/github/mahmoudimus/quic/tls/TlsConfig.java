@@ -1,5 +1,6 @@
 // Ported from rustls src/client/config.rs, src/server/config.rs and src/builder.rs (the client and
-// server configuration: suites, groups, verifier, certificate resolver, ALPN) (Apache-2.0).
+// server configuration: suites, groups, verifier, certificate resolver, ALPN, enable_early_data,
+// the ticketer, send_tls13_tickets and max_early_data_size) (Apache-2.0).
 package io.github.mahmoudimus.quic.tls;
 
 import io.github.mahmoudimus.quic.CipherSuite;
@@ -7,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -22,7 +24,17 @@ import javax.net.ssl.X509TrustManager;
  * <p>Defaults: all three cipher suites; the groups X25519, P-256 and P-384, in that order of
  * preference; the signature schemes {@code ecdsa_secp256r1_sha256}, {@code
  * ecdsa_secp384r1_sha384}, {@code rsa_pss_rsae_sha256/384/512} and {@code ed25519}; the JDK's
- * default trust manager with host name verification; no client authentication.
+ * default trust manager with host name verification; no client authentication; no session
+ * tickets and no 0-RTT.
+ *
+ * <p><b>Resumption.</b> A server with a {@link Builder#sessionTickets(Ticketer) ticketer} sends
+ * {@link Builder#ticketsPerConnection(int) tickets} after each handshake and accepts them for PSK
+ * resumption ({@code psk_dhe_ke} only: a resumed handshake still does a fresh (EC)DHE exchange). A
+ * client resumes with a {@link SessionTicket} the connection layer passes to {@link
+ * TlsSession#client(TlsConfig, String, byte[], SessionTicket)}. With {@link
+ * Builder#earlyData(boolean) earlyData}, a client offers 0-RTT data when its ticket allows it, and a
+ * server allows 0-RTT in its tickets and accepts it when its {@link Builder#earlyDataPolicy
+ * policy} does; see {@link EarlyDataPolicy} for the replay risk.
  */
 public final class TlsConfig {
 
@@ -46,6 +58,12 @@ public final class TlsConfig {
     final Function<ClientHelloInfo, String> alpnSelector;
     final ClientAuth clientAuth;
     final X509TrustManager clientTrustManager;
+    // Resumption and 0-RTT.
+    final InstantSource clock;
+    final boolean earlyData;
+    final Ticketer ticketer;
+    final int ticketsPerConnection;
+    final EarlyDataPolicy earlyDataPolicy;
 
     private TlsConfig(Builder b) {
         this.cipherSuites = List.copyOf(b.cipherSuites);
@@ -65,6 +83,39 @@ public final class TlsConfig {
         this.alpnSelector = b.alpnSelector;
         this.clientAuth = b.clientAuth;
         this.clientTrustManager = b.clientTrustManager;
+        this.clock = b.clock;
+        this.earlyData = b.earlyData;
+        this.ticketer = b.ticketer;
+        this.ticketsPerConnection = b.ticketsPerConnection;
+        this.earlyDataPolicy = b.earlyDataPolicy != null ? b.earlyDataPolicy
+                : b.earlyData && b.ticketer != null ? EarlyDataPolicy.antiReplay() : EarlyDataPolicy.REJECT;
+    }
+
+    /**
+     * Whether 0-RTT is enabled: offered by a client, allowed and accepted by a server.
+     *
+     * @return true if enabled
+     */
+    public boolean earlyData() {
+        return earlyData;
+    }
+
+    /**
+     * Client: the server name to connect to when none is given.
+     *
+     * @return the name, or null
+     */
+    public String serverName() {
+        return serverName;
+    }
+
+    /**
+     * The server's ticketer.
+     *
+     * @return the ticketer, or null if the server issues no tickets
+     */
+    public Ticketer ticketer() {
+        return ticketer;
     }
 
     /**
@@ -110,6 +161,11 @@ public final class TlsConfig {
         private Function<ClientHelloInfo, String> alpnSelector;
         private ClientAuth clientAuth = ClientAuth.NONE;
         private X509TrustManager clientTrustManager;
+        private InstantSource clock = InstantSource.system();
+        private boolean earlyData;
+        private Ticketer ticketer;
+        private int ticketsPerConnection = 2;
+        private EarlyDataPolicy earlyDataPolicy;
 
         private Builder() {}
 
@@ -334,6 +390,72 @@ public final class TlsConfig {
          */
         public Builder clientTrustManager(X509TrustManager trustManager) {
             this.clientTrustManager = trustManager;
+            return this;
+        }
+
+        /**
+         * The wall clock ticket ages and lifetimes are measured with.
+         *
+         * @param clock the clock
+         * @return this builder
+         */
+        public Builder clock(InstantSource clock) {
+            this.clock = Objects.requireNonNull(clock);
+            return this;
+        }
+
+        /**
+         * Turns 0-RTT on or off (off by default). A client then offers early data when its ticket
+         * allows it; a server issues tickets that allow early data and accepts it when the {@link
+         * #earlyDataPolicy(EarlyDataPolicy) policy} does. 0-RTT data can be replayed; see {@link
+         * EarlyDataPolicy}.
+         *
+         * @param enabled whether to use 0-RTT
+         * @return this builder
+         */
+        public Builder earlyData(boolean enabled) {
+            this.earlyData = enabled;
+            return this;
+        }
+
+        /**
+         * Server: the ticketer that seals session tickets, which turns on NewSessionTicket and PSK
+         * resumption. Servers that share a ticketer accept each other's tickets. Not used with
+         * {@link #clientAuth(ClientAuth) client authentication}.
+         *
+         * @param ticketer the ticketer, or null to issue no tickets (the default)
+         * @return this builder
+         */
+        public Builder sessionTickets(Ticketer ticketer) {
+            this.ticketer = ticketer;
+            return this;
+        }
+
+        /**
+         * Server: how many tickets to send after each handshake. Clients use each ticket once, so
+         * more tickets allow more resumed connections before the next full handshake.
+         *
+         * @param count 0 to 16; 2 by default
+         * @return this builder
+         */
+        public Builder ticketsPerConnection(int count) {
+            if (count < 0 || count > 16) {
+                throw new IllegalArgumentException("ticketsPerConnection " + count);
+            }
+            this.ticketsPerConnection = count;
+            return this;
+        }
+
+        /**
+         * Server: decides whether to accept 0-RTT data the protocol allows. The default, with
+         * {@link #earlyData(boolean) earlyData} on, is {@link EarlyDataPolicy#antiReplay()}; compose
+         * an application veto with it rather than replacing it.
+         *
+         * @param policy the policy
+         * @return this builder
+         */
+        public Builder earlyDataPolicy(EarlyDataPolicy policy) {
+            this.earlyDataPolicy = Objects.requireNonNull(policy);
             return this;
         }
 
