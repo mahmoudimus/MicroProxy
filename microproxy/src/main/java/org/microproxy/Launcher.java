@@ -133,6 +133,9 @@ public final class Launcher {
               --tcp-hosts <regex>          relay matching hosts (target host or SNI) as raw TCP even
                                            when they look like HTTP; TLS is still intercepted;
                                            repeatable
+              --quic-hosts <regex>         relay matching hosts' intercepted QUIC (server host or
+                                           SNI) stream by stream through the QUIC hooks, even
+                                           HTTP/3, and intercept their other QUIC; repeatable
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -313,6 +316,7 @@ public final class Launcher {
         List<String> ignoreHosts = new ArrayList<>();
         List<String> allowHosts = new ArrayList<>();
         List<String> tcpHosts = new ArrayList<>();
+        List<String> quicHosts = new ArrayList<>();
         String caPassword = "microproxy";
         Path saveHar = null;
         String saveHarFilter = null;
@@ -481,6 +485,7 @@ public final class Launcher {
                 case "--ignore-hosts" -> ignoreHosts.add(value(queue, arg));
                 case "--allow-hosts" -> allowHosts.add(value(queue, arg));
                 case "--tcp-hosts" -> tcpHosts.add(value(queue, arg));
+                case "--quic-hosts" -> quicHosts.add(value(queue, arg));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
@@ -507,6 +512,7 @@ public final class Launcher {
         if (!ignoreHosts.isEmpty()) bootstrap.withIgnoreHosts(ignoreHosts.toArray(String[]::new));
         if (!allowHosts.isEmpty()) bootstrap.withAllowHosts(allowHosts.toArray(String[]::new));
         if (!tcpHosts.isEmpty()) bootstrap.withTcpHosts(tcpHosts.toArray(String[]::new));
+        if (!quicHosts.isEmpty()) bootstrap.withQuicHosts(quicHosts.toArray(String[]::new));
         if (upstream != null || upstreamHttps != null) {
             bootstrap.withChainProxyManager(
                     new UpstreamProxyManager(upstream, upstreamHttps, NoProxyRules.parse(noProxy)));
@@ -670,6 +676,22 @@ public final class Launcher {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(option + " needs a number, got: " + v);
         }
+    }
+
+    /** UDP ports, comma-separated, or {@code any} for every port (none). */
+    private static int[] ports(String list, String option) {
+        String trimmed = list.strip();
+        if (trimmed.equalsIgnoreCase("any")) return new int[0];
+        String[] parts = trimmed.split(",");
+        int[] ports = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                ports[i] = Integer.parseInt(parts[i].strip());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(option + " needs ports (443,8443) or any, got: " + list);
+            }
+        }
+        return ports;
     }
 
     private static long longValue(Deque<String> queue, String option) {
