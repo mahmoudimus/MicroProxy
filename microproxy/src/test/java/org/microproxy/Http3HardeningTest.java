@@ -192,8 +192,12 @@ class Http3HardeningTest {
             OutputStream fo = flood.getOutputStream();
             Http3FrameWriter fw = new Http3FrameWriter(fo);
             fw.writeHeaders(client.encode(flood.id(), client.head("POST", "/flood", List.of())));
-            for (int i = 0; i < 100; i++) fw.writeFrame(new io.github.mahmoudimus.http3.Http3Frame.Unknown(0x21, new byte[0]));
-            fo.flush();
+            try {
+                for (int i = 0; i < 100; i++) fw.writeFrame(new io.github.mahmoudimus.http3.Http3Frame.Unknown(0x21, new byte[0]));
+                fo.flush();
+            } catch (io.github.mahmoudimus.quic.QuicConnectionException e) {
+                // the proxy closed the connection before the client was done writing the flood
+            }
             assertEquals(0x0107, closeCode(client), "H3_EXCESSIVE_LOAD");
         }
     }
@@ -266,9 +270,10 @@ class Http3HardeningTest {
             Future<?> stopping = pool.submit(proxy::stop);
             long goAway = client.awaitGoAway(Duration.ofSeconds(10));
             assertTrue(goAway >= 8, "GOAWAY names the first stream not processed: " + goAway);
-            // A stream opened after GOAWAY is refused, to be retried elsewhere.
-            QuicStream late = client.send(client.head("GET", "/late", List.of()), true);
-            QuicStreamException refused = assertThrows(QuicStreamException.class, () -> client.readResponse(late));
+            // A stream opened after GOAWAY is refused, to be retried elsewhere (the refusal may come
+            // while the request is still being written).
+            QuicStreamException refused = assertThrows(QuicStreamException.class,
+                    () -> client.readResponse(client.send(client.head("GET", "/late", List.of()), true)));
             assertEquals(0x010b, refused.errorCode(), "H3_REQUEST_REJECTED");
             release.countDown();
             assertEquals(200, slow.get().status(), "the stream in progress completes");
