@@ -3261,7 +3261,7 @@ final class ClientConnection implements Runnable {
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             }
-            holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode == Mode.TLS,
+            holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode != Mode.PLAIN,
                     active, reader, output, remote, serverContext, server.trackers);
             ServerConnection created = holder[0];
             created.tlsPending = deferTls;
