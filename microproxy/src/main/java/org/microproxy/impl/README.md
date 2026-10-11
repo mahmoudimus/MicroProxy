@@ -533,15 +533,19 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 - **Graceful stop.** GOAWAY names the first stream not processed; later streams are refused with
   H3_REQUEST_REJECTED, and the connection closes once its streams are done and the client has
   closed it, or after two seconds.
-- **Resumption and early data.** `Http3Listener.serverConfig` gives both QUIC listeners session
+- **Resumption and early data.** `Http3Listener.serverConfig` gives every QUIC server that
+  serves HTTP/3 (the HTTP/3 listener, the transparent QUIC listener and `MasqueQuic`'s) session
   tickets sealed with the proxy's `Ticketer` (one per `DefaultHttpProxyServer`, `quicTicketer`,
-  typed `Object` so the class loads without the module) and, with `Http3Options.zeroRtt`, 0-RTT.
-  A QUIC server hands out a connection that accepted 0-RTT before its handshake completes, so
-  `serveHttp3` may start on one still handshaking. `readRequest` checks the stream's
-  `receivedEarlyData()`: such a request marks its `ClientFlowContext` (`earlyData`, which
-  `FlowContext.isEarlyData()` and `ctx.early_data` report), gets `425` unless `replaySafe`
-  (`GET`, `HEAD` or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any
-  filter runs. Requests are not held for the handshake.
+  typed `Object` so the class loads without the module) and, with `Http3Options.zeroRtt`, 0-RTT
+  under one anti-replay `EarlyDataPolicy` they share (`quicEarlyDataPolicy`), so that a ticket's
+  early data is accepted once in all. `QuicFlows.streamsConfig`, for QUIC intercepted stream by
+  stream, has no ticketer: no resumption, no 0-RTT. A QUIC server hands out a connection that
+  accepted 0-RTT before its handshake completes, so `serveHttp3` may start on one still
+  handshaking. `readRequest` checks the stream's `receivedEarlyData()`: such a request marks its
+  `ClientFlowContext` (`earlyData`, which `FlowContext.isEarlyData()` and `ctx.early_data`
+  report), gets `425` if it is a `CONNECT` (extended or not) or not `replaySafe` (`GET`, `HEAD`
+  or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any filter runs.
+  Requests are not held for the handshake.
 
 `Http3StreamChannel` is `Http2StreamChannel` over QUIC: `clientKeepAlive` true, `adaptFraming`
 drops `Transfer-Encoding`, `setKeepAlive` does nothing, `writeContinue` answers only `Expect:

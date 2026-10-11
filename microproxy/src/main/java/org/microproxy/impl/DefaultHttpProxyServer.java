@@ -164,6 +164,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      * Ticketer}, typed so that the class loads without the module), made on first use.
      */
     volatile Object quicTicketer;
+    /**
+     * The anti-replay record of the proxy's QUIC servers (a quic {@code EarlyDataPolicy}), which
+     * all of them share as they share the ticket key, so that a ticket's early data is accepted
+     * once in all; made on first use.
+     */
+    volatile Object quicEarlyDataPolicy;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 

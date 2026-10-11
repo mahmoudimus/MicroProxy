@@ -268,7 +268,7 @@ Command-line flags override values from the file.
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
 | `masque_intercept_quic` | decide on the QUIC inside CONNECT-UDP flows as on transparent QUIC (see [QUIC inside CONNECT-UDP flows](#quic-inside-connect-udp-flows)) | `false` |
 | `masque_quic_ports` | the target ports of the flows `masque_intercept_quic` inspects: comma-separated, or `any` | `443` |
-| `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3` and intercepted `transparent_quic_port` clients; see [Session resumption and 0-RTT](#session-resumption-and-0-rtt)) | `false` |
+| `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3`, and HTTP/3 intercepted from `transparent_quic_port` clients or inside CONNECT-UDP flows; see [Session resumption and 0-RTT](#session-resumption-and-0-rtt)) | `false` |
 | `http3_upstream_0rtt` | send requests safe to replay (`GET`, `HEAD`, `OPTIONS` without a body) to HTTP/3 servers as 0-RTT data when resuming | `true` |
 | `quic_congestion` | congestion control of the proxy's QUIC connections, to clients and to servers: `cubic`, `newreno` or `bbr` (experimental; see [Congestion control](#http3-congestion-control)) | `cubic` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
@@ -1619,12 +1619,15 @@ http.send_datagram(stream_id, b"\x00" + dns_query)
 
 #### Session resumption and 0-RTT
 
-The proxy's QUIC listeners (`--http3` and the clients the [transparent QUIC](#transparent-quic)
-listener intercepts) send each client two TLS session tickets after its handshake, sealed with a
-key of the proxy's that rotates every six hours, and two NEW_TOKEN tokens. A returning client
-resumes its session (no certificate exchange: a fresh key exchange and a PSK) and skips the Retry
-round trip of `--http3-retry`. Tickets work across both listeners of one proxy, but not across
-proxy processes: each has its own key.
+The proxy's QUIC servers that serve HTTP/3 (`--http3`, the clients the [transparent
+QUIC](#transparent-quic) listener intercepts as HTTP/3, and HTTP/3 intercepted inside CONNECT-UDP
+flows with `--masque-intercept-quic`) send each client two TLS session tickets after its
+handshake, sealed with a key of the proxy's that rotates every six hours, and two NEW_TOKEN tokens.
+A returning client resumes its session (no certificate exchange: a fresh key exchange and a PSK)
+and skips the Retry round trip of `--http3-retry`. Tickets work across all the QUIC servers of one
+proxy, but not across proxy processes: each has its own key. QUIC intercepted stream by stream
+(the [QUIC stream hooks](#quic-stream-hooks)) gets no tickets, so no resumption and no 0-RTT: its
+streams are opaque, and the proxy could not tell what in them is safe to replay.
 
 **0-RTT to the proxy** is off by default. `--http3-0rtt` (`Http3Options.zeroRtt(true)`,
 `http3_0rtt=true`) lets a resuming client send its first requests as early data, before its
@@ -1634,12 +1637,13 @@ captures a client's first flight can send it again, and the proxy would act on i
 
 - **The QUIC layer** accepts a ticket's early data at most once, and only while the ticket age the
   client reports agrees with the proxy's within 10 seconds, which a stale capture fails. Its record
-  of used tickets is in memory, per process, and bounded (refusing early data when full);
-  rejected early data costs the client nothing but the round trip, as it sends it again.
+  of used tickets is in memory, one per process that all its QUIC servers share, and bounded
+  (refusing early data when full); rejected early data costs the client nothing but the round
+  trip, as it sends it again.
 - **The proxy** treats a request any part of which arrived as early data as
   [RFC 8470](https://datatracker.ietf.org/doc/html/rfc8470) says. A method that is not safe to
-  repeat (anything but `GET`, `HEAD` and `OPTIONS` without a body) gets `425 Too Early`, and the
-  client sends it again once its handshake completes. Others go on with `Early-Data: 1`, so the
+  repeat (anything but `GET`, `HEAD` and `OPTIONS` without a body, and so any `CONNECT`, extended
+  or not) gets `425 Too Early`, and the client sends it again once its handshake completes. Others go on with `Early-Data: 1`, so the
   server (or another proxy behind) can answer `425` itself, which the proxy relays.
 - **Filters** see `FlowContext.isEarlyData()` (`ctx.early_data` in scripts) and may answer `425`
   to requests they deem unsafe, `GET`s with side effects for instance:

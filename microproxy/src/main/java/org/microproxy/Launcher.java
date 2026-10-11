@@ -175,9 +175,9 @@ public final class Launcher {
               --masque-quic-ports <list>   the target ports whose flows --masque-intercept-quic
                                            inspects: comma-separated, or "any" (default 443)
               --http3-0rtt                 accept 0-RTT early data from resuming HTTP/3 clients
-                                           (--http3 and --transparent-quic-port): replayable, so
-                                           unsafe methods get 425 and the rest go on with
-                                           Early-Data: 1
+                                           (--http3, --transparent-quic-port and
+                                           --masque-intercept-quic): replayable, so unsafe methods
+                                           get 425 and the rest go on with Early-Data: 1
               --no-http3-upstream-0rtt     never send requests to HTTP/3 servers as 0-RTT data (by
                                            default GET, HEAD and OPTIONS without a body may go)
               --quic-congestion <name>     congestion control of the proxy's QUIC connections:
