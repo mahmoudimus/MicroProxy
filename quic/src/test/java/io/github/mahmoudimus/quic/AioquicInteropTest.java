@@ -52,9 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Interoperability with aioquic, an independent QUIC implementation, used only as an external peer:
  * its echo client against the Java server and its echo server against the Java client, over every
  * cipher suite and key exchange group, with large transfers, many streams, datagrams, key updates,
- * Retry, QUIC version 2, closes from either side, and session resumption with 0-RTT data each way,
- * and aioquic's HTTP/3 connection against an HTTP/3 server on http3-codec. The peer scripts are
- * test resources.
+ * Retry, QUIC version 2, closes from either side, session resumption with 0-RTT data each way,
+ * connection migration each way, and aioquic's HTTP/3 connection against an HTTP/3 server on
+ * http3-codec. The peer scripts are test resources.
  *
  * <p>Skipped unless Python 3 with aioquic is available: the interpreter is {@code
  * -Dquic.interop.python}, else {@code $QUIC_INTEROP_PYTHON}, else {@code python3}. To run:
@@ -545,6 +545,88 @@ class AioquicInteropTest {
             byte[] d = LoopbackTest.data(6, 100_000);
             assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
             c.close();
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Migration
+
+    /**
+     * aioquic's client moves to a new port with the Java server's next connection ID while four
+     * streams of 4 MB are echoed: the server follows it, validating the new path.
+     */
+    @Test
+    void aioquicClientMovesToANewPortMidTransfer() throws Exception {
+        try (EchoServer server = new EchoServer(javaServer(null, null, false))) {
+            String result = runClient(server.address(), "--streams", "4", "--size", "4000000", "--migrate-after", "0.15");
+            assertEquals(Long.toString(4 * 4_000_000L), field(result, "bytes"));
+            assertEquals("true", field(result, "migrated_while_busy"), result);
+            int port = Integer.parseInt(field(result, "migrated_port"));
+            QuicConnection c = server.accepted.poll(10, TimeUnit.SECONDS);
+            assertNotNull(c);
+            assertEquals(port, c.remoteAddress().getPort(), "the server followed the client");
+            System.out.println("aioquic client moved to port " + port + ": " + result + " " + c.stats());
+            assertTrue(server.errors().isEmpty(), server.errors().toString());
+        }
+    }
+
+    /** The Java client rebinds to a new port in the middle of an echo; aioquic's server follows. */
+    @Test
+    void javaClientRebindsAgainstAioquic() throws Exception {
+        try (PythonServer py = new PythonServer();
+                QuicClient client = QuicClient.create(javaClient(null, null, QuicVersion.V1))) {
+            QuicConnection c = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
+            byte[] d = LoopbackTest.data(31, 8_000_000);
+            java.util.concurrent.CompletableFuture<byte[]> echoed = new java.util.concurrent.CompletableFuture<>();
+            Thread.ofVirtual().start(() -> {
+                try {
+                    echoed.complete(LoopbackTest.echo(c, d));
+                } catch (Throwable t) {
+                    echoed.completeExceptionally(t);
+                }
+            });
+            LoopbackTest.pollUntil(() -> c.stats().sentPackets() > 500, Duration.ofSeconds(20));
+            int before = c.localAddress().getPort();
+            InetSocketAddress after = c.rebind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
+            assertTrue(after.getPort() != before);
+            assertArrayEquals(EchoServer.sha256().digest(d), echoed.get(60, TimeUnit.SECONDS));
+            byte[] more = LoopbackTest.data(32, 500_000);
+            assertArrayEquals(EchoServer.sha256().digest(more), LoopbackTest.echo(c, more), "on the new path");
+            assertEquals(after.getPort(), client.localAddress().getPort(), "the old socket is gone");
+            c.close(5, "moved");
+            assertEquals("TERMINATED 5 moved", py.await("TERMINATED"));
+        }
+    }
+
+    /**
+     * aioquic's server answers PATH_CHALLENGE only on the path it sends on, so the Java client's
+     * probe of a new path gets no answer: the migration fails and the connection carries on where
+     * it was. (Probing first is optional; {@link QuicConnection#rebind} moves without it.)
+     */
+    @Test
+    void javaClientProbeIsNotAnsweredByAioquicAndTheConnectionStays() throws Exception {
+        try (PythonServer py = new PythonServer();
+                QuicClient client = QuicClient.create(javaClient(null, null, QuicVersion.V1))) {
+            QuicConnection c = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
+            InetSocketAddress before = c.localAddress();
+            IOException e = org.junit.jupiter.api.Assertions.assertThrows(IOException.class,
+                    () -> c.migrate(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0)));
+            assertTrue(e.getMessage().contains("no PATH_RESPONSE"), e.getMessage());
+            assertEquals(before, c.localAddress());
+            byte[] d = LoopbackTest.data(33, 300_000);
+            assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
+            c.close();
+        }
+    }
+
+    /** A Java server that advertises a preferred address: aioquic's client, which does not use it, is unaffected. */
+    @Test
+    void aioquicClientIgnoresThePreferredAddress() throws Exception {
+        ServerConfig config = javaServer(null, null, false).toBuilder()
+                .preferredAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), null).build();
+        try (EchoServer server = new EchoServer(config)) {
+            String result = runClient(server.address(), "--streams", "2", "--size", "200000");
+            assertEquals(Long.toString(400_000L), field(result, "bytes"));
         }
     }
 }
