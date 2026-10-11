@@ -165,7 +165,7 @@ class ZeroRttLoopbackTest {
     @Test
     void rejectedZeroRttIsSentAgain() throws Exception {
         QuicServer primed = server(true);
-        QuicServer server = server(false); // the same ticket key, 0-RTT off
+        QuicServer server = server(false, Duration.ofMillis(200)); // the same ticket key, 0-RTT off
         QuicClient client = client(true);
         prime(client, primed);
         QuicConnection c = client.connectEarly(server.localAddress(), "localhost", Duration.ofSeconds(10));

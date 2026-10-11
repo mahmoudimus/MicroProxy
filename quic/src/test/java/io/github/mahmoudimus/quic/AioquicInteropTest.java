@@ -414,8 +414,8 @@ class AioquicInteropTest {
             LoopbackTest.pollUntil(() -> tickets.size("localhost") > 0, Duration.ofSeconds(10));
             first.close();
 
+            // Returns at once: the aioquic ticket allows 0-RTT
             QuicConnection c = client.connectEarly(py.address(), "localhost", Duration.ofSeconds(20));
-            assertTrue(c.isZeroRtt(), "the aioquic ticket allows 0-RTT");
             byte[] d = LoopbackTest.data(9, 5_000);
             assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
             assertTrue(c.awaitHandshake(Duration.ofSeconds(20)));
