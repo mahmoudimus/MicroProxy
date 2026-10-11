@@ -30,10 +30,17 @@
             <artifactId>http2-codec</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: when on the class path, Http3FramePipeline runs frame interceptors over HTTP/3 streams. -->
+        <!-- Optional: with quic, HTTP/3 can be enabled (withHttp3, withHttp3Upstream, or the http3 launcher
+             flags); alone, Http3FramePipeline runs frame interceptors over HTTP/3 streams. -->
         <dependency>
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>http3-codec</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Optional: when on the class path with http3-codec, HTTP/3 can be enabled. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>quic</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>

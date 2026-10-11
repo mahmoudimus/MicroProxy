@@ -32,10 +32,15 @@
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>http2-codec</artifactId>
         </dependency>
-        <!-- Bundled into the -all jar so scripts can run on_frame over HTTP/3 streams (Http3FramePipeline). -->
+        <!-- Bundled into the -all jar so the launcher can serve and speak HTTP/3 (the http3 launcher flags),
+             and scripts can run on_frame over HTTP/3 streams. -->
         <dependency>
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>http3-codec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>quic</artifactId>
         </dependency>
         <!-- The only runtime dependency of the bundled interpreter. -->
         <dependency>
