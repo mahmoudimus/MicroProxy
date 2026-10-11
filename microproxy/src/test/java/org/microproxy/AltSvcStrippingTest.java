@@ -102,6 +102,49 @@ class AltSvcStrippingTest {
         assertEquals(STRIPPED, altSvc(get(client(proxy), url(origin, "/"))));
     }
 
+    /** The h3 alternatives of a response as a raw HTTP/1.1 exchange shows them. */
+    private static List<String> altSvc(String rawResponse) {
+        assertTrue(rawResponse.startsWith("HTTP/1.1 200"), rawResponse);
+        return rawResponse.lines().filter(l -> l.regionMatches(true, 0, "alt-svc:", 0, 8))
+                .map(l -> l.substring(8).strip()).toList();
+    }
+
+    /**
+     * With a transparent QUIC listener, clients whose traffic was redirected to the proxy keep
+     * their h3 alternatives: their QUIC reaches the proxy too. Clients of the explicit proxy, whose
+     * UDP may go anywhere, still lose them, and an explicit setting applies to every client.
+     */
+    @Test
+    void withTransparentQuicRedirectedClientsKeepHttp3() throws Exception {
+        HttpsServer localhostOrigin = TestSupport.httpsOrigin(originCa.serverContext("localhost"), ADVERTISING);
+        try {
+            HttpProxyServerBootstrap b = intercepting().withTransparent(true).withTransparentQuicPort(0)
+                    .withTransparentTlsPort(localhostOrigin.getAddress().getPort())
+                    .withAllowRequestToOriginServer(true);
+            proxy = b.start();
+            // Plain HTTP routed by Host, as a firewall redirects it.
+            String routedByHost = TestSupport.rawExchange(proxy.getListenAddress(), "GET / HTTP/1.1\r\nHost: 127.0.0.1:"
+                    + origin.getAddress().getPort() + "\r\nConnection: close\r\n\r\n");
+            assertEquals(ADVERTISED, altSvc(routedByHost));
+            // TLS routed by its SNI.
+            try (java.net.Socket raw = new java.net.Socket(proxy.getListenAddress().getAddress(),
+                    proxy.getListenAddress().getPort());
+                    javax.net.ssl.SSLSocket tls = TlsHellos.startTls(raw, "localhost", proxyCa.clientContext(), "http/1.1")) {
+                assertEquals(ADVERTISED, altSvc(TlsHellos.get(tls, "localhost", "/")));
+            }
+            // A client of the explicit proxy: CONNECT, and an absolute-form request.
+            assertEquals(STRIPPED, altSvc(get(client(proxy, proxyCa.clientContext()), url(secureOrigin, "/"))));
+            assertEquals(STRIPPED, altSvc(get(client(proxy), url(origin, "/"))));
+            proxy.abort();
+
+            proxy = b.withAltSvcH3Stripping(true).start();
+            assertEquals(STRIPPED, altSvc(TestSupport.rawExchange(proxy.getListenAddress(), "GET / HTTP/1.1\r\nHost: 127.0.0.1:"
+                    + origin.getAddress().getPort() + "\r\nConnection: close\r\n\r\n")));
+        } finally {
+            localhostOrigin.stop(0);
+        }
+    }
+
     @Test
     void strippingCanBeTurnedOffOrOn() {
         proxy = intercepting().withAltSvcH3Stripping(false).start();
@@ -159,6 +202,14 @@ class AltSvcStrippingTest {
         assertFalse(BootstrapView.stripsAltSvcH3(
                 Launcher.parse(new String[] {"--transparent", "--keep-alt-svc-h3"}, quiet).bootstrap()));
         assertTrue(BootstrapView.stripsAltSvcH3(intercepting()), "on with interception");
+        // With a transparent QUIC listener, off for redirected clients only, unless set.
+        HttpProxyServerBootstrap quic = Launcher.parse(new String[] {"--transparent", "--transparent-quic-port", "4433"}, quiet)
+                .bootstrap();
+        assertTrue(BootstrapView.stripsAltSvcH3(quic));
+        assertFalse(BootstrapView.stripsAltSvcH3ForTransparent(quic));
+        assertTrue(BootstrapView.stripsAltSvcH3ForTransparent(Launcher.parse(new String[] {"--transparent"}, quiet).bootstrap()));
+        assertTrue(BootstrapView.stripsAltSvcH3ForTransparent(Launcher.parse(
+                new String[] {"--transparent", "--transparent-quic-port", "4433", "--no-alt-svc-h3"}, quiet).bootstrap()));
 
         Path props = Files.createTempFile("altsvc", ".properties");
         try {
