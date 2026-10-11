@@ -620,6 +620,8 @@ final class ClientConnection implements Runnable {
     private volatile HttpFilters quicFilters;
     /** The server of a flow intercepted stream by stream ({@link #connectQuic}). */
     private volatile FullFlowContext quicServerFlow;
+    /** The relay of a flow intercepted stream by stream, while it is served; closed with the connection. */
+    private volatile QuicSession quicSession;
     /**
      * Where the server of QUIC intercepted inside a CONNECT-UDP flow is: the flow's address, for
      * {@link #mitmHostAndPort} (the SNI's name, when the flow named an IP address); null for others.
@@ -737,6 +739,8 @@ final class ClientConnection implements Runnable {
         if (h2 != null) h2.closed();
         Http3Connection h3 = http3;
         if (h3 != null) h3.closed();
+        QuicSession streams = quicSession;
+        if (streams != null) streams.close();
         http1.closeSocket();
         Tls.closeQuietly(rawSocket);
         releaseServerConnections();
@@ -3646,8 +3650,10 @@ final class ClientConnection implements Runnable {
         try {
             server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
-            new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext, target,
-                    serverFlow.getRemoteAddress(), masque, logPrefix).run();
+            QuicSession session = new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext,
+                    target, serverFlow.getRemoteAddress(), masque, logPrefix);
+            quicSession = session;
+            if (!closed) session.run();
             completed = true;
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, logPrefix + "unexpected error relaying QUIC streams", e);

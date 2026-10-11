@@ -330,6 +330,12 @@ final class QuicSession implements QuicContext {
         }
     }
 
+    /** Closes both connections (code 0), ending the session: the proxy is stopping. */
+    void close() {
+        client.close(0, "");
+        server.close(0, "");
+    }
+
     // ---------------------------------------------------------------------------------------
     // QuicContext
     // ---------------------------------------------------------------------------------------
