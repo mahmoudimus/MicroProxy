@@ -43,6 +43,8 @@
         <module>http2-codec</module>
         <!-- A standalone HTTP/3 frame codec and QPACK implementation. -->
         <module>http3-codec</module>
+        <!-- A standalone QUIC transport with its own TLS 1.3 handshake. -->
+        <module>quic</module>
         <!-- The proxy itself: no required runtime dependencies. -->
         <module>microproxy</module>
         <!-- Optional: script the proxy in Starlark. -->
@@ -80,6 +82,11 @@
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>http3-codec</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.mahmoudimus</groupId>
+                <artifactId>quic</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
