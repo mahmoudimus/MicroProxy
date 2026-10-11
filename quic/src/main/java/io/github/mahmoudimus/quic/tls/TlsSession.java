@@ -16,6 +16,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * A TLS 1.3 handshake for QUIC (RFC 9001), as a sans-I/O state machine modelled on quinn's {@code
@@ -55,8 +56,15 @@ import java.util.Objects;
  * machine, driven by one connection at a time. Its certificate and ALPN selectors run on the
  * thread that calls {@link #readHandshake}.
  *
- * <p>Out of scope: resumption, PSKs, 0-RTT and session tickets. A server sends no
- * NewSessionTicket; a client checks and ignores the ones it receives.
+ * <p><b>Resumption and 0-RTT.</b> A server with a {@link TlsConfig.Builder#sessionTickets ticketer}
+ * queues NewSessionTicket messages at {@link EncryptionLevel#ONE_RTT} when its handshake completes,
+ * and resumes the sessions they seal. A client hands each ticket it receives out through {@link
+ * #pollNewTicket()} and resumes with one passed to {@link #client(TlsConfig, String, byte[],
+ * SessionTicket)}. When a client offers early data, its first secrets are the {@link
+ * EncryptionLevel#ZERO_RTT} ones, available at once: {@code Secrets(ZERO_RTT, suite,
+ * client_early_traffic_secret, empty)}. A server that accepts the early data hands out the same
+ * secrets first, before the Handshake ones. Whether it was accepted is known to the client after
+ * EncryptedExtensions ({@link #isEarlyDataAccepted()}).
  */
 public final class TlsSession {
 
@@ -88,6 +96,11 @@ public final class TlsSession {
     private byte[] serverApplicationSecret;
     private byte[] exporterMasterSecret;
     private byte[] clientRandom;
+    private boolean resumed;
+    private boolean earlyDataAccepted;
+    private final ArrayDeque<SessionTicket> newTickets = new ArrayDeque<>();
+    /** A server's check of the transport parameters a ticket remembers, before accepting 0-RTT. */
+    Predicate<byte[]> earlyDataParameters;
 
     private TlsSession(boolean client, TlsConfig config, byte[] transportParameters) {
         this.client = client;
@@ -129,12 +142,33 @@ public final class TlsSession {
      *     name while it verifies host names
      */
     public static TlsSession client(TlsConfig config, String serverName, byte[] transportParameters) {
+        return client(config, serverName, transportParameters, null);
+    }
+
+    /**
+     * Starts a client handshake that offers to resume a session. The ticket is used only if it
+     * has not expired, is for the same server name and has a cipher suite the configuration
+     * offers; with {@link TlsConfig.Builder#earlyData(boolean) earlyData} and a ticket that allows
+     * it, the client also offers 0-RTT, and its {@link EncryptionLevel#ZERO_RTT} secrets are ready
+     * at once.
+     *
+     * @param config the configuration, with ALPN protocols
+     * @param serverName the host name (sent as SNI) or IP literal the certificate must match; may
+     *     be null only if the configuration does not verify host names
+     * @param transportParameters the encoded local QUIC transport parameters
+     * @param ticket a ticket from an earlier session with this server, used once; or null
+     * @return the session
+     * @throws IllegalArgumentException if the configuration has no ALPN protocols, or no server
+     *     name while it verifies host names
+     */
+    public static TlsSession client(TlsConfig config, String serverName, byte[] transportParameters,
+            SessionTicket ticket) {
         TlsSession session = new TlsSession(true, config, transportParameters);
         if (serverName == null && config.verifyHostname && !config.trustAllCertificates) {
             throw new IllegalArgumentException("a server name is needed to verify the server's certificate");
         }
         session.serverName = serverName;
-        session.handshake = new ClientHandshake(session, serverName);
+        session.handshake = new ClientHandshake(session, serverName, ticket);
         return session;
     }
 
@@ -148,10 +182,28 @@ public final class TlsSession {
      * @throws IllegalArgumentException if the configuration has no certificate or no ALPN
      */
     public static TlsSession server(TlsConfig config, byte[] transportParameters) {
+        return server(config, transportParameters, null);
+    }
+
+    /**
+     * Starts a server handshake with a check on the QUIC transport parameters a ticket remembers.
+     * Before accepting 0-RTT, the handshake passes the encoded parameters the server had when it
+     * issued the ticket to {@code earlyDataParameters}; returning false rejects the early data, as
+     * RFC 9000 section 7.4.1 requires when the current limits are smaller.
+     *
+     * @param config the configuration
+     * @param transportParameters the encoded local QUIC transport parameters, also sealed in tickets
+     * @param earlyDataParameters accepts the remembered parameters, or null to accept any
+     * @return the session
+     * @throws IllegalArgumentException if the configuration has no certificate or no ALPN
+     */
+    public static TlsSession server(TlsConfig config, byte[] transportParameters,
+            Predicate<byte[]> earlyDataParameters) {
         TlsSession session = new TlsSession(false, config, transportParameters);
         if (config.certificateSelector == null) {
             throw new IllegalArgumentException("a server needs a certificate or a certificate selector");
         }
+        session.earlyDataParameters = earlyDataParameters;
         session.handshake = new ServerHandshake(session);
         return session;
     }
@@ -371,6 +423,45 @@ public final class TlsSession {
     }
 
     /**
+     * Whether the handshake resumed a session with a PSK from a ticket. A client knows after the
+     * ServerHello; a server after the ClientHello.
+     *
+     * @return true if resumed
+     */
+    public boolean isResumed() {
+        return resumed;
+    }
+
+    /**
+     * Whether the client offered 0-RTT data in its first ClientHello.
+     *
+     * @return true if offered
+     */
+    public boolean isEarlyDataOffered() {
+        return handshake instanceof ClientHandshake c ? c.earlyDataOffered() : earlyDataAccepted;
+    }
+
+    /**
+     * Whether the server accepted 0-RTT data. A client knows after EncryptedExtensions; until then,
+     * and if the early data was rejected, this is false.
+     *
+     * @return true if accepted
+     */
+    public boolean isEarlyDataAccepted() {
+        return earlyDataAccepted;
+    }
+
+    /**
+     * Client: takes the next ticket received in a NewSessionTicket message, to keep for a later
+     * connection.
+     *
+     * @return the ticket, or null if there is none
+     */
+    public SessionTicket pollNewTicket() {
+        return newTickets.poll();
+    }
+
+    /**
      * The ClientHello's random value, which names the secrets of this handshake in the {@code
      * SSLKEYLOGFILE} format that packet analyzers read.
      *
@@ -406,6 +497,22 @@ public final class TlsSession {
             System.arraycopy(message, 0, joined, queued.length, message.length);
             outgoing.put(level, joined);
         }
+    }
+
+    void earlySecrets(CipherSuite earlySuite, byte[] clientEarlySecret) {
+        secrets.add(new Secrets(EncryptionLevel.ZERO_RTT, earlySuite, clientEarlySecret.clone(), new byte[0]));
+    }
+
+    void resumed() {
+        this.resumed = true;
+    }
+
+    void earlyDataAccepted() {
+        this.earlyDataAccepted = true;
+    }
+
+    void newTicket(SessionTicket ticket) {
+        newTickets.add(ticket);
     }
 
     void handshakeSecrets(byte[] clientSecret, byte[] serverSecret) {
