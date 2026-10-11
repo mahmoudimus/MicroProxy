@@ -398,7 +398,7 @@ public final class HttpLogger implements HttpFiltersSource {
             return switch (stream) {
                 case REQUEST, RESPONSE -> bodies;
                 case OBSERVED_WEBSOCKET_FRAMES -> logsWebSocketFrames();
-                case WEBSOCKET_FRAMES -> false;
+                case WEBSOCKET_FRAMES, WEBSOCKET_MESSAGES -> false;
             };
         }
 

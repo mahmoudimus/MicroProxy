@@ -57,8 +57,11 @@ public final class Launcher {
               --transparent-tls-port <port>  port SNI-routed TLS goes to (default 443)
               --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
                                            transparent HTTP)
-              --mode <mode>                regular, transparent or reverse:<scheme>://<host>[:<port>]
-                                           (scheme http, https or tcp; default https)
+              --mode <mode>                regular, transparent, socks5 or
+                                           reverse:<scheme>://<host>[:<port>] (scheme http, https
+                                           or tcp; default https)
+              --socks                      also serve SOCKS5 and SOCKS4(a) clients on the listener,
+                                           told apart by their first byte
               --reverse <spec>             reverse proxy to one upstream: [scheme://]host[:port]
               --keep-host-header           in reverse mode, keep the client's Host
               --idle-timeout <seconds>     idle connection timeout (default 70, 0 = none)
@@ -314,8 +317,13 @@ public final class Launcher {
                     String mode = value(queue, arg);
                     bootstrap.withReverseProxy(ReverseProxyMode.parseMode(mode));
                     if (mode.strip().equals("transparent")) bootstrap.withTransparent(true);
+                    bootstrap.withSocksServer(mode.strip().equals("socks5"));
                 }
-                case "--reverse" -> bootstrap.withReverseProxy(ReverseProxyMode.parse(value(queue, arg)));
+                case "--socks" -> bootstrap.withSocksDetection(true);
+                case "--reverse" -> {
+                    bootstrap.withReverseProxy(ReverseProxyMode.parse(value(queue, arg)));
+                    bootstrap.withSocksServer(false);
+                }
                 case "--keep-host-header" -> bootstrap.withKeepHostHeader(true);
                 case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(intValue(queue, arg));
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));

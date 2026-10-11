@@ -61,6 +61,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     final ReverseProxyMode reverseProxy;
     final boolean keepHostHeader;
+    /** Whether the listener serves SOCKS clients only / SOCKS clients besides HTTP ones. */
+    final boolean socksServer;
+    final boolean socksDetection;
     final SslContextSource sslContextSource;
     final boolean authenticateSslClients;
     final ProxyAuthenticator proxyAuthenticator;
@@ -80,6 +83,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final boolean acceptProxyProtocol;
     final boolean sendProxyProtocol;
     final int maxWebSocketFrameBufferSize;
+    final int maxWebSocketMessageSize;
     /** Shared server connection pool, or null when connections are kept per client. */
     final SharedConnectionPool pool;
     final boolean poolSharedMitmConnections;
@@ -141,6 +145,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.tcpHosts = TcpHosts.of(b.tcpHosts);
         this.reverseProxy = b.reverseProxy;
         this.keepHostHeader = b.keepHostHeader;
+        if ((b.socksServer || b.socksDetection) && (b.reverseProxy != null || b.sslContextSource != null)) {
+            throw new IllegalStateException("SOCKS clients are served neither by a reverse proxy nor on a TLS listener");
+        }
+        this.socksServer = b.socksServer;
+        this.socksDetection = b.socksDetection;
         this.sslContextSource = b.sslContextSource;
         this.authenticateSslClients = b.authenticateSslClients;
         this.proxyAuthenticator = b.proxyAuthenticator;
@@ -158,6 +167,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
+        this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool
                 ? new SharedConnectionPool(b.maxConnectionsPerHost, b.maxConnections, b.poolIdleTimeout)
                 : null;

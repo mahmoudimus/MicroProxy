@@ -15,6 +15,7 @@ import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 
 /**
  * Builds {@link HttpFilters} from lambdas, one per hook, instead of a class that overrides the
@@ -25,6 +26,7 @@ import org.microproxy.http.WebSocketFrame;
  *         .onRequest(req -> req.uri().endsWith("/blocked") ? forbidden() : null)
  *         .onResponse(res -> { res.headers().set("X-Proxy", "micro"); return res; })
  *         .onWebSocketFrame((frame, fromClient) -> frame.isPing() ? null : frame)
+ *         .onWebSocketMessage((msg, fromClient) -> msg.isText() ? msg.withText(msg.text().trim()) : msg)
  *         .build();
  * MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
  * }</pre>
@@ -32,7 +34,7 @@ import org.microproxy.http.WebSocketFrame;
  * <p>Registering the same hook twice runs both, in order: the first short-circuit response wins,
  * and transformations feed into each other ({@code null} aborts, as in {@link HttpFiltersChain}).
  *
- * <p>Bodies and WebSocket frames are only parsed into pieces when a body or frame hook was
+ * <p>Bodies, WebSocket frames and messages are only parsed into pieces when a body, frame or message hook was
  * registered ({@link Built#sees}); otherwise they are relayed by the proxy's fast path, just as for
  * a filters class that does not override those hooks. The built filters keep no state of their
  * own, so one instance can serve every request if the lambdas allow it.
@@ -47,6 +49,8 @@ public final class HttpFiltersBuilder {
         RESPONSE,
         /** WebSocket frames, rewritten ({@link #onWebSocketFrame}). */
         WEBSOCKET_FRAMES,
+        /** Whole WebSocket messages, joined from their frames and rewritten ({@link #onWebSocketMessage}). */
+        WEBSOCKET_MESSAGES,
         /**
          * WebSocket frames, only watched ({@link HttpFilters#webSocketFrameReceived(WebSocketFrame,
          * boolean)}), such as an {@link HttpLogger} logging frames; the upgrade is left alone.
@@ -62,6 +66,7 @@ public final class HttpFiltersBuilder {
     private UnaryOperator<HttpResponse> beforeResponding;
     private Function<ProxyFailure, HttpResponse> onFailure;
     private BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
+    private BiFunction<WebSocketMessage, Boolean, WebSocketMessage> onWebSocketMessage;
     private Function<String, InetSocketAddress> resolver;
     private BooleanSupplier allowMitm;
     private Predicate<? super ClientHello> allowMitmFor;
@@ -167,6 +172,25 @@ public final class HttpFiltersBuilder {
         onWebSocketFrame = previous == null ? hook : (frame, fromClient) -> {
             WebSocketFrame f = previous.apply(frame, fromClient);
             return f == null ? null : hook.apply(f, fromClient);
+        };
+        return this;
+    }
+
+    /**
+     * Each whole WebSocket message, joined from its frames (and inflated), with whether it came
+     * from the client: return it, a replacement, or {@code null} to drop it (see {@link
+     * HttpFilters#filterWebSocketMessage}). With {@link #onWebSocketFrame} as well, frames go
+     * through that hook first.
+     *
+     * @param hook the callback for this filter stage
+     * @return this builder
+     */
+    public HttpFiltersBuilder onWebSocketMessage(BiFunction<WebSocketMessage, Boolean, WebSocketMessage> hook) {
+        Objects.requireNonNull(hook);
+        BiFunction<WebSocketMessage, Boolean, WebSocketMessage> previous = onWebSocketMessage;
+        onWebSocketMessage = previous == null ? hook : (message, fromClient) -> {
+            WebSocketMessage m = previous.apply(message, fromClient);
+            return m == null ? null : hook.apply(m, fromClient);
         };
         return this;
     }
@@ -313,6 +337,7 @@ public final class HttpFiltersBuilder {
         private final UnaryOperator<HttpResponse> beforeResponding;
         private final Function<ProxyFailure, HttpResponse> onFailure;
         private final BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
+        private final BiFunction<WebSocketMessage, Boolean, WebSocketMessage> onWebSocketMessage;
         private final Function<String, InetSocketAddress> resolver;
         private final BooleanSupplier allowMitm;
         private final Predicate<? super ClientHello> allowMitmFor;
@@ -336,6 +361,7 @@ public final class HttpFiltersBuilder {
             beforeResponding = b.beforeResponding;
             onFailure = b.onFailure;
             onWebSocketFrame = b.onWebSocketFrame;
+            onWebSocketMessage = b.onWebSocketMessage;
             resolver = b.resolver;
             allowMitm = b.allowMitm;
             allowMitmFor = b.allowMitmFor;
@@ -358,6 +384,7 @@ public final class HttpFiltersBuilder {
             beforeResponding = base.beforeResponding;
             onFailure = base.onFailure;
             onWebSocketFrame = base.onWebSocketFrame;
+            onWebSocketMessage = base.onWebSocketMessage;
             resolver = base.resolver;
             allowMitm = base.allowMitm;
             allowMitmFor = base.allowMitmFor;
@@ -392,6 +419,7 @@ public final class HttpFiltersBuilder {
                 case REQUEST -> onRequestBody != null;
                 case RESPONSE -> onResponseBody != null;
                 case WEBSOCKET_FRAMES -> onWebSocketFrame != null;
+                case WEBSOCKET_MESSAGES -> onWebSocketMessage != null;
                 case OBSERVED_WEBSOCKET_FRAMES -> false;
             };
             return own || logged != null && logged.sees(body);
@@ -501,6 +529,11 @@ public final class HttpFiltersBuilder {
         @Override
         public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
             return onWebSocketFrame == null ? frame : onWebSocketFrame.apply(frame, fromClient);
+        }
+
+        @Override
+        public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+            return onWebSocketMessage == null ? message : onWebSocketMessage.apply(message, fromClient);
         }
 
         @Override

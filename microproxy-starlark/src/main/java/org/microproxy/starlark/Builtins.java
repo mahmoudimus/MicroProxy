@@ -25,6 +25,7 @@ import org.microproxy.http.FullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.http.WebSocketMessage;
 import org.microproxy.thirdparty.starlark.annot.Param;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
@@ -44,7 +45,8 @@ import org.microproxy.thirdparty.starlark.eval.TypeConstructorValue;
 import org.microproxy.thirdparty.starlark.lib.json.Json;
 
 /**
- * The names every proxy script sees besides the Starlark built-ins: {@code response()} and the
+ * The names every proxy script sees besides the Starlark built-ins: {@code response()}, {@code
+ * websocket_message()} and the
  * modules {@code json}, {@code re}, {@code base64}, {@code digest}, {@code codecs}, {@code url},
  * {@code time}, {@code log}, {@code protobuf} and {@code grpc} (see {@link ProtoBuiltins}), and
  * {@code h2} and {@code h3}, which make frames for {@code on_frame}.
@@ -74,6 +76,7 @@ final class Builtins {
         env.put("Headers", TypeConstructorValue.of(ScriptType.HEADERS_CONSTRUCTOR));
         env.put("Context", TypeConstructorValue.of(ScriptType.CONTEXT_CONSTRUCTOR));
         env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
+        env.put("WebSocketMessage", TypeConstructorValue.of(ScriptType.WEBSOCKET_MESSAGE_CONSTRUCTOR));
         env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
         env.put("ProtoFixed", TypeConstructorValue.of(ScriptType.PROTO_FIXED_CONSTRUCTOR));
@@ -133,6 +136,24 @@ final class Builtins {
             }
             HttpUtil.setContentLength(response, content.length);
             return result;
+        }
+
+        @StarlarkMethod(
+                name = "websocket_message",
+                doc = "Makes a WebSocket message (text from a string, binary from bytes) for on_websocket_message "
+                        + "to return; from_client=True sends it towards the server, False towards the client.",
+                parameters = {
+                    @Param(name = "content"),
+                    @Param(name = "from_client", named = true),
+                })
+        public ScriptWebSocketMessage websocketMessage(Object content, boolean fromClient) throws EvalException {
+            if (content instanceof String text) {
+                return new ScriptWebSocketMessage(WebSocketMessage.text(text, fromClient));
+            }
+            if (content instanceof StarlarkBytes data) {
+                return new ScriptWebSocketMessage(WebSocketMessage.binary(data.toByteArray(), fromClient));
+            }
+            throw Starlark.errorf("content must be a string (text) or bytes (binary), not %s", Starlark.type(content));
         }
     }
 

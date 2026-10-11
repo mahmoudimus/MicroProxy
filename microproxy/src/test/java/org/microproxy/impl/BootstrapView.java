@@ -62,6 +62,16 @@ public record BootstrapView(
                 b.maxHeaderSize, b.maxChunkSize, b.localAddress, b.allowRequestToOriginServer);
     }
 
+    /** Whether the listener serves SOCKS clients only ({@code withSocksServer}, {@code socks5} mode). */
+    public static boolean socksServer(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).socksServer;
+    }
+
+    /** Whether the listener serves SOCKS clients besides HTTP ones ({@code withSocksDetection}). */
+    public static boolean socksDetection(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).socksDetection;
+    }
+
     /** Whether HTTP/2 is enabled ({@code withHttp2}). */
     public static boolean http2(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;

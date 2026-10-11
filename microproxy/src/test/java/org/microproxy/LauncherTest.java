@@ -118,7 +118,8 @@ class LauncherTest {
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
-                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port", "--mode", "--reverse",
+                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port", "--mode", "--socks",
+                "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
@@ -142,7 +143,13 @@ class LauncherTest {
         assertTrue(view("--mode", "transparent").transparent());
         assertNull(BootstrapView.reverseProxy(parse("--mode", "regular").bootstrap()));
         assertTrue(view("--allow-requests-to-origin-server").allowRequestToOriginServer());
-        assertThrows(IllegalArgumentException.class, () -> parse("--mode", "socks5"));
+        assertTrue(BootstrapView.socksServer(parse("--mode", "socks5").bootstrap()));
+        assertFalse(BootstrapView.socksServer(parse("--mode", "socks5", "--mode", "regular").bootstrap()));
+        assertNull(BootstrapView.reverseProxy(parse("--reverse", "https://a.test", "--mode", "socks5").bootstrap()));
+        assertFalse(BootstrapView.socksServer(parse("--mode", "socks5", "--reverse", "https://a.test").bootstrap()));
+        assertTrue(BootstrapView.socksDetection(parse("--socks").bootstrap()));
+        assertFalse(BootstrapView.socksDetection(parse().bootstrap()));
+        assertThrows(IllegalArgumentException.class, () -> parse("--mode", "socks4"));
         assertThrows(IllegalArgumentException.class, () -> parse("--reverse", "tcp://no-port.test"));
         assertThrows(IllegalArgumentException.class, () -> parse("--ignore-hosts", "(unclosed"));
         assertEquals(List.of("^mail\\.", "imap"),
@@ -170,6 +177,12 @@ class LauncherTest {
         java.util.Properties t = new java.util.Properties();
         t.setProperty("mode", "transparent");
         assertTrue(BootstrapView.of(BootstrapView.fromProperties(t)).transparent());
+        java.util.Properties s = new java.util.Properties();
+        s.setProperty("mode", "socks5");
+        assertTrue(BootstrapView.socksServer(BootstrapView.fromProperties(s)));
+        java.util.Properties d = new java.util.Properties();
+        d.setProperty("socks", "true");
+        assertTrue(BootstrapView.socksDetection(BootstrapView.fromProperties(d)));
     }
 
     @Test

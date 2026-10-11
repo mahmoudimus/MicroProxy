@@ -81,7 +81,8 @@ final class ScriptType extends StarlarkType {
             "vars", Types.dict(Types.ANY, Types.ANY),
             "timings", TIMINGS,
             "client_hello", Types.union(CLIENT_HELLO, Types.NONE),
-            "forwarded_via", Types.union(Types.STR, Types.NONE)), false);
+            "forwarded_via", Types.union(Types.STR, Types.NONE),
+            "socks_version", Types.union(Types.INT, Types.NONE)), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
             .put("type", Types.STR)
@@ -93,6 +94,16 @@ final class ScriptType extends StarlarkType {
             .put("text", TEXT)
             .put("payload", BODY)
             .buildOrThrow(), true);
+
+    /** A whole WebSocket message ({@code on_websocket_message}); named {@code WebSocketMessage}. */
+    static final ScriptType WEBSOCKET_MESSAGE = new ScriptType("WebSocketMessage", ScriptWebSocketMessage.class,
+            ImmutableMap.of(
+                    "type", Types.STR,
+                    "from_client", Types.BOOL,
+                    "length", Types.INT,
+                    "text", TEXT,
+                    "payload", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT)),
+            true);
 
     private static final StarlarkType INT_OR_NONE = Types.union(Types.INT, Types.NONE);
 
@@ -165,6 +176,7 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor HEADERS_CONSTRUCTOR = Types.wrapType("Headers", HEADERS);
     static final TypeConstructor CONTEXT_CONSTRUCTOR = Types.wrapType("Context", CONTEXT);
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
+    static final TypeConstructor WEBSOCKET_MESSAGE_CONSTRUCTOR = Types.wrapType("WebSocketMessage", WEBSOCKET_MESSAGE);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
     static final TypeConstructor PROTO_FIXED_CONSTRUCTOR = Types.wrapType("ProtoFixed", PROTO_FIXED);

@@ -9,6 +9,7 @@ import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 
 /**
  * Runs several filters sources as one, in order. For each request every source may contribute
@@ -18,9 +19,11 @@ import org.microproxy.http.WebSocketFrame;
  *   <li>Request hooks run first to last; the first short-circuit response wins and later filters
  *       do not see the request. {@code proxyToServerFailure} works the same way: the first
  *       response wins.
- *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}) and {@code
- *       filterWebSocketFrame} also run first to last, each receiving the previous one's result;
- *       {@code null} aborts (or drops the frame).
+ *   <li>Response hooks ({@code serverToProxyResponse}, {@code proxyToClientResponse}), {@code
+ *       filterWebSocketFrame} and {@code filterWebSocketMessage} also run first to last, each
+ *       receiving the previous one's result; {@code null} aborts (or drops the frame or message).
+ *       With {@code filterWebSocketMessages}, every message one filter returns goes through the
+ *       next, in the direction it now travels.
  *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
  *   <li>Interception needs every filter's consent (both {@code proxyToServerAllowMitm} hooks), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
@@ -300,6 +303,33 @@ public final class HttpFiltersChain implements HttpFiltersSource {
                 if (f == null) return null;
             }
             return f;
+        }
+
+        @Override
+        public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+            WebSocketMessage m = message;
+            for (HttpFilters member : members) {
+                m = member.filterWebSocketMessage(m, fromClient);
+                if (m == null) return null;
+            }
+            return m;
+        }
+
+        @Override
+        public List<WebSocketMessage> filterWebSocketMessages(WebSocketMessage message, boolean fromClient) {
+            List<WebSocketMessage> messages = List.of(message);
+            for (HttpFilters member : members) {
+                List<WebSocketMessage> next = new ArrayList<>(messages.size());
+                for (WebSocketMessage m : messages) {
+                    List<WebSocketMessage> out = member.filterWebSocketMessages(m, m.fromClient());
+                    if (out == null) continue;
+                    for (WebSocketMessage o : out) {
+                        if (o != null) next.add(o);
+                    }
+                }
+                messages = next;
+            }
+            return messages;
         }
     }
 }

@@ -71,6 +71,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     ReverseProxyMode reverseProxy;
     boolean keepHostHeader;
+    /** The listener serves SOCKS clients only ({@code socks5} mode) / besides HTTP ones. */
+    boolean socksServer;
+    boolean socksDetection;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
     Duration tlsHandshakeTimeout = Duration.ofSeconds(10);
@@ -88,6 +91,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     boolean acceptProxyProtocol;
     boolean sendProxyProtocol;
     int maxWebSocketFrameBufferSize = 1 << 20;
+    int maxWebSocketMessageSize = 16 << 20;
     boolean sharedServerConnectionPool;
     ServerConnectionPoolType serverConnectionPoolType = ServerConnectionPoolType.CONCURRENT_MAP;
     int maxConnectionsPerHost = 10;
@@ -139,6 +143,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.allowHosts = allowHosts;
         c.reverseProxy = reverseProxy;
         c.keepHostHeader = keepHostHeader;
+        c.socksServer = socksServer;
+        c.socksDetection = socksDetection;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
         c.tlsHandshakeTimeout = tlsHandshakeTimeout;
@@ -156,6 +162,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.acceptProxyProtocol = acceptProxyProtocol;
         c.sendProxyProtocol = sendProxyProtocol;
         c.maxWebSocketFrameBufferSize = maxWebSocketFrameBufferSize;
+        c.maxWebSocketMessageSize = maxWebSocketMessageSize;
         c.sharedServerConnectionPool = sharedServerConnectionPool;
         c.serverConnectionPoolType = serverConnectionPoolType;
         c.maxConnectionsPerHost = maxConnectionsPerHost;
@@ -214,7 +221,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             String mode = p.getProperty("mode").strip();
             withReverseProxy(ReverseProxyMode.parseMode(mode));
             if (mode.equals("transparent")) withTransparent(true);
+            withSocksServer(mode.equals("socks5"));
         }
+        if (p.containsKey("socks")) withSocksDetection(bool(p, "socks"));
         if (p.containsKey("keep_host_header")) withKeepHostHeader(bool(p, "keep_host_header"));
         if (p.containsKey("idle_connection_timeout")) {
             withIdleConnectionTimeout(Integer.parseInt(p.getProperty("idle_connection_timeout").strip()));
@@ -534,6 +543,18 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withSocksServer(boolean socks) {
+        this.socksServer = socks;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withSocksDetection(boolean detect) {
+        this.socksDetection = detect;
+        return this;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withKeepHostHeader(boolean keep) {
         this.keepHostHeader = keep;
         return this;
@@ -754,6 +775,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes) {
         if (maxBytes < 0) throw new IllegalArgumentException("must not be negative: " + maxBytes);
         this.maxWebSocketFrameBufferSize = maxBytes;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMaxWebSocketMessageSize(int maxBytes) {
+        if (maxBytes <= 0) throw new IllegalArgumentException("must be positive: " + maxBytes);
+        this.maxWebSocketMessageSize = maxBytes;
         return this;
     }
 
