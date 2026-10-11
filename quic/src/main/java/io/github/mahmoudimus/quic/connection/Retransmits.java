@@ -34,8 +34,8 @@ public final class Retransmits {
      */
     public record PendingReset(StreamId id, long errorCode) {}
 
-    /** The most RETIRE_CONNECTION_ID frames that may wait to be sent: ten times quinn's CID window of 5. */
-    static final long MAX_PENDING_RETIRED_CIDS = 50;
+    /** The most RETIRE_CONNECTION_ID frames that may wait to be sent: ten times quinn's CID window. */
+    static final long MAX_PENDING_RETIRED_CIDS = RemoteCidQueue.DEFAULT_LIMIT * 10L;
 
     /** Whether a MAX_DATA is needed. */
     public boolean maxData;
