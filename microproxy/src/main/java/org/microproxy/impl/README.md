@@ -190,7 +190,8 @@ DATA output. Successful CONNECT HEADERS leave the stream open even for a FullHtt
 an empty payload. END_STREAM half-closes a direction; RST closes only the stream's server
 connection (or server stream), not its carrier. A request for another authority in an
 intercepted session gets `421` before reaching the exchange, and so does an extended CONNECT;
-a plain CONNECT's authority is a tunnel's target, which the exchange forwards (below).
+a plain CONNECT's authority is a tunnel's target, and a `:scheme http` request's a proxy request's,
+which the exchange forwards (below).
 
 RFC 8441 `:protocol websocket` is represented internally as a GET upgrade request, with a generated
 HTTP/1 key, so existing exchange and frame filters work unchanged. `tunnelProtocol` and
@@ -212,20 +213,29 @@ to servers are keyed and owned by the outermost connection (`owner`). `mitmManag
 `StreamSocket` needs only `StreamSocket.Stream` of its stream (read timeout, end of output,
 close), which `Http2UpstreamStream` provides too, for TLS through a proxy's tunnel (below).
 
-### CONNECT inside an intercepted session: the intercepted server as an HTTPS proxy
+### Proxy requests inside a session: the session's server as the client's proxy
 
-A client that uses an HTTPS proxy, whose session MicroProxy intercepts, asks that proxy for
-tunnels inside the session. `handleConnect` hands a `CONNECT` with `mitmHostAndPort` set to
-`forwardConnect`, which treats the intercepted server as a chained HTTPS proxy for the tunnel:
+A client that uses an HTTPS proxy, whose session MicroProxy intercepts, or an HTTP proxy, whose
+session MicroProxy serves as plain HTTP (`servePlainSession`, `plainSession`), asks that proxy for
+tunnels and plain-HTTP URIs inside the session. Both kinds of session set `mitmHostAndPort`, and
+inside one a `CONNECT` or an absolute-form request is a proxy request for that server
+(`isProxyRequest`).
 
-- **The hop.** A `Hop` names the proxy (`host:port`), how it is reached (`parent`: another hop,
-  for sessions nested in forwarded tunnels, or null for the usual routes), the `CONNECT` as it was
-  forwarded (whose fields, `Proxy-Authorization` included, open every tunnel through it), and the
-  proxy as an `InterceptedProxy`, the `ChainedProxy` that server connections through it carry.
+`handleConnect` hands a `CONNECT` with `mitmHostAndPort` set to `forwardConnect`, which treats the
+session's server as a chained proxy for the tunnel:
+
+- **The hop.** A `Hop` names the proxy (`host:port`), whether it speaks TLS (`tls`: false for a
+  plain session's), how it is reached (`parent`: another hop, for sessions nested in forwarded
+  tunnels, or null for the usual routes), the `CONNECT` as it was forwarded (whose fields,
+  `Proxy-Authorization` included, open every tunnel through it), and the proxy as an
+  `InterceptedProxy`, the `ChainedProxy` that server connections through it carry.
 - **The connection to the proxy** (`proxyConnection`): an idle HTTP/1.1 connection of the session
-  (the first attempt only), a stream on an HTTP/2 connection under the key the session's requests
-  use (`Http2Origins.stream`), or a new TLS connection made by `connect` with the session's routes
-  (the chained proxy manager is asked about `CONNECT proxy:port`) and MITM manager.
+  (the first attempt only, and only one that reaches the proxy itself, `nextHopIsOrigin`), a
+  stream on an HTTP/2 connection under the key the session's requests use (`Http2Origins.stream`),
+  or a new connection made by `connect` with the session's routes (the chained proxy manager is
+  asked about `CONNECT proxy:port`): TLS with the MITM manager for an HTTPS proxy, and for an HTTP
+  proxy `Mode.TUNNEL`, a plain socket or a tunnel through chained proxies, never a connection
+  that hands an HTTP chained proxy its requests (`ServerConnection.reachesOrigin`).
   `Http2UpstreamStream` sends a CONNECT's HEADERS without END_STREAM, with `:authority` its target;
   `Http2UpstreamConnection` frames no body after its 2xx (`StreamState.tunnel`).
 - **The exchange.** `forwardConnect` runs `exchange` as for any request (filters, trackers,
@@ -237,7 +247,8 @@ tunnels inside the session. `handleConnect` hands a `CONNECT` with `mitmHostAndP
   HTTP/1.1 connection's socket, or the upstream stream's `StreamSocket`), and the client side is
   intercepted as usual: `interceptStream` for an HTTP/2 client, with the hop (`via`) given to the
   nested connection; an HTTP/1 connection gives up the proxy's session (`releaseSessionConnections`)
-  and serves the tunnel's session itself.
+  and serves the tunnel's session itself (a plain session's no longer plain). The target alone
+  decides (filters, host rules): the tunnel's ClientHello is not read.
 - **Inside the tunnel** (`via` set), every server connection is a new tunnel through the hop
   (`connect` → `connectThrough`: `proxyConnection`, CONNECT, then `serverTlsThrough`), whose `through`
   closes with it. `lookupRoute` offers only that way, `usesPool` is false (the connections carry
@@ -245,10 +256,40 @@ tunnels inside the session. `handleConnect` hands a `CONNECT` with `mitmHostAndP
   (`http2Owner`), which the connection serving the session (`Hop.consumer`) closes when it closes.
 - **Half-closes.** Over an HTTP/2 stream, END_STREAM; over an HTTP/1.1 TLS connection, a TLS 1.3
   `close_notify` (`ServerConnection.tunnelThroughProxy`), which leaves the other direction open,
-  where other TLS tunnels close the whole socket.
+  where other TLS tunnels close the whole socket; over plain TCP, a TCP half-close.
 
-`ClientFlowContext.forwardedVia` (set by `handleRequest`) is what `FlowContext.forwardedVia()`
-returns for the exchange: the proxy for a forwarded CONNECT, the hop's proxy inside a tunnel.
+An absolute-form request goes through `handleFilteredRequest`, which tells the client's absolute
+URIs from the filters' by `redirected`: an absolute URI other than the one the request arrived
+with (`Exchange.originalUri`) is a filter's, and goes straight to its server (the pin lifted);
+the client's, unchanged, makes the exchange a proxy request (`Exchange.proxyForm`), pinned to
+`mitmHostAndPort`. `proxyRequest` then keeps it in absolute-form (`nextHopOrigin` false), puts
+back the client's `Proxy-Authorization` that the hop-by-hop stripping removed, routes it as a
+`CONNECT` to the proxy would be (`routeFor`), never leases it from the pool (with a pool, or
+plain with a chained proxy manager, its connections are keyed apart: `|proxy`), and connects a
+plain one with `Mode.TUNNEL`. `relayResponse` keeps the proxy's `Proxy-Authenticate`. Upstream
+HTTP/2 sends it as `:scheme http` (`Http2UpstreamStream.requestFields`), and an HTTP/2 client's
+`:scheme http` request in an intercepted session is turned into absolute-form rather than
+answered `421` (`Http2Connection`).
+
+`ClientFlowContext.forwardedVia` (set by `handleRequest`, cleared for a filter's redirect) is what
+`FlowContext.forwardedVia()` returns for the exchange: the session's server for a forwarded
+CONNECT or proxy request, the hop's proxy inside a tunnel.
+
+### Who picks the server
+
+The rule that keeps the paths apart: a client's own `CONNECT` or absolute URI picks the server
+only where the client is entitled to, and a filter's absolute URI always may.
+
+- **Forward proxy** (no session): the request's authority is the server, by design.
+- **Inside a session** (intercepted TLS, or plain HTTP after a `CONNECT`): the session's server,
+  which the `CONNECT` chose; the client's proxy requests go there as they are (above).
+- **Transparent**: the SNI (or `Host`) chooses, by design; inside an SNI-routed session, as in any
+  session.
+- **Reverse proxy**: never the client. `reverseProxyTarget` makes an absolute URI origin-form for
+  the upstream before any filter runs (its authority survives only as a kept `Host`), so
+  `redirected` cannot mistake it for a filter's; HTTP/2's `:authority` is only `Host`; and
+  `handleFilteredRequest` refuses `CONNECT` (`400`) unless the proxy made it up (`implicit`, for
+  `tcp://`, whose target is the upstream). Only filters and scripts send requests elsewhere.
 
 ### The concurrency audit
 
