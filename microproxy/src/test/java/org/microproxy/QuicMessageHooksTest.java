@@ -46,8 +46,8 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
  * transparent QUIC listener, a hook logging queries and rewriting the answer for a blocked name;
  * each built-in framer with messages split across reads and joined in one; the size limit and a
  * framer that cannot read the bytes, which reset the stream; a custom framer; answering a side
- * from the hook; and connections without a framer, whose streams still go through {@code
- * streamData}.
+ * from the hook; connections without a framer, whose streams still go through {@code
+ * streamData}; and the {@link FlowRecord} of a framed connection, whose bytes are counted as read.
  */
 @Timeout(value = 90, unit = TimeUnit.SECONDS)
 class QuicMessageHooksTest {
@@ -77,9 +77,14 @@ class QuicMessageHooksTest {
     }
 
     private void start(QuicInterceptor hooks, QuicFraming framing) throws Exception {
+        start(hooks, framing, null);
+    }
+
+    /** Starts the proxy, with {@code tracker} when it is not null. */
+    private void start(QuicInterceptor hooks, QuicFraming framing, ActivityTracker tracker) throws Exception {
         origin = new DoqOrigin(originCa, Map.of("allowed.test", "192.0.2.10", "blocked.test", "192.0.2.66"), "doq", ECHO);
         closeables.add(origin);
-        proxy = MicroProxy.bootstrap()
+        HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap()
                 .withPort(0)
                 .withTransparent(true)
                 .withTransparentTlsPort(origin.port())
@@ -87,8 +92,9 @@ class QuicMessageHooksTest {
                 .withServerResolver(TransparentQuicTest.TEST_HOSTS)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
                 .withQuicInterceptor(hooks)
-                .withQuicFraming(framing)
-                .start();
+                .withQuicFraming(framing);
+        if (tracker != null) bootstrap.plusActivityTracker(tracker);
+        proxy = bootstrap.start();
     }
 
     private QuicConnection connect(String alpn) throws IOException {
@@ -177,6 +183,26 @@ class QuicMessageHooksTest {
         assertTrue(seen.contains("answer 4 blocked.test 1"), seen.toString());
         assertEquals(0, chunks.get(), "framing replaces the chunk hook");
         assertTrue(origin.events.contains("blocked.test A"), origin.events.toString());
+    }
+
+    @Test
+    void aFramedSessionIsOneRecordWhenItEnds() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        start(doqBlocker(), QuicFraming.defaults(), flows);
+        QuicConnection c = connect("doq");
+        DnsMessage query = DnsMessage.query(0, "blocked.test", DnsMessage.A);
+        assertEquals("0.0.0.0", DoqOrigin.query(c, query).answers().getFirst().data().text());
+        c.close(0, "");
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC);
+        assertEquals("quic_streams", r.responseCodeDetails());
+        // Bytes are counted as they are read, before they make messages: the query with its length.
+        int framed = 2 + query.encode().length;
+        assertEquals(framed, r.bytesReceived(), r.toString());
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertTrue(r.bytesSent() > framed, "the answer repeats the question: " + r);
+        assertEquals(r.bytesSent(), r.upstreamBytesReceived());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertEquals(1, flows.records.size(), flows.records.toString());
     }
 
     @Test
