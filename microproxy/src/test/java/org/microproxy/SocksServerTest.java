@@ -36,6 +36,7 @@ import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.http.WebSocketMessage;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -493,6 +494,49 @@ class SocksServerTest {
             assertEquals("220 ready\r\n", c.read(11));
             assertEchoes(c);
         }
+    }
+
+    @Test
+    void webSocketMessagesThroughTheSocksServerGetTheMessageHooks() throws Exception {
+        HttpProxyServer proxy = proxies.start(socks().withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
+            @Override
+            public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+                return fromClient && message.isText() ? message.withText(message.text() + " via socks" + ctx.socksVersion().orElse(0))
+                        : message;
+            }
+        }));
+        try (WebSocketPeer.Server server = new WebSocketPeer.Server("permessage-deflate");
+                SocksClient c = new SocksClient(proxy)) {
+            assertEquals(0, c.open("127.0.0.1", server.port()));
+            c.write("GET /chat HTTP/1.1\r\nHost: 127.0.0.1:" + server.port() + "\r\nUpgrade: websocket\r\n"
+                    + "Connection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                    + "Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n");
+            String head = TestSupport.readUntil(c.input(), "\r\n\r\n");
+            assertTrue(head.startsWith("HTTP/1.1 101"), head);
+            WebSocketPeer ws = WebSocketPeer.client(c.input(), c.out,
+                    WebSocketPeer.Agreement.parse(WebSocketTestSupport.header(head, "Sec-WebSocket-Extensions")));
+            ws.sendText("ping");
+            assertEquals("echo:ping via socks5", ws.readMessage().text());
+            assertEquals(List.of("ping via socks5"), server.texts());
+        }
+    }
+
+    @Test
+    void anHttpProxyReachedThroughTheSocksServerGetsTheClientsProxyRequests() throws Exception {
+        ChainTestSupport.RequestLog corpLog = new ChainTestSupport.RequestLog();
+        HttpProxyServer corp = proxies.start(MicroProxy.bootstrap().plusActivityTracker(corpLog));
+        HttpProxyServer proxy = proxies.start(socks());
+        String target = "127.0.0.1:" + origin.getAddress().getPort();
+        try (SocksClient c = new SocksClient(proxy)) {
+            // As curl --preproxy socks5://... --proxy http://corp would: the HTTP proxy is the destination.
+            assertEquals(0, c.open("127.0.0.1", corp.getListenAddress().getPort()));
+            c.write("GET http://" + target + "/through HTTP/1.1\r\nHost: " + target + "\r\nConnection: close\r\n\r\n");
+            String response = new String(c.input().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(response.startsWith("HTTP/1.1 200"), response);
+            assertEquals("/through", TestSupport.echoedUri(response.substring(response.indexOf("\r\n\r\n") + 4)));
+        }
+        // The request went to the HTTP proxy as the client sent it, not straight to the origin.
+        assertEquals(List.of("GET http://" + target + "/through"), corpLog.received);
     }
 
     // --- SOCKS4 and 4a, and SOCKS on the regular listener -------------------------------------
