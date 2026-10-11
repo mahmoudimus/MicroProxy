@@ -203,6 +203,56 @@ class TcpTlsInterceptionTest {
     }
 
     @Test
+    void theSameForASocksClient() throws Exception {
+        origin("imap", TcpTlsInterceptionTest::imap);
+        TcpInterceptorTest.Recorder recorder = new TcpInterceptorTest.Recorder(TcpTlsInterceptionTest::rewriteImap);
+        HttpProxyServer proxy = proxies.start(mitm().withSocksServer(true).withTcpInterceptor(recorder));
+        int port = Integer.parseInt(origin.target().substring(origin.target().lastIndexOf(':') + 1));
+        try (SocksClient c = new SocksClient(proxy)) {
+            assertEquals(0, c.open("127.0.0.1", port));
+            try (SSLSocket tls = TlsHellos.startTls(c.socket, "localhost", trustBoth(), "imap")) {
+                assertEquals(proxyIssuer, issuer(tls), "intercepted");
+                assertEquals("imap", tls.getApplicationProtocol(), "the server's choice, mirrored");
+                InputStream in = tls.getInputStream();
+                assertEquals("* OK IMAP4rev1 proxied\r\n", readLine(in));
+                TestSupport.write(tls.getOutputStream(), "a1 LOGIN user hunter2\r\n");
+                assertEquals("a1 OK LOGIN user ********\r\n", readLine(in));
+                TestSupport.write(tls.getOutputStream(), "a2 LOGOUT\r\n");
+                assertEquals("a2 OK LOGOUT\r\n", readLine(in));
+            }
+        }
+        recorder.awaitDone();
+        TcpContext ctx = recorder.context;
+        assertTrue(ctx.tlsIntercepted());
+        assertEquals("localhost", ctx.sni());
+        assertEquals("imap", ctx.alpn());
+        assertEquals(5, ctx.flowContext().socksVersion().orElse(0));
+        assertTrue(recorder.events.contains("> a1 LOGIN user hunter2\r\n"), recorder.events.toString());
+    }
+
+    @Test
+    void aServerThatSpeaksFirstInsideTlsToASocksClientIsRelayedDecrypted() throws Exception {
+        origin(null, s -> TcpInterceptorTest.smtp(s));
+        TcpInterceptorTest.Recorder recorder = new TcpInterceptorTest.Recorder(
+                (m, ctx) -> m.fromClient() ? m.data() : utf8(m.text().replace("ESMTP ready", "ESMTP proxied")));
+        HttpProxyServer proxy = proxies.start(mitm().withSocksServer(true).withTcpInterceptor(recorder));
+        int port = Integer.parseInt(origin.target().substring(origin.target().lastIndexOf(':') + 1));
+        try (SocksClient c = new SocksClient(proxy)) {
+            assertEquals(0, c.open("localhost", port));
+            try (SSLSocket tls = TlsHellos.startTls(c.socket, "localhost", trustBoth())) {
+                assertEquals(proxyIssuer, issuer(tls));
+                InputStream in = tls.getInputStream();
+                assertEquals("220 smtp.test ESMTP proxied\r\n", readLine(in));
+                TestSupport.write(tls.getOutputStream(), "QUIT\r\n");
+                assertEquals("221 bye\r\n", readLine(in));
+            }
+        }
+        recorder.awaitDone();
+        assertTrue(recorder.context.tlsIntercepted());
+        assertEquals("localhost", recorder.context.host());
+    }
+
+    @Test
     void withoutAnInterceptorAProtocolNamedByAlpnIsTunnelledUntouched() throws Exception {
         origin("imap", TcpTlsInterceptionTest::imap);
         HttpProxyServer proxy = proxies.start(mitm());

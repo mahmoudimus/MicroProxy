@@ -16,7 +16,10 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +29,9 @@ import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.WebSocketMessage;
+import org.microproxy.tcp.TcpContext;
+import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.tcp.TcpMessage;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -282,6 +288,81 @@ class HttpProxyForwardingTest {
         assertEquals(List.of("CONNECT " + target + " HTTP/1.1 null"), corpSaw);
         // The connection made for the session carried the tunnel.
         assertEquals(1, corpConnections.get());
+    }
+
+    /** Upper-cases what the client sends through a raw tunnel, and records the hooks' calls. */
+    private static TcpInterceptor shouting(List<String> seen, CountDownLatch ended) {
+        return new TcpInterceptor() {
+            @Override
+            public byte[] tcpMessage(TcpMessage m, TcpContext ctx) {
+                seen.add((m.fromClient() ? "> " : "< ") + m.text());
+                return m.fromClient() ? m.text().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8) : m.data();
+            }
+
+            @Override
+            public void tcpEnd(TcpContext ctx) {
+                seen.add("end " + ctx.host() + ":" + ctx.port() + " tls=" + ctx.tlsIntercepted());
+                ended.countDown();
+            }
+        };
+    }
+
+    @Test
+    void tcpHooksSeeATunnelThroughTheHttpProxy() throws Exception {
+        TestSupport.RawServer echo = echoServer();
+        String target = "127.0.0.1:" + echo.port();
+        startCorp(null);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(1);
+        proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy())
+                .withTcpInterceptor(shouting(seen, ended)).start();
+        Socket session = plainSession();
+        String head = request(session, "CONNECT " + target + " HTTP/1.1", target);
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        assertEquals("THROUGH THE HTTP PROXY", echoBack(session, "through the http proxy"));
+        session.close();
+        assertTrue(ended.await(10, TimeUnit.SECONDS), seen.toString());
+        assertEquals(List.of("CONNECT " + target + " HTTP/1.1 null"), corpSaw);
+        assertEquals("> through the http proxy", seen.getFirst());
+        assertEquals("end " + target + " tls=false", seen.getLast());
+    }
+
+    @Test
+    void tlsThatDoesNotCarryHttpThroughTheHttpProxyIsRelayedDecrypted() throws Exception {
+        SSLContext serverTls = serverCa.serverContext("localhost", "127.0.0.1");
+        // An IMAP-like server over TLS that speaks first: no ALPN, a greeting, then an answer per line.
+        TestSupport.RawServer imaps = closing(TestSupport.rawServer(accepted -> {
+            SSLSocket s = (SSLSocket) serverTls.getSocketFactory().createSocket(accepted, null, true);
+            s.setUseClientMode(false);
+            s.setSoTimeout(20_000);
+            write(s.getOutputStream(), "* OK ready\r\n");
+            while (true) {
+                String line = readUntil(s.getInputStream(), "\r\n");
+                if (line.isEmpty()) return;
+                write(s.getOutputStream(), "a OK " + line);
+            }
+        }));
+        String target = "localhost:" + imaps.port();
+        startCorp(null);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(1);
+        proxy = microProxy().withTcpInterceptor(shouting(seen, ended)).start();
+        Socket session = plainSession();
+        String head = request(session, "CONNECT " + target + " HTTP/1.1", target);
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        // The client trusts only MicroProxy's CA: the TLS inside the HTTP proxy's tunnel is intercepted.
+        SSLSocket tls = closing((SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(session, "localhost",
+                imaps.port(), true));
+        tls.setUseClientMode(true);
+        tls.setSoTimeout(20_000);
+        tls.startHandshake();
+        assertEquals("* OK ready\r\n", readUntil(tls.getInputStream(), "\r\n"));
+        write(tls.getOutputStream(), "login\r\n");
+        assertEquals("a OK LOGIN\r\n", readUntil(tls.getInputStream(), "\r\n"));
+        tls.close();
+        assertTrue(ended.await(10, TimeUnit.SECONDS), seen.toString());
+        assertEquals(List.of("CONNECT " + target + " HTTP/1.1 null"), corpSaw);
+        assertEquals(List.of("< * OK ready\r\n", "> login\r\n", "< a OK LOGIN\r\n", "end " + target + " tls=true"), seen);
     }
 
     @Test

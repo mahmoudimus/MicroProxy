@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
+import org.microproxy.SocksClient;
 import org.microproxy.TestSupport;
 
 /**
@@ -131,6 +132,22 @@ class ScriptedTcpTest {
             assertEquals("220 mail.test ESMTP (via MicroProxy) ready\r\n", line(s));
             send(s, "EHLO ESMTP");
             assertEquals("+OK EHLO ESMTP\r\n", line(s), "only the greeting");
+        }
+    }
+
+    @Test
+    void theHooksSeeASocksClientsTunnel() throws Exception {
+        TestSupport.RawServer origin = lineServer("220 mail.test ESMTP ready");
+        ScriptedProxy script = ScriptedProxy.builder(inReadme(BANNER), "tcp.star").build();
+        HttpProxyServer proxy = MicroProxy.bootstrap().withPort(0).withSocksServer(true)
+                .withTcpInterceptor(script.tcpInterceptor()).start();
+        closeables.add(proxy::abort);
+        try (SocksClient c = new SocksClient(proxy)) {
+            assertEquals(0, c.open("127.0.0.1", origin.port()));
+            c.socket.setSoTimeout(20_000);
+            assertEquals("220 mail.test ESMTP (via MicroProxy) ready\r\n", line(c.socket));
+            send(c.socket, "EHLO ESMTP");
+            assertEquals("+OK EHLO ESMTP\r\n", line(c.socket), "only the greeting");
         }
     }
 

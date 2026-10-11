@@ -327,6 +327,83 @@ class TcpInterceptorTest {
         assertFalse(recorder.context.tlsIntercepted());
     }
 
+    /** A SOCKS5 client's tunnel to {@code 127.0.0.1:port} through {@code proxy}, its request granted. */
+    private static SocksClient socksTunnel(HttpProxyServer proxy, int port) throws IOException {
+        SocksClient c = new SocksClient(proxy);
+        assertEquals(0, c.open("127.0.0.1", port));
+        return c;
+    }
+
+    @Test
+    void socksTunnelsGoThroughTheHooksAsConnectTunnelsDo() throws Exception {
+        CertificateAuthority ca = CertificateAuthority.generate("SOCKS TCP hooks CA");
+        try (TestSupport.RawServer origin = lineEcho()) {
+            // Without MITM the SOCKS client's first bytes are still read (for plain HTTP); with it,
+            // they would be intercepted if they were TLS. Either way these are tunnelled.
+            for (boolean mitm : new boolean[] {false, true}) {
+                Recorder recorder = new Recorder(TcpInterceptorTest::edit);
+                HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap().withSocksServer(true).withTcpInterceptor(recorder);
+                if (mitm) bootstrap.withManInTheMiddle(new CertificateAuthorityMitmManager(ca));
+                HttpProxyServer proxy = proxies.start(bootstrap);
+                try (SocksClient c = socksTunnel(proxy, origin.port())) {
+                    send(c.socket, "hello secret");
+                    assertEquals("ECHO: hello public", line(c.socket), "mitm " + mitm);
+                    send(c.socket, "drop me");
+                    send(c.socket, "after");
+                    assertEquals("ECHO: after", line(c.socket));
+                    send(c.socket, "inject");
+                    assertEquals("from the proxy", line(c.socket));
+                    assertEquals("ECHO: inject", line(c.socket));
+                    assertEquals("ECHO: injected", line(c.socket));
+                    c.socket.shutdownOutput();
+                    assertEquals(-1, c.socket.getInputStream().read());
+                }
+                recorder.awaitDone();
+                TcpContext ctx = recorder.context;
+                assertEquals("127.0.0.1", ctx.host());
+                assertEquals(origin.port(), ctx.port());
+                assertFalse(ctx.tlsIntercepted());
+                assertEquals(5, ctx.flowContext().socksVersion().orElse(0));
+                assertEquals("start", recorder.events.getFirst());
+                assertEquals("> hello secret\n", recorder.events.get(1), "the bytes read before deciding come first");
+                assertEquals("end", recorder.events.getLast());
+                assertNull(recorder.error);
+            }
+        }
+    }
+
+    @Test
+    void aServerThatSpeaksFirstToASocksClientIsRelayedThroughTheHooks() throws Exception {
+        try (TestSupport.RawServer origin = TestSupport.rawServer(TcpInterceptorTest::smtp)) {
+            Recorder recorder = new Recorder(TcpInterceptorTest::banner);
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withSocksServer(true).withTcpInterceptor(recorder));
+            try (SocksClient c = socksTunnel(proxy, origin.port())) {
+                speakSmtp(c.socket);
+            }
+            recorder.awaitDone();
+            assertEquals("< 220 smtp.test ESMTP ready\r\n", recorder.events.get(1));
+        }
+    }
+
+    @Test
+    void aTcpHostReachedThroughSocksIsRelayedAsBytes() throws Exception {
+        try (TestSupport.RawServer origin = headEcho()) {
+            String request = "GET /plain HTTP/1.1\r\nHost: 127.0.0.1:" + origin.port() + "\r\nConnection: close\r\n\r\n";
+            Recorder recorder = new Recorder((m, ctx) -> m.data());
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withSocksServer(true).withTcpInterceptor(recorder)
+                    .withTcpHosts("^127\\.0\\.0\\."));
+            String answer;
+            try (SocksClient c = socksTunnel(proxy, origin.port())) {
+                TestSupport.write(c.out, request);
+                answer = new String(c.input().readAllBytes(), StandardCharsets.UTF_8);
+            }
+            // Not served as HTTP (which a SOCKS client's plain HTTP otherwise is): the bytes as sent.
+            assertTrue(answer.endsWith("\r\n\r\n" + request), answer);
+            recorder.awaitDone();
+            assertEquals("> " + request, recorder.events.get(1));
+        }
+    }
+
     @Test
     void aFailedTunnelEndsWithAnError() throws Exception {
         Recorder recorder = new Recorder((m, ctx) -> m.data());
