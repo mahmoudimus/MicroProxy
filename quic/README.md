@@ -229,7 +229,7 @@ for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
 
 Ported faithfully, with quinn's unit tests: the assembler, send buffer, range set, streams,
 packet spaces and sent-packet tracking, pacing, MTU discovery (full DPLPMTUD with black hole
-detection), CUBIC, BBR, connection ID queue, ACK frequency state and tokens with the bloom log (a small
+detection), CUBIC, connection ID queue, ACK frequency state and tokens with the bloom log (a small
 bloom filter replaces the `fastbloom` crate). Differences, mostly where RFC 9000 and 9002 are
 stricter than quinn:
 
@@ -247,6 +247,8 @@ stricter than quinn:
 - No flow-control window auto-tuning (quinn has none); windows can be changed at run time.
 - A poll that builds datagrams until it runs out of data leaves the connection application
   limited, as quinn's last `poll_transmit` call, which builds nothing, does.
+- BBR samples the delivery rate as draft-cheng-iccrg-delivery-rate-estimation does and follows
+  the BBRv1 draft where quinn's port does not (see [BBR](#bbr)).
 - Not ported: the hashed connection ID generator, quinn's qlog module (the connection layer
   has a smaller qlog-style sink instead), and connection statistics beyond the loss counters on
   `Recovery`. DATAGRAM buffering lives in the connection layer.
@@ -256,50 +258,81 @@ stricter than quinn:
 ### BBR
 
 `Bbr` (`TransportConfig.CongestionControl.BBR`, or `BbrConfig` as the controller factory) is
-quinn's `congestion/bbr` (`mod.rs`, `bw_estimation.rs`, `min_max.rs`), itself based on a BBRv1
-sender (`bbr_sender.cc`); quinn calls it experimental. It models the path instead of reacting to
-loss: a bandwidth estimate (`BandwidthEstimation`: per acknowledgement, the lower of the send and
-ack rates, application-limited samples left out, through a windowed maximum filter over ten round
-trips, `MinMax`) and the minimum RTT. From them it sets the window (a gain times the
-bandwidth-delay product, plus the ack aggregation seen) and a pacing rate, in four modes:
-STARTUP (gain 2.885, until the estimate grows less than 25% in three rounds, or a loss in that
-round), DRAIN (gain 1/2.885, until the bytes in flight are down to one BDP), PROBE_BW (pacing
-gains 1.25, 0.75 and six rounds of 1.0, from a random point of the cycle; window gain 2) and
-PROBE_RTT (window 0.75 BDP for at least 200 ms) when none has started for ten seconds and the
-connection is not application limited. Losses cap the window in conservation, then growth,
-until a round passes without one. The default initial window is quinn's 240000 bytes.
+ported from quinn's `congestion/bbr` (`mod.rs`, `bw_estimation.rs`, `min_max.rs`), itself based on
+a BBRv1 sender (`bbr_sender.cc`); quinn calls it experimental. Where quinn's port departs from
+BBRv1 (draft-cardwell-iccrg-bbr-congestion-control), this one follows the draft instead.
 
-What it adds to the controller interface, and where it departs from quinn:
+It models the path instead of reacting to loss: the bottleneck bandwidth (`BtlBw`, the windowed
+maximum of the delivery rate samples over ten round trips, `BandwidthEstimation` and `MinMax`) and
+the minimum RTT (`RTprop`). From them it sets the window (a gain times the bandwidth-delay
+product, plus the ack aggregation seen) and a pacing rate, in four modes: STARTUP (gain 2.885,
+until the estimate grows less than 25% in three rounds, or a loss in that round), DRAIN (gain
+1/2.885, until the bytes in flight are down to one BDP), PROBE_BW (pacing gains 1.25, 0.75 and six
+rounds of 1.0, from a random point of the cycle; window gain 2) and PROBE_RTT (window 0.75 BDP for
+at least 200 ms and a round) when the minimum RTT is ten seconds old. Losses cap the window in
+conservation, then growth, until a round passes without one. The default initial window is
+quinn's 240000 bytes.
 
+**Delivery rate.** `DeliveryRate` in the connection layer is the sampler of
+draft-cheng-iccrg-delivery-rate-estimation: each packet sent in flight is stamped (`SentPacket`)
+with the connection's delivered bytes, their time, the send time of the first packet of its flight
+and whether sending was application limited (the connection marks the bytes then in flight as an
+application-limited bubble when a poll runs out of data); each ACK yields one `RateSample` from
+the newest packet it acknowledges, over the longer of its send and ACK intervals, with no rate
+when that is shorter than the minimum RTT. `Controller.onRateSample` hands it to the controller
+before `onEndAcks`. An application-limited sample counts only if it beats the estimate.
+
+What the port adds to the controller interface, and where it departs from quinn:
+
+- `Controller.onRateSample` and `RateSample`, with `DeliveryRate` and the delivery fields of
+  `SentPacket`. quinn's estimator took, per acknowledged packet, the lower of the rates between
+  its last two sends and last two acknowledgements: with ACKs covering two packets a sample was
+  half the rate, and its estimate could stay there.
+- The max filter is fed every sample, so a maximum expires after ten round trips and the
+  estimate follows a path that slows down. quinn fed it only samples above the estimate, so its
+  estimate never fell.
+- PROBE_RTT starts only when the minimum RTT has expired: ten seconds without a sample at or
+  below it (`rtprop_expired`); leaving PROBE_RTT renews it. quinn started one at the first
+  acknowledgement that was not application limited, since none had started yet, and skipped
+  them while application limited, which the draft does not.
+- STARTUP grows the window by the bytes acknowledged only below its target or before the
+  initial window is delivered; quinn compared the gain, not the window, with the target, so its
+  window grew without bound, even while application limited.
 - `Controller.pacingRate()` (default -1): the pacer sends at no more than BBR's rate, nor than
   1.25 windows per smoothed RTT (`Pacer.rateLimitedWindow`). quinn computes the rate but only
-  reports it; its pacer paces the window, so DRAIN never drains and BBR leaves it only through
-  PROBE_RTT, ten seconds later.
+  reports it; its pacer paces the window, so DRAIN could not drain.
 - `ControllerMetrics.bandwidthEstimate()`, in bits per second, as quinn's metrics have.
 - `Bbr.mode()`, `bandwidthEstimate()`, `minRtt()`, `isAtFullBandwidth()` and `roundCount()` for
   inspection, and a constructor taking the random source of the gain cycle.
 
-Kept as quinn has them, with tests that pin them down:
+Still different from the draft, as in quinn:
 
-- The first acknowledgement that is not application limited starts a PROBE_RTT, since none has
-  started yet. On a short path (40 ms) the bandwidth stops growing during it, so BBR goes from it
-  to PROBE_BW without DRAIN; on a longer one (100 ms) it returns to STARTUP, then DRAIN.
-- A sample enters the max filter only when it beats the estimate, so the estimate never falls
-  when a path slows down.
-- A sample is one packet's bytes over the time since the previous acknowledged packet, so with
-  the peer acknowledging every second packet a sample is half the rate; the estimate reaches the
-  link rate through acknowledgements of single packets (after a gap or a skipped packet number).
-  On a perfectly smooth simulated link it stayed at half the rate in about one run in ten.
-- STARTUP grows the window by the bytes acknowledged even while the connection is application
-  limited.
+- Round trips are counted by packet number (a round ends when a packet sent after the previous
+  round's end is acknowledged), not by delivered bytes.
+- The PROBE_RTT window is 0.75 BDP (quiche's moderate PROBE_RTT), not four packets, and the cwnd
+  is not saved and restored around it; PROBE_RTT ends 200 ms after the bytes in flight first fit
+  that window, at a round start.
+- Loss recovery uses quiche's conservation and growth recovery window, and a loss during STARTUP
+  ends it at the next round without 25% growth. There is no idle restart (`exitingQuiescence` is
+  never set) and no special handling of ECN.
+- The pacing rate in STARTUP starts at the initial window per minimum RTT once there is a
+  bandwidth sample, and never falls during STARTUP; before the first sample the pacer paces the
+  window.
+- The gain cycle's 0.75 phase lasts until the bytes in flight are down to the BDP
+  (`DRAIN_TO_TARGET`), and the ack aggregation seen is added to the window.
 
-`BbrTest` drives the controller on a fake clock through a simulated bottleneck (100 Mbit/s,
-40 ms and 100 ms): the mode sequence, DRAIN emptying the STARTUP queue, the gain cycle, PROBE_RTT
-every ten seconds, losses, application-limited phases. `BbrConnectionTest` runs connections on
-the in-memory pair through a bottleneck with a drop-tail queue (`Pair.bandwidth`,
-`Pair.queueLimit`): on 20 Mbit/s and 40 ms the estimate comes to 2.497 MB/s and a transfer to
-2.36 MB/s; on 50 Mbit/s and 40 ms with 1% random loss, BBR moves about 5.5 MB/s where CUBIC
-manages about 0.5 MB/s.
+**Simulations.** `BbrTest` drives the controller on a fake clock with the connection's
+`DeliveryRate` and `Pacer` and a receiver that acknowledges every second packet: STARTUP, DRAIN
+and PROBE_BW on 100 Mbit/s and 40 ms (99% of the link used), PROBE_RTT exactly when the minimum
+RTT turns ten seconds old (and a new minimum after a route change from 40 to 60 ms), the estimate
+and pacing rate following a drop from 50 to 10 Mbit/s within 12 round trips (the ten-round filter)
+and a rise at once, application-limited phases, and ten gain-cycle seeds on three paths.
+`BbrConnectionTest` runs connections on the in-memory pair through a bottleneck with a drop-tail
+queue (`Pair.bandwidth`, `Pair.queueLimit`), seeded so that every run repeats exactly
+(`Pair.seeded`): on 20 Mbit/s and 40 ms the estimate is 2.5000 MB/s for each of twenty seeds and
+4 MB transfers run at 2.40 MB/s; a drop from 50 to 10 Mbit/s mid-transfer is followed in 13
+round trips (3.9 s, with the queue the drop builds); on 50 Mbit/s and 40 ms with 1% random loss,
+BBR moves 5.98 MB/s (6.02 without loss) where CUBIC manages 0.45 MB/s.
 
 ## Connections and endpoints
 
@@ -459,7 +492,10 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
 
 - `ConnectionTest` ports quinn-proto's connection tests to an in-memory pair (`Pair`): two endpoints
   on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, a bottleneck
-  rate with a drop-tail queue, and hooks to drop or hold back datagrams. Handshakes over every cipher suite and both versions, stream
+  rate with a drop-tail queue, and hooks to drop or hold back datagrams. `Pair.seeded` also draws
+  both endpoints' randomness (`EndpointConfig.Builder.random`), the TLS randoms, key shares and
+  signatures (`TlsConfig.Builder.secureRandom`) and the certificate from a seed, so a run repeats
+  exactly in any JVM. Handshakes over every cipher suite and both versions, stream
   transfer, flow-control blocking, stream limits, loss recovery and tail loss, key updates (simple,
   reordered, routine), idle timeout and keep-alive, closes in every state, stateless resets (and
   their rate limit), Version Negotiation, Retry (and expired tokens), CID rotation and retirement,
