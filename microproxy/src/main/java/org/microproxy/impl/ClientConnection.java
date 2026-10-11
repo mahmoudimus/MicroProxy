@@ -2749,12 +2749,13 @@ final class ClientConnection implements Runnable {
 
     /**
      * Why the intercepted session on {@code tls} is relayed as raw TCP rather than served as HTTP,
-     * or null to serve it as HTTP, as mitmproxy's next layer decides inside TLS: the negotiated
-     * ALPN protocol when there is one (HTTP's, or another), else a {@linkplain
-     * org.microproxy.HttpProxyServerBootstrap#withTcpHosts TCP host}, else the client's first
-     * decrypted bytes, which must start like an HTTP request, while a server that speaks first (an
-     * SMTP banner) makes it raw at once. Only a fresh connection to the server of its own can carry raw TCP;
-     * without one the session is served as HTTP, as before.
+     * or null to serve it as HTTP, in mitmproxy's next layer's order inside TLS: an {@code h2}
+     * client is HTTP; a {@linkplain org.microproxy.HttpProxyServerBootstrap#withTcpHosts TCP
+     * host} is raw; then the negotiated ALPN protocol when there is one (HTTP's, or another); else
+     * the client's first decrypted bytes, which must start like an HTTP request, while a server
+     * that speaks first (an SMTP banner) makes the session raw at once. Only a fresh connection to
+     * the server of its own can carry raw TCP; without one the session is served as HTTP, as
+     * before.
      */
     private String rawSessionReason(ServerConnection conn, SSLSocket tls, HostAndPort target) throws IOException {
         String alpn = tls.getApplicationProtocol();
