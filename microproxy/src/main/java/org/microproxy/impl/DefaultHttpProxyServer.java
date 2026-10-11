@@ -38,6 +38,7 @@ import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.tcp.TcpInterceptor;
 
 /**
  * The proxy server. A platform thread accepts connections and hands each to its own virtual
@@ -111,6 +112,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final Http2Options http2Options;
     /** Sees every HTTP/2 frame (see {@link FrameInterceptor}); null for none, which costs nothing. */
     final FrameInterceptor frameInterceptor;
+    /** Sees the bytes of raw tunnels (see {@link TcpInterceptor}); null for none, which costs nothing. */
+    final TcpInterceptor tcpInterceptor;
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
@@ -174,6 +177,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http2Cleartext = b.http2Cleartext;
         this.http2Options = b.http2Options;
         this.frameInterceptor = b.frameInterceptor;
+        this.tcpInterceptor = b.tcpInterceptor;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
         if (http2 && mitmManager == null && sslContextSource == null) {

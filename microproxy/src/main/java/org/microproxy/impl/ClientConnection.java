@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import javax.net.ssl.ExtendedSSLSession;
+import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
@@ -72,6 +75,7 @@ import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.LastHttpContent;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.tcp.TcpInterceptor;
 
 /**
  * Serves one client connection on its own virtual thread.
@@ -1592,7 +1596,7 @@ final class ClientConnection implements Runnable {
                 if (observe) filters.webSocketFrameReceived(frame, fromClient);
                 return rewrite ? filters.filterWebSocketFrame(frame, fromClient) : frame;
             };
-            ex.channel.relay(conn, handler, server.name + "-upgrade-" + id);
+            ex.channel.relay(conn, handler, null, server.name + "-upgrade-" + id);
             conn.close();
             return false;
         }
@@ -1928,7 +1932,9 @@ final class ClientConnection implements Runnable {
         }
 
         if (!mitm) {
-            ex.channel.relay(conn, null, server.name + "-tunnel-" + id);
+            // In reverse:tcp:// mode behind a TLS listener, the bytes are the decrypted ones.
+            boolean decrypted = server.reverseProxy != null && sslSession != null;
+            ex.channel.relay(conn, null, tcpSession(ex.flow, target, decrypted), server.name + "-tunnel-" + id);
             conn.close();
             return false;
         }
@@ -2262,9 +2268,40 @@ final class ClientConnection implements Runnable {
         }
         // The bytes read so far are this connection's (an HTTP/1 client's, or those inside an
         // intercepted CONNECT stream), not the CONNECT exchange's channel's.
-        http1.relay(conn, null, server.name + "-tunnel-" + id);
+        http1.relay(conn, null, tcpSession(ex.flow, HostAndPort.parse(hostAndPort, 443), false),
+                server.name + "-tunnel-" + id);
         conn.close();
         return false;
+    }
+
+    /**
+     * The TCP hooks for a raw tunnel to {@code target}, or null without a {@link TcpInterceptor}:
+     * the tunnel then copies bytes as it always has.
+     *
+     * @param tlsIntercepted whether this connection terminated the client's TLS, so the tunnel's
+     *     bytes are decrypted
+     */
+    private TcpSession tcpSession(FlowContext flow, HostAndPort target, boolean tlsIntercepted) {
+        TcpInterceptor interceptor = server.tcpInterceptor;
+        if (interceptor == null) return null;
+        ClientHello hello = flow.getClientHello();
+        String sni = hello != null ? hello.sni() : null;
+        String alpn = null;
+        if (tlsIntercepted && http1.socket() instanceof SSLSocket tls) {
+            alpn = tls.getApplicationProtocol();
+            if (sni == null) sni = requestedServerName(tls.getSession());
+        }
+        return new TcpSession(interceptor, flow, target, tlsIntercepted, sni, alpn, logPrefix);
+    }
+
+    /** The host name a TLS client asked for (SNI) in {@code session}, or null. */
+    private static String requestedServerName(SSLSession session) {
+        if (session instanceof ExtendedSSLSession extended) {
+            for (SNIServerName name : extended.getRequestedServerNames()) {
+                if (name instanceof SNIHostName host) return host.getAsciiName();
+            }
+        }
+        return null;
     }
 
     /**
@@ -2457,7 +2494,7 @@ final class ClientConnection implements Runnable {
 
         if (!mitm) {
             tunnel.tunnelThroughProxy = true;
-            ex.channel.relay(tunnel, null, server.name + "-tunnel-" + id);
+            ex.channel.relay(tunnel, null, tcpSession(ex.flow, target, false), server.name + "-tunnel-" + id);
             tunnel.close();
             return false;
         }

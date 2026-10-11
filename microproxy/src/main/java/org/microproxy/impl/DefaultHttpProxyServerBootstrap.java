@@ -41,6 +41,7 @@ import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.tcp.TcpInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -110,6 +111,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Http2Options http2Options = Http2Options.DEFAULT;
     /** Sees every HTTP/2 frame; null for none. */
     FrameInterceptor frameInterceptor;
+    /** Sees the bytes of raw TCP tunnels; null for none. */
+    TcpInterceptor tcpInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -167,6 +170,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2Cleartext = http2Cleartext;
         c.http2Options = http2Options;
         c.frameInterceptor = frameInterceptor;
+        c.tcpInterceptor = tcpInterceptor;
         return c;
     }
 
@@ -641,6 +645,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public FrameInterceptor getFrameInterceptor() {
         return frameInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTcpInterceptor(TcpInterceptor interceptor) {
+        this.tcpInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public TcpInterceptor getTcpInterceptor() {
+        return tcpInterceptor;
     }
 
     @Override

@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.tcp.TcpInterceptor;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -501,6 +502,24 @@ public interface HttpProxyServerBootstrap {
 
     /** {@return the frame interceptor configured so far, or null} */
     default FrameInterceptor getFrameInterceptor() {
+        return null;
+    }
+
+    /**
+     * Shows the bytes of every raw TCP tunnel to {@code interceptor}, which may rewrite, drop and
+     * add them (mitmproxy's {@code tcp_message} and related hooks; see {@link TcpInterceptor} for
+     * which tunnels). One per proxy: a later call replaces it, and null removes it. Without one
+     * (the default), tunnels copy bytes through pooled buffers and cost nothing extra.
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withTcpInterceptor(TcpInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TCP interception");
+    }
+
+    /** {@return the TCP interceptor configured so far, or null} */
+    default TcpInterceptor getTcpInterceptor() {
         return null;
     }
 
