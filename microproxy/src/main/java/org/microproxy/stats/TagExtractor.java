@@ -26,6 +26,25 @@ import java.util.regex.Pattern;
  *       downstream_rq_response_flag.<flag>}, a MicroProxy stat
  * </ul>
  *
+ * <p>and these for MicroProxy's per-protocol stats:
+ *
+ * <ul>
+ *   <li>{@code microproxy_direction}: {@code downstream} or {@code upstream} in {@code
+ *       http2.<direction>.} and {@code http3.<direction>.}
+ *   <li>{@code microproxy_quic_scope}: {@code downstream}, {@code upstream}, {@code transparent}
+ *       or {@code masque} in {@code quic.<scope>.}
+ *   <li>{@code microproxy_quic_error}: the error at the end of {@code handshake_failures.<error>}
+ *   <li>{@code microproxy_congestion_controller}: the controller at the end of {@code
+ *       congestion_controller.<name>}
+ *   <li>{@code microproxy_drop_reason}: the reason at the end of {@code dropped_initials.<reason>}
+ *   <li>{@code microproxy_socks_version}: {@code v4} or {@code v5} in {@code socks.<version>.}
+ *   <li>{@code microproxy_socks_reply}: the reply at the end of {@code replies.<reply>}
+ *   <li>{@code microproxy_reject_reason}: the reason at the end of {@code flow_rejected.<reason>}
+ *   <li>{@code microproxy_tunnel_kind}: the kind in {@code tunnel.<kind>.}
+ *   <li>{@code microproxy_close_code}: the code at the end of {@code close_codes.<code>}
+ *   <li>{@code microproxy_hook}: the hook family in {@code hooks.<family>.}
+ * </ul>
+ *
  * <p>Values in flat names cannot contain dots (except listener addresses): the proxy writes the
  * cluster and prefix names it makes up with underscores instead ({@link #sanitize}).
  */
@@ -79,7 +98,18 @@ public final class TagExtractor {
             rule("envoy_cluster_name", "^cluster\\.(([^.]+)\\.)"),
             rule("envoy_listener_address", "^listener\\.(([0-9._]+_[0-9]+|\\[[0-9a-fA-F_]*\\]_[0-9]+|[^.]+)\\.)"),
             rule("envoy_response_code_class", "_rq_(([1-5]))xx$"),
-            rule("microproxy_response_flag", "\\.downstream_rq_response_flag(\\.([A-Za-z]+))$")));
+            rule("microproxy_response_flag", "\\.downstream_rq_response_flag(\\.([A-Za-z]+))$"),
+            rule("microproxy_direction", "^http[23]\\.((downstream|upstream)\\.)"),
+            rule("microproxy_quic_scope", "^quic\\.((downstream|upstream|transparent|masque)\\.)"),
+            rule("microproxy_quic_error", "\\.handshake_failures(\\.([a-z0-9_]+))$"),
+            rule("microproxy_congestion_controller", "\\.congestion_controller(\\.([a-z0-9_]+))$"),
+            rule("microproxy_drop_reason", "\\.dropped_initials(\\.([a-z_]+))$"),
+            rule("microproxy_socks_version", "^socks\\.((v4|v5)\\.)"),
+            rule("microproxy_socks_reply", "\\.replies(\\.([a-z_]+))$"),
+            rule("microproxy_reject_reason", "\\.flow_rejected(\\.([a-z_]+))$"),
+            rule("microproxy_tunnel_kind", "^tunnel\\.((h1_connect|h2_connect|h3_connect|forwarded|raw)\\.)"),
+            rule("microproxy_close_code", "\\.close_codes(\\.([0-9a-z_]+))$"),
+            rule("microproxy_hook", "^hooks\\.(([a-z0-9_]+)\\.)")));
 
     private static final TagExtractor NONE = new TagExtractor(List.of());
 
