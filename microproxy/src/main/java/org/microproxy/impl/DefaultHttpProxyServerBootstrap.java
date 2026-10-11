@@ -403,6 +403,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             plusActivityTracker(new ActivityLogger(LogFormat.valueOf(
                     p.getProperty("activity_log_format").strip().toUpperCase(Locale.ROOT))));
         }
+        if (p.containsKey("access_log") || p.containsKey("access_log_format") || p.containsKey("access_log_json")
+                || p.containsKey("access_log_filter")) {
+            if (p.containsKey("access_log_format") && p.containsKey("access_log_json")) {
+                throw new IllegalArgumentException("access_log_format and access_log_json are exclusive");
+            }
+            ActivityLogger.Builder logger = ActivityLogger.builder();
+            if (p.containsKey("access_log_format")) logger.format(LogFormat.parse(p.getProperty("access_log_format")));
+            if (p.containsKey("access_log_json")) {
+                logger.format(org.microproxy.extras.AccessLogFormat.envoyJson(p.getProperty("access_log_json")));
+            }
+            if (p.containsKey("access_log_filter")) {
+                logger.filter(org.microproxy.extras.AccessLogFilter.parse(p.getProperty("access_log_filter")));
+            }
+            // Flushed line by line: a file left open until the process exits loses nothing.
+            if (p.containsKey("access_log")) {
+                logger.sink(org.microproxy.extras.AccessLogWriter.of(p.getProperty("access_log")));
+            }
+            plusActivityTracker(logger.build());
+        }
         if (p.containsKey("max_concurrent_per_client")) {
             int n = Integer.parseInt(p.getProperty("max_concurrent_per_client").strip());
             if (n <= 0) throw new IllegalArgumentException("max_concurrent_per_client must be positive: " + n);

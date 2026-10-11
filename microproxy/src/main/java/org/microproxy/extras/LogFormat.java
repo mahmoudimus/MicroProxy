@@ -106,6 +106,27 @@ public enum LogFormat {
         return AccessLogFormat.envoyJson(dictionary);
     }
 
+    /**
+     * A preset by name ({@code clf}, {@code envoy}, ..., ignoring case), or else an Envoy format
+     * string: what the command line's {@code --access-log-format} takes.
+     *
+     * @param presetOrFormat a preset name or a format string
+     * @return the format
+     * @throws IllegalArgumentException if it is neither a preset nor a format string with an operator
+     */
+    public static AccessLogFormat parse(String presetOrFormat) {
+        String name = presetOrFormat.strip().toUpperCase(java.util.Locale.ROOT);
+        for (LogFormat preset : values()) {
+            if (preset.name().equals(name)) return preset.formatter();
+        }
+        if (presetOrFormat.indexOf('%') < 0) {
+            throw new IllegalArgumentException("not an access-log format: " + presetOrFormat + "; expected one of "
+                    + java.util.Arrays.toString(values()) + " or an Envoy format string such as"
+                    + " '%START_TIME% %REQ(:METHOD)% %RESPONSE_CODE%'");
+        }
+        return AccessLogFormat.envoy(presetOrFormat);
+    }
+
     private static Map<String, Object> jsonFields(boolean extended) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("timestamp", ISO_TIME);
