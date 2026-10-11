@@ -91,6 +91,7 @@ final class ClientHandshake implements Handshake {
         this.config = session.config;
         this.serverName = serverName;
         config.random.nextBytes(random);
+        session.clientRandom(random);
         keyShare = KeyExchange.generate(config.groups.get(0), config.random);
         sendClientHello();
         state = new ExpectServerHello(false);
