@@ -1375,7 +1375,6 @@ final class ClientConnection implements Runnable {
         long nanos = start == 0 ? -1 : Math.max(0, (end != 0 ? end : ClientFlowContext.now()) - start);
         long flags = flow.responseFlagBits();
         ProxyStats.HttpStats http = stats.http;
-        http.requestEnded(ex.kind, ex.counted, status, nanos, flags);
         if ((flags & (1L << ResponseFlag.DOWNSTREAM_REMOTE_RESET.ordinal())) != 0) {
             http.rqRxReset.inc();
         } else if (!ex.completed && ex.responseStarted
@@ -1389,6 +1388,8 @@ final class ClientConnection implements Runnable {
         } else if (ex.sentSource == ResponseSource.REPLAY) {
             stats.replay.answered(status, nanos);
         }
+        // Last, as it ends the request's downstream_rq_active.
+        http.requestEnded(ex.kind, ex.counted, status, nanos, flags);
     }
 
     /** Records a request the client connection refused before it became an exchange: it could not be read. */

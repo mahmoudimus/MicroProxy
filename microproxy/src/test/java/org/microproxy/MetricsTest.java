@@ -234,7 +234,8 @@ class MetricsTest {
                 assertEquals(502, get(client(proxy), "http://127.0.0.1:" + full.getLocalPort() + "/").statusCode());
                 awaitValue(r, "cluster.direct.upstream_cx_connect_timeout", 1);
                 assertEquals(1, value(r, "cluster.direct.upstream_cx_connect_fail"));
-                assertEquals(1, value(r, "http.edge.downstream_rq_response_flag.UF"));
+                // The exchange is counted once over, after the client has its answer.
+                awaitValue(r, "http.edge.downstream_rq_response_flag.UF", 1);
             } finally {
                 for (Socket s : fillers) s.close();
             }

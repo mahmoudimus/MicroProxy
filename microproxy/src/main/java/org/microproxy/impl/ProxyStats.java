@@ -260,9 +260,7 @@ final class ProxyStats {
          *     request a transport answered itself)
          */
         void requestEnded(FlowRecord.Kind kind, boolean started, int status, long nanos, long flagBits) {
-            if (started) {
-                rqActive.dec();
-            } else {
+            if (!started) {
                 rqTotal.inc();
                 protocol(kind).inc();
             }
@@ -273,6 +271,8 @@ final class ProxyStats {
                     if ((flagBits & 1) != 0) flag(i).inc();
                 }
             }
+            // Last: a request no longer active has been counted in full.
+            if (started) rqActive.dec();
         }
 
         /** {@code downstream_rq_response_flag.<flag>} of flag {@code ordinal}, made on first use. */
@@ -467,9 +467,9 @@ final class ProxyStats {
 
         /** Counts the end of a request: the server's {@code status} (0 for none), after {@code nanos} (-1 if not known). */
         void requestEnded(int status, long nanos) {
-            rqActive.dec();
             rqClass[responseClass(status)].inc();
             if (nanos >= 0) rqTime.recordNanos(nanos);
+            rqActive.dec();
         }
 
         /** Counts a request answered without a server connection (from the cache, or a recording). */
