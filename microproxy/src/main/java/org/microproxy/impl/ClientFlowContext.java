@@ -2,6 +2,7 @@ package org.microproxy.impl;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLSession;
@@ -38,6 +39,8 @@ final class ClientFlowContext extends FlowContext {
     private long clientTlsEnd;
     /** Status of the server's final response for the current exchange; 0 for none. */
     private int upstreamStatus;
+    /** The intercepted proxy the current exchange is forwarded through, or null. */
+    private volatile String forwardedVia;
 
     ClientFlowContext(
             long connectionId,
@@ -92,6 +95,16 @@ final class ClientFlowContext extends FlowContext {
     public OptionalInt upstreamStatus() {
         int status = upstreamStatus;
         return status == 0 ? OptionalInt.empty() : OptionalInt.of(status);
+    }
+
+    /** The intercepted proxy ({@code host:port}) the current exchange is forwarded through, or null. */
+    void forwardedVia(String proxy) {
+        forwardedVia = proxy;
+    }
+
+    @Override
+    public Optional<String> forwardedVia() {
+        return Optional.ofNullable(forwardedVia);
     }
 
     @Override

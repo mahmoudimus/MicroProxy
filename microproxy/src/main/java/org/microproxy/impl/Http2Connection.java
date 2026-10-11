@@ -100,8 +100,9 @@ final class Http2Connection extends Http2Endpoint {
     private final byte[] received;
     private final ClientFlowContext connectionFlow;
     /**
-     * The {@code CONNECT} target: requests for another authority get 421. Null for a forward proxy
-     * connection (h2c), whose requests name any target.
+     * The {@code CONNECT} target: requests for another authority get 421 (but plain {@code
+     * CONNECT}s, whose authority is a tunnel's target). Null for a forward proxy connection (h2c),
+     * whose requests name any target.
      */
     private final HostAndPort target;
     private final int maxHeaderListSize;
@@ -386,7 +387,9 @@ final class Http2Connection extends Http2Endpoint {
         } finally {
             stateLock.unlock();
         }
-        boolean misdirected = misdirected(head.authority());
+        // A plain CONNECT names the target of a tunnel, not this session's authority: the client
+        // takes the intercepted server for its HTTPS proxy (ClientConnection.forwardConnect).
+        boolean misdirected = !(head.isConnect() && head.protocol() == null) && misdirected(head.authority());
         stream.flowContext().startExchange();
         try {
             Thread.ofVirtual().name(server.name + "-h2-" + connectionFlow.getConnectionId() + "-" + id)
@@ -617,7 +620,8 @@ final class Http2Connection extends Http2Endpoint {
      * Whether a request names an authority other than the intercepted one. A client may reuse a
      * connection for any host its certificate covers (connection coalescing), but this session
      * reaches only the {@code CONNECT} target, so such requests get 421 and are retried on a
-     * connection of their own (RFC 9110 section 15.5.20).
+     * connection of their own (RFC 9110 section 15.5.20). So do extended {@code CONNECT}s
+     * (WebSockets) for another authority.
      */
     private boolean misdirected(String authority) {
         if (authority == null || target == null) return false;
