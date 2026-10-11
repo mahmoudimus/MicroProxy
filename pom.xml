@@ -41,6 +41,8 @@
         <module>zstd-decoder</module>
         <!-- A standalone HTTP/2 frame codec and HPACK implementation. -->
         <module>http2-codec</module>
+        <!-- A standalone HTTP/3 frame codec and QPACK implementation. -->
+        <module>http3-codec</module>
         <!-- The proxy itself: no required runtime dependencies. -->
         <module>microproxy</module>
         <!-- Optional: script the proxy in Starlark. -->
@@ -73,6 +75,11 @@
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>http2-codec</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.mahmoudimus</groupId>
+                <artifactId>http3-codec</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

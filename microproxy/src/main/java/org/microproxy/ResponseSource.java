@@ -29,5 +29,10 @@ public enum ResponseSource {
      * or stale while the server is unreachable), or the cache's own {@code 504} for a request it
      * may not forward (offline mode, {@code only-if-cached}).
      */
-    CACHE
+    CACHE,
+    /**
+     * Answered from a recording by {@link org.microproxy.extras.ServerReplay}: a recorded
+     * response, or its answer to a request it has no recording for.
+     */
+    REPLAY
 }

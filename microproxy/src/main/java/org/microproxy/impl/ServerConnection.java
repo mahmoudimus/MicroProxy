@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.net.ssl.SSLSocket;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.FullFlowContext;
@@ -29,10 +30,12 @@ class ServerConnection {
     final String hostAndPort;
     final ChainedProxy chainedProxy;
     final boolean tlsToOrigin;
-    final Socket socket;
-    final ByteReader in;
-    final OutputStream out;
-    final HttpCodec.HttpWriter writer;
+    // Not final: a connection made before its client's ClientHello was read gets TLS layered over
+    // it afterwards (layerTls), before anything else uses it.
+    Socket socket;
+    ByteReader in;
+    OutputStream out;
+    HttpCodec.HttpWriter writer;
     final InetSocketAddress remoteAddress;
 
     /** The flow this connection currently serves; replaced when another client borrows it. */
@@ -56,6 +59,22 @@ class ServerConnection {
      * {@link Http2UpstreamConnection} to take over, never for HTTP/1.1 exchanges.
      */
     volatile boolean http2;
+    /**
+     * Made for interception, but its TLS handshake waits for the client's ClientHello, whose ALPN
+     * protocols and server name it mirrors: until {@link #layerTls}, the socket is the plain
+     * connection (or tunnel) to the server.
+     */
+    volatile boolean tlsPending;
+    /**
+     * The tunnel this connection runs through, to an intercepted server that the client takes for
+     * its HTTPS proxy (a connection to it, or a stream on one), or null: it closes with this one.
+     */
+    volatile ServerConnection through;
+    /**
+     * The connection carries a tunnel that an intercepted HTTPS proxy opened: the end of the
+     * client's side ends only the output, where TLS 1.3 allows.
+     */
+    volatile boolean tunnelThroughProxy;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Trackers trackers;
@@ -98,6 +117,15 @@ class ServerConnection {
         this.remoteAddress = remoteAddress;
         this.flowContext = flowContext;
         this.trackers = trackers;
+    }
+
+    /** Switches to {@code tls}, a TLS socket over this connection's socket, and its streams. */
+    void layerTls(Socket tls, ByteReader tlsIn, OutputStream tlsOut) {
+        this.socket = tls;
+        this.in = tlsIn;
+        this.out = tlsOut;
+        this.writer = new HttpCodec.HttpWriter(tlsOut);
+        this.tlsPending = false;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -195,7 +223,13 @@ class ServerConnection {
 
     void endTunnelOutput() throws IOException {
         out.flush();
-        Tunnel.halfClose(socket);
+        if (tunnelThroughProxy && socket instanceof SSLSocket tls && "TLSv1.3".equals(tls.getSession().getProtocol())) {
+            // TLS 1.3 closes one direction at a time (RFC 8446 section 6.1): the proxy's answer can
+            // still come back, as through a stream of an HTTP/2 connection to it.
+            tls.shutdownOutput();
+        } else {
+            Tunnel.halfClose(socket);
+        }
     }
 
     /**
@@ -234,6 +268,10 @@ class ServerConnection {
             }
             FullFlowContext ctx = flowContext;
             trackers.fire(t -> t.serverDisconnected(ctx, remoteAddress));
+            ServerConnection tunnel = through;
+            if (tunnel != null) {
+                tunnel.close();
+            }
         }
     }
 

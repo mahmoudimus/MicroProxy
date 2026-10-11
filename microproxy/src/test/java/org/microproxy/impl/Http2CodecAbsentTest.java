@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.sun.net.httpserver.HttpServer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -21,10 +22,11 @@ import org.microproxy.TestSupport;
 import org.microproxy.tls.CertificateAuthority;
 
 /**
- * The proxy without the optional {@code http2-codec} module, for real: its classes are loaded by a
- * class loader that sees them and nothing of the codec, and plain and intercepted requests still
- * work, which they would not if any class on their path (and the verifier's) needed the codec.
- * Enabling any kind of HTTP/2 there fails at startup.
+ * The proxy without the optional {@code http2-codec} and {@code http3-codec} modules, for real: its
+ * classes are loaded by a class loader that sees them and nothing of the codecs, and plain and
+ * intercepted requests still work, which they would not if any class on their path (and the
+ * verifier's) needed a codec. Enabling any kind of HTTP/2 there fails at startup, and so does
+ * building an HTTP/3 frame pipeline.
  */
 class Http2CodecAbsentTest {
 
@@ -92,6 +94,52 @@ class Http2CodecAbsentTest {
             assertEquals("plain", plain.body());
             HttpResponse<String> intercepted = TestSupport.get(client, TestSupport.localhostUrl(httpsOrigin, "/"));
             assertEquals("tls", intercepted.body());
+        } finally {
+            serverType.getMethod("abort").invoke(server);
+        }
+    }
+
+    /** A pass-through FrameInterceptor from the isolated classes. */
+    private Object passThrough(Class<?> interceptorType) {
+        return Proxy.newProxyInstance(isolated, new Class<?>[] {interceptorType}, (proxy, method, args) -> switch (method.getName()) {
+            case "intercept" -> args[0];
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> "pass-through";
+        });
+    }
+
+    /**
+     * Without http2-codec and http3-codec: the frame API loads, a proxy with an interceptor (which
+     * only HTTP/2 would use) serves HTTP/1 as before, and the HTTP/3 pipeline says the codec is
+     * missing instead of failing to link.
+     */
+    @Test
+    void theFrameApiWorksWithoutEitherCodec() throws Exception {
+        assertThrows(ClassNotFoundException.class, () -> load("io.github.mahmoudimus.http3.Http3FrameReader"));
+        Class<?> interceptorType = load("org.microproxy.frames.FrameInterceptor");
+        Object interceptor = passThrough(interceptorType);
+        Class<?> pipeline = load("org.microproxy.frames.Http3FramePipeline");
+        assertFalse((Boolean) pipeline.getMethod("available").invoke(null));
+        Object builder = pipeline.getMethod("builder", interceptorType).invoke(null, interceptor);
+        InvocationTargetException missing = assertThrows(InvocationTargetException.class,
+                () -> builder.getClass().getMethod("build").invoke(builder));
+        assertTrue(missing.getCause() instanceof IllegalStateException, String.valueOf(missing.getCause()));
+        assertTrue(missing.getCause().getMessage().contains("http3-codec"), missing.getCause().getMessage());
+
+        Object proxyCa = load("org.microproxy.tls.CertificateAuthority").getMethod("generate", String.class)
+                .invoke(null, "Codec-Absent Frames CA");
+        Object b = bootstrap(proxyCa);
+        load("org.microproxy.HttpProxyServerBootstrap").getMethod("withFrameInterceptor", interceptorType).invoke(b, interceptor);
+        Object server = start(b);
+        Class<?> serverType = load("org.microproxy.HttpProxyServer");
+        try {
+            InetSocketAddress address = (InetSocketAddress) serverType.getMethod("getListenAddress").invoke(server);
+            SSLContext trust = (SSLContext) proxyCa.getClass().getMethod("clientContext").invoke(proxyCa);
+            HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+                    .proxy(java.net.ProxySelector.of(address)).sslContext(trust).build();
+            assertEquals("plain", TestSupport.get(client, TestSupport.url(origin, "/")).body());
+            assertEquals("tls", TestSupport.get(client, TestSupport.localhostUrl(httpsOrigin, "/")).body());
         } finally {
             serverType.getMethod("abort").invoke(server);
         }

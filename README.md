@@ -13,7 +13,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
-  decode `zstd` bodies, and the `http2-codec` jar for [HTTP/2](#http2) to clients and servers.
+  decode `zstd` bodies, the `http2-codec` jar for [HTTP/2](#http2) to clients and servers, and
+  the `http3-codec` jar to run [frame interceptors over HTTP/3 streams](#http3-frames).
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
   Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
@@ -23,7 +24,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 |---|---|---|
 | `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](zstd-decoder/README.md)) |
 | `http2-codec/` | `io.github.mahmoudimus:http2-codec` | a standalone HTTP/2 frame codec and HPACK implementation ([README](http2-codec/README.md)) |
-| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder` and `http2-codec` are optional) |
+| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, used by the HTTP/3 frame pipeline ([README](http3-codec/README.md)) |
+| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder`, `http2-codec` and `http3-codec` are optional) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
 ```java
@@ -105,6 +107,10 @@ java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm   # intercept HTTPS
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --dnssec --activity-log-format clf
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --log-http headers   # dump traffic
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --save-har flows.har    # record, then
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --server-replay flows.har   # replay offline
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --ignore-hosts '\.bank\.example:443$'
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8443 --reverse https://example.com   # reverse proxy
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --help
 
 # With zstd decoding:
@@ -115,7 +121,7 @@ zstd-decoder/target/zstd-decoder-${MICROPROXY_VERSION}.jar org.microproxy.Launch
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar:\
 http2-codec/target/http2-codec-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
 
-# The same launcher with scripting, zstd and HTTP/2 built in (one self-contained jar):
+# The same launcher with scripting, zstd, HTTP/2 and the HTTP/3 codec built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --script proxy.star
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --http2
 ```
@@ -192,7 +198,11 @@ Command-line flags override values from the file.
 | `name` | thread / log name | `MicroProxy` |
 | `port` / `address` | listen port / `host:port` | `8080` |
 | `allow_local_only` | listen on loopback only | `true` |
-| `transparent` | don't add `Via` or strip hop-by-hop headers | `false` |
+| `transparent` | don't add `Via` or strip hop-by-hop headers, and route TLS that arrives without `CONNECT` by its SNI (see [Transparent mode](#transparent-mode)) | `false` |
+| `transparent_tls_port` | the port SNI-routed transparent TLS goes to | `443` |
+| `mode` | `regular`, `transparent`, or `reverse:<scheme>://<host>[:<port>]` with `http`, `https` or `tcp` (see [Reverse proxy mode](#reverse-proxy-mode)) | `regular` |
+| `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
+| `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -245,9 +255,13 @@ Command-line flags override values from the file.
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
+| ClientHello inspection | after `CONNECT`, the client's ClientHello is read without consuming it (SNI, ALPN, versions, cipher suites), and interception is decided by it: ignore / allow host rules as in mitmproxy, `MitmManager` and filter hooks; plain HTTP after `CONNECT` is served as HTTP, other protocols are tunnelled; ALPN is mirrored between client and server (see below) |
+| Transparent and reverse modes | TLS redirected to the proxy without `CONNECT` is routed by SNI; `--mode reverse:https://host` serves one upstream over HTTP, HTTPS or raw TCP (see below) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection, optionally with exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
-| WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools (see below) |
+| WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools, and `WarcReader` reads them back (see below) |
+| mitmproxy-style addons | `MapLocal`, `MapRemote`, `ModifyBody`, `ModifyHeaders`, `BlockList`, `AntiCache` and `StickyCookie`, with mitmproxy's option syntax and flow filter expressions (`~d example.com & !~m GET`), from Java or the command line (see below) |
+| HAR export and replay | `HarRecorder` writes HAR 1.2 files; `ServerReplay` answers requests from recorded HAR or WARC responses, `ClientReplay` sends recorded requests again through the proxy (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
 | Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
@@ -557,7 +571,9 @@ ways to use it:
   `serverSslContext(host, port, flow)` (upstream trust store and client certificate; `flow` is a
   `FullFlowContext` naming the server and route), `clientSslContextFor(connect, session, flow)`
   (the certificate shown to the client) or `configureServerSocket(socket, flow)`. They default to
-  the methods without `FlowContext`, so existing managers work unchanged.
+  the methods without `FlowContext`, so existing managers work unchanged. `shouldIntercept(hello,
+  flow)` decides by the client's ClientHello whether to intercept at all (see
+  [below](#deciding-what-to-intercept-the-clienthello)).
 
 An upstream context with a key (`SslContexts.withKey(key, chain, trustManagers)`) presents that
 client certificate to servers that ask for one.
@@ -569,6 +585,171 @@ clients given the same one. A manager overriding `serverSslContext(host, port, f
 `configureServerSocket(socket, flow)` may decide differently for every client, so its server
 connections are not pooled: each client connection keeps its own. Overriding only
 `clientSslContextFor(..., flow)` does not affect pooling.
+
+### Deciding what to intercept: the ClientHello
+
+With a MITM manager, a `CONNECT` is not intercepted blindly. The proxy connects to the server (TCP,
+and through any chained proxy), answers `200`, and reads what the client sends first without
+consuming it, as mitmproxy does:
+
+- **A TLS ClientHello** is read across as many TLS records as it spans (post-quantum key shares
+  make it several), up to 64 KiB and within the TLS handshake timeout, and parsed into a
+  `ClientHello`: the server name (SNI), the ALPN protocols, the TLS versions and the cipher
+  suites, GREASE values included. The rules below decide whether to intercept. If they do, the
+  proxy shakes hands with the server first and then with the client, replaying the bytes it read
+  into the JDK's handshake with `SSLSocketFactory.createSocket(socket, consumed, autoClose)`. If
+  not, the bytes are relayed to the server first and the connection is a plain tunnel, so the
+  client sees the real server's certificate.
+- **Plain HTTP** (a request line, as a `ws://` WebSocket through a proxy sends) is served as
+  HTTP: its requests go to the `CONNECT` target through the filters, as in an intercepted session
+  but without TLS. With `--littleproxy-compat` it is tunnelled, as LittleProxy does.
+- **Anything else** is tunnelled, the bytes read so far first: other protocols, HTTP/2 with prior
+  knowledge, and a malformed or oversized ClientHello. A server that speaks first (SMTP, SSH) is
+  noticed while the proxy waits for the client, and its connection is tunnelled as well.
+
+Interception is decided in this order; the first "no" tunnels the connection untouched:
+
+1. `HttpFilters.proxyToServerAllowMitm()` and the [ignore rules](#ignoring-and-allowing-hosts)
+   against the `CONNECT` target, when the `CONNECT` arrives. Nothing is read from the client
+   then, as before.
+2. With the ClientHello: the host rules against the `CONNECT` target and the SNI; a client whose
+   ALPN offers no protocol the proxy speaks (only `acme-tls/1`, say); then
+   `MitmManager.shouldIntercept(clientHello, flow)` and `HttpFilters.proxyToServerAllowMitm(clientHello)`.
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withIgnoreHosts("\\.bank\\.example:443$")                  // --ignore-hosts, ignore_hosts
+        .withFiltersSource((request, flow) -> HttpFilters.builder()
+                .allowMitmFor(hello -> !"pinned.example.com".equals(hello.sni()))
+                .build())
+        .start();
+```
+
+`FlowContext.getClientHello()` then returns the ClientHello to the session's requests, and to
+`MitmManager.clientSslContextFor(connect, session, flow)`. Scripts get `on_client_hello` and
+`ctx.client_hello` (see [Scripting](#scripting-with-starlark)).
+
+The same applies to a `CONNECT` stream of an HTTP/2 client ([CONNECT and
+WebSockets](#connect-and-websockets)). A `CONNECT` inside an intercepted session goes to the
+intercepted server instead ([In front of an HTTPS proxy](#in-front-of-an-https-proxy)): the tunnel
+it opens is intercepted without reading its ClientHello, unless the host rules ignore its target.
+
+**Server TLS failures.** As the server handshake waits for the ClientHello, it now happens after
+the `CONNECT` is answered. A server whose certificate fails validation, or that refuses the
+proxy's TLS versions, no longer fails the `CONNECT` with `502`. The client's handshake completes
+with a certificate made from the host name, and each request inside the session is answered
+`502` (`ProxyFailure.TlsFailed`, through `proxyToServerFailure` and the `FailureResponder`), as
+mitmproxy answers. A server that turns out not to speak TLS gets the client's bytes tunnelled.
+Unreachable servers still fail the `CONNECT`, since it is connected before it is answered. For
+filters, `proxyToServerConnectionSSLHandshakeStarted` comes after the `CONNECT`'s `200`, and the
+`CONNECT` exchange completes (`proxyToClientResponseSent`, `responseCompleted`) once the server
+handshake is over, so its timings include that handshake.
+
+#### Ignoring and allowing hosts
+
+`withIgnoreHosts(...)` (`--ignore-hosts`, `ignore_hosts`) and `withAllowHosts(...)`
+(`--allow-hosts`, `allow_hosts`) work as mitmproxy's options of the same names. Each pattern is a
+regular expression searched for (not matched whole), ignoring case, in the connection's `host:port`
+names: the `CONNECT` target, and the client's SNI with the same port. An ignored connection is
+tunnelled untouched. With allow patterns, only connections that one of them finds are
+intercepted, and the ignore patterns still apply to those.
+
+| Pattern | Ignores |
+|---|---|
+| `example\.com` | `example.com:443`, `www.example.com:443`, `example.com.evil.test:443` |
+| `^(.+\.)?example\.com:443$` | `example.com` and its subdomains, on port 443 only |
+| `^10\.` | `CONNECT`s to `10.x.x.x` addresses, whatever their SNI |
+
+On the command line each flag takes one pattern and may be repeated; in a properties file the
+patterns are separated by commas (commas inside `{...}` belong to the pattern). A `CONNECT` whose
+target an ignore pattern finds is tunnelled without reading its ClientHello at all. The rules
+apply to TLS only: plain HTTP requests are proxied as usual.
+
+#### ALPN mirroring
+
+When intercepting, the server is offered only the ALPN protocols the client offered, of those the
+proxy speaks and has enabled: `http/1.1`, `http/1.0`, and `h2` only with
+[HTTP/2 to servers](#http2-to-servers) on. The client's own handshake then mirrors the server's
+choice when that choice tells what the server speaks, that is, when the server was offered `h2`.
+
+| Client offers | Server offered | Server picks | Client gets |
+|---|---|---|---|
+| `http/1.1` | `http/1.1` | `http/1.1` | `http/1.1`: never HTTP/2 upstream |
+| `h2`, `http/1.1` | `h2`, `http/1.1` | `h2` | `h2` (with `--http2`): HTTP/2 end to end |
+| `h2`, `http/1.1` | `h2`, `http/1.1` | `http/1.1` | `http/1.1`, the same as the server |
+| `h2`, `http/1.1` (no `--http2-upstream`) | `http/1.1` | `http/1.1` | `h2` with `--http2`: the proxy translates |
+| no ALPN | `h2`, `http/1.1` with `--http2-upstream`, else none | either | no protocol (HTTP/1.1) |
+
+This follows mitmproxy's order (`tlsconfig.py`: the server's handshake first, with the client's
+offers, then the client's with the server's choice). Two differences: a client that sends no ALPN
+keeps the proxy's old offer, so HTTP/1.1 clients without ALPN (such as the JDK's `HttpClient`)
+still reach HTTP/2 servers; and where the server was not offered `h2`,
+clients still get HTTP/2 when `--http2` allows it. Without a server connection of its own, the
+session mirrors nothing: an existing HTTP/2 connection the session shares (a client that did not
+offer `h2` gets none of it, and its requests connect with its own offers), a reused pooled
+connection, or offline interception. The session's requests that connect later offer the same
+protocols.
+
+### Transparent mode
+
+`--transparent` (`withTransparent(true)`, `transparent=true` or `mode=transparent`) is for
+traffic redirected to the proxy rather than sent to it, by a firewall rule or a gateway. Besides
+leaving out `Via` and keeping hop-by-hop headers, the listener then accepts:
+
+- **TLS without `CONNECT`.** A connection that starts with a TLS record is routed by its
+  ClientHello's SNI, to that host's port 443 (`--transparent-tls-port`, `transparent_tls_port`),
+  and treated like a `CONNECT` to it: filters see a `CONNECT` the proxy made up (it gets no answer
+  on the wire), and the host rules, hooks and interception apply. Without a MITM manager, such
+  connections are tunnelled: an SNI proxy.
+- **Plain HTTP**, routed by its `Host` field, when origin-form requests are allowed
+  (`--allow-requests-to-origin-server`, `allow_requests_to_origin_server=true`), as before.
+
+Java cannot read a redirected connection's original destination (Linux's `SO_ORIGINAL_DST`), so
+the server is the one the SNI or the `Host` field names, not the address the client connected to.
+A ClientHello without SNI (clients connecting to an IP address send none) cannot be routed: the
+proxy answers with a TLS `unrecognized_name` alert, closes the connection and reports it to
+`ActivityTracker.connectionExceptionCaught`. Such clients cannot send proxy credentials: with
+proxy authentication, their connections are closed unless the authenticator accepts them without.
+
+Redirecting a machine's outgoing web traffic to a proxy on port 8080, running as the user `proxy`
+so that its own connections are not redirected again:
+
+```bash
+iptables -t nat -A OUTPUT -p tcp -m owner ! --uid-owner proxy --dport 80 -j REDIRECT --to-ports 8080
+iptables -t nat -A OUTPUT -p tcp -m owner ! --uid-owner proxy --dport 443 -j REDIRECT --to-ports 8080
+# On a gateway, for the clients behind it (eth1), use PREROUTING instead:
+#   iptables -t nat -A PREROUTING -i eth1 -p tcp -m multiport --dports 80,443 -j REDIRECT --to-ports 8080
+sudo -u proxy java -jar microproxy.jar --server --port 8080 --transparent --mitm \
+    --allow-requests-to-origin-server --ignore-hosts '\.bank\.example:443$'
+```
+
+Clients must trust the proxy's CA (`microproxy-ca.pem`) for the hosts that are intercepted. QUIC
+(UDP 443) is not redirected: block it so that browsers fall back to TCP (see
+[HTTP/3 and QUIC](#http3-and-quic)).
+
+### Reverse proxy mode
+
+`--mode reverse:https://example.com` (or `--reverse https://example.com`,
+`withReverseProxy("https://example.com")`, `mode=reverse:https://example.com`) makes the proxy a
+server for one upstream, in mitmproxy's specification syntax: `[scheme://]host[:port]`, the
+scheme `https` by default, the port 443 for `https` and 80 for `http`.
+
+- Every request goes to the upstream, whatever it names. Origin-form requests (`GET /path`) are
+  accepted, and absolute-form ones are made origin-form. As in an intercepted session, a filter
+  that gives a request an absolute URI of its own (`MapRemote`, a script assigning `req.uri`)
+  sends it to that URI's server instead.
+- `Host` is set to the upstream's (`example.com`, with the port unless it is the scheme's
+  default) before any filter sees the request, unless `--keep-host-header` (`keep_host_header`,
+  `withKeepHostHeader(true)`) keeps the client's.
+- `https://` upstreams are reached over TLS, validated with the MITM manager's server context
+  when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise; with
+  `--http2-upstream`, over HTTP/2 when the upstream offers it. `http://` upstreams get plain HTTP.
+- `tcp://host:port` relays each client connection to the upstream as raw bytes.
+- With a TLS listener (`withSslContextSource`), the proxy terminates TLS, and with `--http2`
+  serves HTTP/2 to clients that offer it.
+- Filters, scripts, the cache, logging and failure answers work as for any request. `CONNECT` is
+  refused with `400`.
 
 ### TLS protocol versions
 
@@ -590,10 +771,11 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
   run. A hook that sets its own protocols therefore wins.
 - **The JDK still applies** `jdk.tls.disabledAlgorithms`, which turns off TLS 1.1 and older,
   whatever is listed here.
-- A server that refuses the proxy's versions with a `protocol_version` alert gets a `502`
-  (`TlsFailed`). One that just closes the connection on the proxy's `ClientHello` looks like a
-  server that does not speak TLS, and the `CONNECT` is tunnelled without interception, as for
-  any non-TLS server.
+- A server that refuses the proxy's versions with a `protocol_version` alert gets the requests
+  inside the session a `502` (`TlsFailed`; see [server TLS
+  failures](#deciding-what-to-intercept-the-clienthello)). One that just closes the connection on
+  the proxy's `ClientHello` looks like a server that does not speak TLS, and the client's bytes
+  are tunnelled without interception, as for any non-TLS server.
 
 ### HTTP/2
 
@@ -620,7 +802,8 @@ so; without them, nothing loads the module.
 
 **Negotiation.** With HTTP/2 on, both intercepted TLS and the proxy's own TLS listener
 (`withSslContextSource`) offer `h2` and
-`http/1.1` through ALPN. A client that offers `h2` gets it. Any other client keeps HTTP/1.1 as
+`http/1.1` through ALPN. A client that offers `h2` gets it, unless an intercepted server that was
+offered `h2` chose `http/1.1` (see [ALPN mirroring](#alpn-mirroring)). Any other client keeps HTTP/1.1 as
 before: one that offers only `http/1.1`, one that offers protocols the proxy does not know, and
 one that sends no ALPN at all (the handshake never fails over ALPN). The TLS log line for the
 handshake shows the result (`alpn=h2`). The TLS listener retains its configured certificate,
@@ -656,7 +839,9 @@ may run concurrently, on the streams' threads.
 With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
 connections to servers, for intercepted HTTPS and secure WebSocket extended `CONNECT`, offer
 `h2` and `http/1.1` through
-ALPN (before `MitmManager.configureServerSocket`, which may change that). A server that picks `h2`
+ALPN (before `MitmManager.configureServerSocket`, which may change that). An intercepted client
+that sent ALPN has its own offer mirrored instead: one that offered only `http/1.1` never gets
+HTTP/2 upstream (see [ALPN mirroring](#alpn-mirroring)). A server that picks `h2`
 is spoken to in HTTP/2; any other keeps HTTP/1.1, so turning it on is safe for servers without
 HTTP/2. WebSockets use extended `CONNECT` when the origin advertises
 `SETTINGS_ENABLE_CONNECT_PROTOCOL`; otherwise they use a separate HTTP/1.1 connection.
@@ -737,9 +922,21 @@ before: the request is answered in HTTP/1.1. The same limits as for intercepted 
 A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
 opens a byte tunnel on that stream. The successful `200` HEADERS leave it open; DATA carry tunnel
 bytes, and END_STREAM half-closes one direction. RST_STREAM closes the tunnel's origin connection
-and wakes its waits, without closing the client HTTP/2 connection or other streams. These are raw
-tunnels, including when a MITM manager is configured: TLS interception inside an HTTP/2 CONNECT
-stream is not implemented. HTTP/1 CONNECT interception is unchanged.
+and wakes its waits, without closing the client HTTP/2 connection or other streams. A reset that
+ends an open tunnel is not counted as a rapid reset. A `CONNECT` stream to a chained HTTP proxy
+reaches it as an HTTP/1.1 `CONNECT`.
+
+With a MITM manager, a `CONNECT` stream on `h2c` or the proxy TLS listener is intercepted as an
+HTTP/1 `CONNECT` is: the client's TLS session runs over the stream's DATA frames, and its decrypted
+requests (HTTP/1.1, or HTTP/2 inside the stream when the client negotiates `h2`) are exchanges of a
+client connection of their own, with the same filters, hooks and server connections; the
+`CONNECT`'s credentials cover them. The stream's first bytes decide as an HTTP/1 connection's do:
+its ClientHello goes through the host rules and the ClientHello hooks, ALPN is mirrored, and plain
+HTTP or another protocol is served or tunnelled
+([Deciding what to intercept](#deciding-what-to-intercept-the-clienthello)). A server that does not speak
+TLS gets a plain tunnel instead. A
+`CONNECT` inside an intercepted session, for any authority, goes to the intercepted server, which
+the client takes for its HTTPS proxy ([below](#in-front-of-an-https-proxy)).
 
 The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client can open a stream
 with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
@@ -755,19 +952,78 @@ needed. For secure extended CONNECT on a forward-proxy connection, origin TLS us
 MITM manager's server TLS settings, or the default JVM trust context when there is no manager.
 
 Request filters see an extended WebSocket CONNECT as a GET upgrade request, with version
-`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Origin HTTP/2 WebSocket response
-heads use `101` internally so the existing exchange and upgrade hooks run; the client's response
-hook sees `200` for an HTTP/2 client, and `upstreamStatus` retains the origin's actual status.
+`HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Response filters and trackers
+see the handshake's answer as a `101` with `Upgrade: websocket` and `Connection: Upgrade`, as for an
+HTTP/1.1 client, whichever protocol the origin speaks; the proxy sends it to an HTTP/2 client as
+`200`, and `upstreamStatus` retains the origin's actual status.
 `webSocketFrameReceived` and `filterWebSocketFrame` use the same parser and relay as HTTP/1,
 including masking, rewriting, dropping, fragmentation and the large-frame buffer limit. Filters
 that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.
 A filter that rejects the handshake finishes the exchange without starting the relay.
 
-**Remaining limits.** A request for an authority other than the intercepted one (including
-CONNECT) gets `421 Misdirected Request`, which makes the client retry on a connection of its own.
-The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
+**Remaining limits.** A request for an authority other than the intercepted one gets `421
+Misdirected Request`, which makes the client retry on a connection of its own; so does an extended
+`CONNECT` (`:protocol websocket`) for another authority. A plain `CONNECT` is forwarded instead
+([below](#in-front-of-an-https-proxy)). The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
 ordinary `:scheme https` requests on a forward-proxy HTTP/2 connection); secure WebSocket extended
 CONNECT is the exception described above. HTTP/2 chained proxies are not supported.
+
+#### In front of an HTTPS proxy
+
+A client may be set up to use an HTTPS proxy, such as a corporate egress proxy `corp.example:443`
+that speaks TLS (and often HTTP/2) on its listener, with MicroProxy in front of it intercepting
+the client's `CONNECT corp.example:443`. Inside that session the client asks what it takes for its
+proxy for a tunnel per site: a `CONNECT` stream over HTTP/2 (`:authority github.com:443`, no
+`:protocol`), or `CONNECT github.com:443 HTTP/1.1` over HTTP/1.1. MicroProxy forwards it to the
+intercepted server, as the client intended, rather than tunnelling to `github.com` itself, which
+would bypass the proxy the client chose.
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp2(true)
+        .withHttp2Upstream(true)              // CONNECT streams on the HTTP/2 connection to the proxy
+        .withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
+            @Override
+            public boolean proxyToServerAllowMitm() {
+                // Intercept the session with the proxy, but not the tunnels through it.
+                return ctx.forwardedVia().isEmpty();
+            }
+        })
+        .start();
+```
+
+- **Upstream.** The intercepted server is a chained HTTPS proxy for the tunnel. When MicroProxy's
+  connection to it negotiated HTTP/2 (`withHttp2Upstream`), the `CONNECT` is a stream on that
+  connection, multiplexed with the session's requests. Otherwise it goes on an HTTP/1.1 TLS
+  connection to it: an idle one of the session's, or one made as the session's are (the same
+  routes, the MITM manager's trust and `configureServerSocket`, the same isolation). Connections
+  that carry a client's credentials for the proxy are never pooled or shared with other clients.
+- **Fields, both ways.** The client's fields go with the `CONNECT`, `Proxy-Authorization` included
+  (those credentials are for the proxy; MicroProxy's own authentication covered the outer
+  `CONNECT`), without hop-by-hop fields and with `Via`. The proxy's answer reaches the client as it
+  was sent: a `407` with its `Proxy-Authenticate` challenge, a `403`, or the `2xx` that opens the
+  tunnel. An HTTP/1.1 client can retry on the same session after a refusal.
+- **Filters.** The `CONNECT` is a request of the intercepted session: `clientToProxyRequest`,
+  `proxyToServerRequest` (which may rewrite its target), then `serverToProxyResponse` and
+  `proxyToClientResponse` for the proxy's answer; a short-circuit response (a `403`, say) rejects
+  it. `FlowContext.forwardedVia()` names the proxy (`host:port`) for it and for the requests
+  inside the tunnel it opens; scripts see `ctx.forwarded_via`.
+- **The tunnel.** Without interception for the target (`proxyToServerAllowMitm`, `allow_mitm` in
+  scripts, or a MITM manager that declines), its bytes are relayed as they are, under flow control
+  both ways; END_STREAM and half-closes go through (over an HTTP/1.1 connection to the proxy, where
+  TLS 1.3 allows one). With interception, the tunnel's TLS is intercepted as a `CONNECT` to
+  MicroProxy would be, MicroProxy's own TLS to the target runs inside the forwarded tunnel, and the
+  requests inside go through filters like any intercepted request. Their server connections are
+  tunnels through the same proxy, opened with the same `CONNECT` fields;
+  `FullFlowContext.getChainedProxy()` names the proxy. A target that does not speak TLS gets a
+  plain tunnel.
+- **Resets.** A client's reset of the stream resets the stream to the proxy (or closes the
+  connection to it), and once the tunnel is open it is not a rapid reset. A reset from the proxy,
+  or its connection closing, resets the client's stream.
+
+Requests other than a plain `CONNECT` for another authority still get `421` (connection
+coalescing, above), and so does a WebSocket's extended `CONNECT`, which is not forwarded.
 
 **Limits.** Input is untrusted; every limit has a default, and the configurable ones are set with
 `Http2Options` (or the `http2_*` properties and `--http2-max-streams`). Rate limits count frames
@@ -831,8 +1087,87 @@ except one, which CI leaves out:
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
 `.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
 
-**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/2 and
-HTTP/3 frame editing for Starlark, followed by HTTP/3 transport integration.
+**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/3
+transport integration (QUIC termination), which [frame interception](#frame-interception) is
+ready for.
+
+#### Frame interception
+
+A `FrameInterceptor` (`org.microproxy.frames`) sees every HTTP/2 frame on live connections and may
+edit, drop and add frames. It is set once per proxy, not per exchange, because SETTINGS, PING and
+GOAWAY belong to a connection:
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp2(true).withHttp2Upstream(true)
+        .withFrameInterceptor((frame, direction, ctx) -> switch (frame) {
+            case Http2Frame.Headers h when direction == FrameDirection.TO_SERVER -> h.withHeader("x-via-h2", "1");
+            case Http2Frame.Data d when direction == FrameDirection.FROM_SERVER && d.text().contains("secret") ->
+                    d.withText(d.text().replace("secret", "******"));        // same length: content-length still holds
+            case Http2Frame.Priority p -> null;                              // drop
+            default -> frame;                                                // pass through
+        })
+        .start();
+```
+
+- **Frames.** `Http2Frame` is a sealed interface of records: `Data`, `Headers` (the decoded field
+  list, pseudo-headers included, with CONTINUATION folded in), `Priority`, `RstStream`, `Settings`,
+  `PushPromise`, `Ping`, `GoAway`, `WindowUpdate` and `Unknown` (extension frames, which the proxy
+  otherwise discards unread). `Http3Frame` has `Data`, `Headers`, `Settings`, `GoAway`,
+  `CancelPush`, `MaxPushId`, `PushPromise` and `Unknown`. Edit them with their `with...` methods.
+- **Directions.** The proxy terminates HTTP/2 on each side, so each hop has its own frames:
+  `FROM_CLIENT` (after decoding, before the proxy acts on them), `TO_CLIENT` (before encoding),
+  `FROM_SERVER` and `TO_SERVER`. A request seen `FROM_CLIENT` is a different set of frames from the
+  one later seen `TO_SERVER`: other stream ids, header blocks and DATA boundaries.
+- **Context.** `FrameContext` gives the protocol, the client connection's id, the client's address,
+  the server (`host:port`, on the server side), the stream id, the exchange's `FlowContext` when
+  the frame belongs to one, and `send(frame)`, which adds a frame after this one on the same hop
+  and in the same direction (going out it is sent next; coming in the proxy processes it as if the
+  peer had sent it).
+- **Coverage.** Clients on intercepted TLS, `h2c` and the TLS listener; connections to servers
+  with all their multiplexed streams; full-duplex gRPC; `CONNECT` tunnels and WebSockets over
+  HTTP/2, whose bytes are DATA frames. DATA the proxy sends is shown in pieces of at most 16 KiB.
+- **Cost.** Without an interceptor nothing changes: no conversion, no allocation, no call.
+
+The proxy stays protocol-correct whatever the interceptor returns. What it accepts:
+
+| Frame | May be edited | May be dropped | May be followed by (`ctx.send`) |
+|---|---|---|---|
+| DATA | the payload, to any size | yes | DATA; HEADERS (trailers), last, when the frame ends the stream; extension frames |
+| HEADERS | the fields | no | HEADERS; extension frames |
+| PRIORITY | everything but the stream | yes | extension frames |
+| RST_STREAM | the error code | no | extension frames |
+| SETTINGS | received: values, only to make the proxy stricter; sent: only extension settings | no | extension frames |
+| GOAWAY | the error code and debug data | no | extension frames |
+| extension (`Unknown`) | everything | yes | extension frames |
+| SETTINGS ACK, PING, WINDOW_UPDATE | nothing (the proxy's own flow control and liveness) | no | nothing |
+
+- **Stream ids and END_STREAM are the proxy's.** Frames stay on their stream (extension frames may
+  also use stream 0). When the frame ended its stream, the last DATA or HEADERS frame of the result
+  does; a dropped DATA frame that ended its stream is replaced by an empty DATA frame with
+  END_STREAM. What the interceptor sets is ignored.
+- **Header fields** must be valid (`Field.validate`: lower-case token names, known pseudo-headers
+  first, no connection-specific fields, no CR, LF or NUL in values). HPACK is never at risk: blocks
+  are decoded once on arrival and encoded once on sending. A malformed request or response the
+  proxy receives resets its stream, as usual. Changing a body's length while its HEADERS declare
+  `content-length`: fix or remove the field in the HEADERS too (the interceptor sees them first),
+  or the proxy resets the stream as malformed.
+- **SETTINGS received** may lower `HEADER_TABLE_SIZE`, `INITIAL_WINDOW_SIZE`, `MAX_FRAME_SIZE` (not
+  below 16384), `MAX_CONCURRENT_STREAMS` and `MAX_HEADER_LIST_SIZE`, or clear `ENABLE_PUSH` and
+  `ENABLE_CONNECT_PROTOCOL`; the proxy then uses the edited values (fewer streams to a server, say).
+- **Flow control.** Received DATA counts against the windows, and is credited back, at its size on
+  the wire, whatever the interceptor makes of it. DATA the proxy sends waits for window at its size
+  after interception. Rate limits count frames as they arrive.
+- **Illegal results and failures.** A result that breaks a rule is rejected as a whole: it is
+  logged (logger `org.microproxy.impl.Http2Frames`, `WARNING`) and the original frame goes on, as
+  it does when the interceptor throws. `ctx.send` after the call has returned throws
+  `IllegalStateException`.
+- **Threads.** The interceptor is called from many threads at once and must be thread-safe. The
+  HEADERS that open a stream to a server are intercepted while that connection's writes are held,
+  so stream ids stay in order: keep that call short.
+
+Scripts get the same with [`on_frame`](#frames).
 
 ### HTTP/3 and QUIC
 
@@ -842,6 +1177,30 @@ in [issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2). HTTP/3 runs o
 and that matters even now. Browsers never send QUIC through an HTTP proxy, and a transparent
 setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
 switch to it and bypass the proxy, and with it interception, filters and logging.
+
+The [`http3-codec`](http3-codec/README.md) module is a first step: it encodes and decodes HTTP/3
+frames and QPACK field sections over a QUIC stream's bytes. **Live HTTP/3 interception needs QUIC
+termination, which is not implemented**: the proxy has no QUIC transport to supply those bytes,
+and steers HTTP/3 clients to HTTP/2 by removing `h3` from `Alt-Svc` (below).
+
+<a id="http3-frames"></a>**HTTP/3 frames.** `Http3FramePipeline` runs a
+[frame interceptor](#frame-interception) over HTTP/3 traffic given as stream bytes, captured or
+relayed by other means today, and the seam a QUIC layer will plug into. It reads a request stream
+or a control stream with `http3-codec`, decodes HEADERS through QPACK, shows each frame to the
+interceptor as an `Http3Frame`, checks the result against the same rules as HTTP/2 (HTTP/3 has no
+END_STREAM or stream ids in frames; GOAWAY, MAX_PUSH_ID, CANCEL_PUSH and PUSH_PROMISE are
+read-only; frames keep the message's order), and writes it back with static-only QPACK, so no
+encoder stream is needed. Unknown and grease frames pass through. It needs the optional
+`http3-codec` jar (`Http3FramePipeline.available()`; the starlark `-all` jar bundles it).
+
+```java
+Http3FramePipeline pipeline = Http3FramePipeline.builder(interceptor)
+        .direction(FrameDirection.FROM_CLIENT)            // whose frames these are
+        .build();
+pipeline.controlStream(2, clientControlStream, out);      // stream type, SETTINGS, ...
+pipeline.encoderStream(clientQpackEncoderStream);         // only when the client's QPACK uses its dynamic table
+pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trailers
+```
 
 Clients learn about HTTP/3 in two ways:
 
@@ -900,6 +1259,177 @@ bootstrap.withFiltersSource(RewriteRules.builder()
 ```
 
 Only matching text responses are buffered; everything else streams.
+
+### mitmproxy-style addons
+
+`org.microproxy.extras` has ports of mitmproxy's request and response addons. Each is an
+`HttpFiltersSource`, so they compose with each other, with your own filters and with scripts
+through `HttpFiltersChain`, and each reads the same option syntax as mitmproxy:
+`[|flow-filter]|subject|replacement`, where the first character is the separator (any character;
+`/` in mitmproxy's documentation) and the filter is optional.
+
+```java
+bootstrap.withFiltersSource(HttpFiltersChain.of(
+        BlockList.of("|~d ads\\.example\\.com|404", "|~u /beacon|444"),     // 444: close, no response
+        AntiCache.create(),
+        MapRemote.of("|https://api\\.example\\.com/|http://localhost:8000/"),
+        MapLocal.of("|example.com/static/|/srv/static"),
+        ModifyBody.of("|~s & ~t html|Example Domain|Local Domain"),
+        ModifyHeaders.of("|~q|User-Agent|MicroProxy", "|~s|Server|"),      // empty value: remove
+        StickyCookie.of("~d example.com")));
+```
+
+```bash
+java -jar microproxy.jar --mitm --map-remote '|https://api\.example\.com/|http://localhost:8000/' \
+    --map-local '|example.com/static/|/srv/static' --block-list '|~u /beacon|444' --anticache
+```
+
+| addon | command line | what it does |
+|---|---|---|
+| `MapLocal` | `--map-local [\|filter]\|url-regex\|file-or-dir` | answers from a file, or from a directory: the URL after the match (or the regex's first group) names the file; `index.html` for directories; a `Content-Type` from the extension; `404` when nothing matches; never outside the directory (`..`, absolute parts, links pointing out) |
+| `MapRemote` | `--map-remote [\|filter]\|url-regex\|replacement` | replaces matches in the absolute URL (`\1` or `$1` for groups) and sends the request there, with `Host` to match; inside intercepted sessions too |
+| `ModifyBody` | `--modify-body [\|filter]\|regex\|[@]replacement` | replaces matches in decoded request and response bodies (`~q` / `~s` pick one side); the replacement is literal, `@file` reads it from a file |
+| `ModifyHeaders` | `--modify-headers [\|filter]\|name\|[@]value` | removes the header, then adds the value (none if empty), on requests and on server responses |
+| `BlockList` | `--block-list \|filter\|status` | answers with an empty response of that status; `444` closes the connection without one (resets an HTTP/2 stream) |
+| `AntiCache` | `--anticache` | removes `If-None-Match` and `If-Modified-Since`, so servers send whole responses |
+| `StickyCookie` | `--stickycookie filter` | remembers every `Set-Cookie` (RFC 6265 `Domain`, `Path`, `Max-Age`/`Expires`, `Secure`) in one jar for all clients, and adds the cookies to requests the filter matches, keeping the client's own |
+
+**Filter expressions** are a compact subset of mitmproxy's (`org.microproxy.extras.FlowFilter`):
+
+| expression | matches |
+|---|---|
+| `~u regex`, or a bare `regex` | the URL (absolute; `https://` inside intercepted sessions) |
+| `~d regex`, `~m regex` | the host, the method |
+| `~h regex`, `~hq regex`, `~hs regex` | a `Name: value` header line of the request or response, the request, the response |
+| `~t regex`, `~tq regex`, `~ts regex` | the `Content-Type` of either, the request, the response |
+| `~b regex`, `~bq regex`, `~bs regex` | the decoded body of either, the request, the response |
+| `~c code`, `~q`, `~s`, `~a`, `~all` | the response status; no response yet; a response; an asset (CSS, JavaScript, images, fonts); everything |
+| `!x`, `x & y`, `x \| y`, `(x)` | not, and, or, grouping |
+
+`!` binds tightest, then `&`, then `|`; expressions side by side are joined by "and" with the lowest
+precedence, as in mitmproxy (`a b | c` is `a & (b | c)`). Regexes are `java.util.regex`, searched
+anywhere and ignoring case; put one with spaces or `()~'"` in quotes. A backslash in quotes only
+escapes the quote and itself, so `"\d+"` keeps its `\d` (pyparsing would drop it).
+
+**Cost.** The addons read heads only, so bodies keep the proxy's zero-copy relay. A body is buffered
+only when a rule might need it, which the heads decide: `ModifyBody` buffers the messages a rule
+might edit (and that it can decode; never event streams), and a filter that looks at a body
+(`~bq secret`) buffers that body when the rest of the filter could still match. Body filters are
+evaluated lazily, with three-valued logic: `~m GET & ~bq x` never buffers a `POST`. Request bodies
+over the limit (10 MiB by default, `maxBodySize`) get `413`, as for any filter that buffers
+requests; response bodies over it stream through unchanged.
+
+The addon, HAR and replay options are command-line flags (and Java builders); properties files
+do not take them.
+
+**Order.** The command line chains them as mitmproxy does: `--save-har`, `--warc-dir` and
+`--log-http` first, then `--block-list` and `--anticache`, then a `--script`, then
+`--server-replay`, `--map-remote`, `--map-local`, `--modify-body`, `--modify-headers` and
+`--stickycookie`; the cache comes last. The first short-circuit wins, so a blocked request is never
+replayed, and a script sees requests before they are mapped elsewhere.
+
+**Leaving an intercepted session.** Requests inside a `CONNECT` that the proxy intercepts normally
+go to the `CONNECT` target. When a filter gives one an absolute URI of its own, as `MapRemote` does
+and as a script does by assigning `req.uri = "https://other.example/..."`, the request goes to that
+server instead: over TLS for `https://` (with the MITM manager's trust), with `Host` set to the new
+authority, and on a server connection kept and pooled under the new target. Changing only `Host`
+or an origin-form path keeps the request on the session's server. The session's
+[ALPN mirroring](#alpn-mirroring) still applies to the new server, and a plain HTTP session after
+`CONNECT` and a [reverse proxy](#reverse-proxy-mode) are left the same way. Absolute `https://`
+URIs in plain forward requests are fetched over TLS too.
+
+### HAR files
+
+`org.microproxy.extras.HarRecorder` writes the exchanges it sees as an HTTP Archive (HAR 1.2), as
+mitmproxy's `--set hardump=` and `save.har` do, for browser developer tools, HAR viewers and
+[replay](#replaying-traffic):
+
+```bash
+java -jar microproxy.jar --mitm --save-har flows.har                         # written on exit
+java -jar microproxy.jar --mitm --save-har flows.har --save-har-stream --save-har-filter '~d example.com'
+```
+
+```java
+HarRecorder har = HarRecorder.builder(Path.of("flows.har")).filter(FlowFilter.parse("!~a")).build();
+MicroProxy.bootstrap().withFiltersSource(HttpFiltersChain.of(har, otherFilters)).start();
+// ... har.close() writes the file; har.save(path) writes a snapshot at any time.
+```
+
+- **Entries:** the request as the client sent it (method, absolute URL, version, headers, cookies,
+  query string, `postData` with form `params`) and the response as the client received it (status,
+  headers, cookies with `expires`, `redirectURL`, decoded content as text, or base64 with
+  `"encoding": "base64"` for binary bodies). Also `serverIPAddress`, the client `connection` id,
+  and `_source` (`server`, `filter`, `cache`, `replay` or `proxy`). Responses from filters, the
+  cache and replays are recorded too; `CONNECT` tunnels are not. An exchange that ends without a
+  response has status `0` and an `_error`.
+- **Timings** come from [`FlowTimings`](#observability): `dns`, `connect` (including `ssl`, as HAR
+  says), `send`, `wait` and `receive`, and `-1` for a phase that did not happen (no lookup or
+  connect on a reused connection; inside an intercepted session the server handshake belongs to the
+  `CONNECT`).
+- **Bodies** are captured as they stream past, up to `maxBodySize` each (1 MiB by default,
+  `--save-har-max-body`); a longer one is cut short and marked `_truncated`, and is not replayed.
+  Capturing bodies turns off the zero-copy relay for recorded exchanges; `content(false)`
+  (`--save-har-max-body 0`) records heads only and keeps it.
+- **Memory:** by default every entry, bodies included, stays in memory until the file is written on
+  exit (or `close()`), as with mitmproxy's `hardump`: plan for up to twice `maxBodySize` per
+  exchange (a third more for base64). `stream(true)` (`--save-har-stream`) appends each entry to the
+  file as it completes and keeps nothing; the file is valid JSON once closed. A name ending in
+  `.zhar` is written zlib-compressed.
+
+The JSON is written and read by a small package-private writer and parser shared with
+`HttpLogger` and `ActivityLogger`; there is no JSON dependency.
+
+### Replaying traffic
+
+**Server replay** (`ServerReplay`, `--server-replay path`) answers requests from recorded
+responses instead of contacting servers, as mitmproxy's `server_replay`. Recordings are HAR files
+(from `HarRecorder`, browsers or mitmproxy, `.har` or `.zhar`), WARC files (from `WarcRecorder`:
+`--server-replay warcs/` takes the whole directory) or both:
+
+```bash
+java -jar microproxy.jar --mitm --server-replay flows.har --server-replay-ignore-params _,cb \
+    --server-replay-extra 404
+```
+
+```java
+ServerReplay replay = ServerReplay.builder().load(Path.of("warcs")).ignoreHost(true).reuse(true).build();
+MicroProxy.bootstrap().withFiltersSource(replay).start();
+```
+
+- **Matching** ports mitmproxy's `_hash`: scheme, method, path, request body, host, port and query
+  parameters (in order) must be equal. `--server-replay-ignore-content`, `-ignore-host`,
+  `-ignore-port`, `-ignore-params a,b` and `-ignore-payload-params a,b` (form bodies) loosen it;
+  `--server-replay-use-headers a,b` adds headers. Request bodies are buffered to compare them (16
+  MiB at most).
+- **Use:** recordings answer once each, in recorded order, so a repeated request gets the recorded
+  sequence of responses; `--server-replay-reuse` lets them answer again and again. Requests without
+  a recording are forwarded (the default), killed (`--server-replay-extra kill`, the connection is
+  closed) or answered with an empty response (`--server-replay-extra 404`).
+- **Refresh:** `Date`, `Expires`, `Last-Modified` and cookie expiry move forward by the time since
+  the recording (`--server-replay-no-refresh` keeps them).
+- **Bodies:** HAR content is decoded, so it is served without its `Content-Encoding`; WARC bodies
+  keep the coding they arrived with. The proxy sets `Content-Length`.
+- **Source:** replayed answers are `ResponseSource.REPLAY` to trackers, access logs (`REPLAY`),
+  `HttpLogger` (`source=replay`) and `HarRecorder` (`_source`).
+- All recordings are held in memory.
+
+**Client replay** (`ClientReplay`, `--client-replay path`) sends recorded requests again, as
+mitmproxy's `client_replay`. They go to the proxy's own listener as ordinary client requests in
+absolute form, so every filter, addon, script, cache and recorder applies, and the proxy fetches
+`https://` URLs over TLS. `--client-replay-concurrency n` (default 1) bounds the requests in
+flight; the proxy stops when they are done, unless `--keepserving` is given. Recorded framing and
+hop-by-hop headers are not sent, and a proxy that requires authentication answers them `407`.
+
+```bash
+java -jar microproxy.jar --client-replay flows.har --save-har replayed.har   # replay, record, exit
+```
+
+**With scripts.** The command-line addons and recorders compose with `--script`: the script runs
+after `--block-list` and `--anticache` and before the other addons (as in mitmproxy), its
+`on_request` can move a request elsewhere by assigning `req.uri`, and recorders and loggers placed
+first see what the script changed. From Java, put a `ScriptedProxy` anywhere in an
+`HttpFiltersChain` with the addons; a script that wants to keep a HAR of its own traffic can be
+chained after a `HarRecorder` and the HAR written with `har.save(path)`.
 
 ### HTTP cache
 
@@ -989,6 +1519,10 @@ What gets written:
 
 The output is checked with `warcio check` (all digests pass) and indexed by `warcio index`.
 
+`org.microproxy.warc.WarcReader` reads WARC files back, record by record (plain or gzip, one member
+per record or one for the file), and `--server-replay warcs` answers requests from the responses
+in a directory of them (see [Replaying traffic](#replaying-traffic)).
+
 ### Scripting with Starlark
 
 The optional `microproxy-starlark` module runs proxy logic written in
@@ -1048,10 +1582,12 @@ bootstrap.start();
 | `on_response(req, res, ctx)` | for every response head (the whole response when buffered) | `None`, or a new `response(...)` to replace it |
 | `upstream(req, ctx)` | when a server connection is needed | `None` for the default route, `"DIRECT"`, a proxy URL (`http://`, `https://`, `socks4://`, `socks5://`), or a list to try in order |
 | `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
+| `on_client_hello(hello, ctx)` | once a client that may be intercepted has sent its TLS ClientHello (after `allow_mitm` and the host rules) | `False` to tunnel the connection untouched; `True` or `None` to intercept |
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
+| `on_frame(frame, ctx)` | for each HTTP/2 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -1067,8 +1603,15 @@ bootstrap.start();
 - `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
-  `timings` (below), and `vars`, a dict that lives for one request so `on_request` can pass
-  values to `on_response`. For a WebSocket it lives as long as the connection.
+  `timings` (below), `client_hello` (the ClientHello that started the intercepted session, or
+  `None`), `forwarded_via` (the intercepted HTTPS proxy, `host:port`, that a `CONNECT` inside its
+  session, or a request inside the tunnel one opened, goes through, else `None`; see
+  [In front of an HTTPS proxy](#in-front-of-an-https-proxy)), and `vars`, a dict that lives for
+  one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
+  as the connection.
+- `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
+  the client's order), `versions` (`"TLSv1.3"`, `"TLSv1.2"`, ...) and `cipher_suites` (numbers).
+  Its type is `ClientHello`.
 - `failure`: `kind` (`"unresolved_host"`, `"connect_failed"`, `"tls_failed"`,
   `"server_timeout"`, `"bad_server_response"`, `"no_route"`, `"no_connection_available"`,
   `"bad_request"`, `"request_too_large"`), `status` (of the default answer), `host` (the server's
@@ -1078,7 +1621,7 @@ bootstrap.start();
 - `frame`: `type` (`"text"`, `"binary"`, `"continuation"`, `"close"`, `"ping"`, `"pong"`),
   `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
   assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
-  frame.
+  frame. (In `on_frame`, `frame` is an HTTP/2 or HTTP/3 frame: see [Frames](#frames).)
 
 **Built-ins.**
 
@@ -1094,6 +1637,10 @@ bootstrap.start();
   attacker how much of it was right. Compare digests of both sides (as below) so the length does
   not leak either.
 - `url.quote`/`unquote`/`parse_query`/`encode_query`.
+- `h2.data(stream_id, payload, end_stream=False)`, `h2.headers(stream_id, headers,
+  end_stream=False)`, `h2.unknown(type, stream_id, payload, flags=0)`, and `h3.data(payload)`,
+  `h3.headers(headers)`, `h3.unknown(type, payload)`: frames for `on_frame` to return. `headers`
+  is a dict, a list of `(name, value)` pairs, or a `Headers`; `payload` is bytes or a string.
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
 - `protobuf` and `grpc`: protobuf messages as dicts, and gRPC's framing (see **Protobuf and
   gRPC** below).
@@ -1182,6 +1729,21 @@ def on_response(req, res, ctx):
             req.url, t.ttfb_ms, t.dns_ms, t.connect_ms, t.tls_ms, res.upstream_status, res.source))
     res.headers["Server-Timing"] = "upstream;dur=%d" % t.ttfb_ms
     return None
+```
+
+**Deciding by the ClientHello.** `allow_mitm` runs when the `CONNECT` arrives, before the client
+has said which server name it wants. `on_client_hello` runs once it has, and later hooks of the
+session see the same ClientHello as `ctx.client_hello`:
+
+```python
+def on_client_hello(hello, ctx):
+    # Banks keep their own certificates: tunnel them untouched.
+    return not (hello.sni or "").endswith(".bank.example")
+
+def on_request(req, ctx):
+    hello = ctx.client_hello
+    if hello != None:
+        req.headers["X-Client-Alpn"] = ",".join(hello.alpn)
 ```
 
 **Answering failures.** `on_failure` replaces the proxy's plain-text answers, and leaves the rest
@@ -1299,10 +1861,122 @@ Binary protocols work on `frame.payload` (bytes): for example, replace a magic p
 they can be forwarded or dropped but not rewritten. A failing hook is logged and the frame is
 forwarded unchanged.
 
+<a id="frames"></a>**Frames.** A script that defines `on_frame(frame, ctx)` sees HTTP/2 frames on
+live connections ([Frame interception](#frame-interception) describes where, and which changes
+the proxy accepts) and HTTP/3 frames run through an `Http3FramePipeline`. `--script` installs it
+as the proxy's frame interceptor only when the script defines `on_frame` when it loads, so other
+scripts cost nothing per frame (a reload that removes the hook passes frames on unchanged; one
+that adds it takes effect after a restart). From Java: `bootstrap.withFrameInterceptor(script.frameInterceptor())`
+when `script.definesFrameHook()`, and `Http3FramePipeline.builder(script.frameInterceptor())` for
+HTTP/3. Like `on_websocket_frame`, the hook edits the frame in place: returning `None` (or the
+frame) passes it on with its changes, so a hook that only looks drops nothing; `False` drops it,
+and a list of frames replaces it (`[frame, extra]` adds a frame after it; `[]` drops it).
+
+- `frame`: `protocol` (`"h2"` or `"h3"`), `type` (`"DATA"`, `"HEADERS"`, `"PRIORITY"`,
+  `"RST_STREAM"`, `"SETTINGS"`, `"PUSH_PROMISE"`, `"PING"`, `"GOAWAY"`, `"WINDOW_UPDATE"`,
+  `"CANCEL_PUSH"`, `"MAX_PUSH_ID"`, or `"UNKNOWN"` for extension and grease frames), `type_code`,
+  `stream_id`, `end_stream`, `ack`, `direction` (`"from_client"`, `"to_client"`, `"from_server"`,
+  `"to_server"`; `None` for frames the script made), and, where the frame type has them:
+  `payload` and `text` (DATA and extension frames; assignable; `text` is `None` for a payload that
+  is not UTF-8), `headers` (HEADERS: a `Headers`, live, pseudo-headers included, names lower-cased
+  as they are set), `settings` (a live dict of name to value: `"MAX_CONCURRENT_STREAMS"`, ...,
+  `"0x..."` for others), `error_code` (assignable) and `error` (its name, RST_STREAM and GOAWAY),
+  `debug_data` (GOAWAY, assignable) and `last_stream_id` (GOAWAY). The others are `None`.
+- `ctx`: `protocol`, `connection_id`, `stream_id`, `client_ip`, `client_port`, and `server` (the
+  server's `host:port` for frames to and from servers, else `None`). Frames from the two
+  directions and from many streams are seen concurrently; there is no `ctx.vars`.
+- A failing hook, a wrong return value or a result that breaks the rules is logged, and the frame
+  passed on unchanged.
+
+Rewrite a header in the HEADERS frames clients send:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type == "HEADERS" and frame.direction == "from_client":
+        frame.headers["user-agent"] = "MicroProxy"
+        frame.headers.remove("x-debug")
+```
+
+Redact card numbers in DATA frames, in both directions. A pattern split across two frames is not
+seen; a body whose length changes needs its `content-length` gone:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type == "HEADERS":
+        frame.headers.remove("content-length")  # redacting changes the body's length
+    elif frame.type == "DATA" and frame.text != None:
+        frame.text = re.sub(r"\b[0-9]{13,16}\b", "<card>", frame.text)
+```
+
+Drop PRIORITY and extension frames:
+
+```python
+def on_frame(frame, ctx):
+    if frame.type in ("PRIORITY", "UNKNOWN"):
+        return False
+```
+
+Log what servers say about their connections:
+
+```python
+def on_frame(frame, ctx):
+    if frame.direction != "from_server":
+        return None
+    if frame.type == "SETTINGS" and not frame.ack:
+        log.info("%s settings: %s" % (ctx.server, frame.settings))
+    elif frame.type == "GOAWAY":
+        log.warn("%s goes away: %s after stream %d (%s)" % (
+            ctx.server, frame.error, frame.last_stream_id, frame.debug_data))
+```
+
+Add frames: trailers after every response's last DATA frame (END_STREAM moves to them), and an
+extension frame:
+
+```python
+def on_frame(frame, ctx):
+    # Trailers after the last DATA frame of every response, and a hint before it.
+    if frame.type == "DATA" and frame.direction == "to_client" and frame.end_stream:
+        hint = h2.unknown(0xf0, 0, "checked")
+        return [frame, hint, h2.headers(frame.stream_id, {"x-proxied-by": "MicroProxy"})]
+```
+
+The same hook over HTTP/3, through the pipeline:
+
+```python
+def on_frame(frame, ctx):
+    if frame.protocol != "h3":
+        return None
+    if frame.type == "HEADERS" and ":method" in frame.headers:
+        frame.headers["x-seen-by"] = "MicroProxy"
+    elif frame.type == "DATA" and frame.text != None:
+        return [frame, h3.data(" (checked)")]
+    elif frame.type == "SETTINGS":
+        frame.settings["MAX_FIELD_SECTION_SIZE"] = 16384
+```
+
+```java
+ScriptedProxy script = ScriptedProxy.builder(Path.of("frames.star")).build();
+Http3FramePipeline pipeline = Http3FramePipeline.builder(script.frameInterceptor()).build();
+pipeline.requestStream(0, capturedRequestStream, rewritten);
+```
+
+With types: `Frame` and `FrameContext`. `headers`, `settings`, `payload` and the like are typed
+`... | None`, so typed code casts them:
+
+```python
+def on_frame(frame: Frame, ctx: FrameContext) -> list[Frame] | bool | None:
+    if frame.type == "UNKNOWN":
+        return False
+    if frame.type == "HEADERS" and frame.direction == "from_client":
+        headers = cast(Headers, frame.headers)
+        headers["x-stream"] = str(ctx.stream_id)
+    return None
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
-`Context`, `WebSocketFrame`, `Failure` and `Timings`:
+`Context`, `WebSocketFrame`, `Failure`, `Timings`, `Frame` and `FrameContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
@@ -1493,7 +2167,7 @@ you pass. The formats are `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV
 timestamps and RFC 4180 CSV quoting. Lines also include the authenticated user, and URLs inside
 intercepted sessions are logged as `https://`.
 
-`JSON_EXTENDED` adds fields to the `JSON` line: `source` (`SERVER`, `PROXY`, `FILTER` or `CACHE`),
+`JSON_EXTENDED` adds fields to the `JSON` line: `source` (`SERVER`, `PROXY`, `FILTER`, `CACHE` or `REPLAY`),
 `upstream_status` (what the server sent, when a filter or the cache changed it), and `ttfb_ms`,
 `total_ms`, `dns_ms`, `connect_ms` and `tls_ms`. Its lines are written when the response is
 complete rather than when its head is sent; see [Observability](#observability).
@@ -1530,7 +2204,7 @@ MicroProxy.bootstrap().plusFiltersSource(logger).start();
   and added (`+`). The response as the server sent it, then a `delivered as` section in the same
   form. The response line shows the status the client got, how long the exchange took (`ttfb` is
   the wait for the server's first byte), where the response came from (`source=server`, `proxy`,
-  `filter` or `cache`) and the server's status (`upstream=`) when a filter or the cache answered or
+  `filter`, `cache` or `replay`) and the server's status (`upstream=`) when a filter or the cache answered or
   changed it.
 - **Correlation:** each message is handed to the sink as one string, so concurrent connections do
   not interleave their lines. Every line starts with `[conn <id> #<n>]`: the client connection, as
@@ -1832,7 +2506,8 @@ byte[] encoded = Protobuf.encode(Map.of("id", 42L, "status", "SHIPPED"), schema,
 - **Where a response came from:** `responseSentToClient(ctx, response, source)` receives a
   `ResponseSource`: `SERVER` (relayed, maybe with headers or body edited in place), `PROXY` (the
   proxy's error answers, `407`, the `CONNECT` `200`), `FILTER` (a short-circuit, a failure answer
-  from a filter, or a server or proxy response a filter replaced or gave another status) or `CACHE`.
+  from a filter, or a server or proxy response a filter replaced or gave another status), `CACHE`
+  or `REPLAY` (a recorded response from `ServerReplay`).
   `ctx.upstreamStatus()` is the status the server sent, so a `500` a filter turned into a `200`
   still shows. The two-argument callback keeps working.
 - **Timings:** `ctx.timings()` returns a `FlowTimings` snapshot for the exchange in progress:
@@ -1998,10 +2673,13 @@ the `README.md` next to each copy:
 - starlarky's Larky runtime and Python-compatible standard library (Apache-2.0, with CPython and
   ElementTree notices in some files), in `microproxy-starlark`.
 - Logic ported from [mitmproxy](https://github.com/mitmproxy/mitmproxy) and
-  [mitmproxy_rs](https://github.com/mitmproxy/mitmproxy_rs) (MIT) for the content views in
-  `org.microproxy.contentviews`: the schema-less protobuf heuristics and rendering, the gRPC view,
-  the choice of views by priority, and the GraphQL, Socket.IO and form views. The ported files say
-  so in their headers, and their test vectors run in the build.
+  [mitmproxy_rs](https://github.com/mitmproxy/mitmproxy_rs) (MIT): in the core, ClientHello
+  parsing, the ignore / allow host rules and the reverse mode specification; in
+  `org.microproxy.extras`, the addons, flow filter expressions, HAR export and reading, and server
+  and client replay; and for the content views in `org.microproxy.contentviews`, the schema-less
+  protobuf heuristics and rendering, the gRPC view, the choice of views by priority, and the
+  GraphQL, Socket.IO and form views. The ported files name their sources in their header comments,
+  and the content views' test vectors run in the build.
 
 Besides LittleProxy, these projects contributed ideas only; no code was copied:
 

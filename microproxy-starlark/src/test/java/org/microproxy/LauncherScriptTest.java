@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.microproxy.starlark.RawH2;
 import org.microproxy.starlark.ScriptedReadmeTest;
 
 /** The {@code --script} option the Starlark module adds to the launcher. */
@@ -49,6 +50,28 @@ class LauncherScriptTest {
             assertEquals(418, response.statusCode());
             assertEquals("scripted", response.body());
             assertTrue(out.toString(StandardCharsets.UTF_8).contains("Scripting with"));
+        } finally {
+            proxy.abort();
+            origin.stop(0);
+        }
+    }
+
+    @Test
+    void scriptsWithOnFrameSeeHttp2Frames(@TempDir Path dir) throws Exception {
+        Path script = dir.resolve("frames.star");
+        Files.writeString(script, """
+                def on_frame(frame, ctx):
+                    if frame.type == "HEADERS" and frame.direction == "from_client":
+                        frame.headers["x-framed"] = ctx.protocol
+                """);
+        HttpServer origin = origin(echo());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--http2-cleartext", "--script", script.toString()},
+                new PrintStream(out, true, StandardCharsets.UTF_8));
+        try (RawH2 h2 = new RawH2(proxy.getListenAddress(), "127.0.0.1:" + origin.getAddress().getPort())) {
+            h2.request(1, "GET", "/", null);
+            assertEquals(List.of("h2"), TestSupport.echoedHeader(h2.response(1).body(), "x-framed"));
+            assertTrue(out.toString(StandardCharsets.UTF_8).contains("on_frame()"), out.toString(StandardCharsets.UTF_8));
         } finally {
             proxy.abort();
             origin.stop(0);

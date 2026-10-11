@@ -1,7 +1,6 @@
 package org.microproxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.client;
@@ -188,9 +187,9 @@ class HttpsTest {
         proxy = MicroProxy.bootstrap().withPort(0)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa))
                 .start();
-        // The CONNECT itself fails with 502, which the JDK client reports as an IOException.
-        java.io.UncheckedIOException e = assertThrows(java.io.UncheckedIOException.class,
-                () -> get(client(proxy, proxyCa.clientContext()), url(origin, "/")));
-        assertFalse(e.getMessage() == null);
+        // The server handshake waits for the client's ClientHello, so the CONNECT succeeds and the
+        // request inside the session is refused, as mitmproxy does.
+        var response = get(client(proxy, proxyCa.clientContext()), url(origin, "/"));
+        assertEquals(502, response.statusCode());
     }
 }

@@ -115,6 +115,30 @@ final class Http1ClientChannel implements ClientChannel {
         return in.startsWith(HTTP2_PREFACE);
     }
 
+    /**
+     * Whether the connection's first byte, received and not consumed, could start a TLS record
+     * (a handshake record, {@code 0x16}).
+     */
+    boolean startsLikeTls() throws IOException {
+        return in.peek() == 0x16;
+    }
+
+    /** The reader requests arrive through, for looking at bytes before deciding how to serve them. */
+    ByteReader input() {
+        return in;
+    }
+
+    /** The socket requests arrive on: the accepted one, or the TLS socket layered over it. */
+    Socket socket() {
+        return socket;
+    }
+
+    /** Writes {@code bytes} to the client as they are, such as a TLS alert. */
+    void writeRaw(byte[] bytes) throws IOException {
+        out.write(bytes);
+        out.flush();
+    }
+
     /** The bytes received and not yet read: what an HTTP/2 connection taking over starts with. */
     byte[] drainBuffered() {
         return in.drainBuffered();

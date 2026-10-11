@@ -101,6 +101,24 @@ public interface MitmManager {
     }
 
     /**
+     * Whether to intercept a TLS connection, once its client's {@code ClientHello} is known: return
+     * false to tunnel it untouched, so the client sees the real server's certificate. Decide by the
+     * server name the client asked for ({@link ClientHello#sni()}), its ALPN protocols, or the
+     * client ({@code flow}). Called on the manager chosen for the connection ({@link
+     * #forConnection}), after the host rules ({@link HttpProxyServerBootstrap#withIgnoreHosts},
+     * {@link HttpProxyServerBootstrap#withAllowHosts}) and before {@link
+     * HttpFilters#proxyToServerAllowMitm(ClientHello)}. True by default.
+     *
+     * @param clientHello the client's ClientHello
+     * @param flow the client connection's context; {@link FlowContext#getClientHello()} returns
+     *     {@code clientHello}
+     * @return whether to intercept the connection
+     */
+    default boolean shouldIntercept(ClientHello clientHello, FlowContext flow) {
+        return true;
+    }
+
+    /**
      * The manager that intercepts for the client connection {@code flow}; this one by default.
      * The proxy asks once per client connection, when it is about to intercept the connection's
      * first CONNECT (after proxy authentication, so the user is known), and uses the answer for

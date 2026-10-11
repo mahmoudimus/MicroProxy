@@ -6,7 +6,6 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -47,7 +46,6 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     private static final DateTimeFormatter HAPROXY_DATE = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss.SSS", Locale.US);
     private static final DateTimeFormatter ISO_8601 = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
     private static final DateTimeFormatter W3C_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US);
-    private static final HexFormat HEX = HexFormat.of();
 
     /** A request waiting for its line; for JSON_EXTENDED also its response, until it completes. */
     private static final class TimedRequest {
@@ -315,25 +313,7 @@ public class ActivityLogger extends ActivityTrackerAdapter {
 
     /** Escapes a string for inclusion in a JSON string literal. */
     static String json(String s) {
-        StringBuilder sb = new StringBuilder(s.length() + 8);
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        sb.append("\\u").append(HEX.toHexDigits(c));
-                    } else {
-                        sb.append(c);
-                    }
-                }
-            }
-        }
-        return sb.toString();
+        return Json.escape(s);
     }
 
     /** Quotes a CSV field per RFC 4180. */

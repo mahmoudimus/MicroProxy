@@ -18,9 +18,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
 import org.microproxy.TestSupport;
+import org.microproxy.extras.MapRemote;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -115,5 +117,35 @@ class ScriptedMitmTest {
         start(false);
         assertEquals(200, get(client(proxy, originCa.clientContext()), url(origin, "/")).statusCode());
         assertThrows(UncheckedIOException.class, () -> get(client(proxy, proxyCa.clientContext()), url(origin, "/")));
+    }
+
+    @Test
+    void assigningAnAbsoluteUriMovesTheRequestToAnotherServer() throws Exception {
+        HttpsServer other = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
+            exchange.getResponseHeaders().set("X-Origin", "other");
+            echo().handle(exchange);
+        });
+        try {
+            ScriptedProxy script = ScriptedProxy.builder("""
+                    def on_request(req, ctx):
+                        if req.method != "CONNECT" and req.path.startswith("/elsewhere/"):
+                            req.uri = "https://localhost:PORT" + req.uri[len("/elsewhere"):]
+                    """.replace("PORT", String.valueOf(other.getAddress().getPort())), "move.star").build();
+            // Scripts compose with the addons like any filters source: here map_remote runs after the
+            // script and sees the URL the script made.
+            proxy = MicroProxy.bootstrap().withPort(0)
+                    .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                    .withFiltersSource(HttpFiltersChain.of(script, MapRemote.of("|/moved/|/mapped/")))
+                    .start();
+            HttpClient client = client(proxy, proxyCa.clientContext());
+            HttpResponse<String> moved = get(client, url(origin, "/elsewhere/moved/x?y=1"));
+            assertEquals("other", moved.headers().firstValue("X-Origin").orElseThrow());
+            assertEquals("/mapped/x?y=1", TestSupport.echoedUri(moved.body()));
+            assertEquals(List.of("localhost:" + other.getAddress().getPort()), echoedHeader(moved.body(), "host"));
+            HttpResponse<String> stays = get(client, url(origin, "/here"));
+            assertEquals(List.of(), stays.headers().allValues("X-Origin"));
+        } finally {
+            other.stop(0);
+        }
     }
 }
