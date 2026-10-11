@@ -609,14 +609,17 @@ connection.rebind(new InetSocketAddress(0));                             // swit
   paths cannot be linked. No answer in three PTOs (of the larger of both paths), and it goes back
   to the previous path. A replayed packet is a duplicate and moves nothing; a copy that overtakes
   the original moves the server, but the new path gets no answer, the previous path's challenge
-  makes the real client send a newer packet, and the server returns (RFC 9000 section 9.3.3). Off,
+  makes the real client send a newer packet, and the server returns (RFC 9000 section 9.3.3). A
+  PATH_RESPONSE validates the path its challenge went out on whatever path it comes back on, matched
+  by its data (RFC 9000 section 8.2.2; quinn also wants it from the new address). Off,
   the server sends `disable_active_migration` and drops packets from other addresses.
 - **A client moves** with `QuicConnection.migrate` (`Connection.probePath`): it binds a socket,
   waits for the handshake to be confirmed, sends PATH_CHALLENGE from there with an unused
   connection ID of the server's (RFC 9000 section 9.5), padded to 1200 bytes and sent again with
   backoff, and switches when the PATH_RESPONSE arrives (`ConnectionEvent.PathUpdated`); no answer
   in three PTOs (of the larger of the current path's and a new one's), and it stays
-  (`PathProbeFailed`, an `IOException`). `rebind` (`Connection.rebind`, quinn's
+  (`PathProbeFailed`, an `IOException`). The old socket keeps receiving meanwhile, so an answer
+  that comes back on the old path counts too. `rebind` (`Connection.rebind`, quinn's
   `local_address_changed`) switches at once with an unused connection ID and a PING, which the
   server follows as a NAT rebinding. Either keeps the congestion state when the local IP address
   stays the same (a wildcard counts as the same), and the old socket is closed once no connection
@@ -633,9 +636,11 @@ connection.rebind(new InetSocketAddress(0));                             // swit
   allowed even when the server disables active migration.
 
 Limits: one path at a time (no multipath); a server never moves to a new address of its own
-accord (only through its preferred address); and some peers answer PATH_CHALLENGE only on the path they send on, so that a probe
-from a new address gets no answer from them: aioquic's server is one, for which `rebind` works and
-`migrate` fails, leaving the connection where it was.
+accord (only through its preferred address); and aioquic's server never answers a probe: it
+queues the PATH_RESPONSE on the probed path but writes responses only on the path it sends on,
+which a probing packet does not change, so no answer comes back on any path (its qlog shows the
+challenges received and no response sent). With it, `migrate` fails, leaving the connection where
+it was, and `rebind` works.
 
 ### Threads and limits
 
@@ -716,7 +721,8 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   to a new port with the server's next connection ID in the middle of four 4 MB echoes and the
   Java server follows it; the Java client rebinds in the middle of an 8 MB echo against aioquic's
   server, whose path to the new port it then uses; the Java client's probe, which aioquic's server
-  never answers (it answers PATH_CHALLENGE only on its active path), fails and leaves the
+  never answers on any path (its qlog shows the challenges received and no PATH_RESPONSE sent),
+  fails and leaves the
   connection where it was; and aioquic's client connects to a Java server with a preferred
   address, which it does not use. An HTTP/3 client on aioquic's
   `H3Connection` also runs GET and POST requests (2 MB down, 1 MB echoed, concurrent and

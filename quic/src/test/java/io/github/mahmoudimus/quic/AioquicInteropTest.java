@@ -599,13 +599,18 @@ class AioquicInteropTest {
     }
 
     /**
-     * aioquic's server answers PATH_CHALLENGE only on the path it sends on, so the Java client's
-     * probe of a new path gets no answer: the migration fails and the connection carries on where
-     * it was. (Probing first is optional; {@link QuicConnection#rebind} moves without it.)
+     * The Java client's probe of a new path (PATH_CHALLENGE from a new port) gets no PATH_RESPONSE
+     * from aioquic's server on any path: aioquic queues the response on the probed path, and writes
+     * responses only on the path it sends on, which a probing packet never makes the new one. Its
+     * qlog shows the challenges received and no PATH_RESPONSE sent at all, so this is not a
+     * response the client missed on its old socket (which it keeps reading while it probes, and
+     * would match by its data). The migration fails and the connection carries on where it was;
+     * {@link QuicConnection#rebind}, whose packets are not probing, moves it.
      */
     @Test
     void javaClientProbeIsNotAnsweredByAioquicAndTheConnectionStays() throws Exception {
-        try (PythonServer py = new PythonServer();
+        Path qlog = Files.createTempDirectory(dir, "qlog");
+        try (PythonServer py = new PythonServer("--qlog", qlog.toString());
                 QuicClient client = QuicClient.create(javaClient(null, null, QuicVersion.V1))) {
             QuicConnection c = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
             InetSocketAddress before = c.localAddress();
@@ -616,7 +621,24 @@ class AioquicInteropTest {
             byte[] d = LoopbackTest.data(33, 300_000);
             assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
             c.close();
+            py.await("TERMINATED"); // the qlog is written as the connection ends
         }
+        String trace;
+        try (Stream<Path> files = Files.list(qlog)) {
+            List<Path> all = files.toList();
+            assertEquals(1, all.size(), all.toString());
+            trace = Files.readString(all.get(0));
+        }
+        assertTrue(count(trace, "\"frame_type\": \"path_challenge\"") > 0, "aioquic received the probe");
+        assertEquals(0, count(trace, "\"frame_type\": \"path_response\""), "and answered it on no path");
+    }
+
+    private static int count(String text, String what) {
+        int n = 0;
+        for (int i = text.indexOf(what); i >= 0; i = text.indexOf(what, i + 1)) {
+            n++;
+        }
+        return n;
     }
 
     /** A Java server that advertises a preferred address: aioquic's client, which does not use it, is unaffected. */

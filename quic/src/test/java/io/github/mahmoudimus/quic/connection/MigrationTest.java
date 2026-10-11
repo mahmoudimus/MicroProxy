@@ -478,6 +478,57 @@ class MigrationTest {
         assertEquals(next, server.remoteAddress());
     }
 
+    /**
+     * The server answers the client's probe on the path it uses, not the probed one, as aioquic's
+     * would if it answered: the PATH_RESPONSE reaches the client's old socket and still validates
+     * the new path, by its data (RFC 9000 section 8.2.2).
+     */
+    @Test
+    void probeAnsweredOnTheOldPathValidatesTheNewOne() throws Exception {
+        Pair pair = pair();
+        Connection[] c = connected(pair);
+        Connection client = c[0];
+        Connection server = c[1];
+        InetSocketAddress home = pair.client.address;
+        InetSocketAddress next = Pair.address(home.getPort() + 400);
+        pair.client.addresses.add(next);
+        // Whatever the server sends the new address while the client probes lands on the old one
+        pair.serverRoute = a -> client.isProbingPath() && a.equals(next) ? home : a;
+        Pair.drainEvents(client);
+        client.probePath(pair.time, next);
+        pair.driveUntil(() -> !client.isProbingPath());
+        assertEquals(List.of(new ConnectionEvent.PathUpdated(Pair.address(4433), next)),
+                events(client, ConnectionEvent.PathUpdated.class));
+        assertEquals(next, client.localAddress());
+        byte[] data = data(300_000);
+        assertArrayEquals(data, new Transfer(pair, client, server, data).finish());
+        assertEquals(next, server.remoteAddress());
+    }
+
+    /**
+     * The client's answer to the server's PATH_CHALLENGE on its new address comes from another
+     * address (its old one): it validates the new path all the same, by its data.
+     */
+    @Test
+    void serverValidatesAPathByAResponseFromAnotherAddress() throws Exception {
+        Pair pair = pair();
+        Connection[] c = connected(pair);
+        Connection client = c[0];
+        Connection server = c[1];
+        InetSocketAddress home = pair.client.address;
+        InetSocketAddress away = Pair.address(home.getPort() + 500);
+        pair.client.rebind(away);
+        pair.client.addresses.add(home);
+        // The server's datagrams to the new address reach the client at the old one, which then
+        // answers the challenge off its path, from there
+        pair.serverRoute = a -> a.equals(away) ? home : a;
+        client.ping();
+        pair.driveUntil(() -> away.equals(server.remoteAddress()));
+        pair.driveUntil(() -> server.path().isValidated());
+        assertEquals(away, server.remoteAddress(), "validated, and no fallback");
+        assertTrue(pair.serverBytesFrom.getOrDefault(home, 0L) > 0, "the answer came from the old address");
+    }
+
     @Test
     void clientProbeWithoutAnAnswerKeepsTheOldPath() throws Exception {
         Pair pair = pair();

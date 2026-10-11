@@ -948,8 +948,9 @@ public final class Connection {
      * first, as quinn's {@code local_address_changed} does after its endpoint rebinds: the next
      * packets carry a connection ID of the server's not used before (when the server gave one), and
      * a PING from the new address makes the server follow and validate it. To the server this looks
-     * like a NAT rebinding. Some servers answer PATH_CHALLENGE only on the path they use (aioquic),
-     * so that {@link #probePath} gets no answer from them; this works with them.
+     * like a NAT rebinding. Some servers never answer {@link #probePath}'s PATH_CHALLENGE on any
+     * path (aioquic's queues the response on the probed path and sends only on its active one);
+     * this works with them.
      *
      * @param now the current time
      * @param local the new local address
@@ -1233,10 +1234,16 @@ public final class Connection {
         return (int) Math.min(peerParams.maxUdpPayloadSize(), MtuDiscoveryConfig.MAX_UDP_PAYLOAD);
     }
 
-    /** A PATH_RESPONSE: the end of the current path's validation, or of a client's probe. */
+    /**
+     * A PATH_RESPONSE: the end of the current path's validation, or of a client's probe. It is
+     * matched by its data alone, whatever path it came on: "A PATH_RESPONSE frame received on any
+     * network path validates the path on which the PATH_CHALLENGE was sent" (RFC 9000 section
+     * 8.2.2). quinn also requires it to come from the new path; a peer may answer on its active
+     * path instead.
+     */
     private void onPathResponse(long now, long token) throws QuicException {
         PathData path = recovery.path();
-        if (path.hasChallenge && token == path.challenge && path.remote().equals(rxFrom)) {
+        if (path.hasChallenge && token == path.challenge) {
             timers.stop(Timer.PATH_VALIDATION);
             path.hasChallenge = false;
             path.challengePending = false;

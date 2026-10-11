@@ -24,6 +24,7 @@ import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 /**
  * Two endpoints joined by an in-memory network on a fake clock, as quinn's tests drive them: no
@@ -72,6 +73,8 @@ final class Pair {
     Predicate<ByteBuffer> dropFromClient = d -> false;
     /** Drops datagrams the server sends when it returns true. */
     Predicate<ByteBuffer> dropFromServer = d -> false;
+    /** Where the network takes what the server sends to an address: to that address, unless changed. */
+    UnaryOperator<InetSocketAddress> serverRoute = a -> a;
     final Random random = new Random(42);
     long datagramsFromClient;
     long datagramsFromServer;
@@ -250,6 +253,9 @@ final class Pair {
         Transmit t = from.routing.remove(d);
         InetSocketAddress source = t != null && t.source() != null ? t.source() : from.address;
         InetSocketAddress destination = t != null ? t.destination() : peer.address;
+        if (from == server) {
+            destination = serverRoute.apply(destination);
+        }
         if (from == server) {
             serverBytesTo.merge(destination, (long) d.remaining(), Long::sum);
         }

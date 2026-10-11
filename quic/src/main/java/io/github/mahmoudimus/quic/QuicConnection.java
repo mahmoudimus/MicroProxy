@@ -511,9 +511,9 @@ public final class QuicConnection implements AutoCloseable {
      * first, as quinn's endpoint does when it rebinds: packets leave from a UDP socket bound at
      * {@code local} from now on, with a connection ID of the server's not used before when it gave
      * one, and the server follows as it follows a NAT rebinding, validating the new path itself.
-     * Use it with servers that answer PATH_CHALLENGE only on the path they use, which never answer
-     * {@link #migrate}'s probe (aioquic is one). The old socket is closed once no connection uses
-     * it.
+     * Use it with servers that never answer {@link #migrate}'s probe on any path (aioquic's queues
+     * the response on the probed path and sends only on its active one). The old socket is closed
+     * once no connection uses it.
      *
      * @param local the address to bind, port 0 for an ephemeral port
      * @return the new local address, with its port
