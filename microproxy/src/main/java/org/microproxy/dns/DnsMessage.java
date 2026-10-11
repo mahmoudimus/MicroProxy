@@ -365,9 +365,36 @@ public final class DnsMessage {
             return new Address(literal(literal));
         }
 
+        /** {@return the address as RFC 5952 writes it: {@code 192.0.2.1}, {@code 2001:db8::1}} */
         @Override
         public String text() {
-            return address.getHostAddress();
+            if (!(address instanceof Inet6Address)) return address.getHostAddress();
+            byte[] b = address.getAddress();
+            int[] groups = new int[8];
+            for (int i = 0; i < 8; i++) groups[i] = ((b[2 * i] & 0xff) << 8) | (b[2 * i + 1] & 0xff);
+            // The longest run of two or more zero groups, the first of equal ones, becomes "::".
+            int bestStart = -1;
+            int bestLength = 1;
+            for (int i = 0; i < 8; ) {
+                int j = i;
+                while (j < 8 && groups[j] == 0) j++;
+                if (j - i > bestLength) {
+                    bestStart = i;
+                    bestLength = j - i;
+                }
+                i = j == i ? i + 1 : j;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                if (i == bestStart) {
+                    sb.append("::");
+                    i += bestLength - 1;
+                    continue;
+                }
+                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ':') sb.append(':');
+                sb.append(Integer.toHexString(groups[i]));
+            }
+            return sb.toString();
         }
 
         @Override
@@ -630,6 +657,22 @@ public final class DnsMessage {
      */
     public static DnsMessage query(int id, String name, int type) {
         return new DnsMessage(id, RD, List.of(new Question(name, type)), List.of(), List.of(), List.of());
+    }
+
+    /**
+     * A message made of its parts.
+     *
+     * @param id the message ID, 16 bits
+     * @param flags the header's flags, 16 bits (see {@link #flags()})
+     * @param questions the question section
+     * @param answers the answer section
+     * @param authorities the authority section
+     * @param additionals the additional section
+     * @return the message
+     */
+    public static DnsMessage of(int id, int flags, List<Question> questions, List<ResourceRecord> answers,
+            List<ResourceRecord> authorities, List<ResourceRecord> additionals) {
+        return new DnsMessage(id, flags, questions, internal(answers), internal(authorities), internal(additionals));
     }
 
     /**

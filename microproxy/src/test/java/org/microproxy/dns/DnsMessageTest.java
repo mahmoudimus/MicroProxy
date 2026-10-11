@@ -121,6 +121,13 @@ class DnsMessageTest {
 
     @Test
     void rejectsWhatDoesNotFit() {
+        assertEquals("2001:db8::1", Address.of("2001:db8:0:0:0:0:0:1").text());
+        assertEquals("::", Address.of("::").text());
+        assertEquals("::1", Address.of("::1").text());
+        assertEquals("1::", Address.of("1:0:0:0:0:0:0:0").text());
+        assertEquals("2001:db8:0:1:1:1:1:1", Address.of("2001:db8:0:1:1:1:1:1").text(), "a single zero group stays");
+        assertEquals("2001:0:0:1::1", Address.of("2001:0:0:1:0:0:0:1").text(), "the longer run");
+        assertEquals("2001:db8::1:0:0:1", Address.of("2001:db8:0:0:1:0:0:1").text(), "the first of equal runs");
         assertThrows(IllegalArgumentException.class, () -> Address.of("example.com"));
         assertThrows(IllegalArgumentException.class, () -> Address.of("1.2.3.256"));
         assertThrows(IllegalArgumentException.class,
