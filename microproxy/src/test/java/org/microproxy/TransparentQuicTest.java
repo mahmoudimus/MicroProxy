@@ -188,6 +188,36 @@ class TransparentQuicTest {
         assertEquals(1, origin.requests.get(), "the misdirected request went nowhere");
     }
 
+    /**
+     * A CONNECT on an intercepted HTTP/3 connection goes to the intercepted server, which the client
+     * takes for its HTTPS proxy, as one on an intercepted HTTP/2 connection does: here a proxy whose
+     * TLS listener is origin.test's, which opens the tunnel to a raw TCP echo server.
+     */
+    @Test
+    void aConnectOnAnInterceptedConnectionGoesToTheInterceptedProxy() throws Exception {
+        TestSupport.RawServer echo = TestSupport.rawServer(socket -> socket.getInputStream().transferTo(socket.getOutputStream()));
+        closeables.add(echo);
+        List<String> corpRequests = new CopyOnWriteArrayList<>();
+        HttpProxyServer corp = MicroProxy.bootstrap().withPort(0)
+                .withSslContextSource(() -> originCa.serverContext(HOST, "localhost"))
+                .withFiltersSource((request, flow) -> {
+                    corpRequests.add(request.method() + " " + request.uri());
+                    return null;
+                })
+                .start();
+        closeables.add(corp::abort);
+        start(transparent(corp.getListenAddress().getPort()));
+        try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, proxyCa.getCertificate())) {
+            H3TestClient.Tunnel tunnel = client.open(H3TestClient.connect("127.0.0.1:" + echo.port()));
+            assertEquals(200, tunnel.status);
+            tunnel.out().write("through the corporate proxy".getBytes(StandardCharsets.UTF_8));
+            tunnel.end();
+            assertEquals("through the corporate proxy", tunnel.text());
+        }
+        assertEquals(List.of("CONNECT 127.0.0.1:" + echo.port()), corpRequests);
+        assertTrue(filtered.contains("CONNECT 127.0.0.1:" + echo.port() + " HTTP/3.0 quic=true sni=" + HOST), filtered.toString());
+    }
+
     /** With Retry, an intercepted client proves its address first; the proxy decides on it once. */
     @Test
     void interceptsAfterARetry() throws Exception {
