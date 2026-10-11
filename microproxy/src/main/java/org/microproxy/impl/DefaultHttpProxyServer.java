@@ -17,15 +17,18 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import org.microproxy.ChainedProxyManager;
+import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
@@ -39,7 +42,11 @@ import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ReverseProxyMode;
+import org.microproxy.ServerState;
 import org.microproxy.SslContextSource;
+import org.microproxy.http.HttpResponse;
+import org.microproxy.http.HttpResponseStatus;
+import org.microproxy.http.HttpVersion;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
@@ -53,7 +60,6 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
 public final class DefaultHttpProxyServer implements HttpProxyServer {
 
     private static final System.Logger LOG = System.getLogger(DefaultHttpProxyServer.class.getName());
-    private static final Duration GRACEFUL_STOP_TIMEOUT = Duration.ofSeconds(10);
 
     final DefaultHttpProxyServerBootstrap config;
     final String name;
@@ -182,6 +188,27 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private final AtomicBoolean stopping = new AtomicBoolean();
     private InetSocketAddress boundAddress;
 
+    /** How long stopping lets exchanges finish, and how long a drain the admin starts lasts. */
+    final Duration drainTime;
+    final DrainStrategy drainStrategy;
+    /** The path health checks are answered on; null for none. */
+    final String healthCheckPath;
+    final boolean healthCheckPassThrough;
+    private final AtomicReference<ServerState> state = new AtomicReference<>(ServerState.PRE_INITIALIZING);
+    private volatile boolean healthCheckFailed;
+    /** Set once the listeners stop accepting: a drain's end, {@link #stopListeners}, or stopping. */
+    private final AtomicBoolean listenersStopped = new AtomicBoolean();
+    /** Set by the first {@link #drain}; later ones wait for it. */
+    private final AtomicBoolean drainBegun = new AtomicBoolean();
+    private final CountDownLatch drainDone = new CountDownLatch(1);
+    /** Counted down when stopping begins, which ends a drain in progress early. */
+    private final CountDownLatch stopBegun = new CountDownLatch(1);
+    /** Whether a drain has started; then when ({@link System#nanoTime}), for how long, and whether all at once. */
+    private volatile boolean drainStarted;
+    private volatile long drainStartNanos;
+    private volatile long drainNanos;
+    private volatile boolean drainImmediate;
+
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
         if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
             // Fail at startup, not on the first client that asks for h2.
@@ -275,6 +302,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http3Keys = b.http3 ? http3Keys(b) : null;
         // Created only when enabled: the class needs the quic module.
         this.http3Origins = b.http3Upstream ? new Http3Origins(this, b.http3UpstreamHosts) : null;
+        this.drainTime = b.drainTime;
+        this.drainStrategy = b.drainStrategy;
+        this.healthCheckPath = b.healthCheckPath;
+        this.healthCheckPassThrough = b.healthCheckPassThrough;
         if (http2 && mitmManager == null && sslContextSource == null) {
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
@@ -347,6 +378,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     HttpProxyServer start() {
+        state.set(ServerState.INITIALIZING);
         InetSocketAddress requested = config.address();
         try {
             serverSocket = new ServerSocket();
@@ -399,17 +431,18 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         // A platform, non-daemon acceptor keeps the JVM alive while the proxy runs, like Netty's
         // event loops did; all per-connection work happens on (daemon) virtual threads.
         acceptor = Thread.ofPlatform().name(name + "-acceptor").daemon(false).start(this::acceptLoop);
+        state.compareAndSet(ServerState.INITIALIZING, ServerState.LIVE);
         LOG.log(Level.INFO, "{0} listening on {1}", name, boundAddress);
         return this;
     }
 
     private void acceptLoop() {
-        while (!stopping.get()) {
+        while (!refusesNewConnections()) {
             Socket socket;
             try {
                 socket = serverSocket.accept();
             } catch (SocketException e) {
-                if (!stopping.get()) LOG.log(Level.WARNING, "accept failed", e);
+                if (!refusesNewConnections()) LOG.log(Level.WARNING, "accept failed", e);
                 break;
             } catch (IOException e) {
                 LOG.log(Level.WARNING, "accept failed", e);
@@ -510,6 +543,137 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         return stopping.get();
     }
 
+    /** Whether new connections are turned away: the listeners have stopped, or the proxy is stopping. */
+    boolean refusesNewConnections() {
+        return listenersStopped.get() || stopping.get();
+    }
+
+    /**
+     * Whether the request starting now should drain its connection (Envoy's drain decision): always
+     * while the health check fails; while draining, always with {@link DrainStrategy#IMMEDIATE}, and
+     * with {@link DrainStrategy#GRADUAL} by a chance that grows from 0 to 1 over the drain time;
+     * never otherwise.
+     */
+    boolean drainClose() {
+        if (healthCheckFailed) return true;
+        if (!drainStarted) return false;
+        if (drainImmediate) return true;
+        long elapsed = System.nanoTime() - drainStartNanos;
+        return elapsed >= drainNanos || ThreadLocalRandom.current().nextLong(drainNanos) < elapsed;
+    }
+
+    /** The proxy's answer to a health check, or null to let a pass-through check go on to the server. */
+    HttpResponse healthCheckResponse() {
+        boolean healthy = !healthCheckFailed && state.get() == ServerState.LIVE;
+        if (healthy && healthCheckPassThrough) return null;
+        HttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                healthy ? HttpResponseStatus.OK : HttpResponseStatus.SERVICE_UNAVAILABLE, null);
+        if (!healthy) response.headers().set("x-envoy-immediate-health-check-fail", "true");
+        return response;
+    }
+
+    @Override
+    public ServerState state() {
+        return state.get();
+    }
+
+    /** Turns the state to DRAINING, unless the proxy has stopped. */
+    private void toDraining() {
+        state.updateAndGet(s -> s == ServerState.STOPPED ? s : ServerState.DRAINING);
+    }
+
+    /** The listeners accepting connections: the TCP one, and the HTTP/3 and transparent QUIC ones on UDP. */
+    int activeListeners() {
+        return refusesNewConnections() ? 0 : listeners();
+    }
+
+    private int listeners() {
+        return 1 + (http3Listener != null ? 1 : 0) + (transparentQuicListener != null ? 1 : 0);
+    }
+
+    @Override
+    public void stopListeners() {
+        if (stopping.get()) return;
+        toDraining();
+        closeListeners();
+    }
+
+    /**
+     * Stops accepting: closes the TCP listener; the UDP ones refuse new QUIC connections from now
+     * on, but stay open for the connections they carry.
+     */
+    private void closeListeners() {
+        if (!listenersStopped.compareAndSet(false, true)) return;
+        Tls.closeQuietly(serverSocket);
+        stats.listenerStopped.add(listeners());
+        LOG.log(Level.INFO, "{0} no longer accepts connections", name);
+    }
+
+    @Override
+    public void drain(Duration drainTime) {
+        Objects.requireNonNull(drainTime, "drainTime");
+        if (stopping.get()) return;
+        if (!drainBegun.compareAndSet(false, true)) {
+            awaitQuietly(drainDone);
+            return;
+        }
+        try {
+            long nanos = drainTime.isNegative() ? 0 : saturatedNanos(drainTime);
+            drainNanos = nanos;
+            drainStartNanos = System.nanoTime();
+            drainImmediate = drainStrategy == DrainStrategy.IMMEDIATE || nanos == 0;
+            drainStarted = true;
+            toDraining();
+            LOG.log(Level.INFO, "{0} draining for {1} ({2})", name, drainTime,
+                    drainImmediate ? "immediate" : "gradual");
+            if (drainImmediate) connections.forEach(ClientConnection::drain);
+            // The listeners keep accepting meanwhile: clients still on their way are served, and
+            // told to go elsewhere.
+            if (stopBegun.await(nanos, TimeUnit.NANOSECONDS)) return;
+            closeListeners();
+            for (ClientConnection c : connections) c.close();
+            LOG.log(Level.INFO, "{0} drained", name);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            drainDone.countDown();
+        }
+    }
+
+    private static long saturatedNanos(Duration d) {
+        try {
+            return d.toNanos();
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Override
+    public Duration getDrainTime() {
+        return drainTime;
+    }
+
+    @Override
+    public void setHealthCheckFailed(boolean failed) {
+        if (healthCheckFailed != failed) {
+            LOG.log(Level.INFO, "{0} health check {1}", name, failed ? "failed" : "restored");
+        }
+        healthCheckFailed = failed;
+    }
+
+    @Override
+    public boolean isHealthCheckFailed() {
+        return healthCheckFailed;
+    }
+
     @Override
     public Duration getIdleConnectionTimeout() {
         return idleConnectionTimeout;
@@ -566,11 +730,14 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private void shutdown(boolean graceful) {
         // Both a shutdown hook and the application may stop the server; only the first one runs.
         if (!stopping.compareAndSet(false, true)) return;
+        toDraining();
+        // A drain in progress ends here: this takes over.
+        stopBegun.countDown();
         LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
-        Tls.closeQuietly(serverSocket);
+        closeListeners();
         for (ClientConnection c : connections) {
             // Idle connections close now; busy ones finish what they are doing (HTTP/2 ones are
-            // sent GOAWAY and finish their open streams), for up to the graceful stop timeout.
+            // sent GOAWAY and finish their open streams), for up to the drain time.
             if (graceful) {
                 c.stopGracefully();
             } else {
@@ -579,8 +746,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         executor.shutdown();
         try {
-            if (graceful && !executor.awaitTermination(GRACEFUL_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-                LOG.log(Level.WARNING, "connections still open after {0}; closing", GRACEFUL_STOP_TIMEOUT);
+            if (graceful && !executor.awaitTermination(saturatedNanos(drainTime), TimeUnit.NANOSECONDS)) {
+                LOG.log(Level.WARNING, "connections still open after {0}; closing", drainTime);
             }
             connections.forEach(ClientConnection::close);
             Http3Listener listener = http3Listener;
@@ -606,6 +773,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 LOG.log(Level.WARNING, "closing " + resource + " failed", e);
             }
         }
+        state.set(ServerState.STOPPED);
     }
 
     @Override

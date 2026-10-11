@@ -15,6 +15,7 @@ import java.util.Properties;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
+import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
@@ -137,6 +138,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     TcpInterceptor tcpInterceptor;
     UdpInterceptor udpInterceptor;
     QuicInterceptor quicInterceptor;
+    /** How long stopping lets exchanges finish, and how long a drain lasts. */
+    Duration drainTime = Duration.ofSeconds(10);
+    DrainStrategy drainStrategy = DrainStrategy.GRADUAL;
+    /** The path the proxy answers health checks on; null for none. */
+    String healthCheckPath;
+    boolean healthCheckPassThrough;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -208,6 +215,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.tcpInterceptor = tcpInterceptor;
         c.udpInterceptor = udpInterceptor;
         c.quicInterceptor = quicInterceptor;
+        c.drainTime = drainTime;
+        c.drainStrategy = drainStrategy;
+        c.healthCheckPath = healthCheckPath;
+        c.healthCheckPassThrough = healthCheckPassThrough;
         return c;
     }
 
@@ -484,6 +495,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 cache.maxEntrySize(Integer.parseInt(p.getProperty("cache_max_entry_mb").strip()) << 20);
             }
             withHttpCache(cache.build());
+        }
+        if (p.containsKey("drain_time")) withDrainTime(Duration.ofSeconds(Long.parseLong(p.getProperty("drain_time").strip())));
+        if (p.containsKey("drain_strategy")) withDrainStrategy(DrainStrategy.parse(p.getProperty("drain_strategy")));
+        if (p.containsKey("health_check_path")) {
+            withHealthCheckPath(p.getProperty("health_check_path").strip(), bool(p, "health_check_pass_through"));
         }
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
@@ -1057,6 +1073,31 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
         this.serverResolver = useDnsSec ? new DnssecHostResolver() : new DefaultHostResolver();
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withDrainTime(Duration drainTime) {
+        if (Objects.requireNonNull(drainTime, "drainTime").isNegative()) {
+            throw new IllegalArgumentException("the drain time must not be negative: " + drainTime);
+        }
+        this.drainTime = drainTime;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withDrainStrategy(DrainStrategy strategy) {
+        this.drainStrategy = Objects.requireNonNull(strategy, "strategy");
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHealthCheckPath(String path, boolean passThrough) {
+        if (path != null && !path.startsWith("/")) {
+            throw new IllegalArgumentException("a health-check path starts with /: " + path);
+        }
+        this.healthCheckPath = path;
+        this.healthCheckPassThrough = passThrough;
         return this;
     }
 

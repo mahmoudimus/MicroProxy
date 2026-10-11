@@ -989,6 +989,48 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
 
     /**
+     * How long exchanges in progress may take to finish when the proxy {@linkplain
+     * HttpProxyServer#stop() stops}, and how long a drain lasts when the admin's {@code
+     * /drain_listeners?graceful} starts one (default 10 seconds, Envoy's {@code --drain-time-s}).
+     *
+     * @param drainTime the drain time, not negative
+     * @return this bootstrap
+     * @throws IllegalArgumentException if it is negative
+     */
+    default HttpProxyServerBootstrap withDrainTime(Duration drainTime) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support a drain time");
+    }
+
+    /**
+     * How a draining proxy tells clients to go elsewhere (default {@link DrainStrategy#GRADUAL},
+     * as Envoy's {@code --drain-strategy}); see {@link HttpProxyServer#drain}.
+     *
+     * @param strategy the strategy
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withDrainStrategy(DrainStrategy strategy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support drain strategies");
+    }
+
+    /**
+     * Answers health checks on the proxy's own listener, as Envoy's health check filter does: a
+     * request for {@code path} (its path without the query, exactly) gets {@code 200 OK} from the
+     * proxy, or {@code 503} with {@code x-envoy-immediate-health-check-fail: true} while the health
+     * check {@linkplain HttpProxyServer#setHealthCheckFailed fails} or the proxy is draining. With
+     * {@code passThrough}, a healthy proxy forwards the request to its server instead (in reverse
+     * mode, the upstream's own health); only the failures are answered by the proxy. Null turns
+     * it off (the default).
+     *
+     * @param path the path, starting with {@code /}, or null for none
+     * @param passThrough whether a healthy proxy forwards the request
+     * @return this bootstrap
+     * @throws IllegalArgumentException if the path does not start with {@code /}
+     */
+    default HttpProxyServerBootstrap withHealthCheckPath(String path, boolean passThrough) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support health checks");
+    }
+
+    /**
      * Starts the proxy with this configuration.
      *
      * @return the running proxy server

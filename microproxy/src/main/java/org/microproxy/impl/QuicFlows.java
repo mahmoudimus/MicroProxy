@@ -366,7 +366,7 @@ final class QuicFlows implements AutoCloseable {
         } catch (TlsClientHello.Malformed e) {
             return false;
         }
-        if (origin == null || datagram.remaining() < MIN_INITIAL_DATAGRAM || server.isStopping()) {
+        if (origin == null || datagram.remaining() < MIN_INITIAL_DATAGRAM || server.refusesNewConnections()) {
             dropped.incrementAndGet();
             return true;
         }
@@ -757,7 +757,7 @@ final class QuicFlows implements AutoCloseable {
                 connection.close(0x0100, "");
                 continue;
             }
-            if (server.isStopping()) {
+            if (server.refusesNewConnections()) {
                 connection.close(0x0100, "the proxy is stopping");
                 abandon(a);
                 continue;
