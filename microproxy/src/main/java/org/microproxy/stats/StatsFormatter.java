@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 /**
  * Renders a registry's metrics as Envoy's admin endpoint does: Prometheus's text exposition
@@ -36,10 +37,23 @@ public final class StatsFormatter {
      * @return the exposition
      */
     public static String prometheus(StatsRegistry registry) {
+        return prometheus(registry, m -> true);
+    }
+
+    /**
+     * The metrics {@code include} accepts, in Prometheus's text exposition format (see {@link
+     * #prometheus(StatsRegistry)}).
+     *
+     * @param registry the metrics
+     * @param include which metrics to show
+     * @return the exposition
+     */
+    public static String prometheus(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096);
         String prefix = registry.prefix().isEmpty() ? "" : registry.prefix() + "_";
         Map<String, List<Metric>> families = new TreeMap<>();
         for (Metric m : registry.metrics()) {
+            if (!include.test(m)) continue;
             families.computeIfAbsent(prefix + metricName(m.tagExtractedName()), k -> new ArrayList<>()).add(m);
         }
         for (Map.Entry<String, List<Metric>> family : families.entrySet()) {
@@ -145,8 +159,20 @@ public final class StatsFormatter {
      * @return the dump, a line per metric
      */
     public static String text(StatsRegistry registry) {
+        return text(registry, m -> true);
+    }
+
+    /**
+     * The metrics {@code include} accepts, as Envoy's {@code /stats} text (see {@link
+     * #text(StatsRegistry)}).
+     *
+     * @param registry the metrics
+     * @param include which metrics to show
+     * @return the dump, a line per metric
+     */
+    public static String text(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096);
-        List<Metric> metrics = registry.metrics();
+        List<Metric> metrics = registry.metrics().stream().filter(include).toList();
         for (Metric m : metrics) {
             switch (m) {
                 case Counter c -> out.append(m.name()).append(": ").append(c.value()).append('\n');
@@ -181,8 +207,20 @@ public final class StatsFormatter {
      * @return the JSON document
      */
     public static String json(StatsRegistry registry) {
+        return json(registry, m -> true);
+    }
+
+    /**
+     * The metrics {@code include} accepts, as Envoy's {@code /stats?format=json} (see {@link
+     * #json(StatsRegistry)}).
+     *
+     * @param registry the metrics
+     * @param include which metrics to show
+     * @return the JSON document
+     */
+    public static String json(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096).append("{\"stats\":[");
-        List<Metric> metrics = registry.metrics();
+        List<Metric> metrics = registry.metrics().stream().filter(include).toList();
         boolean firstStat = true;
         for (Metric m : metrics) {
             long value;
@@ -223,6 +261,23 @@ public final class StatsFormatter {
             out.append("]}");
         }
         return out.append("]}}]}").toString();
+    }
+
+    /**
+     * Whether {@code metric} has been used, as Envoy's {@code usedonly} asks: a counter or gauge
+     * that is not zero, a histogram with values. (Envoy remembers whether a stat was ever written,
+     * so it also shows a gauge set back to zero; this registry keeps no such mark.)
+     *
+     * @param metric the metric
+     * @return whether it has a value worth showing
+     */
+    public static boolean used(Metric metric) {
+        return switch (metric) {
+            case Counter c -> c.value() != 0;
+            case Gauge g -> g.value() != 0;
+            case Histogram h -> h.snapshot().count() != 0;
+            default -> true;
+        };
     }
 
     /** {@code v} to three decimals, so estimates read cleanly. */

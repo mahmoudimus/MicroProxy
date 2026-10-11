@@ -166,4 +166,22 @@ class StatsFormatterTest {
         assertEquals("{\"stats\":[{\"histograms\":{\"supported_quantiles\":[0,25,50,75,90,95,99,99.5,99.9,100],"
                 + "\"computed_quantiles\":[]}}]}", StatsFormatter.json(StatsRegistry.NOOP));
     }
+
+    @Test
+    void everyFormShowsOnlyWhatThePredicateAccepts() {
+        StatsRegistry r = sample(StatsRegistry.create());
+        r.histogram("cluster.idle.upstream_rq_time");
+        assertEquals("http.ingress.downstream_rq_2xx: 2\nhttp.ingress.downstream_rq_5xx: 1\n",
+                StatsFormatter.text(r, m -> m.name().matches("http\\..*_[0-9]xx")));
+        assertEquals("# TYPE envoy_server_live gauge\nenvoy_server_live 1\n",
+                StatsFormatter.prometheus(r, m -> m.name().startsWith("server.")));
+        assertEquals("{\"stats\":[{\"name\":\"server.live\",\"value\":1},{\"histograms\":{\"supported_quantiles\":"
+                + "[0,25,50,75,90,95,99,99.5,99.9,100],\"computed_quantiles\":[]}}]}",
+                StatsFormatter.json(r, m -> m.name().startsWith("server.")));
+
+        String used = StatsFormatter.text(r, StatsFormatter::used);
+        assertTrue(used.contains("server.live: 1\n"), used);
+        assertTrue(used.contains("cluster.direct.upstream_rq_time: P0"), used);
+        assertTrue(!used.contains("script.say_hi") && !used.contains("cluster.idle"), "unused counter and histogram: " + used);
+    }
 }
