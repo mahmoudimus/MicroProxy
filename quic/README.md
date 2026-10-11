@@ -407,7 +407,12 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   zero-length CIDs, datagrams, MTU discovery, anti-amplification, the connection cap.
 - `LoopbackTest` runs the blocking API over real UDP on loopback: 32 concurrent streams echoing 1 MB
   each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
-  updates during a transfer. On a 4-core container it moves 120 to 180 MB/s.
+  updates during a transfer. On a 4-core container, with an 8 KB MTU, the 32-stream echo moves
+  100 to 125 MB/s (both directions together) and a single upload 160 to 225 MB/s; with the default 1452-byte
+  MTU a warmed-up single stream uploads 150 to 185 MB/s.
+- `ConnectionFuzzTest` feeds a connection random and mutated datagrams (nothing may throw or close
+  it) and authenticated 1-RTT packets of random frames (they may close it with a protocol error,
+  never `INTERNAL_ERROR`).
 - `AioquicInteropTest` runs against aioquic 1.4.0 as an external peer, with the echo client and
   server in `src/test/resources/interop/` (raw streams, ALPN `microproxy-test`). It covers a Java
   server with an aioquic client and an aioquic server with a Java client: all three cipher suites
