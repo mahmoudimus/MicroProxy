@@ -140,6 +140,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final UdpInterceptor udpInterceptor;
     /** The hooks of QUIC intercepted stream by stream (see {@link QuicInterceptor}), or null. */
     final QuicInterceptor quicInterceptor;
+    /** Decides on the QUIC inside CONNECT-UDP flows; null unless {@link Http3Options#connectUdpInterceptQuic()}. */
+    private volatile MasqueQuic masqueQuic;
     /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
     final ConnectUdpTemplate connectUdpTemplate;
     /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
@@ -359,6 +361,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
             }
             LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());
+            if (connectUdpTemplate != null && http3Options.connectUdpInterceptQuic()) {
+                masqueQuic = new MasqueQuic(this, transparentQuicKeys(mitmManager));
+            }
         }
         if (transparentQuicPort >= 0) {
             InetSocketAddress udp = new InetSocketAddress(boundAddress.getAddress(), transparentQuicPort);
@@ -451,6 +456,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             upstream.close();
             connection.endTransparentQuic(false);
         }
+    }
+
+    /** What decides on the QUIC inside CONNECT-UDP flows, or null when such QUIC is relayed. */
+    MasqueQuic masqueQuic() {
+        return masqueQuic;
     }
 
     /** The transparent QUIC listener, or null without one (for tests). */
@@ -561,6 +571,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             if (listener != null) listener.close();
             TransparentQuicListener quicListener = transparentQuicListener;
             if (quicListener != null) quicListener.close();
+            MasqueQuic masque = masqueQuic;
+            if (masque != null) masque.close();
             if (http2Origins != null) http2Origins.closeAll();
             if (http3Origins != null) http3Origins.closeAll();
             if (pool != null) pool.closeAll();

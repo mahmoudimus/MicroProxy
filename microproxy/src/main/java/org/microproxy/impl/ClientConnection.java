@@ -620,6 +620,11 @@ final class ClientConnection implements Runnable {
     private volatile HttpFilters quicFilters;
     /** The server of a flow intercepted stream by stream ({@link #connectQuic}). */
     private volatile FullFlowContext quicServerFlow;
+    /**
+     * Where the server of QUIC intercepted inside a CONNECT-UDP flow is: the flow's address, for
+     * {@link #mitmHostAndPort} (the SNI's name, when the flow named an IP address); null for others.
+     */
+    private volatile InetSocketAddress pinnedServer;
     /** That CONNECT is a SOCKS client's request ({@link Exchange#socks}): its SOCKS version, 0 for none. */
     private int socksConnect;
     /**
@@ -676,6 +681,24 @@ final class ClientConnection implements Runnable {
         clientDetails.setClientAddress(clientAddress);
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         this.http1 = new Http1ClientChannel(server, rawSocket, flowContext, logPrefix, this::close);
+    }
+
+    /**
+     * The client connection of the QUIC inside one of {@code parent}'s CONNECT-UDP flows ({@link
+     * MasqueQuic}), decided on as transparent QUIC is: it has the MASQUE client's address, user and
+     * MITM manager, and is authenticated already (the CONNECT-UDP request was); its server is at
+     * {@code address}, where the flow went.
+     */
+    ClientConnection(ClientConnection parent, InetSocketAddress address) {
+        this(parent.server, parent.clientDetails.getClientAddress());
+        clientDetails.setUserName(parent.clientDetails.getUserName());
+        this.proxyHeader = parent.proxyHeader;
+        if (server.mitmManager != null) {
+            this.connectionMitm = parent.mitmManager();
+            this.mitmChosen = true;
+        }
+        this.authenticated = true;
+        this.pinnedServer = address;
     }
 
     /** The connection's own flow context (not one of its streams'). */
@@ -2312,6 +2335,12 @@ final class ClientConnection implements Runnable {
                     + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows on this connection"), true, ResponseSource.PROXY);
+        }
+        MasqueQuic masque = server.masqueQuic();
+        if (masque != null && masque.inspects(target.port())) {
+            // QUIC inside the flow is decided on as transparent QUIC is, by a client connection of
+            // this client's, with the flow's target as the server.
+            flow.inspectQuic(masque.attach(flow, targetAddress -> new ClientConnection(this, targetAddress)));
         }
         try {
             HttpResponse accepted = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.SWITCHING_PROTOCOLS);
@@ -4015,6 +4044,11 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = ex.filters;
         HostAndPort target = HostAndPort.parse(hostAndPort, 80);
         InetSocketAddress remote = filters.proxyToServerResolutionStarted(hostAndPort);
+        InetSocketAddress pinned = pinnedServer;
+        if (remote == null && pinned != null && hostAndPort.equalsIgnoreCase(mitmHostAndPort)) {
+            // QUIC intercepted inside a CONNECT-UDP flow: its server is where the flow went.
+            remote = new InetSocketAddress(pinned.getAddress(), target.port());
+        }
         try {
             if (remote == null) {
                 ex.flow.markFirst(ClientFlowContext.DNS_START);

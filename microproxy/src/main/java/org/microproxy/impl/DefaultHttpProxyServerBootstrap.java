@@ -354,8 +354,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("masque_udp_template")
                 || p.containsKey("masque_udp_idle_timeout") || p.containsKey("masque_max_udp_flows")
-                || p.containsKey("masque_max_udp_flows_per_connection")) {
+                || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
+                || p.containsKey("masque_quic_ports")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("masque_intercept_quic")) h3.connectUdpInterceptQuic(bool(p, "masque_intercept_quic"));
+            if (p.containsKey("masque_quic_ports")) h3.connectUdpQuicPorts(parsePorts(p.getProperty("masque_quic_ports")));
             if (p.containsKey("masque_udp_template")) h3.connectUdpTemplate(p.getProperty("masque_udp_template").strip());
             if (p.containsKey("masque_udp_idle_timeout")) {
                 h3.connectUdpIdleTimeout(Duration.ofSeconds(Long.parseLong(p.getProperty("masque_udp_idle_timeout").strip())));
