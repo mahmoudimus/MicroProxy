@@ -169,6 +169,11 @@ public final class Launcher {
               --masque-max-udp-flows <n>   CONNECT-UDP flows at once (default 4096)
               --masque-max-udp-flows-per-connection <n>  CONNECT-UDP flows of one client connection
                                            (default 64)
+              --masque-intercept-quic      decide on QUIC inside CONNECT-UDP flows as on transparent
+                                           QUIC: intercept HTTP/3 (and other QUIC with the QUIC
+                                           hooks) unless the host rules or hooks decline, else relay
+              --masque-quic-ports <list>   the target ports whose flows --masque-intercept-quic
+                                           inspects: comma-separated, or "any" (default 443)
               --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
                                            store's first key entry (HTTPS, HTTP/2 with --http2, and
                                            the certificate --http3 presents)
@@ -309,6 +314,8 @@ public final class Launcher {
         long masqueIdleSeconds = 0;
         int masqueMaxFlows = 0;
         int masqueMaxFlowsPerConnection = 0;
+        boolean masqueInterceptQuic = false;
+        int[] masqueQuicPorts = null;
         List<String> http3UpstreamHosts = new ArrayList<>();
         Path listenerKeystore = null;
         String listenerKeystorePassword = "";
@@ -500,6 +507,8 @@ public final class Launcher {
                 case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
                 case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
                 case "--masque-max-udp-flows-per-connection" -> masqueMaxFlowsPerConnection = intValue(queue, arg);
+                case "--masque-intercept-quic" -> masqueInterceptQuic = true;
+                case "--masque-quic-ports" -> masqueQuicPorts = ports(value(queue, arg), arg);
                 case "--listener-keystore" -> listenerKeystore = Path.of(value(queue, arg));
                 case "--listener-keystore-password" -> listenerKeystorePassword = value(queue, arg);
                 default -> {
@@ -537,8 +546,11 @@ public final class Launcher {
             bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
         }
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || quicRelayIdleSeconds > 0 || masqueTemplate != null
-                || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0) {
+                || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0 || masqueInterceptQuic
+                || masqueQuicPorts != null) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
+            if (masqueInterceptQuic) h3.connectUdpInterceptQuic(true);
+            if (masqueQuicPorts != null) h3.connectUdpQuicPorts(masqueQuicPorts);
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
             if (noHttp3AltSvc) h3.altSvc(false);
             if (http3Retry) h3.retry(true);
