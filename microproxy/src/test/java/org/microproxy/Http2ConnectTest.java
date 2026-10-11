@@ -506,6 +506,82 @@ class Http2ConnectTest {
         }
     }
 
+    /**
+     * Runs a TLS handshake over a CONNECT stream, as a client trusting {@code trust}, that sends
+     * {@code localhost} as SNI (which the JDK leaves out for a name without a dot) and offers
+     * {@code alpn}.
+     */
+    private static SSLSocket tlsWithSni(H2StreamClient.Stream tunnel, SSLContext trust, int port, String alpn)
+            throws IOException {
+        SSLSocket tls = (SSLSocket) trust.getSocketFactory().createSocket(tunnel.asSocket(), "localhost", port, true);
+        tls.setUseClientMode(true);
+        javax.net.ssl.SSLParameters params = tls.getSSLParameters();
+        params.setServerNames(List.of(new javax.net.ssl.SNIHostName("localhost")));
+        params.setApplicationProtocols(new String[] {alpn});
+        tls.setSSLParameters(params);
+        tls.setSoTimeout(10_000);
+        tls.startHandshake();
+        return tls;
+    }
+
+    @Test
+    void anInterceptedConnectStreamIsDecidedByItsClientHello() throws Exception {
+        HttpsServer origin = httpsOrigin();
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = h2c().withManInTheMiddle(mitmManager())
+                .withFiltersSource((original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+                    @Override
+                    public boolean proxyToServerAllowMitm(ClientHello hello) {
+                        seen.add("allow " + hello.sni() + " " + hello.alpnProtocols() + " flow=" + ctx.getClientHello().sni());
+                        return true;
+                    }
+
+                    @Override
+                    public HttpResponse clientToProxyRequest(HttpObject o) {
+                        if (o instanceof HttpRequest r && !"CONNECT".equals(r.method().toString())) {
+                            ClientHello hello = ctx.getClientHello();
+                            seen.add(r.uri() + " " + (hello == null ? null : hello.sni()));
+                        }
+                        return null;
+                    }
+                })
+                .start();
+        // The CONNECT names the address: the host name comes from the stream's ClientHello.
+        String target = "127.0.0.1:" + origin.getAddress().getPort();
+        try (H2StreamClient c = h2c("unused:1")) {
+            H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target), false);
+            assertEquals(200, tunnel.status());
+            SSLSocket tls = tlsWithSni(tunnel, proxyCa.clientContext(), origin.getAddress().getPort(), "http/1.1");
+            write(tls.getOutputStream(), "GET /inside HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+            String response = new String(tls.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            assertTrue(response.startsWith("HTTP/1.1 200"), response);
+        }
+        // The stream's exchange and the session inside it see the stream's ClientHello.
+        assertEquals(List.of("allow localhost [http/1.1] flow=localhost", "/inside localhost"), seen);
+    }
+
+    @Test
+    void aConnectStreamWhoseSniIsIgnoredIsTunnelled() throws Exception {
+        HttpsServer origin = httpsOrigin();
+        proxy = h2c().withManInTheMiddle(mitmManager()).withIgnoreHosts("^localhost:").start();
+        // The CONNECT names the address, so only the ClientHello's SNI finds the ignored host.
+        String target = "127.0.0.1:" + origin.getAddress().getPort();
+        try (H2StreamClient c = h2c("unused:1")) {
+            H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target), false);
+            assertEquals(200, tunnel.status());
+            // The client trusts only the origin's CA: this works only if the stream is not intercepted.
+            SSLSocket tls = tlsWithSni(tunnel, originCa.clientContext(), origin.getAddress().getPort(), "http/1.1");
+            write(tls.getOutputStream(), "GET /direct HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            String head = TestSupport.readUntil(tls.getInputStream(), "\r\n\r\n");
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            // Straight from the origin: no proxy added its Via.
+            assertNull(WebSocketTestSupport.header(head, "Via"), head);
+            int length = Integer.parseInt(WebSocketTestSupport.header(head, "Content-Length"));
+            String body = new String(tls.getInputStream().readNBytes(length), StandardCharsets.UTF_8);
+            assertEquals("/direct", echoedUri(body));
+        }
+    }
+
     @Test
     void aWebSocketOverTheTlsListener() throws Exception {
         proxy = tlsListener().start();
