@@ -290,7 +290,52 @@ final class ClientConnection implements Runnable {
             return change ? filters.filterWebSocketFrame(frame, fromClient) : frame;
         };
         return new WebSocketRelay(frames, messages ? filters::filterWebSocketMessages : null,
-                server.maxWebSocketFrameBufferSize, server.maxWebSocketMessageSize, clientHop, serverHop);
+                server.maxWebSocketFrameBufferSize, server.maxWebSocketMessageSize, clientHop, serverHop, server.stats);
+    }
+
+    /**
+     * Relays {@code ex}'s tunnel through {@code channel} ({@link ClientChannel#relay}), counted in
+     * {@code tunnel.*} under {@code kind}, or, for a WebSocket ({@code kind} null), in {@code
+     * websocket.*}: opened, open, and, for tunnels, the bytes it carried and how long it was open.
+     */
+    private void relayCounted(ClientChannel channel, Exchange ex, ServerConnection conn, WebSocketRelay webSocket,
+            TcpSession tcp, String name, org.microproxy.stats.Counter kind) {
+        ProxyStats stats = server.stats;
+        if (!stats.enabled) {
+            channel.relay(conn, webSocket, tcp, ex.flow, name);
+            return;
+        }
+        ProtocolStats.TunnelStats tunnels = stats.tunnel;
+        org.microproxy.stats.Gauge active = kind == null ? stats.webSocket.sessionsActive : tunnels.active;
+        (kind == null ? stats.webSocket.sessionsTotal : kind).inc();
+        long received = ex.flow.bytesReceived();
+        long sent = ex.flow.bytesSent();
+        long start = ClientFlowContext.now();
+        active.inc();
+        try {
+            channel.relay(conn, webSocket, tcp, ex.flow, name);
+        } finally {
+            active.dec();
+            if (kind != null) {
+                tunnels.rxBytes.add(Math.max(0, ex.flow.bytesReceived() - received));
+                tunnels.txBytes.add(Math.max(0, ex.flow.bytesSent() - sent));
+                tunnels.durationMs.recordNanos(ClientFlowContext.now() - start);
+            }
+        }
+    }
+
+    /**
+     * The kind of a {@code CONNECT}'s tunnel: forwarded (through a chained proxy, or a session's
+     * server the client takes for its proxy), else by the protocol the {@code CONNECT} came in.
+     */
+    private org.microproxy.stats.Counter tunnelKind(Exchange ex, ServerConnection conn) {
+        ProtocolStats.TunnelStats tunnels = server.stats.tunnel;
+        if (conn.chainedProxy != null || conn.through != null) return tunnels.forwarded;
+        return switch (kind(ex.channel)) {
+            case HTTP2 -> tunnels.h2Connect;
+            case HTTP3 -> tunnels.h3Connect;
+            default -> tunnels.h1Connect;
+        };
     }
 
     /** How a server connection is used. */
@@ -2346,7 +2391,8 @@ final class ClientConnection implements Runnable {
             // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
             WebSocketRelay relay = webSocket ? webSocketRelay(filters, serverExtensions, finalResponse, ex.channel.logPrefix())
                     : null;
-            ex.channel.relay(conn, relay, null, ex.flow, server.name + "-upgrade-" + id);
+            relayCounted(ex.channel, ex, conn, relay, null, server.name + "-upgrade-" + id,
+                    webSocket ? null : server.stats.tunnel.raw);
             conn.close();
             return false;
         }
@@ -2905,7 +2951,8 @@ final class ClientConnection implements Runnable {
             boolean decrypted = server.reverseProxy != null && sslSession != null;
             TcpSession tcp = tcpSession(ex.flow, target, decrypted);
             if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
-            ex.channel.relay(conn, null, tcp, ex.flow, server.name + "-tunnel-" + id);
+            relayCounted(ex.channel, ex, conn, null, tcp, server.name + "-tunnel-" + id,
+                    server.reverseProxy != null ? server.stats.tunnel.raw : tunnelKind(ex, conn));
             conn.close();
             return false;
         }
@@ -3311,7 +3358,7 @@ final class ClientConnection implements Runnable {
         // intercepted CONNECT stream), not the CONNECT exchange's channel's.
         TcpSession tcp = tcpSession(ex.flow, HostAndPort.parse(hostAndPort, 443), false);
         if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
-        http1.relay(conn, null, tcp, ex.flow, server.name + "-tunnel-" + id);
+        relayCounted(http1, ex, conn, null, tcp, server.name + "-tunnel-" + id, tunnelKind(ex, conn));
         conn.close();
         return false;
     }
@@ -3750,7 +3797,7 @@ final class ClientConnection implements Runnable {
         TcpSession tcp = tcpSession(flowContext, target, true);
         if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
         try {
-            http1.relay(conn, null, tcp, ex.flow, server.name + "-tls-tunnel-" + id);
+            relayCounted(http1, ex, conn, null, tcp, server.name + "-tls-tunnel-" + id, server.stats.tunnel.raw);
         } finally {
             conn.close();
             recordExchange(ex);
