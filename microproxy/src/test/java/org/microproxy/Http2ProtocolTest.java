@@ -311,7 +311,9 @@ class Http2ProtocolTest {
             // origin is no proxy), never straight to example.com.
             assertTrue(r.status() != 421 && r.status() != 200, String.valueOf(r.status()));
         }
-        assertEquals(List.of("CONNECT example.com:443 to " + target), sent);
+        // (Sent again on a new connection when the one the session had idle closed instead of answering.)
+        assertTrue(!sent.isEmpty() && sent.stream().allMatch(("CONNECT example.com:443 to " + target)::equals),
+                sent.toString());
     }
 
     @Test

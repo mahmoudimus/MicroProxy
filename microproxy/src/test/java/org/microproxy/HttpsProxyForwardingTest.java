@@ -272,6 +272,8 @@ class HttpsProxyForwardingTest {
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
         assertEquals("all http/1.1", echoBack(session, "all http/1.1"));
         assertEquals(List.of("CONNECT " + target(echo) + " HTTP/1.1 null"), corpSaw);
+        // The connection made for the session carried the tunnel.
+        assertEquals(1, corpConnections.get());
     }
 
     // -------------------------------------------------------------------------------------------
@@ -476,7 +478,14 @@ class HttpsProxyForwardingTest {
 
     @Test
     void endingForwardedTunnelsWithResetsIsNotARapidReset() throws Exception {
-        TestSupport.RawServer echo = echoServer();
+        AtomicInteger ended = new AtomicInteger();
+        TestSupport.RawServer echo = closing(TestSupport.rawServer(s -> {
+            try {
+                s.getInputStream().transferTo(s.getOutputStream());
+            } finally {
+                ended.incrementAndGet();
+            }
+        }));
         startCorp(true, null);
         proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy())
                 .withHttp2Options(Http2Options.builder().maxRapidResets(3).build()).start();
@@ -487,6 +496,8 @@ class HttpsProxyForwardingTest {
                 assertEquals("x", echoBack(tunnel, "x"));
                 tunnel.reset(ErrorCode.CANCEL);
             }
+            // Each reset went on to the corporate proxy, which closed its tunnel.
+            eventually("the reset tunnels to end", () -> ended.get() == 10);
             H2StreamClient.Stream last = c.open(H2StreamClient.connect(target(echo)), false);
             assertEquals(200, last.status());
             assertEquals("still open", roundTrip(last, "still open"));
