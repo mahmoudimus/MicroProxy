@@ -32,8 +32,11 @@ import javax.net.ssl.X509TrustManager;
 import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.quic.QuicContext;
+import org.microproxy.quic.MessageFramer;
 import org.microproxy.quic.QuicDatagram;
+import org.microproxy.quic.QuicFraming;
 import org.microproxy.quic.QuicInterceptor;
+import org.microproxy.quic.QuicMessage;
 import org.microproxy.quic.QuicStreamContext;
 import org.microproxy.quic.QuicStreamMessage;
 import org.microproxy.tls.SslContexts;
@@ -50,6 +53,13 @@ import org.microproxy.tls.SslContexts;
  * that side's flow control holds it back: nothing is buffered beyond one read, so a slow reader
  * slows its writer down end to end. A stream is opened on the other side when the peer's stream
  * limit allows it, which holds back the accepting of further streams.
+ *
+ * <p><b>Messages.</b> When the interceptor overrides {@link QuicInterceptor#streamMessage} and the
+ * {@link QuicFraming} gives the connection a {@link MessageFramer}, each direction keeps the bytes
+ * of a message until it is whole (a {@link MessageAssembler}), bounded by the framing's limit, and
+ * passes each message through {@code streamMessage}, framing what it returns again; {@code
+ * streamData} is not called on the connection's streams. A message over the limit, or bytes the
+ * framer cannot read, reset the stream both ways on both connections ({@code Stream.abort}).
  *
  * <p><b>Stopping.</b> A peer's STOP_SENDING shows only when a write fails, so a thread per
  * direction also waits for it ({@link QuicStream#awaitStopped()}): the proxy then asks the other
@@ -124,7 +134,23 @@ final class QuicSession implements QuicContext {
         }
     }
 
+    /** Whether an interceptor's class overrides {@code streamMessage}, so that it wants framed messages. */
+    private static final ClassValue<Boolean> FRAMES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("streamMessage", QuicMessage.class, QuicStreamContext.class).getDeclaringClass()
+                        != QuicInterceptor.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }
+    };
+
     private final QuicInterceptor hooks;
+    private final QuicFraming framing;
+    /** The framer of the connection's streams, when the hooks want messages; null to pass reads on. */
+    private final MessageFramer framer;
     private final QuicConnection client;
     private final QuicConnection server;
     private final FlowContext flow;
@@ -147,12 +173,14 @@ final class QuicSession implements QuicContext {
 
     /**
      * @param hooks the QUIC hooks, or null to relay without any
+     * @param framing which streams the hooks see as messages, or null for the defaults
      * @param client the client's connection, accepted by the proxy
      * @param server the proxy's connection to the server
      */
-    QuicSession(QuicInterceptor hooks, QuicConnection client, QuicConnection server, FlowContext flow,
-            HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix) {
+    QuicSession(QuicInterceptor hooks, QuicFraming framing, QuicConnection client, QuicConnection server,
+            FlowContext flow, HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix) {
         this.hooks = hooks;
+        this.framing = framing != null ? framing : QuicFraming.defaults();
         this.client = client;
         this.server = server;
         this.flow = flow;
@@ -163,6 +191,15 @@ final class QuicSession implements QuicContext {
         this.alpn = negotiated == null || negotiated.isEmpty() ? null : negotiated;
         this.masque = masque;
         this.logPrefix = logPrefix;
+        MessageFramer f = null;
+        if (hooks != null && FRAMES.get(hooks.getClass())) {
+            try {
+                f = this.framing.framerFor(alpn, target.host(), sni);
+            } catch (IllegalStateException e) {
+                LOG.log(Level.WARNING, logPrefix + "QUIC to " + target + " (" + alpn + ") is not framed: " + e.getMessage());
+            }
+        }
+        this.framer = f;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -457,6 +494,8 @@ final class QuicSession implements QuicContext {
         volatile Thread hookThread;
         /** Bytes that {@link #hookThread} sent during the hook, written after its result. */
         List<byte[]> pending;
+        /** With a framer, the bytes read that do not make a whole message yet; null without one. */
+        MessageAssembler assembler;
 
         Direction(boolean fromClient, QuicStream source, QuicStream sink) {
             this.fromClient = fromClient;
@@ -488,6 +527,7 @@ final class QuicSession implements QuicContext {
         void start() {
             for (Direction d : new Direction[] {toServer, toClient}) {
                 if (d == null) continue;
+                if (framer != null) d.assembler = new MessageAssembler(framer, framing.maxMessageSize());
                 String name = clientSide.id() + (d.fromClient ? "-to-server" : "-to-client");
                 QuicSession.this.start(name, () -> pump(d));
                 QuicSession.this.start(name + "-stop", () -> watchStop(d));
@@ -502,12 +542,17 @@ final class QuicSession implements QuicContext {
                 while (true) {
                     int n = in.read(buf);
                     if (n < 0) {
+                        if (framer != null) leftover(d);
                         finish(d);
                         return;
                     }
                     if (n > 0) {
                         count(d.fromClient, n);
-                        message(d, Arrays.copyOf(buf, n));
+                        if (framer == null) {
+                            message(d, Arrays.copyOf(buf, n));
+                        } else if (!frames(d, buf, n)) {
+                            return;
+                        }
                     }
                 }
             } catch (QuicStreamException e) {
@@ -560,6 +605,122 @@ final class QuicSession implements QuicContext {
             } finally {
                 d.lock.unlock();
             }
+        }
+
+        /**
+         * Bytes read in one direction of a framed stream: kept until they make whole messages, each
+         * of which goes through {@code streamMessage}. False when the stream was reset instead: a
+         * message too large, or bytes the framer cannot read.
+         */
+        private boolean frames(Direction d, byte[] buf, int n) throws IOException {
+            for (byte[] whole : d.assembler.add(buf, 0, n)) framed(d, whole);
+            return d.assembler.failure() == null || abort(d, d.assembler.failure());
+        }
+
+        /** A whole message: through {@code streamMessage}, then what it returns, framed, to each side. */
+        private void framed(Direction d, byte[] whole) throws IOException {
+            List<byte[]> same = new ArrayList<>();
+            List<byte[]> other = new ArrayList<>();
+            d.hookThread = Thread.currentThread();
+            try {
+                QuicMessage message = new QuicMessage(framer.payload(whole), d.fromClient, clientSide.id(), alpn,
+                        Instant.now());
+                List<QuicMessage> result = hooks.streamMessage(message, this);
+                if (result != null) {
+                    for (QuicMessage m : result) {
+                        if (m != null) (m.fromClient() == d.fromClient ? same : other).add(framer.frame(m.data()));
+                    }
+                }
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's streamMessage threw, or what it returned could"
+                        + " not be framed; passing the message on", e);
+                same = List.of(whole);
+                other = List.of();
+            } finally {
+                d.hookThread = null;
+            }
+            List<byte[]> added = d.pending;
+            d.pending = null;
+            d.lock.lock();
+            try {
+                if (d.ended) return;
+                for (byte[] bytes : same) {
+                    if (bytes.length > 0) d.out.write(bytes);
+                }
+                if (added != null) {
+                    for (byte[] bytes : added) {
+                        if (bytes.length > 0) d.out.write(bytes);
+                    }
+                }
+            } finally {
+                d.lock.unlock();
+            }
+            for (byte[] bytes : other) {
+                try {
+                    send(!d.fromClient, bytes);
+                } catch (IllegalStateException e) {
+                    LOG.log(Level.DEBUG, () -> logPrefix + "dropping a QUIC message for the other side: " + e.getMessage());
+                }
+            }
+        }
+
+        /** The source finished with bytes that are not a whole message: passed on as they are. */
+        private void leftover(Direction d) throws IOException {
+            byte[] rest = d.assembler.rest();
+            if (rest.length == 0) return;
+            LOG.log(Level.DEBUG, () -> logPrefix + "QUIC stream " + clientSide.id() + " ended with " + rest.length
+                    + " bytes that are not a whole message; passing them on");
+            d.lock.lock();
+            try {
+                if (!d.ended) d.out.write(rest);
+            } finally {
+                d.lock.unlock();
+            }
+        }
+
+        /**
+         * A framed direction read a message too large, or bytes its framer cannot read: the stream
+         * is reset towards both sides and both are asked to stop sending, with the framing's error
+         * code, as a WebSocket message too big closes the connection with 1009. Returns false.
+         */
+        private boolean abort(Direction d, String why) {
+            long code = framing.errorCode();
+            LOG.log(Level.INFO, logPrefix + "QUIC stream " + clientSide.id() + " to " + target + ": the "
+                    + (d.fromClient ? "client" : "server") + " sent " + why + "; resetting the stream with code " + code);
+            // Both directions ended first, so that neither passes on what a peer does once it is told
+            // (a server that finishes its side when its input is reset), then the resets and stops.
+            Direction[] both = {toServer, toClient};
+            boolean[] reset = new boolean[2];
+            for (int i = 0; i < 2; i++) {
+                Direction x = both[i];
+                if (x == null) continue;
+                // The proxy's own stop: a STOP_SENDING that answers it is not passed on as the peer's.
+                x.stopped.set(true);
+                x.lock.lock();
+                try {
+                    reset[i] = !x.ended;
+                    x.ended = true;
+                } finally {
+                    x.lock.unlock();
+                }
+            }
+            for (int i = 0; i < 2; i++) {
+                if (!reset[i]) continue;
+                try {
+                    both[i].sink.reset(code);
+                } catch (IOException | RuntimeException e) {
+                    // gone already
+                }
+            }
+            for (Direction x : both) {
+                if (x == null) continue;
+                try {
+                    x.source.stopSending(code);
+                } catch (IOException | RuntimeException e) {
+                    // finished or reset meanwhile
+                }
+            }
+            return false;
         }
 
         /** The source finished sending: {@code streamFinished}, then the FIN is passed on. */

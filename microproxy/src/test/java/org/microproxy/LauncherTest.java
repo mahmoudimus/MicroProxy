@@ -125,7 +125,8 @@ class LauncherTest {
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
                 "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion", "--masque-udp-template", "--masque-udp-idle-timeout",
                 "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
-                "--masque-quic-ports", "--quic-hosts", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
+                "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
+                "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
@@ -166,6 +167,14 @@ class LauncherTest {
         assertEquals(List.of("^doq\\.", "custom"),
                 BootstrapView.quicHosts(parse("--quic-hosts", "^doq\\.", "--quic-hosts", "custom").bootstrap()));
         assertThrows(IllegalArgumentException.class, () -> parse("--quic-hosts", "[unclosed"));
+        org.microproxy.quic.QuicFraming framing = parse("--quic-framing", "myproto=varint,*=none",
+                "--quic-max-message-size", "4096", "--quic-message-error-code", "0x10").bootstrap().getQuicFraming();
+        assertEquals(java.util.Map.of("doq", "u16", "myproto", "varint", "*", "none"), framing.rules());
+        assertEquals(4096, framing.maxMessageSize());
+        assertEquals(16, framing.errorCode());
+        assertEquals(java.util.Map.of("doq", "u16"), parse().bootstrap().getQuicFraming().rules());
+        assertThrows(IllegalArgumentException.class, () -> parse("--quic-framing", "doq"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--quic-max-message-size", "0"));
         assertThrows(IllegalArgumentException.class, () -> parse("--transparent-tls-port", "0"));
     }
 
@@ -252,6 +261,13 @@ class LauncherTest {
         assertTrue(BootstrapView.http3Options(fromFile).connectUdpInterceptQuic());
         assertEquals(java.util.Set.of(4433), BootstrapView.http3Options(fromFile).connectUdpQuicPorts());
         assertEquals(List.of("^doq\\.", "custom"), BootstrapView.quicHosts(fromFile));
+        p.setProperty("quic_framing", "chat=lf");
+        p.setProperty("quic_max_message_size", "512");
+        p.setProperty("quic_message_error_code", "7");
+        org.microproxy.quic.QuicFraming framing = BootstrapView.fromProperties(p).getQuicFraming();
+        assertEquals(java.util.Map.of("doq", "u16", "chat", "lf"), framing.rules());
+        assertEquals(512, framing.maxMessageSize());
+        assertEquals(7, framing.errorCode());
     }
 
     @Test

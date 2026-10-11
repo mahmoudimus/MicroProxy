@@ -1193,7 +1193,7 @@ class ConnectionTest {
         Endpoint client = new Endpoint(EndpointConfig.defaults(), null, true);
         Connection conn = client.connect(0, ClientConfig.builder(Pair.clientTls()).build(), Pair.address(4433),
                 "localhost");
-        ByteBuffer initial = conn.pollTransmit(0, 1).get(0);
+        ByteBuffer initial = conn.pollTransmit(0, 1).get(0).datagram();
         // Rewrite the 20-byte DCID length to 7 is not possible after protection; build an Initial
         // with a 7-byte DCID from scratch instead
         io.github.mahmoudimus.quic.ConnectionId shortDcid = io.github.mahmoudimus.quic.ConnectionId.of(new byte[7]);
@@ -1357,7 +1357,7 @@ class ConnectionTest {
         Connection client = connected(pair)[0];
         StreamId s = client.openStream(Dir.UNI);
         client.write(s, ByteBuffer.wrap(new byte[3000]));
-        List<ByteBuffer> sent = client.pollTransmit(pair.time, 64);
+        List<Transmit> sent = client.pollTransmit(pair.time, 64);
         assertFalse(sent.isEmpty());
         assertTrue(client.recovery().isAppLimited(), "ran out of data");
 

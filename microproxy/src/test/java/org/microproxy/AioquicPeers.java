@@ -233,6 +233,42 @@ public final class AioquicPeers {
         return (Map<String, Object>) json.get("results");
     }
 
+    /**
+     * Runs aioquic's DNS over QUIC client ({@code interop/doq_client.py}) over UDP to loopback
+     * {@code port}, asking for {@code serverName} and trusting {@code ca}: one query for the A
+     * records of each of {@code names}, on a stream each, all at once, written in pieces with
+     * {@code split}. Returns what it saw: {@code alpn}, and {@code answers}, each name's {@code
+     * rcode} and {@code addresses}.
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> doq(Path dir, int port, Path ca, String serverName, List<String> names,
+            boolean split) throws Exception {
+        assumeAvailable();
+        List<String> cmd = new ArrayList<>(List.of(python, script(dir, "doq_client.py").toString(), "127.0.0.1",
+                Integer.toString(port), "--ca", ca.toString(), "--server-name", serverName, "--names",
+                String.join(",", names)));
+        if (split) cmd.add("--split");
+        Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+        StringBuilder output = new StringBuilder();
+        Thread reader = Thread.ofVirtual().start(() -> {
+            try (InputStream in = p.getInputStream()) {
+                output.append(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                // ended
+            }
+        });
+        if (!p.waitFor(90, TimeUnit.SECONDS)) {
+            p.destroyForcibly();
+            throw new AssertionError("the aioquic DoQ client hung");
+        }
+        reader.join();
+        String result = output.toString().lines().filter(l -> l.startsWith("RESULT ")).findFirst()
+                .orElseThrow(() -> new AssertionError("no result from the aioquic DoQ client:\n" + output));
+        Map<String, Object> json = (Map<String, Object>) parseJson(result.substring("RESULT ".length()));
+        assertTrue(Boolean.TRUE.equals(json.get("ok")), "aioquic DoQ client failed: " + json.get("error") + "\n" + output);
+        return (Map<String, Object>) json.get("results");
+    }
+
     /** The value of the first field named {@code name} in a response's [name, value] list, or null. */
     @SuppressWarnings("unchecked")
     public static String field(Map<String, Object> response, String list, String name) {
@@ -319,6 +355,53 @@ public final class AioquicPeers {
         }
 
         /** The lines it printed after LISTENING: CONNECTED, RESET and TERMINATED events. */
+        public List<String> events() {
+            return List.copyOf(lines);
+        }
+
+        @Override
+        public void close() throws IOException {
+            process.getOutputStream().close(); // the server exits when stdin closes
+            try {
+                if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly();
+            } catch (InterruptedException e) {
+                process.destroyForcibly();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** A running aioquic DNS over QUIC server ({@code interop/doq_server.py}). */
+    public static final class DoqServer implements AutoCloseable {
+        private final Process process;
+        private final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<>();
+        public final int port;
+
+        /**
+         * Starts the server with {@code certificate} (a PEM chain) and {@code key}, answering from
+         * {@code zone} (names and their IPv4 addresses).
+         */
+        public DoqServer(Path dir, Path certificate, Path key, Map<String, String> zone) throws Exception {
+            assumeAvailable();
+            List<String> pairs = new ArrayList<>();
+            zone.forEach((name, address) -> pairs.add(name + "=" + address));
+            process = new ProcessBuilder(python, script(dir, "doq_server.py").toString(), "--certificate",
+                    certificate.toString(), "--private-key", key.toString(), "--zone", String.join(",", pairs))
+                    .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+            Thread.ofVirtual().start(() -> {
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    for (String line; (line = r.readLine()) != null; ) lines.add(line);
+                } catch (IOException e) {
+                    // the process ended
+                }
+            });
+            String first = lines.poll(30, TimeUnit.SECONDS);
+            assertNotNull(first, "the aioquic DoQ server did not start");
+            assertTrue(first.startsWith("LISTENING "), first);
+            this.port = Integer.parseInt(first.substring("LISTENING ".length()).trim());
+        }
+
+        /** The lines it printed after LISTENING: QUERY, RESET and BAD events. */
         public List<String> events() {
             return List.copyOf(lines);
         }

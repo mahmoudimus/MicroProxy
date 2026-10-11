@@ -19,15 +19,16 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * An intercepted QUIC connection, or one of its streams, as {@code on_quic_start}, {@code
- * on_quic_stream_data}, {@code on_quic_datagram} and {@code on_quic_end} see it: the client, the
- * server ({@code host}, {@code port}, {@code server}, and {@code address}, where the proxy connected
- * to), the {@code sni} and {@code alpn} both sides use, whether the QUIC came inside a CONNECT-UDP
- * flow ({@code masque}), {@code vars}, a dict that lives as long as the connection (its streams
- * share it), and {@code error}, why the connection failed ({@code None} until then, and for one that
- * ended normally). For {@code on_quic_stream_data}, {@code stream_id} (on the client's connection),
- * {@code bidirectional} and {@code client_initiated} name the stream, and {@code send(from_client,
- * data)} adds bytes to it, as {@link QuicStreamContext#send} does; they are {@code None} for the
- * connection's own hooks. {@code send_datagram(from_client, data)} adds a datagram.
+ * on_quic_stream_data}, {@code on_quic_message}, {@code on_quic_datagram} and {@code on_quic_end}
+ * see it: the client, the server ({@code host}, {@code port}, {@code server}, and {@code address},
+ * where the proxy connected to), the {@code sni} and {@code alpn} both sides use, whether the QUIC
+ * came inside a CONNECT-UDP flow ({@code masque}), {@code vars}, a dict that lives as long as the
+ * connection (its streams share it), and {@code error}, why the connection failed ({@code None}
+ * until then, and for one that ended normally). For {@code on_quic_stream_data} and {@code
+ * on_quic_message}, {@code stream_id} (on the client's connection), {@code bidirectional} and
+ * {@code client_initiated} name the stream, and {@code send(from_client, data)} adds bytes to it,
+ * as {@link QuicStreamContext#send} does (not framed); they are {@code None} for the connection's
+ * own hooks. {@code send_datagram(from_client, data)} adds a datagram.
  */
 @StarlarkBuiltin(name = "quic_context", doc = "An intercepted QUIC connection or stream, and per-connection scratch space.")
 public final class ScriptQuicContext implements Structure {
@@ -37,7 +38,7 @@ public final class ScriptQuicContext implements Structure {
             "client_initiated", "vars", "error");
 
     private final QuicContext context;
-    /** The stream, for {@code on_quic_stream_data}; null for the connection's hooks. */
+    /** The stream, for {@code on_quic_stream_data} and {@code on_quic_message}; null for the connection's hooks. */
     private final QuicStreamContext stream;
     private final Dict<Object, Object> vars;
     private final String error;
@@ -104,7 +105,7 @@ public final class ScriptQuicContext implements Structure {
             parameters = {@Param(name = "from_client"), @Param(name = "data")})
     public void send(Boolean fromClient, Object data) throws EvalException {
         byte[] bytes = Builtins.bytes(data, "data");
-        if (stream == null) throw Starlark.errorf("send needs a stream: use send_datagram outside on_quic_stream_data");
+        if (stream == null) throw Starlark.errorf("send needs a stream: use send_datagram outside on_quic_stream_data and on_quic_message");
         try {
             stream.send(fromClient, bytes);
         } catch (IllegalStateException e) {

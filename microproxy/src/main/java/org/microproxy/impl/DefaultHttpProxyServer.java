@@ -41,6 +41,7 @@ import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicFraming;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
@@ -142,6 +143,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final UdpInterceptor udpInterceptor;
     /** The hooks of QUIC intercepted stream by stream (see {@link QuicInterceptor}), or null. */
     final QuicInterceptor quicInterceptor;
+    /** Which streams of QUIC intercepted stream by stream the interceptor sees as messages. */
+    final QuicFraming quicFraming;
     /** Decides on the QUIC inside CONNECT-UDP flows; null unless {@link Http3Options#connectUdpInterceptQuic()}. */
     private volatile MasqueQuic masqueQuic;
     /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
@@ -266,6 +269,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.tcpInterceptor = b.tcpInterceptor;
         this.udpInterceptor = b.udpInterceptor;
         this.quicInterceptor = b.quicInterceptor;
+        b.quicFraming.validate();
+        this.quicFraming = b.quicFraming;
         this.connectUdpTemplate = b.http3 && b.reverseProxy == null
                 ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
