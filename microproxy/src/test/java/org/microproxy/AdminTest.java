@@ -230,6 +230,9 @@ class AdminTest {
         assertTrue(all.contains("server.state: 0\n") && all.contains("server.live: 1\n"), all);
         assertTrue(all.contains("cluster.direct.upstream_rq_total: 1\n"), all);
 
+        assertEquals("server.live: 1\nserver.state: 0\n", get("/stats?filter=%5Eserver%5C.(live%7Cstate)%24").body());
+        assertTrue(get("/stats?filter=%5Ecluster%5C.direct%5C.upstream_rq_%5B0-9%5D+xx%24").body()
+                .contains("cluster.direct.upstream_rq_2xx: 1\n"), "a + is a regex's, not a space");
         String filtered = get("/stats?filter=%5Ecluster%5C.direct%5C.upstream_rq_%5B0-9%5Dxx%24").body();
         assertEquals("cluster.direct.upstream_rq_1xx: 0\ncluster.direct.upstream_rq_2xx: 1\ncluster.direct.upstream_rq_3xx: 0\n"
                 + "cluster.direct.upstream_rq_4xx: 0\ncluster.direct.upstream_rq_5xx: 0\n", filtered);

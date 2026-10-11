@@ -202,7 +202,7 @@ final class AdminServer {
         if (!endpoint.methods.contains(method)) {
             String allowed = String.join(", ", new java.util.TreeSet<>(endpoint.methods));
             return new Reply(405, TEXT, path + " takes " + allowed + ", not " + method
-                    + (endpoint.methods == POST ? ": it changes the proxy\n" : "\n"), Map.of("Allow", allowed));
+                    + (endpoint.methods.equals(POST) ? ": it changes the proxy\n" : "\n"), Map.of("Allow", allowed));
         }
         if (method.equals("POST") && headers.containsKey("Origin")) {
             // A browser's request for a page, not an operator's: a form on any site can POST to localhost.
@@ -217,18 +217,23 @@ final class AdminServer {
         return endpoint.handler.handle(params, method);
     }
 
-    /** The query's parameters, decoded, in their order; one without {@code =} has the value {@code ""}. */
+    /**
+     * The query's parameters, percent-decoded, in their order; one without {@code =} has the value
+     * {@code ""}. A {@code +} stays a plus, as a regular expression in {@code ?filter=} means it.
+     */
     static Map<String, String> params(String rawQuery) {
         Map<String, String> params = new LinkedHashMap<>();
         if (rawQuery == null || rawQuery.isEmpty()) return params;
         for (String pair : rawQuery.split("&")) {
             if (pair.isEmpty()) continue;
             int eq = pair.indexOf('=');
-            String name = URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), StandardCharsets.UTF_8);
-            String value = eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
-            params.put(name, value);
+            params.put(decode(eq < 0 ? pair : pair.substring(0, eq)), eq < 0 ? "" : decode(pair.substring(eq + 1)));
         }
         return params;
+    }
+
+    private static String decode(String s) {
+        return URLDecoder.decode(s.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 
     /** Whether {@code host} (a Host header) names this machine's loopback: {@code localhost} or a loopback address. */
