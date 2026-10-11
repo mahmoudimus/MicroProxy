@@ -45,8 +45,6 @@ public final class ScriptStats implements StarlarkValue {
         return registry == null || !registry.enabled() ? NOOP : new ScriptStats(registry);
     }
 
-    @StarlarkMethod(name = "counter", doc = "The counter script.<name>, which only goes up.",
-            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     /**
      * {@code stats.counter(name)}: the counter {@code script.<name>}.
      *
@@ -54,6 +52,8 @@ public final class ScriptStats implements StarlarkValue {
      * @return the counter (one that counts nothing once the script stats are full)
      * @throws EvalException if the name is not valid, or names a metric of another kind
      */
+    @StarlarkMethod(name = "counter", doc = "The counter script.<name>, which only goes up.",
+            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     public ScriptCounter counter(String name) throws EvalException {
         try {
             return new ScriptCounter(scope.counter(name));
@@ -62,8 +62,6 @@ public final class ScriptStats implements StarlarkValue {
         }
     }
 
-    @StarlarkMethod(name = "gauge", doc = "The gauge script.<name>, a value that goes up and down.",
-            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     /**
      * {@code stats.gauge(name)}: the gauge {@code script.<name>}.
      *
@@ -71,6 +69,8 @@ public final class ScriptStats implements StarlarkValue {
      * @return the gauge (one that keeps nothing once the script stats are full)
      * @throws EvalException if the name is not valid, or names a metric of another kind
      */
+    @StarlarkMethod(name = "gauge", doc = "The gauge script.<name>, a value that goes up and down.",
+            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     public ScriptGauge gauge(String name) throws EvalException {
         try {
             return new ScriptGauge(scope.gauge(name));
@@ -79,8 +79,6 @@ public final class ScriptStats implements StarlarkValue {
         }
     }
 
-    @StarlarkMethod(name = "histogram", doc = "The histogram script.<name>, with Envoy's buckets (milliseconds).",
-            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     /**
      * {@code stats.histogram(name)}: the histogram {@code script.<name>}.
      *
@@ -88,6 +86,8 @@ public final class ScriptStats implements StarlarkValue {
      * @return the histogram (one that records nothing once the script stats are full)
      * @throws EvalException if the name is not valid, or names a metric of another kind
      */
+    @StarlarkMethod(name = "histogram", doc = "The histogram script.<name>, with Envoy's buckets (milliseconds).",
+            parameters = {@Param(name = "name", doc = "letters, digits, _, - and dots")})
     public ScriptHistogram histogram(String name) throws EvalException {
         try {
             return new ScriptHistogram(scope.histogram(name));
@@ -110,26 +110,26 @@ public final class ScriptStats implements StarlarkValue {
             this.counter = counter;
         }
 
-        @StarlarkMethod(name = "inc", doc = "Adds n (default 1), not negative.",
-                parameters = {@Param(name = "n", defaultValue = "1")})
         /**
          * {@code counter.inc(n=1)}.
          *
          * @param n how much to add
          * @throws EvalException if {@code n} is negative or too large
          */
+        @StarlarkMethod(name = "inc", doc = "Adds n (default 1), not negative.",
+                parameters = {@Param(name = "n", defaultValue = "1")})
         public void inc(StarlarkInt n) throws EvalException {
             long v = n.toLong("n");
             if (v < 0) throw Starlark.errorf("a counter only goes up: inc(%d)", v);
             counter.add(v);
         }
 
-        @StarlarkMethod(name = "value", doc = "The count so far.", structField = true)
         /**
          * {@code counter.value}.
          *
          * @return the count so far
          */
+        @StarlarkMethod(name = "value", doc = "The count so far.", structField = true)
         public StarlarkInt value() {
             return StarlarkInt.of(counter.value());
         }
@@ -149,45 +149,45 @@ public final class ScriptStats implements StarlarkValue {
             this.gauge = gauge;
         }
 
-        @StarlarkMethod(name = "set", doc = "Sets the value.", parameters = {@Param(name = "value")})
         /**
          * {@code gauge.set(value)}.
          *
          * @param value the new value
          * @throws EvalException if it is too large
          */
+        @StarlarkMethod(name = "set", doc = "Sets the value.", parameters = {@Param(name = "value")})
         public void set(StarlarkInt value) throws EvalException {
             gauge.set(value.toLong("value"));
         }
 
-        @StarlarkMethod(name = "inc", doc = "Adds n (default 1).", parameters = {@Param(name = "n", defaultValue = "1")})
         /**
          * {@code gauge.inc(n=1)}.
          *
          * @param n how much to add
          * @throws EvalException if it is too large
          */
+        @StarlarkMethod(name = "inc", doc = "Adds n (default 1).", parameters = {@Param(name = "n", defaultValue = "1")})
         public void inc(StarlarkInt n) throws EvalException {
             gauge.add(n.toLong("n"));
         }
 
-        @StarlarkMethod(name = "dec", doc = "Subtracts n (default 1).", parameters = {@Param(name = "n", defaultValue = "1")})
         /**
          * {@code gauge.dec(n=1)}.
          *
          * @param n how much to subtract
          * @throws EvalException if it is too large
          */
+        @StarlarkMethod(name = "dec", doc = "Subtracts n (default 1).", parameters = {@Param(name = "n", defaultValue = "1")})
         public void dec(StarlarkInt n) throws EvalException {
             gauge.add(-n.toLong("n"));
         }
 
-        @StarlarkMethod(name = "value", doc = "The current value.", structField = true)
         /**
          * {@code gauge.value}.
          *
          * @return the current value
          */
+        @StarlarkMethod(name = "value", doc = "The current value.", structField = true)
         public StarlarkInt value() {
             return StarlarkInt.of(gauge.value());
         }
@@ -207,14 +207,14 @@ public final class ScriptStats implements StarlarkValue {
             this.histogram = histogram;
         }
 
-        @StarlarkMethod(name = "record", doc = "Records a value (an int or a float; milliseconds for times).",
-                parameters = {@Param(name = "value")})
         /**
          * {@code histogram.record(value)}.
          *
          * @param value an int or a float
          * @throws EvalException if it is not a finite number
          */
+        @StarlarkMethod(name = "record", doc = "Records a value (an int or a float; milliseconds for times).",
+                parameters = {@Param(name = "value")})
         public void record(Object value) throws EvalException {
             double v;
             if (value instanceof StarlarkInt i) {
@@ -228,12 +228,12 @@ public final class ScriptStats implements StarlarkValue {
             histogram.record(v);
         }
 
-        @StarlarkMethod(name = "count", doc = "How many values were recorded.", structField = true)
         /**
          * {@code histogram.count}.
          *
          * @return how many values were recorded
          */
+        @StarlarkMethod(name = "count", doc = "How many values were recorded.", structField = true)
         public StarlarkInt count() {
             return StarlarkInt.of(histogram.snapshot().count());
         }
