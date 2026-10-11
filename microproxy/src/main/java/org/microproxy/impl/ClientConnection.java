@@ -4482,8 +4482,11 @@ final class ClientConnection implements Runnable {
         boolean connecting = false;
         int failures = 0;
         long backoffBudget = server.backoffInitialNanos > 0 ? backoffBudgetNanos(ex) : 0;
+        ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
+            // The last attempt failed and this one takes over from it.
+            if (failedCluster != null) failedCluster.failover.inc();
             if (failures > 0 && backoffBudget > 0) {
                 backoffBudget -= backOff(ex, failures, backoffBudget, hostAndPort, proxy);
             }
@@ -4507,6 +4510,7 @@ final class ClientConnection implements Runnable {
                 }
                 last = e;
                 failures++;
+                if (server.stats.enabled) failedCluster = server.stats.cluster(proxy, hostAndPort);
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException || e instanceof UnresolvedChainedProxy);
                 if (proxy != null) {
@@ -4588,8 +4592,16 @@ final class ClientConnection implements Runnable {
                     + (next == null ? "a direct connection" : "chained proxy " + next.getChainedProxyAddress())
                     + " for " + hostAndPort + " after " + failures + " failed attempt" + (failures == 1 ? "" : "s"));
         }
+        ProxyStats.ClusterStats cluster = server.stats.enabled ? server.stats.cluster(next, hostAndPort)
+                : ProxyStats.ClusterStats.NOOP;
+        cluster.backoffEngaged.inc();
+        cluster.backoffActive.inc();
         long start = System.nanoTime();
-        ex.channel.awaitUnlessClientLeaves(start + wait);
+        try {
+            ex.channel.awaitUnlessClientLeaves(start + wait);
+        } finally {
+            cluster.backoffActive.dec();
+        }
         return System.nanoTime() - start;
     }
 
