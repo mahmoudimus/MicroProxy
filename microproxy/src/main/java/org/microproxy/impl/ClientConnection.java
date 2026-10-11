@@ -398,6 +398,8 @@ final class ClientConnection implements Runnable {
         int connectTimeoutMillis = -1;
         /** Whether TLS connections made for the exchange offer HTTP/2 (ALPN {@code h2}). */
         boolean offerHttp2;
+        /** The request goes to the server over TLS: its Alt-Svc may teach the proxy HTTP/3 ({@link Http3Origins}). */
+        boolean upstreamTls;
         /** The client sent {@code TE: trailers} (a hop-by-hop field, removed before the request goes on). */
         boolean trailersAccepted;
         /**
@@ -1277,9 +1279,21 @@ final class ClientConnection implements Runnable {
         boolean http2 = server.http2Origins != null && mode == Mode.TLS
                 && (mitmHostAndPort == null || sessionAllowsHttp2Upstream());
         ex.offerHttp2 = http2;
+        ex.upstreamTls = mode == Mode.TLS;
+        // HTTP/3 to a server known to speak it: only on direct connections, which carry nothing
+        // particular to one client (no tunnel through a hop, no PROXY header), and not for a
+        // proxy request or a WebSocket.
+        boolean http3 = server.http3Origins != null && mode == Mode.TLS && via == null && !ex.proxyForm && !webSocket
+                && !server.sendProxyProtocol;
+        // A server known to speak HTTP/3 gets the exchange over it, even when a TCP connection to
+        // it is at hand (the one an intercepted CONNECT made, say), which stays for later.
+        ServerConnection conn = http3 && server.http3Origins.http3Port(hostAndPort) >= 0 && directRoute(ex, hostAndPort)
+                ? http3Stream(ex, hostAndPort) : null;
         // Per-request leases always come fresh from the pool; otherwise reuse this client's own.
-        ServerConnection conn = pooled && leasesPerRequest(mode) ? null
-                : multiplexed ? takeStreamConnection(key, ex, hostAndPort) : serverConnections.get(key);
+        if (conn == null) {
+            conn = pooled && leasesPerRequest(mode) ? null
+                    : multiplexed ? takeStreamConnection(key, ex, hostAndPort) : serverConnections.get(key);
+        }
         if (conn != null && !conn.isOpen()) {
             serverConnections.remove(key, conn);
             conn = null;
@@ -1347,8 +1361,12 @@ final class ClientConnection implements Runnable {
                         return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
                     }
                 }
+                if (http3 && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
+                    // A stream on the HTTP/3 connection to the server, if it speaks HTTP/3.
+                    conn = http3Stream(ex, hostAndPort);
+                }
                 // A stream on an HTTP/2 connection to the server, if there is one with room.
-                http2Key = http2 ? http2Key(mode, hostAndPort, route.getFirst()) : null;
+                http2Key = http2 && conn == null ? http2Key(mode, hostAndPort, route.getFirst()) : null;
                 if (http2Key != null) {
                     try {
                         conn = server.http2Origins.stream(http2Key, ex.flow, hostAndPort, ex.log,
@@ -1431,6 +1449,40 @@ final class ClientConnection implements Runnable {
                 conn = null;
                 route = null;
             }
+        }
+    }
+
+    /** Whether {@code ex}'s request to {@code hostAndPort} goes straight to the server, through no chained proxy. */
+    private boolean directRoute(Exchange ex, String hostAndPort) {
+        List<ChainedProxy> route = routeFor(ex, hostAndPort);
+        return route != null && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION;
+    }
+
+    /**
+     * A stream on the HTTP/3 connection to {@code hostAndPort} for {@code ex}, made if needed, when
+     * the server is known to speak HTTP/3 ({@link Http3Origins}); null to go over TCP: the server
+     * is not known to, its QUIC handshake failed or timed out (now or recently), or the MITM
+     * manager validates servers in a way QUIC cannot ({@link MitmManager#serverTrustManager}).
+     */
+    private ServerConnection http3Stream(Exchange ex, String hostAndPort) {
+        javax.net.ssl.X509TrustManager trust = null;
+        MitmManager manager = connectionMitm;
+        try {
+            if (manager != null) {
+                HostAndPort target = HostAndPort.parse(hostAndPort, 443);
+                trust = manager.serverTrustManager(target.host(), target.port(),
+                        new FullFlowContext(ex.flow, hostAndPort, null, null));
+                if (trust == null) return null;
+            }
+            Http3UpstreamStream stream = server.http3Origins.stream(hostAndPort + mitmPoolKey(Mode.TLS), hostAndPort, trust,
+                    ex.flow, ex.log, ProxyUtils.isHEAD(ex.request), () -> resolveServer(hostAndPort, ex));
+            if (stream == null) return null;
+            if (stream.newConnection) connected(ex, stream);
+            if (LOG.isLoggable(Level.DEBUG)) LOG.log(Level.DEBUG, ex.log + "new stream on the HTTP/3 connection to " + hostAndPort);
+            return stream;
+        } catch (IOException | RuntimeException e) {
+            LOG.log(Level.DEBUG, ex.log + "no HTTP/3 stream to " + hostAndPort + ": " + e);
+            return null;
         }
     }
 
@@ -1722,6 +1774,10 @@ final class ClientConnection implements Runnable {
         int upstreamStatus = conn.responseStatus(response);
         ex.flow.upstreamStatus(upstreamStatus);
         server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
+        if (server.http3Origins != null && ex.upstreamTls && !(conn instanceof Http3UpstreamStream)) {
+            // Before filters or the h3 stripping see it: the server may speak HTTP/3.
+            server.http3Origins.learn(conn.hostAndPort, response.headers());
+        }
         if (ex.forwarding != null && response.status().code() / 100 == 2) {
             // The intercepted proxy opened the tunnel: forwardConnect takes it from here.
             ex.tunnelOpened = response;

@@ -135,7 +135,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile Http3Listener http3Listener;
     /** The Alt-Svc value that advertises the HTTP/3 listener on TCP responses; null for none. */
     volatile String http3AltSvc;
-
+    /** The QUIC connections to HTTP/3 servers; null without HTTP/3 upstream. */
+    final Http3Origins http3Origins;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -220,7 +221,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http3 = b.http3;
         this.http3Options = b.http3Options;
         this.http3Keys = b.http3 ? http3Keys(b) : null;
-
+        // Created only when enabled: the class needs the quic module.
+        this.http3Origins = b.http3Upstream ? new Http3Origins(this, b.http3UpstreamHosts) : null;
         if (http2 && mitmManager == null && sslContextSource == null) {
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
@@ -445,6 +447,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             Http3Listener listener = http3Listener;
             if (listener != null) listener.close();
             if (http2Origins != null) http2Origins.closeAll();
+            if (http3Origins != null) http3Origins.closeAll();
             if (pool != null) pool.closeAll();
             executor.shutdownNow();
             executor.awaitTermination(5, TimeUnit.SECONDS);
