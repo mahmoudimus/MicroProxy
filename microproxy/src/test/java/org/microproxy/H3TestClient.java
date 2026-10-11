@@ -69,6 +69,8 @@ final class H3TestClient implements AutoCloseable {
         int qpackBlockedStreams = 16;
         long encoderTableCapacity = 4096;
         long maxFieldSectionSize = 1 << 20;
+        /** Whether field sections stay within the server's SETTINGS_MAX_FIELD_SECTION_SIZE, as a well-behaved client's do. */
+        boolean obeyFieldSectionSize = true;
         Duration idleTimeout = Duration.ofSeconds(30);
     }
 
@@ -76,7 +78,8 @@ final class H3TestClient implements AutoCloseable {
     final QuicConnection quic;
     private final ReentrantLock encoderLock = new ReentrantLock();
     private final QpackEncoder encoder;
-    private final OutputStream encoderOut;
+    /** The client's QPACK encoder stream, for tests that write their own instructions on it. */
+    final OutputStream encoderOut;
     private final ReentrantLock decoderLock = new ReentrantLock();
     private final Condition decoderReady = decoderLock.newCondition();
     private final QpackDecoder decoder;
@@ -88,11 +91,13 @@ final class H3TestClient implements AutoCloseable {
     private long goAway = -1;
     private final List<Throwable> errors = new ArrayList<>();
     private final String authority;
+    private final boolean obeyFieldSectionSize;
 
     private H3TestClient(QuicClient client, QuicConnection quic, Options options, String authority) throws IOException {
         this.client = client;
         this.quic = quic;
         this.authority = authority;
+        this.obeyFieldSectionSize = options.obeyFieldSectionSize;
         this.encoder = new QpackEncoder(options.encoderTableCapacity);
         this.decoder = new QpackDecoder(options.qpackMaxTableCapacity, options.qpackBlockedStreams);
         decoder.setMaxFieldSectionSize(options.maxFieldSectionSize);
@@ -201,7 +206,12 @@ final class H3TestClient implements AutoCloseable {
                         }
                         encoderLock.lock();
                         try {
-                            encoder.applyPeerSettings(serverSettings);
+                            if (obeyFieldSectionSize) {
+                                encoder.applyPeerSettings(serverSettings);
+                            } else {
+                                encoder.setPeerSettings(serverSettings.qpackMaxTableCapacity(),
+                                        serverSettings.qpackBlockedStreams());
+                            }
                         } finally {
                             encoderLock.unlock();
                         }
@@ -369,6 +379,15 @@ final class H3TestClient implements AutoCloseable {
         all.add(new HeaderField("user-agent", "h3-test-client"));
         all.addAll(fields);
         return all;
+    }
+
+    /** Opens a request stream and sends {@code fields} as its HEADERS, ending the stream after them if {@code end}. */
+    QuicStream send(List<HeaderField> fields, boolean end) throws IOException {
+        QuicStream s = quic.openBidirectionalStream();
+        OutputStream out = s.getOutputStream();
+        new Http3FrameWriter(out).writeHeaders(encode(s.id(), fields));
+        if (end) out.close();
+        return s;
     }
 
     /** Sends a request (body and trailers optional) and reads its response. */
