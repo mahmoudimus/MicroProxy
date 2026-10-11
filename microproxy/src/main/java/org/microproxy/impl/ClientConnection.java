@@ -1275,7 +1275,8 @@ final class ClientConnection implements Runnable {
      *     https://} URI
      */
     private boolean proxyRequest(Exchange ex, String hostAndPort, boolean tls) throws IOException {
-        Mode mode = tls || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+        // (A reverse proxy's upstream says whether it is reached over TLS, whatever the client's scheme.)
+        Mode mode = tls || ex.channel.secureWebSocket() && server.reverseProxy == null ? Mode.TLS : Mode.PLAIN;
         if (mode == Mode.TLS && mitmHostAndPort == null && server.mitmManager != null) {
             // TLS to an https:// URI (or a reverse proxy's upstream) outside an intercepted
             // session: the manager's server trust applies, as it does to intercepted requests.

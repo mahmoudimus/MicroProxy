@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import io.github.mahmoudimus.http3.Http3ErrorCode;
 import io.github.mahmoudimus.http3.Http3Exception;
 import io.github.mahmoudimus.http3.Http3Headers;
+import io.github.mahmoudimus.http3.Http3Settings;
 import io.github.mahmoudimus.http3.Http3StreamValidator;
 import io.github.mahmoudimus.http3.RequestHeaders;
 import io.github.mahmoudimus.quic.QuicConnection;
@@ -109,6 +110,12 @@ final class Http3Connection extends Http3Endpoint {
     @Override
     Http3Frames.Origin frameOrigin() {
         return origin;
+    }
+
+    /** Extended {@code CONNECT} (RFC 9220): WebSockets over HTTP/3. */
+    @Override
+    void extensionSettings(Http3Settings.Builder settings) {
+        settings.enableConnectProtocol(true);
     }
 
     /** Serves the connection on the calling thread until it ends. */

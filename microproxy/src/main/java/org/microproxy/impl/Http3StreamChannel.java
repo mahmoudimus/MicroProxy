@@ -315,12 +315,13 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream {
 
     /**
      * The tunnel ended: a stream whose both directions finished is complete; otherwise the server
-     * side failed (or the client reset it), and what is left of the stream is reset with
-     * H3_CONNECT_ERROR (RFC 9114 section 4.4).
+     * side failed (or the client reset it), and what is left of the stream is reset: with
+     * H3_CONNECT_ERROR for a {@code CONNECT} (RFC 9114 section 4.4), with H3_REQUEST_CANCELLED for
+     * a WebSocket (RFC 9220 section 3, as RFC 8441's CANCEL).
      */
     private void closeTunnelStream() {
         if (writer.finished() && reader.ended()) return;
-        resetStream(Http3ErrorCode.H3_CONNECT_ERROR);
+        resetStream(protocol == null ? Http3ErrorCode.H3_CONNECT_ERROR : Http3ErrorCode.H3_REQUEST_CANCELLED);
     }
 
     /**
