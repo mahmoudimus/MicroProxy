@@ -42,6 +42,7 @@ import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicFraming;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
@@ -134,6 +135,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     TcpInterceptor tcpInterceptor;
     UdpInterceptor udpInterceptor;
     QuicInterceptor quicInterceptor;
+    QuicFraming quicFraming = QuicFraming.defaults();
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -204,6 +206,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.tcpInterceptor = tcpInterceptor;
         c.udpInterceptor = udpInterceptor;
         c.quicInterceptor = quicInterceptor;
+        c.quicFraming = quicFraming;
         return c;
     }
 
@@ -245,6 +248,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("quic_hosts")) {
             withQuicHosts(HostRules.split(p.getProperty("quic_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("quic_framing")) withQuicFraming(quicFraming.withRules(p.getProperty("quic_framing")));
+        if (p.containsKey("quic_max_message_size")) {
+            withQuicFraming(quicFraming.withMaxMessageSize(Integer.parseInt(p.getProperty("quic_max_message_size").strip())));
+        }
+        if (p.containsKey("quic_message_error_code")) {
+            withQuicFraming(quicFraming.withErrorCode(Long.decode(p.getProperty("quic_message_error_code").strip())));
         }
         if (p.containsKey("mode")) {
             String mode = p.getProperty("mode").strip();
@@ -869,6 +879,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public QuicInterceptor getQuicInterceptor() {
         return quicInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withQuicFraming(QuicFraming framing) {
+        this.quicFraming = Objects.requireNonNull(framing, "framing");
+        return this;
+    }
+
+    @Override
+    public QuicFraming getQuicFraming() {
+        return quicFraming;
     }
 
     @Override
