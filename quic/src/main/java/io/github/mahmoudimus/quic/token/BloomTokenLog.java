@@ -78,7 +78,7 @@ public final class BloomTokenLog implements TokenLog {
         double numBits = numBytes > Long.MAX_VALUE / 8 ? Long.MAX_VALUE : numBytes * 8.0;
         long hits = Math.max(expectedHits, 1);
         long k = Math.round(numBits / hits * Math.log(2));
-        return (int) Math.clamp(k, 1, Integer.MAX_VALUE);
+        return Math.clamp(k, 1, Integer.MAX_VALUE);
     }
 
     @Override
