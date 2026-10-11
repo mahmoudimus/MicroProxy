@@ -20,12 +20,28 @@ public final class EndpointConfig {
     final byte[] resetKey;
     final List<QuicVersion> supportedVersions;
     final Duration minResetInterval;
+    /** The endpoint's source of randomness, or null for a new {@link SecureRandom} per endpoint. */
+    final SecureRandom random;
 
     private EndpointConfig(Builder b) {
-        this.cidGenerator = b.cidGenerator;
-        this.resetKey = b.resetKey.clone();
+        this.random = b.random;
+        SecureRandom keys = b.random != null ? b.random : new SecureRandom();
+        this.cidGenerator = b.cidGenerator != null
+                ? b.cidGenerator
+                : new RandomConnectionIdGenerator(b.cidLength, -1, keys);
+        if (b.resetKey != null) {
+            this.resetKey = b.resetKey.clone();
+        } else {
+            this.resetKey = new byte[64];
+            keys.nextBytes(resetKey);
+        }
         this.supportedVersions = List.copyOf(b.supportedVersions);
         this.minResetInterval = b.minResetInterval;
+    }
+
+    /** The endpoint's source of randomness: the configured one, or a new {@link SecureRandom}. */
+    SecureRandom newRandom() {
+        return random != null ? random : new SecureRandom();
     }
 
     /**
@@ -67,14 +83,28 @@ public final class EndpointConfig {
 
     /** Builds an {@link EndpointConfig}. Not thread-safe. */
     public static final class Builder {
-        private ConnectionIdGenerator cidGenerator = new RandomConnectionIdGenerator();
+        private ConnectionIdGenerator cidGenerator;
+        private int cidLength = RandomConnectionIdGenerator.DEFAULT_LENGTH;
         private byte[] resetKey;
         private List<QuicVersion> supportedVersions = List.of(QuicVersion.V1, QuicVersion.V2);
         private Duration minResetInterval = Duration.ofMillis(20);
+        private SecureRandom random;
 
-        private Builder() {
-            resetKey = new byte[64];
-            new SecureRandom().nextBytes(resetKey);
+        private Builder() {}
+
+        /**
+         * The source of randomness for the endpoint and its connections: connection IDs (unless a
+         * {@link #cidGenerator} is set), the reset key (unless one is set), packet number skipping,
+         * padding, Retry and NEW_TOKEN nonces. By default each endpoint makes a {@link
+         * SecureRandom} of its own; a seeded one makes test runs reproducible, and must never be
+         * used outside tests.
+         *
+         * @param random the source, used from the endpoint's thread
+         * @return this builder
+         */
+        public Builder random(SecureRandom random) {
+            this.random = Objects.requireNonNull(random, "random");
+            return this;
         }
 
         /**
@@ -96,7 +126,11 @@ public final class EndpointConfig {
          * @return this builder
          */
         public Builder cidLength(int length) {
-            this.cidGenerator = new RandomConnectionIdGenerator(length, -1, new SecureRandom());
+            if (length < 0 || length > 20) {
+                throw new IllegalArgumentException("connection ID length " + length);
+            }
+            this.cidGenerator = null;
+            this.cidLength = length;
             return this;
         }
 

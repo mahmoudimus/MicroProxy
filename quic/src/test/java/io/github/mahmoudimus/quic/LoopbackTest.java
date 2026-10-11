@@ -197,6 +197,28 @@ class LoopbackTest {
     }
 
     @Test
+    void largeTransferWithBbr() throws Exception {
+        TransportConfig bbr = fastTransport().toBuilder()
+                .congestionControl(TransportConfig.CongestionControl.BBR)
+                .build();
+        byte[] d = data(7, 16 << 20);
+        try (EchoServer bbrEcho = new EchoServer(serverConfig(bbr));
+                QuicClient bbrClient = QuicClient.create(clientConfig(bbr));
+                QuicConnection c = bbrClient.connect(bbrEcho.server.localAddress(), "localhost", Duration.ofSeconds(10))) {
+            var controller = c.withLock(() -> c.connection().recovery().congestion());
+            assertTrue(controller instanceof io.github.mahmoudimus.quic.congestion.Bbr, "controller " + controller);
+            long start = System.nanoTime();
+            assertArrayEquals(sha256().digest(d), echo(c, d));
+            double seconds = (System.nanoTime() - start) / 1e9;
+            var metrics = c.withLock(() -> c.connection().recovery().congestion().metrics());
+            System.out.printf("loopback echo with BBR: %d MB each way in %.2f s = %.1f MB/s; %s; %s%n", d.length >> 20,
+                    seconds, 2.0 * d.length / 1e6 / seconds, c.stats(), metrics);
+            assertTrue(metrics.bandwidthEstimate() > 0, "metrics " + metrics);
+            assertTrue(bbrEcho.errors().isEmpty(), "server errors: " + bbrEcho.errors());
+        }
+    }
+
+    @Test
     void severalConnectionsInParallel() throws Exception {
         try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<?>> tasks = new ArrayList<>();

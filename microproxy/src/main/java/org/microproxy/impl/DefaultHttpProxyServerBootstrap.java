@@ -342,7 +342,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
                 || p.containsKey("http3_0rtt") || p.containsKey("http3_upstream_0rtt")
-                || p.containsKey("transparent_quic_relay_idle_timeout")) {
+                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
@@ -354,6 +354,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             if (p.containsKey("transparent_quic_relay_idle_timeout")) {
                 h3.transparentRelayIdleTimeout(Duration.ofSeconds(
                         Long.parseLong(p.getProperty("transparent_quic_relay_idle_timeout").strip())));
+            }
+            if (p.containsKey("quic_congestion")) {
+                h3.quicCongestionControl(Http3Options.QuicCongestionControl.parse(p.getProperty("quic_congestion")));
             }
             withHttp3Options(h3.build());
         }

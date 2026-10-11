@@ -96,7 +96,7 @@ public final class Endpoint {
     private final EndpointConfig config;
     private final ServerConfig serverConfig;
     private final boolean allowMtud;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final SecureRandom secureRandom;
     private final SplittableRandom random;
     private final TokenValidator tokenValidator;
     private final Map<ConnectionId, Connection> initialCids = new HashMap<>();
@@ -117,6 +117,7 @@ public final class Endpoint {
         this.config = Objects.requireNonNull(config, "config");
         this.serverConfig = serverConfig;
         this.allowMtud = allowMtud;
+        this.secureRandom = config.newRandom();
         this.random = new SplittableRandom(secureRandom.nextLong());
         this.tokenValidator = serverConfig != null ? serverConfig.tokenValidator(secureRandom) : null;
     }

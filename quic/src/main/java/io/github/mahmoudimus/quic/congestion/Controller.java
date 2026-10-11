@@ -37,6 +37,16 @@ public interface Controller {
     default void onAck(long now, long sent, long bytes, boolean appLimited, RttEstimator rtt) {}
 
     /**
+     * The delivery rate sample of a batch of acknowledgements, given after their {@link #onAck}
+     * calls and before {@link #onEndAcks}, when the batch acknowledged packets in flight. quinn has
+     * no such call.
+     *
+     * @param now the current time
+     * @param sample the sample
+     */
+    default void onRateSample(long now, RateSample sample) {}
+
+    /**
      * A batch of acknowledgements, all with the same {@code now}, is complete.
      *
      * @param now the current time
@@ -75,6 +85,18 @@ public interface Controller {
      * @return the ack-eliciting bytes that may be in flight
      */
     long window();
+
+    /**
+     * The rate the controller wants packets paced at. The connection's pacer sends at no more than
+     * this, nor than 1.25 congestion windows per smoothed RTT; a controller without a rate of its
+     * own leaves pacing to the window. quinn has no such method: its pacer always paces the window,
+     * and BBR's rate only reaches its metrics.
+     *
+     * @return bytes per second, or -1 to pace by the window alone
+     */
+    default long pacingRate() {
+        return -1;
+    }
 
     /**
      * Metrics for statistics and tracing.

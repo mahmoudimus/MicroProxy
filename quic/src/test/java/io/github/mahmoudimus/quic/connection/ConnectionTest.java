@@ -1345,4 +1345,27 @@ class ConnectionTest {
         assertArrayEquals(data, transfer(pair, client, server, data));
         assertInstanceOf(io.github.mahmoudimus.quic.congestion.NewReno.class, client.recovery().congestion());
     }
+
+    /**
+     * A poll that sends everything the application wrote leaves the connection application
+     * limited, as quinn's last poll_transmit, which builds nothing, does; a poll the congestion
+     * window stops does not.
+     */
+    @Test
+    void appLimitedAfterAPollRunsOutOfData() throws Exception {
+        Pair pair = new Pair();
+        Connection client = connected(pair)[0];
+        StreamId s = client.openStream(Dir.UNI);
+        client.write(s, ByteBuffer.wrap(new byte[3000]));
+        List<ByteBuffer> sent = client.pollTransmit(pair.time, 64);
+        assertFalse(sent.isEmpty());
+        assertTrue(client.recovery().isAppLimited(), "ran out of data");
+
+        // Fill the window: the poll stops at the window, not for lack of data
+        client.write(s, ByteBuffer.wrap(new byte[(int) client.congestionWindow() * 2]));
+        while (!client.pollTransmit(pair.time, 64).isEmpty()) {
+            assertFalse(client.recovery().isAppLimited());
+        }
+        assertFalse(client.recovery().isAppLimited(), "blocked by the window");
+    }
 }

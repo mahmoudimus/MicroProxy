@@ -368,6 +368,7 @@ final class Http3Origins {
                     .maxConcurrentUniStreams(16)
                     .streamReceiveWindow(options.streamReceiveWindow())
                     .receiveWindow(options.connectionReceiveWindow())
+                    .congestionControl(Http3Listener.congestionControl(options))
                     .build();
             ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
             InetSocketAddress local = server.localAddress;
