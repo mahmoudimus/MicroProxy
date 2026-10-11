@@ -52,12 +52,18 @@ import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.WebSocketFrame;
 import org.microproxy.http.WebSocketMessage;
+import org.microproxy.quic.QuicContext;
+import org.microproxy.quic.QuicDatagram;
+import org.microproxy.quic.QuicInterceptor;
+import org.microproxy.quic.QuicStreamContext;
+import org.microproxy.quic.QuicStreamMessage;
 import org.microproxy.tcp.TcpContext;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.tcp.TcpMessage;
 import org.microproxy.udp.UdpContext;
 import org.microproxy.udp.UdpInterceptor;
 import org.microproxy.udp.UdpMessage;
+import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -145,6 +151,16 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *       {@code UdpMessage}, one datagram, with the fields and results of a {@code TcpMessage};
  *       {@code ctx} is a {@code UdpContext}: the target, its resolved {@code address}, {@code
  *       vars} for the flow, and {@code send(from_client, data)} to add a datagram.
+ *   <li>{@code on_quic_start(ctx)}, {@code on_quic_stream_data(msg, ctx)}, {@code
+ *       on_quic_datagram(msg, ctx)} and {@code on_quic_end(ctx)}: for QUIC intercepted stream by
+ *       stream (see {@link QuicInterceptor}), when this object's {@link #quicInterceptor()} is
+ *       installed ({@code withQuicInterceptor}). {@code msg} is a {@code QuicMessage}, with the
+ *       fields and results of a {@code TcpMessage}: bytes of one read of a stream, or one datagram.
+ *       {@code ctx} is a {@code QuicContext}: the server, {@code sni}, {@code alpn}, {@code masque},
+ *       the stream ({@code stream_id}, {@code bidirectional}, {@code client_initiated}; {@code
+ *       None} outside {@code on_quic_stream_data}), {@code vars} for the connection, {@code error}
+ *       in {@code on_quic_end} after a failure, {@code send(from_client, data)} to add bytes to the
+ *       stream and {@code send_datagram(from_client, data)} to add a datagram.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm} or
@@ -794,6 +810,138 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 Thread.currentThread().interrupt();
             } finally {
                 f.lock.unlock();
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // QuicInterceptor
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether the script in use defines {@code on_quic_start}, {@code on_quic_stream_data}, {@code
+     * on_quic_datagram} or {@code on_quic_end}, so {@link #quicInterceptor()} is worth installing.
+     * Installing it makes the proxy intercept QUIC that is not HTTP/3 (see {@link QuicInterceptor}).
+     *
+     * @return whether the current script provides a QUIC hook
+     */
+    public boolean definesQuicHooks() {
+        StarlarkScript s = script();
+        return s.defines("on_quic_start") || s.defines("on_quic_stream_data") || s.defines("on_quic_datagram")
+                || s.defines("on_quic_end");
+    }
+
+    /**
+     * An interceptor that calls the script's {@code on_quic_start(ctx)}, {@code
+     * on_quic_stream_data(msg, ctx)}, {@code on_quic_datagram(msg, ctx)} and {@code on_quic_end(ctx)},
+     * for {@link org.microproxy.HttpProxyServerBootstrap#withQuicInterceptor}: QUIC intercepted
+     * stream by stream. The calls of one connection, which come from a thread per direction of each
+     * stream and of datagrams, run one at a time, so they can share {@code ctx.vars}. {@code
+     * on_quic_stream_data} and {@code on_quic_datagram} return what to send on: {@code None} or
+     * {@code True} for the message (as changed), {@code False} to drop it, or bytes, a string or a
+     * message to send instead. Bytes pass on unchanged when the script in use has no such hook, and
+     * when the call fails, which is logged.
+     *
+     * @return the interceptor
+     */
+    public QuicInterceptor quicInterceptor() {
+        return new ScriptQuicInterceptor();
+    }
+
+    /** One connection's script state: its {@code vars}, and the lock its calls take turns with. */
+    private static final class QuicConnectionState {
+        final Mutability mu = Mutability.create("quic");
+        final Dict<Object, Object> vars = Dict.of(mu);
+        final ReentrantLock lock = new ReentrantLock();
+    }
+
+    private final class ScriptQuicInterceptor implements QuicInterceptor {
+        private final Map<QuicContext, QuicConnectionState> connections = new ConcurrentHashMap<>();
+
+        private QuicConnectionState state(QuicContext context) {
+            return connections.computeIfAbsent(context.connection(), c -> new QuicConnectionState());
+        }
+
+        @Override
+        public void quicStart(QuicContext context) {
+            QuicConnectionState c = state(context);
+            StarlarkScript s = script();
+            if (s.defines("on_quic_start")) {
+                call(s, c, "on_quic_start", new ScriptQuicContext(context, null, c.vars, null));
+            }
+        }
+
+        @Override
+        public byte[] streamData(QuicStreamMessage message, QuicStreamContext stream) {
+            return data("on_quic_stream_data", message.data(), message.fromClient(), message.timestamp(), stream, stream);
+        }
+
+        @Override
+        public byte[] datagram(QuicDatagram datagram, QuicContext context) {
+            return data("on_quic_datagram", datagram.data(), datagram.fromClient(), datagram.timestamp(), context, null);
+        }
+
+        /** Calls a hook that decides what bytes to pass on. */
+        private byte[] data(String hook, byte[] data, boolean fromClient, java.time.Instant timestamp, QuicContext context,
+                QuicStreamContext stream) {
+            StarlarkScript s = script();
+            if (!s.defines(hook)) return data;
+            QuicConnectionState c = state(context);
+            ScriptQuicMessage m = new ScriptQuicMessage(data, fromClient, timestamp);
+            c.lock.lock();
+            try {
+                Object r = s.call(hook, c.mu, m, new ScriptQuicContext(context.connection(), stream, c.vars, null));
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
+                if (r == Boolean.FALSE) return null;
+                if (r instanceof ScriptQuicMessage other) return other.data();
+                if (r instanceof String || r instanceof StarlarkBytes) return Builtins.bytes(r, "the result");
+                throw Starlark.errorf("%s must return None, True, False, bytes, a string or a message, not %s", hook,
+                        Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": " + hook + " failed; passing the bytes on: " + e.getMessageWithStack());
+                return data;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return data;
+            } finally {
+                c.lock.unlock();
+            }
+        }
+
+        @Override
+        public void quicEnd(QuicContext context) {
+            end(context, null);
+        }
+
+        @Override
+        public void quicError(QuicContext context, Throwable error) {
+            end(context, error);
+        }
+
+        private void end(QuicContext context, Throwable error) {
+            QuicConnectionState c = connections.remove(context.connection());
+            if (c == null) c = new QuicConnectionState();
+            StarlarkScript s = script();
+            if (!s.defines("on_quic_end")) return;
+            String why = null;
+            if (error != null) {
+                why = error.getMessage() == null || error.getMessage().isEmpty() ? error.getClass().getSimpleName()
+                        : error.getMessage();
+            }
+            call(s, c, "on_quic_end", new ScriptQuicContext(context, null, c.vars, why));
+        }
+
+        /** Calls a hook whose result does not matter; a failure is logged. */
+        private void call(StarlarkScript s, QuicConnectionState c, String hook, Object... args) {
+            c.lock.lock();
+            try {
+                s.call(hook, c.mu, args);
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                c.lock.unlock();
             }
         }
     }

@@ -2155,6 +2155,7 @@ bootstrap.start();
 | `on_frame(frame, ctx)` | for each HTTP/2 and HTTP/3 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `on_udp_start(ctx)`, `on_udp_message(msg, ctx)`, `on_udp_end(ctx)` | for CONNECT-UDP flows, when the script defines one of them (see [UDP](#udp-hooks)): when a flow opens, for each datagram, and when it ends | `on_udp_message`: as `on_tcp_message`, for one datagram |
+| `on_quic_start(ctx)`, `on_quic_stream_data(msg, ctx)`, `on_quic_datagram(msg, ctx)`, `on_quic_end(ctx)` | for QUIC that is not HTTP/3, intercepted stream by stream, when the script defines one of them (see [QUIC](#quic-hooks)): when a connection is intercepted, for the bytes of each read of a stream, for each datagram, and when it ends | `on_quic_stream_data`: as `on_tcp_message`; `on_quic_datagram`: as `on_udp_message` |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2717,11 +2718,45 @@ def on_udp_message(msg, ctx):
         return msg.text + " (via MicroProxy)"
 ```
 
+<a id="quic-hooks"></a>**QUIC.** A script that defines `on_quic_start(ctx)`, `on_quic_stream_data(msg,
+ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the streams and datagrams of QUIC
+that the proxy intercepts without speaking its protocol ([QUIC stream hooks](#quic-stream-hooks)).
+`--script` installs the QUIC interceptor only when the script defines one of these hooks when it
+loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relayed (from Java:
+`bootstrap.withQuicInterceptor(script.quicInterceptor())` when `script.definesQuicHooks()`).
+
+- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`: the bytes of
+  one read of a stream for `on_quic_stream_data` (a stream has no message boundaries either), one
+  datagram for `on_quic_datagram`.
+- `ctx`: a `QuicContext`: `connection_id`, `client_ip`, `client_port`, `host`, `port`, `server`,
+  `address` (where the proxy connected), `sni`, `alpn`, `masque` (whether the QUIC came inside a
+  CONNECT-UDP flow), `vars`, a dict that lives as long as the connection and that its streams
+  share, and `error` in `on_quic_end` after a failure. In `on_quic_stream_data`, `stream_id` (on
+  the client's connection), `bidirectional` and `client_initiated` name the stream (`None`
+  elsewhere), and `ctx.send(from_client, data)` adds bytes to it. `ctx.send_datagram(from_client,
+  data)` adds a datagram.
+- The hooks of one connection run one at a time, though its streams are read concurrently. A
+  failing hook is logged and the bytes passed on unchanged.
+
+```python
+def on_quic_start(ctx):
+    log.info("QUIC %s to %s for %s" % (ctx.alpn, ctx.server, ctx.client_ip))
+
+def on_quic_stream_data(msg, ctx):
+    # A stream is a byte stream, as TCP is: a message is whatever one read returned.
+    if not msg.from_client and msg.text != None:
+        return msg.text.replace("secret", "******")
+
+def on_quic_datagram(msg, ctx):
+    if msg.from_client and msg.text == "blocked":
+        return False
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
 `Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame`, `FrameContext`,
-`TcpMessage`, `TcpContext`, `UdpMessage` and `UdpContext`:
+`TcpMessage`, `TcpContext`, `UdpMessage`, `UdpContext`, `QuicMessage` and `QuicContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]

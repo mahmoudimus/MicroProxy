@@ -46,15 +46,15 @@ import org.microproxy.tls.CertificateAuthority;
  * <p>A unidirectional stream from the client is recorded as {@code uni <text>} and answered on a
  * unidirectional stream of the server's with {@code uni-echo:<text>}. Datagrams are echoed.
  */
-final class QuicEchoOrigin implements AutoCloseable {
+public final class QuicEchoOrigin implements AutoCloseable {
 
-    final QuicServer server;
+    public final QuicServer server;
     /** What the server saw, in order. */
-    final List<String> events = new CopyOnWriteArrayList<>();
+    public final List<String> events = new CopyOnWriteArrayList<>();
     /** Each connection the server accepted, with its ALPN. */
     final LinkedBlockingQueue<QuicConnection> accepted = new LinkedBlockingQueue<>();
 
-    QuicEchoOrigin(CertificateAuthority ca, String... alpn) throws Exception {
+    public QuicEchoOrigin(CertificateAuthority ca, String... alpn) throws Exception {
         KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
         g.initialize(new ECGenParameterSpec("secp256r1"));
         KeyPair keys = g.generateKeyPair();
@@ -72,7 +72,7 @@ final class QuicEchoOrigin implements AutoCloseable {
         Thread.ofVirtual().name("quic-echo-acceptor").start(this::acceptLoop);
     }
 
-    int port() {
+    public int port() {
         return server.localAddress().getPort();
     }
 
