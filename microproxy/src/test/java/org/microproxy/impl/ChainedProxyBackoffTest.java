@@ -91,6 +91,42 @@ class ChainedProxyBackoffTest {
         assertEquals(0, ClientConnection.backoffNanos(3, 100, 1000, 0.0));
     }
 
+    /** The stat {@code name} of the cluster of chained proxy {@code proxy}. */
+    private long clusterStat(ChainedProxy proxy, String name) {
+        InetSocketAddress a = proxy.getChainedProxyAddress();
+        org.microproxy.stats.Metric m = this.proxy.getStats().get("cluster."
+                + org.microproxy.stats.TagExtractor.sanitize(a.getHostString() + "_" + a.getPort()) + "." + name);
+        return m == null ? 0 : m instanceof org.microproxy.stats.Counter c ? c.value() : ((org.microproxy.stats.Gauge) m).value();
+    }
+
+    @Test
+    void failoversAndBackoffsAreCountedPerCluster() throws Exception {
+        ChainedProxy first = refused();
+        ChainedProxy second = refused();
+        start(MicroProxy.bootstrap().withMetrics(true)
+                        .withChainedProxyRetryBackoff(Duration.ofMillis(400), Duration.ofMillis(400)),
+                first, second, ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        String url = origin();
+        AtomicReference<long[]> result = new AtomicReference<>();
+        Thread request = Thread.ofVirtual().start(() -> result.set(timedGet(url)));
+        // While it waits before trying the second proxy, the second proxy's cluster is backing off
+        TestSupport.eventually("the second proxy backing off", () -> clusterStat(second, "backoff_active") == 1);
+        request.join(10_000);
+        assertEquals(200, result.get()[0]);
+        org.microproxy.stats.StatsRegistry r = proxy.getStats();
+        assertEquals(1, clusterStat(first, "upstream_cx_connect_fail"));
+        assertEquals(1, clusterStat(first, "failover"));
+        assertEquals(0, clusterStat(first, "backoff_engaged"), "the first attempt never waits");
+        assertEquals(1, clusterStat(second, "upstream_cx_connect_fail"));
+        assertEquals(1, clusterStat(second, "failover"));
+        assertEquals(1, clusterStat(second, "backoff_engaged"));
+        assertEquals(0, clusterStat(second, "backoff_active"));
+        assertEquals(1, ((org.microproxy.stats.Counter) r.get("cluster.direct.backoff_engaged")).value());
+        assertEquals(0, ((org.microproxy.stats.Counter) r.get("cluster.direct.failover")).value());
+        assertEquals(0, ((org.microproxy.stats.Gauge) r.get("cluster.direct.backoff_active")).value());
+        assertEquals(1, ((org.microproxy.stats.Counter) r.get("cluster.direct.upstream_rq_2xx")).value());
+    }
+
     @Test
     void noWaitingUnlessConfigured() throws Exception {
         start(MicroProxy.bootstrap(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
