@@ -5,9 +5,11 @@ import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+import org.microproxy.KeyMaterial;
 import org.microproxy.SslContextSource;
 
 /**
@@ -20,6 +22,8 @@ public class SelfSignedSslContextSource implements SslContextSource {
 
     private final X509Certificate certificate;
     private final SSLContext sslContext;
+    /** The certificate and its key, when they are presented (sendCerts); else null. */
+    private final KeyMaterial keyMaterial;
 
     /**
      * Creates a TLS context source with a generated self-signed certificate.
@@ -66,6 +70,7 @@ public class SelfSignedSslContextSource implements SslContextSource {
                     : SslContexts.trustManagers(certificate);
             sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagers, trustManagers, null);
+            keyMaterial = sendCerts ? new KeyMaterial(List.of(certificate), keyPair.getPrivate()) : null;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("unable to create self-signed certificate", e);
         }
@@ -74,6 +79,15 @@ public class SelfSignedSslContextSource implements SslContextSource {
     @Override
     public SSLContext getSslContext() {
         return sslContext;
+    }
+
+    /**
+     * The generated certificate and its key, for the HTTP/3 listener; null when this source does
+     * not present its certificate.
+     */
+    @Override
+    public KeyMaterial getKeyMaterial(String serverName) {
+        return keyMaterial;
     }
 
     /** {@return the certificate presented by this source} */

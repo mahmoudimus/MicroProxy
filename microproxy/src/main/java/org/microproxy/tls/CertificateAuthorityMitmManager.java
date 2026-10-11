@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
+import org.microproxy.KeyMaterial;
 import org.microproxy.MitmManager;
 import org.microproxy.http.HttpRequest;
 
@@ -31,12 +32,15 @@ public class CertificateAuthorityMitmManager implements MitmManager {
 
     private record CachedContext(SSLContext context, long createdMillis) {}
 
+    private record CachedKey(KeyMaterial key, long createdMillis) {}
+
     private final CertificateAuthority authority;
     private final SSLContext upstreamContext;
     private final KeyPair leafKeyPair = CertificateAuthority.newEcKeyPair();
     private final ReentrantLock cacheLock = new ReentrantLock();
     private final int maxCachedHosts;
     private final Map<String, CachedContext> contexts;
+    private final Map<String, CachedKey> keys;
 
     /**
      * Intercepts with {@code authority}, validating real servers against the JDK trust store.
@@ -78,6 +82,43 @@ public class CertificateAuthorityMitmManager implements MitmManager {
                 return size() > CertificateAuthorityMitmManager.this.maxCachedHosts;
             }
         };
+        this.keys = new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, CachedKey> eldest) {
+                return size() > CertificateAuthorityMitmManager.this.maxCachedHosts;
+            }
+        };
+    }
+
+    /**
+     * A certificate for {@code host} issued by this manager's CA, with its private key: what the
+     * HTTP/3 listener of a reverse proxy presents ({@link org.microproxy.HttpProxyServerBootstrap#withHttp3})
+     * when the proxy has no TLS listener of its own. Cached per host like the interception
+     * certificates, and re-issued after a day.
+     *
+     * @param host the DNS name or IP literal the certificate is for
+     * @return the certificate, followed by the CA's, and its key
+     */
+    public KeyMaterial keyMaterialFor(String host) {
+        long now = System.currentTimeMillis();
+        cacheLock.lock();
+        try {
+            CachedKey cached = keys.get(host);
+            if (cached != null && now - cached.createdMillis() < MAX_CACHE_AGE_MILLIS) {
+                return cached.key();
+            }
+        } finally {
+            cacheLock.unlock();
+        }
+        X509Certificate leaf = authority.issue(leafKeyPair.getPublic(), List.of(host));
+        KeyMaterial key = new KeyMaterial(List.of(leaf, authority.getCertificate()), leafKeyPair.getPrivate());
+        cacheLock.lock();
+        try {
+            keys.put(host, new CachedKey(key, now));
+        } finally {
+            cacheLock.unlock();
+        }
+        return key;
     }
 
     /** {@return number of hosts with a cached certificate} */

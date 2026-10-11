@@ -7,25 +7,94 @@ import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.X509TrustManager;
 
-/** Small factory methods for {@link SSLContext}s. */
+/**
+ * Small factory methods for {@link SSLContext}s. The contexts made here remember how they validate
+ * servers ({@link #trustManagerOf}), so that TLS stacks other than the JDK's, such as QUIC's to
+ * HTTP/3 servers, can validate servers the same way.
+ */
 public final class SslContexts {
 
     private static final char[] EPHEMERAL_PASSWORD = "microproxy".toCharArray();
 
+    /** The trust manager of each context made here; weak, so contexts can be collected. */
+    private static final Map<SSLContext, X509TrustManager> TRUST = new WeakHashMap<>();
+    private static final ReentrantLock TRUST_LOCK = new ReentrantLock();
+
     private SslContexts() {}
+
+    /**
+     * How a context made by this class validates servers: its trust manager, which trusts every
+     * server for {@link #trustAll()}. Contexts made elsewhere are unknown, except the JDK's
+     * default context ({@link SSLContext#getDefault()}), whose trust is the JDK's default trust
+     * store.
+     *
+     * @param context the context
+     * @return its trust manager, or null if it is unknown
+     */
+    public static X509TrustManager trustManagerOf(SSLContext context) {
+        if (context == null) return null;
+        TRUST_LOCK.lock();
+        try {
+            X509TrustManager known = TRUST.get(context);
+            if (known != null) return known;
+        } finally {
+            TRUST_LOCK.unlock();
+        }
+        try {
+            if (context == SSLContext.getDefault()) return remember(context, defaultTrustManager());
+        } catch (GeneralSecurityException e) {
+            return null;
+        }
+        return null;
+    }
+
+    /** Whether {@code trustManager} trusts every server without checking ({@link #trustAll()}). */
+    public static boolean trustsAll(X509TrustManager trustManager) {
+        return trustManager instanceof TrustingTrustManager;
+    }
+
+    private static X509TrustManager remember(SSLContext context, X509TrustManager trustManager) {
+        if (trustManager == null) return null;
+        TRUST_LOCK.lock();
+        try {
+            TRUST.put(context, trustManager);
+        } finally {
+            TRUST_LOCK.unlock();
+        }
+        return trustManager;
+    }
+
+    private static X509TrustManager firstX509(TrustManager[] managers) {
+        if (managers == null) return null;
+        for (TrustManager tm : managers) {
+            if (tm instanceof X509TrustManager x) return x;
+        }
+        return null;
+    }
+
+    private static X509TrustManager defaultTrustManager() throws GeneralSecurityException {
+        TrustManagerFactory system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        system.init((KeyStore) null);
+        return firstX509(system.getTrustManagers());
+    }
 
     /** {@return a context using the JDK's default trust store and no client certificate} */
     public static SSLContext systemDefault() {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(null, null, null);
+            remember(context, defaultTrustManager());
             return context;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
@@ -40,7 +109,9 @@ public final class SslContexts {
     public static SSLContext trustAll() {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, new TrustManager[] {new TrustingTrustManager()}, null);
+            TrustingTrustManager trusting = new TrustingTrustManager();
+            context.init(null, new TrustManager[] {trusting}, null);
+            remember(context, trusting);
             return context;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
@@ -56,7 +127,9 @@ public final class SslContexts {
     public static SSLContext trusting(X509Certificate... anchors) {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, trustManagers(anchors), null);
+            TrustManager[] managers = trustManagers(anchors);
+            context.init(null, managers, null);
+            remember(context, firstX509(managers));
             return context;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
@@ -74,7 +147,9 @@ public final class SslContexts {
     public static SSLContext systemDefaultPlus(X509Certificate... extraAnchors) {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, new TrustManager[] {systemDefaultPlusTrustManager(extraAnchors)}, null);
+            X509ExtendedTrustManager merged = systemDefaultPlusTrustManager(extraAnchors);
+            context.init(null, new TrustManager[] {merged}, null);
+            remember(context, merged);
             return context;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
@@ -108,6 +183,7 @@ public final class SslContexts {
         try {
             SSLContext context = SSLContext.getInstance("TLS");
             context.init(keyManagers(key, chain), trustManagers, null);
+            remember(context, trustManagers == null ? defaultTrustManager() : firstX509(trustManagers));
             return context;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);

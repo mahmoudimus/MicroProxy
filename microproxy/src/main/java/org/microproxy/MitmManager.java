@@ -5,6 +5,7 @@ import java.util.function.Function;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.X509TrustManager;
 import org.microproxy.http.HttpRequest;
 
 /**
@@ -52,6 +53,24 @@ public interface MitmManager {
      */
     default SSLContext serverSslContext(String peerHost, int peerPort, FlowContext flow) {
         return serverSslContext(peerHost, peerPort);
+    }
+
+    /**
+     * How servers are validated where the proxy's TLS is not the JDK's: on QUIC connections to
+     * HTTP/3 servers ({@link HttpProxyServerBootstrap#withHttp3Upstream}). The default is the
+     * trust manager of {@link #serverSslContext(String, int, FlowContext)} when that context came
+     * from {@link org.microproxy.tls.SslContexts} (as {@link
+     * org.microproxy.tls.CertificateAuthorityMitmManager}'s do), and null otherwise, which keeps
+     * the server on TCP, where the context applies. Server names are checked as HTTPS does,
+     * unless the trust manager trusts every server ({@link org.microproxy.tls.SslContexts#trustAll()}).
+     *
+     * @param peerHost the real server host name
+     * @param peerPort the real server port
+     * @param flow a {@link FullFlowContext} naming the server
+     * @return the trust manager, or null to keep the server on TCP
+     */
+    default X509TrustManager serverTrustManager(String peerHost, int peerPort, FlowContext flow) {
+        return org.microproxy.tls.SslContexts.trustManagerOf(serverSslContext(peerHost, peerPort, flow));
     }
 
     /**
