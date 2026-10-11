@@ -57,6 +57,7 @@ import org.microproxy.quic.QuicDatagram;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.quic.QuicStreamContext;
 import org.microproxy.quic.QuicStreamMessage;
+import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tcp.TcpContext;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.tcp.TcpMessage;
@@ -181,6 +182,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private final ChainedProxyManager fallback;
     private final Map<String, Object> constants;
     private final ProtoSchema protoSchema;
+    private final StatsRegistry stats;
     private final ReentrantLock reloadLock = new ReentrantLock();
     private volatile StarlarkScript script;
     private volatile FileTime loadedModified;
@@ -194,6 +196,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.fallback = b.fallback;
         this.constants = b.constants;
         this.protoSchema = b.protoSchema;
+        this.stats = b.stats;
         this.script = script;
         this.loadedModified = modified;
         this.lastCheck = System.nanoTime();
@@ -231,6 +234,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private ChainedProxyManager fallback;
         private Map<String, Object> constants = Map.of();
         private ProtoSchema protoSchema;
+        private StatsRegistry stats;
 
         private Builder(Path path, String source, String name) {
             this.path = path;
@@ -319,6 +323,20 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         }
 
         /**
+         * The registry the script's {@code stats} module counts into, as {@code script.<name>}
+         * ({@link ScriptStats}); usually the proxy's ({@link
+         * org.microproxy.HttpProxyServerBootstrap#getStats()}). Without one, or with {@link
+         * StatsRegistry#NOOP}, the script's metrics count nothing.
+         *
+         * @param stats the registry, or null for none
+         * @return this builder
+         */
+        public Builder stats(StatsRegistry stats) {
+            this.stats = stats;
+            return this;
+        }
+
+        /**
          * Compiles the script and runs its top level.
          *
          * @return a proxy using the compiled script
@@ -329,10 +347,10 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
                 return new ScriptedProxy(this,
-                        StarlarkScript.load(path, limits, constants).withProtoSchema(protoSchema), modified);
+                        StarlarkScript.load(path, limits, constants, stats).withProtoSchema(protoSchema), modified);
             }
             return new ScriptedProxy(this,
-                    StarlarkScript.compile(source, name, limits, constants).withProtoSchema(protoSchema), null);
+                    StarlarkScript.compile(source, name, limits, constants, stats).withProtoSchema(protoSchema), null);
         }
     }
 
@@ -348,7 +366,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 FileTime modified = Files.getLastModifiedTime(path);
                 if (!modified.equals(loadedModified)) {
                     loadedModified = modified;
-                    script = StarlarkScript.load(path, limits, constants).withProtoSchema(protoSchema);
+                    script = StarlarkScript.load(path, limits, constants, stats).withProtoSchema(protoSchema);
                     LOG.log(Level.INFO, "reloaded {0}", path);
                 }
             } catch (IOException | ScriptException e) {

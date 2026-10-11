@@ -48,7 +48,7 @@ import org.microproxy.thirdparty.starlark.lib.json.Json;
  * The names every proxy script sees besides the Starlark built-ins: {@code response()}, {@code
  * websocket_message()} and the
  * modules {@code json}, {@code re}, {@code base64}, {@code digest}, {@code codecs}, {@code url},
- * {@code time}, {@code log}, {@code protobuf} and {@code grpc} (see {@link ProtoBuiltins}), and
+ * {@code time}, {@code log}, {@code stats} (see {@link ScriptStats}), {@code protobuf} and {@code grpc} (see {@link ProtoBuiltins}), and
  * {@code h2} and {@code h3}, which make frames for {@code on_frame}.
  */
 final class Builtins {
@@ -69,6 +69,8 @@ final class Builtins {
         env.put("grpc", new ProtoBuiltins.GrpcModule());
         env.put("h2", new H2Module());
         env.put("h3", new H3Module());
+        // The script's metrics: a proxy with metrics gives each script a module of its own registry.
+        env.put("stats", ScriptStats.NOOP);
         Starlark.addMethods(env, new Functions());
         // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
         env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));
