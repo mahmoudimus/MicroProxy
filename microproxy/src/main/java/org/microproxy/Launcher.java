@@ -38,6 +38,7 @@ import org.microproxy.extras.StickyCookie;
 import org.microproxy.simd.Simd;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
+import org.microproxy.tls.KeyStoreSslContextSource;
 import org.microproxy.tls.SslContexts;
 import org.microproxy.warc.WarcRecorder;
 
@@ -135,6 +136,22 @@ public final class Launcher {
                                            listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
+              --http3                      in reverse mode, also serve HTTP/3 (QUIC) on the UDP port
+                                           with the listener's number, advertised with Alt-Svc on
+                                           TCP responses; needs the quic and http3-codec jars, and a
+                                           certificate (--listener-keystore, or --mitm's CA)
+              --http3-upstream             speak HTTP/3 to servers that advertise it (Alt-Svc h3),
+                                           one shared QUIC connection per server, falling back to
+                                           TCP; needs the quic and http3-codec jars
+              --http3-upstream-hosts <regex>  reach matching host:port names over HTTP/3 without
+                                           waiting for Alt-Svc (with --http3-upstream); repeatable
+              --http3-max-streams <n>      concurrent HTTP/3 requests per client connection
+                                           (default 100)
+              --no-http3-alt-svc           with --http3, do not advertise it with Alt-Svc
+              --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
+                                           store's first key entry (HTTPS, HTTP/2 with --http2, and
+                                           the certificate --http3 presents)
+              --listener-keystore-password <pw>  the key store's password (default empty)
 
               Addons, as in mitmproxy (repeatable; a spec starts with its separator, here |):
               --map-local <spec>           answer from local files: [|filter]|url-regex|file-or-dir
@@ -263,6 +280,11 @@ public final class Launcher {
         Path protoDescriptors = null;
         int maxConcurrentPerClient = 0;
         int http2MaxStreams = 0;
+        int http3MaxStreams = 0;
+        boolean noHttp3AltSvc = false;
+        List<String> http3UpstreamHosts = new ArrayList<>();
+        Path listenerKeystore = null;
+        String listenerKeystorePassword = "";
         List<AutoCloseable> resources = new ArrayList<>();
         List<String> ignoreHosts = new ArrayList<>();
         List<String> allowHosts = new ArrayList<>();
@@ -437,6 +459,13 @@ public final class Launcher {
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
                 case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
+                case "--http3" -> bootstrap.withHttp3(true);
+                case "--http3-upstream" -> bootstrap.withHttp3Upstream(true);
+                case "--http3-upstream-hosts" -> http3UpstreamHosts.add(value(queue, arg));
+                case "--http3-max-streams" -> http3MaxStreams = intValue(queue, arg);
+                case "--no-http3-alt-svc" -> noHttp3AltSvc = true;
+                case "--listener-keystore" -> listenerKeystore = Path.of(value(queue, arg));
+                case "--listener-keystore-password" -> listenerKeystorePassword = value(queue, arg);
                 default -> {
                     if (extensions.stream().noneMatch(e -> e.parseOption(arg, queue))) {
                         throw new IllegalArgumentException("unknown option: " + arg + "\n\n" + usage);
@@ -469,6 +498,16 @@ public final class Launcher {
         }
         if (http2MaxStreams > 0) {
             bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
+        }
+        if (http3MaxStreams > 0 || noHttp3AltSvc) {
+            Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
+            if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
+            if (noHttp3AltSvc) h3.altSvc(false);
+            bootstrap.withHttp3Options(h3.build());
+        }
+        if (!http3UpstreamHosts.isEmpty()) bootstrap.withHttp3UpstreamHosts(http3UpstreamHosts.toArray(String[]::new));
+        if (listenerKeystore != null) {
+            bootstrap.withSslContextSource(new KeyStoreSslContextSource(listenerKeystore, listenerKeystorePassword.toCharArray()));
         }
         if (maxConcurrentPerClient > 0) {
             // In place of a limiter from the properties file, else before the other filters, so

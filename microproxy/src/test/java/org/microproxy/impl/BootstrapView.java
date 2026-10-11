@@ -77,6 +77,26 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;
     }
 
+    /** Whether a reverse proxy serves HTTP/3 ({@code withHttp3}). */
+    public static boolean http3(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http3;
+    }
+
+    /** Whether HTTP/3 to servers is enabled ({@code withHttp3Upstream}). */
+    public static boolean http3Upstream(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http3Upstream;
+    }
+
+    /** The servers reached over HTTP/3 without Alt-Svc ({@code withHttp3UpstreamHosts}). */
+    public static java.util.List<String> http3UpstreamHosts(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http3UpstreamHosts;
+    }
+
+    /** The TLS listener's source ({@code withSslContextSource}), or null. */
+    public static org.microproxy.SslContextSource sslContextSource(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).sslContextSource;
+    }
+
     /** Whether HTTP/2 to servers is enabled ({@code withHttp2Upstream}). */
     public static boolean http2Upstream(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Upstream;
