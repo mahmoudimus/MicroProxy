@@ -220,6 +220,46 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Makes the listener a SOCKS server (mitmproxy's {@code socks5} mode): SOCKS5 (RFC 1928), and
+     * SOCKS4 and 4a, with the {@code CONNECT} command only. With a {@link #withProxyAuthenticator
+     * proxy authenticator}, SOCKS5 clients authenticate with a username and password (RFC 1929),
+     * which the authenticator sees as {@code Proxy-Authorization: Basic}; a client without
+     * credentials, SOCKS4's included, may proceed only if the authenticator accepts a request
+     * without them.
+     *
+     * <p>Each request is served as a {@code CONNECT} to its destination would be, a {@code CONNECT}
+     * that filters and trackers see but that the client never sent: routing and chained proxies,
+     * the server connection, then the client's first bytes decide (see {@link
+     * HttpFilters#proxyToServerAllowMitm(ClientHello)}): TLS is intercepted or tunnelled, plain HTTP
+     * is served as HTTP, through the filters, even without a {@link #withManInTheMiddle MITM
+     * manager}, and anything else is tunnelled. The client is answered once the server is
+     * connected, with a reply code that tells why it could not be. {@link
+     * FlowContext#socksVersion()} tells such clients apart. Off by default; starting fails with
+     * {@link #withReverseProxy} or {@link #withSslContextSource}.
+     *
+     * @param socks whether the listener serves SOCKS clients only
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withSocksServer(boolean socks) {
+        if (!socks) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support SOCKS clients");
+    }
+
+    /**
+     * Serves SOCKS clients on the listener besides HTTP ones, told apart by their first byte: 5
+     * for SOCKS5, 4 for SOCKS4 and 4a, which no HTTP request starts with. They are served as with
+     * {@link #withSocksServer}, and not with a reverse proxy or a TLS listener either. Off by
+     * default.
+     *
+     * @param detect whether to serve SOCKS clients too
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withSocksDetection(boolean detect) {
+        if (!detect) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support SOCKS clients");
+    }
+
+    /**
      * In {@linkplain #withReverseProxy reverse proxy} mode, keeps the {@code Host} field the client
      * sent instead of setting it to the upstream's (mitmproxy's {@code keep_host_header}). Off by
      * default.
