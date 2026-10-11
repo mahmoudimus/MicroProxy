@@ -18,7 +18,7 @@ import java.util.Random;
  */
 public record UnknownParameter(long id, byte[] value) {
 
-    /** The longest value {@link #grease} generates, as quinn, quic-go and quiche do. */
+    /** The bound on the length of the values {@link #grease} generates, as in quinn. */
     public static final int MAX_GREASE_LENGTH = 16;
 
     /**
