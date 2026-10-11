@@ -16,6 +16,12 @@ public record HttpVersion(int majorVersion, int minorVersion) {
      * line; the proxy forwards such requests to servers as HTTP/1.1.
      */
     public static final HttpVersion HTTP_2_0 = new HttpVersion(2, 0);
+    /**
+     * HTTP/3: the version of requests that arrived on an HTTP/3 (QUIC) stream, and of responses
+     * from servers reached over HTTP/3. Like HTTP/2 it has no request line; the proxy forwards such
+     * requests to HTTP/1.1 servers as HTTP/1.1.
+     */
+    public static final HttpVersion HTTP_3_0 = new HttpVersion(3, 0);
 
     /**
      * Creates a protocol version.
@@ -43,6 +49,7 @@ public record HttpVersion(int majorVersion, int minorVersion) {
                 if (major == '1' && minor == '1') return HTTP_1_1;
                 if (major == '1' && minor == '0') return HTTP_1_0;
                 if (major == '2' && minor == '0') return HTTP_2_0;
+                if (major == '3' && minor == '0') return HTTP_3_0;
                 return new HttpVersion(major - '0', minor - '0');
             }
         }

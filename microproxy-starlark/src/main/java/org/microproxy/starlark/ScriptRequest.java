@@ -19,8 +19,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * assigned; {@code url}, {@code scheme}, {@code host}, {@code port}, {@code path} and {@code
  * query} are derived from the request target and the {@code Host} header. For {@code CONNECT},
  * {@code url} is the {@code host:port} authority and {@code scheme} is empty. {@code http_version}
- * is the HTTP version the client used: {@code "HTTP/1.1"}, {@code "HTTP/1.0"} or {@code "HTTP/2"}
- * (requests reach servers as HTTP/1.1 either way). Assigning an absolute {@code uri} in {@code
+ * is the HTTP version the client used: {@code "HTTP/1.1"}, {@code "HTTP/1.0"}, {@code "HTTP/2"}
+ * or {@code "HTTP/3"} (requests reach servers as HTTP/1.1, HTTP/2 or HTTP/3, as each server
+ * speaks, whichever the client used). Assigning an absolute {@code uri} in {@code
  * on_request} sends the request to that URI's server, with a {@code Host} header to match, also
  * from inside an intercepted session (over TLS for {@code https://}).
  */
@@ -45,7 +46,7 @@ public final class ScriptRequest extends ScriptMessage {
         this.httpVersion = versionLabel(request.protocolVersion());
     }
 
-    /** {@code HTTP/2} rather than {@code HTTP/2.0}, as HTTP/2 has no minor version. */
+    /** {@code HTTP/2} and {@code HTTP/3} rather than {@code HTTP/2.0} and {@code HTTP/3.0}: they have no minor version. */
     static String versionLabel(org.microproxy.http.HttpVersion version) {
         return version.majorVersion() >= 2 && version.minorVersion() == 0
                 ? "HTTP/" + version.majorVersion() : version.text();
