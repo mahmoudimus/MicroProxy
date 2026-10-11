@@ -1130,6 +1130,9 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
+        if (CONNECT_UDP.equals(ex.channel.tunnelProtocol())) {
+            return handleConnectUdp(ex);
+        }
         if (ex.channel.tunnelProtocol() != null && !"websocket".equals(ex.channel.tunnelProtocol())) {
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.valueOf(501),
                     "Unsupported extended CONNECT protocol"), true, ResponseSource.PROXY);
@@ -2206,6 +2209,134 @@ final class ClientConnection implements Runnable {
                     http2Key);
         } finally {
             releaseHttp2Claim(ex);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT-UDP (MASQUE, RFC 9298)
+    // ---------------------------------------------------------------------------------------
+
+    /** The {@code :protocol} (and HTTP/1.1 {@code Upgrade}) of CONNECT-UDP. */
+    static final String CONNECT_UDP = "connect-udp";
+
+    /**
+     * Serves a CONNECT-UDP request on a forward proxy's HTTP/3 listener: an extended {@code
+     * CONNECT} whose path names a UDP target by the URI template ({@link ConnectUdpTemplate}),
+     * which filters saw as the HTTP/1.1 upgrade ({@code GET} with {@code Upgrade: connect-udp})
+     * after authentication. The target is routed as a {@code CONNECT}'s would be (chained proxies
+     * carry no UDP: a route through them only is refused), {@code proxyToServerRequest} may answer
+     * it, its name is resolved by the proxy's resolver and filters, and the flow is bounded. The
+     * acceptance is a {@code 101} with {@code Upgrade: connect-udp} as filters see it (a 200 on the
+     * stream); then the flow relays datagrams ({@link UdpFlow}) on this stream's thread until it
+     * ends.
+     */
+    private boolean handleConnectUdp(Exchange ex) throws IOException {
+        UdpFlow.Client client = ex.channel.udpClient();
+        if (client == null || server.connectUdpTemplate == null || mitmHostAndPort != null) {
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.valueOf(501),
+                    "Not Implemented: CONNECT-UDP is served on a forward proxy's HTTP/3 listener"), true, ResponseSource.PROXY);
+        }
+        HostAndPort target = server.connectUdpTemplate.match(ex.request.uri());
+        if (target == null) {
+            return respondFailure(ex, new ProxyFailure.BadRequest("no UDP target in " + ex.request.uri()
+                    + " by the template " + server.connectUdpTemplate), true);
+        }
+        String hostAndPort = target.toString();
+        List<ChainedProxy> route = lookupRoute(connectRequest(hostAndPort));
+        if (route == null || !route.contains(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION)) {
+            // A chained proxy carries no UDP: only a direct route (or a fallback to one) will do.
+            LOG.log(Level.DEBUG, ex.log + "no direct route for UDP to " + hostAndPort);
+            return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
+        }
+        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
+        if (shortCircuit != null) {
+            return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
+        }
+        if (server.udpFlows.incrementAndGet() > server.http3Options.connectUdpMaxFlows()) {
+            server.udpFlows.decrementAndGet();
+            LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
+                    + server.http3Options.connectUdpMaxFlows() + " flows open");
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
+                    "Too many UDP flows"), true, ResponseSource.PROXY);
+        }
+        try {
+            return serveUdpFlow(ex, client, target, hostAndPort);
+        } finally {
+            server.udpFlows.decrementAndGet();
+        }
+    }
+
+    /** Opens the socket of a CONNECT-UDP flow, accepts it, and relays it until it ends. */
+    private boolean serveUdpFlow(Exchange ex, UdpFlow.Client client, HostAndPort target, String hostAndPort)
+            throws IOException {
+        InetSocketAddress address;
+        try {
+            address = resolveServer(hostAndPort, ex);
+        } catch (UnknownHostException e) {
+            return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort, e), false);
+        }
+        if (address.isUnresolved()) {
+            return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort,
+                    new UnknownHostException(address.getHostString())), false);
+        }
+        java.nio.channels.DatagramChannel socket;
+        try {
+            socket = java.nio.channels.DatagramChannel.open(address.getAddress() instanceof java.net.Inet6Address
+                    ? java.net.StandardProtocolFamily.INET6 : java.net.StandardProtocolFamily.INET);
+            try {
+                if (server.localAddress != null && server.localAddress.getAddress().getClass() == address.getAddress().getClass()) {
+                    socket.bind(new InetSocketAddress(server.localAddress.getAddress(), 0));
+                }
+                socket.connect(address);
+            } catch (IOException e) {
+                socket.close();
+                throw e;
+            }
+        } catch (IOException e) {
+            LOG.log(Level.DEBUG, ex.log + "no UDP socket to " + hostAndPort + ": " + e);
+            return respondFailure(ex, connectFailure(hostAndPort, e), false);
+        }
+        org.microproxy.Http3Options options = server.http3Options;
+        UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
+                options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes());
+        // Before the answer: the client may send datagrams as soon as it reads it.
+        if (!client.attach(flow)) {
+            socket.close();
+            LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
+                    + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
+            return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
+                    "Too many UDP flows on this connection"), true, ResponseSource.PROXY);
+        }
+        try {
+            HttpResponse accepted = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.SWITCHING_PROTOCOLS);
+            accepted.headers().set(HttpHeaderNames.UPGRADE, CONNECT_UDP);
+            accepted.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
+            accepted.headers().set("Capsule-Protocol", "?1");
+            ProxyUtils.addVia(accepted, server.proxyAlias);
+            HttpObject o = ex.filters.serverToProxyResponse(accepted);
+            if (o != null) o = ex.filters.proxyToClientResponse(o);
+            if (!(o instanceof HttpResponse response)) {
+                ex.channel.close();
+                return false;
+            }
+            ResponseSource source = source(ResponseSource.PROXY, accepted, 101, response);
+            ex.responseStarted = true;
+            if (response.status().code() != 101) {
+                // A filter refused the flow: its answer goes to the client as it is.
+                writeToClient(() -> ex.channel.writeComplete(response, true));
+                server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
+                completed(ex, response, source);
+                return true;
+            }
+            writeToClient(() -> ex.channel.writeHead(response, false));
+            server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
+            completed(ex, response, source);
+            LOG.log(Level.DEBUG, ex.log + "relaying UDP to " + hostAndPort + " (" + address + ")");
+            flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
+            return false;
+        } finally {
+            client.detach(flow);
+            flow.end(false);
         }
     }
 

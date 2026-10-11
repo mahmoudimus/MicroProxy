@@ -74,6 +74,11 @@ class Http3ForwardProxyTest {
             assertTrue(TestSupport.echoedHeader(r.text(), "via").getFirst().startsWith("3 fx"), r.text());
             assertNull(r.header("alt-svc"), "a forward proxy advertises nothing for its servers");
             assertEquals(List.of("GET http://" + originAuthority() + "/hello?x=1 HTTP/3.0"), seen);
+
+            io.github.mahmoudimus.http3.Http3Settings settings = client.serverSettings();
+            assertTrue(settings.enableConnectProtocol(), "SETTINGS_ENABLE_CONNECT_PROTOCOL");
+            assertTrue(settings.h3Datagram(), "SETTINGS_H3_DATAGRAM");
+            assertTrue(client.quic.maxDatagramSize() > 0, "the max_datagram_frame_size transport parameter");
         }
     }
 

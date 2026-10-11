@@ -194,6 +194,15 @@ interface ClientChannel {
         return null;
     }
 
+    /**
+     * The exchange's stream as the client of a CONNECT-UDP flow (MASQUE, RFC 9298): an HTTP/3
+     * stream of a forward proxy's listener with {@code :protocol connect-udp}, whose UDP payloads
+     * travel in HTTP Datagrams. Null for every other exchange.
+     */
+    default UdpFlow.Client udpClient() {
+        return null;
+    }
+
     /** Answers a request that cannot be served with a plain {@code status} error, then {@link #close}s. */
     void reject(HttpResponseStatus status);
 

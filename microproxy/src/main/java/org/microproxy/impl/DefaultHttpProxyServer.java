@@ -42,6 +42,7 @@ import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
@@ -132,6 +133,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final FrameInterceptor frameInterceptor;
     /** Sees the bytes of raw tunnels (see {@link TcpInterceptor}); null for none, which costs nothing. */
     final TcpInterceptor tcpInterceptor;
+    /** The UDP hooks of CONNECT-UDP flows, or null. */
+    final UdpInterceptor udpInterceptor;
+    /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
+    final ConnectUdpTemplate connectUdpTemplate;
+    /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
+    final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
     /** Whether the reverse proxy serves HTTP/3 on UDP; the modules are known to be present. */
@@ -235,6 +242,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http2Options = b.http2Options;
         this.frameInterceptor = b.frameInterceptor;
         this.tcpInterceptor = b.tcpInterceptor;
+        this.udpInterceptor = b.udpInterceptor;
+        this.connectUdpTemplate = b.http3 && b.reverseProxy == null
+                ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
         this.http3 = b.http3;

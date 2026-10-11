@@ -55,6 +55,9 @@ class Http3ReverseProxyTest {
             assertEquals(List.of("127.0.0.1:" + origin.getAddress().getPort()), TestSupport.echoedHeader(r.text(), "host"),
                     "the client's :authority becomes Host, which a reverse proxy sets to its upstream's");
             assertNull(r.header("alt-svc"), "no Alt-Svc over HTTP/3 itself");
+            assertTrue(client.serverSettings().enableConnectProtocol(), "WebSockets over HTTP/3");
+            assertTrue(!client.serverSettings().h3Datagram() && client.quic.maxDatagramSize() < 0,
+                    "a reverse proxy takes no HTTP Datagrams, nor QUIC DATAGRAM frames");
         }
     }
 

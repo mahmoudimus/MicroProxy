@@ -4,6 +4,7 @@ import io.github.mahmoudimus.http3.Http3ErrorCode;
 import io.github.mahmoudimus.http3.Http3Exception;
 import io.github.mahmoudimus.http3.Http3Headers;
 import io.github.mahmoudimus.http3.Http3Settings;
+import io.github.mahmoudimus.http3.QuicVarInt;
 import io.github.mahmoudimus.http3.Http3StreamValidator;
 import io.github.mahmoudimus.http3.RequestHeaders;
 import io.github.mahmoudimus.quic.QuicConnection;
@@ -13,9 +14,11 @@ import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.frames.FrameDirection;
@@ -83,6 +86,10 @@ final class Http3Connection extends Http3Endpoint {
 
     private volatile int activeStreams;
     private final AtomicBoolean shutDown = new AtomicBoolean();
+    /** The CONNECT-UDP flows of the connection, by their streams' ids; the size guarded by stateLock. */
+    private final Map<Long, UdpFlow> udpFlows = new ConcurrentHashMap<>();
+    /** The thread that receives QUIC DATAGRAM frames has started. */
+    private final AtomicBoolean receivingDatagrams = new AtomicBoolean();
 
     /**
      * @param target the intercepted server, for {@link Role#INTERCEPTED}; else null
@@ -112,10 +119,97 @@ final class Http3Connection extends Http3Endpoint {
         return origin;
     }
 
-    /** Extended {@code CONNECT} (RFC 9220): WebSockets over HTTP/3. */
+    /**
+     * Extended {@code CONNECT} (RFC 9220): WebSockets over HTTP/3, and on a forward proxy's
+     * listener HTTP Datagrams (RFC 9297), for CONNECT-UDP; only that listener accepts QUIC DATAGRAM
+     * frames.
+     */
     @Override
     void extensionSettings(Http3Settings.Builder settings) {
         settings.enableConnectProtocol(true);
+        if (role == Role.FORWARD) settings.h3Datagram(true);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // HTTP Datagrams (RFC 9297), for CONNECT-UDP flows
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Routes the HTTP Datagrams of {@code streamId} to {@code flow}, starting the thread that
+     * receives the connection's QUIC DATAGRAM frames; false if the connection has as many flows as
+     * it may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}).
+     */
+    boolean addUdpFlow(long streamId, UdpFlow flow) {
+        stateLock.lock();
+        try {
+            if (closed || udpFlows.size() >= options.connectUdpMaxFlowsPerConnection()) return false;
+            udpFlows.put(streamId, flow);
+        } finally {
+            stateLock.unlock();
+        }
+        if (receivingDatagrams.compareAndSet(false, true)) {
+            Thread.ofVirtual().name(server.name + "-h3-datagrams-" + connectionFlow.getConnectionId())
+                    .start(this::receiveDatagrams);
+        }
+        return true;
+    }
+
+    /** The flow of {@code streamId} ended. */
+    void removeUdpFlow(long streamId, UdpFlow flow) {
+        stateLock.lock();
+        try {
+            udpFlows.remove(streamId, flow);
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * Receives the client's QUIC DATAGRAM frames until the connection ends: each is an HTTP
+     * Datagram, a quarter stream ID and then content for that stream's flow. Datagrams for a stream
+     * with no flow (one that ended, or never was) are dropped (RFC 9297 section 2.1).
+     */
+    private void receiveDatagrams() {
+        try {
+            while (!closed) {
+                byte[] d = quic.receiveDatagram();
+                long quarter = QuicVarInt.read(d, 0, d.length);
+                if (quarter < 0 || quarter > MAX_QUARTER_STREAM_ID) {
+                    connectionError(Http3ErrorCode.H3_DATAGRAM_ERROR, "an HTTP/3 datagram without a valid quarter stream ID");
+                    return;
+                }
+                UdpFlow flow = udpFlows.get(quarter * 4);
+                if (flow != null) flow.fromClient(Arrays.copyOfRange(d, QuicVarInt.length(quarter), d.length));
+            }
+        } catch (IOException e) {
+            // the connection ended
+        }
+    }
+
+    /** The largest quarter stream ID (RFC 9297 section 2.1): a stream ID is below 2^62. */
+    private static final long MAX_QUARTER_STREAM_ID = (1L << 60) - 1;
+
+    /**
+     * Sends an HTTP Datagram of {@code streamId} with {@code content} in a QUIC DATAGRAM frame, if
+     * the client accepts HTTP Datagrams (its SETTINGS_H3_DATAGRAM) and it fits in one; false
+     * otherwise, for the caller to send a DATAGRAM capsule instead.
+     */
+    boolean sendHttpDatagram(long streamId, byte[] content) throws IOException {
+        // Not before the client's SETTINGS say it takes them (RFC 9297 section 2.1.1), which come
+        // first on its control stream, but may be read after a request stream's datagram.
+        Http3Settings settings = settingsReceived() ? peerSettings() : awaitPeerSettings(readTimeoutNanos());
+        if (!settings.h3Datagram()) return false;
+        byte[] quarter = QuicVarInt.encode(streamId / 4);
+        if (quic.maxDatagramSize() < quarter.length + content.length) return false;
+        byte[] d = new byte[quarter.length + content.length];
+        System.arraycopy(quarter, 0, d, 0, quarter.length);
+        System.arraycopy(content, 0, d, quarter.length, content.length);
+        try {
+            quic.sendDatagram(d);
+            return true;
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** Serves the connection on the calling thread until it ends. */

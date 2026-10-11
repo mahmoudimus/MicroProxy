@@ -2,8 +2,10 @@ package org.microproxy.impl;
 
 import io.github.mahmoudimus.http3.HeaderField;
 import io.github.mahmoudimus.http3.Http3ErrorCode;
+import io.github.mahmoudimus.http3.QuicVarInt;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.SocketException;
 import java.util.List;
@@ -43,7 +45,7 @@ import org.microproxy.http.LastHttpContent;
  * stream as a socket, for an intercepted {@code CONNECT}'s TLS. A reset ends the tunnel; the proxy
  * resets the stream with H3_CONNECT_ERROR when its connection to the server fails.
  */
-final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream {
+final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, UdpFlow.Client {
 
     private static final Object CANCELLED = new Object();
 
@@ -362,6 +364,56 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream {
         writer.endOrReset(Http3ErrorCode.H3_CONNECT_ERROR);
         // The client need not send what nobody reads.
         if (!reader.ended()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT-UDP (RFC 9298): the stream's capsules, and the connection's HTTP Datagrams
+    // ---------------------------------------------------------------------------------------
+
+    /** The stream as a CONNECT-UDP flow's client: on a forward proxy's listener, for {@code :protocol connect-udp}. */
+    @Override
+    public UdpFlow.Client udpClient() {
+        return "connect-udp".equals(protocol) && connection.role == Http3Connection.Role.FORWARD ? this : null;
+    }
+
+    @Override
+    public boolean attach(UdpFlow flow) {
+        return connection.addUdpFlow(id, flow);
+    }
+
+    @Override
+    public void detach(UdpFlow flow) {
+        connection.removeUdpFlow(id, flow);
+    }
+
+    @Override
+    public InputStream capsules() {
+        return reader.body().asInputStream();
+    }
+
+    @Override
+    public void sendDatagram(byte[] content) throws IOException {
+        if (connection.sendHttpDatagram(id, content)) return;
+        // No QUIC datagrams to this client (or too large for one): a DATAGRAM capsule on the stream.
+        byte[] type = QuicVarInt.encode(UdpFlow.DATAGRAM_CAPSULE);
+        byte[] length = QuicVarInt.encode(content.length);
+        byte[] capsule = new byte[type.length + length.length + content.length];
+        System.arraycopy(type, 0, capsule, 0, type.length);
+        System.arraycopy(length, 0, capsule, type.length, length.length);
+        System.arraycopy(content, 0, capsule, type.length + length.length, content.length);
+        if (writer.ended()) throw new SocketException("the stream's output has ended");
+        writer.data(capsule, 0, capsule.length, false);
+        writer.flush();
+    }
+
+    @Override
+    public void endFlow(boolean clean) {
+        if (clean) {
+            writer.endOrReset(Http3ErrorCode.H3_CONNECT_ERROR);
+            if (!reader.ended()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
+        } else {
+            resetStream(Http3ErrorCode.H3_CONNECT_ERROR);
+        }
     }
 
     /** The tunnel's bytes to the client, in DATA frames that wait for QUIC's flow control. */
