@@ -2528,12 +2528,24 @@ final class ClientConnection implements Runnable {
             String hostAndPort) throws IOException {
         String sniHost = Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
         List<String> alpn = offersNoHttp(hello) ? hello.alpnProtocols() : upstreamAlpn(ex.offerHttp2, hello);
+        layerServerTls(ex, conn, target, sniHost, hostAndPort, alpn);
+        return alpn;
+    }
+
+    /**
+     * Runs the TLS handshake with the server over {@code conn}, a connection (or tunnel) to it with
+     * nothing layered on it yet, and switches {@code conn} to the TLS session ({@link
+     * ServerConnection#layerTls}).
+     *
+     * @param alpn the ALPN protocols to offer, or null for none
+     */
+    private void layerServerTls(Exchange ex, ServerConnection conn, HostAndPort target, String sniHost,
+            String hostAndPort, List<String> alpn) throws IOException {
         SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
         Supplier<FullFlowContext> context = () -> conn.flowContext;
         conn.layerTls(tls, new ByteReader(serverInput(tls, context), server.ioBuffers),
                 new PooledOutputStream(serverOutput(tls, context), server.ioBuffers));
         conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
-        return alpn;
     }
 
     /**
@@ -2966,8 +2978,7 @@ final class ClientConnection implements Runnable {
                     upstreamAlpn(ex.offerHttp2, null));
             ServerConnection conn = tlsConnection(hostAndPort, hop.chained, tls, tunnel.remoteAddress, serverContext);
             conn.through = tunnel;
-            ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
-            server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
+            connected(ex, conn);
             return conn;
         } catch (IOException | RuntimeException e) {
             tunnel.close();
@@ -3449,8 +3460,7 @@ final class ClientConnection implements Runnable {
                 if (proxy != null) {
                     proxy.connectionSucceeded();
                 }
-                ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
-                server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
+                connected(ex, conn);
                 return conn;
             } catch (NotTlsServer e) {
                 // The route works; the server just is not a TLS server. The caller retries as a tunnel.
@@ -3478,6 +3488,12 @@ final class ClientConnection implements Runnable {
             ex.filters.proxyToServerConnectionFailed();
         }
         throw last != null ? last : new ConnectException("no route to " + hostAndPort);
+    }
+
+    /** Tells the filters and trackers that {@code conn}, a connection to a server, is made. */
+    private void connected(Exchange ex, ServerConnection conn) {
+        ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
+        server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
     }
 
     /** The longest all backoff waits of one request may add up to: 30 s or the connect timeout. */
