@@ -354,6 +354,15 @@ public final class QuicConnection implements AutoCloseable {
     }
 
     /**
+     * The key exchange group the handshake used.
+     *
+     * @return the group
+     */
+    public io.github.mahmoudimus.quic.tls.NamedGroup keyExchangeGroup() {
+        return withLock(() -> conn.tlsSession().negotiatedGroup());
+    }
+
+    /**
      * The peer's address.
      *
      * @return the address
