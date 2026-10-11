@@ -83,6 +83,29 @@ class ScriptedStatsTest {
         assertEquals(3, ((Counter) registry.get("http.MicroProxy.downstream_rq_total")).value());
     }
 
+    static final String README_EXAMPLE = """
+            BLOCKED = stats.counter("blocked")          # looked up once, at load time
+
+            def on_request(req, ctx):
+                stats.histogram("path_length").record(len(req.path))
+                if req.path.startswith("/admin"):
+                    BLOCKED.inc()
+                    return response(403)
+            """;
+
+    @Test
+    void theReadmeExampleRunsAsWritten() throws Exception {
+        origin = origin(echo());
+        StatsRegistry registry = StatsRegistry.create();
+        ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inReadme(README_EXAMPLE), "readme.star")
+                .stats(registry).build();
+        proxy = MicroProxy.bootstrap().withPort(0).withStats(registry).withFiltersSource(script).start();
+        assertEquals(403, get(client(proxy), url(origin, "/admin/users")).statusCode());
+        assertEquals(200, get(client(proxy), url(origin, "/")).statusCode());
+        assertEquals(1, ((Counter) registry.get("script.blocked")).value());
+        assertEquals(2, ((Histogram) registry.get("script.path_length")).snapshot().count());
+    }
+
     @Test
     void withoutMetricsScriptStatsCountNothing() throws Exception {
         origin = origin(echo());

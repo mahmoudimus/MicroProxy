@@ -279,6 +279,8 @@ Command-line flags override values from the file.
 | `access_log_format` | an Envoy format string, or a preset's name, for the access log | Envoy's default |
 | `access_log_json` | a JSON object of keys and Envoy format strings: one JSON line per exchange | off |
 | `access_log_filter` | log only what passes, e.g. `status>=500 \|\| response_flag` | everything |
+| `metrics` | keep Envoy-style stats for Prometheus and statsd (see [Metrics](#metrics-envoy-compatible-stats)) | `false` |
+| `stats_prefix` | prefix of exported stat names (implies `metrics`) | `envoy` |
 | `log_http` | log whole requests and responses: `basic`, `headers` or `body` (see [Request/response logging](#requestresponse-logging)) | off |
 | `log_http_format` | `text` or `json` (one object per line) for `log_http` | `text` |
 | `log_http_view` | render bodies logged by `log_http` through [content views](#content-views): `auto` or a view's name | off |
@@ -317,6 +319,7 @@ Command-line flags override values from the file.
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
 | Access logs | `ActivityLogger`: Envoy-compatible format strings and JSON, Envoy's response flags, filters, and one line per exchange, tunnel or UDP and QUIC flow; LittleProxy's nine formats as presets (see below) |
+| Metrics | Envoy's stat names and tags (`http.*`, `cluster.*`, `listener.*`, `server.*`, ...) in a `StatsRegistry`, as Prometheus text, Envoy's `/stats` text and JSON, or pushed to statsd and DogStatsD; bounded clusters; scripts' own `stats` (see below) |
 | Request/response logging | `HttpLogger` dumps whole messages (heads, the changes the proxy and filters made, bodies on request) as readable blocks or JSON lines, with redaction (see below) |
 | Content views | `org.microproxy.contentviews` renders bodies readably: protobuf without a schema (YAML with field numbers, as mitmproxy shows it), gRPC message by message with its trailers and `google.rpc.Status` details, msgpack, form data, GraphQL, Socket.IO; field names from a `protoc` descriptor set; `protobuf` and `grpc` modules for scripts (see below) |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
@@ -3467,6 +3470,128 @@ Three ways to keep a record of traffic:
   [Request/response logging](#requestresponse-logging)).
 - **`WarcRecorder`:** an archive of the exchanges with servers as binary WARC records, complete and
   unredacted, for replay tools (see [WARC recording](#warc-recording)).
+
+### Metrics (Envoy-compatible stats)
+
+With metrics on, the proxy keeps counters, gauges and histograms under Envoy's stat names, so
+dashboards and alerts written for Envoy read them: `http.<name>.downstream_rq_5xx`,
+`cluster.<cluster>.upstream_cx_connect_fail`, `listener.<address>.downstream_cx_active`, and so on.
+They live in a `StatsRegistry` (package `org.microproxy.stats`); `StatsFormatter` renders them as
+Prometheus's text exposition format, Envoy's `/stats` text dump, or its JSON form, and
+`StatsdSink` pushes them to statsd. The admin endpoint that serves them over HTTP comes later.
+
+```java
+StatsRegistry stats = StatsRegistry.builder().prefix("envoy").build();   // or .withMetrics(true)
+HttpProxyServer proxy = MicroProxy.bootstrap().withName("edge").withStats(stats).start();
+...
+String scrape = StatsFormatter.prometheus(proxy.getStats());
+// # TYPE envoy_http_downstream_rq_xx counter
+// envoy_http_downstream_rq_xx{envoy_http_conn_manager_prefix="edge",envoy_response_code_class="2"} 1042
+// envoy_http_downstream_rq_xx{envoy_http_conn_manager_prefix="edge",envoy_response_code_class="5"} 3
+StatsdSink sink = StatsdSink.builder(stats, "127.0.0.1:8125").start();     // every 5 s; close() stops it
+```
+
+```sh
+java -jar microproxy.jar --port 8080 --name edge --metrics
+java -jar microproxy.jar --port 8080 --statsd 127.0.0.1:8125            # implies --metrics
+java -jar microproxy.jar --port 8080 --dogstatsd 127.0.0.1:8125 --stats-prefix microproxy
+```
+
+| flag | property | meaning |
+|---|---|---|
+| `--metrics` | `metrics` | keep the stats |
+| `--statsd <host:port>` | | push them to statsd over UDP every 5 seconds, and once more when the proxy stops (implies `--metrics`) |
+| `--dogstatsd <host:port>` | | the same with DogStatsD tags (`name:1\|c\|#tag:value`) and tag-extracted names |
+| `--stats-prefix <prefix>` | `stats_prefix` | prefix of exported names: `envoy` (the default) gives `envoy_http_downstream_rq_total` and `envoy.http.edge.downstream_rq_total`; `microproxy` gives `microproxy_...` |
+| `--stats-max-clusters <n>` | | clusters with stats of their own, besides the fixed ones (default 100) |
+| `--stats-cluster-lru` | | past that, evict the least recently used cluster's stats rather than counting new ones in `other` |
+| `--stats-per-host` | | a cluster per server of direct connections (`host_port`) instead of one `direct` cluster |
+
+**Names and tags.** Every stat has Envoy's flat name, with its values in it, which the text dump and
+statsd show. When it is registered, Envoy's tag extraction takes those values out as tags, which
+Prometheus shows as labels on the tag-extracted name: `cluster.direct.upstream_rq_2xx` is
+`envoy_cluster_upstream_rq_xx{envoy_cluster_name="direct",envoy_response_code_class="2"}`. The
+tags are Envoy's `envoy_http_conn_manager_prefix` (the proxy's name, `withName`, `--name`),
+`envoy_cluster_name`, `envoy_listener_address` (`0.0.0.0_8080`, `[__1]_8080`) and
+`envoy_response_code_class`, and MicroProxy's `microproxy_response_flag`. Histograms are in
+milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
+30000, 60000, 300000, 600000, 1800000, 3600000), shown as `_bucket{le="..."}`, `_sum` and `_count`.
+
+| stat | type | meaning |
+|---|---|---|
+| `http.<name>.downstream_rq_total` | counter | requests from clients (a `CONNECT` is one request, until its tunnel closes) |
+| `http.<name>.downstream_rq_active` | gauge | requests in progress |
+| `http.<name>.downstream_rq_1xx` ... `_5xx` | counter | responses by class (tag `envoy_response_code_class`) |
+| `http.<name>.downstream_rq_time` | histogram | from a request's first byte to its response's last |
+| `http.<name>.downstream_rq_http1_total`, `_http2_total`, `_http3_total` | counter | requests by protocol |
+| `http.<name>.downstream_rq_rx_reset` / `_tx_reset` | counter | requests the client reset (`DR`) / the proxy reset or cut off after its response started |
+| `http.<name>.downstream_rq_too_large` | counter | requests the proxy answered `413` |
+| `http.<name>.downstream_rq_response_flag.<flag>` | counter | MicroProxy's: requests that ended with a 4xx or 5xx response, or none, by [response flag](#response-flags-and-details) (tag `microproxy_response_flag`: `UF`, `UT`, `DC`, ...) |
+| `http.<name>.downstream_cx_total`, `_active` | counter, gauge | client connections (TCP, and QUIC connections of the HTTP/3 listener) |
+| `http.<name>.downstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by the protocols they carried (once each) |
+| `http.<name>.downstream_cx_ssl_total` | counter | connections that completed a TLS handshake (TLS listener or interception) |
+| `http.<name>.downstream_cx_destroy`, `_destroy_remote`, `_destroy_local` | counter | connections closed: by the client, or by the proxy (timeouts, `Connection: close`, stopping) |
+| `http.<name>.downstream_cx_length_ms` | histogram | how long connections were open |
+| `http.<name>.downstream_cx_rx_bytes_total`, `_tx_bytes_total` | counter | bytes read from / written to clients (decrypted, over TLS; HTTP/1 and HTTP/2) |
+| `listener.<address>.downstream_cx_total`, `_active`, `_destroy` | counter, gauge | the TCP listener's connections |
+| `listener.<address>.downstream_pre_cx_active` | gauge | connections not yet past the PROXY header, the TLS listener's handshake or protocol detection |
+| `listener.<address>.ssl.handshake`, `ssl.connection_error` | counter | TLS handshakes with clients that succeeded / failed (the TLS listener and intercepted sessions) |
+| `cluster.<cluster>.upstream_cx_total`, `_active` | counter, gauge | connections to servers or chained proxies |
+| `cluster.<cluster>.upstream_cx_connect_fail`, `_connect_timeout` | counter | connection attempts that failed (TCP, TLS, a chained proxy's refusal) / timed out |
+| `cluster.<cluster>.upstream_cx_connect_ms` | histogram | TCP connect time (QUIC: the handshake) |
+| `cluster.<cluster>.upstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by protocol |
+| `cluster.<cluster>.upstream_cx_destroy`, `_destroy_local`, `_destroy_remote`, `upstream_cx_length_ms` | counter, histogram | connections closed, by whom, and how long they were open |
+| `cluster.<cluster>.upstream_cx_pool_overflow` | counter | requests refused for want of a pooled connection (`UO`) |
+| `cluster.<cluster>.upstream_rq_total`, `_active` | counter, gauge | requests sent to the cluster (each attempt) |
+| `cluster.<cluster>.upstream_rq_1xx` ... `_5xx`, `upstream_rq_time` | counter, histogram | the server's responses by class, and request time |
+| `cluster.<cluster>.upstream_rq_retry`, `_timeout`, `_rx_reset` | counter | requests sent again after a stale keep-alive connection; that timed out (`UT`); that the server reset or cut off (`UR`, `UC`) |
+| `cluster.<cluster>.ssl.handshake`, `ssl.connection_error` | counter | TLS handshakes with servers and TLS chained proxies |
+| `tls_inspector.tls_found`, `tls_not_found`, `sni_found`, `sni_not_found`, `alpn_found`, `alpn_not_found`, `client_hello_too_large` | counter | the ClientHellos the proxy reads to decide on a session (transparent TLS, interception) |
+| `cache.hits`, `misses`, `stores`, `revalidations`, `stale_served` | counter | the [HTTP cache](#http-cache)'s counts (`HttpCache.stats()`) |
+| `concurrency_limit.in_use`, `waiting` / `acquired`, `rq_blocked`, `reclaimed` | gauge / counter | the [concurrency limiter](#concurrency-limiting) among the filters |
+| `connection_pool.total_connections`, `active_connections`, `idle_connections` / `borrow`, `return`, `eviction`, `validation_failure` | gauge / counter | the [shared pool](#shared-server-connection-pool) (`getServerConnectionPoolMetrics()`) |
+| `server.uptime`, `live`, `concurrency`, `memory_allocated`, `memory_heap_size`, `total_connections` | gauge | seconds running, 1 until stopping, processors, heap used and committed (`MemoryMXBean`), client connections open |
+
+**Clusters and cardinality.** A forward proxy's servers are any number, so they are not clusters
+by default. A request's cluster is `direct` for a direct connection, the chained proxy for one
+through a chained proxy (`host_port` of its address, such as `proxy_example_com_3128`), `cache`
+for a response from the HTTP cache, and `replay` for one from server replay. With
+`perHostClusters(true)` (`--stats-per-host`) each server of a direct connection is a cluster of its
+own (`api_example_com_443`). Chained proxies and servers together are bounded by `maxClusters`
+(`--stats-max-clusters`, default 100): past it, new ones count in the cluster `other`, or, with
+`clusterOverflow(Overflow.LRU)` (`--stats-cluster-lru`), the least recently used cluster loses its
+stats (which start from zero if it comes back). A cluster is looked up once per server
+connection, never per request.
+
+**Script stats.** A script's `stats` module makes metrics of its own, named `script.<name>`:
+
+```python
+BLOCKED = stats.counter("blocked")          # looked up once, at load time
+
+def on_request(req, ctx):
+    stats.histogram("path_length").record(len(req.path))
+    if req.path.startswith("/admin"):
+        BLOCKED.inc()
+        return response(403)
+```
+
+A script makes at most `maxScriptStats` of them (100 by default); past that, new names count
+nothing (a warning is logged once), so names made from requests cannot grow the registry without
+bound. Without metrics, the module's metrics count nothing. Counters have `inc(n=1)` and `value`,
+gauges `set(v)`, `inc(n=1)`, `dec(n=1)` and `value`, histograms `record(x)` and `count`.
+
+**Cost.** Each metric is resolved once and kept in a field: per proxy for the `http`, `listener`
+and fixed `cluster` stats, per server connection for its cluster, per client connection for its
+own. Counting a request is a few `LongAdder` adds and a histogram bucket search; nothing is
+allocated per request, and nothing goes through `ActivityTracker`s. Without metrics the registry
+is `StatsRegistry.NOOP`, whose metrics do nothing, and the few call sites that would read a clock
+check first; `AllocationTest` and `StatsFastPathTest` guard both.
+
+**Limitations.** HTTP/2, HTTP/3 and QUIC codec stats, SOCKS, MASQUE, the hooks' and QUIC flows'
+stats are not counted yet; neither are upstream byte counts. Envoy's `upstream_cx_destroy_*` and
+`downstream_cx_destroy_*` tell who closed first only where the proxy saw it (an end of stream
+before a request, a server that closed its connection). Statsd gets a histogram as one timer per
+flush, the mean of its new values sampled at `1/n`, which keeps the count and mean, not the spread.
 
 ### Request/response logging
 
