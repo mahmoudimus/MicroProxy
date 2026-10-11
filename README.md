@@ -111,6 +111,7 @@ java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --m
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --server-replay flows.har   # replay offline
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm --ignore-hosts '\.bank\.example:443$'
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8443 --reverse https://example.com   # reverse proxy
+java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 1080 --mode socks5 --mitm   # SOCKS5 server
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --help
 
 # With zstd decoding:
@@ -200,7 +201,8 @@ Command-line flags override values from the file.
 | `allow_local_only` | listen on loopback only | `true` |
 | `transparent` | don't add `Via` or strip hop-by-hop headers, and route TLS that arrives without `CONNECT` by its SNI (see [Transparent mode](#transparent-mode)) | `false` |
 | `transparent_tls_port` | the port SNI-routed transparent TLS goes to | `443` |
-| `mode` | `regular`, `transparent`, or `reverse:<scheme>://<host>[:<port>]` with `http`, `https` or `tcp` (see [Reverse proxy mode](#reverse-proxy-mode)) | `regular` |
+| `mode` | `regular`, `transparent`, `socks5` (see [SOCKS5 mode](#socks5-mode)), or `reverse:<scheme>://<host>[:<port>]` with `http`, `https` or `tcp` (see [Reverse proxy mode](#reverse-proxy-mode)) | `regular` |
+| `socks` | also serve SOCKS5 and SOCKS4(a) clients on the regular listener, told apart by their first byte | `false` |
 | `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
 | `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
@@ -257,6 +259,7 @@ Command-line flags override values from the file.
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
 | ClientHello inspection | after `CONNECT`, the client's ClientHello is read without consuming it (SNI, ALPN, versions, cipher suites), and interception is decided by it: ignore / allow host rules as in mitmproxy, `MitmManager` and filter hooks; plain HTTP after `CONNECT` is served as HTTP, other protocols are tunnelled; ALPN is mirrored between client and server (see below) |
 | Transparent and reverse modes | TLS redirected to the proxy without `CONNECT` is routed by SNI; `--mode reverse:https://host` serves one upstream over HTTP, HTTPS or raw TCP (see below) |
+| SOCKS server | `--mode socks5` serves SOCKS5 (no authentication, or username/password through the `ProxyAuthenticator`) and SOCKS4a clients, whose requests go through the same flow as a `CONNECT`: filters, chained proxies, ClientHello inspection, interception, plain HTTP served as HTTP; `--socks` serves them on the regular listener too (see below) |
 | Chained proxies | HTTP (with Basic credentials, optionally over TLS), SOCKS4a, SOCKS5 (with username/password); falls back to the next proxy or a direct connection, optionally with exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs, `NO_PROXY` rules or the environment |
 | HTTP cache | RFC 9111 shared cache in memory or on disk, with revalidation, `Vary`, stale responses when servers are unreachable, and an offline mode (see below) |
 | WARC recording | `WarcRecorder` archives traffic with servers as WARC 1.1 files for replay tools, and `WarcReader` reads them back (see below) |
@@ -750,6 +753,103 @@ scheme `https` by default, the port 443 for `https` and 80 for `http`.
   serves HTTP/2 to clients that offer it.
 - Filters, scripts, the cache, logging and failure answers work as for any request. `CONNECT` is
   refused with `400`.
+
+### SOCKS5 mode
+
+`--mode socks5` (`withSocksServer(true)`, `mode=socks5`) makes the listener a SOCKS server, as
+mitmproxy's `socks5` mode does: SOCKS5 ([RFC 1928](https://www.rfc-editor.org/rfc/rfc1928)), and
+SOCKS4 and 4a as well. `--socks` (`withSocksDetection(true)`, `socks=true`) serves SOCKS clients on
+the regular listener besides HTTP ones, told apart by their first byte: `0x05` for SOCKS5, `0x04`
+for SOCKS4 and 4a, which no HTTP request, TLS record or HTTP/2 preface starts with.
+
+```bash
+java -jar microproxy.jar --port 1080 --mode socks5 --mitm
+curl --socks5-hostname 127.0.0.1:1080 http://example.com/              # the proxy resolves the name
+curl --proxy socks5h://127.0.0.1:1080 --cacert microproxy-ca.pem https://example.com/   # intercepted
+curl --socks5 127.0.0.1:1080 http://example.com/                       # curl resolves, sends an address
+curl --socks4a 127.0.0.1:1080 http://example.com/
+
+java -jar microproxy.jar --port 8080 --socks --mitm   # HTTP and SOCKS clients on one port
+curl --proxy socks5h://127.0.0.1:8080 https://example.com/ --cacert microproxy-ca.pem
+curl --proxy http://127.0.0.1:8080 https://example.com/ --cacert microproxy-ca.pem
+```
+
+With proxy authentication, SOCKS5 clients give a username and password:
+
+```java
+MicroProxy.bootstrap()
+        .withPort(1080)
+        .withSocksServer(true)
+        .withProxyAuthenticator((user, password) -> "alice".equals(user) && "secret".equals(password))
+        .start();
+```
+
+```bash
+curl --proxy socks5h://alice:secret@127.0.0.1:1080 http://example.com/
+```
+
+| Flag | Property | Bootstrap | |
+|---|---|---|---|
+| `--mode socks5` | `mode=socks5` | `withSocksServer(true)` | the listener serves SOCKS clients only; others are closed |
+| `--socks` | `socks=true` | `withSocksDetection(true)` | the regular listener serves SOCKS clients too |
+| `--tls-handshake-timeout` | `tls_handshake_timeout` | `withTlsHandshakeTimeout` | also bounds the SOCKS handshake, up to the request |
+
+**One request, one `CONNECT`.** Only the `CONNECT` command is served; `BIND` and `UDP ASSOCIATE`
+are answered "command not supported". The destination (an IPv4 or IPv6 address, or a host name,
+which the proxy resolves) becomes a `CONNECT` the proxy makes up, which then goes exactly where an
+HTTP client's `CONNECT` goes:
+
+- the filters see it (`clientToProxyRequest`, `proxyToServerRequest`, `proxyToServerAllowMitm`,
+  ...), and so do `ActivityTracker`s, the access and request logs, `FlowContext.timings()` and
+  scripts; its answer is the `200` the client would have got, or the failure;
+- routing: the `ChainedProxyManager`, chained HTTP and SOCKS proxies, `NO_PROXY` rules, backoff;
+- then the client's first bytes decide, as after a `CONNECT`
+  ([Deciding what to intercept](#deciding-what-to-intercept-the-clienthello)): a ClientHello is
+  intercepted with the MITM manager unless the [host rules](#ignoring-and-allowing-hosts), its SNI
+  and ALPN, the manager or a filter decline it; plain HTTP is served as HTTP, its requests going to
+  the destination through the filters; anything else is tunnelled.
+
+A SOCKS client has no other way to send plain HTTP through the proxy, so its first bytes are read
+even without `--mitm`: its HTTP requests are filtered and logged, and its TLS is tunnelled.
+`FlowContext.socksVersion()` (5, or 4 for SOCKS4 and 4a; empty for HTTP clients) and Starlark's
+`ctx.socks_version` tell SOCKS clients apart.
+
+**Connected, then answered.** As mitmproxy does, the proxy connects to the server (or through its
+chained proxy) before it answers the request, so the client learns why a connection failed. The
+ClientHello is read only after the answer, since a client sends it only then; this is the order of
+an HTTP `CONNECT`, whose `200` is written once the server is connected and whose server handshake
+waits for the ClientHello (ALPN mirroring included).
+
+| Failure | SOCKS5 reply |
+|---|---|
+| The host name does not resolve (`UnresolvedHost`) | `0x04` host unreachable |
+| The connection is refused | `0x05` connection refused |
+| No route to the host / the network | `0x04` host unreachable / `0x03` network unreachable |
+| The connect timeout passed | `0x06` TTL expired |
+| The authenticator (checking every request), a filter or the `ChainedProxyManager` refused it | `0x02` not allowed by ruleset |
+| Anything else (a chained proxy failed, the pool is exhausted, a filter answered with a `5xx`) | `0x01` general failure |
+
+SOCKS4 replies have only "granted" (90) and "rejected" (91).
+
+**Authentication.** Without a [proxy authenticator](#proxy-authentication), SOCKS5 clients must
+offer "no authentication". With one, they authenticate with a username and password
+([RFC 1929](https://www.rfc-editor.org/rfc/rfc1929)), which the authenticator sees as
+`Proxy-Authorization: Basic` on a made-up `CONNECT` whose target is not known yet (`0.0.0.0:0`),
+so `authenticate(user, password)`, request-aware authenticators and a script's `authenticate` hook
+all work, and the accepted user is `ClientDetails.getUserName()`. A client that offers no
+credentials, SOCKS4's included (its user id is not a credential), is let in only if the
+authenticator accepts that request without them; otherwise SOCKS5 clients get "no acceptable
+methods" (`0xFF`) and SOCKS4 clients a rejection. With `authenticateEveryRequest()`, the request's
+own `CONNECT`, with its destination and the same credentials, is authenticated again.
+
+**Hardening.** The handshake, from the first byte to the request, must finish within the TLS
+handshake timeout (`--tls-handshake-timeout`, 10 seconds by default; with `0`, each read within the
+idle timeout). SOCKS5 fields are bounded by their one-byte lengths, SOCKS4's user id and host name
+by 255 bytes; host names may hold only letters, digits, `.`, `-` and `_` (or an IP literal).
+
+Not supported: `BIND`, `UDP ASSOCIATE` (and so DNS or QUIC through SOCKS), GSSAPI authentication,
+SOCKS on a TLS listener or together with a reverse proxy, and mitmproxy's `@port` listen suffix
+(use `--port`).
 
 ### TLS protocol versions
 
@@ -1606,7 +1706,8 @@ bootstrap.start();
   `timings` (below), `client_hello` (the ClientHello that started the intercepted session, or
   `None`), `forwarded_via` (the intercepted HTTPS proxy, `host:port`, that a `CONNECT` inside its
   session, or a request inside the tunnel one opened, goes through, else `None`; see
-  [In front of an HTTPS proxy](#in-front-of-an-https-proxy)), and `vars`, a dict that lives for
+  [In front of an HTTPS proxy](#in-front-of-an-https-proxy)), `socks_version` (5 or 4 for a
+  [SOCKS client](#socks5-mode), else `None`), and `vars`, a dict that lives for
   one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
   as the connection.
 - `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in

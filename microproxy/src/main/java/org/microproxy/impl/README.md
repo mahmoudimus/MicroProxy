@@ -136,6 +136,20 @@ closes the connection instead. Other reverse proxy requests are pointed at the u
 `handleFilteredRequest`, over TLS for `https://` upstreams (`proxyRequest`'s `tls`), unless a
 filter gave one an absolute URI of its own (`redirected`), which goes to that URI's server.
 
+SOCKS clients take the same way (`serveSocks`, on a SOCKS listener or when `startsLikeSocks` sees
+their first byte). `SocksHandshake` (ported from mitmproxy's `Socks5Proxy`, in `modes.py`) runs the
+handshake up to the request through the connection's `ByteReader`, within the TLS handshake
+deadline (`ensureBuffered`), asking the authenticator through `socksAuthenticator` (credentials as
+Basic on a `CONNECT` to `0.0.0.0:0`; `recordAuthentication` is shared with `authenticate`). The
+request becomes an implicit `CONNECT` that knows its SOCKS version (`Exchange.socks`), and SOCKS
+replies stand in for the HTTP answers: `answerConnect` writes the success reply where it would
+write the `200`, after connecting, and `respondDirect` hands every refusal to `refuseSocks`, which
+picks the reply code from the `ProxyFailure` that `respondFailure` noted (`Exchange.socksFailure`)
+or from the refusal's status. Without a MITM manager, `handleConnect` still sends a SOCKS
+connection through `interceptOrTunnel` (`inspect`), marking its plain connection `tlsPending` so
+that `peekClient` watches the server and `tunnelAfterPeek` and `servePlainSession` reuse it;
+`declineReason` declines every ClientHello then, and plain HTTP is served as HTTP.
+
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
 When an intercepted handshake or the proxy TLS listener negotiates ALPN `h2` (offered with
