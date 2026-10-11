@@ -182,6 +182,7 @@ public final class QuicStream implements Closeable {
     private final class Input extends InputStream {
         boolean eof;
         boolean stopped;
+        QuicStreamException reset;
 
         @Override
         public int read() throws IOException {
@@ -203,6 +204,9 @@ public final class QuicStream implements Closeable {
                     if (eof) {
                         return -1;
                     }
+                    if (reset != null) {
+                        throw new QuicStreamException(reset.kind(), reset.errorCode());
+                    }
                     if (stopped) {
                         throw new IOException("stream " + id + " was stopped");
                     }
@@ -215,7 +219,10 @@ public final class QuicStream implements Closeable {
                                 connection.await();
                                 continue;
                             }
-                            case RESET -> throw new QuicStreamException(QuicStreamException.Kind.RESET, e.errorCode());
+                            case RESET -> {
+                                reset = new QuicStreamException(QuicStreamException.Kind.RESET, e.errorCode());
+                                throw reset;
+                            }
                             default -> {
                                 connection.checkOpen();
                                 throw new IOException("stream " + id + ": " + e.getMessage());
@@ -240,7 +247,7 @@ public final class QuicStream implements Closeable {
         public void close() throws IOException {
             driver.lock.lock();
             try {
-                if (eof || stopped || driver.lostReason() != null) {
+                if (eof || stopped || reset != null || driver.lostReason() != null) {
                     return;
                 }
                 stopped = true;
