@@ -49,12 +49,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Interoperability with aioquic, an independent QUIC implementation, used only as an external peer:
  * its echo client against the Java server and its echo server against the Java client, over every
  * cipher suite and key exchange group, with large transfers, many streams, datagrams, key updates,
- * Retry, QUIC version 2 and closes from either side. The peer scripts are test resources.
+ * Retry, QUIC version 2 and closes from either side, and aioquic's HTTP/3 connection against an
+ * HTTP/3 server on http3-codec. The peer scripts are test resources.
  *
  * <p>Skipped unless Python 3 with aioquic is available: the interpreter is {@code
  * -Dquic.interop.python}, else {@code $QUIC_INTEROP_PYTHON}, else {@code python3}. To run:
  * {@code python3 -m venv target/aioquic && target/aioquic/bin/pip install aioquic==1.4.0}, then
- * {@code mvn -pl quic test -Dtest=AioquicInteropTest -Dquic.interop.python=target/aioquic/bin/python}.
+ * {@code mvn -pl quic -am test -Dtest=AioquicInteropTest -Dsurefire.failIfNoSpecifiedTests=false
+ * -Dquic.interop.python=$PWD/target/aioquic/bin/python}.
  */
 @Timeout(value = 180, unit = TimeUnit.SECONDS)
 class AioquicInteropTest {
@@ -177,6 +179,11 @@ class AioquicInteropTest {
         List<String> cmd = new ArrayList<>(List.of(python, script.resolve("echo_client.py").toString(), "127.0.0.1",
                 Integer.toString(server.getPort()), "--ca", caFile.toString()));
         cmd.addAll(List.of(extra));
+        return run(cmd);
+    }
+
+    /** Runs an aioquic peer script to completion and returns its result line. */
+    private static String run(List<String> cmd) throws Exception {
         Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
         StringBuilder output = new StringBuilder();
         Thread reader = Thread.ofVirtual().start(() -> {
@@ -312,6 +319,20 @@ class AioquicInteropTest {
             String result = runClient(server.address(), "--expect-server-close", "close-me");
             assertEquals("42", field(result, "close_code"));
             assertEquals("bye", field(result, "close_reason"));
+        }
+    }
+
+    @Test
+    void aioquicHttp3ClientAgainstJavaHttp3Server() throws Exception {
+        TlsConfig tls = TlsConfig.builder().certificate(certified).alpnProtocols("h3").build();
+        try (Http3TestServer h3 = new Http3TestServer(ServerConfig.builder(tls).transport(transport()).build())) {
+            List<String> cmd = List.of(python, script.resolve("h3_client.py").toString(), "127.0.0.1",
+                    Integer.toString(h3.server.localAddress().getPort()), "--ca", caFile.toString());
+            String result = run(cmd);
+            assertEquals("2000000", field(result, "downloaded"));
+            assertEquals("1000000", field(result, "echoed"));
+            assertEquals("microproxy-quic", field(result, "server"));
+            assertTrue(h3.errors().isEmpty(), h3.errors().toString());
         }
     }
 

@@ -20,6 +20,12 @@
     </description>
 
     <dependencies>
+        <!-- Test only: an HTTP/3 server for the aioquic HTTP/3 interop test -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http3-codec</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
