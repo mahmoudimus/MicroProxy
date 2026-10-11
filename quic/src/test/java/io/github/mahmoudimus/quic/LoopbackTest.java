@@ -44,10 +44,9 @@ class LoopbackTest {
 
     static final String ALPN = "microproxy-test";
 
+    private EchoServer echo;
     private QuicServer server;
     private QuicClient client;
-    private final List<Throwable> serverErrors = new ArrayList<>();
-    private final java.util.concurrent.locks.ReentrantLock errorsLock = new java.util.concurrent.locks.ReentrantLock();
 
     static TransportConfig fastTransport() {
         // Loopback carries large datagrams; let MTU discovery find them
@@ -80,100 +79,20 @@ class LoopbackTest {
 
     @BeforeEach
     void start() throws IOException {
-        server = QuicServer.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), serverConfig(fastTransport()));
+        echo = new EchoServer(serverConfig(fastTransport()));
+        server = echo.server;
         client = QuicClient.create(clientConfig(fastTransport()));
-        Thread.ofVirtual().name("echo-acceptor").start(this::acceptLoop);
     }
 
     @AfterEach
     void stop() {
         client.close();
-        server.close();
-        errorsLock.lock();
-        try {
-            assertTrue(serverErrors.isEmpty(), "server errors: " + serverErrors);
-        } finally {
-            errorsLock.unlock();
-        }
-    }
-
-    /** Echoes every stream; a unidirectional stream's SHA-256 is sent back on a new one. */
-    private void acceptLoop() {
-        while (true) {
-            QuicConnection c;
-            try {
-                c = server.accept();
-            } catch (IOException e) {
-                return; // closed
-            }
-            Thread.ofVirtual().start(() -> serveConnection(c));
-        }
-    }
-
-    private void serveConnection(QuicConnection c) {
-        Thread.ofVirtual().start(() -> {
-            try {
-                while (true) {
-                    byte[] d = c.receiveDatagram();
-                    if (d.length <= c.maxDatagramSize()) { // the path back may carry less
-                        c.sendDatagram(d);
-                    }
-                }
-            } catch (IOException e) {
-                // closed
-            }
-        });
-        while (true) {
-            QuicStream s;
-            try {
-                s = c.acceptStream();
-            } catch (IOException e) {
-                return;
-            }
-            Thread.ofVirtual().start(() -> {
-                try {
-                    serveStream(c, s);
-                } catch (QuicConnectionException e) {
-                    // the client went away
-                } catch (Throwable t) {
-                    errorsLock.lock();
-                    try {
-                        serverErrors.add(t);
-                    } finally {
-                        errorsLock.unlock();
-                    }
-                }
-            });
-        }
-    }
-
-    private static void serveStream(QuicConnection c, QuicStream s) throws IOException {
-        if (s.isBidirectional()) {
-            try (InputStream in = s.getInputStream(); OutputStream out = s.getOutputStream()) {
-                in.transferTo(out);
-            } catch (QuicStreamException e) {
-                // the client abandoned it
-            }
-        } else {
-            MessageDigest sha = sha256();
-            byte[] buf = new byte[64 * 1024];
-            InputStream in = s.getInputStream();
-            for (int n; (n = in.read(buf)) > 0; ) {
-                sha.update(buf, 0, n);
-            }
-            QuicStream reply = c.openUnidirectionalStream();
-            try (OutputStream out = reply.getOutputStream()) {
-                out.write(sha.digest());
-            }
-        }
+        echo.close();
+        assertTrue(echo.errors().isEmpty(), "server errors: " + echo.errors());
     }
 
     static MessageDigest sha256() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return EchoServer.sha256();
     }
 
     static byte[] data(long seed, int length) {
