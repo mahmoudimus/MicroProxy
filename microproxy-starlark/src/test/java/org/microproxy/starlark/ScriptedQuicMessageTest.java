@@ -122,6 +122,8 @@ class ScriptedQuicMessageTest {
         @Override
         public void close() {}
     };
+    /** Held for the test: a logger that nothing references may be collected, with the handler on it. */
+    private final Logger scriptLog = Logger.getLogger("microproxy.script");
     private java.util.logging.Level level;
     private DoqOrigin origin;
 
@@ -133,17 +135,15 @@ class ScriptedQuicMessageTest {
 
     @BeforeEach
     void logging() {
-        Logger logger = Logger.getLogger("microproxy.script");
-        level = logger.getLevel();
-        logger.setLevel(java.util.logging.Level.INFO);
-        logger.addHandler(handler);
+        level = scriptLog.getLevel();
+        scriptLog.setLevel(java.util.logging.Level.INFO);
+        scriptLog.addHandler(handler);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        Logger logger = Logger.getLogger("microproxy.script");
-        logger.removeHandler(handler);
-        logger.setLevel(level);
+        scriptLog.removeHandler(handler);
+        scriptLog.setLevel(level);
         for (AutoCloseable c : closeables) c.close();
     }
 
