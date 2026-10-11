@@ -39,6 +39,9 @@ public final class DeliveryRate {
     private long rtt;
     private boolean sampleAppLimited;
 
+    /** A sampler for a connection that has delivered nothing yet. */
+    public DeliveryRate() {}
+
     /**
      * Stamps a packet about to go in flight.
      *

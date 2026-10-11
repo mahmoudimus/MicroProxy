@@ -112,7 +112,6 @@ public final class SentPacket {
         return streamFrames;
     }
 
-    /** Whether the control frames still matter for {@code streams}. */
     /**
      * The bytes the connection had delivered when this packet was sent ({@code P.delivered}).
      *
@@ -159,6 +158,7 @@ public final class SentPacket {
         this.appLimited = appLimited;
     }
 
+    /** Whether the control frames still matter for {@code streams}. */
     boolean hasRetransmits(StreamsState streams) {
         return retransmits != null && !retransmits.isEmpty(streams);
     }
