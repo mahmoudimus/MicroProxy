@@ -90,6 +90,7 @@ public final class Connection {
         boolean ackEliciting;
         boolean track = true;
         long largestAcked = -1;
+        int payloadStart;
         Retransmits sent = new Retransmits();
         List<StreamMeta> streamFrames = List.of();
     }
@@ -1201,7 +1202,7 @@ public final class Connection {
                 recovery.discardSpace(now, SpaceId.INITIAL);
             }
             if (id == SpaceId.DATA) {
-                if (state == State.ESTABLISHED && space.sentWithKeys >= keyPhaseSize && prevKeys == null) {
+                if (handshakeConfirmed && space.sentWithKeys >= keyPhaseSize && prevKeys == null) {
                     forceKeyUpdate(); // routine key update before the key wears out
                     keys = space.keys();
                 }
@@ -1209,6 +1210,12 @@ public final class Connection {
             }
             open = begin(now, id, builder, keys, used);
             populate(now, open, space, currentFrames, dataAllowed);
+            if (currentFrames.position() == open.payloadStart && used == 0) {
+                // Nothing fit after all: abandon the datagram (and its packet number) rather
+                // than send PADDING, which the caller would be asked for again and again
+                currentFrames = null;
+                return null;
+            }
             if (probe && dataAllowed) {
                 space.probeSent();
             }
@@ -1248,6 +1255,7 @@ public final class Connection {
         p.number = pn;
         currentFrames = builder.begin(header, keys.local());
         p.start = start;
+        p.payloadStart = currentFrames.position();
         return p;
     }
 
@@ -1495,12 +1503,12 @@ public final class Connection {
 
     /**
      * Starts a key update (RFC 9001 section 6) now, rather than when the key's packet budget runs
-     * out. Ignored before the handshake completes or while the previous update is unconfirmed.
+     * out. Ignored before the handshake is confirmed or while the previous update is unconfirmed.
      *
      * @return true if the update started
      */
     public boolean forceKeyUpdate() {
-        if (state != State.ESTABLISHED || prevKeys != null) {
+        if (state != State.ESTABLISHED || !handshakeConfirmed || prevKeys != null) {
             return false;
         }
         updateKeys(-1, false);
