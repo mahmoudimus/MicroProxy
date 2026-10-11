@@ -2215,17 +2215,7 @@ final class ClientConnection implements Runnable {
     private boolean serveEstablished(Exchange ex, ServerConnection conn, boolean inspect, SSLSession serverSession,
             String serverAlpn, HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key,
             Hop hop) throws IOException {
-        if (!inspect) {
-            // In reverse:tcp:// mode behind a TLS listener, the bytes are the decrypted ones.
-            boolean decrypted = server.reverseProxy != null && sslSession != null;
-            ex.channel.relay(conn, null, tcpSession(ex.flow, target, decrypted), server.name + "-tunnel-" + id);
-            conn.close();
-            return false;
-        }
-        if (ex.channel.multiplexed()) {
-            return interceptStream(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key, hop);
-        }
-        if (hop != null) {
+        if (hop != null && !ex.channel.multiplexed()) {
             // An HTTP/1 connection turns into the tunnel: it is done with the session's server, and
             // its connections from now on reach the target through that server. The session's
             // ClientHello is not the tunnel's.
@@ -2235,6 +2225,16 @@ final class ClientConnection implements Runnable {
             plainSession = false;
             flowContext.clientHello(null);
             if (conn != null) serverConnections.put(conn.key, conn);
+        }
+        if (!inspect) {
+            // In reverse:tcp:// mode behind a TLS listener, the bytes are the decrypted ones.
+            boolean decrypted = server.reverseProxy != null && sslSession != null;
+            ex.channel.relay(conn, null, tcpSession(ex.flow, target, decrypted), server.name + "-tunnel-" + id);
+            conn.close();
+            return false;
+        }
+        if (ex.channel.multiplexed()) {
+            return interceptStream(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key, hop);
         }
         return interceptOrTunnel(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key);
     }
@@ -2627,15 +2627,17 @@ final class ClientConnection implements Runnable {
 
     /**
      * The TCP hooks for a raw tunnel to {@code target}, or null without a {@link TcpInterceptor}:
-     * the tunnel then copies bytes as it always has.
+     * the tunnel then copies bytes as it always has. Its server name is the tunnel's own
+     * ClientHello's, when one was read, never that of a session the tunnel runs inside (a {@code
+     * CONNECT} stream's connection's).
      *
      * @param tlsIntercepted whether this connection terminated the client's TLS, so the tunnel's
      *     bytes are decrypted
      */
-    private TcpSession tcpSession(FlowContext flow, HostAndPort target, boolean tlsIntercepted) {
+    private TcpSession tcpSession(ClientFlowContext flow, HostAndPort target, boolean tlsIntercepted) {
         TcpInterceptor interceptor = server.tcpInterceptor;
         if (interceptor == null) return null;
-        ClientHello hello = flow.getClientHello();
+        ClientHello hello = flow.ownClientHello();
         String sni = hello != null ? hello.sni() : null;
         String alpn = null;
         if (tlsIntercepted && http1.socket() instanceof SSLSocket tls) {
