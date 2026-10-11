@@ -42,7 +42,7 @@ final class MasqueQuic implements AutoCloseable {
     /** @param keys the certificate for a server name, or null when nothing can be intercepted */
     MasqueQuic(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
         this.ports = server.http3Options.connectUdpQuicPorts();
-        this.flows = new QuicFlows(server, keys, byAddress::get, server.name + "-masque-quic");
+        this.flows = new QuicFlows(server, keys, byAddress::get, server.name + "-masque-quic", server.stats.masque.quic);
         this.quic = QuicServer.unbound(address(0), Http3Listener.serverConfig(server, keys != null ? keys : sni -> null),
                 EndpointConfig.defaults(), this::filter, this::send);
         QuicStats.of(server, QuicStats.MASQUE).observe(quic);
