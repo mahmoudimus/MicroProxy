@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.List;
@@ -22,6 +23,11 @@ import java.util.Objects;
  * <p>Connections come from {@link QuicServer#accept()} and {@link QuicClient#connect}. Each one is
  * driven by a virtual thread of its endpoint; any number of threads may use a connection and its
  * streams at once.
+ *
+ * <p><b>Migration.</b> A server's connection follows a client that moves to a new address (a NAT
+ * rebinding, or a client that {@linkplain #migrate migrates}), validating the new path first, unless
+ * its configuration forbids migration; {@link #remoteAddress()} then changes. A client connection
+ * moves with {@link #migrate}, and to a server's preferred address on its own.
  *
  * <p><b>0-RTT.</b> A connection from {@link QuicClient#connectEarly} may still be handshaking: its
  * streams can be opened and written at once, and what is written goes out as 0-RTT data. A server
@@ -448,12 +454,99 @@ public final class QuicConnection implements AutoCloseable {
     }
 
     /**
-     * The local address of the endpoint's socket.
+     * The local address the connection sends from: the endpoint's socket, a socket of its own
+     * after it migrated, or a server's preferred address once its client moved there.
      *
      * @return the address
      */
     public InetSocketAddress localAddress() {
-        return driver.endpoint().localAddress();
+        InetSocketAddress socket = driver.socketAddress();
+        if (socket != null) {
+            return socket;
+        }
+        InetSocketAddress local = withLock(conn::localAddress);
+        return local != null ? local : driver.endpoint().localAddress();
+    }
+
+    /**
+     * Client: moves the connection to a new local address (RFC 9000 section 9), waiting until it
+     * has. A UDP socket is bound at {@code local}; the connection probes the path from there to
+     * the server with PATH_CHALLENGE and a connection ID of the server's it has not used, and
+     * switches to the path when the server answers. Its streams carry on meanwhile on the old
+     * path; the old socket is closed once no connection uses it (a client's first socket then
+     * gives way to the new one for later connections). The congestion and RTT state carry over
+     * when only the port changes, and start over otherwise. A new port on the same address is
+     * what a NAT rebinding looks like to the server.
+     *
+     * @param local the address to bind, port 0 for an ephemeral port
+     * @return the new local address, with its port
+     * @throws IOException if the socket cannot be bound; if the connection cannot migrate (a
+     *     server's, one still handshaking, one where either side disabled active migration, one
+     *     whose server gave no unused connection ID, one on an endpoint without a socket); or if
+     *     the server did not answer on the new path (the connection stays where it was)
+     * @throws QuicConnectionException if the connection ended meanwhile
+     */
+    public InetSocketAddress migrate(InetSocketAddress local) throws IOException {
+        Objects.requireNonNull(local, "local");
+        return migrate(driver.endpoint().bindSocket(local));
+    }
+
+    /**
+     * Client: moves the connection to a socket of the caller's, as {@link
+     * #migrate(InetSocketAddress)} does with one it binds. The connection owns the channel from
+     * now on, and closes it when it no longer uses it.
+     *
+     * @param channel a bound socket
+     * @return the new local address
+     * @throws IOException if the channel is not bound, or as {@link #migrate(InetSocketAddress)}
+     */
+    public InetSocketAddress migrate(DatagramChannel channel) throws IOException {
+        Objects.requireNonNull(channel, "channel");
+        return migrate(driver.endpoint().adopt(channel));
+    }
+
+    private InetSocketAddress migrate(EndpointDriver.Socket next) throws IOException {
+        boolean started = false;
+        driver.lock.lock();
+        try {
+            // A connection migrates once its handshake is confirmed (RFC 9000 section 9)
+            while (conn.isHandshaking() || conn.isEstablished() && !conn.isHandshakeConfirmed()) {
+                ConnectionError lost = driver.lostReason();
+                if (lost != null) {
+                    throw new QuicConnectionException(lost);
+                }
+                driver.changed.await();
+            }
+            try {
+                driver.startMigration(next);
+            } catch (IllegalStateException e) {
+                throw new IOException("cannot migrate: " + e.getMessage(), e);
+            }
+            started = true; // the driver owns the socket from now on
+            driver.wake();
+            while (true) {
+                Boolean migrated = driver.migrated();
+                if (migrated != null) {
+                    if (migrated) {
+                        return next.address;
+                    }
+                    throw new IOException("no PATH_RESPONSE on the path from " + next.address + "; not migrated");
+                }
+                ConnectionError lost = driver.lostReason();
+                if (lost != null) {
+                    throw new QuicConnectionException(lost);
+                }
+                driver.changed.await();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("migration interrupted");
+        } finally {
+            driver.lock.unlock();
+            if (!started) {
+                driver.endpoint().release(next, null);
+            }
+        }
     }
 
     /**

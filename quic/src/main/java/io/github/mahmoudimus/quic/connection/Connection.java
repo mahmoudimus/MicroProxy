@@ -2570,6 +2570,16 @@ public final class Connection {
     }
 
     /**
+     * Whether the handshake is confirmed (RFC 9001 section 4.1.2): on a client once HANDSHAKE_DONE
+     * arrives, on a server once its handshake completes. Migration waits for it.
+     *
+     * @return true once confirmed
+     */
+    public boolean isHandshakeConfirmed() {
+        return handshakeConfirmed;
+    }
+
+    /**
      * Whether the connection is established: the handshake completed and it is not closing.
      *
      * @return true when streams can be used
