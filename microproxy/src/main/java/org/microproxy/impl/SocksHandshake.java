@@ -86,10 +86,27 @@ final class SocksHandshake {
         }
     }
 
+    /** Why a handshake was refused. */
+    enum Refusal {
+        /** The client's authentication was refused, or it offered none the proxy accepts. */
+        AUTHENTICATION,
+        /** The client asked for a command other than CONNECT. */
+        COMMAND,
+        /** Anything else: an address the proxy cannot use. */
+        OTHER
+    }
+
     /** The handshake was refused, and the client told so if the protocol has a way. */
     static final class Refused extends ProtocolException {
-        Refused(String message) {
+        /** Why. */
+        final Refusal refusal;
+        /** The SOCKS5 code of the reply the client was sent, or -1 for none. */
+        final int reply;
+
+        Refused(String message, Refusal refusal, int reply) {
             super(message);
+            this.refusal = refusal;
+            this.reply = reply;
         }
     }
 
@@ -137,7 +154,7 @@ final class SocksHandshake {
         if (method == METHOD_NO_ACCEPTABLE) {
             throw new Refused(auth.required()
                     ? "the client offers no SOCKS5 authentication the proxy accepts"
-                    : "the client does not offer SOCKS5 without authentication");
+                    : "the client does not offer SOCKS5 without authentication", Refusal.AUTHENTICATION, -1);
         }
 
         String user = null;
@@ -154,7 +171,7 @@ final class SocksHandshake {
             password = string(in, input, in.read());
             boolean accepted = auth.accepts(user, password);
             out.write(new byte[] {AUTH_VERSION, (byte) (accepted ? AUTH_SUCCESS : AUTH_FAILURE)});
-            if (!accepted) throw new Refused("SOCKS5 credentials rejected for user " + user);
+            if (!accepted) throw new Refused("SOCKS5 credentials rejected for user " + user, Refusal.AUTHENTICATION, -1);
         }
 
         // Request: VER CMD RSV ATYP DST.ADDR DST.PORT
@@ -168,7 +185,8 @@ final class SocksHandshake {
         }
         if (command != COMMAND_CONNECT) {
             out.write(reply(VERSION_5, Socks.REPLY_COMMAND_NOT_SUPPORTED));
-            throw new Refused("unsupported SOCKS5 command " + command + " (only CONNECT is)");
+            throw new Refused("unsupported SOCKS5 command " + command + " (only CONNECT is)", Refusal.COMMAND,
+                    Socks.REPLY_COMMAND_NOT_SUPPORTED);
         }
         String host = switch (type) {
             case ADDRESS_IPV4 -> address(in, input, 4);
@@ -180,14 +198,15 @@ final class SocksHandshake {
             }
             default -> {
                 out.write(reply(VERSION_5, Socks.REPLY_ADDRESS_TYPE_NOT_SUPPORTED));
-                throw new Refused("unsupported SOCKS5 address type " + type);
+                throw new Refused("unsupported SOCKS5 address type " + type, Refusal.OTHER,
+                        Socks.REPLY_ADDRESS_TYPE_NOT_SUPPORTED);
             }
         };
         int port = port(in, input);
         String invalid = invalid(host, port);
         if (invalid != null) {
             out.write(reply(VERSION_5, Socks.REPLY_GENERAL_FAILURE));
-            throw new Refused(invalid);
+            throw new Refused(invalid, Refusal.OTHER, Socks.REPLY_GENERAL_FAILURE);
         }
         return new Destination(VERSION_5, host, port, user, password);
     }
@@ -208,16 +227,18 @@ final class SocksHandshake {
         String host = named ? nullTerminated(in, input) : InetAddress.getByAddress(ip).getHostAddress();
         if (command != COMMAND_CONNECT) {
             out.write(reply(VERSION_4, Socks.REPLY_COMMAND_NOT_SUPPORTED));
-            throw new Refused("unsupported SOCKS4 command " + command + " (only CONNECT is)");
+            throw new Refused("unsupported SOCKS4 command " + command + " (only CONNECT is)", Refusal.COMMAND,
+                    Socks.REPLY_COMMAND_NOT_SUPPORTED);
         }
         if (auth.required() && !auth.acceptsWithout()) {
             out.write(reply(VERSION_4, Socks.REPLY_NOT_ALLOWED));
-            throw new Refused("SOCKS4 has no credentials to give the proxy's authenticator");
+            throw new Refused("SOCKS4 has no credentials to give the proxy's authenticator", Refusal.AUTHENTICATION,
+                    Socks.REPLY_NOT_ALLOWED);
         }
         String invalid = invalid(host, port);
         if (invalid != null) {
             out.write(reply(VERSION_4, Socks.REPLY_GENERAL_FAILURE));
-            throw new Refused(invalid);
+            throw new Refused(invalid, Refusal.OTHER, Socks.REPLY_GENERAL_FAILURE);
         }
         return new Destination(VERSION_4, host, port, null, null);
     }

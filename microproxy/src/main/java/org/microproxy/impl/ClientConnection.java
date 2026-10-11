@@ -1085,6 +1085,8 @@ final class ClientConnection implements Runnable {
         ByteReader in = http1.input();
         int version = in.peek();
         flowContext.socksVersion(version);
+        ProtocolStats.SocksStats socks = server.stats.socks;
+        (version == Socks.VERSION_4 ? socks.connectionsV4 : socks.connectionsV5).inc();
         long deadline = server.tlsHandshakeTimeout.isZero() ? 0 : System.nanoTime() + server.tlsHandshakeTimeout.toNanos();
         SocksHandshake.Destination destination;
         try {
@@ -1092,6 +1094,9 @@ final class ClientConnection implements Runnable {
                     http1::writeRaw, socksAuthenticator());
         } catch (SocksHandshake.Refused e) {
             LOG.log(Level.DEBUG, logPrefix + "SOCKS client refused: " + e.getMessage());
+            if (e.refusal == SocksHandshake.Refusal.AUTHENTICATION) socks.authFailures.inc();
+            if (e.refusal == SocksHandshake.Refusal.COMMAND) socks.commandNotSupported.inc();
+            if (e.reply >= 0) socks.reply(e.reply);
             return;
         }
         String authorization = destination.user() == null ? null : "Basic " + Base64.getEncoder().encodeToString(
@@ -2828,6 +2833,7 @@ final class ClientConnection implements Runnable {
         if (ex.socks != 0) {
             // The SOCKS client's request succeeded: the server is connected (or will be, by the session).
             writeToClient(() -> http1.writeRaw(SocksHandshake.reply(ex.socks, Socks.REPLY_SUCCEEDED)));
+            server.stats.socks.reply(Socks.REPLY_SUCCEEDED);
             sent(ex, response, source);
         } else if (!ex.implicit) {
             writeToClient(() -> ex.channel.writeHead(response, response.status().code() / 100 != 2));
@@ -5077,6 +5083,7 @@ final class ClientConnection implements Runnable {
                 + " (" + response.status() + ")");
         try {
             http1.writeRaw(SocksHandshake.reply(ex.socks, code));
+            server.stats.socks.reply(code);
             sent(ex, response, source);
             completed(ex, response, source);
         } catch (IOException e) {
