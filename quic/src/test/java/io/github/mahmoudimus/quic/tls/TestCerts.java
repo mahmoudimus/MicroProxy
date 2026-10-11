@@ -58,26 +58,63 @@ public final class TestCerts {
     }
 
     private static KeyPair generate(KeyType type) {
+        return generate(type, RANDOM);
+    }
+
+    private static KeyPair generate(KeyType type, SecureRandom random) {
         try {
             return switch (type) {
-                case P256 -> ec("secp256r1");
-                case P384 -> ec("secp384r1");
+                case P256 -> ec("secp256r1", random);
+                case P384 -> ec("secp384r1", random);
                 case RSA -> {
                     KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
-                    gen.initialize(2048, RANDOM);
+                    gen.initialize(2048, random);
                     yield gen.generateKeyPair();
                 }
-                case ED25519 -> KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+                case ED25519 -> {
+                    KeyPairGenerator gen = KeyPairGenerator.getInstance("Ed25519");
+                    gen.initialize(java.security.spec.NamedParameterSpec.ED25519, random);
+                    yield gen.generateKeyPair();
+                }
             };
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private static KeyPair ec(String curve) throws GeneralSecurityException {
+    private static KeyPair ec(String curve, SecureRandom random) throws GeneralSecurityException {
         KeyPairGenerator gen = KeyPairGenerator.getInstance("EC");
-        gen.initialize(new ECGenParameterSpec(curve), RANDOM);
+        gen.initialize(new ECGenParameterSpec(curve), random);
         return gen.generateKeyPair();
+    }
+
+    /**
+     * A deterministic random source: the same seed gives the same bytes in every run, which makes
+     * keys, signatures and anything else drawn from it reproducible. For tests only.
+     *
+     * @param seed the seed
+     * @return a seeded generator
+     */
+    public static SecureRandom seededRandom(long seed) {
+        try {
+            SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+            random.setSeed(seed); // before any output, this replaces the system seed
+            return random;
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * An authority whose keys, serial numbers, signatures and validity come from a seed, so that its
+     * certificates are byte for byte the same in every run.
+     *
+     * @param name the authority's common name
+     * @param seed the seed
+     * @return the authority
+     */
+    public static Authority seeded(String name, long seed) {
+        return new Authority(name, seededRandom(seed), Instant.parse("2025-01-01T00:00:00Z"));
     }
 
     public static X509TrustManager trustManager(X509Certificate... anchors) {
@@ -100,9 +137,20 @@ public final class TestCerts {
     public static final class Authority {
         public final KeyPair key;
         public final X509Certificate certificate;
+        /** The seeded source of a deterministic authority, or null. */
+        private final SecureRandom random;
+        /** The fixed start of validity of a deterministic authority, or null for a day ago. */
+        private final Instant validFrom;
+        private final Map<KeyType, KeyPair> leafKeys = new ConcurrentHashMap<>();
 
         Authority(String name) {
-            key = generate(KeyType.P256);
+            this(name, null, null);
+        }
+
+        private Authority(String name, SecureRandom random, Instant validFrom) {
+            this.random = random;
+            this.validFrom = validFrom;
+            key = random != null ? generate(KeyType.P256, random) : generate(KeyType.P256);
             certificate = sign(name, key.getPublic(), key.getPrivate(), null, true, List.of());
         }
 
@@ -112,7 +160,7 @@ public final class TestCerts {
 
         /** A leaf for {@code names} (DNS names or IP literals) with the shared key of {@code type}. */
         public CertifiedKey issue(KeyType type, String... names) {
-            KeyPair pair = keyPair(type);
+            KeyPair pair = random != null ? leafKeys.computeIfAbsent(type, t -> generate(t, random)) : keyPair(type);
             X509Certificate leaf = sign(names.length > 0 ? names[0] : "leaf", pair.getPublic(), key.getPrivate(),
                     certificate, false, List.of(names));
             return CertifiedKey.of(pair.getPrivate(), leaf, certificate);
@@ -146,18 +194,23 @@ public final class TestCerts {
                 extensions.add(extension("2.5.29.14", false, tlv(0x04, keyId(subjectKey))));
                 PublicKey authorityKey = issuer != null ? issuer.getPublicKey() : subjectKey;
                 extensions.add(extension("2.5.29.35", false, sequence(tlv(0x80, keyId(authorityKey)))));
-                Instant now = Instant.now();
+                Instant from = validFrom != null ? validFrom : Instant.now().minusSeconds(86_400);
+                Instant until = validFrom != null ? Instant.parse("2045-01-01T00:00:00Z") : from.plusSeconds(366L * 86_400);
                 byte[] tbs = sequence(
                         tlv(0xa0, integer(BigInteger.TWO)),
-                        integer(new BigInteger(63, RANDOM).add(BigInteger.ONE)),
+                        integer(new BigInteger(63, random != null ? random : RANDOM).add(BigInteger.ONE)),
                         algorithm,
                         issuerName,
-                        sequence(time(now.minusSeconds(86_400)), time(now.plusSeconds(365L * 86_400))),
+                        sequence(time(from), time(until)),
                         subject,
                         subjectKey.getEncoded(),
                         tlv(0xa3, sequence(extensions.toArray(byte[][]::new))));
                 Signature signature = Signature.getInstance("SHA256withECDSA");
-                signature.initSign(signingKey);
+                if (random != null) {
+                    signature.initSign(signingKey, random);
+                } else {
+                    signature.initSign(signingKey);
+                }
                 signature.update(tbs);
                 byte[] der = sequence(tbs, algorithm, bitString(signature.sign(), 0));
                 return (X509Certificate) CertificateFactory.getInstance("X.509")

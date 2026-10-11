@@ -74,6 +74,53 @@ final class Pair {
         client = new TestEndpoint(new Endpoint(clientEndpoint, null, true), address(50000));
     }
 
+    /** The client TLS settings of a {@link #seeded} pair, or null for {@link #clientTls()}. */
+    private TlsConfig seededClientTls;
+
+    /**
+     * A pair whose every random choice comes from a seed, so that a run repeats exactly, in this
+     * JVM or another: the network's loss and reordering, both endpoints' connection IDs, packet
+     * number skips and padding, the TLS randoms, key shares and signatures, and a certificate from
+     * an authority made from the seed. (Only the server's token key stays random, which changes
+     * the bytes of its NEW_TOKEN frames but not their size.)
+     *
+     * @param seed the seed
+     * @param transport the transport settings of the server; pass them to {@link #client} too
+     * @return the pair
+     */
+    static Pair seeded(long seed, TransportConfig transport) {
+        TestCerts.Authority ca = TestCerts.seeded("Seeded CA", seed);
+        TlsConfig serverTls = TlsConfig.builder()
+                .certificate(ca.issue(TestCerts.KeyType.P256, "localhost"))
+                .alpnProtocols(ALPN)
+                .secureRandom(TestCerts.seededRandom(seed + 1))
+                .build();
+        Pair pair = new Pair(EndpointConfig.builder().random(TestCerts.seededRandom(seed + 2)).build(),
+                ServerConfig.builder(serverTls).transport(transport).build(),
+                EndpointConfig.builder().random(TestCerts.seededRandom(seed + 3)).build());
+        pair.random.setSeed(seed);
+        pair.seededClientTls = TlsConfig.builder()
+                .serverName("localhost")
+                .trustManager(ca.trustManager())
+                .alpnProtocols(ALPN)
+                .secureRandom(TestCerts.seededRandom(seed + 4))
+                .build();
+        return pair;
+    }
+
+    /**
+     * Client settings for this pair: those of a {@link #seeded} pair, else {@link
+     * #clientConfig(TransportConfig)}.
+     *
+     * @param transport the transport settings
+     * @return the client settings
+     */
+    ClientConfig client(TransportConfig transport) {
+        return seededClientTls != null
+                ? ClientConfig.builder(seededClientTls).transport(transport).build()
+                : clientConfig(transport);
+    }
+
     static InetSocketAddress address(int port) {
         return new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
     }
