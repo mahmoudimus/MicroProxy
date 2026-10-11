@@ -330,6 +330,25 @@ class ZeroRttTest {
     }
 
     @Test
+    void zeroRttDataSentBeforeARetryIsSentAgain() throws Exception {
+        // No NEW_TOKEN tokens, so the resumed connection meets a Retry too
+        Pair pair = pair(ServerConfig.builder(serverTls(true).build()).retry(true).newTokens(0));
+        firstConnection(pair);
+        pair.server.responses.clear();
+        List<ByteBuffer> sent = recordClient(pair);
+        Connection client = pair.beginConnect(clientConfig(true));
+        StreamId s = request(client);
+        pair.drive();
+        assertEquals(1, pair.server.responses.size(), "a Retry");
+        assertTrue(zeroRttPackets(sent) >= 2, "0-RTT before and after the Retry");
+        Connection server = pair.server.connections.get(1);
+        assertTrue(client.earlyDataAccepted());
+        assertEquals(s, server.acceptStream(Dir.BI));
+        assertArrayEquals(REQUEST, readAvailable(server, s));
+        assertTrue(server.receivedEarlyData(s), "sent again as 0-RTT data after the Retry");
+    }
+
+    @Test
     void newTokenSkipsRetry() throws Exception {
         Pair pair = pair(ServerConfig.builder(serverTls(false).build()).retry(true));
         firstConnection(pair);

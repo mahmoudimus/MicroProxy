@@ -1059,6 +1059,17 @@ public final class Connection {
         initial.setKeys(Keys.initial(version, newCid, false));
         initial.pending().crypto.clear();
         initial.pending().crypto.addLast(new Frame.Crypto(0, ByteBuffer.wrap(clientHello)));
+        if (zeroRttKeys != null) {
+            // The server dropped the 0-RTT packets with the first Initial: send it all again, still
+            // as 0-RTT data, since the ClientHello and so the early keys stay the same
+            Retransmits pending = recovery.space(SpaceId.DATA).pending();
+            for (SentPacket sent : recovery.discardZeroRttPackets(now)) {
+                if (sent.retransmits() != null) {
+                    pending.merge(sent.retransmits());
+                }
+            }
+            streams.retransmitAllForZeroRtt();
+        }
         remoteCidSet = false;
         qlog(now, "transport:packet_received", "{\"header\":{\"packet_type\":\"retry\"}}");
     }
