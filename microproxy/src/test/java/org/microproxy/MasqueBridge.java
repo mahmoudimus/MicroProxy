@@ -15,7 +15,7 @@ import java.util.Arrays;
  * capsule), and what comes back, either way, goes to that client. A {@code QuicClient} connecting
  * to {@link #address()} so runs its QUIC inside the flow.
  */
-final class MasqueBridge implements AutoCloseable {
+public final class MasqueBridge implements AutoCloseable {
 
     /** What a DATAGRAM frame carries besides the payload: a quarter stream ID and a context ID. */
     private static final int OVERHEAD = 16;
@@ -25,7 +25,7 @@ final class MasqueBridge implements AutoCloseable {
     private final DatagramSocket socket;
     private volatile SocketAddress peer;
 
-    MasqueBridge(H3TestClient client, H3TestClient.Tunnel tunnel) throws IOException {
+    public MasqueBridge(H3TestClient client, H3TestClient.Tunnel tunnel) throws IOException {
         this.client = client;
         this.tunnel = tunnel;
         this.socket = new DatagramSocket(new InetSocketAddress(TestSupport.LOOPBACK, 0));
@@ -34,7 +34,7 @@ final class MasqueBridge implements AutoCloseable {
         Thread.ofVirtual().name("masque-bridge-capsules").start(this::capsules);
     }
 
-    InetSocketAddress address() {
+    public InetSocketAddress address() {
         return (InetSocketAddress) socket.getLocalSocketAddress();
     }
 
