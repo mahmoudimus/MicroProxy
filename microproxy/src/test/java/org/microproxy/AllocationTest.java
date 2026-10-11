@@ -50,7 +50,6 @@ class AllocationTest {
                 }
             }
         });
-        proxy = MicroProxy.bootstrap().withPort(0).start();
     }
 
     @AfterEach
@@ -61,6 +60,30 @@ class AllocationTest {
 
     @Test
     void smallKeepAliveRequestsAllocateLittle() throws Exception {
+        proxy = MicroProxy.bootstrap().withPort(0).start();
+        long perRequest = bytesPerRequest();
+        System.out.println("AllocationTest: " + perRequest + " bytes allocated per small keep-alive request");
+    }
+
+    /**
+     * With metrics on, the proxy counts each request (its class, time, protocol, cluster) into
+     * metrics it resolved when it started and when each connection was made: nothing more is
+     * allocated per request, and the same bound holds.
+     */
+    @Test
+    void smallKeepAliveRequestsAllocateLittleWithMetrics() throws Exception {
+        proxy = MicroProxy.bootstrap().withPort(0).withName("alloc").withMetrics(true).start();
+        long perRequest = bytesPerRequest();
+        System.out.println("AllocationTest: " + perRequest + " bytes allocated per small keep-alive request with metrics");
+        org.microproxy.stats.StatsRegistry stats = proxy.getStats();
+        long requests = ((org.microproxy.stats.Counter) stats.get("http.alloc.downstream_rq_total")).value();
+        assertTrue(requests >= (long) CLIENTS * 10_000, requests + " requests counted");
+        assertEquals(requests, ((org.microproxy.stats.Counter) stats.get("http.alloc.downstream_rq_2xx")).value());
+        assertEquals(requests, ((org.microproxy.stats.Counter) stats.get("cluster.direct.upstream_rq_total")).value());
+    }
+
+    /** The best of three rounds' bytes per request, failing above {@link #MAX_BYTES_PER_REQUEST}. */
+    private long bytesPerRequest() throws Exception {
         com.sun.management.ThreadMXBean threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         assertTrue(threads.isThreadAllocatedMemorySupported() && threads.isThreadAllocatedMemoryEnabled(),
                 "this JVM cannot count allocated bytes");
@@ -76,8 +99,8 @@ class AllocationTest {
             long perRequest = (threads.getTotalThreadAllocatedBytes() - before) / ((long) CLIENTS * perClient);
             best = Math.min(best, perRequest);
         }
-        System.out.println("AllocationTest: " + best + " bytes allocated per small keep-alive request");
         assertTrue(best <= MAX_BYTES_PER_REQUEST, best + " bytes allocated per request, more than " + MAX_BYTES_PER_REQUEST);
+        return best;
     }
 
     /** {@link #CLIENTS} keep-alive connections, each sending {@code perClient} requests one after another. */
