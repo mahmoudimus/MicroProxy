@@ -10,8 +10,8 @@ under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20
 HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
-endpoint, tested against itself on loopback and against aioquic as client and server. Not yet:
-0-RTT and resumption, connection migration, BBR (see [Connections and
+endpoint, with session resumption, 0-RTT and NEW_TOKEN, tested against itself on loopback and
+against aioquic as client and server. Not yet: connection migration, BBR (see [Connections and
 endpoints](#connections-and-endpoints)).
 
 ## Packets and protection
@@ -144,7 +144,8 @@ byte[] toSend = session.writeHandshake(level);       // for each level
 | Cipher suites | `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384`, `TLS_CHACHA20_POLY1305_SHA256` |
 | Key exchange | X25519, secp256r1, secp384r1; HelloRetryRequest (with `message_hash` and cookie echo) when the client's key share is not one the server takes |
 | CertificateVerify | `ecdsa_secp256r1_sha256`, `ecdsa_secp384r1_sha384`, `rsa_pss_rsae_sha256/384/512`, `ed25519`; `rsa_pkcs1_*` is advertised for certificate chains only |
-| Extensions | `server_name`, `supported_groups`, `signature_algorithms` (`_cert` parsed), ALPN, `supported_versions`, `key_share`, `cookie`, `quic_transport_parameters` (0x39), `psk_key_exchange_modes` (parsed only) |
+| Extensions | `server_name`, `supported_groups`, `signature_algorithms` (`_cert` parsed), ALPN, `supported_versions`, `key_share`, `cookie`, `quic_transport_parameters` (0x39), `psk_key_exchange_modes` (`psk_dhe_ke` only), `pre_shared_key`, `early_data` |
+| Resumption | NewSessionTicket from a server with a `Ticketer` (stateless, AES-256-GCM, rotating keys); PSK resumption with `psk_dhe_ke` (always a fresh key exchange); 0-RTT with an anti-replay `EarlyDataPolicy` |
 | Certificates | client: an `X509TrustManager` (the JDK default by default) plus host name verification as HTTPS does it, or `trustAllCertificates(true)` for tests; server: one `CertifiedKey` or a per-ClientHello selector (`ClientHelloInfo`: SNI, ALPN, signature schemes, suites, groups) |
 | Client authentication | `clientAuth(REQUEST or REQUIRE)` with a `clientTrustManager`; the client presents `clientCertificate(...)` |
 
@@ -154,13 +155,76 @@ key shares in `supported_groups`, the cipher suite and group kept across a retry
 no KeyUpdate message (QUIC has its own key update). No middlebox compatibility mode and no
 EndOfEarlyData, as RFC 9001 requires.
 
-Tests check the key schedule, Finished values and transcript (including the HelloRetryRequest
-`message_hash`) against RFC 8448 sections 3 and 5, run in-memory handshakes for every suite, group and
-signature scheme with randomly fragmented CRYPTO data, and fuzz the decoders from a fixed seed.
+### Resumption and 0-RTT
 
-Out of scope for now, as follow-ups: session resumption, PSKs, 0-RTT and session tickets (a server sends
-no NewSessionTicket; a client checks and ignores the ones it gets), `rsa_pss_pss` schemes, secp521r1
-and ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
+Session tickets, PSK resumption and early data follow rustls (`client/hs.rs`, `client/tls13.rs`,
+`server/tls13.rs`, `ticketer.rs` and the ring ticketer, `client/handy.rs`, `msgs/persist.rs`,
+`quic.rs`), with the QUIC rules of RFC 9001 section 4.6.
+
+```java
+Ticketer ticketer = Ticketer.create();                // AES-256-GCM, a new key every 6 hours
+TlsConfig server = TlsConfig.builder()
+        .certificate(chain, key).alpnProtocols("h3")
+        .sessionTickets(ticketer)                     // NewSessionTicket and PSK resumption
+        .earlyData(true)                              // tickets allow 0-RTT, and it is accepted
+        .earlyDataPolicy(EarlyDataPolicy.antiReplay().and(attempt -> !"admin".equals(attempt.serverName())))
+        .build();
+TlsConfig client = TlsConfig.builder().serverName("example.com").alpnProtocols("h3")
+        .earlyData(true)                              // offer 0-RTT when the ticket allows it
+        .build();
+TlsSession session = TlsSession.client(client, "example.com", params, cache.take("example.com"));
+for (SessionTicket t; (t = session.pollNewTicket()) != null; ) cache.put("example.com", t);
+```
+
+- **Tickets.** A server with a `Ticketer` sends `ticketsPerConnection` NewSessionTickets (2 by
+  default) at `ONE_RTT` once the client's Finished checks out, to clients that offered
+  `psk_dhe_ke`; none when it asks for client certificates. Each ticket seals, with AES-256-GCM
+  under the ticketer's current key (its 16-byte name as additional data, a random 12-byte nonce),
+  the resumption PSK, suite, `ticket_age_add`, issue time, lifetime, `max_early_data_size`, server
+  name, ALPN protocol, the server's encoded transport parameters and a random ticket id. The key
+  rotates every lifetime (6 hours by default, announced as the ticket lifetime); the previous key
+  still opens tickets for one more lifetime, as rustls' `TicketRotator` does. Servers that share a
+  `Ticketer` resume each other's sessions.
+- **Client.** A client always offers `psk_dhe_ke` and keeps the tickets it receives
+  (`pollNewTicket()`) as `SessionTicket`s, with the server's certificates and transport
+  parameters; a `ClientSessionStore` (`ClientSessionMemoryCache`: up to 256 servers, 8 tickets
+  each, oldest dropped) hands each out once. A ticket is offered only unexpired, for the same
+  server name and with a suite the client offers, in `pre_shared_key`, the last extension, with
+  its obfuscated age and a binder over the ClientHello up to the binders. After a
+  HelloRetryRequest to a suite of another hash the ticket is dropped.
+- **Server.** The first identity that opens, has not expired, and has the server name and a suite
+  of the selected hash is taken; its binder must be right (`decrypt_error` otherwise). Others, and
+  `psk_ke` alone, mean a full handshake. A resumed handshake has no Certificate or
+  CertificateVerify, but always a fresh (EC)DHE exchange.
+- **0-RTT.** With `earlyData(true)` a client offers early data when its ticket allows it (QUIC
+  tickets carry `max_early_data_size` 0xffffffff; any other value is `PROTOCOL_VIOLATION`) and the
+  ticket's ALPN is offered; its `ZERO_RTT` secrets (the client early traffic secret) come first,
+  at once. A server accepts only with the first PSK identity, the ticket's suite, ALPN protocol
+  and server name, no HelloRetryRequest, transport parameters the connection layer accepts
+  (`TlsSession.server(config, params, check)`), and its `EarlyDataPolicy`; it says so with
+  `early_data` in EncryptedExtensions, and hands out the same secrets before the Handshake ones.
+  `isEarlyDataAccepted()` tells either side; `isResumed()` whether a PSK was used.
+- **Replay.** 0-RTT data can be replayed by anyone who captured it (RFC 8446 section 8). The
+  default policy, `EarlyDataPolicy.antiReplay()`, accepts a ticket's early data only while the
+  client's ticket age (de-obfuscated) and the server's agree within 10 seconds, and only once: a
+  record of ticket ids, kept for twice the window and bounded (100,000 by default; when full it
+  refuses rather than forgets). A capture replayed later fails the age check, one replayed sooner
+  hits the record. The record is per process: servers sharing a ticketer but not the record can
+  each accept a replay once. Applications must still send only replay-safe data early, and may
+  veto with `policy.and(veto)` (the veto runs first, so vetoed tickets are not recorded). A
+  rejection costs the client only the data's retransmission after the handshake.
+
+Tests check the key schedule, Finished values and transcript (including the HelloRetryRequest
+`message_hash`) against RFC 8448 sections 3 and 5, and the resumed 0-RTT handshake of section 4
+byte for byte (the PSK from section 3's ticket, the early secret, the PSK binder, the client early
+traffic secret, the resumed handshake, application and resumption secrets); run in-memory
+handshakes for every suite, group and signature scheme with randomly fragmented CRYPTO data, and
+resumptions with early data accepted, rejected (the server's setting, a replay, a stale ticket
+age, an ALPN or suite change, the transport parameter check, a veto, a HelloRetryRequest), expired
+and foreign tickets and bad binders; and fuzz the decoders from a fixed seed.
+
+Out of scope for now, as follow-ups: external PSKs, `psk_ke`, `rsa_pss_pss` schemes, secp521r1 and
+ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
 
 ## Connection internals
 
@@ -314,14 +378,28 @@ try (QuicClient client = QuicClient.create(clientConfig);
 | Type | Role |
 | --- | --- |
 | `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `accept()` (blocks until a handshake completes), `inject(from, datagram)`, `send(datagram, to)`, `localAddress()`, `close()` |
-| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout])`, `close()` |
-| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()` |
-| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread) |
+| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `close()` |
+| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
+| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
+| `...connection.SessionCache` | A client's session tickets (`ClientSessionStore`) and NEW_TOKEN tokens (`TokenStore`, `TokenMemoryCache` after quinn's), by server name: `memory()`, `none()` |
 | `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
 | `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
 | `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `knows(remote, bytes)`; `connect(...)`; `handleEvent(connection, event)` |
 | `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `ConnectionLost(ConnectionError)` |
-| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, connection cap; trust, server name, version; CID length and lifetime, reset key, versions |
+| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, NEW_TOKEN tokens and their lifetime, connection cap; trust, server name, version, session cache; CID length and lifetime, reset key, versions |
+
+With a `Ticketer` and `earlyData(true)` in its TLS configuration, a server's `accept()` hands out
+a connection that accepted 0-RTT data as soon as its handshake data is ready, before the handshake
+completes, so the early requests can be served at once; `QuicStream.receivedEarlyData()` marks
+what may be a replay, and `awaitHandshake` waits for the client's Finished. On the client:
+
+```java
+QuicConnection c = client.connectEarly(address, "example.com", null);   // at once with a 0-RTT ticket
+QuicStream s = c.openBidirectionalStream();       // within the limits of the earlier session
+s.getOutputStream().write(idempotentRequest);    // 0-RTT data
+c.awaitHandshake(null);
+c.earlyDataAccepted();                            // if not, the data went again in 1-RTT
+```
 
 A server's `DatagramFilter` sees the datagrams none of its connections claims (by Destination
 Connection ID: a client's first Initial, unknown versions, unknown connections) before its endpoint
@@ -347,6 +425,24 @@ elsewhere.
   token) a server sends at most three times what it received. With `retry(true)` the endpoint
   answers token-less Initials with Retry and a sealed token from `...quic.token`, and checks it on
   the client's second Initial; an invalid or expired token gets CONNECTION_CLOSE `INVALID_TOKEN`.
+  Once the handshake completes, a server sends `newTokens` NEW_TOKEN frames (2 by default, a fresh
+  token for each loss), bound to the client's IP for two weeks; a client keeps them by server
+  name and presents one in the first Initial of its next connection, which validates its address
+  and skips the Retry. A `BloomTokenLog` per endpoint refuses a token's second use.
+- **Resumption and 0-RTT.** A client takes a ticket and a token for the server from its
+  `SessionCache` (`ClientConfig.sessionCache`, or `QuicClient`'s own) and keeps those it receives.
+  With a ticket that allows 0-RTT, it installs the 0-RTT keys at once and keeps within the
+  transport parameters the ticket remembers (as quinn's `init_0rtt` filters them, RFC 9000
+  section 7.4.1): stream data and datagrams go out in 0-RTT packets, coalesced with the Initial,
+  without ACK, CRYPTO, NEW_CONNECTION_ID or PATH_RESPONSE frames. If the server accepts, its new
+  parameters must not lower those limits (`PROTOCOL_VIOLATION`). If it rejects, the 0-RTT packets
+  are forgotten without counting as lost, their control frames are queued again, and the streams
+  send everything again in 1-RTT packets, when what they used fits the server's new limits; else
+  the local streams are forgotten, as quinn does. A server with 0-RTT on decrypts 0-RTT packets
+  with the client early traffic keys and processes them during the handshake (the endpoint routes
+  them by the Initials' connection ID), refuses 0-RTT when a limit is now below the ticket's,
+  records which streams carried early data (`receivedEarlyData`), and drops the keys three PTOs
+  after the first 1-RTT packet.
 - **Packets.** Coalesced packets are split, protection removed, packet numbers decoded against the
   largest received, duplicates dropped, frames checked against the packet type (RFC 9000 Table 3).
   ACKs go into `Recovery` (RTT, loss detection, congestion, MTU probes); lost STREAM, CRYPTO and
@@ -414,6 +510,12 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   reordered, routine), idle timeout and keep-alive, closes in every state, stateless resets (and
   their rate limit), Version Negotiation, Retry (and expired tokens), CID rotation and retirement,
   zero-length CIDs, datagrams, MTU discovery, anti-amplification, the connection cap.
+- `ZeroRttTest` runs resumption between `Pair`s: 0-RTT accepted (the request coalesced with the
+  Initial and read by the server before its handshake completes), rejected and sent again in
+  1-RTT without counting as lost, a captured first flight replayed from another address (no early
+  data, nothing processed), an expired ticket, an ALPN change, smaller transport parameters (the
+  streams that no longer fit are forgotten), an application veto, NEW_TOKEN skipping Retry, and a
+  reused token. `ZeroRttLoopbackTest` does the same over the blocking API on loopback.
 - `LoopbackTest` runs the blocking API over real UDP on loopback: 32 concurrent streams echoing 1 MB
   each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
   updates during a transfer. On a 4-core container, with an 8 KB MTU, the 32-stream echo moves
@@ -426,8 +528,11 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   server in `src/test/resources/interop/` (raw streams, ALPN `microproxy-test`). It covers a Java
   server with an aioquic client and an aioquic server with a Java client: all three cipher suites
   with X25519, P-256 and P-384 (the server choosing), many streams and multi-megabyte transfers,
-  unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2, and
-  closes from either side with their codes and reasons. An HTTP/3 client on aioquic's
+  unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2,
+  closes from either side with their codes and reasons, and resumption with 0-RTT both ways:
+  aioquic's client resumes against the Java server and has its request served from early data
+  (`resume_client.py`), and the Java client resumes against aioquic's server (`--tickets`) through
+  `connectEarly`, both with the early data accepted. An HTTP/3 client on aioquic's
   `H3Connection` also runs GET and POST requests (2 MB down, 1 MB echoed, concurrent and
   sequential) against a small HTTP/3 server built on the blocking API and `http3-codec` (a
   test-scoped dependency; static QPACK only).
@@ -447,9 +552,8 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 
 ### Not yet
 
-0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
-validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
-path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
+Connection migration and path validation (datagrams from another address are dropped;
+PATH_CHALLENGE is answered on the current path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
 ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
 `http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see
 the main README's HTTP/3 section), and the interop test's HTTP/3 server is test code.

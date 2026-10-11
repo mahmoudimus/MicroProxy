@@ -255,6 +255,8 @@ Command-line flags override values from the file.
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
 | `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
+| `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3` and intercepted `transparent_quic_port` clients; see [Session resumption and 0-RTT](#session-resumption-and-0-rtt)) | `false` |
+| `http3_upstream_0rtt` | send requests safe to replay (`GET`, `HEAD`, `OPTIONS` without a body) to HTTP/3 servers as 0-RTT data when resuming | `true` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
@@ -925,6 +927,13 @@ MicroProxy.bootstrap().withTlsProtocols().start();            // each SSLContext
   run. A hook that sets its own protocols therefore wins.
 - **The JDK still applies** `jdk.tls.disabledAlgorithms`, which turns off TLS 1.1 and older,
   whatever is listed here.
+- **Resumption over TCP is the JDK's.** TLS over TCP (HTTPS, HTTP/2, intercepted sessions, TLS
+  chained proxies) runs on the JDK's `SSLEngine`, which resumes sessions on its own: each
+  `SSLContext` caches sessions (`SSLSessionContext`, `javax.net.ssl.sessionCacheSize`,
+  `jdk.tls.server.enableSessionTicketExtension` for stateless TLS 1.3 tickets) and offers them
+  when it connects to the same server again. The proxy adds nothing to it, and the JDK sends and
+  accepts no 0-RTT data. QUIC's TLS is the `quic` module's own, with its own tickets and 0-RTT
+  ([Session resumption and 0-RTT](#session-resumption-and-0-rtt)).
 - A server that refuses the proxy's versions with a `protocol_version` alert gets the requests
   inside the session a `502` (`TlsFailed`; see [server TLS
   failures](#deciding-what-to-intercept-the-clienthello)). One that just closes the connection on
@@ -1449,6 +1458,51 @@ place (`H3_FRAME_UNEXPECTED`, `H3_MISSING_SETTINGS`), a critical stream that end
 will not process; streams opened after it are refused with `H3_REQUEST_REJECTED`, which clients
 retry elsewhere, the streams in progress finish (for up to the graceful stop timeout), and the
 connection closes once the client has closed it, or after two seconds.
+
+#### Session resumption and 0-RTT
+
+The proxy's QUIC listeners (`--http3` and the clients the [transparent QUIC](#transparent-quic)
+listener intercepts) send each client two TLS session tickets after its handshake, sealed with a
+key of the proxy's that rotates every six hours, and two NEW_TOKEN tokens. A returning client
+resumes its session (no certificate exchange: a fresh key exchange and a PSK) and skips the Retry
+round trip of `--http3-retry`. Tickets work across both listeners of one proxy, but not across
+proxy processes: each has its own key.
+
+**0-RTT to the proxy** is off by default. `--http3-0rtt` (`Http3Options.zeroRtt(true)`,
+`http3_0rtt=true`) lets a resuming client send its first requests as early data, before its
+handshake completes, saving a round trip. Early data is not protected against replay: whoever
+captures a client's first flight can send it again, and the proxy would act on it twice ([RFC
+8446 section 8](https://datatracker.ietf.org/doc/html/rfc8446#section-8)). So:
+
+- **The QUIC layer** accepts a ticket's early data at most once, and only while the ticket age the
+  client reports agrees with the proxy's within 10 seconds, which a stale capture fails. Its record
+  of used tickets is in memory, per process, and bounded (refusing early data when full);
+  rejected early data costs the client nothing but the round trip, as it sends it again.
+- **The proxy** treats a request any part of which arrived as early data as
+  [RFC 8470](https://datatracker.ietf.org/doc/html/rfc8470) says. A method that is not safe to
+  repeat (anything but `GET`, `HEAD` and `OPTIONS` without a body) gets `425 Too Early`, and the
+  client sends it again once its handshake completes. Others go on with `Early-Data: 1`, so the
+  server (or another proxy behind) can answer `425` itself, which the proxy relays.
+- **Filters** see `FlowContext.isEarlyData()` (`ctx.early_data` in scripts) and may answer `425`
+  to requests they deem unsafe, `GET`s with side effects for instance:
+
+  ```python
+  def on_request(req, ctx):
+      if ctx.early_data and "/checkout" in req.uri:
+          return response(425, "too early\n")
+  ```
+
+The proxy does not hold early requests back until the handshake completes; one that arrived early
+is marked even when the handshake has completed by the time it goes on.
+
+**0-RTT to servers** is on with `--http3-upstream` (`Http3Options.upstreamZeroRtt`,
+`http3_upstream_0rtt`; `--no-http3-upstream-0rtt` turns it off). The proxy keeps the tickets
+servers send, per server name, for as long as it runs, and resumes when it opens a new QUIC
+connection to one. If the request that opens the connection is safe to replay (`GET`, `HEAD`,
+`OPTIONS` without a body) and the ticket allows it, the request goes as 0-RTT data; requests that
+are not wait for the handshake. A server that rejects the early data gets it again in 1-RTT
+packets; one that answers `425 Too Early` gets the request again after the handshake, unless the
+request itself arrived as early data (`Early-Data: 1`), whose `425` goes back to its client.
 
 #### HTTP/3 to servers
 
@@ -2035,7 +2089,9 @@ bootstrap.start();
   through, else `None`; see
   [In front of an HTTP or HTTPS proxy](#in-front-of-an-http-or-https-proxy)), `socks_version` (5
   or 4 for a [SOCKS client](#socks5-mode), else `None`), `transparent_quic` (whether the client's
-  QUIC came to the [transparent QUIC](#transparent-quic) listener), and `vars`, a dict that lives for
+  QUIC came to the [transparent QUIC](#transparent-quic) listener), `early_data` (whether the
+  HTTP/3 request arrived as 0-RTT early data, which may be a replay; see
+  [Session resumption and 0-RTT](#session-resumption-and-0-rtt)), and `vars`, a dict that lives for
   one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
   as the connection.
 - `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
