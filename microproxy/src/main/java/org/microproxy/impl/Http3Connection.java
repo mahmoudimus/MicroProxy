@@ -36,6 +36,14 @@ import org.microproxy.http.HttpVersion;
  * {@code 431}), streams blocked on QPACK, unknown frames and streams, and requests cancelled before
  * their response (Rapid Reset), each a connection error H3_EXCESSIVE_LOAD past its limit.
  *
+ * <p><b>Early data.</b> With {@link org.microproxy.Http3Options#zeroRtt() 0-RTT} on, a resuming
+ * client's first requests may arrive as 0-RTT data, before its handshake completes, and may be
+ * replays (RFC 8446 section 8). A request any part of which came early is marked ({@link
+ * org.microproxy.FlowContext#isEarlyData()}), answered {@code 425 Too Early} unless it is safe to
+ * repeat ({@code GET}, {@code HEAD} or {@code OPTIONS} without a body), and otherwise sent on with
+ * {@code Early-Data: 1} (RFC 8470 section 5.1), whether or not the handshake has completed by
+ * then: the proxy does not hold requests back to find out.
+ *
  * <p>A graceful stop sends GOAWAY: streams the client opens after it are refused with
  * H3_REQUEST_REJECTED, which clients retry, and the connection closes once its streams are done
  * and the client has closed it (or after a grace period).
@@ -215,8 +223,32 @@ final class Http3Connection extends Http3Endpoint {
             s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
             return null;
         }
+        if (reader.stream.receivedEarlyData()) {
+            s.flowContext().earlyData();
+            if (!replaySafe(http1, reader.endsHere())) {
+                // RFC 8470 section 5.2: the client sends it again once its handshake is complete
+                LOG.log(Level.DEBUG, s.logPrefix() + "425: " + http1.method() + " in 0-RTT data");
+                if (!reader.endsHere()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
+                answer(s, HttpResponseStatus.valueOf(425), "Too Early");
+                return null;
+            }
+            http1.headers().set(EARLY_DATA, "1");
+        }
         s.requestRead(http1);
         return http1;
+    }
+
+    /** The field that marks a request forwarded from early data (RFC 8470 section 5.1). */
+    static final String EARLY_DATA = "Early-Data";
+
+    /**
+     * Whether a request may be replayed without harm, so that it may travel as early data: a
+     * {@code GET}, {@code HEAD} or {@code OPTIONS} without a body (RFC 8470 section 2.1, RFC 9110
+     * section 9.2.1).
+     */
+    static boolean replaySafe(HttpRequest request, boolean noBody) {
+        String method = request.method().name();
+        return noBody && (method.equals("GET") || method.equals("HEAD") || method.equals("OPTIONS"));
     }
 
     private static void answer(Http3StreamChannel s, HttpResponseStatus status, String text) throws IOException {

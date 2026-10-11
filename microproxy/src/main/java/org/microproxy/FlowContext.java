@@ -263,6 +263,20 @@ public class FlowContext {
     }
 
     /**
+     * Whether the request of this HTTP/3 stream arrived, at least in part, as 0-RTT early data
+     * (with {@link Http3Options.Builder#zeroRtt(boolean) 0-RTT} on). An attacker may have captured
+     * and replayed such a request (RFC 8446 section 8), so the proxy sends it on with {@code
+     * Early-Data: 1} (RFC 8470), answers {@code 425 Too Early} to methods that are not safe to
+     * replay, and a filter may answer {@code 425} to others. False for every other request, and
+     * for contexts made outside the proxy.
+     *
+     * @return whether the request came as early data
+     */
+    public boolean isEarlyData() {
+        return root != this && root.isEarlyData();
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
