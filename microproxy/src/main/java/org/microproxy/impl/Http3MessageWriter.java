@@ -42,6 +42,8 @@ final class Http3MessageWriter {
     private final Http3Frames.State[] state = {Http3Frames.State.HEADERS};
     /** The message has ended (FIN) or the stream was reset: nothing more is written. */
     private volatile boolean ended;
+    /** The message has ended with the FIN: it was sent whole. */
+    private volatile boolean finished;
 
     /** The exchange the stream carries, for the interceptor. */
     volatile FlowContext flow;
@@ -59,6 +61,11 @@ final class Http3MessageWriter {
     /** Whether the message has ended, or the stream was reset. */
     boolean ended() {
         return ended;
+    }
+
+    /** Whether the whole message was sent: it ended with the stream's FIN, not a reset. */
+    boolean finished() {
+        return finished;
     }
 
     /** Writes a header section (the head, an interim response's, or trailers), ending the stream after it if {@code end}. */
@@ -161,5 +168,6 @@ final class Http3MessageWriter {
     private void finish() throws IOException {
         ended = true;
         out.close();
+        finished = true;
     }
 }

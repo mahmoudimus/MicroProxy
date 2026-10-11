@@ -111,6 +111,8 @@ abstract class Http3Endpoint {
     private long rateWindowStart = System.nanoTime();
 
     volatile boolean closed;
+    /** A connection error has closed the connection, once. */
+    private final java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
 
     Http3Endpoint(DefaultHttpProxyServer server, QuicConnection quic, String logPrefix, Http3StreamValidator.Role role) {
         this.server = server;
@@ -553,10 +555,12 @@ abstract class Http3Endpoint {
 
     /** Closes the connection with an HTTP/3 error code: CONNECTION_CLOSE, and every stream fails. */
     void connectionError(Http3ErrorCode code, String reason) {
-        if (closed) return;
+        if (closed || !failed.compareAndSet(false, true)) return;
         LOG.log(Level.DEBUG, logPrefix + "closing the HTTP/3 connection: " + code + " " + reason);
-        closed = true;
+        // Closed with the code before anything sees the connection as closed, so nothing closes
+        // it with another code first.
         quic.close(code.code(), reason == null ? "" : reason);
+        closed = true;
         closed();
     }
 

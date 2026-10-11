@@ -253,7 +253,7 @@ final class Http3Connection extends Http3Endpoint {
     private void finishStream(Http3StreamChannel s) {
         ServerConnection dangling = s.cancelServer();
         if (dangling != null) dangling.close();
-        if (!s.responseEnded()) {
+        if (!s.writer.ended()) {
             s.resetStream(Http3ErrorCode.H3_INTERNAL_ERROR);
         } else if (!s.reader.ended()) {
             // The response is complete; the client need not send the rest of its request.
@@ -274,6 +274,7 @@ final class Http3Connection extends Http3Endpoint {
 
     /** The exchange logic closed a stream: resets it unless its response is complete. */
     void closeStream(Http3StreamChannel s) {
+        if (s.writer.ended() && !s.responseEnded()) return; // reset already
         if (!s.responseEnded()) {
             s.resetStream(Http3ErrorCode.H3_REQUEST_CANCELLED);
         } else if (!s.reader.ended()) {
@@ -310,7 +311,8 @@ final class Http3Connection extends Http3Endpoint {
         try {
             if (goAwaySent) return;
             goAwaySent = true;
-            next = lastStreamId + 4;
+            // The first client-initiated bidirectional stream id not processed (RFC 9114 section 5.2).
+            next = lastStreamId < 0 ? 0 : lastStreamId + 4;
             idle = streams.isEmpty();
         } finally {
             stateLock.unlock();

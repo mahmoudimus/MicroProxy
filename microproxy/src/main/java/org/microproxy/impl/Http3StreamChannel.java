@@ -73,9 +73,9 @@ final class Http3StreamChannel implements ClientChannel {
         this.expectsContinue = HttpUtil.is100ContinueExpected(request);
     }
 
-    /** Whether the whole response has been sent. */
+    /** Whether the whole response has been sent (not reset). */
     boolean responseEnded() {
-        return writer.ended();
+        return writer.finished();
     }
 
     /** The client cancelled the stream: the server connection in use, to close, or null. */
