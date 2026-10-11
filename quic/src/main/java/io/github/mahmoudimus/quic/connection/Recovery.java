@@ -265,6 +265,15 @@ public final class Recovery {
     }
 
     /**
+     * Whether the application, not the congestion window or the pacer, limited the last send.
+     *
+     * @return the flag ACKs are processed with
+     */
+    public boolean isAppLimited() {
+        return appLimited;
+    }
+
+    /**
      * Records that the handshake is confirmed (RFC 9001 section 4.1.2); until then the probe
      * timeout ignores the application data space (RFC 9002 section 6.2.1).
      *
