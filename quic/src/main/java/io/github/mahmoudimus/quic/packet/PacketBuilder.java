@@ -6,6 +6,7 @@ package io.github.mahmoudimus.quic.packet;
 
 import io.github.mahmoudimus.quic.crypto.DirectionalKeys;
 import io.github.mahmoudimus.quic.crypto.PacketKey;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
@@ -58,15 +59,23 @@ public final class PacketBuilder {
      * @return the frame space: a buffer whose position is where frames go and whose limit leaves
      *     room for the AEAD tag; write frames at its position
      * @throws IllegalStateException if a packet is already in progress
-     * @throws java.nio.BufferOverflowException if the header does not fit
+     * @throws BufferOverflowException if the header does not fit; the builder is unchanged
      */
     public ByteBuffer begin(PacketHeader.Numbered header, DirectionalKeys keys) {
         if (this.header != null) {
             throw new IllegalStateException("finish the current packet first");
         }
-        this.header = Objects.requireNonNull(header, "header");
-        this.keys = Objects.requireNonNull(keys, "keys");
-        layout = header.encode(buffer);
+        Objects.requireNonNull(header, "header");
+        Objects.requireNonNull(keys, "keys");
+        int mark = buffer.position();
+        try {
+            layout = header.encode(buffer);
+        } catch (BufferOverflowException e) {
+            buffer.position(mark);
+            throw e;
+        }
+        this.header = header;
+        this.keys = keys;
         int limit = datagramLimit - PacketKey.TAG_LENGTH;
         if (layout.lengthOffset() >= 0) {
             limit = Math.min(limit, layout.packetNumberOffset() + PacketProtection.MAX_LONG_PACKET_REMAINDER

@@ -356,6 +356,22 @@ class PacketHeaderTest {
         assertEquals(9, h.packetNumber());
     }
 
+    @Test
+    void builderRejectsAHeaderThatDoesNotFit() {
+        Keys k = handshakeKeys(false);
+        PacketBuilder b = new PacketBuilder(ByteBuffer.allocate(100), 30);
+        assertThrows(java.nio.BufferOverflowException.class,
+                () -> b.begin(new PacketHeader.Initial(QuicVersion.V1, DCID, SCID, new byte[20], 0, 1), k.local()));
+        assertEquals(0, b.remaining());
+        assertThrows(IllegalStateException.class, b::finish);
+        b.begin(new PacketHeader.Short(false, false, DCID, 0, 1), k.local());
+        assertEquals(30 - 10 - 16, b.remaining());
+        assertThrows(IllegalStateException.class,
+                () -> b.begin(new PacketHeader.Short(false, false, DCID, 1, 1), k.local()));
+        assertThrows(IllegalStateException.class, () -> b.finish(1200));
+        assertEquals(29, b.finish());
+    }
+
     private static byte[] bytes(ByteBuffer b) {
         byte[] out = new byte[b.remaining()];
         b.duplicate().get(out);
