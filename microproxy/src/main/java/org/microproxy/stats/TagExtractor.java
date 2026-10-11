@@ -107,7 +107,7 @@ public final class TagExtractor {
             rule("microproxy_socks_version", "^socks\\.((v4|v5)\\.)"),
             rule("microproxy_socks_reply", "\\.replies(\\.([a-z_]+))$"),
             rule("microproxy_reject_reason", "\\.flow_rejected(\\.([a-z_]+))$"),
-            rule("microproxy_tunnel_kind", "^tunnel\\.((h1_connect|h2_connect|h3_connect|forwarded|raw)\\.)"),
+            rule("microproxy_tunnel_kind", "^tunnel\\.((h1_connect|h2_connect|h3_connect|socks|forwarded|raw)\\.)"),
             rule("microproxy_close_code", "\\.close_codes(\\.([0-9a-z_]+))$"),
             rule("microproxy_hook", "^hooks\\.(([a-z0-9_]+)\\.)")));
 

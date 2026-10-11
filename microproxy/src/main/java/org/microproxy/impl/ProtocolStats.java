@@ -234,6 +234,7 @@ final class ProtocolStats {
         final Counter h1Connect;
         final Counter h2Connect;
         final Counter h3Connect;
+        final Counter socks;
         final Counter forwarded;
         final Counter raw;
         final Counter rxBytes;
@@ -246,6 +247,7 @@ final class ProtocolStats {
             h1Connect = registry.counter("tunnel.h1_connect.total", help);
             h2Connect = registry.counter("tunnel.h2_connect.total", help);
             h3Connect = registry.counter("tunnel.h3_connect.total", help);
+            socks = registry.counter("tunnel.socks.total", help);
             forwarded = registry.counter("tunnel.forwarded.total", help);
             raw = registry.counter("tunnel.raw.total", help);
             rxBytes = registry.counter("tunnel.rx_bytes_total", "Bytes relayed from clients, counted when tunnels close");

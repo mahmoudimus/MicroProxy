@@ -365,11 +365,13 @@ final class ClientConnection implements Runnable {
 
     /**
      * The kind of a {@code CONNECT}'s tunnel: forwarded (through a chained proxy, or a session's
-     * server the client takes for its proxy), else by the protocol the {@code CONNECT} came in.
+     * server the client takes for its proxy), a SOCKS client's, else by the protocol the {@code
+     * CONNECT} came in.
      */
     private org.microproxy.stats.Counter tunnelKind(Exchange ex, ServerConnection conn) {
         ProtocolStats.TunnelStats tunnels = server.stats.tunnel;
         if (conn.chainedProxy != null || conn.through != null) return tunnels.forwarded;
+        if (ex.socks != 0) return tunnels.socks;
         return switch (kind(ex.channel)) {
             case HTTP2 -> tunnels.h2Connect;
             case HTTP3 -> tunnels.h3Connect;
