@@ -530,8 +530,9 @@ public final class QuicConnection implements AutoCloseable {
         boolean started = false;
         driver.lock.lock();
         try {
-            // A connection migrates once its handshake is confirmed (RFC 9000 section 9)
-            while (conn.isHandshaking() || conn.isEstablished() && !conn.isHandshakeConfirmed()) {
+            // A connection migrates once its handshake is confirmed (RFC 9000 section 9), and
+            // after any probe under way, such as that of a server's preferred address
+            while (conn.isHandshaking() || conn.isEstablished() && (!conn.isHandshakeConfirmed() || conn.isProbingPath())) {
                 ConnectionError lost = driver.lostReason();
                 if (lost != null) {
                     throw new QuicConnectionException(lost);
