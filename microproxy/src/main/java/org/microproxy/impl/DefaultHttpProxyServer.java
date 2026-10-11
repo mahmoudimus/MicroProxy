@@ -56,6 +56,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final int transparentTlsPort;
     /** Which TLS connections are intercepted by host name; null when every one may be. */
     final HostRules hostRules;
+    /** Hosts relayed as raw TCP even when they look like HTTP; null when there are none. */
+    final TcpHosts tcpHosts;
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     final ReverseProxyMode reverseProxy;
     final boolean keepHostHeader;
@@ -136,6 +138,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparent = b.transparent;
         this.transparentTlsPort = b.transparentTlsPort;
         this.hostRules = HostRules.of(b.ignoreHosts, b.allowHosts);
+        this.tcpHosts = TcpHosts.of(b.tcpHosts);
         this.reverseProxy = b.reverseProxy;
         this.keepHostHeader = b.keepHostHeader;
         this.sslContextSource = b.sslContextSource;

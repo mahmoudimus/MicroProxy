@@ -120,6 +120,9 @@ public final class Launcher {
               --ignore-hosts <regex>       tunnel TLS to matching host:port names (CONNECT target or
                                            SNI) untouched; repeatable
               --allow-hosts <regex>        intercept only TLS to matching host:port names; repeatable
+              --tcp-hosts <regex>          relay matching hosts (target host or SNI) as raw TCP even
+                                           when they look like HTTP; TLS is still intercepted;
+                                           repeatable
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -260,6 +263,7 @@ public final class Launcher {
         List<AutoCloseable> resources = new ArrayList<>();
         List<String> ignoreHosts = new ArrayList<>();
         List<String> allowHosts = new ArrayList<>();
+        List<String> tcpHosts = new ArrayList<>();
         String caPassword = "microproxy";
         Path saveHar = null;
         String saveHarFilter = null;
@@ -420,6 +424,7 @@ public final class Launcher {
                 case "--mitm-trust-all" -> mitmTrustAll = true;
                 case "--ignore-hosts" -> ignoreHosts.add(value(queue, arg));
                 case "--allow-hosts" -> allowHosts.add(value(queue, arg));
+                case "--tcp-hosts" -> tcpHosts.add(value(queue, arg));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
@@ -433,6 +438,7 @@ public final class Launcher {
         }
         if (!ignoreHosts.isEmpty()) bootstrap.withIgnoreHosts(ignoreHosts.toArray(String[]::new));
         if (!allowHosts.isEmpty()) bootstrap.withAllowHosts(allowHosts.toArray(String[]::new));
+        if (!tcpHosts.isEmpty()) bootstrap.withTcpHosts(tcpHosts.toArray(String[]::new));
         if (upstream != null || upstreamHttps != null) {
             bootstrap.withChainProxyManager(
                     new UpstreamProxyManager(upstream, upstreamHttps, NoProxyRules.parse(noProxy)));

@@ -65,6 +65,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     int transparentTlsPort = 443;
     /** Host patterns whose TLS is tunnelled untouched / the only ones intercepted. */
     List<String> ignoreHosts = List.of();
+    /** Hosts relayed as raw TCP even when they look like HTTP (mitmproxy's tcp_hosts). */
+    List<String> tcpHosts = List.of();
     List<String> allowHosts = List.of();
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     ReverseProxyMode reverseProxy;
@@ -133,6 +135,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.transparent = transparent;
         c.transparentTlsPort = transparentTlsPort;
         c.ignoreHosts = ignoreHosts;
+        c.tcpHosts = tcpHosts;
         c.allowHosts = allowHosts;
         c.reverseProxy = reverseProxy;
         c.keepHostHeader = keepHostHeader;
@@ -203,6 +206,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("allow_hosts")) {
             withAllowHosts(HostRules.split(p.getProperty("allow_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("tcp_hosts")) {
+            withTcpHosts(HostRules.split(p.getProperty("tcp_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("mode")) {
             String mode = p.getProperty("mode").strip();
@@ -510,6 +516,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         List<String> rules = List.of(patterns);
         HostRules.compile(rules);
         this.allowHosts = rules;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTcpHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.tcpHosts = rules;
         return this;
     }
 

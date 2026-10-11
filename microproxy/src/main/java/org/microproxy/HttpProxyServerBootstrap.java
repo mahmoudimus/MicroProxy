@@ -524,6 +524,24 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Hosts whose connections are relayed as raw TCP even when they look like HTTP (mitmproxy's
+     * {@code tcp_hosts}): plain bytes after a {@code CONNECT} are not served as HTTP, and an
+     * intercepted TLS session is relayed decrypted rather than served as HTTP, its bytes going
+     * through the {@link #withTcpInterceptor TCP hooks}. TLS is still intercepted, as for other
+     * hosts; use {@link #withIgnoreHosts} to leave it untouched. Each pattern is a regular
+     * expression searched for, ignoring case, in the target's host name and in the client's SNI
+     * (without the port, as mitmproxy matches them). Replaces earlier patterns; none by default.
+     *
+     * @param patterns the regular expressions
+     * @return this bootstrap
+     * @throws IllegalArgumentException if a pattern is not a valid regular expression
+     */
+    default HttpProxyServerBootstrap withTcpHosts(String... patterns) {
+        if (patterns.length == 0) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TCP hosts");
+    }
+
+    /**
      * Adds an observer alongside the configured activity trackers.
      *
      * @param activityTracker the observer to add

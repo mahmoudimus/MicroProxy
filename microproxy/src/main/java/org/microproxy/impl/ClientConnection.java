@@ -2133,6 +2133,9 @@ final class ClientConnection implements Runnable {
                 return false;
             }
             case HTTP -> {
+                if (server.tcpHosts != null && server.tcpHosts.matches(target.host(), null)) {
+                    return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain bytes to a TCP host");
+                }
                 if (!server.littleProxyCompatibility) return servePlainSession(ex, conn, hostAndPort);
                 return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (LittleProxy compatibility)");
             }
