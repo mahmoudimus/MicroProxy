@@ -593,6 +593,79 @@ public final class H3TestClient implements AutoCloseable {
             stream.reset(code);
         }
 
+        /** The tunnel as a connected socket, for TLS over it: closing it ends the stream's output. */
+        java.net.Socket asSocket() {
+            OutputStream out = out();
+            return new java.net.Socket() {
+                private volatile boolean closed;
+
+                @Override
+                public InputStream getInputStream() {
+                    return in;
+                }
+
+                @Override
+                public OutputStream getOutputStream() {
+                    return out;
+                }
+
+                @Override
+                public boolean isConnected() {
+                    return true;
+                }
+
+                @Override
+                public boolean isBound() {
+                    return true;
+                }
+
+                @Override
+                public boolean isClosed() {
+                    return closed;
+                }
+
+                @Override
+                public void setSoTimeout(int timeout) {}
+
+                @Override
+                public int getSoTimeout() {
+                    return 0;
+                }
+
+                @Override
+                public int getSoLinger() {
+                    return -1;
+                }
+
+                @Override
+                public void setSoLinger(boolean on, int linger) {}
+
+                @Override
+                public void setTcpNoDelay(boolean on) {}
+
+                @Override
+                public java.net.InetAddress getInetAddress() {
+                    return null;
+                }
+
+                @Override
+                public void shutdownOutput() throws IOException {
+                    end();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    if (closed) return;
+                    closed = true;
+                    try {
+                        end();
+                    } catch (IOException e) {
+                        // ended already
+                    }
+                }
+            };
+        }
+
         /** Reads everything until the stream ends. */
         byte[] readAll() throws IOException {
             return in.readAllBytes();

@@ -206,7 +206,9 @@ final class Http3Connection extends Http3Endpoint {
     /**
      * Reads the request head and makes it an HTTP/1-style request; answers itself (and returns
      * null) what goes no further: a head over the size limit ({@code 431}), a malformed one (a
-     * stream error), {@code CONNECT} and extended {@code CONNECT} ({@code 501}).
+     * stream error), a request for another host on an intercepted connection ({@code 421}).
+     * {@code CONNECT} opens a tunnel; an extended {@code CONNECT} becomes the HTTP/1.1 upgrade an
+     * HTTP/1.1 client would send ({@link Http3Messages#toHttp1Connect}).
      */
     private HttpRequest readRequest(Http3StreamChannel s) throws IOException {
         Http3StreamReader reader = s.reader;
@@ -226,25 +228,32 @@ final class Http3Connection extends Http3Endpoint {
             s.resetStream(e.errorCode());
             return null;
         }
-        if (request.isConnect()) {
-            // Tunnels inside HTTP/3 (RFC 9114 section 4.4, RFC 9220) are not supported yet.
-            reader.abort(Http3ErrorCode.H3_NO_ERROR);
-            answer(s, HttpResponseStatus.valueOf(501), request.protocol() != null
-                    ? "Not Implemented: extended CONNECT over HTTP/3" : "Not Implemented: CONNECT over HTTP/3");
-            return null;
-        }
-        if (!reader.endsHere()) reader.awaitNext(END_GRACE_NANOS);
-        // A request for http:// on an intercepted connection is a proxy request: the client takes
-        // the intercepted server for its proxy, and the request goes there in absolute-form.
-        boolean proxyRequest = role == Role.INTERCEPTED && "http".equalsIgnoreCase(request.scheme());
         HttpRequest http1;
-        try {
-            http1 = Http3Messages.toHttp1(request, !reader.endsHere(), role == Role.FORWARD || proxyRequest);
-        } catch (IllegalArgumentException e) {
-            s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
-            return null;
+        // A request for http:// on an intercepted connection is a proxy request: the client takes
+        // the intercepted server for its proxy, and the request goes there in absolute-form. So is
+        // a plain CONNECT, whose authority names the tunnel's target.
+        boolean proxyRequest;
+        if (request.isConnect()) {
+            if ("websocket".equals(request.protocol()) && (!("http".equals(request.scheme())
+                    || "https".equals(request.scheme())) || !request.path().startsWith("/"))) {
+                LOG.log(Level.DEBUG, s.logPrefix() + "malformed request: invalid WebSocket scheme or path");
+                s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
+                return null;
+            }
+            proxyRequest = request.protocol() == null;
+            http1 = Http3Messages.toHttp1Connect(request, role == Role.FORWARD);
+            s.requestRead(http1, request.protocol(), request.scheme());
+        } else {
+            if (!reader.endsHere()) reader.awaitNext(END_GRACE_NANOS);
+            proxyRequest = role == Role.INTERCEPTED && "http".equalsIgnoreCase(request.scheme());
+            try {
+                http1 = Http3Messages.toHttp1(request, !reader.endsHere(), role == Role.FORWARD || proxyRequest);
+            } catch (IllegalArgumentException e) {
+                s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
+                return null;
+            }
+            s.requestRead(http1);
         }
-        s.requestRead(http1);
         if (!proxyRequest && misdirected(request.authority())) {
             LOG.log(Level.DEBUG, s.logPrefix() + "421 for " + request.authority() + ": this connection reaches " + target);
             FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
@@ -290,11 +299,13 @@ final class Http3Connection extends Http3Endpoint {
             stateLock.unlock();
         }
         if (early) {
-            LOG.log(Level.DEBUG, s.logPrefix() + "client reset the stream");
+            LOG.log(Level.DEBUG, s.logPrefix() + (s.tunnelOpen ? "client ended the tunnel with a reset"
+                    : "client reset the stream"));
             serverConnection = s.cancelServer();
         }
         if (serverConnection != null) serverConnection.close();
-        if (early) {
+        // A reset that ends an open tunnel is how tunnels end, not a request given up on.
+        if (early && !s.tunnelOpen) {
             try {
                 count(RAPID_RESET);
             } catch (Http3Exception e) {

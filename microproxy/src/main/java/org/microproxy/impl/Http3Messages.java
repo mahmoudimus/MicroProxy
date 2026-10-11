@@ -136,6 +136,39 @@ final class Http3Messages {
     }
 
     /**
+     * The HTTP/1-style request for a {@code CONNECT} stream's head. A plain {@code CONNECT} is an
+     * HTTP/1.1 client's: its target is {@code :authority}. An extended {@code CONNECT} (RFC 9220) is
+     * the upgrade an HTTP/1.1 client sends for its {@code :protocol}: a {@code GET} with {@code
+     * Connection: Upgrade} and {@code Upgrade}, for {@code websocket} with a generated {@code
+     * Sec-WebSocket-Key}; in absolute-form for a forward proxy's WebSocket (CONNECT-UDP's
+     * authority is the proxy's own, so its path stays origin-form).
+     *
+     * @param absolute whether the request is a forward proxy's
+     */
+    static HttpRequest toHttp1Connect(RequestHeaders head, boolean absolute) {
+        HttpHeaders headers = new HttpHeaders();
+        if (head.authority() != null && head.get("host") == null) {
+            headers.add(HttpHeaderNames.HOST, head.authority());
+        }
+        for (HeaderField f : head.fields()) headers.add(f.name(), f.value());
+        String protocol = head.protocol();
+        if (protocol == null) {
+            return new DefaultHttpRequest(HttpVersion.HTTP_3_0, HttpMethod.CONNECT, head.authority(), headers);
+        }
+        headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+        headers.set(HttpHeaderNames.CONNECTION, "Upgrade");
+        headers.set(HttpHeaderNames.UPGRADE, protocol);
+        String uri = head.path();
+        if ("websocket".equals(protocol)) {
+            headers.set("Sec-WebSocket-Key", WebSocketHandshake.key());
+            if (absolute && uri.startsWith("/")) {
+                uri = head.scheme().toLowerCase(Locale.ROOT) + "://" + head.authority() + uri;
+            }
+        }
+        return new DefaultHttpRequest(HttpVersion.HTTP_3_0, HttpMethod.GET, uri, headers);
+    }
+
+    /**
      * The HTTP/1-style response the exchange logic relays: version HTTP/3, and, when the server
      * gave no {@code content-length}, a chunked body (with trailers, if any) or an empty one.
      */
