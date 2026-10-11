@@ -101,6 +101,15 @@ public final class TlsConfig {
     }
 
     /**
+     * Client: the server name to connect to when none is given.
+     *
+     * @return the name, or null
+     */
+    public String serverName() {
+        return serverName;
+    }
+
+    /**
      * The server's ticketer.
      *
      * @return the ticketer, or null if the server issues no tickets

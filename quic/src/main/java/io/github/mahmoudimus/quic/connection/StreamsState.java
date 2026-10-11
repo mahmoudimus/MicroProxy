@@ -820,6 +820,46 @@ public final class StreamsState {
         stream.pending.retransmit(frame.start(), frame.end());
     }
 
+    /**
+     * After the server rejected 0-RTT: if what the local streams used fits the server's actual
+     * limits, takes those limits and queues everything written to be sent again in 1-RTT packets,
+     * so the streams carry on as if the early data had been lost; otherwise forgets the local
+     * streams, as quinn does ({@link #zeroRttRejected()}).
+     *
+     * @param params the server's transport parameters from this handshake
+     * @return true if the streams carry on, false if they were forgotten
+     */
+    public boolean retransmitAfterZeroRttRejected(TransportParameters params) {
+        boolean fits = next[Dir.BI.ordinal()] <= params.initialMaxStreamsBidi()
+                && next[Dir.UNI.ordinal()] <= params.initialMaxStreamsUni()
+                && dataSent <= params.initialMaxData();
+        for (Map.Entry<StreamId, Send> e : send.entrySet()) {
+            StreamId id = e.getKey();
+            if (id.initiator() == side && e.getValue() != null) {
+                long limit = id.dir() == Dir.BI ? params.initialMaxStreamDataBidiRemote() : params.initialMaxStreamDataUni();
+                fits &= e.getValue().pending.offset() <= limit;
+            }
+        }
+        if (!fits) {
+            zeroRttRejected();
+            return false;
+        }
+        // The remembered limits may have been higher: start again from the real ones
+        initialMaxStreamDataUni = params.initialMaxStreamDataUni();
+        initialMaxStreamDataBidiLocal = params.initialMaxStreamDataBidiLocal();
+        initialMaxStreamDataBidiRemote = params.initialMaxStreamDataBidiRemote();
+        max[Dir.BI.ordinal()] = params.initialMaxStreamsBidi();
+        max[Dir.UNI.ordinal()] = params.initialMaxStreamsUni();
+        maxData = params.initialMaxData();
+        for (Map.Entry<StreamId, Send> e : send.entrySet()) {
+            if (e.getKey().initiator() == side && e.getValue() != null) {
+                e.getValue().maxData = maxSendData(e.getKey());
+            }
+        }
+        retransmitAllForZeroRtt();
+        return true;
+    }
+
     /** Queues everything written on local streams to be sent again after 0-RTT was rejected. */
     public void retransmitAllForZeroRtt() {
         for (Dir dir : Dir.values()) {
