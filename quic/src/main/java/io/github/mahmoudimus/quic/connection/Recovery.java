@@ -9,6 +9,7 @@ package io.github.mahmoudimus.quic.connection;
 
 import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.congestion.Controller;
+import io.github.mahmoudimus.quic.congestion.RateSample;
 import io.github.mahmoudimus.quic.congestion.RttEstimator;
 import io.github.mahmoudimus.quic.frame.Frame;
 import io.github.mahmoudimus.quic.params.TransportParameters;
@@ -108,6 +109,7 @@ public final class Recovery {
     private final RttEstimator rtt;
     private final Controller congestion;
     private final Pacer pacer;
+    private final DeliveryRate deliveryRate = new DeliveryRate();
     private final MtuDiscovery mtud;
     private final AckFrequencyState ackFrequency;
     PacketNumberFilter packetNumberFilter;
@@ -262,6 +264,18 @@ public final class Recovery {
      */
     public void setAppLimited(boolean appLimited) {
         this.appLimited = appLimited;
+        if (appLimited) {
+            deliveryRate.onAppLimited(inFlightBytes);
+        }
+    }
+
+    /**
+     * The delivery rate sampler of the connection's congestion-controlled packets.
+     *
+     * @return the sampler
+     */
+    public DeliveryRate deliveryRate() {
+        return deliveryRate;
     }
 
     /**
@@ -383,6 +397,9 @@ public final class Recovery {
      */
     public void onPacketSent(long now, SpaceId id, long packetNumber, SentPacket packet) {
         PacketSpace space = space(id);
+        if (packet.size() != 0) {
+            deliveryRate.onPacketSent(now, packet, inFlightBytes);
+        }
         addInFlight(packet);
         SentPacket forgotten = space.sent(packetNumber, packet);
         if (forgotten != null) {
@@ -549,6 +566,10 @@ public final class Recovery {
             }
             onPacketAcked(now, id, pn, info, listener);
         }
+        RateSample rateSample = deliveryRate.sample(rtt.hasSample() ? rtt.min() : 0);
+        if (rateSample != null) {
+            congestion.onRateSample(now, rateSample);
+        }
         congestion.onEndAcks(now, inFlightBytes, appLimited, space.largestAckedPacket);
 
         if (newLargest && ackElicitingAcked) {
@@ -621,6 +642,9 @@ public final class Recovery {
 
     private void onPacketAcked(long now, SpaceId id, long pn, SentPacket info, Listener listener) {
         removeInFlight(info);
+        if (info.size() != 0) {
+            deliveryRate.onPacketAcked(now, info);
+        }
         if (info.ackEliciting()) {
             congestion.onAck(now, info.timeSent(), info.size(), appLimited, rtt);
         }

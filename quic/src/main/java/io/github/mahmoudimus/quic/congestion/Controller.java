@@ -37,6 +37,16 @@ public interface Controller {
     default void onAck(long now, long sent, long bytes, boolean appLimited, RttEstimator rtt) {}
 
     /**
+     * The delivery rate sample of a batch of acknowledgements, given after their {@link #onAck}
+     * calls and before {@link #onEndAcks}, when the batch acknowledged packets in flight. quinn has
+     * no such call.
+     *
+     * @param now the current time
+     * @param sample the sample
+     */
+    default void onRateSample(long now, RateSample sample) {}
+
+    /**
      * A batch of acknowledgements, all with the same {@code now}, is complete.
      *
      * @param now the current time
