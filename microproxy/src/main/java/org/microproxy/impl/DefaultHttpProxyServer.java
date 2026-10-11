@@ -632,6 +632,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private void closeListeners() {
         if (!listenersStopped.compareAndSet(false, true)) return;
         Tls.closeQuietly(serverSocket);
+        // The socket is released only once the acceptor has left accept(): until then the kernel
+        // still completes connections to it.
+        Thread a = acceptor;
+        if (a != null && a != Thread.currentThread()) {
+            try {
+                a.join(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         stats.listenerStopped.add(listeners());
         LOG.log(stopping.get() ? Level.DEBUG : Level.INFO, "{0} no longer accepts connections", name);
     }
