@@ -1142,7 +1142,12 @@ final class ClientConnection implements Runnable {
             if (refusal != null) {
                 ex.flow.addResponseFlag(ResponseFlag.UNAUTHORIZED_EXTERNAL_SERVICE);
                 ex.flow.setResponseCodeDetails("auth_rejected");
-                return respondDirect(ex, refusal, false, ResponseSource.PROXY);
+                try {
+                    return respondDirect(ex, refusal, false, ResponseSource.PROXY);
+                } finally {
+                    // Refused before its filters were made: no exchangeEnded, but a record.
+                    recordExchange(ex);
+                }
             }
             // The credentials were for this proxy, whatever their scheme: never forward them. Inside
             // an intercepted session they are the intercepted server's (a CONNECT forwarded there).

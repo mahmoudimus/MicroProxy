@@ -642,6 +642,13 @@ final class QuicFlows implements AutoCloseable {
             client.endTransparentQuic(false);
             return;
         }
+        InetSocketAddress local = null;
+        try {
+            if (channel.getLocalAddress() instanceof InetSocketAddress bound) local = bound;
+        } catch (IOException e) {
+            // closed meanwhile: the relay ends at once
+        }
+        client.connectionFlowContext().upstream(remote, local, hostAndPort, null);
         server.trackers.fire(t -> t.serverConnected(flow.serverFlow, remote));
         Thread.ofVirtual().name(name + "-relay").start(() -> relayReplies(flow));
     }

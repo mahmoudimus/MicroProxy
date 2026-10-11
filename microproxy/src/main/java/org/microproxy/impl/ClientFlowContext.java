@@ -247,6 +247,8 @@ final class ClientFlowContext extends FlowContext {
     /** Records that the exchange failed with {@code failure}, and the flag and details it means. */
     void failure(ProxyFailure failure) {
         this.failure = failure;
+        // A client that reset its stream made the server connection fail: the reset says why.
+        if (hasResponseFlag(ResponseFlag.DOWNSTREAM_REMOTE_RESET)) return;
         details = "proxy_failure:" + failureKind(failure);
         switch (failure) {
             case ProxyFailure.UnresolvedHost f -> addResponseFlag(ResponseFlag.DNS_RESOLUTION_FAILED);
