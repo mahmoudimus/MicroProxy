@@ -40,31 +40,31 @@ import javax.net.ssl.X509TrustManager;
  * requests on concurrent request streams, with bodies and trailers. It also gives tests the QUIC
  * connection itself, for streams and frames a well-behaved client would not send.
  */
-final class H3TestClient implements AutoCloseable {
+public final class H3TestClient implements AutoCloseable {
 
     /** A response: status, fields, body and trailers. */
-    record Response(int status, List<HeaderField> fields, byte[] body, List<HeaderField> trailers) {
-        String header(String name) {
+    public record Response(int status, List<HeaderField> fields, byte[] body, List<HeaderField> trailers) {
+        public String header(String name) {
             for (HeaderField f : fields) {
                 if (f.name().equals(name)) return f.value();
             }
             return null;
         }
 
-        String trailer(String name) {
+        public String trailer(String name) {
             for (HeaderField f : trailers) {
                 if (f.name().equals(name)) return f.value();
             }
             return null;
         }
 
-        String text() {
+        public String text() {
             return new String(body, StandardCharsets.UTF_8);
         }
     }
 
     /** How the client connects. */
-    static final class Options {
+    public static final class Options {
         long qpackMaxTableCapacity = 4096;
         int qpackBlockedStreams = 16;
         long encoderTableCapacity = 4096;
@@ -121,11 +121,11 @@ final class H3TestClient implements AutoCloseable {
     }
 
     /** Connects to {@code address} as {@code serverName}, trusting {@code anchor} (or every server when null). */
-    static H3TestClient connect(InetSocketAddress address, String serverName, X509Certificate anchor) throws IOException {
+    public static H3TestClient connect(InetSocketAddress address, String serverName, X509Certificate anchor) throws IOException {
         return connect(address, serverName, anchor, new Options());
     }
 
-    static H3TestClient connect(InetSocketAddress address, String serverName, X509Certificate anchor, Options options)
+    public static H3TestClient connect(InetSocketAddress address, String serverName, X509Certificate anchor, Options options)
             throws IOException {
         TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3").serverName(serverName);
         if (anchor == null) {
@@ -361,11 +361,11 @@ final class H3TestClient implements AutoCloseable {
     // ---------------------------------------------------------------------------------------
     // Requests
 
-    Response get(String path) throws IOException {
+    public Response get(String path) throws IOException {
         return request("GET", path, List.of(), null, List.of());
     }
 
-    Response post(String path, byte[] body) throws IOException {
+    public Response post(String path, byte[] body) throws IOException {
         return request("POST", path, List.of(), body, List.of());
     }
 
@@ -391,7 +391,7 @@ final class H3TestClient implements AutoCloseable {
     }
 
     /** Sends a request (body and trailers optional) and reads its response. */
-    Response request(String method, String path, List<HeaderField> fields, byte[] body, List<HeaderField> trailers)
+    public Response request(String method, String path, List<HeaderField> fields, byte[] body, List<HeaderField> trailers)
             throws IOException {
         QuicStream s = quic.openBidirectionalStream();
         OutputStream out = s.getOutputStream();
