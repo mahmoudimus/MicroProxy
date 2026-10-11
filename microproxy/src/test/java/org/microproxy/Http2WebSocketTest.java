@@ -176,8 +176,9 @@ class Http2WebSocketTest {
             assertEquals(List.of("HELLO", "PING", "<close>"), texts);
             // Rewritten frames are masked again towards the server.
             assertTrue(server.received.stream().allMatch(WebSocketFrame::isMasked));
-            // Compression is negotiated away, so payloads can be rewritten.
-            assertNull(header(server.upgradeRequest, "Sec-WebSocket-Extensions"), server.upgradeRequest);
+            // Compression stays on offer: payloads would be inflated for the filter.
+            assertEquals("permessage-deflate; client_max_window_bits",
+                    header(server.upgradeRequest, "Sec-WebSocket-Extensions"), server.upgradeRequest);
             String target = "http://127.0.0.1:" + server.raw().port() + "/chat";
             assertEquals(List.of("GET " + target + " HTTP/2.0 upgrade=websocket stream=1"), requests);
             assertEquals(List.of("101 websocket"), responses);

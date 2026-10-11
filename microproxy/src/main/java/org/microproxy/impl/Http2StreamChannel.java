@@ -351,11 +351,11 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     }
 
     @Override
-    public void relay(ServerConnection conn, Tunnel.FrameHandler frames, String name) {
+    public void relay(ServerConnection conn, WebSocketRelay webSocket, String name) {
         Tunnel.relay(body.asInputStream(), new TunnelOutput(), this::endTunnelOutput,
                 conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
                 () -> { close(); conn.close(); }, connection.server.getIdleConnectionTimeout(), name, logPrefix,
-                frames, connection.server.maxWebSocketFrameBufferSize, connection.server.ioBuffers);
+                webSocket, connection.server.ioBuffers);
     }
 
     /**

@@ -35,7 +35,9 @@ The channel owns:
 - **Writing the response.** `writeContinue`, `writeInformational` (dropped for HTTP/1.0 clients),
   `writeHead`, `writeComplete` (a whole response, or a bare head given an empty body),
   `writeContent`, and the fast path `writeData` / `flush` / `writeEnd`.
-- **Ending the exchange.** `relay` passes bytes both ways for a `CONNECT` tunnel or after a `101`,
+- **Ending the exchange.** `relay` passes bytes both ways for a `CONNECT` tunnel or after a `101`
+  (through a `WebSocketRelay` when filters look at frames or messages: it parses frames, joins
+  messages, and inflates and deflates permessage-deflate per hop with `PerMessageDeflate`),
   `reject(status)` answers a malformed request, and `close` closes the connection.
 - **Waiting.** `awaitUnlessClientLeaves` is the chained-proxy backoff wait, which stops early if
   the client disconnects.
@@ -185,7 +187,7 @@ does nothing; `setUpgrade` adds the upgrade fields to a WebSocket's 101, which f
 for HTTP/1, and `writeHead` sends it as the extended CONNECT's `:status 200`; `writeContinue`
 sends `:status 100` only to a client that sent `expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
 copies into DATA frames; `close` resets only the stream; `reject` answers and ends it.
-`relay` runs the shared `Tunnel` parser on the stream's `MessageBody` input and flow-controlled
+`relay` runs the shared `Tunnel` (and `WebSocketRelay`) on the stream's `MessageBody` input and flow-controlled
 DATA output. Successful CONNECT HEADERS leave the stream open even for a FullHttpResponse with
 an empty payload. END_STREAM half-closes a direction; RST closes only the stream's server
 connection (or server stream), not its carrier. A request for another authority in an

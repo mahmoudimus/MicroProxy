@@ -172,8 +172,9 @@ class WebSocketFrameTest {
             assertTrue(WebSocketTestSupport.readFrame(s.getInputStream()).isClose());
 
             assertTrue(server.upgradeRequest.startsWith("GET /chat"), server.upgradeRequest);
-            assertFalse(server.upgradeRequest.toLowerCase().contains("sec-websocket-extensions"),
-                    "compression is not negotiated when frames are rewritten");
+            // permessage-deflate stays on offer (this server declines it): the relay would inflate it.
+            assertTrue(server.upgradeRequest.contains("Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits"),
+                    server.upgradeRequest);
             List<String> texts = server.received.stream()
                     .map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
             assertEquals(List.of("HELLO", "PING", "<close>"), texts);

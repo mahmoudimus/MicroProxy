@@ -4,14 +4,11 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.System.Logger.Level;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLSocket;
-import org.microproxy.http.WebSocketFrame;
 
 /**
  * Relays bytes in both directions between two sockets until both directions finish, using one
@@ -19,18 +16,10 @@ import org.microproxy.http.WebSocketFrame;
  * With an idle timeout, the tunnel closes only when neither direction has moved data for that
  * long.
  *
- * <p>For upgraded WebSocket connections the relay can parse frames and pass each one to a handler,
- * which may forward it, replace it or drop it.
+ * <p>For upgraded WebSocket connections a {@link WebSocketRelay} can parse frames and pass them,
+ * and whole messages, to hooks that may forward, replace or drop them.
  */
 final class Tunnel {
-
-    private static final System.Logger LOG = System.getLogger(Tunnel.class.getName());
-
-    /** Sees each WebSocket frame and returns the frame to forward, or null to drop it. */
-    @FunctionalInterface
-    interface FrameHandler {
-        WebSocketFrame frame(WebSocketFrame frame, boolean fromClient);
-    }
 
     @FunctionalInterface
     interface HalfClose {
@@ -52,46 +41,45 @@ final class Tunnel {
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
             Duration idleTimeout, String name, String logPrefix, BufferPool pool) {
         relay(clientSocket, clientIn, clientOut, serverSocket, serverIn, serverOut, idleTimeout, name, logPrefix,
-                null, 0, pool);
+                null, pool);
     }
 
     /**
-     * Relays bytes, parsing WebSocket frames when {@code handler} is non-null.
+     * Relays bytes, parsing WebSocket frames when {@code webSocket} is non-null.
      *
      * @param logPrefix starts each log line, naming the client connection
-     * @param maxFrameBuffer frames with larger payloads are streamed and reported as truncated
+     * @param webSocket the frame relay for an upgraded WebSocket connection, or null for raw bytes
      */
     static void relay(
             Socket clientSocket, InputStream clientIn, OutputStream clientOut,
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
-            Duration idleTimeout, String name, String logPrefix, FrameHandler handler, int maxFrameBuffer,
-            BufferPool pool) {
+            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, BufferPool pool) {
         Runnable closeAll = () -> {
             Tls.closeQuietly(clientSocket);
             Tls.closeQuietly(serverSocket);
         };
         relay(clientIn, clientOut, () -> halfClose(clientSocket), serverIn, serverOut, () -> halfClose(serverSocket),
-                closeAll, idleTimeout, name, logPrefix, handler, maxFrameBuffer, pool);
+                closeAll, idleTimeout, name, logPrefix, webSocket, pool);
     }
 
     /** The same relay and frame hooks for sockets and multiplexed streams. */
     static void relay(InputStream clientIn, OutputStream clientOut, HalfClose clientEnd,
             InputStream serverIn, OutputStream serverOut, HalfClose serverEnd, Runnable closeAll,
-            Duration idleTimeout, String name, String logPrefix, FrameHandler handler, int maxFrameBuffer,
-            BufferPool pool) {
+            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, BufferPool pool) {
         AtomicLong lastActivity = new AtomicLong(System.nanoTime());
         long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Direction up = new Direction(clientIn, serverOut, serverEnd, lastActivity, idleNanos, true, pool, logPrefix);
         Direction down = new Direction(serverIn, clientOut, clientEnd, lastActivity, idleNanos, false, pool, logPrefix);
-        Thread upstream = Thread.ofVirtual().name(name + "-up").start(
-                () -> run(up, handler, maxFrameBuffer, closeAll));
-        run(down, handler, maxFrameBuffer, closeAll);
+        if (webSocket != null) webSocket.attach(up, down);
+        Thread upstream = Thread.ofVirtual().name(name + "-up").start(() -> run(up, webSocket, closeAll));
+        run(down, webSocket, closeAll);
         try {
             upstream.join();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
             closeAll.run();
+            if (webSocket != null && !upstream.isAlive()) webSocket.end();
         }
     }
 
@@ -104,12 +92,12 @@ final class Tunnel {
         }
     }
 
-    private static void run(Direction d, FrameHandler handler, int maxFrameBuffer, Runnable closeAll) {
+    private static void run(Direction d, WebSocketRelay webSocket, Runnable closeAll) {
         try {
-            if (handler == null) {
+            if (webSocket == null) {
                 d.copyAll();
             } else {
-                pumpFrames(d, handler, maxFrameBuffer);
+                webSocket.pump(d);
             }
             d.halfClose();
         } catch (IOException | UnsupportedOperationException e) {
@@ -117,86 +105,8 @@ final class Tunnel {
         }
     }
 
-    /** Parses, hands over and forwards frames until end-of-stream at a frame boundary. */
-    private static void pumpFrames(Direction d, FrameHandler handler, int maxFrameBuffer) throws IOException {
-        byte[] head = new byte[14];
-        while (true) {
-            if (!d.readFully(head, 0, 2, true)) {
-                return;
-            }
-            int length7 = head[1] & 0x7f;
-            int pos = 2;
-            long length;
-            if (length7 == 126) {
-                d.readFully(head, pos, 2, false);
-                length = ((head[2] & 0xffL) << 8) | (head[3] & 0xffL);
-                pos += 2;
-            } else if (length7 == 127) {
-                d.readFully(head, pos, 8, false);
-                length = 0;
-                for (int i = 0; i < 8; i++) {
-                    length = (length << 8) | (head[pos + i] & 0xffL);
-                }
-                pos += 8;
-                if (length < 0) {
-                    // Not valid WebSocket framing: stop interpreting, keep relaying bytes.
-                    LOG.log(Level.DEBUG, d.logPrefix + "invalid WebSocket frame length; relaying raw bytes");
-                    d.write(head, 0, pos);
-                    d.copyAll();
-                    return;
-                }
-            } else {
-                length = length7;
-            }
-            if ((head[1] & 0x80) != 0) {
-                d.readFully(head, pos, 4, false);
-                pos += 4;
-            }
-            byte[] header = Arrays.copyOf(head, pos);
-            boolean buffered = length <= maxFrameBuffer;
-            byte[] payload = null;
-            if (buffered) {
-                payload = new byte[(int) length];
-                d.readFully(payload, 0, payload.length, false);
-            }
-            WebSocketFrame frame = new WebSocketFrame(header, payload, length);
-            WebSocketFrame out = handle(handler, frame, d);
-            if (out == frame) {
-                d.write(header, 0, header.length);
-                if (buffered) {
-                    d.write(payload, 0, payload.length);
-                } else {
-                    d.copy(length);
-                }
-            } else {
-                if (!buffered) d.skip(length);
-                if (out != null) {
-                    byte[] wire = out.toWire(d.fromClient);
-                    d.write(wire, 0, wire.length);
-                }
-            }
-            d.flush();
-        }
-    }
-
-    /** The handler's verdict; a failing handler, or one returning a truncated frame of its own, forwards the frame. */
-    private static WebSocketFrame handle(FrameHandler handler, WebSocketFrame frame, Direction d) {
-        try {
-            WebSocketFrame out = handler.frame(frame, d.fromClient);
-            if (out != null && out != frame && out.isTruncated()) {
-                LOG.log(Level.WARNING, d.logPrefix
-                        + "WebSocket frame filter returned a truncated frame; forwarding the original");
-                return frame;
-            }
-            return out;
-        } catch (RuntimeException e) {
-            LOG.log(Level.WARNING, d.logPrefix + "WebSocket frame filter threw", e);
-            return frame;
-        }
-    }
-
     /** One direction of the tunnel. */
-    private static final class Direction {
+    static final class Direction {
         final InputStream in;
         final OutputStream out;
         final HalfClose destination;
