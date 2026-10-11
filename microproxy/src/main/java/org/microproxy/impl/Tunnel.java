@@ -128,7 +128,10 @@ final class Tunnel {
             }
             d.halfClose();
         } catch (IOException | UnsupportedOperationException e) {
-            if (e instanceof IdleTimeout && d.counted != null) d.counted.addResponseFlag(ResponseFlag.STREAM_IDLE_TIMEOUT);
+            if (e instanceof IdleTimeout && d.counted != null) {
+                d.counted.addResponseFlag(ResponseFlag.STREAM_IDLE_TIMEOUT);
+                d.counted.defaultResponseCodeDetails("stream_idle_timeout");
+            }
             if (tcp != null) tcp.failed(d.fromClient, e instanceof IOException io ? io : new IOException(e));
             closeAll.run();
         }

@@ -228,6 +228,7 @@ final class UdpFlow implements UdpContext {
             LOG.log(Level.DEBUG, logPrefix + "UDP flow to " + target + " idle for " + Duration.ofNanos(idleNanos).toMillis()
                     + " ms; closing it");
             flow.addResponseFlag(org.microproxy.ResponseFlag.STREAM_IDLE_TIMEOUT);
+            flow.defaultResponseCodeDetails("stream_idle_timeout");
             clean = true;
         } catch (IOException e) {
             if (!ended.get()) LOG.log(Level.DEBUG, logPrefix + "UDP flow to " + target + " ended: " + e);

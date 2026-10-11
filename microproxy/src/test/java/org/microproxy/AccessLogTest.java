@@ -333,6 +333,7 @@ class AccessLogTest {
                 assertTrue(readUntil(client.getInputStream(), "\r\n\r\n").startsWith("HTTP/1.1 200"));
                 FlowRecord r = flows.await(FlowRecord.Kind.TUNNEL);
                 assertTrue(r.responseFlags().contains(ResponseFlag.STREAM_IDLE_TIMEOUT), r.toString());
+                assertEquals("stream_idle_timeout", r.responseCodeDetails());
             }
         }
     }
