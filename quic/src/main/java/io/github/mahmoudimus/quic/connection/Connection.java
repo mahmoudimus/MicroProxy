@@ -338,7 +338,11 @@ public final class Connection {
             } else if (!first.equals(packet.destinationId())) {
                 break; // RFC 9000 section 12.2
             }
-            handlePacket(now, packet, ecn);
+            try {
+                handlePacket(now, packet, ecn);
+            } catch (RuntimeException e) {
+                break; // unauthenticated input the codecs did not expect: drop the rest
+            }
         }
         if (wasBlocked) {
             // A loss detection timer the limit kept off may be needed now
@@ -461,6 +465,16 @@ public final class Connection {
     }
 
     private ConnectionError processAuthenticated(long now, SpaceId spaceId, long number, Packet packet,
+            PacketHeader.Numbered header, int ecn) {
+        try {
+            return processAuthenticatedFrames(now, spaceId, number, packet, header, ecn);
+        } catch (RuntimeException e) {
+            // A bug, not the peer's fault, but an authenticated packet: close rather than crash
+            return ConnectionError.transport(new QuicException(QuicException.INTERNAL_ERROR, String.valueOf(e)));
+        }
+    }
+
+    private ConnectionError processAuthenticatedFrames(long now, SpaceId spaceId, long number, Packet packet,
             PacketHeader.Numbered header, int ecn) {
         List<Frame> frames;
         try {

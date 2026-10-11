@@ -28,6 +28,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 final class ConnectionDriver implements Runnable {
 
+    private static final System.Logger LOG = System.getLogger(ConnectionDriver.class.getName());
+
     /** Datagrams queued for one connection; more are dropped, as a full socket buffer would. */
     static final int INBOUND_CAPACITY = 1024;
     /** Datagrams handled per wake-up in each direction. */
@@ -102,6 +104,15 @@ final class ConnectionDriver implements Runnable {
     public void run() {
         try {
             loop();
+        } catch (RuntimeException | Error e) {
+            LOG.log(System.Logger.Level.ERROR, "connection to " + conn.remoteAddress() + " failed", e);
+            lock.lock();
+            try {
+                lost = ConnectionError.transport(new QuicException(QuicException.INTERNAL_ERROR, String.valueOf(e)));
+            } finally {
+                lock.unlock();
+            }
+            endpoint.forget(conn);
         } finally {
             lock.lock();
             try {

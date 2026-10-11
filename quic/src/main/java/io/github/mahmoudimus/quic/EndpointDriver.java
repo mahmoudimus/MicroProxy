@@ -169,6 +169,16 @@ final class EndpointDriver implements AutoCloseable {
         }
     }
 
+    /** Drops a failed connection's routes. */
+    void forget(Connection conn) {
+        endpointLock.lock();
+        try {
+            endpoint.handleEvent(conn, new EndpointEvent.Drained());
+        } finally {
+            endpointLock.unlock();
+        }
+    }
+
     void remove(ConnectionDriver driver) {
         drivers.remove(driver.connection(), driver);
     }
