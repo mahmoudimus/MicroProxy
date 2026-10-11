@@ -118,7 +118,7 @@ class LauncherTest {
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
-                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--transparent-tls-port", "--mode", "--reverse",
+                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port", "--mode", "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
@@ -145,6 +145,9 @@ class LauncherTest {
         assertThrows(IllegalArgumentException.class, () -> parse("--mode", "socks5"));
         assertThrows(IllegalArgumentException.class, () -> parse("--reverse", "tcp://no-port.test"));
         assertThrows(IllegalArgumentException.class, () -> parse("--ignore-hosts", "(unclosed"));
+        assertEquals(List.of("^mail\\.", "imap"),
+                BootstrapView.tcpHosts(parse("--tcp-hosts", "^mail\\.", "--tcp-hosts", "imap").bootstrap()));
+        assertThrows(IllegalArgumentException.class, () -> parse("--tcp-hosts", "[unclosed"));
         assertThrows(IllegalArgumentException.class, () -> parse("--transparent-tls-port", "0"));
     }
 
@@ -156,12 +159,14 @@ class LauncherTest {
         p.setProperty("mode", "reverse:https://origin.test");
         p.setProperty("keep_host_header", "true");
         p.setProperty("transparent_tls_port", "9443");
+        p.setProperty("tcp_hosts", "^mail\\., \\.mqtt\\.test");
         HttpProxyServerBootstrap b = BootstrapView.fromProperties(p);
         assertEquals(List.of(List.of("example\\.com:443$", "^a{1,3}\\.test"), List.of("\\.internal")),
                 BootstrapView.hostRules(b));
         assertEquals(new ReverseProxyMode("https", "origin.test", 443), BootstrapView.reverseProxy(b));
         assertTrue(BootstrapView.keepHostHeader(b));
         assertEquals(9443, BootstrapView.transparentTlsPort(b));
+        assertEquals(List.of("^mail\\.", "\\.mqtt\\.test"), BootstrapView.tcpHosts(b));
         java.util.Properties t = new java.util.Properties();
         t.setProperty("mode", "transparent");
         assertTrue(BootstrapView.of(BootstrapView.fromProperties(t)).transparent());

@@ -268,6 +268,49 @@ class TcpInterceptorTest {
         }
     }
 
+    /** An HTTP origin that answers with the request head it received as the body. */
+    static TestSupport.RawServer headEcho() {
+        return TestSupport.rawServer(s -> {
+            String head = TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+            byte[] body = utf8(head);
+            s.getOutputStream().write(utf8("HTTP/1.1 200 OK\r\nContent-Length: " + body.length
+                    + "\r\nConnection: close\r\n\r\n"));
+            s.getOutputStream().write(body);
+            s.getOutputStream().flush();
+        });
+    }
+
+    @Test
+    void aTcpHostIsRelayedAsBytesEvenWhenItSpeaksHttp() throws Exception {
+        CertificateAuthority ca = CertificateAuthority.generate("TCP hosts CA");
+        try (TestSupport.RawServer origin = headEcho()) {
+            String request = "GET /plain HTTP/1.1\r\nHost: 127.0.0.1:" + origin.port() + "\r\nConnection: close\r\n\r\n";
+            for (boolean tcpHost : new boolean[] {false, true}) {
+                Recorder recorder = new Recorder((m, ctx) -> m.data());
+                HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap().withTcpInterceptor(recorder)
+                        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca));
+                if (tcpHost) bootstrap.withTcpHosts("^127\\.0\\.0\\.");
+                HttpProxyServer proxy = proxies.start(bootstrap);
+                String answer;
+                try (Socket s = tunnel(proxy, origin.port())) {
+                    TestSupport.write(s.getOutputStream(), request);
+                    answer = new String(s.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                }
+                assertTrue(answer.startsWith("HTTP/1.1 200"), answer);
+                if (tcpHost) {
+                    // The server got the bytes as the client sent them, and the hooks saw them.
+                    assertTrue(answer.endsWith("\r\n\r\n" + request), answer);
+                    recorder.awaitDone();
+                    assertEquals("> " + request, recorder.events.get(1));
+                } else {
+                    // Served as HTTP: the proxy's own request, with its Via.
+                    assertTrue(answer.toLowerCase(java.util.Locale.ROOT).contains("via: 1.1 "), answer);
+                    assertEquals(List.of(), recorder.events, "not a tunnel");
+                }
+            }
+        }
+    }
+
     @Test
     void aFailedTunnelEndsWithAnError() throws Exception {
         Recorder recorder = new Recorder((m, ctx) -> m.data());
