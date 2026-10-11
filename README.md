@@ -281,6 +281,11 @@ Command-line flags override values from the file.
 | `access_log_filter` | log only what passes, e.g. `status>=500 \|\| response_flag` | everything |
 | `metrics` | keep Envoy-style stats for Prometheus and statsd (see [Metrics](#metrics-envoy-compatible-stats)) | `false` |
 | `stats_prefix` | prefix of exported stat names (implies `metrics`) | `envoy` |
+| `admin_port` / `admin_address` | serve the [admin API](#admin-interface) on this port of `127.0.0.1` / on this `host:port` (implies `metrics`) | off |
+| `admin_token` | the token the admin API requires on every path but `/ready` | none |
+| `drain_time` | seconds a drain lasts, and stopping lets exchanges finish (see [Lifecycle, draining and shutdown](#lifecycle-draining-and-shutdown)) | `10` |
+| `drain_strategy` | `gradual` or `immediate` | `gradual` |
+| `health_check_path` / `health_check_pass_through` | answer health checks on the proxy's listener / forward healthy ones to the server | off / `false` |
 | `log_http` | log whole requests and responses: `basic`, `headers` or `body` (see [Request/response logging](#requestresponse-logging)) | off |
 | `log_http_format` | `text` or `json` (one object per line) for `log_http` | `text` |
 | `log_http_view` | render bodies logged by `log_http` through [content views](#content-views): `auto` or a view's name | off |
@@ -320,6 +325,7 @@ Command-line flags override values from the file.
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
 | Access logs | `ActivityLogger`: Envoy-compatible format strings and JSON, Envoy's response flags, filters, and one line per exchange, tunnel or UDP and QUIC flow; LittleProxy's nine formats as presets (see below) |
 | Metrics | Envoy's stat names and tags (`http.*`, `cluster.*`, `listener.*`, `server.*`, ...) in a `StatsRegistry`, as Prometheus text, Envoy's `/stats` text and JSON, or pushed to statsd and DogStatsD; bounded clusters; scripts' own `stats` (see below) |
+| Admin interface | Envoy's admin API on a listener of its own: `/stats`, `/stats/prometheus`, `/ready`, `/server_info`, `/listeners`, `/clusters`, `/config_dump` (secrets redacted), `/logging`, health check, `/drain_listeners` and `/quitquitquit`, with an optional token; server states, gradual or immediate draining, and a drain time for graceful shutdown (see below) |
 | Request/response logging | `HttpLogger` dumps whole messages (heads, the changes the proxy and filters made, bodies on request) as readable blocks or JSON lines, with redaction (see below) |
 | Content views | `org.microproxy.contentviews` renders bodies readably: protobuf without a schema (YAML with field numbers, as mitmproxy shows it), gRPC message by message with its trailers and `google.rpc.Status` details, msgpack, form data, GraphQL, Socket.IO; field names from a `protoc` descriptor set; `protobuf` and `grpc` modules for scripts (see below) |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
@@ -3478,7 +3484,8 @@ dashboards and alerts written for Envoy read them: `http.<name>.downstream_rq_5x
 `cluster.<cluster>.upstream_cx_connect_fail`, `listener.<address>.downstream_cx_active`, and so on.
 They live in a `StatsRegistry` (package `org.microproxy.stats`); `StatsFormatter` renders them as
 Prometheus's text exposition format, Envoy's `/stats` text dump, or its JSON form, and
-`StatsdSink` pushes them to statsd. The admin endpoint that serves them over HTTP comes later.
+`StatsdSink` pushes them to statsd. The [admin interface](#admin-interface) serves them over HTTP
+(`/stats`, `/stats/prometheus`).
 
 ```java
 StatsRegistry stats = StatsRegistry.builder().prefix("envoy").build();   // or .withMetrics(true)
@@ -3550,7 +3557,10 @@ milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 
 | `cache.hits`, `misses`, `stores`, `revalidations`, `stale_served` | counter | the [HTTP cache](#http-cache)'s counts (`HttpCache.stats()`) |
 | `concurrency_limit.in_use`, `waiting` / `acquired`, `rq_blocked`, `reclaimed` | gauge / counter | the [concurrency limiter](#concurrency-limiting) among the filters |
 | `connection_pool.total_connections`, `active_connections`, `idle_connections` / `borrow`, `return`, `eviction`, `validation_failure` | gauge / counter | the [shared pool](#shared-server-connection-pool) (`getServerConnectionPoolMetrics()`) |
-| `server.uptime`, `live`, `concurrency`, `memory_allocated`, `memory_heap_size`, `total_connections` | gauge | seconds running, 1 until stopping, processors, heap used and committed (`MemoryMXBean`), client connections open |
+| `server.uptime`, `live`, `concurrency`, `memory_allocated`, `memory_heap_size`, `total_connections` | gauge | seconds running, 1 while `LIVE` (0 once draining or stopping), processors, heap used and committed (`MemoryMXBean`), client connections open |
+| `server.state` | gauge | Envoy's numbers: 0 live, 1 draining, 2 pre-initializing, 3 initializing (4 stopped) |
+| `http.<name>.downstream_cx_drain_close` | counter | client connections told to go away while draining or with a failed health check (`Connection: close`, GOAWAY) |
+| `listener_manager.total_listeners_active`, `total_listeners_draining` / `listener_stopped` | gauge / counter | listeners accepting, those accepting while the proxy drains / listeners closed |
 
 **Clusters and cardinality.** A forward proxy's servers are any number, so they are not clusters
 by default. A request's cluster is `direct` for a direct connection, the chained proxy for one
@@ -3592,6 +3602,183 @@ stats are not counted yet; neither are upstream byte counts. Envoy's `upstream_c
 `downstream_cx_destroy_*` tell who closed first only where the proxy saw it (an end of stream
 before a request, a server that closed its connection). Statsd gets a histogram as one timer per
 flush, the mean of its new values sampled at `1/n`, which keeps the count and mean, not the spread.
+
+### Admin interface
+
+The admin listener serves Envoy's admin API (the same paths and semantics, reimplemented) on a
+listener of its own, apart from the proxy's: metrics for Prometheus, readiness for load balancers
+and orchestrators, the configuration in effect, log levels, and draining. It runs on the JDK's
+built-in HTTP server (`com.sun.net.httpserver`, module `jdk.httpserver`), so it adds no dependency;
+a `jlink`ed runtime needs `--add-modules jdk.httpserver`. It turns [metrics](#metrics-envoy-compatible-stats) on.
+
+```sh
+java -jar microproxy.jar --port 8080 --admin-port 9901            # admin on 127.0.0.1:9901
+
+curl -s localhost:9901/ready                                       # LIVE
+curl -s 'localhost:9901/stats?filter=^cluster\.&usedonly'
+curl -s localhost:9901/stats/prometheus
+curl -s -X POST 'localhost:9901/logging?org.microproxy.impl.Tls=debug'
+curl -s -X POST 'localhost:9901/drain_listeners?graceful'         # drain for --drain-time
+```
+
+```java
+HttpProxyServer proxy = MicroProxy.bootstrap()
+        .withAdmin(new InetSocketAddress(InetAddress.getLoopbackAddress(), 9901))
+        .withAdminToken(System.getenv("MICROPROXY_ADMIN_TOKEN"))   // optional
+        .withDrainTime(Duration.ofSeconds(20))
+        .start();
+proxy.state();                          // LIVE
+proxy.drain(Duration.ofSeconds(20));    // returns when the drain is over
+proxy.stop();                           // STOPPED
+```
+
+| path | method | answer |
+|---|---|---|
+| `/`, `/help` | GET | the paths and what they do |
+| `/stats` | GET | the stats as `name: value` lines, histograms as their quantiles (Envoy's text dump); `?filter=<regex>` keeps the names it finds, `?usedonly` the stats with a value, `?format=json` or `?format=prometheus` changes the form |
+| `/stats/prometheus` | GET | Prometheus's text exposition format 0.0.4 (`text/plain; version=0.0.4; charset=utf-8`), with `?filter=` and `?usedonly` too |
+| `/ready` | GET | `200 LIVE`, or `503` and the state: `DRAINING`, `INITIALIZING`, `PRE_INITIALIZING`, or `HEALTH_CHECK_FAILED` after `/healthcheck/fail`; needs no token |
+| `/server_info` | GET | JSON: the version, state, uptime (`uptime_current_epoch`), listeners, the features in use (`h2`, `h2c`, `h3`, `quic`, `socks`, `masque`, `mitm`, `transparent`, `reverse_proxy`, `cache`, `replay`, `scripting`, ...), the drain settings, the JVM, and the command line, secrets redacted |
+| `/listeners` | GET | a line per listener, `name::address::transport::protocols` (`edge::127.0.0.1:8080::tcp::http/1.1,h2c`); `?format=json` |
+| `/clusters` | GET | a line per cluster stat, `cluster::stat::value`, for `direct`, the chained proxies, `cache`, `replay` and, with `--stats-per-host`, each server; with the shared pool's state on `direct`; `?format=json` (histograms as count, p50 and p99) |
+| `/config_dump` | GET | JSON: the configuration in effect (listener, modes, timeouts, limits, pool, chained proxies, HTTP/2 and HTTP/3 options, TLS, interception, filters, trackers, stats, drain, health check, admin, command line), every secret `[redacted]` |
+| `/logging` | GET, POST | GET lists the proxy's loggers and their levels; `POST /logging?level=<level>` sets them all, `POST /logging?<logger>=<level>` one (and its children) |
+| `/healthcheck/fail` | POST | fails the health check: `/ready` and the [health-check path](#lifecycle-draining-and-shutdown) answer `503`, and connections drain as their next request comes |
+| `/healthcheck/ok` | POST | restores it |
+| `/drain_listeners` | POST | stops accepting connections now (open ones are left alone); with `?graceful`, drains for the drain time first, still accepting; `?inboundonly` is accepted, every proxy listener being inbound |
+| `/quitquitquit` | POST | stops the proxy gracefully, as `stop()` does |
+
+Reads are `GET` (and `HEAD`); what changes the proxy takes `POST` only, so that a link or a
+prefetch cannot change it; any other method gets `405` with an `Allow` header. An unknown path
+gets `404` and the list. Envoy's other paths (`/certs`, `/memory`, `/runtime`,
+`/stats/recentlookups`, `/reset_counters`, `/heap_dump`, `/hot_restart_version`, ...) are not
+served: MicroProxy has no runtime-overridable settings, hot restarts or certificates to list.
+
+| flag | property | meaning |
+|---|---|---|
+| `--admin-port <port>` | `admin_port` | serve the admin API on this port of `127.0.0.1` (0 for any free port) |
+| `--admin-address <host:port>` | `admin_address` | on another address, such as `0.0.0.0:9901` or `[::1]:9901` |
+| `--admin-token <token>` | `admin_token` | require the token on every path but `/ready` |
+| `--admin-token-file <file>` | | the same, from the file's first line (kept out of the process list) |
+| `--drain-time <seconds>` | `drain_time` | how long a drain lasts, and how long stopping lets exchanges finish (default 10) |
+| `--drain-strategy <strategy>` | `drain_strategy` | `gradual` (the default) or `immediate` |
+| `--health-check-path <path>` | `health_check_path` | answer health checks on the proxy's listener |
+| `--health-check-pass-through` | `health_check_pass_through` | forward a healthy health check to the server instead |
+
+**Security.** The admin API can drain and stop the proxy, so it listens on `127.0.0.1` unless told
+otherwise. A token (`withAdminToken`, `--admin-token`) is then required on every path but
+`/ready`: as `Authorization: Bearer <token>`, or as the password of basic authentication with
+any user name (or as `user:password` itself, when the token has a colon); it is compared in
+constant time. Bound to a loopback address, the listener also answers only requests whose `Host`
+is `localhost` or a loopback address, so a web page cannot reach it through DNS rebinding, and it
+refuses every `POST` that carries an `Origin`, as a browser's would. It speaks plain HTTP: to reach
+it from elsewhere, bind it to a private address with a token, or tunnel to it (`kubectl
+port-forward`, SSH). `/config_dump` and `/server_info` redact the secrets they would show: key
+store passwords, the admin token, proxy authentication credentials and those in chained proxy
+URLs, the interception CA's private key and its key store password, `--script-var` values, and any
+option named for a password, token, secret or credential.
+
+**Threads.** The JDK's server reads requests and writes responses inside `synchronized` methods
+(`sun.net.httpserver.Request.ReadStream.read` and `WriteStream.write`). On JDK 21 a virtual thread
+blocked in one pins its carrier, so a client sending its request or reading the answer slowly
+would hold one of the few carriers every virtual thread of the proxy shares. The admin listener
+therefore runs on four platform threads of its own (idle keep-alive connections hold none: they
+wait in the server's selector). `HttpsServer` pins the same way, and more, which is why the admin
+listener has no TLS. JDK 24 (JEP 491) no longer pins on monitors.
+
+**Logging levels.** The proxy logs through `System.Logger`, which the JDK backs with
+`java.util.logging` unless another backend is on the class path (SLF4J's
+`slf4j-jdk-platform-logging`, Log4j's `log4j-jpl`). With `java.util.logging`, `/logging` lists the
+loggers under `org.microproxy` and `io.github.mahmoudimus` with their effective levels, and sets
+them with Envoy's names (`trace`, `debug`, `info`, `warning`, `error`, `critical`, `off`) or
+`java.util.logging`'s (`FINE`, `ALL`, ...); a root handler that would drop the records of a lower
+level is lowered to it. With another backend, `/logging` says which one, and levels are set there:
+the JDK gives no portable way to change them.
+
+### Lifecycle, draining and shutdown
+
+A proxy is `INITIALIZING` while it starts (the admin listener first, then the proxy's own),
+`LIVE` once it serves, `DRAINING` once it drains, stops accepting or stops, and `STOPPED` at the
+end: `HttpProxyServer.state()`, the admin's `/ready`, and the `server.state` gauge with Envoy's
+numbers (0 live, 1 draining, 2 pre-initializing, 3 initializing; 4 stopped, which Envoy has not).
+
+- **Drain** (`drain(time)`, `POST /drain_listeners?graceful`): `/ready` fails at once, and the
+  listeners keep accepting, so that clients a load balancer still sends are served. Each new
+  request is told to go elsewhere: an HTTP/1 response gets `Connection: close` and its connection
+  closes after it; an HTTP/2 or HTTP/3 connection is sent GOAWAY (the request is served, and named
+  the last one). With the `gradual` strategy (Envoy's default) the chance that a request does so
+  grows from 0 at the start of the drain to 1 at its end, so clients move away gradually; with
+  `immediate`, every connection is told at once (idle ones close now). Exchanges in progress get
+  until the drain time is over; then the listeners close and so does every connection still open.
+  The proxy stays `DRAINING`, its admin listener up, until it is stopped.
+- **Stop accepting** (`stopListeners()`, `POST /drain_listeners`): the TCP listener closes, the UDP
+  ones (HTTP/3, transparent QUIC) refuse new QUIC connections, and open connections are left
+  alone.
+- **Stop** (`stop()`, `POST /quitquitquit`, and the launcher's SIGTERM or Ctrl-C): the listeners
+  close, idle connections close, HTTP/2 and HTTP/3 ones get GOAWAY, HTTP/1 ones close after their
+  exchange in progress; exchanges get up to the drain time to finish (`withDrainTime`,
+  `--drain-time`, 10 seconds by default), then everything is closed, resources added with
+  `closeOnStop` are closed, and last the admin listener. `abort()` closes everything at once.
+- **Health check** (`setHealthCheckFailed`, `POST /healthcheck/fail` and `/healthcheck/ok`): while
+  it fails, `/ready` answers `503 HEALTH_CHECK_FAILED`, and every new request drains its
+  connection, as Envoy does. `withHealthCheckPath("/healthz", passThrough)` (`--health-check-path`)
+  answers health checks on the proxy's own listener, before authentication and the filters, as
+  Envoy's health check filter: an origin-form request for the path gets `200`, or `503` with
+  `x-envoy-immediate-health-check-fail: true` while the health check fails or the proxy is not
+  `LIVE`. With pass-through, a healthy check goes on to the server (in reverse mode, the
+  upstream's own health) and only failures are answered by the proxy.
+
+The drain counts `http.<name>.downstream_cx_drain_close` (connections told to go away),
+`listener_manager.listener_stopped`, and the gauges `listener_manager.total_listeners_active` and
+`total_listeners_draining`; `server.live` is 1 only while `LIVE`.
+
+**Kubernetes.** Readiness follows `/ready`; on deletion, a `preStop` hook drains while the
+endpoints controller and the load balancers forget the pod, then the kubelet's SIGTERM stops the
+proxy, which finishes the exchanges still in progress:
+
+```yaml
+spec:
+  terminationGracePeriodSeconds: 45          # > preStop sleep + drain time
+  containers:
+    - name: microproxy
+      image: example/microproxy
+      args: ["--port", "8080", "--server", "--admin-address", "0.0.0.0:9901",
+             "--admin-token-file", "/etc/microproxy/admin-token", "--drain-time", "15"]
+      ports: [{containerPort: 8080}, {containerPort: 9901}]
+      readinessProbe:
+        httpGet: {path: /ready, port: 9901}  # /ready needs no token
+        periodSeconds: 2
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - sh
+              - -c
+              - |
+                curl -sf -X POST -H "Authorization: Bearer $(cat /etc/microproxy/admin-token)" \
+                  'http://127.0.0.1:9901/drain_listeners?graceful&inboundonly'
+                sleep 15
+      volumeMounts: [{name: admin-token, mountPath: /etc/microproxy, readOnly: true}]
+  volumes:
+    - name: admin-token
+      secret: {secretName: microproxy-admin-token}
+```
+
+The kubelet probes the pod's address, so this binds the admin listener to every interface, with a
+token. To keep it on loopback instead, probe with `exec` (`curl -sf localhost:9901/ready`), or
+give the proxy `--health-check-path /healthz` and probe `httpGet: {path: /healthz, port: 8080}`,
+which also fails while draining. Without a `preStop` hook (an image without `curl` or `sh`),
+SIGTERM alone stops accepting at once and lets the exchanges in progress finish for up to
+`--drain-time`; a `preStop` of `sleep 5` covers most of the time endpoints take to update.
+
+**Limitations.** `/clusters` lists the clusters that have stats so far, so a chained proxy shows
+once it has been used; every cluster is reported `healthy`, as the proxy runs no active health
+checks. `?usedonly` keeps what is not zero, where Envoy keeps what was ever written (a gauge back
+at zero shows there). A gradual drain is a matter of chance per request, so an HTTP/1 client that
+sends few requests may keep its connection until the drain ends. Envoy's `?inboundonly` and
+`traffic_direction` distinction has nothing to choose from here, and the admin listener itself is
+never drained. Scripts do not see the state: they run per request, and a draining proxy's own
+answers (`Connection: close`, GOAWAY) need nothing from them.
 
 ### Request/response logging
 
