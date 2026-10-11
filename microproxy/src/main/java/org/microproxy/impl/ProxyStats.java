@@ -69,6 +69,25 @@ final class ProxyStats {
         this.clusters = new ClusterTable(registry);
     }
 
+    /** What a cluster is: {@code direct}, {@code cache}, {@code replay}, a chained proxy, a server, or the overflow. */
+    static final String DIRECT = "direct";
+    static final String CACHE = "cache";
+    static final String REPLAY = "replay";
+    static final String CHAINED_PROXY = "chained_proxy";
+    static final String HOST = "host";
+    static final String OVERFLOW = "overflow";
+
+    /** A cluster with stats of its own, and what it is. */
+    record Cluster(String name, String kind) {}
+
+    /** The clusters with stats now, for the admin listener: the fixed ones, then those met so far, by name. */
+    List<Cluster> clusters() {
+        List<Cluster> all = new ArrayList<>(List.of(new Cluster(direct.name, DIRECT), new Cluster(cache.name, CACHE),
+                new Cluster(replay.name, REPLAY)));
+        all.addAll(clusters.list());
+        return all;
+    }
+
     /** {@code listener.<address>.*} of the listener bound at {@code address}. */
     void bound(InetSocketAddress address) {
         listener = new ListenerStats(registry, listenerAddress(address));
@@ -107,12 +126,12 @@ final class ProxyStats {
     ClusterStats cluster(ChainedProxy proxy, String hostAndPort) {
         if (!enabled) return direct;
         if (proxy == null || proxy == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
-            return registry.perHostClusters() && hostAndPort != null ? clusters.get(TagExtractor.sanitize(hostAndPort))
+            return registry.perHostClusters() && hostAndPort != null ? clusters.get(TagExtractor.sanitize(hostAndPort), HOST)
                     : direct;
         }
         InetSocketAddress address = proxy.getChainedProxyAddress();
-        if (address == null) return clusters.get("chained_proxy");
-        return clusters.get(TagExtractor.sanitize(address.getHostString() + "_" + address.getPort()));
+        if (address == null) return clusters.get("chained_proxy", CHAINED_PROXY);
+        return clusters.get(TagExtractor.sanitize(address.getHostString() + "_" + address.getPort()), CHAINED_PROXY);
     }
 
     /**
@@ -391,6 +410,8 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter sslHandshake;
         final Counter sslConnectionError;
+        /** What the cluster is ({@link #CHAINED_PROXY}, {@link #HOST}), for the admin listener; null for the fixed ones. */
+        volatile String kind;
         /** When it was last handed out, for {@link StatsRegistry.Overflow#LRU}. */
         volatile long lastUsed = System.nanoTime();
         private final List<String> names = new ArrayList<>();
@@ -509,7 +530,7 @@ final class ProxyStats {
             this.registry = registry;
         }
 
-        ClusterStats get(String name) {
+        ClusterStats get(String name, String kind) {
             ClusterStats c = clusters.get(name);
             if (c != null) {
                 c.lastUsed = System.nanoTime();
@@ -524,6 +545,7 @@ final class ProxyStats {
                     evictLeastRecentlyUsed();
                 }
                 c = new ClusterStats(registry, name);
+                c.kind = kind;
                 clusters.put(name, c);
                 return c;
             } finally {
@@ -546,6 +568,15 @@ final class ProxyStats {
                 if (oldest == null || c.lastUsed - oldest.lastUsed < 0) oldest = c;
             }
             if (oldest != null && clusters.remove(oldest.name, oldest)) oldest.unregister();
+        }
+
+        /** The clusters with stats of their own now, and {@code other} once used, sorted by name. */
+        List<Cluster> list() {
+            List<Cluster> all = new ArrayList<>();
+            for (ClusterStats c : clusters.values()) all.add(new Cluster(c.name, c.kind));
+            all.sort(java.util.Comparator.comparing(Cluster::name));
+            if (other != null) all.add(new Cluster(StatsRegistry.OTHER_CLUSTER, OVERFLOW));
+            return all;
         }
 
         /** The clusters with stats of their own now, for tests. */

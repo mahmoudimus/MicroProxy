@@ -144,6 +144,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** The path the proxy answers health checks on; null for none. */
     String healthCheckPath;
     boolean healthCheckPassThrough;
+    /** Where the admin listener listens; null for none. */
+    InetSocketAddress adminAddress;
+    /** What admin requests must present; null for nothing. */
+    String adminToken;
+    /** The command line, for the admin's {@code /server_info}. */
+    List<String> commandLineOptions = List.of();
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -219,6 +225,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.drainStrategy = drainStrategy;
         c.healthCheckPath = healthCheckPath;
         c.healthCheckPassThrough = healthCheckPassThrough;
+        c.adminAddress = adminAddress;
+        c.adminToken = adminToken;
+        c.commandLineOptions = commandLineOptions;
         return c;
     }
 
@@ -501,6 +510,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("health_check_path")) {
             withHealthCheckPath(p.getProperty("health_check_path").strip(), bool(p, "health_check_pass_through"));
         }
+        if (p.containsKey("admin_port")) {
+            withAdmin(new InetSocketAddress(DefaultHttpProxyServer.loopback(),
+                    Integer.parseInt(p.getProperty("admin_port").strip())));
+        }
+        if (p.containsKey("admin_address")) withAdmin(parseAddress(p.getProperty("admin_address")));
+        if (p.containsKey("admin_token")) withAdminToken(p.getProperty("admin_token").strip());
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
         withThrottling(read, write);
@@ -1098,6 +1113,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         this.healthCheckPath = path;
         this.healthCheckPassThrough = passThrough;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAdmin(InetSocketAddress address) {
+        this.adminAddress = address;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAdminToken(String token) {
+        if (token != null && token.isEmpty()) throw new IllegalArgumentException("the admin token is empty");
+        this.adminToken = token;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withCommandLineOptions(List<String> options) {
+        this.commandLineOptions = List.copyOf(options);
         return this;
     }
 

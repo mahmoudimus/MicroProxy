@@ -208,6 +208,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile long drainStartNanos;
     private volatile long drainNanos;
     private volatile boolean drainImmediate;
+    /** The admin listener, while it runs; null without one. */
+    private volatile AdminServer admin;
+    /** When the proxy started ({@link System#nanoTime}), for its uptime. */
+    final long startNanos = System.nanoTime();
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
         if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
@@ -234,6 +238,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         this.config = b;
         this.name = b.name;
+        // The admin listener shows the stats: it turns them on.
+        if (b.adminAddress != null && !b.stats.enabled()) b.stats = org.microproxy.stats.StatsRegistry.create();
         this.stats = new ProxyStats(b.stats, b.name);
         this.transparent = b.transparent;
         this.transparentTlsPort = b.transparentTlsPort;
@@ -379,6 +385,26 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
 
     HttpProxyServer start() {
         state.set(ServerState.INITIALIZING);
+        if (config.adminAddress != null) {
+            // First, as Envoy does: it answers (INITIALIZING) while the proxy's listeners are bound.
+            try {
+                admin = AdminServer.start(this, config.adminAddress, config.adminToken);
+            } catch (IOException e) {
+                if (pool != null) pool.closeAll();
+                throw new UncheckedIOException("unable to bind the admin listener " + config.adminAddress, e);
+            }
+            LOG.log(Level.INFO, "{0} admin listening on {1}", name, admin.address());
+        }
+        try {
+            return bind();
+        } catch (RuntimeException e) {
+            stopAdmin();
+            state.set(ServerState.STOPPED);
+            throw e;
+        }
+    }
+
+    private HttpProxyServer bind() {
         InetSocketAddress requested = config.address();
         try {
             serverSocket = new ServerSocket();
@@ -774,6 +800,30 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             }
         }
         state.set(ServerState.STOPPED);
+        // Last: it reports the drain until the end.
+        stopAdmin();
+    }
+
+    private void stopAdmin() {
+        AdminServer a = admin;
+        admin = null;
+        if (a != null) a.stop();
+    }
+
+    @Override
+    public InetSocketAddress getAdminAddress() {
+        AdminServer a = admin;
+        return a == null ? null : a.address();
+    }
+
+    /** The TCP listener's address, the HTTP/3 one's and the transparent QUIC one's (null when absent). */
+    InetSocketAddress[] listenerAddresses() {
+        return new InetSocketAddress[] {boundAddress, http3Address(), getTransparentQuicAddress()};
+    }
+
+    /** {@return how many client connections are open} */
+    int openConnections() {
+        return connections.size();
     }
 
     @Override
