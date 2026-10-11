@@ -5,6 +5,7 @@ import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.quic.QuicInterceptor;
+import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
 
@@ -123,6 +124,37 @@ public interface HttpProxyServerBootstrap {
      * @return this bootstrap
      */
     HttpProxyServerBootstrap withHttpCache(HttpCache cache);
+
+    /**
+     * Keeps the proxy's metrics in {@code registry}: Envoy's stats ({@code http.<name>.*}, {@code
+     * cluster.<name>.*}, {@code listener.<address>.*}, {@code server.*}, ...; see {@link
+     * StatsRegistry}), which {@link org.microproxy.stats.StatsFormatter} renders for Prometheus and
+     * {@link org.microproxy.stats.StatsdSink} pushes to statsd. The {@code http} stats are named
+     * after {@link #withName the proxy's name}. {@link StatsRegistry#NOOP} (the default) turns
+     * metrics off, which costs nothing.
+     *
+     * @param registry the registry, shared with whatever else counts into it
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withStats(StatsRegistry registry) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support metrics");
+    }
+
+    /**
+     * Turns metrics on with a registry of the default settings (or keeps the one {@link #withStats}
+     * gave), or off.
+     *
+     * @param enabled whether to keep metrics
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withMetrics(boolean enabled) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support metrics");
+    }
+
+    /** {@return the registry configured so far: {@link StatsRegistry#NOOP} without metrics} */
+    default StatsRegistry getStats() {
+        return StatsRegistry.NOOP;
+    }
 
     /**
      * Makes the proxy's own answers when requests fail (see {@link ProxyFailure}): unreachable or

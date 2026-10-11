@@ -52,6 +52,9 @@ final class Http1ClientChannel implements ClientChannel {
      * chunked bodies.
      */
     private HttpVersion requestVersion = HttpVersion.HTTP_1_1;
+    /** What counts the bytes read from and written to the client, or null when nothing does. */
+    private java.util.function.IntConsumer rxBytes;
+    private java.util.function.IntConsumer txBytes;
 
     Http1ClientChannel(DefaultHttpProxyServer server, Socket socket, ClientFlowContext flowContext, String logPrefix,
             Runnable closeConnection) {
@@ -66,11 +69,24 @@ final class Http1ClientChannel implements ClientChannel {
     // The connection
     // ---------------------------------------------------------------------------------------
 
+    /**
+     * Counts the bytes read from and written to the client in {@code rx} and {@code tx}, from the
+     * next {@link #attach} on (decrypted bytes, once TLS is layered over the connection).
+     */
+    void countBytes(org.microproxy.stats.Counter rx, org.microproxy.stats.Counter tx) {
+        rxBytes = rx::add;
+        txBytes = tx::add;
+    }
+
     /** Reads and writes through {@code s} from now on (the accepted socket, or TLS over it). */
     void attach(Socket s) throws IOException {
         socket = s;
         InputStream is = s.getInputStream();
         OutputStream os = s.getOutputStream();
+        if (rxBytes != null) {
+            is = CountingStreams.counting(is, rxBytes);
+            os = CountingStreams.counting(os, txBytes);
+        }
         if (!server.trackers.isEmpty()) {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));

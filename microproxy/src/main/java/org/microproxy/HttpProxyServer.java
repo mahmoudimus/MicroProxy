@@ -75,6 +75,16 @@ public interface HttpProxyServer extends AutoCloseable {
         return null;
     }
 
+    /**
+     * The proxy's metrics, as {@link HttpProxyServerBootstrap#withStats} or {@link
+     * HttpProxyServerBootstrap#withMetrics} configured them.
+     *
+     * @return the registry, {@link org.microproxy.stats.StatsRegistry#NOOP} without metrics
+     */
+    default org.microproxy.stats.StatsRegistry getStats() {
+        return org.microproxy.stats.StatsRegistry.NOOP;
+    }
+
     @Override
     default void close() {
         stop();

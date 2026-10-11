@@ -43,6 +43,7 @@ import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.quic.QuicInterceptor;
+import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
 
@@ -62,6 +63,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     MitmManager mitmManager;
     HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
     HttpCache httpCache;
+    /** Where the proxy keeps its metrics; {@link StatsRegistry#NOOP} when they are off. */
+    StatsRegistry stats = StatsRegistry.NOOP;
     FailureResponder failureResponder;
     boolean transparent;
     /** The port transparent TLS connections are routed to, on the host their SNI names. */
@@ -150,6 +153,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.mitmManager = mitmManager;
         c.filtersSource = filtersSource;
         c.httpCache = httpCache;
+        c.stats = stats;
         c.failureResponder = failureResponder;
         c.transparent = transparent;
         c.transparentTlsPort = transparentTlsPort;
@@ -396,6 +400,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             }
         }
         if (p.containsKey("dnssec")) withUseDnsSec(bool(p, "dnssec"));
+        if (p.containsKey("stats_prefix")) {
+            withStats(StatsRegistry.builder().prefix(p.getProperty("stats_prefix")).build());
+        } else if (bool(p, "metrics")) {
+            withMetrics(true);
+        }
         if (bool(p, "dnssec") && p.containsKey("dnssec_resolver")) {
             withServerResolver(DnssecHostResolver.builder().resolver(p.getProperty("dnssec_resolver")).build());
         }
@@ -571,6 +580,27 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withHttpCache(HttpCache cache) {
         this.httpCache = cache;
         return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withStats(StatsRegistry registry) {
+        this.stats = Objects.requireNonNull(registry, "registry");
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMetrics(boolean enabled) {
+        if (!enabled) {
+            stats = StatsRegistry.NOOP;
+        } else if (!stats.enabled()) {
+            stats = StatsRegistry.create();
+        }
+        return this;
+    }
+
+    @Override
+    public StatsRegistry getStats() {
+        return stats;
     }
 
     @Override

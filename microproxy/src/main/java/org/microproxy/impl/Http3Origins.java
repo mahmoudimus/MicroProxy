@@ -311,10 +311,16 @@ final class Http3Origins {
             InetSocketAddress remote = new InetSocketAddress(tcp.getAddress(), port);
             String host = HostAndPort.parse(hostAndPort, 443).host();
             QuicClient client = client(trust, remote.getAddress() instanceof Inet6Address);
+            long started = ClientFlowContext.now();
             QuicConnection quic = replaySafe && options.upstreamZeroRtt()
                     ? client.connectEarly(remote, host, options.upstreamHandshakeTimeout(), sessions)
                     : client.connect(remote, host, options.upstreamHandshakeTimeout(), sessions);
             c = new Http3UpstreamConnection(server, this, quic, key, hostAndPort);
+            if (c.cluster.enabled) {
+                c.countedAt = ClientFlowContext.now();
+                c.cluster.connected(c.countedAt - started);
+                c.cluster.cxHttp3.inc();
+            }
             c.begin();
             LOG.log(Level.DEBUG, log + "HTTP/3 to " + hostAndPort + " (" + remote + ")"
                     + (quic.isZeroRtt() ? ", sending 0-RTT data" : quic.isResumed() ? ", resumed" : ""));
@@ -322,6 +328,7 @@ final class Http3Origins {
         } catch (IOException | RuntimeException e) {
             LOG.log(Level.DEBUG, log + "HTTP/3 to " + hostAndPort + " failed (" + e.getMessage() + "); TCP for "
                     + options.upstreamFailureTimeout().toSeconds() + " s");
+            if (c == null) server.stats.cluster(null, hostAndPort).connectFailed(e);
             if (c != null) c.shutdown("starting HTTP/3 failed");
             c = null;
             lock.lock();

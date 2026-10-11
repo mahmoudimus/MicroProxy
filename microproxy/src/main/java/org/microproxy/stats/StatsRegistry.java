@@ -21,7 +21,9 @@ import java.util.function.LongSupplier;
  * IllegalArgumentException} is thrown). Nothing here takes a lock of its own.
  *
  * <p>{@link #NOOP} is the registry of a proxy without metrics (the default): its metrics do
- * nothing and it keeps none, so the proxy counts unconditionally at no cost.
+ * nothing and it keeps none, so the proxy counts unconditionally at no cost. Enable metrics with
+ * {@link org.microproxy.HttpProxyServerBootstrap#withMetrics(boolean)}, or with a registry of
+ * your own, {@link org.microproxy.HttpProxyServerBootstrap#withStats(StatsRegistry)}.
  *
  * <p>The registry also bounds how many metrics the proxy makes for things whose number is not
  * fixed: the clusters requests go to ({@link Builder#maxClusters}, {@link Builder#clusterOverflow},

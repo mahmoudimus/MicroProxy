@@ -82,6 +82,19 @@ class ServerConnection {
      */
     volatile boolean tunnelThroughProxy;
 
+    /**
+     * The cluster whose stats count this connection's requests (a stream's is its connection's);
+     * no-ops until it is known, and without metrics.
+     */
+    ProxyStats.ClusterStats cluster = ProxyStats.ClusterStats.NOOP;
+    /**
+     * When the connection was counted open in {@link #cluster} ({@link System#nanoTime()}), or 0 if
+     * it is not counted (a stream, or no metrics): it is counted closed once, when it closes.
+     */
+    long countedAt;
+    /** The server ended the connection: it counts as closed remotely. */
+    volatile boolean closedByServer;
+
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Trackers trackers;
 
@@ -206,12 +219,16 @@ class ServerConnection {
      */
     boolean awaitResponseHead() throws IOException {
         in.awaitNext();
-        return in.buffered() > 0;
+        if (in.buffered() > 0) return true;
+        closedByServer = true;
+        return false;
     }
 
     /** Reads the next response head (interim or final); null if the server closed the connection. */
     HttpResponse readResponse(HttpCodec.Limits limits) throws IOException {
-        return HttpCodec.readResponse(in, limits);
+        HttpResponse response = HttpCodec.readResponse(in, limits);
+        if (response == null) closedByServer = true;
+        return response;
     }
 
     /** The body of the response just read, delimited by {@code framing}. */
@@ -265,6 +282,7 @@ class ServerConnection {
 
     void close() {
         if (closed.compareAndSet(false, true)) {
+            if (countedAt != 0) cluster.closed(ClientFlowContext.now() - countedAt, closedByServer);
             Tls.closeQuietly(socket);
             Runnable detach = onDetach;
             if (detach != null) {
