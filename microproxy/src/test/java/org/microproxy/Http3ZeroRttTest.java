@@ -14,7 +14,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -96,8 +95,6 @@ class Http3ZeroRttTest {
                 })
                 .withHttp3Upstream(true)
                 .withHttp3UpstreamHosts("^origin\\.test:")
-                // Through the delaying relay, and on a busy machine, a handshake may take a while
-                .withHttp3Options(Http3Options.builder().upstreamHandshakeTimeout(Duration.ofSeconds(10)).build())
                 .start();
         HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
 
@@ -184,7 +181,7 @@ class Http3ZeroRttTest {
             H3TestClient.Response r = early.get("/early");
             assertEquals(200, r.status());
             assertEquals(List.of("1"), TestSupport.echoedHeader(r.text(), "early-data"), "RFC 8470: Early-Data: 1");
-            assertTrue(early.quic.awaitHandshake(Duration.ofSeconds(10)));
+            assertTrue(early.quic.awaitHandshake(java.time.Duration.ofSeconds(10)));
             assertTrue(early.quic.isResumed());
             assertTrue(early.quic.earlyDataAccepted());
             H3TestClient.Response later = early.get("/later");
@@ -196,7 +193,7 @@ class Http3ZeroRttTest {
             H3TestClient.Response r = unsafe.post("/echo", "not safe to replay".getBytes(StandardCharsets.UTF_8));
             assertEquals(425, r.status(), "a POST in 0-RTT data is too early");
             assertTrue(unsafe.quic.earlyDataAccepted());
-            assertTrue(unsafe.quic.awaitHandshake(Duration.ofSeconds(10)));
+            assertTrue(unsafe.quic.awaitHandshake(java.time.Duration.ofSeconds(10)));
             H3TestClient.Response again = unsafe.post("/echo", "not safe to replay".getBytes(StandardCharsets.UTF_8));
             assertEquals(200, again.status(), "sent again after the handshake");
             assertEquals("not safe to replay", TestSupport.echoedBody(again.text()));
@@ -224,7 +221,7 @@ class Http3ZeroRttTest {
                     throw new UnknownHostException(host);
                 })
                 .withHttp3(true)
-                .withHttp3Options(Http3Options.builder().zeroRtt(true).upstreamHandshakeTimeout(Duration.ofSeconds(10)).build())
+                .withHttp3Options(Http3Options.builder().zeroRtt(true).build())
                 .withHttp3Upstream(true)
                 .withHttp3UpstreamHosts("^origin\\.test:")
                 .start();
