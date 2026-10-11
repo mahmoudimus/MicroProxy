@@ -314,6 +314,26 @@ class TransparentQuicTest {
     }
 
     @Test
+    void aRelayedFlowIsOneRecordWhenItEnds() throws Exception {
+        H3TestOrigin origin = h3Origin();
+        RecordedFlows flows = new RecordedFlows();
+        start(transparent(origin.port()).withIgnoreHosts("^origin\\.test:").plusActivityTracker(flows)
+                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(java.time.Duration.ofMillis(500)).build()));
+        try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, originCa.getCertificate())) {
+            assertEquals("hello over h3", client.get("/hello").text());
+        }
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY);
+        assertTrue(r.bytesReceived() > 1000 && r.bytesSent() > 1000, r.toString());
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertEquals(r.bytesSent(), r.upstreamBytesReceived());
+        assertEquals("quic_relayed", r.responseCodeDetails());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertTrue(r.context().isTransparentQuic());
+        assertEquals("quic_relay " + HOST + " q", org.microproxy.extras.AccessLogFormat
+                .envoy("%MP_FLOW% %REQUESTED_SERVER_NAME% %TLS_JA4_FINGERPRINT:1%").format(r));
+    }
+
+    @Test
     void hostsOutsideTheAllowRulesAreRelayed() throws Exception {
         H3TestOrigin origin = h3Origin();
         start(transparent(origin.port()).withAllowHosts("^allowed\\.test:"));

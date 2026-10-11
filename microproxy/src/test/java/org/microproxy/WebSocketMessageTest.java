@@ -359,6 +359,33 @@ class WebSocketMessageTest {
     // -------------------------------------------------------------------------------------------
 
     @Test
+    void aWebSocketSessionIsOneRecordWhenItCloses() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        try (WebSocketPeer.Server server = new WebSocketPeer.Server(null);
+                HttpClient http = HttpClient.newHttpClient()) {
+            start(MicroProxy.bootstrap().withReverseProxy("http://127.0.0.1:" + server.port()).plusActivityTracker(flows),
+                    HttpFilters.builder().build());
+            CompletableFuture<String> reply = new CompletableFuture<>();
+            WebSocket ws = http.newWebSocketBuilder().buildAsync(
+                    URI.create("ws://127.0.0.1:" + proxy.getListenAddress().getPort() + "/chat"), new WebSocket.Listener() {
+                        @Override
+                        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                            reply.complete(data.toString());
+                            return null;
+                        }
+                    }).get(10, TimeUnit.SECONDS);
+            ws.sendText("ping", true).get(5, TimeUnit.SECONDS);
+            assertEquals("echo:ping", reply.get(10, TimeUnit.SECONDS));
+            assertTrue(flows.records.isEmpty(), "no record while the session is open: " + flows.records);
+            ws.abort();
+            FlowRecord r = flows.await(FlowRecord.Kind.WEBSOCKET);
+            assertEquals(101, r.responseCode());
+            assertTrue(r.bytesReceived() > 0 && r.bytesSent() > 0, r.toString());
+            assertEquals("websocket", org.microproxy.extras.AccessLogFormat.envoy("%MP_FLOW%").format(r));
+        }
+    }
+
+    @Test
     void theJdkClientsFragmentedMessagesAreJoined() throws Exception {
         List<String> seen = new CopyOnWriteArrayList<>();
         try (WebSocketPeer.Server server = new WebSocketPeer.Server(null);

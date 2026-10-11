@@ -186,6 +186,26 @@ class TcpInterceptorTest {
     }
 
     @Test
+    void aTunnelThroughTheHooksIsOneTcpRecordWhenItCloses() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        try (TestSupport.RawServer origin = lineEcho()) {
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap()
+                    .withTcpInterceptor(new Recorder((m, ctx) -> m.data())).plusActivityTracker(flows));
+            try (Socket s = tunnel(proxy, origin.port())) {
+                send(s, "hello");
+                assertEquals("echo: hello", line(s));
+                s.shutdownOutput();
+                assertEquals(-1, s.getInputStream().read());
+            }
+        }
+        FlowRecord r = flows.await(FlowRecord.Kind.TCP);
+        assertEquals("hello\n".length(), r.bytesReceived());
+        assertEquals("echo: hello\n".length(), r.bytesSent());
+        assertEquals(200, r.responseCode());
+        assertEquals(1, flows.records.size(), flows.records.toString());
+    }
+
+    @Test
     void aHalfCloseIsReportedAndPassedOnWhileTheOtherDirectionGoesOn() throws Exception {
         CountDownLatch serverSawEnd = new CountDownLatch(1);
         List<String> serverRead = new CopyOnWriteArrayList<>();

@@ -104,6 +104,23 @@ class SocksServerTest {
     }
 
     @Test
+    void aSocksTunnelIsOneRecordWhenItCloses() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        HttpProxyServer proxy = proxies.start(socks().plusActivityTracker(flows));
+        try (SocksClient c = new SocksClient(proxy)) {
+            assertEquals(0, c.open("127.0.0.1", echo.port()));
+            assertEchoes(c);
+        }
+        FlowRecord r = flows.await(FlowRecord.Kind.SOCKS);
+        assertEquals(5, r.bytesReceived());
+        assertEquals(5, r.bytesSent());
+        assertEquals(5, r.context().socksVersion().getAsInt());
+        assertEquals("socks 5 CONNECT 127.0.0.1:" + echo.port(), org.microproxy.extras.AccessLogFormat
+                .envoy("%MP_FLOW% %MP_SOCKS_VERSION% %REQ(:METHOD)% %REQ(:AUTHORITY)%").format(r));
+        assertEquals(1, flows.records.size(), flows.records.toString());
+    }
+
+    @Test
     void ipv6DestinationsAreTunnelled() throws Exception {
         List<String> connects = new CopyOnWriteArrayList<>();
         HttpProxyServer proxy = proxies.start(socks().withFiltersSource((request, ctx) -> {

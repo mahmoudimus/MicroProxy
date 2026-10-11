@@ -40,6 +40,7 @@ class Http2ProtocolTest {
     private HttpsServer origin;
     private HttpProxyServer proxy;
     private final CountDownLatch release = new CountDownLatch(1);
+    private final CountDownLatch slowArrived = new CountDownLatch(1);
     private String target;
 
     @BeforeAll
@@ -67,6 +68,7 @@ class Http2ProtocolTest {
 
     private void handle(HttpExchange exchange) throws IOException {
         if (exchange.getRequestURI().getPath().equals("/slow")) {
+            slowArrived.countDown();
             try {
                 release.await(20, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
@@ -314,6 +316,22 @@ class Http2ProtocolTest {
         // (Sent again on a new connection when the one the session had idle closed instead of answering.)
         assertTrue(!sent.isEmpty() && sent.stream().allMatch(("CONNECT example.com:443 to " + target)::equals),
                 sent.toString());
+    }
+
+    @Test
+    void aStreamTheClientResetsIsLoggedAsDr() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        start(Http2Options.DEFAULT, MicroProxy.bootstrap().plusActivityTracker(flows));
+        try (H2TestClient h2 = connect().handshake()) {
+            h2.get(1, "/slow");
+            assertTrue(slowArrived.await(10, TimeUnit.SECONDS), "the request reached the origin");
+            h2.rst(1, ErrorCode.CANCEL);
+            FlowRecord r = flows.await("stream 1's record", f -> f.kind() == FlowRecord.Kind.HTTP2
+                    && f.context().getStreamId() == 1);
+            assertEquals(java.util.Set.of(ResponseFlag.DOWNSTREAM_REMOTE_RESET), r.responseFlags());
+            assertEquals("downstream_remote_reset", r.responseCodeDetails());
+            assertEquals("HTTP/2", org.microproxy.extras.AccessLogFormat.envoy("%PROTOCOL%").format(r));
+        }
     }
 
     @Test
