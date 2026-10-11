@@ -161,6 +161,14 @@ class HttpsProxyForwardingTest {
 
     /** An HTTP/1.1 client's session with the corporate proxy, intercepted by MicroProxy. */
     private SSLSocket h1Session(String... connectHeaders) throws IOException {
+        return h1SessionOffering("http/1.1", connectHeaders);
+    }
+
+    /**
+     * An HTTP/1.1 client's session with the corporate proxy, intercepted by MicroProxy, whose
+     * ClientHello offers {@code alpn} (null for no ALPN extension).
+     */
+    private SSLSocket h1SessionOffering(String alpn, String... connectHeaders) throws IOException {
         Socket s = closing(new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort()));
         s.setSoTimeout(20_000);
         StringBuilder connect = new StringBuilder("CONNECT " + corpTarget() + " HTTP/1.1\r\nHost: " + corpTarget() + "\r\n");
@@ -168,16 +176,18 @@ class HttpsProxyForwardingTest {
         write(s.getOutputStream(), connect.append("\r\n").toString());
         String head = readUntil(s.getInputStream(), "\r\n\r\n");
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
-        return tls(s, "localhost", corp.getListenAddress().getPort(), "http/1.1");
+        return tls(s, "localhost", corp.getListenAddress().getPort(), alpn);
     }
 
-    /** A TLS handshake over {@code s} as a client trusting MicroProxy's CA. */
+    /** A TLS handshake over {@code s} as a client trusting MicroProxy's CA, offering {@code alpn} (or none). */
     private SSLSocket tls(Socket s, String host, int port, String alpn) throws IOException {
         SSLSocket tls = closing((SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(s, host, port, true));
         tls.setUseClientMode(true);
-        SSLParameters params = tls.getSSLParameters();
-        params.setApplicationProtocols(new String[] {alpn});
-        tls.setSSLParameters(params);
+        if (alpn != null) {
+            SSLParameters params = tls.getSSLParameters();
+            params.setApplicationProtocols(new String[] {alpn});
+            tls.setSSLParameters(params);
+        }
         tls.setSoTimeout(20_000);
         tls.startHandshake();
         return tls;
@@ -255,11 +265,26 @@ class HttpsProxyForwardingTest {
         TestSupport.RawServer echo = echoServer();
         startCorp(true, null);
         proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy()).start();
-        SSLSocket session = h1Session();
+        // Without ALPN, the client speaks HTTP/1.1 and the proxy offers the server h2 (ALPN mirroring).
+        SSLSocket session = h1SessionOffering(null);
         String head = connectInside(session, target(echo));
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
         assertEquals("over h2 upstream", echoBack(session, "over h2 upstream"));
         assertEquals(List.of("CONNECT " + target(echo) + " HTTP/2.0 null"), corpSaw);
+    }
+
+    @Test
+    void aClientOfferingOnlyHttp11ReachesTheCorporateProxyOverHttp11() throws Exception {
+        TestSupport.RawServer echo = echoServer();
+        startCorp(true, null);
+        proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy()).start();
+        // The client's ALPN offer (http/1.1 only) is mirrored to the corporate proxy, which could
+        // speak h2: the forwarded CONNECT goes there as HTTP/1.1, as the client would have sent it.
+        SSLSocket session = h1Session();
+        String head = connectInside(session, target(echo));
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        assertEquals("mirrored http/1.1", echoBack(session, "mirrored http/1.1"));
+        assertEquals(List.of("CONNECT " + target(echo) + " HTTP/1.1 null"), corpSaw);
     }
 
     @Test
