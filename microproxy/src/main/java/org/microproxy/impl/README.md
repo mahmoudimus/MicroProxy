@@ -674,11 +674,25 @@ since the server's filter is its own.
   `QuicServer.send`, from the listener's socket. The filter matches a client's datagram to a
   flow by the Initials' Destination Connection ID or a learned server ID; failing that, anything
   but an Initial goes to the address's most recently active relayed flow.
+- **Clients that move.** An intercepted connection follows its client inside the QUIC module (the
+  endpoint routes by connection ID, the connection validates the new path and answers there), so
+  `QuicFlows` has nothing to do for it. A relayed flow's client that moves sends short header
+  packets from an address with no flow: `QuicFlows.moved` looks for the flow in `byServerId` (every
+  relayed flow's known server IDs, tried at each length in use, `serverIdLengths`), then among
+  `relayedByIp` of the client's IP address by the longest common prefix of at least
+  `MIN_CID_PREFIX` (4) bytes with a known server ID (`byPrefix`), then the most recently active
+  flow of that IP address. `rekey` moves the flow to the new address in `flows` and
+  `relayedByIp` (and the per-IP count when the IP changed), and `Flow.client`, which is volatile,
+  is where `relayReplies` sends from then on. `learnClientId` adds the Destination Connection ID
+  of a client packet that matched no known ID, at the length all the flow's server IDs share (none
+  when they differ), so that later packets match exactly; `remember` keeps at most 8 IDs per flow,
+  forgetting the oldest. Long header packets never move a flow (migration comes after the
+  handshake), so a new client's 0-RTT packets cannot be taken for another flow's.
 - **Ending.** A sweeper thread, every half second or so, forgets pending flows past their
   timeout, intercepted flows past their routing window, `accepting` entries whose handshake never
   completed, and relayed flows idle past `transparentRelayIdleTimeout`, telling their
   `ClientConnection`s (`endTransparentQuic`: filters' `exchangeEnded`, `clientDisconnected`).
-- **Locks.** One `ReentrantLock` guards the flows, the counts and `accepting`; it is held while
+- **Locks.** One `ReentrantLock` guards the flows, the indexes, the counts and `accepting`; it is held while
   injecting and while writing to a relay's socket, so datagrams keep their order, and never while
   deciding, resolving, connecting or calling trackers. The QUIC server's endpoint lock is taken
   under it (by `inject`), never the other way round; so are a CONNECT-UDP flow's queue locks (an
@@ -720,7 +734,10 @@ own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Or
 
 - **The first datagram** the client sends decides (`Inner.fromClient`, called by
   `UdpFlow.fromClient` before it queues a payload): a QUIC Initial of a version the proxy reads
-  puts the flow in `QUIC` mode, anything else in `RELAYED` mode, for good.
+  puts the flow in `QUIC` mode, and so does a packet of a connection the unbound server knows
+  (`QuicServer.knows`, by connection ID): an intercepted connection its client carried over from
+  another flow, which follows it here as to a new address. Anything else puts it in `RELAYED`
+  mode, for good.
 - **QUIC mode.** Payloads go to the unbound server's `receive` under the flow's address: those of
   an intercepted connection reach it by connection ID, others go through the server's filter to
   `QuicFlows.filter`, which holds and decides as for the listener. The server's datagrams for the
@@ -735,8 +752,9 @@ own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Or
   connection's `mitmHostAndPort` is the target, or, for an IP address, the SNI on the target's
   port, so the server's certificate is checked against the name.
 - **Ending.** `UdpFlow.end` calls `Inner.ended`: the flow's address is forgotten, its pending flows
-  and handshakes too (`QuicFlows.forget(origin)`), an intercepted connection is closed and a
-  relaying client connection is told.
+  and handshakes too (`QuicFlows.forget(origin)`), the intercepted connections still on the
+  flow's address are closed (`Origin.intercepted` hands each to `MasqueQuic`; one that moved to
+  another flow stays), and a relaying client connection is told.
 
 ## HTTP/3 to servers: `Http3UpstreamConnection` and `Http3Origins`
 
