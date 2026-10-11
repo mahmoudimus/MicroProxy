@@ -7,6 +7,7 @@ import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.http.HttpContent;
@@ -63,6 +64,7 @@ public final class HttpFiltersBuilder {
     private BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
     private Function<String, InetSocketAddress> resolver;
     private BooleanSupplier allowMitm;
+    private Predicate<? super ClientHello> allowMitmFor;
     private int requestBuffer;
     private int responseBuffer;
     private HttpLogger logger;
@@ -192,6 +194,19 @@ public final class HttpFiltersBuilder {
     }
 
     /**
+     * Whether a TLS connection may be intercepted, decided from the client's {@code ClientHello}
+     * (its server name and ALPN protocols); see {@link HttpFilters#proxyToServerAllowMitm(ClientHello)}.
+     * Default: yes.
+     *
+     * @param allow the predicate deciding from the ClientHello whether interception is allowed
+     * @return this builder
+     */
+    public HttpFiltersBuilder allowMitmFor(Predicate<? super ClientHello> allow) {
+        this.allowMitmFor = Objects.requireNonNull(allow);
+        return this;
+    }
+
+    /**
      * The connect timeout for these requests' new connections, instead of the server's (see
      * {@link HttpFilters#proxyToServerConnectTimeout()}).
      *
@@ -300,6 +315,7 @@ public final class HttpFiltersBuilder {
         private final BiFunction<WebSocketFrame, Boolean, WebSocketFrame> onWebSocketFrame;
         private final Function<String, InetSocketAddress> resolver;
         private final BooleanSupplier allowMitm;
+        private final Predicate<? super ClientHello> allowMitmFor;
         private final int requestBuffer;
         private final int responseBuffer;
         private final HttpLogger logger;
@@ -322,6 +338,7 @@ public final class HttpFiltersBuilder {
             onWebSocketFrame = b.onWebSocketFrame;
             resolver = b.resolver;
             allowMitm = b.allowMitm;
+            allowMitmFor = b.allowMitmFor;
             requestBuffer = b.requestBuffer;
             responseBuffer = b.responseBuffer;
             logger = b.logger;
@@ -343,6 +360,7 @@ public final class HttpFiltersBuilder {
             onWebSocketFrame = base.onWebSocketFrame;
             resolver = base.resolver;
             allowMitm = base.allowMitm;
+            allowMitmFor = base.allowMitmFor;
             requestBuffer = base.requestBuffer;
             responseBuffer = base.responseBuffer;
             logger = base.logger;
@@ -493,6 +511,11 @@ public final class HttpFiltersBuilder {
         @Override
         public boolean proxyToServerAllowMitm() {
             return allowMitm == null || allowMitm.getAsBoolean();
+        }
+
+        @Override
+        public boolean proxyToServerAllowMitm(ClientHello clientHello) {
+            return allowMitmFor == null || allowMitmFor.test(clientHello);
         }
 
         @Override

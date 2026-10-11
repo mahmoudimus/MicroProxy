@@ -25,6 +25,7 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ReverseProxyMode;
 import org.microproxy.NoProxyRules;
 import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.UpstreamProxyManager;
@@ -37,6 +38,7 @@ import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
+import org.microproxy.frames.FrameInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -56,6 +58,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     HttpCache httpCache;
     FailureResponder failureResponder;
     boolean transparent;
+    /** The port transparent TLS connections are routed to, on the host their SNI names. */
+    int transparentTlsPort = 443;
+    /** Host patterns whose TLS is tunnelled untouched / the only ones intercepted. */
+    List<String> ignoreHosts = List.of();
+    List<String> allowHosts = List.of();
+    /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
+    ReverseProxyMode reverseProxy;
+    boolean keepHostHeader;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
     Duration tlsHandshakeTimeout = Duration.ofSeconds(10);
@@ -96,6 +106,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Whether the plain listener serves HTTP/2 with prior knowledge. */
     boolean http2Cleartext;
     Http2Options http2Options = Http2Options.DEFAULT;
+    /** Sees every HTTP/2 frame; null for none. */
+    FrameInterceptor frameInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -114,6 +126,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.httpCache = httpCache;
         c.failureResponder = failureResponder;
         c.transparent = transparent;
+        c.transparentTlsPort = transparentTlsPort;
+        c.ignoreHosts = ignoreHosts;
+        c.allowHosts = allowHosts;
+        c.reverseProxy = reverseProxy;
+        c.keepHostHeader = keepHostHeader;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
         c.tlsHandshakeTimeout = tlsHandshakeTimeout;
@@ -147,6 +164,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2Upstream = http2Upstream;
         c.http2Cleartext = http2Cleartext;
         c.http2Options = http2Options;
+        c.frameInterceptor = frameInterceptor;
         return c;
     }
 
@@ -171,6 +189,21 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("address")) withAddress(parseAddress(p.getProperty("address")));
         if (p.containsKey("allow_local_only")) withAllowLocalOnly(bool(p, "allow_local_only"));
         if (p.containsKey("transparent")) withTransparent(bool(p, "transparent"));
+        if (p.containsKey("transparent_tls_port")) {
+            withTransparentTlsPort(Integer.parseInt(p.getProperty("transparent_tls_port").strip()));
+        }
+        if (p.containsKey("ignore_hosts")) {
+            withIgnoreHosts(HostRules.split(p.getProperty("ignore_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("allow_hosts")) {
+            withAllowHosts(HostRules.split(p.getProperty("allow_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("mode")) {
+            String mode = p.getProperty("mode").strip();
+            withReverseProxy(ReverseProxyMode.parseMode(mode));
+            if (mode.equals("transparent")) withTransparent(true);
+        }
+        if (p.containsKey("keep_host_header")) withKeepHostHeader(bool(p, "keep_host_header"));
         if (p.containsKey("idle_connection_timeout")) {
             withIdleConnectionTimeout(Integer.parseInt(p.getProperty("idle_connection_timeout").strip()));
         }
@@ -439,6 +472,41 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withTransparentTlsPort(int port) {
+        if (port < 1 || port > 65535) throw new IllegalArgumentException("invalid port: " + port);
+        this.transparentTlsPort = port;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withIgnoreHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.ignoreHosts = rules;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAllowHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.allowHosts = rules;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withReverseProxy(ReverseProxyMode mode) {
+        this.reverseProxy = mode;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withKeepHostHeader(boolean keep) {
+        this.keepHostHeader = keep;
+        return this;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withIdleConnectionTimeout(int idleConnectionTimeoutInSeconds) {
         return withIdleConnectionTimeout(Duration.ofSeconds(Math.max(0, idleConnectionTimeoutInSeconds)));
     }
@@ -547,6 +615,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withHttp2Options(Http2Options options) {
         this.http2Options = options == null ? Http2Options.DEFAULT : options;
         return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withFrameInterceptor(FrameInterceptor interceptor) {
+        this.frameInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public FrameInterceptor getFrameInterceptor() {
+        return frameInterceptor;
     }
 
     @Override

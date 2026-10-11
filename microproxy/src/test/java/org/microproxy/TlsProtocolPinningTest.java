@@ -209,7 +209,9 @@ class TlsProtocolPinningTest {
                         failures.add(failure);
                         return null;
                     }));
-            assertEquals(502, ChainTestSupport.connectStatus(strict.getListenAddress(), "127.0.0.1:" + tls12.getLocalPort()));
+            // The server handshake follows the client's ClientHello: the request inside is refused.
+            assertEquals(502, get(client(strict, proxyCa.clientContext()), "https://127.0.0.1:" + tls12.getLocalPort() + "/")
+                    .statusCode());
             assertInstanceOf(ProxyFailure.TlsFailed.class, failures.getFirst());
             assertEquals(List.of("TLSv1.3"), serverSide.getLast());
 

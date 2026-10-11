@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -184,6 +185,20 @@ public class FlowContext {
     }
 
     /**
+     * The intercepted server that the exchange in progress (or the last one) is forwarded
+     * through, as {@code host:port}, when the client takes that server for its HTTPS proxy: the
+     * client sent a {@code CONNECT} inside the intercepted session, which the proxy forwards to
+     * that server rather than tunnelling to the target itself, or the request travels inside the
+     * tunnel such a {@code CONNECT} opened. Empty otherwise, and for contexts made outside the
+     * proxy.
+     *
+     * @return the intercepted proxy's {@code host:port}, or empty
+     */
+    public Optional<String> forwardedVia() {
+        return root == this ? Optional.empty() : root.forwardedVia();
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
@@ -193,6 +208,18 @@ public class FlowContext {
      */
     public FlowTimings timings() {
         return root == this ? FlowTimings.NONE : root.timings();
+    }
+
+    /**
+     * The TLS {@code ClientHello} the client sent to start the intercepted (or tunnelled) session
+     * this flow belongs to: after a {@code CONNECT} whose client was asked for one, and on a
+     * transparent TLS connection. {@code null} before then, for plain HTTP, for tunnels that were
+     * never inspected, and for contexts made outside the proxy.
+     *
+     * @return the client's ClientHello, or {@code null}
+     */
+    public ClientHello getClientHello() {
+        return root == this ? null : root.getClientHello();
     }
 
     /** {@return the client address and authentication details} */

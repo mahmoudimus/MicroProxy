@@ -1,6 +1,8 @@
 package org.microproxy;
 
 import java.nio.charset.StandardCharsets;
+import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.frames.Http2Frame;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.HttpHeaderNames;
 import org.microproxy.http.HttpObject;
@@ -16,6 +18,9 @@ import org.microproxy.http.HttpVersion;
  * an origin server.
  *
  * <pre>{@code java -cp <classes> org.microproxy.H2specTarget [port]}</pre>
+ *
+ * <p>With {@code -Dh2spec.intercept=true}, every frame goes through a frame interceptor that
+ * returns an equal copy of it, so conformance is checked with interception in the way.
  */
 public final class H2specTarget {
 
@@ -28,9 +33,20 @@ public final class H2specTarget {
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "h2spec-target-shutdown"));
     }
 
+    /** Returns copies of frames, so each one is converted, checked and rebuilt. */
+    static final FrameInterceptor COPYING = (frame, direction, ctx) -> switch (frame) {
+        case Http2Frame.Data d -> d.withData(d.data().clone());
+        case Http2Frame.Headers h -> h.withFields(h.fields());
+        case Http2Frame.Settings s when !s.ack() -> s.withValues(s.values());
+        case Http2Frame.RstStream r -> r.withErrorCode(r.errorCode());
+        case Http2Frame.GoAway g -> g.withDebugData(g.debugData().clone());
+        default -> frame;
+    };
+
     static HttpProxyServer start(int port) {
         return MicroProxy.bootstrap()
                 .withPort(port)
+                .withFrameInterceptor(Boolean.getBoolean("h2spec.intercept") ? COPYING : null)
                 .withHttp2Cleartext(true)
                 // Requests name the proxy itself as the authority (h2spec's -h/-p): answer them here.
                 .withAllowRequestToOriginServer(true)

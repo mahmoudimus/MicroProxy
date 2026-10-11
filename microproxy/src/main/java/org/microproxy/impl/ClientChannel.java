@@ -1,6 +1,7 @@
 package org.microproxy.impl;
 
 import java.io.IOException;
+import java.net.Socket;
 import org.microproxy.http.FullHttpMessage;
 import org.microproxy.http.HttpContent;
 import org.microproxy.http.HttpHeaders;
@@ -182,6 +183,15 @@ interface ClientChannel {
      * for {@code frames} when it is non-null. The client connection is used up afterwards.
      */
     void relay(ServerConnection server, Tunnel.FrameHandler frames, String name);
+
+    /**
+     * The exchange's tunnel as a connected socket, once the response that opened it has been
+     * written, so that TLS can be layered over it (an intercepted {@code CONNECT}): an HTTP/2
+     * {@code CONNECT} stream's DATA frames. Null for HTTP/1, whose connection itself turns into TLS.
+     */
+    default Socket tunnelSocket() {
+        return null;
+    }
 
     /** Answers a request that cannot be served with a plain {@code status} error, then {@link #close}s. */
     void reject(HttpResponseStatus status);
