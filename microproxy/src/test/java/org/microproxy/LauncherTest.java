@@ -128,7 +128,9 @@ class LauncherTest {
                 "--masque-quic-ports", "--quic-hosts", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
-                "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
+                "--keep-host-header", "--allow-requests-to-origin-server", "--admin-port", "--admin-address",
+                "--admin-token", "--admin-token-file", "--drain-time", "--drain-strategy", "--health-check-path",
+                "--health-check-pass-through", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
         }
         console.reset();
