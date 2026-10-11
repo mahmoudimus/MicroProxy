@@ -363,16 +363,6 @@ class AioquicInteropTest {
                 QuicClient client = QuicClient.create(javaClient(null, null, QuicVersion.V1))) {
             QuicConnection c = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
             long start = System.nanoTime();
-            Thread updater = Thread.ofVirtual().start(() -> {
-                for (int i = 0; i < 5; i++) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        return;
-                    }
-                    c.updateKeys();
-                }
-            });
             try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
                 List<Future<byte[]>> echoes = new ArrayList<>();
                 List<byte[]> expected = new ArrayList<>();
@@ -393,10 +383,15 @@ class AioquicInteropTest {
             }
             QuicStream reply = c.acceptStream();
             assertArrayEquals(EchoServer.sha256().digest(upload), reply.getInputStream().readAllBytes());
-            updater.join();
             double seconds = (System.nanoTime() - start) / 1e9;
             System.out.printf("Java client -> aioquic server: 35 MB in %.2f s, %s%n", seconds, c.stats());
-            assertTrue(c.stats().keyUpdates() >= 2, c.stats().toString());
+            for (int i = 0; i < 3; i++) {
+                // Updates started here, each once the previous is confirmed, with data crossing them
+                LoopbackTest.pollUntil(c::updateKeys, Duration.ofSeconds(10));
+                byte[] d = LoopbackTest.data(100 + i, 300_000);
+                assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
+            }
+            assertTrue(c.stats().keyUpdates() >= 3, c.stats().toString());
             // Datagrams
             byte[] got = null;
             for (int i = 0; i < 20 && got == null; i++) {

@@ -279,20 +279,13 @@ class LoopbackTest {
     @Test
     void keyUpdateDuringTransfer() throws Exception {
         try (QuicConnection c = connect()) {
-            byte[] d = data(5, 4 << 20);
-            Thread updater = Thread.ofVirtual().start(() -> {
-                for (int i = 0; i < 20; i++) {
-                    c.updateKeys();
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        return;
-                    }
-                }
-            });
-            assertArrayEquals(sha256().digest(d), echo(c, d));
-            updater.join();
-            assertTrue(c.stats().keyUpdates() > 1, c.stats().toString());
+            for (int i = 0; i < 5; i++) {
+                // A key update starts once the previous one is confirmed; data then crosses it
+                pollUntil(c::updateKeys, Duration.ofSeconds(10));
+                byte[] d = data(i, 1 << 20);
+                assertArrayEquals(sha256().digest(d), echo(c, d));
+            }
+            assertTrue(c.stats().keyUpdates() >= 5, c.stats().toString());
         }
     }
 
