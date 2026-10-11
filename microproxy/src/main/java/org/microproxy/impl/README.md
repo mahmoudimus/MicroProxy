@@ -711,12 +711,29 @@ to the server, and implements `QuicContext` for the `QuicInterceptor` (when ther
   per direction, a pump and a watcher.
 - **Pumps.** A pump reads at most 16 KiB (`BUFFER`) from the source, calls `streamData` and
   writes the result to the sink, blocking while the sink's flow control holds it: nothing is
-  buffered beyond the one read, so flow control is end to end. The source's FIN calls
+  buffered beyond the one read (and, with framing, a message's bytes), so flow control is end to
+  end. The source's FIN calls
   `streamFinished`, then closes the sink's output; a `QuicStreamException` of kind `RESET` calls
   `streamReset` and resets the sink with the same code; one of kind `STOPPED` (the sink's side
   asked to stop) is a stop. Each direction's `Direction` has a lock its writes, and
   `QuicStreamContext.send` from other threads, take; `send` from the hook's own thread queues the
   bytes until the hook's result is written, as `TcpSession` does.
+- **Messages.** The session's framer is chosen once, in the constructor: only when the
+  interceptor's class overrides `streamMessage` (checked by reflection, cached in a `ClassValue`,
+  as `ClientConnection` checks filters' WebSocket hooks), by `QuicFraming.framerFor(alpn, host,
+  sni)`. Then each `Direction` has a `MessageAssembler`, and the pump hands it each read instead
+  of calling `streamData`: it keeps the bytes that do not make a whole message (asking the
+  `MessageFramer` for the length of the next one, which a length prefix gives before the rest has
+  arrived), and returns the whole ones. Each goes through `streamMessage`; what it returns is
+  framed again (`MessageFramer.frame`) and written under the direction's lock, or, for a message
+  whose `fromClient` names the other direction, sent there as `QuicStreamContext.send` sends.
+  A hook that throws, or a payload that cannot be framed, passes the message on as it came. The
+  bytes kept when the source finishes are written as they are, before the FIN. When the
+  assembler fails (a message over `maxMessageSize`, or a framer that throws or says a length below
+  1), `Stream.abort` marks both directions ended under their locks first, so that neither pump
+  passes on what a peer does in answer (a server that finishes its side when its input is reset),
+  then resets both sinks and stops both sources with the framing's error code; the hooks are not
+  told. Without a framer nothing is kept, and the pump is as before.
 - **Watchers.** A sink's STOP_SENDING shows only when a write fails, so a watcher waits for it
   with `QuicStream.awaitStopped()` and then, once per direction, calls `streamStopped`, asks the
   source to stop with the same code (which ends the pump's read) and resets the sink.
