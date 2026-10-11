@@ -115,7 +115,8 @@ class LauncherTest {
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
-                "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
+                "--dnssec", "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format",
+                "--access-log-json", "--access-log-filter", "--log-http", "--log-http-json",
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
@@ -364,7 +365,8 @@ class LauncherTest {
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
         "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
-        "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-view", "--proto-descriptors",
+        "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format", "--access-log-json",
+        "--access-log-filter", "--log-http", "--log-http-view", "--proto-descriptors",
         "--cache-dir", "--cache-size", "--cache-memory",
         "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
@@ -649,6 +651,22 @@ class LauncherTest {
         assertEquals(1, trackers.size());
         assertEquals(LogFormat.JSON, ((ActivityLogger) trackers.get(0)).getLogFormat(), "case-insensitive");
         assertEquals(2, view("--activity-log-format", "CLF", "--activity-log-format", "W3C").activityTrackers().size());
+        assertEquals(LogFormat.ENVOY, ((ActivityLogger) view("--activity-log-format", "envoy").activityTrackers().get(0))
+                .getLogFormat());
+
+        // --access-log-format alone writes to the System.Logger, in a preset or a format string.
+        ActivityLogger access = (ActivityLogger) view("--access-log-format", "%RESPONSE_CODE%").activityTrackers().get(0);
+        assertEquals("%RESPONSE_CODE%", access.format().toString());
+        assertEquals(LogFormat.SQUID.formatter(),
+                ((ActivityLogger) view("--access-log-format", "squid").activityTrackers().get(0)).format());
+        ActivityLogger json = (ActivityLogger) view("--access-log-json", "{\"code\":\"%RESPONSE_CODE%\"}")
+                .activityTrackers().get(0);
+        assertTrue(json.format().isJson());
+        // Envoy's default format without one.
+        ActivityLogger filtered = (ActivityLogger) view("--access-log-filter", "status>=500", "--access-log-filter",
+                "not_health_check").activityTrackers().get(0);
+        assertEquals(LogFormat.ENVOY, filtered.getLogFormat());
+        assertNotNull(filtered.filter());
 
         assertTrue(view("--shared-pool").sharedServerConnectionPool());
     }
@@ -1001,6 +1019,12 @@ class LauncherTest {
         Files.writeString(props, "connect_timeout=soon\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
         Files.writeString(props, "activity_log_format=fancy\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+        Files.writeString(props, "access_log_format=fancy\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+        Files.writeString(props, "access_log_filter=status>>500\n");
+        assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
+        Files.writeString(props, "access_log_format=clf\naccess_log_json={}\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
         Files.writeString(props, "log_http=loud\n");
         assertThrows(IllegalArgumentException.class, () -> parse("--config", props.toString()));
