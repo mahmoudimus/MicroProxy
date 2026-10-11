@@ -255,6 +255,7 @@ Command-line flags override values from the file.
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
 | `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
+| `quic_congestion` | congestion control of the proxy's QUIC connections, to clients and to servers: `cubic`, `newreno` or `bbr` (experimental; see [Congestion control](#http3-congestion-control)) | `cubic` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
@@ -1437,6 +1438,15 @@ window of 10 seconds (`rateWindow`).
 | Requests reset by the client before their response completed (Rapid Reset) | 100 per window | `H3_EXCESSIVE_LOAD` | `maxRapidResets` |
 | A connection with nothing to do | `idle_connection_timeout` (70 s) | QUIC's idle timeout closes it | `withIdleConnectionTimeout` |
 | Client address validation (QUIC Retry) | off | | `retry` |
+
+<a id="http3-congestion-control"></a>**Congestion control.** The proxy's QUIC connections, those
+its HTTP/3 and transparent QUIC listeners accept and those it opens to servers, use CUBIC by
+default. `--quic-congestion newreno` or `bbr` (`quic_congestion`,
+`Http3Options.quicCongestionControl`) chooses NewReno or BBR. BBR, ported from quinn and
+experimental there too, paces at its estimate of the path's bandwidth rather than backing off on
+every loss, so it keeps its throughput on paths with random loss (wireless links, long distances)
+where CUBIC collapses; it is not tuned for sharing a bottleneck fairly. See the [quic
+module](quic/README.md#connection-internals) for its behaviour and limits.
 
 Protocol violations close the connection with the code RFC 9114 or RFC 9204 names: a second
 control or QPACK stream or a push stream from a client (`H3_STREAM_CREATION_ERROR`), frames out of

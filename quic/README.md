@@ -11,7 +11,7 @@ HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
 endpoint, tested against itself on loopback and against aioquic as client and server. Not yet:
-0-RTT and resumption, connection migration, BBR (see [Connections and
+0-RTT and resumption, connection migration (see [Connections and
 endpoints](#connections-and-endpoints)).
 
 ## Packets and protection
@@ -204,7 +204,7 @@ for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
 | Streams (RFC 9000 sections 2 to 4) | `StreamsState`, `StreamId`, `Side`, `Dir`, `SendState`, `RecvState`, `StreamEvent`, `StreamException`, `Chunks`, `StreamMeta` | Send states Ready, Send, DataSent, ResetSent, DataRecvd, ResetRecvd and the six receive states; MAX_DATA, MAX_STREAM_DATA and MAX_STREAMS credit moved by an eighth of the window, as quinn does; DATA_BLOCKED, STREAM_DATA_BLOCKED and STREAMS_BLOCKED once per limit; priorities with fair round-robin; events Opened, Readable, Writable, Finished, Stopped, Available |
 | Packet number spaces | `PacketSpace`, `SpaceId`, `SentPacket`, `SentPackets`, `Retransmits`, `PendingAcks`, `Dedup`, `PacketNumberFilter` | Duplicate detection; ACK frames with at most 64 ranges, the ACK delay and ECN counts; an immediate ACK every second ack-eliciting packet or on reordering, else after `max_ack_delay`; skipped packet numbers against optimistic ACKs |
 | Loss detection (RFC 9002) | `Recovery`, `RecoveryConfig`, `RttEstimator` | Packet and time thresholds, PTO with exponential backoff (capped at 2^16) and probes, the client's anti-deadlock probe, discarding Initial and Handshake spaces, persistent congestion, spurious loss detection, ECN validation, the anti-amplification limit |
-| Congestion control | `Controller`, `ControllerFactory`, `NewReno`, `Cubic` (default), `Pacer` | RFC 9002 NewReno and RFC 9438 CUBIC with fast convergence and spurious-loss undo; a token-bucket pacer |
+| Congestion control | `Controller`, `ControllerFactory`, `NewReno`, `Cubic` (default), `Bbr`, `Pacer` | RFC 9002 NewReno and RFC 9438 CUBIC with fast convergence and spurious-loss undo; quinn's experimental BBR (see [BBR](#bbr)); a token-bucket pacer, under the controller's pacing rate when it sets one |
 | MTU discovery | `MtuDiscovery`, `MtuDiscoveryConfig` | DPLPMTUD (RFC 8899) by binary search up to 1452 bytes by default, three retransmissions per probe size, black hole detection |
 | Connection IDs | `ConnectionIdGenerator`, `RandomConnectionIdGenerator`, `LocalCidState`, `RemoteCidQueue`, `IssuedCid` | Sequence numbers, HMAC-derived stateless reset tokens, at most `min(active_connection_id_limit, 8)` issued, rotation through Retire Prior To when IDs have a lifetime, the peer's IDs bounded by our `active_connection_id_limit` |
 | ACK frequency | `AckFrequencyState` | The `max_ack_delay` each side uses, and ACK_FREQUENCY thresholds |
@@ -229,7 +229,7 @@ for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
 
 Ported faithfully, with quinn's unit tests: the assembler, send buffer, range set, streams,
 packet spaces and sent-packet tracking, pacing, MTU discovery (full DPLPMTUD with black hole
-detection), CUBIC, connection ID queue, ACK frequency state and tokens with the bloom log (a small
+detection), CUBIC, BBR, connection ID queue, ACK frequency state and tokens with the bloom log (a small
 bloom filter replaces the `fastbloom` crate). Differences, mostly where RFC 9000 and 9002 are
 stricter than quinn:
 
@@ -245,11 +245,61 @@ stricter than quinn:
   client's anti-deadlock probe goes in the Handshake space once it has Handshake keys.
 - MTU probes and black hole detection only count application data packets.
 - No flow-control window auto-tuning (quinn has none); windows can be changed at run time.
-- Not ported: BBR, the hashed connection ID generator, quinn's qlog module (the connection layer
+- A poll that builds datagrams until it runs out of data leaves the connection application
+  limited, as quinn's last `poll_transmit` call, which builds nothing, does.
+- Not ported: the hashed connection ID generator, quinn's qlog module (the connection layer
   has a smaller qlog-style sink instead), and connection statistics beyond the loss counters on
   `Recovery`. DATAGRAM buffering lives in the connection layer.
 - ECN: counts on received packets, ACK frames with ECN counts and validation of the peer's
   counts are here; marking outgoing packets is the socket layer's job.
+
+### BBR
+
+`Bbr` (`TransportConfig.CongestionControl.BBR`, or `BbrConfig` as the controller factory) is
+quinn's `congestion/bbr` (`mod.rs`, `bw_estimation.rs`, `min_max.rs`), itself based on a BBRv1
+sender (`bbr_sender.cc`); quinn calls it experimental. It models the path instead of reacting to
+loss: a bandwidth estimate (`BandwidthEstimation`: per acknowledgement, the lower of the send and
+ack rates, application-limited samples left out, through a windowed maximum filter over ten round
+trips, `MinMax`) and the minimum RTT. From them it sets the window (a gain times the
+bandwidth-delay product, plus the ack aggregation seen) and a pacing rate, in four modes:
+STARTUP (gain 2.885, until the estimate grows less than 25% in three rounds, or a loss in that
+round), DRAIN (gain 1/2.885, until the bytes in flight are down to one BDP), PROBE_BW (pacing
+gains 1.25, 0.75 and six rounds of 1.0, from a random point of the cycle; window gain 2) and
+PROBE_RTT (window 0.75 BDP for at least 200 ms) when none has started for ten seconds and the
+connection is not application limited. Losses cap the window in conservation, then growth,
+until a round passes without one. The default initial window is quinn's 240000 bytes.
+
+What it adds to the controller interface, and where it departs from quinn:
+
+- `Controller.pacingRate()` (default -1): the pacer sends at no more than BBR's rate, nor than
+  1.25 windows per smoothed RTT (`Pacer.rateLimitedWindow`). quinn computes the rate but only
+  reports it; its pacer paces the window, so DRAIN never drains and BBR leaves it only through
+  PROBE_RTT, ten seconds later.
+- `ControllerMetrics.bandwidthEstimate()`, in bits per second, as quinn's metrics have.
+- `Bbr.mode()`, `bandwidthEstimate()`, `minRtt()`, `isAtFullBandwidth()` and `roundCount()` for
+  inspection, and a constructor taking the random source of the gain cycle.
+
+Kept as quinn has them, with tests that pin them down:
+
+- The first acknowledgement that is not application limited starts a PROBE_RTT, since none has
+  started yet. On a short path (40 ms) the bandwidth stops growing during it, so BBR goes from it
+  to PROBE_BW without DRAIN; on a longer one (100 ms) it returns to STARTUP, then DRAIN.
+- A sample enters the max filter only when it beats the estimate, so the estimate never falls
+  when a path slows down.
+- A sample is one packet's bytes over the time since the previous acknowledged packet, so with
+  the peer acknowledging every second packet a sample is half the rate; the estimate reaches the
+  link rate through acknowledgements of single packets (after a gap or a skipped packet number).
+  On a perfectly smooth simulated link it stayed at half the rate in about one run in ten.
+- STARTUP grows the window by the bytes acknowledged even while the connection is application
+  limited.
+
+`BbrTest` drives the controller on a fake clock through a simulated bottleneck (100 Mbit/s,
+40 ms and 100 ms): the mode sequence, DRAIN emptying the STARTUP queue, the gain cycle, PROBE_RTT
+every ten seconds, losses, application-limited phases. `BbrConnectionTest` runs connections on
+the in-memory pair through a bottleneck with a drop-tail queue (`Pair.bandwidth`,
+`Pair.queueLimit`): on 20 Mbit/s and 40 ms the estimate comes to 2.497 MB/s and a transfer to
+2.36 MB/s; on 50 Mbit/s and 40 ms with 1% random loss, BBR moves about 5.5 MB/s where CUBIC
+manages about 0.5 MB/s.
 
 ## Connections and endpoints
 
@@ -408,8 +458,8 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
 ### Tests
 
 - `ConnectionTest` ports quinn-proto's connection tests to an in-memory pair (`Pair`): two endpoints
-  on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, and hooks to
-  drop or hold back datagrams. Handshakes over every cipher suite and both versions, stream
+  on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, a bottleneck
+  rate with a drop-tail queue, and hooks to drop or hold back datagrams. Handshakes over every cipher suite and both versions, stream
   transfer, flow-control blocking, stream limits, loss recovery and tail loss, key updates (simple,
   reordered, routine), idle timeout and keep-alive, closes in every state, stateless resets (and
   their rate limit), Version Negotiation, Retry (and expired tokens), CID rotation and retirement,
@@ -418,7 +468,8 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
   updates during a transfer. On a 4-core container, with an 8 KB MTU, the 32-stream echo moves
   100 to 125 MB/s (both directions together) and a single upload 160 to 225 MB/s; with the default 1452-byte
-  MTU a warmed-up single stream uploads 150 to 185 MB/s.
+  MTU a warmed-up single stream uploads 150 to 185 MB/s. A 16 MB echo runs with BBR on both sides.
+- `BbrTest` and `BbrConnectionTest` simulate BBR on bottleneck links (see [BBR](#bbr)).
 - `ConnectionFuzzTest` feeds a connection random and mutated datagrams (nothing may throw or close
   it) and authenticated 1-RTT packets of random frames (they may close it with a protocol error,
   never `INTERNAL_ERROR`).
@@ -449,7 +500,7 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 
 0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
 validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
-path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
+path), the preferred address, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
 ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
 `http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see
 the main README's HTTP/3 section), and the interop test's HTTP/3 server is test code.
