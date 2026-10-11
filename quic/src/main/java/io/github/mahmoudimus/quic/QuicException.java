@@ -49,6 +49,7 @@ public class QuicException extends Exception {
     /** The base of the TLS alert range: {@code CRYPTO_ERROR + alert}. */
     public static final long CRYPTO_ERROR = 0x0100;
 
+    /** The transport error code. */
     private final long code;
 
     /**
