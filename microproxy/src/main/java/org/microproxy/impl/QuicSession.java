@@ -136,6 +136,9 @@ final class QuicSession implements QuicContext {
     private final String alpn;
     private final boolean masque;
     private final String logPrefix;
+    /** Count the hooks' {@code streamData} and {@code datagram} calls. */
+    private final ProtocolStats.HookStats streamStats;
+    private final ProtocolStats.HookStats datagramStats;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition changed = lock.newCondition();
     // Guarded by lock.
@@ -151,10 +154,14 @@ final class QuicSession implements QuicContext {
      * @param hooks the QUIC hooks, or null to relay without any
      * @param client the client's connection, accepted by the proxy
      * @param server the proxy's connection to the server
+     * @param stats counts the hooks' calls
      */
     QuicSession(QuicInterceptor hooks, QuicConnection client, QuicConnection server, FlowContext flow,
-            HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix) {
+            HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix,
+            ProtocolStats.Hooks stats) {
         this.hooks = hooks;
+        this.streamStats = stats.quicStream;
+        this.datagramStats = stats.quicDatagram;
         this.client = client;
         this.server = server;
         this.flow = flow;
@@ -327,9 +334,13 @@ final class QuicSession implements QuicContext {
                 count(fromClient, data.length);
                 byte[] result = data;
                 if (hooks != null) {
+                    long start = datagramStats.start();
                     try {
                         result = hooks.datagram(new QuicDatagram(data, fromClient, Instant.now()), this);
+                        datagramStats.end(start);
+                        datagramStats.outcome(data, result);
                     } catch (RuntimeException e) {
+                        datagramStats.failed(start);
                         LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's datagram threw; passing it on", e);
                     }
                 }
@@ -539,9 +550,13 @@ final class QuicSession implements QuicContext {
             byte[] result = data;
             if (hooks != null) {
                 d.hookThread = Thread.currentThread();
+                long start = streamStats.start();
                 try {
                     result = hooks.streamData(new QuicStreamMessage(data, d.fromClient, Instant.now()), this);
+                    streamStats.end(start);
+                    streamStats.outcome(data, result == null || result.length == 0 ? null : result);
                 } catch (RuntimeException e) {
+                    streamStats.failed(start);
                     LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's streamData threw; passing the bytes on", e);
                     result = data;
                 } finally {

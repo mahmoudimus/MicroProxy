@@ -305,6 +305,9 @@ final class ProtocolStats {
      * and {@link #end} does nothing then.
      */
     static final class HookStats {
+        /** Counts nothing: hooks run outside a proxy (in tests), or before their proxy's stats are known. */
+        static final HookStats NOOP = new HookStats(StatsRegistry.NOOP, "none");
+
         final boolean enabled;
         final Counter invocations;
         final Counter errors;
@@ -339,6 +342,15 @@ final class ProtocolStats {
             if (!enabled) return;
             end(start);
             errors.inc();
+        }
+
+        /** Counts what a call that was given {@code given} returned: null drops it, another object rewrites it. */
+        void outcome(Object given, Object result) {
+            if (result == null) {
+                drops.inc();
+            } else if (result != given) {
+                rewrites.inc();
+            }
         }
     }
 

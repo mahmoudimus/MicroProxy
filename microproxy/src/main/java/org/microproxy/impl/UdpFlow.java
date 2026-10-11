@@ -437,11 +437,7 @@ final class UdpFlow implements UdpContext {
         try {
             byte[] result = hooks.udpMessage(message, this);
             hookStats.end(start);
-            if (result == null) {
-                hookStats.drops.inc();
-            } else if (result != item.data()) {
-                hookStats.rewrites.inc();
-            }
+            hookStats.outcome(item.data(), result);
             return result;
         } catch (RuntimeException e) {
             hookStats.failed(start);

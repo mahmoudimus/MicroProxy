@@ -115,9 +115,14 @@ final class Http2Frames {
     List<Http2Frame> intercept(Http2Frame frame, FrameDirection direction, FlowContext flow) {
         Context ctx = new Context(frame.streamId(), flow);
         HttpFrame result;
+        ProtocolStats.HookStats stats = endpoint.server.stats.hooks.frameInterceptor;
+        long start = stats.start();
         try {
             result = interceptor.intercept(frame, direction, ctx);
+            stats.end(start);
+            stats.outcome(frame, ctx.sent.isEmpty() || result == null ? result : ctx);
         } catch (RuntimeException e) {
+            stats.failed(start);
             LOG.log(Level.WARNING, endpoint.logPrefix + "frame interceptor failed on " + describe(frame, direction)
                     + "; passing the frame on unchanged", e);
             return List.of(frame);

@@ -294,6 +294,45 @@ final class ClientConnection implements Runnable {
     }
 
     /**
+     * Runs a request's head through {@code clientToProxyRequest} (or, {@code toServer}, {@code
+     * proxyToServerRequest}), counted in {@code hooks.http_filters}: an answer is a rewrite.
+     */
+    private HttpResponse requestHook(HttpFilters filters, HttpRequest request, boolean toServer) {
+        ProtocolStats.HookStats hooks = server.stats.hooks.httpFilters;
+        long start = hooks.start();
+        HttpResponse answer;
+        try {
+            answer = toServer ? filters.proxyToServerRequest(request) : filters.clientToProxyRequest(request);
+        } catch (RuntimeException | Error e) {
+            hooks.failed(start);
+            throw e;
+        }
+        hooks.end(start);
+        if (answer != null) hooks.rewrites.inc();
+        return answer;
+    }
+
+    /**
+     * Runs a response's head through {@code serverToProxyResponse} (or, {@code toClient}, {@code
+     * proxyToClientResponse}), counted in {@code hooks.http_filters}: null drops it, another
+     * object rewrites it.
+     */
+    private HttpObject responseHook(HttpFilters filters, HttpObject response, boolean toClient) {
+        ProtocolStats.HookStats hooks = server.stats.hooks.httpFilters;
+        long start = hooks.start();
+        HttpObject result;
+        try {
+            result = toClient ? filters.proxyToClientResponse(response) : filters.serverToProxyResponse(response);
+        } catch (RuntimeException | Error e) {
+            hooks.failed(start);
+            throw e;
+        }
+        hooks.end(start);
+        hooks.outcome(response, result);
+        return result;
+    }
+
+    /**
      * Relays {@code ex}'s tunnel through {@code channel} ({@link ClientChannel#relay}), counted in
      * {@code tunnel.*} under {@code kind}, or, for a WebSocket ({@code kind} null), in {@code
      * websocket.*}: opened, open, and, for tunnels, the bytes it carried and how long it was open.
@@ -1534,7 +1573,7 @@ final class ClientConnection implements Runnable {
             ex.request = full;
         }
 
-        HttpResponse shortCircuit = ex.filters.clientToProxyRequest(ex.request);
+        HttpResponse shortCircuit = requestHook(ex.filters, ex.request, false);
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
@@ -1778,7 +1817,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
+        HttpResponse shortCircuit = requestHook(ex.filters, ex.request, true);
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
@@ -2283,7 +2322,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        HttpObject filtered = filters.serverToProxyResponse(head);
+        HttpObject filtered = responseHook(filters, head, false);
         if (!(filtered instanceof HttpResponse res)) {
             return abort(ex, conn);
         }
@@ -2315,7 +2354,7 @@ final class ClientConnection implements Runnable {
             ex.channel.setKeepAlive(res, !closeClient);
         }
 
-        HttpObject toClient = filters.proxyToClientResponse(res);
+        HttpObject toClient = responseHook(filters, res, true);
         if (!(toClient instanceof HttpResponse finalResponse)) {
             return abort(ex, conn);
         }
@@ -3382,7 +3421,9 @@ final class ClientConnection implements Runnable {
             alpn = tls.getApplicationProtocol();
             if (sni == null) sni = requestedServerName(tls.getSession());
         }
-        return new TcpSession(interceptor, flow, target, tlsIntercepted, sni, alpn, logPrefix);
+        TcpSession session = new TcpSession(interceptor, flow, target, tlsIntercepted, sni, alpn, logPrefix);
+        session.stats = server.stats.hooks.tcp;
+        return session;
     }
 
     /** The host name a TLS client asked for (SNI) in {@code session}, or null. */
@@ -4147,7 +4188,7 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
             QuicSession session = new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext,
-                    target, serverFlow.getRemoteAddress(), masque, logPrefix);
+                    target, serverFlow.getRemoteAddress(), masque, logPrefix, server.stats.hooks);
             quicSession = session;
             if (!closed) session.run();
             completed = true;

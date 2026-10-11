@@ -124,7 +124,8 @@ abstract class Http3Endpoint {
         this.logPrefix = logPrefix;
         this.options = server.http3Options;
         this.role = role;
-        this.frames = server.frameInterceptor == null ? null : new Http3Frames(server.frameInterceptor);
+        this.frames = server.frameInterceptor == null ? null
+                : new Http3Frames(server.frameInterceptor, server.stats.hooks.frameInterceptor);
         this.maxFieldSectionSize = options.maxFieldSectionSize() > 0 ? options.maxFieldSectionSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
         this.maxFramePayload = (int) Math.min(Integer.MAX_VALUE - 8, Math.max(64 * 1024, maxFieldSectionSize + 4096));

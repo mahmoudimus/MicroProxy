@@ -261,11 +261,7 @@ final class WebSocketRelay {
         try {
             WebSocketFrame out = frames.frame(frame, d.fromClient);
             frameHooks.end(start);
-            if (out == null) {
-                frameHooks.drops.inc();
-            } else if (out != frame) {
-                frameHooks.rewrites.inc();
-            }
+            frameHooks.outcome(frame, out);
             if (out != null && out != frame && out.isTruncated()) {
                 LOG.log(Level.WARNING, d.logPrefix
                         + "WebSocket frame filter returned a truncated frame; forwarding the original");

@@ -55,9 +55,12 @@ final class Http3Frames {
     record Origin(long connectionId, InetSocketAddress clientAddress, String server) {}
 
     private final FrameInterceptor interceptor;
+    private final ProtocolStats.HookStats stats;
 
-    Http3Frames(FrameInterceptor interceptor) {
+    /** @param stats counts the interceptor's calls */
+    Http3Frames(FrameInterceptor interceptor, ProtocolStats.HookStats stats) {
         this.interceptor = Objects.requireNonNull(interceptor);
+        this.stats = stats;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -140,9 +143,13 @@ final class Http3Frames {
     private List<HttpFrame> intercept(Http3Frame frame, FrameDirection direction, Origin origin, long streamId, FlowContext flow) {
         Context ctx = new Context(origin, streamId, flow);
         HttpFrame result;
+        long start = stats.start();
         try {
             result = interceptor.intercept(frame, direction, ctx);
+            stats.end(start);
+            stats.outcome(frame, ctx.sent.isEmpty() || result == null ? result : ctx);
         } catch (RuntimeException e) {
+            stats.failed(start);
             LOG.log(Level.WARNING, "frame interceptor failed on HTTP/3 " + frame.typeName() + " on stream " + streamId
                     + "; passing the frame on unchanged", e);
             return null;

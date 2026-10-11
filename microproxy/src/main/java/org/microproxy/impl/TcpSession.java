@@ -72,6 +72,8 @@ final class TcpSession implements TcpContext {
     private final AtomicReference<Throwable> error = new AtomicReference<>();
     private final AtomicBoolean finished = new AtomicBoolean();
     private volatile Runnable closeAll = () -> {};
+    /** Counts {@code tcpMessage}'s calls; set before the session starts. */
+    ProtocolStats.HookStats stats = ProtocolStats.HookStats.NOOP;
 
     TcpSession(TcpInterceptor interceptor, FlowContext flowContext, HostAndPort target, boolean tlsIntercepted,
             String sni, String alpn, String logPrefix) {
@@ -180,9 +182,13 @@ final class TcpSession implements TcpContext {
         TcpMessage message = new TcpMessage(data, fromClient, Instant.now());
         byte[] result;
         out.hookThread = Thread.currentThread();
+        long start = stats.start();
         try {
             result = interceptor.tcpMessage(message, this);
+            stats.end(start);
+            stats.outcome(data, result == null || result.length == 0 ? null : result);
         } catch (RuntimeException e) {
+            stats.failed(start);
             LOG.log(Level.WARNING, logPrefix + "TCP interceptor's tcpMessage threw; passing the bytes on", e);
             result = data;
         } finally {
