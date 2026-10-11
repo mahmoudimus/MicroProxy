@@ -330,10 +330,15 @@ class QuicClientHelloTest {
 
     /** A client Initial datagram, padded to 1200 bytes, with packet number {@code pn} and these frames. */
     private static ByteBuffer initial(QuicVersion v, long pn, List<Frame> frameList) {
+        return initial(v, DCID, SCID, pn, frameList);
+    }
+
+    /** A client Initial datagram for {@code dcid}, from {@code scid}, padded to 1200 bytes. */
+    static ByteBuffer initial(QuicVersion v, ConnectionId dcid, ConnectionId scid, long pn, List<Frame> frameList) {
         ByteBuffer buf = ByteBuffer.allocate(1500);
         PacketBuilder b = new PacketBuilder(buf, 1500);
-        ByteBuffer frames = b.begin(new PacketHeader.Initial(v, DCID, SCID, new byte[0], pn, 2),
-                Keys.initial(v, DCID, false).local());
+        ByteBuffer frames = b.begin(new PacketHeader.Initial(v, dcid, scid, new byte[0], pn, 2),
+                Keys.initial(v, dcid, false).local());
         for (Frame f : frameList) f.encode(frames);
         b.finish(PacketBuilder.MIN_INITIAL_DATAGRAM);
         ByteBuffer datagram = b.datagram();

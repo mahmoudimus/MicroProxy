@@ -167,6 +167,20 @@ class TransparentQuicTest {
         assertTrue(origin.errors().isEmpty(), origin.errors().toString());
     }
 
+    /** With Retry, an intercepted client proves its address first; the proxy decides on it once. */
+    @Test
+    void interceptsAfterARetry() throws Exception {
+        H3TestOrigin origin = h3Origin();
+        start(transparent(origin.port()).withHttp3Upstream(true)
+                .withHttp3Options(Http3Options.builder().retry(true).build()));
+        try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, proxyCa.getCertificate())) {
+            assertEquals(name(proxyCa), issuer(client));
+            assertEquals("hello over h3", client.get("/hello").text());
+        }
+        assertEquals(List.of(new Decision(HOST, true, null, true)), decisions);
+        assertEquals(1, filtered.stream().filter(f -> f.startsWith("CONNECT")).count());
+    }
+
     @Test
     void interceptsHttp3ToAnHttp1OriginOverTcp() throws Exception {
         List<String> received = new CopyOnWriteArrayList<>();
