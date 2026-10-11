@@ -254,7 +254,10 @@ class WebSocketMessageTest {
             Message close = client.readMessage();
             assertTrue(close.isClose());
             assertEquals(1009, close.closeCode());
-            assertThrows(IOException.class, client::readFrame);
+            // Then the connection ends; the server's answer to its own close may come through first.
+            assertThrows(IOException.class, () -> {
+                while (true) assertTrue(client.readFrame().isClose());
+            });
             eventually("the server to get the close", () -> server.received.size() == 2);
             assertEquals(1009, server.received.get(1).closeCode());
         }

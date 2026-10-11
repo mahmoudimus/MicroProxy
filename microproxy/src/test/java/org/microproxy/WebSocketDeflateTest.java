@@ -201,9 +201,12 @@ class WebSocketDeflateTest {
                 assertEquals(60 * 1024, client.readMessage().payload().length, "under the limit");
                 byte[] compressed = client.compress(new byte[1 << 20]);
                 assertTrue(compressed.length < 64 * 1024);
+                // In one write: the proxy gives up part way through and closes the connection.
+                java.io.ByteArrayOutputStream bomb = new java.io.ByteArrayOutputStream();
                 for (WebSocketFrame f : WebSocketPeer.messageFrames(WebSocketFrame.OPCODE_BINARY, compressed, true, 4)) {
-                    client.send(f);
+                    bomb.writeBytes(f.toWire(true));
                 }
+                client.sendRaw(bomb.toByteArray());
                 Message close = client.readMessage();
                 assertEquals(1009, close.closeCode(), "with " + (messages ? "a message" : "a frame") + " hook");
                 eventually("the server to get the close", () -> server.received.size() == 2);
