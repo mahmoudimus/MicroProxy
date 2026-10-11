@@ -133,7 +133,7 @@ class LauncherAdminTest {
             hook.start();
             eventually("draining", () -> server.state() == ServerState.DRAINING);
             assertThrows(ConnectException.class, () -> new Socket(address.getAddress(), address.getPort()).close(),
-                    "no new connections while stopping");
+                    "no new connections once draining to stop");
             assertTrue(hook.isAlive(), "it waits for the exchange in progress");
             release.countDown();
             DrainTest.Response r = inFlight.read();

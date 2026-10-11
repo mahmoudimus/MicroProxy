@@ -620,8 +620,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     @Override
     public void stopListeners() {
         if (stopping.get()) return;
-        toDraining();
+        // Closed first: once the state says DRAINING, nothing is accepted any more.
         closeListeners();
+        toDraining();
     }
 
     /**
@@ -632,7 +633,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         if (!listenersStopped.compareAndSet(false, true)) return;
         Tls.closeQuietly(serverSocket);
         stats.listenerStopped.add(listeners());
-        LOG.log(Level.INFO, "{0} no longer accepts connections", name);
+        LOG.log(stopping.get() ? Level.DEBUG : Level.INFO, "{0} no longer accepts connections", name);
     }
 
     @Override
@@ -733,6 +734,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         copy.withIdleConnectionTimeout(idleConnectionTimeout);
         copy.withConnectTimeout(connectTimeoutMs);
         copy.withThrottling(readLimiter.rate(), writeLimiter.rate());
+        // An admin listener on a fixed port is this server's alone; one on any free port is cloned.
+        if (config.adminAddress != null && config.adminAddress.getPort() != 0) copy.withAdmin(null);
         return copy;
     }
 
@@ -756,11 +759,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private void shutdown(boolean graceful) {
         // Both a shutdown hook and the application may stop the server; only the first one runs.
         if (!stopping.compareAndSet(false, true)) return;
+        closeListeners();
         toDraining();
         // A drain in progress ends here: this takes over.
         stopBegun.countDown();
         LOG.log(Level.INFO, "{0} stopping ({1})", name, graceful ? "graceful" : "abort");
-        closeListeners();
         for (ClientConnection c : connections) {
             // Idle connections close now; busy ones finish what they are doing (HTTP/2 ones are
             // sent GOAWAY and finish their open streams), for up to the drain time.

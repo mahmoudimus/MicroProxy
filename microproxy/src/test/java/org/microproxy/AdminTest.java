@@ -549,6 +549,31 @@ class AdminTest {
         assertNull(other.getAdminAddress());
     }
 
+    @Test
+    void aCloneKeepsAnAdminListenerOnlyOnAnyFreePort() throws Exception {
+        proxy = withAdmin().start();
+        HttpProxyServer clone = proxy.clone().withPort(0).start();
+        try {
+            assertNotNull(clone.getAdminAddress());
+            assertTrue(clone.getAdminAddress().getPort() != proxy.getAdminAddress().getPort());
+        } finally {
+            clone.stop();
+        }
+        int fixed;
+        try (java.net.ServerSocket s = new java.net.ServerSocket(0, 1, TestSupport.LOOPBACK)) {
+            fixed = s.getLocalPort();
+        }
+        proxy.stop();
+        proxy = MicroProxy.bootstrap().withPort(0).withAdmin(new InetSocketAddress(TestSupport.LOOPBACK, fixed)).start();
+        assertEquals(fixed, proxy.getAdminAddress().getPort());
+        HttpProxyServer second = proxy.clone().withPort(0).start();
+        try {
+            assertNull(second.getAdminAddress(), "the fixed port is the first server's");
+        } finally {
+            second.stop();
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
 
     /**
