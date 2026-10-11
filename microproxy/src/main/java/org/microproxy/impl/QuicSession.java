@@ -20,8 +20,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -133,7 +135,8 @@ final class QuicSession implements QuicContext {
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition changed = lock.newCondition();
     // Guarded by lock.
-    private final List<Thread> threads = new ArrayList<>();
+    /** The session's threads still running: each removes itself when it ends, so streams that end free theirs. */
+    private final Set<Thread> threads = new HashSet<>();
     /** The connection that ended first, and why; null while both are open. */
     private ConnectionError endedFirst;
     private boolean endedByClient;
@@ -245,7 +248,25 @@ final class QuicSession implements QuicContext {
         lock.lock();
         try {
             if (finished) return;
-            threads.add(Thread.ofVirtual().name("quic-" + flow.getConnectionId() + "-" + what).start(task));
+            Thread t = Thread.ofVirtual().name("quic-" + flow.getConnectionId() + "-" + what).unstarted(() -> {
+                try {
+                    task.run();
+                } finally {
+                    forget(Thread.currentThread());
+                }
+            });
+            threads.add(t);
+            t.start();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** A thread of the session's ended. */
+    private void forget(Thread t) {
+        lock.lock();
+        try {
+            threads.remove(t);
         } finally {
             lock.unlock();
         }
