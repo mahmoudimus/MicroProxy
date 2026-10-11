@@ -2,6 +2,7 @@ package io.github.mahmoudimus.quic;
 
 import io.github.mahmoudimus.quic.connection.ClientConfig;
 import io.github.mahmoudimus.quic.connection.EndpointConfig;
+import io.github.mahmoudimus.quic.connection.SessionCache;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -26,16 +27,44 @@ import java.util.Objects;
  * }
  * }</pre>
  *
+ * <p><b>Resumption and 0-RTT.</b> Connections keep the session tickets and NEW_TOKEN tokens
+ * servers send in a {@link SessionCache}: the {@link ClientConfig.Builder#sessionCache one
+ * configured}, or else one of the client's own, which {@link #sessionCache()} returns. The next
+ * connection to the same server resumes the session and skips the server's Retry. With {@link
+ * io.github.mahmoudimus.quic.tls.TlsConfig.Builder#earlyData(boolean) earlyData} on, {@link
+ * #connectEarly} returns at once when it can send 0-RTT data:
+ *
+ * <pre>{@code
+ * QuicConnection connection = client.connectEarly(address, null, null);
+ * QuicStream stream = connection.openBidirectionalStream();   // usable at once
+ * stream.getOutputStream().write(idempotentRequest);          // sent as 0-RTT data
+ * connection.awaitHandshake(null);
+ * boolean accepted = connection.earlyDataAccepted();          // if not, it was sent again in 1-RTT
+ * }</pre>
+ *
+ * <p>Send only what is safe to replay as 0-RTT data: an attacker can capture and resend it.
+ *
  * <p>Closing the client closes its connections and stops its threads.
  */
 public final class QuicClient implements AutoCloseable {
 
     private final EndpointDriver driver;
     private final ClientConfig config;
+    private final SessionCache sessionCache;
 
     private QuicClient(EndpointDriver driver, ClientConfig config) {
         this.driver = driver;
         this.config = config;
+        this.sessionCache = config.sessionCache() != null ? config.sessionCache() : SessionCache.memory();
+    }
+
+    /**
+     * The cache of session tickets and tokens connections use by default.
+     *
+     * @return the cache
+     */
+    public SessionCache sessionCache() {
+        return sessionCache;
     }
 
     /**
@@ -88,9 +117,70 @@ public final class QuicClient implements AutoCloseable {
      * @throws IOException if the client is closed
      */
     public QuicConnection connect(InetSocketAddress remote, String serverName, Duration timeout) throws IOException {
-        ConnectionDriver connection = driver.connect(config, remote, serverName);
+        return connect(remote, serverName, timeout, sessionCache);
+    }
+
+    /**
+     * Connects with a cache of session tickets and tokens, waiting for the handshake.
+     *
+     * @param remote the server's address
+     * @param serverName the name to send as SNI and check the certificate against, or null for the
+     *     TLS configuration's
+     * @param timeout the longest to wait for the handshake, or null for the idle timeout
+     * @param cache the tickets and tokens to resume with and keep, or {@link SessionCache#none()}
+     * @return the established connection
+     * @throws QuicConnectionException if the handshake fails or times out
+     * @throws IOException if the client is closed
+     */
+    public QuicConnection connect(InetSocketAddress remote, String serverName, Duration timeout, SessionCache cache)
+            throws IOException {
+        ConnectionDriver connection = driver.connect(config, remote, serverName, cache);
         QuicConnection c = connection.facade();
         c.awaitConnected(timeout == null ? -1 : timeout.toNanos());
+        return c;
+    }
+
+    /**
+     * Connects, returning at once if the connection can send 0-RTT data (it resumes with a ticket
+     * that allows it, and the TLS configuration enables early data); otherwise waiting for the
+     * handshake as {@link #connect(InetSocketAddress, String, Duration)} does. Streams of a 0-RTT
+     * connection can be used at once, within the limits the server set in the earlier session;
+     * {@link QuicConnection#awaitHandshake} waits for the handshake, and {@link
+     * QuicConnection#earlyDataAccepted()} tells whether the server took the early data. If it did
+     * not, the data is sent again in 1-RTT packets.
+     *
+     * @param remote the server's address
+     * @param serverName the name for SNI and the certificate, or null for the TLS configuration's
+     * @param timeout the longest to wait for a handshake without 0-RTT, or null for the idle timeout
+     * @return the connection, possibly still handshaking
+     * @throws QuicConnectionException if a handshake without 0-RTT fails or times out
+     * @throws IOException if the client is closed
+     */
+    public QuicConnection connectEarly(InetSocketAddress remote, String serverName, Duration timeout)
+            throws IOException {
+        return connectEarly(remote, serverName, timeout, sessionCache);
+    }
+
+    /**
+     * Connects with a cache of session tickets and tokens, returning at once if the connection can
+     * send 0-RTT data.
+     *
+     * @param remote the server's address
+     * @param serverName the name for SNI and the certificate, or null for the TLS configuration's
+     * @param timeout the longest to wait for a handshake without 0-RTT, or null for the idle timeout
+     * @param cache the tickets and tokens to resume with and keep
+     * @return the connection, possibly still handshaking
+     * @throws QuicConnectionException if a handshake without 0-RTT fails or times out
+     * @throws IOException if the client is closed
+     * @see #connectEarly(InetSocketAddress, String, Duration)
+     */
+    public QuicConnection connectEarly(InetSocketAddress remote, String serverName, Duration timeout,
+            SessionCache cache) throws IOException {
+        ConnectionDriver connection = driver.connect(config, remote, serverName, cache);
+        QuicConnection c = connection.facade();
+        if (!c.isZeroRtt()) {
+            c.awaitConnected(timeout == null ? -1 : timeout.toNanos());
+        }
         return c;
     }
 

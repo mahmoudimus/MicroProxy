@@ -19,6 +19,11 @@ public final class SentPacket {
     private final long largestAcked;
     private Retransmits retransmits;
     private final List<StreamMeta> streamFrames;
+    // Delivery rate state when sent (draft-cheng-iccrg-delivery-rate-estimation), set by DeliveryRate
+    private long delivered;
+    private long deliveredTime = Long.MIN_VALUE;
+    private long firstSentTime = Long.MIN_VALUE;
+    private boolean appLimited;
 
     /**
      * A sent packet.
@@ -105,6 +110,52 @@ public final class SentPacket {
      */
     public List<StreamMeta> streamFrames() {
         return streamFrames;
+    }
+
+    /**
+     * The bytes the connection had delivered when this packet was sent ({@code P.delivered}).
+     *
+     * @return bytes
+     */
+    public long delivered() {
+        return delivered;
+    }
+
+    /**
+     * When the connection's delivered count last changed before this packet was sent ({@code
+     * P.delivered_time}).
+     *
+     * @return the time, or {@link Long#MIN_VALUE} if the packet was not in flight
+     */
+    public long deliveredTime() {
+        return deliveredTime;
+    }
+
+    /**
+     * The send time of the first packet of the flight this one was sent in ({@code
+     * P.first_sent_time}).
+     *
+     * @return the time, or {@link Long#MIN_VALUE} if the packet was not in flight
+     */
+    public long firstSentTime() {
+        return firstSentTime;
+    }
+
+    /**
+     * Whether the packet was sent while sending was application limited ({@code
+     * P.is_app_limited}).
+     *
+     * @return the flag
+     */
+    public boolean isAppLimited() {
+        return appLimited;
+    }
+
+    void setDeliveryState(long delivered, long deliveredTime, long firstSentTime, boolean appLimited) {
+        this.delivered = delivered;
+        this.deliveredTime = deliveredTime;
+        this.firstSentTime = firstSentTime;
+        this.appLimited = appLimited;
     }
 
     /** Whether the control frames still matter for {@code streams}. */

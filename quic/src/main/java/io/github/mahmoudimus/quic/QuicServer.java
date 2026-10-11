@@ -29,6 +29,14 @@ import java.util.Objects;
  * <p>The server holds at most {@link ServerConfig#maxConnections()} connections; further attempts
  * are refused with CONNECTION_REFUSED. Closing the server closes its connections and stops its
  * threads.
+ *
+ * <p><b>Resumption and 0-RTT.</b> With a {@link
+ * io.github.mahmoudimus.quic.tls.TlsConfig.Builder#sessionTickets ticketer}, the server sends
+ * session tickets and resumes them; with 0-RTT enabled too, {@link #accept()} hands out a connection
+ * that accepted 0-RTT data as soon as its handshake data is ready, before the handshake completes,
+ * so the early data can be served at once. Data that arrived as early data may have been replayed:
+ * check {@link QuicStream#receivedEarlyData()} and serve only what is safe to repeat, or wait with
+ * {@link QuicConnection#awaitHandshake}.
  */
 public final class QuicServer implements AutoCloseable {
 

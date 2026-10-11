@@ -1531,8 +1531,11 @@ final class ClientConnection implements Runnable {
                         new FullFlowContext(ex.flow, hostAndPort, null, null));
                 if (trust == null) return null;
             }
+            boolean noBody = !(ex.request instanceof FullHttpRequest full && full.content().length > 0)
+                    && (ex.body == null || !ex.body.hasBody());
             Http3UpstreamStream stream = server.http3Origins.stream(hostAndPort + mitmPoolKey(Mode.TLS), hostAndPort, trust,
-                    ex.flow, ex.log, ProxyUtils.isHEAD(ex.request), () -> resolveServer(hostAndPort, ex));
+                    ex.flow, ex.log, ProxyUtils.isHEAD(ex.request), Http3Connection.replaySafe(ex.request, noBody),
+                    () -> resolveServer(hostAndPort, ex));
             if (stream == null) return null;
             if (stream.newConnection) connected(ex, stream);
             if (LOG.isLoggable(Level.DEBUG)) LOG.log(Level.DEBUG, ex.log + "new stream on the HTTP/3 connection to " + hostAndPort);

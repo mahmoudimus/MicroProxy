@@ -352,9 +352,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
-                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("masque_udp_template")
-                || p.containsKey("masque_udp_idle_timeout") || p.containsKey("masque_max_udp_flows")
-                || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
+                || p.containsKey("http3_0rtt") || p.containsKey("http3_upstream_0rtt")
+                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
+                || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
+                || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
                 || p.containsKey("masque_quic_ports")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("masque_intercept_quic")) h3.connectUdpInterceptQuic(bool(p, "masque_intercept_quic"));
@@ -374,9 +375,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             }
             if (p.containsKey("http3_alt_svc")) h3.altSvc(bool(p, "http3_alt_svc"));
             if (p.containsKey("http3_retry")) h3.retry(bool(p, "http3_retry"));
+            if (p.containsKey("http3_0rtt")) h3.zeroRtt(bool(p, "http3_0rtt"));
+            if (p.containsKey("http3_upstream_0rtt")) h3.upstreamZeroRtt(bool(p, "http3_upstream_0rtt"));
             if (p.containsKey("transparent_quic_relay_idle_timeout")) {
                 h3.transparentRelayIdleTimeout(Duration.ofSeconds(
                         Long.parseLong(p.getProperty("transparent_quic_relay_idle_timeout").strip())));
+            }
+            if (p.containsKey("quic_congestion")) {
+                h3.quicCongestionControl(Http3Options.QuicCongestionControl.parse(p.getProperty("quic_congestion")));
             }
             withHttp3Options(h3.build());
         }

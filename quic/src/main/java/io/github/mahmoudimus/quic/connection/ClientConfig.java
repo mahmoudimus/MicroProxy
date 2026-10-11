@@ -1,5 +1,5 @@
 /*
- * Ported from quinn-proto src/config/mod.rs (ClientConfig) (Apache-2.0).
+ * Ported from quinn-proto src/config/mod.rs (ClientConfig, with its token store) (Apache-2.0).
  */
 package io.github.mahmoudimus.quic.connection;
 
@@ -9,8 +9,9 @@ import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.util.Objects;
 
 /**
- * How a client connects: its TLS configuration (trust, server name, ALPN), the transport settings
- * and the QUIC version. Immutable and shareable.
+ * How a client connects: its TLS configuration (trust, server name, ALPN, 0-RTT), the transport
+ * settings, the QUIC version and the {@link SessionCache} that keeps session tickets and NEW_TOKEN
+ * tokens between connections. Immutable and shareable.
  */
 public final class ClientConfig {
 
@@ -18,12 +19,24 @@ public final class ClientConfig {
     final TransportConfig transport;
     final QuicVersion version;
     final int initialDcidLength;
+    final SessionCache sessionCache;
 
     private ClientConfig(Builder b) {
         this.tls = b.tls;
         this.transport = b.transport;
         this.version = b.version;
         this.initialDcidLength = b.initialDcidLength;
+        this.sessionCache = b.sessionCache;
+    }
+
+    /**
+     * The cache of session tickets and tokens connections use.
+     *
+     * @return the cache, or null to leave it to the caller ({@code QuicClient} then uses one of
+     *     its own)
+     */
+    public SessionCache sessionCache() {
+        return sessionCache;
     }
 
     /**
@@ -69,6 +82,7 @@ public final class ClientConfig {
         private TransportConfig transport = TransportConfig.defaults();
         private QuicVersion version = QuicVersion.V1;
         private int initialDcidLength = ConnectionId.MAX_LENGTH;
+        private SessionCache sessionCache;
 
         private Builder(TlsConfig tls) {
             this.tls = Objects.requireNonNull(tls, "tls");
@@ -107,6 +121,19 @@ public final class ClientConfig {
                 throw new IllegalArgumentException("initial Destination Connection ID length " + length);
             }
             this.initialDcidLength = length;
+            return this;
+        }
+
+        /**
+         * The cache of session tickets and NEW_TOKEN tokens: resumption, 0-RTT (with {@link
+         * TlsConfig.Builder#earlyData(boolean)}) and Retry-free reconnection. {@link
+         * SessionCache#none()} turns them off.
+         *
+         * @param cache the cache, or null for the caller's default
+         * @return this builder
+         */
+        public Builder sessionCache(SessionCache cache) {
+            this.sessionCache = cache;
             return this;
         }
 

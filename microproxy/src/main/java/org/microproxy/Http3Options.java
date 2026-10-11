@@ -28,6 +28,34 @@ import java.util.TreeSet;
  */
 public final class Http3Options {
 
+    /** The congestion controllers of the proxy's QUIC connections (see {@link Builder#quicCongestionControl}). */
+    public enum QuicCongestionControl {
+        /** CUBIC (RFC 9438), the default. */
+        CUBIC,
+        /** NewReno (RFC 9002). */
+        NEW_RENO,
+        /** BBR, experimental: models the bottleneck bandwidth and RTT rather than reacting to loss. */
+        BBR;
+
+        /**
+         * The controller with a name, ignoring case: {@code cubic}, {@code newreno} (or {@code
+         * new_reno}) or {@code bbr}.
+         *
+         * @param name the name
+         * @return the controller
+         * @throws IllegalArgumentException for any other name
+         */
+        public static QuicCongestionControl parse(String name) {
+            return switch (name.strip().toLowerCase(java.util.Locale.ROOT)) {
+                case "cubic" -> CUBIC;
+                case "newreno", "new_reno", "new-reno" -> NEW_RENO;
+                case "bbr" -> BBR;
+                default -> throw new IllegalArgumentException("unknown QUIC congestion controller: " + name
+                        + " (cubic, newreno or bbr)");
+            };
+        }
+    }
+
     /** The defaults: see each {@link Builder} method. */
     public static final Http3Options DEFAULT = builder().build();
 
@@ -42,6 +70,8 @@ public final class Http3Options {
     private final int maxUnknownStreams;
     private final int maxRapidResets;
     private final boolean retry;
+    private final boolean zeroRtt;
+    private final boolean upstreamZeroRtt;
     private final Duration upstreamHandshakeTimeout;
     private final Duration upstreamFailureTimeout;
     private final boolean altSvc;
@@ -61,6 +91,7 @@ public final class Http3Options {
     private final long connectUdpMaxQueuedBytes;
     private final boolean connectUdpInterceptQuic;
     private final Set<Integer> connectUdpQuicPorts;
+    private final QuicCongestionControl quicCongestionControl;
 
     private Http3Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -74,6 +105,8 @@ public final class Http3Options {
         maxUnknownStreams = b.maxUnknownStreams;
         maxRapidResets = b.maxRapidResets;
         retry = b.retry;
+        zeroRtt = b.zeroRtt;
+        upstreamZeroRtt = b.upstreamZeroRtt;
         upstreamHandshakeTimeout = b.upstreamHandshakeTimeout;
         upstreamFailureTimeout = b.upstreamFailureTimeout;
         altSvc = b.altSvc;
@@ -93,6 +126,7 @@ public final class Http3Options {
         connectUdpMaxQueuedBytes = b.connectUdpMaxQueuedBytes;
         connectUdpInterceptQuic = b.connectUdpInterceptQuic;
         connectUdpQuicPorts = b.connectUdpQuicPorts;
+        quicCongestionControl = b.quicCongestionControl;
     }
 
     /**
@@ -122,6 +156,8 @@ public final class Http3Options {
         b.maxUnknownStreams = maxUnknownStreams;
         b.maxRapidResets = maxRapidResets;
         b.retry = retry;
+        b.zeroRtt = zeroRtt;
+        b.upstreamZeroRtt = upstreamZeroRtt;
         b.upstreamHandshakeTimeout = upstreamHandshakeTimeout;
         b.upstreamFailureTimeout = upstreamFailureTimeout;
         b.altSvc = altSvc;
@@ -141,6 +177,7 @@ public final class Http3Options {
         b.connectUdpMaxQueuedBytes = connectUdpMaxQueuedBytes;
         b.connectUdpInterceptQuic = connectUdpInterceptQuic;
         b.connectUdpQuicPorts = connectUdpQuicPorts;
+        b.quicCongestionControl = quicCongestionControl;
         return b;
     }
 
@@ -202,6 +239,26 @@ public final class Http3Options {
     /** {@return whether the HTTP/3 listeners validate client addresses with a QUIC Retry first} */
     public boolean retry() {
         return retry;
+    }
+
+    /**
+     * Whether the HTTP/3 listeners accept 0-RTT early data from clients that resume a session: off
+     * by default. See {@link Builder#zeroRtt(boolean)}.
+     *
+     * @return whether 0-RTT is accepted
+     */
+    public boolean zeroRtt() {
+        return zeroRtt;
+    }
+
+    /**
+     * Whether requests that are safe to replay go to HTTP/3 servers as 0-RTT early data when the
+     * proxy resumes a session with them: on by default. See {@link Builder#upstreamZeroRtt(boolean)}.
+     *
+     * @return whether the proxy sends 0-RTT data to servers
+     */
+    public boolean upstreamZeroRtt() {
+        return upstreamZeroRtt;
     }
 
     /** {@return how long a QUIC handshake with a server may take before its request goes over TCP instead} */
@@ -299,6 +356,11 @@ public final class Http3Options {
         return connectUdpQuicPorts;
     }
 
+    /** {@return the congestion controller of the proxy's QUIC connections, to clients and to servers} */
+    public QuicCongestionControl quicCongestionControl() {
+        return quicCongestionControl;
+    }
+
     @Override
     public String toString() {
         return "Http3Options[maxConcurrentStreams=" + maxConcurrentStreams + ", streamReceiveWindow=" + streamReceiveWindow
@@ -306,6 +368,7 @@ public final class Http3Options {
                 + ", qpackMaxTableCapacity=" + qpackMaxTableCapacity + ", qpackBlockedStreams=" + qpackBlockedStreams
                 + ", rateWindow=" + rateWindow + ", maxUnknownFrames=" + maxUnknownFrames
                 + ", maxUnknownStreams=" + maxUnknownStreams + ", maxRapidResets=" + maxRapidResets + ", retry=" + retry
+                + ", zeroRtt=" + zeroRtt + ", upstreamZeroRtt=" + upstreamZeroRtt
                 + ", upstreamHandshakeTimeout=" + upstreamHandshakeTimeout
                 + ", upstreamFailureTimeout=" + upstreamFailureTimeout + ", altSvc=" + altSvc
                 + ", altSvcMaxAge=" + altSvcMaxAge + ", transparentRelayIdleTimeout=" + transparentRelayIdleTimeout
@@ -317,7 +380,8 @@ public final class Http3Options {
                 + ", connectUdpMaxFlows=" + connectUdpMaxFlows + ", connectUdpMaxFlowsPerConnection="
                 + connectUdpMaxFlowsPerConnection + ", connectUdpMaxQueued=" + connectUdpMaxQueued
                 + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes + ", connectUdpInterceptQuic="
-                + connectUdpInterceptQuic + ", connectUdpQuicPorts=" + connectUdpQuicPorts + "]";
+                + connectUdpInterceptQuic + ", connectUdpQuicPorts=" + connectUdpQuicPorts
+                + ", quicCongestionControl=" + quicCongestionControl + "]";
     }
 
     /** Builds {@link Http3Options}. */
@@ -333,6 +397,8 @@ public final class Http3Options {
         private int maxUnknownStreams = 100;
         private int maxRapidResets = 100;
         private boolean retry;
+        private boolean zeroRtt;
+        private boolean upstreamZeroRtt = true;
         private Duration upstreamHandshakeTimeout = Duration.ofSeconds(1);
         private Duration upstreamFailureTimeout = Duration.ofMinutes(5);
         private boolean altSvc = true;
@@ -352,6 +418,7 @@ public final class Http3Options {
         private long connectUdpMaxQueuedBytes = 512 * 1024;
         private boolean connectUdpInterceptQuic;
         private Set<Integer> connectUdpQuicPorts = Set.of(443);
+        private QuicCongestionControl quicCongestionControl = QuicCongestionControl.CUBIC;
 
         private Builder() {}
 
@@ -499,6 +566,48 @@ public final class Http3Options {
          */
         public Builder retry(boolean retry) {
             this.retry = retry;
+            return this;
+        }
+
+        /**
+         * Whether the HTTP/3 listeners ({@code --http3} and the clients the transparent QUIC
+         * listener intercepts) accept 0-RTT early data (default off). The listeners always send
+         * session tickets and resume sessions, which saves a client the certificate exchange; with
+         * 0-RTT on, a resuming client may also send its first requests before the handshake
+         * completes, saving a round trip.
+         *
+         * <p>Early data can be replayed: an attacker who captures a client's first flight can send
+         * it again (RFC 8446 section 8). The QUIC layer accepts a ticket's early data once, and only
+         * while the client's ticket age matches the proxy's, within one process. On top of that the
+         * proxy treats a request any part of which arrived as early data as RFC 8470 says: it
+         * answers {@code 425 Too Early} unless the method is safe to repeat ({@code GET}, {@code
+         * HEAD} or {@code OPTIONS}, without a body), and forwards the rest with {@code Early-Data:
+         * 1}, so the server can answer {@code 425} itself. Filters see {@link
+         * org.microproxy.FlowContext#isEarlyData()} (Starlark {@code ctx.early_data}) and may
+         * answer {@code 425} to requests they deem unsafe; a client sends them again once its
+         * handshake completes.
+         *
+         * @param enabled whether to accept 0-RTT
+         * @return this builder
+         */
+        public Builder zeroRtt(boolean enabled) {
+            zeroRtt = enabled;
+            return this;
+        }
+
+        /**
+         * Whether the proxy sends requests to HTTP/3 servers as 0-RTT early data when it resumes a
+         * session with them (default on). Only requests safe to repeat go early: {@code GET},
+         * {@code HEAD} and {@code OPTIONS} without a body (RFC 8470 section 2.1); others wait for
+         * the handshake. A server that answers {@code 425 Too Early} gets the request again after
+         * the handshake, unless the request itself arrived as early data, whose client gets the
+         * {@code 425}. The proxy keeps session tickets per server for as long as it runs.
+         *
+         * @param enabled whether to send 0-RTT data to servers
+         * @return this builder
+         */
+        public Builder upstreamZeroRtt(boolean enabled) {
+            upstreamZeroRtt = enabled;
             return this;
         }
 
@@ -722,6 +831,20 @@ public final class Http3Options {
                 set.add(port);
             }
             connectUdpQuicPorts = Collections.unmodifiableSet(set);
+            return this;
+        }
+
+        /**
+         * The congestion controller of the proxy's QUIC connections, those its HTTP/3 and
+         * transparent QUIC listeners accept and those it opens to servers (default {@link
+         * QuicCongestionControl#CUBIC CUBIC}). {@link QuicCongestionControl#BBR BBR} is
+         * experimental; it suits paths with a large bandwidth-delay product or random loss.
+         *
+         * @param control the controller
+         * @return this builder
+         */
+        public Builder quicCongestionControl(QuicCongestionControl control) {
+            quicCongestionControl = Objects.requireNonNull(control, "control");
             return this;
         }
 

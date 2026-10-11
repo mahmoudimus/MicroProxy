@@ -55,6 +55,21 @@ final class Transcript {
         }
     }
 
+    /**
+     * The hash of every message so far followed by {@code extra}, which is not added: for a PSK
+     * binder over a truncated ClientHello.
+     */
+    byte[] hashWith(byte[] extra) {
+        if (digest == null) throw new IllegalStateException("transcript hash not started");
+        try {
+            MessageDigest copy = (MessageDigest) digest.clone();
+            copy.update(extra);
+            return copy.digest();
+        } catch (CloneNotSupportedException e) {
+            throw new IllegalStateException("digest cannot be cloned", e);
+        }
+    }
+
     /** The hash of every message so far. */
     byte[] hash() {
         if (digest == null) throw new IllegalStateException("transcript hash not started");

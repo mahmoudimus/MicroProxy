@@ -159,6 +159,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     volatile String http3AltSvc;
     /** The QUIC connections to HTTP/3 servers; null without HTTP/3 upstream. */
     final Http3Origins http3Origins;
+    /**
+     * The key that seals the session tickets of the proxy's QUIC listeners (a quic {@code
+     * Ticketer}, typed so that the class loads without the module), made on first use.
+     */
+    volatile Object quicTicketer;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 

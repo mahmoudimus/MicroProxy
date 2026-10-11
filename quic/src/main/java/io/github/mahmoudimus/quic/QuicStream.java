@@ -69,6 +69,17 @@ public final class QuicStream implements Closeable {
     }
 
     /**
+     * Server: whether any of the stream's data arrived in 0-RTT packets. Such data may be a replay
+     * of an earlier connection's (RFC 8446 section 8); act on it only if that is safe, or wait for
+     * {@link QuicConnection#awaitHandshake(java.time.Duration) the handshake}.
+     *
+     * @return true if the peer sent part of the stream as early data
+     */
+    public boolean receivedEarlyData() {
+        return connection.withLock(() -> conn.receivedEarlyData(id));
+    }
+
+    /**
      * Whether this side opened the stream.
      *
      * @return true for a locally opened stream

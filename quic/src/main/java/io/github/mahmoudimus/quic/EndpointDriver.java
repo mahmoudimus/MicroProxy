@@ -7,6 +7,7 @@ import io.github.mahmoudimus.quic.connection.EndpointConfig;
 import io.github.mahmoudimus.quic.connection.EndpointEvent;
 import io.github.mahmoudimus.quic.connection.NanoClock;
 import io.github.mahmoudimus.quic.connection.ServerConfig;
+import io.github.mahmoudimus.quic.connection.SessionCache;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
@@ -318,14 +319,15 @@ final class EndpointDriver implements AutoCloseable {
         }
     }
 
-    ConnectionDriver connect(ClientConfig config, InetSocketAddress remote, String serverName) throws IOException {
+    ConnectionDriver connect(ClientConfig config, InetSocketAddress remote, String serverName,
+            SessionCache cache) throws IOException {
         if (closed) {
             throw new ClosedChannelException();
         }
         ConnectionDriver driver;
         endpointLock.lock();
         try {
-            Connection conn = endpoint.connect(clock.nanoTime(), config, remote, serverName);
+            Connection conn = endpoint.connect(clock.nanoTime(), config, remote, serverName, cache);
             driver = new ConnectionDriver(this, conn, false);
             drivers.put(conn, driver);
         } finally {

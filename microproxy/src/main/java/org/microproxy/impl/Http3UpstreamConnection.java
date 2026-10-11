@@ -26,6 +26,10 @@ import org.microproxy.frames.FrameDirection;
  * <p>A GOAWAY from the server stops new streams, and fails those it did not process with {@link
  * Unprocessed}, which the exchange logic retries on another connection. The connection closes when
  * it has been idle for the QUIC idle timeout, or when the proxy stops.
+ *
+ * <p>A connection made for a request that is safe to replay may still be handshaking, sending
+ * 0-RTT data ({@link Http3Origins}): only such requests take a stream before the handshake
+ * completes, and others wait for it.
  */
 final class Http3UpstreamConnection extends Http3Endpoint {
 
@@ -92,13 +96,19 @@ final class Http3UpstreamConnection extends Http3Endpoint {
     }
 
     /**
-     * A request stream for an exchange, waiting while the server's stream limit is reached.
+     * A request stream for an exchange, waiting while the server's stream limit is reached, and,
+     * for a request not safe to replay, until the handshake has completed.
      *
+     * @param replaySafe whether the request may go as 0-RTT data
      * @throws Unprocessed if the server sent GOAWAY (before or while the stream was opened)
      * @throws IOException if the connection has ended
      */
-    Http3UpstreamStream open(ClientFlowContext flow, String log, boolean headRequest) throws IOException {
+    Http3UpstreamStream open(ClientFlowContext flow, String log, boolean headRequest, boolean replaySafe) throws IOException {
         if (!usable()) throw new Unprocessed("the HTTP/3 connection to " + hostAndPort + " takes no new streams");
+        if (!replaySafe && !quic.isHandshakeComplete()
+                && !quic.awaitHandshake(server.http3Options.upstreamHandshakeTimeout())) {
+            throw new Unprocessed("the QUIC handshake with " + hostAndPort + " is not complete");
+        }
         QuicStream s = quic.openBidirectionalStream();
         FullFlowContext context = new FullFlowContext(flow, hostAndPort, null, remote);
         Http3UpstreamStream stream = new Http3UpstreamStream(this, s, context, log, headRequest);
