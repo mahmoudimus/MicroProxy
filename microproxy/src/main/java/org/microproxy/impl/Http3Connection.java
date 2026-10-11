@@ -67,7 +67,11 @@ final class Http3Connection extends Http3Endpoint {
     private final ClientFlowContext connectionFlow;
     private final Http3Frames.Origin origin;
     final Role role;
-    /** The intercepted server ({@link Role#INTERCEPTED}); null for the proxy's own listener. */
+    /**
+     * The intercepted server ({@link Role#INTERCEPTED}): requests for another authority get 421,
+     * except proxy requests ({@code :scheme http}) and plain {@code CONNECT}s, which the client
+     * sends the server as to its proxy. Null for the proxy's own listener.
+     */
     private final HostAndPort target;
 
     // Guarded by stateLock.
@@ -241,7 +245,32 @@ final class Http3Connection extends Http3Endpoint {
             return null;
         }
         s.requestRead(http1);
+        if (!proxyRequest && misdirected(request.authority())) {
+            LOG.log(Level.DEBUG, s.logPrefix() + "421 for " + request.authority() + ": this connection reaches " + target);
+            FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                    HttpResponseStatus.valueOf(421), "Misdirected Request");
+            s.writeComplete(response, !ProxyUtils.isHEAD(http1));
+            return null;
+        }
         return http1;
+    }
+
+    /**
+     * Whether a request on an intercepted connection names an authority other than the intercepted
+     * server's. A client may reuse a connection for any host its certificate covers (connection
+     * coalescing), but this one reaches only that server, so such requests get 421 and are retried
+     * on a connection of their own (RFC 9110 section 15.5.20, RFC 9114 section 3.4). Only the host
+     * counts: the port is the one the client sent its QUIC to before a firewall redirected it,
+     * which the proxy cannot know (it reaches the SNI's host on the transparent TLS port). The
+     * proxy's own listener serves every authority: a forward proxy's requests name their targets.
+     */
+    private boolean misdirected(String authority) {
+        if (authority == null || target == null) return false;
+        try {
+            return !HostAndPort.parse(authority, 443).host().equalsIgnoreCase(target.host());
+        } catch (IllegalArgumentException e) {
+            return true;
+        }
     }
 
     private static void answer(Http3StreamChannel s, HttpResponseStatus status, String text) throws IOException {

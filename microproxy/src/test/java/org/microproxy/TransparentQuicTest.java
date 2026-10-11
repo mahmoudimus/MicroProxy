@@ -167,6 +167,27 @@ class TransparentQuicTest {
         assertTrue(origin.errors().isEmpty(), origin.errors().toString());
     }
 
+    /**
+     * An intercepted connection reaches only the server its SNI named: a request for another host
+     * (a client coalescing connections) gets 421, which makes the client open one of its own.
+     */
+    @Test
+    void requestsForAnotherHostAre421() throws Exception {
+        H3TestOrigin origin = h3Origin();
+        start(transparent(origin.port()).withHttp3Upstream(true));
+        try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, proxyCa.getCertificate())) {
+            List<io.github.mahmoudimus.http3.HeaderField> other = List.of(
+                    new io.github.mahmoudimus.http3.HeaderField(":method", "GET"),
+                    new io.github.mahmoudimus.http3.HeaderField(":scheme", "https"),
+                    new io.github.mahmoudimus.http3.HeaderField(":authority", "other.test"),
+                    new io.github.mahmoudimus.http3.HeaderField(":path", "/hello"));
+            assertEquals(421, client.readResponse(client.send(other, true)).status());
+            // The same host on any port is the intercepted server: the port is the one redirected.
+            assertEquals("hello over h3", client.get("/hello").text());
+        }
+        assertEquals(1, origin.requests.get(), "the misdirected request went nowhere");
+    }
+
     /** With Retry, an intercepted client proves its address first; the proxy decides on it once. */
     @Test
     void interceptsAfterARetry() throws Exception {
