@@ -5,6 +5,7 @@ import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -686,6 +687,23 @@ public interface HttpProxyServerBootstrap {
 
     /** {@return the TCP interceptor configured so far, or null} */
     default TcpInterceptor getTcpInterceptor() {
+        return null;
+    }
+
+    /**
+     * Shows the datagrams of every UDP flow the proxy relays (CONNECT-UDP, MASQUE, on a forward
+     * proxy's HTTP/3 listener) to {@code interceptor}, which may rewrite, drop and add them; see
+     * {@link UdpInterceptor}. One per proxy: a later call replaces it, and null removes it.
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withUdpInterceptor(UdpInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support UDP interception");
+    }
+
+    /** {@return the UDP interceptor configured so far, or null} */
+    default UdpInterceptor getUdpInterceptor() {
         return null;
     }
 

@@ -43,6 +43,7 @@ import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -129,6 +130,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     FrameInterceptor frameInterceptor;
     /** Sees the bytes of raw TCP tunnels; null for none. */
     TcpInterceptor tcpInterceptor;
+    UdpInterceptor udpInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -196,6 +198,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http3Options = http3Options;
         c.frameInterceptor = frameInterceptor;
         c.tcpInterceptor = tcpInterceptor;
+        c.udpInterceptor = udpInterceptor;
         return c;
     }
 
@@ -786,6 +789,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public TcpInterceptor getTcpInterceptor() {
         return tcpInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withUdpInterceptor(UdpInterceptor interceptor) {
+        this.udpInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public UdpInterceptor getUdpInterceptor() {
+        return udpInterceptor;
     }
 
     @Override
