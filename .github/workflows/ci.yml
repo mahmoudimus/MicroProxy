@@ -62,7 +62,7 @@ jobs:
         run: python -m pip install aioquic==1.4.0
       - name: Run the interop tests
         run: >-
-          mvn --batch-mode -pl quic test -Dtest=AioquicInteropTest -Dsurefire.failIfNoSpecifiedTests=false
+          mvn --batch-mode -pl quic -am test -Dtest=AioquicInteropTest -Dsurefire.failIfNoSpecifiedTests=false
           -Dquic.interop.python=python -Dquic.interop.required=true
 
   central-artifacts:

@@ -413,7 +413,10 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   server with an aioquic client and an aioquic server with a Java client: all three cipher suites
   with X25519, P-256 and P-384 (the server choosing), many streams and multi-megabyte transfers,
   unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2, and
-  closes from either side with their codes and reasons.
+  closes from either side with their codes and reasons. An HTTP/3 client on aioquic's
+  `H3Connection` also runs GET and POST requests (2 MB down, 1 MB echoed, concurrent and
+  sequential) against a small HTTP/3 server built on the blocking API and `http3-codec` (a
+  test-scoped dependency; static QPACK only).
 
 The interop tests are skipped unless Python 3 with aioquic is available. To run them, keep the
 virtual environment out of the sources, under `target/` or elsewhere:
@@ -421,7 +424,8 @@ virtual environment out of the sources, under `target/` or elsewhere:
 ```sh
 python3 -m venv quic/target/aioquic
 quic/target/aioquic/bin/pip install aioquic==1.4.0
-mvn -pl quic test -Dtest=AioquicInteropTest -Dquic.interop.python=quic/target/aioquic/bin/python
+mvn -pl quic -am test -Dtest=AioquicInteropTest -Dsurefire.failIfNoSpecifiedTests=false \
+    -Dquic.interop.python=$PWD/quic/target/aioquic/bin/python
 ```
 
 `QUIC_INTEROP_PYTHON` works as well as `-Dquic.interop.python`; `-Dquic.interop.required=true`
@@ -432,4 +436,5 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
 validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
 path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
-ECN bits), GSO, and HTTP/3 interop with aioquic's HTTP/3 client through `http3-codec`.
+ECN bits), GSO, and an HTTP/3 layer in the main sources (the interop test's HTTP/3 server is test
+code).
