@@ -249,6 +249,18 @@ public final class LocalCidState {
     }
 
     /** The active sequence numbers, for tests. */
+    /**
+     * Asks the peer to retire every ID below a sequence number, as a test hook (quinn's {@code
+     * assign_retire_seq}).
+     *
+     * @return how many new IDs to issue in their place
+     */
+    long assignRetireSeq(long v) {
+        long n = v - retireSeq;
+        retireSeq = v;
+        return n;
+    }
+
     Collection<Long> activeSequences() {
         return active.keySet();
     }
