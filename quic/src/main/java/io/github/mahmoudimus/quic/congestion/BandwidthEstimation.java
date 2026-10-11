@@ -1,30 +1,26 @@
 /*
- * Ported from quinn-proto src/congestion/bbr/bw_estimation.rs (Apache-2.0).
+ * Ported from quinn-proto src/congestion/bbr/bw_estimation.rs (Apache-2.0), with the sampling
+ * replaced: see the class comment.
  */
 package io.github.mahmoudimus.quic.congestion;
 
 /**
- * BBR's delivery rate estimate. Each acknowledgement gives a sample, the lower of the send rate
- * (bytes between the last two sends over the time between them) and the ack rate (bytes between
- * the last two acknowledgements over the time between them); samples taken while the connection
- * was application limited are left out. The estimate is the windowed maximum of the samples over
- * the last ten round trips ({@link MinMax}). Rates are bytes per second; times are nanoseconds.
+ * BBR's bottleneck bandwidth estimate: the windowed maximum ({@link MinMax}) of the delivery rate
+ * samples over the last ten round trips, as BBRv1 keeps {@code BtlBw}. Samples come from the
+ * connection's delivery rate sampler ({@link RateSample}); an application-limited sample counts
+ * only if it beats the estimate, since it can understate the path but not overstate it. Old
+ * maxima expire with the window, so the estimate follows a path that slows down.
+ *
+ * <p>quinn's estimator took, per acknowledged packet, the lower of the rates between the last two
+ * sends and the last two acknowledgements, and fed the filter only samples above the estimate:
+ * its estimate never fell, and with ACKs covering two packets its samples were half the rate.
+ * Rates are bytes per second.
  *
  * <p><b>Threads.</b> Not thread-safe; owned by one controller.
  */
 final class BandwidthEstimation {
 
-    /** An unset time. */
-    private static final long NONE = Long.MIN_VALUE;
-
     private long totalAcked;
-    private long prevTotalAcked;
-    private long ackedTime = NONE;
-    private long prevAckedTime = NONE;
-    private long totalSent;
-    private long prevTotalSent;
-    private long sentTime = NONE;
-    private long prevSentTime = NONE;
     private final MinMax maxFilter;
     private long ackedAtLastWindow;
 
@@ -35,56 +31,28 @@ final class BandwidthEstimation {
     /** A copy of another estimator. */
     BandwidthEstimation(BandwidthEstimation o) {
         totalAcked = o.totalAcked;
-        prevTotalAcked = o.prevTotalAcked;
-        ackedTime = o.ackedTime;
-        prevAckedTime = o.prevAckedTime;
-        totalSent = o.totalSent;
-        prevTotalSent = o.prevTotalSent;
-        sentTime = o.sentTime;
-        prevSentTime = o.prevSentTime;
         maxFilter = new MinMax(o.maxFilter);
         ackedAtLastWindow = o.ackedAtLastWindow;
     }
 
-    /** Bytes were sent at {@code now}. */
-    void onSent(long now, long bytes) {
-        prevTotalSent = totalSent;
-        totalSent += bytes;
-        prevSentTime = sentTime;
-        sentTime = now;
+    /** A packet of {@code bytes} was acknowledged. */
+    void onAck(long bytes) {
+        totalAcked += bytes;
     }
 
     /**
-     * A packet was acknowledged.
+     * Adds a delivery rate sample.
      *
-     * @param now the current time
-     * @param sent when the packet was sent (unused, as in quinn)
-     * @param bytes the packet's size
      * @param round the current round trip count
-     * @param appLimited whether the sample is application limited, and so left out of the estimate
+     * @param rate the sample's rate, bytes per second
+     * @param appLimited whether the sample was application limited
      */
-    void onAck(long now, long sent, long bytes, long round, boolean appLimited) {
-        prevTotalAcked = totalAcked;
-        totalAcked += bytes;
-        prevAckedTime = ackedTime;
-        ackedTime = now;
-
-        if (prevSentTime == NONE) {
+    void onSample(long round, long rate, boolean appLimited) {
+        if (rate < 0) {
             return;
         }
-        long sendRate;
-        if (sentTime != NONE && sentTime > prevSentTime) {
-            sendRate = Math.max(0, bwFromDelta(totalSent - prevTotalSent, sentTime - prevSentTime));
-        } else {
-            sendRate = Long.MAX_VALUE; // the minimum of send and ack rate is taken, so this skips it
-        }
-        long ackRate = prevAckedTime == NONE
-                ? 0
-                : Math.max(0, bwFromDelta(totalAcked - prevTotalAcked, now - prevAckedTime));
-
-        long bandwidth = Math.min(sendRate, ackRate);
-        if (!appLimited && maxFilter.get() < bandwidth) {
-            maxFilter.updateMax(round, bandwidth);
+        if (!appLimited || rate >= maxFilter.get()) {
+            maxFilter.updateMax(round, rate);
         }
     }
 
@@ -94,7 +62,7 @@ final class BandwidthEstimation {
     }
 
     /** A batch of acknowledgements is complete. */
-    void endAcks(long currentRound, boolean appLimited) {
+    void endAcks() {
         ackedAtLastWindow = totalAcked;
     }
 

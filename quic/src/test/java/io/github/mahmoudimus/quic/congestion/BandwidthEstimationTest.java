@@ -17,42 +17,43 @@ class BandwidthEstimationTest {
     }
 
     @Test
-    void sampleIsTheLowerOfSendAndAckRates() {
+    void theMaximumOfTenRoundsExpires() {
         BandwidthEstimation bw = new BandwidthEstimation();
-        long t = 1_000 * MS;
-        bw.onSent(t, 1200);
-        bw.onSent(t + MS, 1200); // sending at 1.2 MB/s
-        bw.onAck(t + 20 * MS, t, 1200, 0, false);
-        assertEquals(0, bw.estimate(), "no ack rate from a single acknowledgement");
-        bw.onSent(t + 2 * MS, 1200);
-        bw.onAck(t + 30 * MS, t + MS, 1200, 0, false); // acknowledged at 120 kB/s
-        assertEquals(120_000, bw.estimate());
+        bw.onSample(0, 5_000_000, false);
+        for (long round = 1; round <= 10; round++) {
+            bw.onSample(round, 1_000_000, false);
+            assertEquals(5_000_000, bw.estimate(), "round " + round);
+        }
+        bw.onSample(11, 1_000_000, false);
+        bw.onSample(12, 1_000_000, false);
+        assertEquals(1_000_000, bw.estimate(), "the old maximum left the window");
+        bw.onSample(13, 2_000_000, false);
+        assertEquals(2_000_000, bw.estimate(), "a new maximum counts at once");
     }
 
     @Test
-    void appLimitedSamplesAreLeftOut() {
+    void appLimitedSamplesCountOnlyAboveTheEstimate() {
         BandwidthEstimation bw = new BandwidthEstimation();
-        long t = 1_000 * MS;
-        for (int i = 0; i < 10; i++) {
-            bw.onSent(t + i * MS, 1200);
+        bw.onSample(0, 300_000, true);
+        assertEquals(300_000, bw.estimate(), "a lower bound is better than nothing");
+        bw.onSample(1, 1_000_000, false);
+        for (long round = 2; round < 40; round++) {
+            bw.onSample(round, 100_000, true);
         }
-        for (int i = 0; i < 10; i++) {
-            bw.onAck(t + 50 * MS + i * MS, t + i * MS, 1200, 0, true);
-        }
-        assertEquals(0, bw.estimate());
-        bw.onAck(t + 60 * MS, t, 1200, 0, false);
-        assertEquals(1_200_000, bw.estimate());
+        assertEquals(1_000_000, bw.estimate(), "application-limited samples do not age the maximum out");
+        bw.onSample(40, -1, false);
+        assertEquals(1_000_000, bw.estimate(), "samples without a rate are ignored");
     }
 
     @Test
     void bytesAckedPerWindow() {
         BandwidthEstimation bw = new BandwidthEstimation();
-        bw.onAck(1, 0, 1000, 0, false);
-        bw.onAck(2, 0, 500, 0, false);
+        bw.onAck(1000);
+        bw.onAck(500);
         assertEquals(1500, bw.bytesAckedThisWindow());
-        bw.endAcks(0, false);
+        bw.endAcks();
         assertEquals(0, bw.bytesAckedThisWindow());
-        bw.onAck(3, 0, 700, 0, false);
+        bw.onAck(700);
         assertEquals(700, bw.bytesAckedThisWindow());
     }
 }

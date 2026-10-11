@@ -30,6 +30,6 @@ public record BbrConfig(long initialWindow) implements ControllerFactory {
 
     @Override
     public Controller build(long now, int currentMtu) {
-        return new Bbr(this, currentMtu);
+        return new Bbr(this, now, currentMtu);
     }
 }

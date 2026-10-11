@@ -1,5 +1,6 @@
 /*
- * Ported from quinn-proto src/congestion/bbr/mod.rs (Apache-2.0).
+ * Ported from quinn-proto src/congestion/bbr/mod.rs (Apache-2.0), changed to follow
+ * draft-cardwell-iccrg-bbr-congestion-control where quinn's port does not: see the class comment.
  */
 package io.github.mahmoudimus.quic.congestion;
 
@@ -21,10 +22,12 @@ import java.util.random.RandomGenerator;
  * to three quarters of the bandwidth-delay product for at least 200 ms to measure the minimum RTT
  * again. Losses put it in conservation, then growth, recovery until a round passes without any.
  *
- * <p>Like quinn's, the first acknowledgement that is not application limited starts a PROBE_RTT,
- * since none has started yet, and the bandwidth estimate only rises: a sample enters the max
- * filter only when it beats the estimate. Unlike quinn, whose pacer ignores BBR's pacing rate,
- * {@link #pacingRate()} reaches the connection's pacer, without which DRAIN could not drain.
+ * <p>Where quinn's port departs from BBRv1, this one follows the draft: the bandwidth comes from
+ * the connection's delivery rate samples ({@link #onRateSample}) through a max filter that expires
+ * after ten round trips, the minimum RTT expires ten seconds after it was last measured or
+ * refreshed and only then starts a PROBE_RTT, and STARTUP grows the window only below its target.
+ * {@link #pacingRate()} reaches the connection's pacer, which quinn's ignores, so DRAIN drains.
+ * The README of this module lists what still differs from the draft.
  *
  * <p>Rates are bytes per second; times are nanoseconds.
  *
@@ -81,6 +84,8 @@ public final class Bbr implements Controller {
 
     /** An unset time. */
     private static final long NONE = Long.MIN_VALUE;
+    /** An unknown minimum RTT. */
+    private static final long UNKNOWN = Long.MAX_VALUE;
 
     private final BbrConfig config;
     private long currentMtu;
@@ -103,9 +108,14 @@ public final class Bbr implements Controller {
     private long minCwnd;
     private long prevInFlightCount;
     private long exitProbeRttAt = NONE;
-    private long probeRttLastStartedAt = NONE;
-    /** The minimum RTT, nanoseconds; 0 before the first measurement. */
-    private long minRtt;
+    /** The minimum RTT ({@code RTprop}), nanoseconds; {@link #UNKNOWN} before the first measurement. */
+    private long minRtt = UNKNOWN;
+    /** When the minimum RTT was last measured or refreshed ({@code rtprop_stamp}). */
+    private long minRttStamp;
+    /** Whether the minimum RTT had expired at the latest acknowledgements ({@code rtprop_expired}). */
+    private boolean minRttExpired;
+    /** The delivery rate sample of the acknowledgements being processed, or null. */
+    private RateSample pendingSample;
     private boolean exitingQuiescence;
     private long pacingRate;
     private long maxAckedPacketNumber;
@@ -126,23 +136,26 @@ public final class Bbr implements Controller {
      * A controller in STARTUP.
      *
      * @param config the configuration
+     * @param now the current time
      * @param currentMtu the path's maximum UDP payload size
      */
-    public Bbr(BbrConfig config, int currentMtu) {
-        this(config, currentMtu, new SplittableRandom());
+    public Bbr(BbrConfig config, long now, int currentMtu) {
+        this(config, now, currentMtu, new SplittableRandom());
     }
 
     /**
      * A controller in STARTUP with a chosen source of randomness, for reproducible runs.
      *
      * @param config the configuration
+     * @param now the current time
      * @param currentMtu the path's maximum UDP payload size
      * @param random picks where in the PROBE_BW gain cycle each PROBE_BW starts
      */
-    public Bbr(BbrConfig config, int currentMtu, RandomGenerator.SplittableGenerator random) {
+    public Bbr(BbrConfig config, long now, int currentMtu, RandomGenerator.SplittableGenerator random) {
         this.config = Objects.requireNonNull(config, "config");
         this.random = Objects.requireNonNull(random, "random");
         this.currentMtu = currentMtu;
+        this.minRttStamp = now;
         this.maxBandwidth = new BandwidthEstimation();
         this.initCwnd = config.initialWindow();
         this.minCwnd = minWindow(currentMtu);
@@ -168,8 +181,10 @@ public final class Bbr implements Controller {
         minCwnd = o.minCwnd;
         prevInFlightCount = o.prevInFlightCount;
         exitProbeRttAt = o.exitProbeRttAt;
-        probeRttLastStartedAt = o.probeRttLastStartedAt;
         minRtt = o.minRtt;
+        minRttStamp = o.minRttStamp;
+        minRttExpired = o.minRttExpired;
+        pendingSample = o.pendingSample;
         exitingQuiescence = o.exitingQuiescence;
         pacingRate = o.pacingRate;
         maxAckedPacketNumber = o.maxAckedPacketNumber;
@@ -279,20 +294,26 @@ public final class Bbr implements Controller {
         }
     }
 
-    private boolean isMinRttExpired(long now, boolean appLimited) {
-        return !appLimited
-                && (probeRttLastStartedAt == NONE || Math.max(0, now - probeRttLastStartedAt) > MIN_RTT_EXPIRY);
+    /**
+     * {@code BBRUpdateRTprop}: whether the minimum RTT has expired, ten seconds after it was last
+     * measured or refreshed, and a new minimum from the sample, or any sample once it expired.
+     */
+    private void updateMinRtt(long now, RateSample sample) {
+        minRttExpired = now - minRttStamp > MIN_RTT_EXPIRY;
+        if (sample != null && sample.rtt() > 0 && (sample.rtt() <= minRtt || minRttExpired)) {
+            minRtt = sample.rtt();
+            minRttStamp = now;
+        }
     }
 
-    private void maybeEnterOrExitProbeRtt(long now, boolean isRoundStart, long bytesInFlight, boolean appLimited) {
-        boolean minRttExpired = isMinRttExpired(now, appLimited);
+    private void maybeEnterOrExitProbeRtt(long now, boolean isRoundStart, long bytesInFlight) {
+        // BBRCheckProbeRTT: only an expired minimum RTT starts a PROBE_RTT
         if (minRttExpired && !exitingQuiescence && mode != Mode.PROBE_RTT) {
             mode = Mode.PROBE_RTT;
             pacingGain = 1.0f;
             // Do not decide when to exit PROBE_RTT until the bytes in flight are at the target
             // small value
             exitProbeRttAt = NONE;
-            probeRttLastStartedAt = now;
         }
         if (mode == Mode.PROBE_RTT) {
             if (exitProbeRttAt == NONE) {
@@ -303,6 +324,9 @@ public final class Bbr implements Controller {
                     exitProbeRttAt = now + PROBE_RTT_TIME;
                 }
             } else if (isRoundStart && now >= exitProbeRttAt) {
+                // The minimum RTT was just measured at the lowest bytes in flight: it is fresh
+                minRttStamp = now;
+                minRttExpired = false;
                 if (!isAtFullBandwidth) {
                     enterStartupMode();
                 } else {
@@ -315,6 +339,9 @@ public final class Bbr implements Controller {
 
     private long targetCwnd(float gain) {
         long bw = maxBandwidth.estimate();
+        if (minRtt == UNKNOWN) {
+            return initCwnd;
+        }
         long bdp = saturatingMul(minRtt / 1_000, bw);
         long cwnd = (long) (((double) gain * (double) bdp) / 1_000_000.0);
         // The BDP estimate is zero until there are bandwidth samples
@@ -342,7 +369,7 @@ public final class Bbr implements Controller {
             return;
         }
         // Pace at the initial window per RTT as soon as there is an RTT measurement
-        if (pacingRate == 0 && minRtt != 0) {
+        if (pacingRate == 0 && minRtt != UNKNOWN) {
             pacingRate = BandwidthEstimation.bwFromDelta(initCwnd, minRtt);
             return;
         }
@@ -368,9 +395,10 @@ public final class Bbr implements Controller {
         // Rather than jumping to the target, grow the window towards it by the bytes acknowledged
         if (isAtFullBandwidth) {
             cwnd = Math.min(targetWindow, cwnd + bytesAcked);
-        } else if (cwndGain < (float) targetWindow || ackedBytes < initCwnd) {
-            // Before leaving STARTUP, never lower the window. (Comparing the gain with the target
-            // window, rather than the window with the target, is quinn's; it nearly always holds.)
+        } else if (cwnd < targetWindow || ackedBytes < initCwnd) {
+            // Before leaving STARTUP, grow towards the target and never lower the window. (quinn
+            // compares the gain, not the window, with the target, so its window grows without
+            // bound, even while application limited.)
             cwnd += bytesAcked;
         }
         // Enforce the lower limit
@@ -451,23 +479,26 @@ public final class Bbr implements Controller {
     @Override
     public void onSent(long now, long bytes, long lastPacketNumber) {
         maxSentPacketNumber = lastPacketNumber;
-        maxBandwidth.onSent(now, bytes);
     }
 
     @Override
     public void onAck(long now, long sent, long bytes, boolean appLimited, RttEstimator rtt) {
-        maxBandwidth.onAck(now, sent, bytes, roundCount, appLimited);
+        maxBandwidth.onAck(bytes);
         ackedBytes += bytes;
-        if (isMinRttExpired(now, appLimited) || minRtt > rtt.min()) {
-            minRtt = rtt.min();
-        }
+    }
+
+    @Override
+    public void onRateSample(long now, RateSample sample) {
+        pendingSample = sample;
     }
 
     @Override
     public void onEndAcks(long now, long inFlight, boolean appLimited, long largestPacketNumberAcked) {
+        RateSample sample = pendingSample;
+        pendingSample = null;
         long bytesAcked = maxBandwidth.bytesAckedThisWindow();
         long excessAcked = updateAckAggregationBytes(bytesAcked, now, roundCount, maxBandwidth.estimate());
-        maxBandwidth.endAcks(roundCount, appLimited);
+        maxBandwidth.endAcks();
         if (largestPacketNumberAcked >= 0) {
             maxAckedPacketNumber = largestPacketNumberAcked;
         }
@@ -480,16 +511,23 @@ public final class Bbr implements Controller {
                 roundCount++;
             }
         }
+        // BBRUpdateBtlBw and BBRUpdateRTprop, after the round count as in the draft
+        boolean sampleAppLimited = appLimited;
+        if (sample != null) {
+            maxBandwidth.onSample(roundCount, sample.deliveryRate(), sample.appLimited());
+            sampleAppLimited = sample.appLimited();
+        }
+        updateMinRtt(now, sample);
 
         updateRecoveryState(isRoundStart);
         if (mode == Mode.PROBE_BW) {
             updateGainCyclePhase(now, inFlight);
         }
         if (isRoundStart && !isAtFullBandwidth) {
-            checkIfFullBwReached(appLimited);
+            checkIfFullBwReached(sampleAppLimited);
         }
         maybeExitStartupOrDrain(now, inFlight);
-        maybeEnterOrExitProbeRtt(now, isRoundStart, inFlight, appLimited);
+        maybeEnterOrExitProbeRtt(now, isRoundStart, inFlight);
 
         // With the model updated, compute the pacing rate and the congestion window
         calculatePacingRate();
@@ -575,7 +613,7 @@ public final class Bbr implements Controller {
      * @return nanoseconds, 0 before the first measurement
      */
     public long minRtt() {
-        return minRtt;
+        return minRtt == UNKNOWN ? 0 : minRtt;
     }
 
     /**
@@ -594,6 +632,11 @@ public final class Bbr implements Controller {
      */
     public long roundCount() {
         return roundCount;
+    }
+
+    /** When the minimum RTT was last measured or refreshed. */
+    long minRttStamp() {
+        return minRttStamp;
     }
 
     /** The current pacing gain. */
