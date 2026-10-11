@@ -10,18 +10,19 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 
 /**
- * An HTTP/2 {@code CONNECT} stream shown as a connected socket, so that a TLS session can be
- * layered over it. The stream is a client's ({@link Http2StreamChannel}): an intercepted {@code
- * CONNECT} inside an HTTP/2 connection, whose decrypted connection is served like any other client
- * connection ({@link javax.net.ssl.SSLSocketFactory#createSocket(Socket, InputStream, boolean)}).
- * Or the proxy opened it on an HTTP/2 connection to a server ({@link Http2UpstreamStream}): a
- * tunnel through an intercepted HTTPS proxy, with the proxy's own TLS to the server inside it.
+ * An HTTP/2 or HTTP/3 {@code CONNECT} stream shown as a connected socket, so that a TLS session can
+ * be layered over it. The stream is a client's ({@link Http2StreamChannel}, {@link
+ * Http3StreamChannel}): an intercepted {@code CONNECT} inside an HTTP/2 or HTTP/3 connection,
+ * whose decrypted connection is served like any other client connection ({@link
+ * javax.net.ssl.SSLSocketFactory#createSocket(Socket, InputStream, boolean)}). Or the proxy opened
+ * it on an HTTP/2 connection to a server ({@link Http2UpstreamStream}): a tunnel through an
+ * intercepted HTTPS proxy, with the proxy's own TLS to the server inside it.
  *
- * <p>The streams are the tunnel's bytes in DATA frames, which wait for flow-control window both
- * ways. The read timeout applies to reads as a socket's does; {@link #shutdownOutput} sends
- * END_STREAM; {@link #close} ends the output too and fails reads in progress, as closing a TCP
- * socket does. A reset of the stream fails reads and writes. Socket options have no meaning and
- * are accepted and ignored; nothing here opens a file descriptor.
+ * <p>The streams are the tunnel's bytes in DATA frames, which wait for flow control both ways. The
+ * read timeout applies to reads as a socket's does; {@link #shutdownOutput} ends the stream's
+ * output (HTTP/2's END_STREAM, QUIC's FIN); {@link #close} ends the output too and fails reads in
+ * progress, as closing a TCP socket does. A reset of the stream fails reads and writes. Socket
+ * options have no meaning and are accepted and ignored; nothing here opens a file descriptor.
  */
 final class StreamSocket extends Socket {
 
@@ -33,7 +34,7 @@ final class StreamSocket extends Socket {
         /** How long reads of the tunnel's bytes wait, in ms; 0 for ever. */
         int readTimeout();
 
-        /** Ends the tunnel's output with END_STREAM, unless it has ended. */
+        /** Ends the tunnel's output (END_STREAM, or the stream's FIN), unless it has ended. */
         void endTunnelOutput() throws IOException;
 
         /** Closes the stream as a socket is closed: reads fail, and the output ends (or the stream is reset). */
@@ -227,7 +228,7 @@ final class StreamSocket extends Socket {
 
     @Override
     public void sendUrgentData(int data) throws IOException {
-        throw new SocketException("urgent data is not supported on an HTTP/2 stream");
+        throw new SocketException("urgent data is not supported on a stream");
     }
 
     @Override
