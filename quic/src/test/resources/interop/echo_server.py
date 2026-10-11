@@ -10,7 +10,9 @@ Raw QUIC streams with the ALPN "microproxy-test":
 * datagrams are echoed.
 
 It prints "LISTENING <port>" once bound, then one line per event the tests check:
-"CONNECTED <cipher suite>" and "TERMINATED <error code> <reason>". It runs until stdin closes.
+"CONNECTED <cipher suite>", "RESUMED <session resumed> <early data accepted>" and
+"TERMINATED <error code> <reason>". With --tickets it issues session tickets, keeps them in
+memory and accepts 0-RTT data with them. It runs until stdin closes.
 """
 
 import argparse
@@ -48,6 +50,7 @@ class EchoServerProtocol(QuicConnectionProtocol):
         if isinstance(event, HandshakeCompleted):
             suite = quic.tls.key_schedule.cipher_suite
             emit("CONNECTED %s" % CipherSuite(suite).name)
+            emit("RESUMED %s %s" % (event.session_resumed, event.early_data_accepted))
         elif isinstance(event, StreamDataReceived):
             sid = event.stream_id
             if sid & 2:  # unidirectional
@@ -106,12 +109,15 @@ async def main(args):
     configuration.load_cert_chain(args.certificate, args.private_key)
     if args.secrets_log:
         configuration.secrets_log_file = open(args.secrets_log, "a")
+    tickets = {}
     server = await serve(
         args.host,
         args.port,
         configuration=configuration,
         create_protocol=EchoServerProtocol,
         retry=args.retry,
+        session_ticket_fetcher=(lambda key: tickets.pop(key, None)) if args.tickets else None,
+        session_ticket_handler=(lambda t: tickets.__setitem__(t.ticket, t)) if args.tickets else None,
     )
     port = server._transport.get_extra_info("sockname")[1]
     emit("LISTENING %d" % port)
@@ -129,5 +135,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--cipher-suite", action="append", help="e.g. AES_128_GCM_SHA256")
     parser.add_argument("--retry", action="store_true")
+    parser.add_argument("--tickets", action="store_true", help="issue session tickets and accept 0-RTT")
     parser.add_argument("--secrets-log")
     asyncio.run(main(parser.parse_args()))
