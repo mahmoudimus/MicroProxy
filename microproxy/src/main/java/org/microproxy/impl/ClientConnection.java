@@ -351,6 +351,13 @@ final class ClientConnection implements Runnable {
         Hop forwarding;
         /** The intercepted proxy's 2xx to a forwarded {@code CONNECT}, once its tunnel is open. */
         HttpResponse tunnelOpened;
+        /**
+         * The client sent this request in absolute-form inside a session (and no filter pointed
+         * it elsewhere): it goes to the session's server, which the client takes for its proxy,
+         * as a proxy request, in absolute-form with the client's {@code Proxy-Authorization}, on
+         * a connection no other client gets; that proxy's {@code Proxy-Authenticate} comes back.
+         */
+        boolean proxyForm;
 
         Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
             this.channel = channel;
@@ -806,10 +813,10 @@ final class ClientConnection implements Runnable {
      * any transport. Returns whether the client connection stays open.
      */
     private boolean handleRequest(ClientChannel channel, HttpRequest request) throws IOException {
-        // A CONNECT inside an intercepted session goes to the intercepted server, which the client
-        // takes for its HTTPS proxy; so does everything inside the tunnel one opened.
+        // A CONNECT or an absolute-form request inside a session goes to the session's server,
+        // which the client takes for its proxy; so does everything inside the tunnel one opened.
         Hop hop = via;
-        channel.flowContext().forwardedVia(mitmHostAndPort != null && ProxyUtils.isCONNECT(request) ? mitmHostAndPort
+        channel.flowContext().forwardedVia(mitmHostAndPort != null && isProxyRequest(request) ? mitmHostAndPort
                 : hop != null ? hop.proxy : null);
         if (!server.trackers.isEmpty()) {
             // Trackers get a snapshot: the request itself is rewritten while it is proxied.
@@ -929,10 +936,19 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("the proxy needs an absolute URI"), true);
         }
 
-        // Requests in an intercepted session go to the CONNECT target, unless a filter pointed the
-        // request at an absolute URI of its own (map_remote, a script assigning req.uri): then it
-        // goes where that URI says, over TLS for https. (A plain HTTP session's go without TLS.)
-        boolean pinned = mitmHostAndPort != null && !redirected(ex);
+        // Requests in a session (intercepted TLS, or plain HTTP) go to the CONNECT target, unless a
+        // filter pointed the request at an absolute URI of its own (map_remote, a script assigning
+        // req.uri): then it goes where that URI says, over TLS for https. (A plain HTTP session's
+        // go without TLS.) An absolute URI the client sent itself is a proxy request for the
+        // session's server, which the client takes for its proxy: it goes there as it is.
+        boolean redirected = mitmHostAndPort != null && redirected(ex);
+        if (redirected) {
+            // Not through the session's server, then (but still through a hop's, inside one).
+            Hop hop = via;
+            ex.flow.forwardedVia(hop != null ? hop.proxy : null);
+        }
+        boolean pinned = mitmHostAndPort != null && !redirected;
+        ex.proxyForm = pinned && ProxyUtils.isAbsoluteUri(ex.request.uri());
         String hostAndPort = pinned ? mitmHostAndPort : identifyHostAndPort(ex.request);
         if (hostAndPort == null) {
             return respondFailure(ex, new ProxyFailure.NoRoute(null), false);
@@ -941,12 +957,23 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * Whether filters gave a request inside an intercepted session an absolute URI it did not
-     * arrive with (requests there arrive in origin-form), so that it leaves the session's server.
+     * Whether filters gave a request an absolute URI other than the one it arrived with, so that
+     * it leaves the session's server (or a reverse proxy's upstream). An absolute URI the client
+     * sent, left as it was, is not a redirect: inside a session it is a proxy request for the
+     * session's server ({@link Exchange#proxyForm}); a reverse proxy has made it origin-form
+     * before any filter ran ({@link #reverseProxyTarget}).
      */
     private static boolean redirected(Exchange ex) {
         String uri = ex.request.uri();
         return ProxyUtils.isAbsoluteUri(uri) && !uri.equals(ex.originalUri);
+    }
+
+    /**
+     * Whether a client asks for {@code request} as of a proxy: a {@code CONNECT}, or a request in
+     * absolute-form. Inside a session, such requests go to the session's server.
+     */
+    private static boolean isProxyRequest(HttpRequest request) {
+        return ProxyUtils.isCONNECT(request) || ProxyUtils.isAbsoluteUri(request.uri());
     }
 
     /** Whether {@code uri} is an absolute {@code https://} (or {@code wss://}) URI. */
@@ -1022,8 +1049,14 @@ final class ClientConnection implements Runnable {
             mitmManager();
         }
         String key = mode + "|" + hostAndPort;
+        if (ex.proxyForm && (usesPool(mode) || mode == Mode.PLAIN && server.chainProxyManager != null && via == null)) {
+            // A proxy request carries the client's credentials for the session's server: it goes on
+            // connections of the client's own, never pooled, nor ones that hand an HTTP chained
+            // proxy their requests (the proxy request is the session's server's).
+            key += "|proxy";
+        }
         boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
-        boolean pooled = !webSocket && usesPool(mode);
+        boolean pooled = !webSocket && !ex.proxyForm && usesPool(mode);
         // Concurrent exchanges (HTTP/2 streams) never share an HTTP/1.1 server connection: each
         // takes an idle one of the client's for the exchange, or makes one.
         boolean multiplexed = ex.channel.multiplexed();
@@ -1043,16 +1076,22 @@ final class ClientConnection implements Runnable {
         if (conn != null) {
             nextHopOrigin = conn.nextHopIsOrigin();
         } else {
-            route = lookupRoute(ex.request);
+            route = routeFor(ex, hostAndPort);
             if (route == null) {
                 return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
             }
             nextHopOrigin = isNextHopOrigin(route.getFirst(), mode);
         }
+        // A proxy request stays in absolute-form: the session's server is the client's proxy.
+        nextHopOrigin &= !ex.proxyForm;
 
         // TE is hop-by-hop, but an HTTP/2 server is told the client takes trailers: the proxy relays them.
         ex.trailersAccepted = acceptsTrailers(ex.request);
+        // (Proxy-Authorization is hop-by-hop too, but a proxy request's is for the server it goes to.)
+        List<String> credentials = ex.proxyForm ? ex.request.headers().getAll(HttpHeaderNames.PROXY_AUTHORIZATION)
+                : List.of();
         modifyRequestHeadersToReflectProxying(ex.request, nextHopOrigin, webSocket);
+        for (String credential : credentials) ex.request.headers().add(HttpHeaderNames.PROXY_AUTHORIZATION, credential);
         if (ex.request.protocolVersion().majorVersion() >= 2) {
             // An HTTP/2 stream's request reaches the server as HTTP/1.1 (its Via says 2).
             ex.request.setProtocolVersion(HttpVersion.HTTP_1_1);
@@ -1084,7 +1123,7 @@ final class ClientConnection implements Runnable {
             String http2Key = null;
             if (conn == null) {
                 if (route == null) {
-                    route = lookupRoute(ex.request);
+                    route = routeFor(ex, hostAndPort);
                     if (route == null) {
                         return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
                     }
@@ -1109,7 +1148,10 @@ final class ClientConnection implements Runnable {
                 boolean reported = http2Key == null;
                 try {
                     try {
-                        conn = pooled ? lease(hostAndPort, ex, route, mode) : connect(hostAndPort, ex, route, mode);
+                        // (A plain proxy request needs a way to the session's server itself: a
+                        // tunnel through an HTTP chained proxy, which would take it for its own.)
+                        conn = pooled ? lease(hostAndPort, ex, route, mode)
+                                : connect(hostAndPort, ex, route, ex.proxyForm && mode == Mode.PLAIN ? Mode.TUNNEL : mode);
                     } catch (SharedConnectionPool.PoolExhaustedException e) {
                         LOG.log(Level.DEBUG, ex.log + e.getMessage());
                         return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
@@ -1146,7 +1188,7 @@ final class ClientConnection implements Runnable {
                 } finally {
                     if (!reported) server.http2Origins.connectFailed(http2Key);
                 }
-                if (conn.nextHopIsOrigin() != nextHopOrigin) {
+                if (!ex.proxyForm && conn.nextHopIsOrigin() != nextHopOrigin) {
                     nextHopOrigin = conn.nextHopIsOrigin();
                     adjustUriForNextHop(ex.request, hostAndPort, nextHopOrigin);
                 }
@@ -1519,7 +1561,7 @@ final class ClientConnection implements Runnable {
         // The transport decides how the body is delimited, which may mean closing after it.
         closeClient |= ex.channel.adaptFraming(res, bodyAllowed && !switching && !(res instanceof FullHttpMessage));
         if (!server.transparent) {
-            modifyResponseHeadersToReflectProxying(res, ex.forwarding != null);
+            modifyResponseHeadersToReflectProxying(res, ex.forwarding != null || ex.proxyForm);
         }
         if (server.stripAltSvcH3) {
             AltSvc.stripHttp3(res.headers());
@@ -3013,6 +3055,14 @@ final class ClientConnection implements Runnable {
         return via != null ? DIRECT : chainedRoute(request);
     }
 
+    /**
+     * The routes for {@code ex}'s request to {@code hostAndPort}: a proxy request's are those to the
+     * session's server, as for a {@code CONNECT} to it ({@link #proxyConnection} asks the same).
+     */
+    private List<ChainedProxy> routeFor(Exchange ex, String hostAndPort) {
+        return lookupRoute(ex.proxyForm ? connectRequest(hostAndPort) : ex.request);
+    }
+
     /** The chained proxy manager's routes for {@code request}, as {@link #lookupRoute}. */
     private List<ChainedProxy> chainedRoute(HttpRequest request) {
         if (server.chainProxyManager == null) {
@@ -3495,9 +3545,9 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * @param forwarded the response is an intercepted proxy's answer to a forwarded {@code CONNECT}:
-     *     its {@code Proxy-Authenticate} challenges are for the client, which takes that server for
-     *     its proxy
+     * @param forwarded the response is a session's server's answer to a forwarded {@code CONNECT} or
+     *     proxy request: its {@code Proxy-Authenticate} challenges are for the client, which takes
+     *     that server for its proxy
      */
     private void modifyResponseHeadersToReflectProxying(HttpResponse response, boolean forwarded) {
         HttpHeaders headers = response.headers();

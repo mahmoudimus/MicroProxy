@@ -299,7 +299,8 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
 
     /**
      * The header list for {@code request}: pseudo-headers ({@code :authority} from {@code Host},
-     * else the target; a {@code CONNECT}'s is its target, without {@code :scheme} and {@code
+     * else the target; {@code :scheme https}, or an absolute-form URI's, as a proxy request to a
+     * proxy has it; a {@code CONNECT}'s is its target, without {@code :scheme} and {@code
      * :path}), then the fields with lower-case names, without connection-specific ones or {@code
      * host}, with {@code cookie} split into crumbs and {@code te} only as {@code trailers} (added
      * when the client accepts trailers: the proxy relays them). Fields HTTP/2 cannot carry are
@@ -313,21 +314,24 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
         if (authority == null || authority.isBlank()) authority = defaultPortless(hostAndPort);
         authority = authority.strip();
         String method = request.method().name();
+        // (Plain-HTTP proxy requests: the client takes the server for its proxy.)
+        String scheme = uri.regionMatches(true, 0, "http://", 0, 7) || uri.regionMatches(true, 0, "ws://", 0, 5)
+                ? "http" : "https";
         List<Map.Entry<String, String>> entries = request.headers().entries();
         List<HeaderField> fields;
         try {
-            fields = Http2Headers.fromHttp1Request(method, "https", authority, path, entries);
+            fields = Http2Headers.fromHttp1Request(method, scheme, authority, path, entries);
         } catch (IllegalArgumentException e) {
             List<Map.Entry<String, String>> valid = new ArrayList<>(entries.size());
             for (Map.Entry<String, String> entry : entries) {
                 try {
-                    Http2Headers.fromHttp1Request(method, "https", authority, path, List.of(entry));
+                    Http2Headers.fromHttp1Request(method, scheme, authority, path, List.of(entry));
                     valid.add(entry);
                 } catch (IllegalArgumentException invalid) {
                     // dropped
                 }
             }
-            fields = Http2Headers.fromHttp1Request(method, "https", authority, path, valid);
+            fields = Http2Headers.fromHttp1Request(method, scheme, authority, path, valid);
         }
         if (trailersAccepted && fields.stream().noneMatch(f -> f.name().equals("te"))) {
             fields.add(new HeaderField("te", "trailers"));

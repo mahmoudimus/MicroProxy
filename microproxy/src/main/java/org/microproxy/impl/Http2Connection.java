@@ -108,7 +108,8 @@ final class Http2Connection extends Http2Endpoint {
     private final ClientFlowContext connectionFlow;
     /**
      * The {@code CONNECT} target: requests for another authority get 421 (but plain {@code
-     * CONNECT}s, whose authority is a tunnel's target). Null for a forward proxy connection (h2c),
+     * CONNECT}s, whose authority is a tunnel's target, and {@code http} requests, which are proxy
+     * requests). Null for a forward proxy connection (h2c),
      * whose requests name any target.
      */
     private final HostAndPort target;
@@ -517,7 +518,11 @@ final class Http2Connection extends Http2Endpoint {
                 || !head.path().startsWith("/"))) {
             throw Http2Exception.streamError(id, ErrorCode.PROTOCOL_ERROR, "invalid WebSocket scheme or path");
         }
-        HttpRequest request = toHttp1(id, head, endStream, target == null);
+        // A request for http:// in an intercepted TLS session is a proxy request: the client takes
+        // the intercepted server for its HTTPS proxy, and asks it for a plain-HTTP URI, which goes
+        // there in absolute-form (ClientConnection's proxy requests).
+        boolean proxyRequest = target != null && !head.isConnect() && "http".equalsIgnoreCase(head.scheme());
+        HttpRequest request = toHttp1(id, head, endStream, target == null || proxyRequest);
         Http2StreamChannel stream = new Http2StreamChannel(this, id, new ClientFlowContext(connectionFlow, id),
                 request, head.isConnect() ? -1 : head.contentLength(), endStream, head.protocol(), head.scheme());
         stateLock.lock();
@@ -530,7 +535,8 @@ final class Http2Connection extends Http2Endpoint {
         }
         // A plain CONNECT names the target of a tunnel, not this session's authority: the client
         // takes the intercepted server for its HTTPS proxy (ClientConnection.forwardConnect).
-        boolean misdirected = !(head.isConnect() && head.protocol() == null) && misdirected(head.authority());
+        boolean misdirected = !(head.isConnect() && head.protocol() == null) && !proxyRequest
+                && misdirected(head.authority());
         stream.flowContext().startExchange();
         try {
             Thread.ofVirtual().name(server.name + "-h2-" + connectionFlow.getConnectionId() + "-" + id)
@@ -722,7 +728,8 @@ final class Http2Connection extends Http2Endpoint {
     /**
      * The HTTP/1-style request the exchange logic handles for a stream's request head: origin-form
      * on an intercepted session, absolute-form ({@code :scheme} and {@code :authority}) for a
-     * forward proxy, as an HTTP/1 client would send it.
+     * forward proxy (or a proxy request in an intercepted session), as an HTTP/1 client would send
+     * it.
      */
     private static HttpRequest toHttp1(int id, RequestHeaders head, boolean endStream, boolean forwardProxy)
             throws Http2Exception {
