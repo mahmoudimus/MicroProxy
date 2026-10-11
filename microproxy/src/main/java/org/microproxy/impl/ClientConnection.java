@@ -1841,13 +1841,13 @@ final class ClientConnection implements Runnable {
         if (!server.transparent) {
             modifyResponseHeadersToReflectProxying(res, ex.forwarding != null || ex.proxyForm);
         }
-        boolean serverAltSvc = res.headers().contains(AltSvc.NAME);
         if (server.stripAltSvcH3) {
             AltSvc.stripHttp3(res.headers());
         }
         String ownAltSvc = server.http3AltSvc;
-        if (ownAltSvc != null && !serverAltSvc && !(ex.channel instanceof Http3StreamChannel)) {
-            // A reverse proxy serving HTTP/3 tells TCP clients where to find it.
+        if (ownAltSvc != null && !res.headers().contains(AltSvc.NAME) && !(ex.channel instanceof Http3StreamChannel)) {
+            // A reverse proxy serving HTTP/3 tells TCP clients where to find it, unless the
+            // server's own Alt-Svc is left to say something else.
             res.headers().set(AltSvc.NAME, ownAltSvc);
         }
         if (switching) {

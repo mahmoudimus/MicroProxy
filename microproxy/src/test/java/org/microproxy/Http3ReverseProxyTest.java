@@ -51,6 +51,9 @@ class Http3ReverseProxyTest {
             assertEquals(200, r.status());
             assertTrue(r.text().startsWith("method: GET\nuri: /hello?x=1\n"), r.text());
             assertEquals(List.of("h3-test-client"), TestSupport.echoedHeader(r.text(), "user-agent"));
+            assertTrue(TestSupport.echoedHeader(r.text(), "via").getFirst().startsWith("3 "), "Via names HTTP/3");
+            assertEquals(List.of("127.0.0.1:" + origin.getAddress().getPort()), TestSupport.echoedHeader(r.text(), "host"),
+                    "the client's :authority becomes Host, which a reverse proxy sets to its upstream's");
             assertNull(r.header("alt-svc"), "no Alt-Svc over HTTP/3 itself");
         }
     }
@@ -69,6 +72,37 @@ class Http3ReverseProxyTest {
             r = client.request("POST", "/echo", List.of(new HeaderField("content-length", "300000")), body, List.of());
             assertArrayEquals(body, TestSupport.echoedBody(r.text()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             assertEquals(List.of("300000"), TestSupport.echoedHeader(r.text(), "content-length"));
+        }
+    }
+
+    @Test
+    void theServersOwnAltSvcWinsUnlessStrippingEmptiedIt() throws Exception {
+        HttpServer advertising = TestSupport.origin(exchange -> {
+            exchange.getResponseHeaders().set("Alt-Svc", exchange.getRequestURI().getPath().equals("/h2")
+                    ? "h2=\":443\"" : "h3=\":443\"");
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        HttpProxyServer stripping = MicroProxy.bootstrap()
+                .withPort(0)
+                .withReverseProxy("http://127.0.0.1:" + advertising.getAddress().getPort())
+                .withSslContextSource(tls)
+                .withHttp3(true)
+                .withAltSvcH3Stripping(true)
+                .start();
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder().sslContext(tls.getSslContext()).build();
+            String base = "https://localhost:" + stripping.getListenAddress().getPort();
+            java.net.http.HttpResponse<String> h2 = TestSupport.send(client,
+                    java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "/h2")).build());
+            assertEquals("h2=\":443\"", h2.headers().firstValue("alt-svc").orElse(null));
+            java.net.http.HttpResponse<String> h3 = TestSupport.send(client,
+                    java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "/h3")).build());
+            assertEquals("h3=\":" + stripping.getListenAddress().getPort() + "\"; ma=86400",
+                    h3.headers().firstValue("alt-svc").orElse(null), "the upstream's own h3 is replaced by the proxy's");
+        } finally {
+            stripping.abort();
+            advertising.stop(0);
         }
     }
 

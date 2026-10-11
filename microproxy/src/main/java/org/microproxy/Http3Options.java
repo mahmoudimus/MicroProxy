@@ -381,8 +381,8 @@ public final class Http3Options {
         /**
          * Whether a reverse proxy serving HTTP/3 adds {@code Alt-Svc: h3=":<port>"} to the
          * responses it sends over TCP (default on), so that clients find its HTTP/3 listener. A
-         * response that already has an {@code Alt-Svc} field from its server is left alone, and
-         * {@code proxyToClientResponse} filters may remove the field.
+         * response whose server's own {@code Alt-Svc} field is left after the {@code h3} stripping
+         * keeps it instead, and {@code proxyToClientResponse} filters may remove the field.
          *
          * @param advertise whether to advertise HTTP/3
          * @return this builder

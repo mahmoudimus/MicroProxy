@@ -1392,8 +1392,8 @@ listener on the TCP listener's port number and serves HTTP/3 there (ALPN `h3`).
   to an HTTP/1.1 server, trailers go through end to end where both sides carry them, and
   `100-continue` and `103 Early Hints` reach the client as interim responses.
 - **Advertising.** Responses sent over TCP get `Alt-Svc: h3=":<port>"; ma=86400`, so that clients
-  find the HTTP/3 listener; a response that already has an `Alt-Svc` field from its server keeps
-  it (with `h3` stripped when stripping is on, below), and a `proxyToClientResponse` filter may
+  find the HTTP/3 listener, unless the server's own `Alt-Svc` field is left after the `h3`
+  stripping (below), which then goes to the client as it is; a `proxyToClientResponse` filter may
   remove the field. `Http3Options.altSvc(false)` (`--no-http3-alt-svc`, `http3_alt_svc=false`)
   turns it off, and `altSvcMaxAge` sets `ma`. Browsers act on `Alt-Svc` only over HTTPS, so pair
   HTTP/3 with a TLS listener.
