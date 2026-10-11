@@ -156,12 +156,13 @@ final class ClientHandshake implements Handshake {
         boolean retry = hello.isHelloRetryRequest();
         String name = retry ? "HelloRetryRequest" : "ServerHello";
         if (retry && st.retried()) throw TlsAlert.unexpectedMessage("second HelloRetryRequest");
-        CipherSuite suite = checkHello(hello, name, retry ? RETRY_EXTENSIONS : SERVER_HELLO_EXTENSIONS);
+        CipherSuite suite = checkHello(hello, name, retry);
         return retry ? onHelloRetryRequest(hello, suite, raw) : onRealServerHello(st, hello, suite, raw);
     }
 
     /** The checks a ServerHello and a HelloRetryRequest share; returns the selected suite. */
-    private CipherSuite checkHello(ServerHello hello, String name, Set<Integer> allowed) throws QuicException {
+    private CipherSuite checkHello(ServerHello hello, String name, boolean retry) throws QuicException {
+        Set<Integer> allowed = retry ? RETRY_EXTENSIONS : SERVER_HELLO_EXTENSIONS;
         Extensions.checkNoDuplicates(hello.extensions(), name);
         byte[] version = Extension.find(hello.extensions(), ExtensionType.SUPPORTED_VERSIONS);
         if (version == null) {
@@ -186,8 +187,8 @@ final class ClientHandshake implements Handshake {
             throw TlsAlert.illegalParameter(name + " selected a cipher suite that was not offered");
         }
         for (Extension e : hello.extensions()) {
-            boolean solicited = sentExtensions.contains(e.type())
-                    || (e.type() == ExtensionType.COOKIE && allowed == RETRY_EXTENSIONS);
+            // A HelloRetryRequest's cookie is the one extension a server sends unasked (RFC 8446 section 4.2).
+            boolean solicited = sentExtensions.contains(e.type()) || (retry && e.type() == ExtensionType.COOKIE);
             if (!solicited) {
                 throw TlsAlert.error(TlsAlert.UNSUPPORTED_EXTENSION, name + " has unsolicited " + ExtensionType.name(e.type()));
             }
