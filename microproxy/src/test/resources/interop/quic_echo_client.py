@@ -7,10 +7,10 @@ Its QUIC runs over a UDP socket to HOST:PORT, or, with --masque-target, inside a
 inner connection's datagrams travel as HTTP Datagrams with context ID 0, in QUIC DATAGRAM frames
 when they are small and in DATAGRAM capsules on the request stream otherwise (RFC 9297).
 
-On the inner connection it echoes text on bidirectional streams, a megabyte on another (checked
-with SHA-256), sends a unidirectional stream and reads the server's answer on one of its own,
+On the inner connection it echoes text on bidirectional streams, a megabyte (--big-size) on another
+(checked with SHA-256), sends a unidirectional stream and reads the server's answer on one of its own,
 sends a datagram until its echo arrives, resets a stream with code 42 and closes with code 7. It
-prints one "RESULT <json>" line.
+prints one "RESULT <json>" line; a failure names the step it happened in.
 """
 
 import argparse
@@ -109,8 +109,13 @@ class Inner:
         return self.data.pop(sid, b"")
 
 
-async def scenarios(inner):
+# The step under way, for the error a failure reports.
+STAGE = ["connecting"]
+
+
+async def scenarios(inner, big_size):
     results = {"alpn": await asyncio.wait_for(inner.connected, 20)}
+    STAGE[0] = "echoes"
     quic = inner.quic
     echoes = []
     for i in range(3):
@@ -120,7 +125,8 @@ async def scenarios(inner):
         echoes.append((await inner.read_all(sid)).decode())
     results["echoes"] = echoes
 
-    big = random.Random(5).randbytes(1_000_000)
+    STAGE[0] = "a megabyte"
+    big = random.Random(5).randbytes(big_size)
     sid = quic.get_next_available_stream_id()
     for off in range(0, len(big), 65536):
         quic.send_stream_data(sid, big[off : off + 65536], end_stream=off + 65536 >= len(big))
@@ -130,6 +136,7 @@ async def scenarios(inner):
     results["big_ok"] = hashlib.sha256(received).digest() == hashlib.sha256(big).digest()
     results["big_length"] = len(received)
 
+    STAGE[0] = "a unidirectional stream"
     sid = quic.get_next_available_stream_id(is_unidirectional=True)
     quic.send_stream_data(sid, b"uni hello", end_stream=True)
     inner.transmit()
@@ -187,7 +194,7 @@ async def direct(args):
                       lambda data: transport.sendto(data, (args.host, args.port)))
         protocol.inner = inner
         inner.connect()
-        return await scenarios(inner)
+        return await scenarios(inner, args.big_size)
     finally:
         transport.close()
 
@@ -306,7 +313,7 @@ async def masque(args):
         inner = Inner(QuicConnection(configuration=inner_configuration(args)), outer.send_inner)
         outer.inner = inner
         inner.connect()
-        results = await scenarios(inner)
+        results = await scenarios(inner, args.big_size)
         results["masque_status"] = status
         return results
     finally:
@@ -320,7 +327,7 @@ async def main(args):
         results = await (masque(args) if args.masque_target else direct(args))
         print("RESULT " + json.dumps({"ok": True, "results": results}), flush=True)
     except Exception as e:  # reported to the test
-        print("RESULT " + json.dumps({"ok": False, "error": repr(e)}), flush=True)
+        print("RESULT " + json.dumps({"ok": False, "error": "%s during %s" % (repr(e), STAGE[0])}), flush=True)
     return 0
 
 
@@ -334,4 +341,5 @@ if __name__ == "__main__":
     parser.add_argument("--masque-target", help="host:port of a CONNECT-UDP flow to run the QUIC in")
     parser.add_argument("--proxy-ca", help="the CA the proxy's HTTP/3 listener is checked with")
     parser.add_argument("--proxy-name", default="localhost")
+    parser.add_argument("--big-size", type=int, default=1_000_000, help="the bytes of the large echoed stream")
     raise SystemExit(asyncio.run(main(parser.parse_args())))
