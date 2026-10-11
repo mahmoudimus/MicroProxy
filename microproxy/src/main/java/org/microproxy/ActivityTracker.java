@@ -187,4 +187,20 @@ public interface ActivityTracker {
      * @param cause the failure that triggered this event
      */
     default void serverConnectionExceptionCaught(FullFlowContext serverContext, Throwable cause) {}
+
+    /**
+     * Called when the transparent QUIC listener ({@link
+     * HttpProxyServerBootstrap#withTransparentQuicPort}) has decided what to do with a new client
+     * flow, from its ClientHello: intercept it (its HTTP/3 requests then come as for any client),
+     * or relay its datagrams to the server untouched. {@link #clientConnected} came before, with
+     * the same context; {@link #clientDisconnected} comes when the flow ends.
+     *
+     * @param flowContext the flow's context, whose {@link FlowContext#isTransparentQuic()} is true
+     * @param clientHello the ClientHello the client sent in its Initial packets
+     * @param intercepted whether the proxy intercepts the flow; false when it relays it
+     * @param reason why the flow is relayed (an ignored host, no HTTP/3 offered, a filter
+     *     declined, ...), or {@code null} when it is intercepted
+     */
+    default void transparentQuicFlowDecided(FlowContext flowContext, ClientHello clientHello, boolean intercepted,
+            String reason) {}
 }

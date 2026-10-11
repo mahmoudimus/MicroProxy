@@ -46,6 +46,15 @@ final class Http3Listener implements AutoCloseable {
      */
     static Http3Listener start(DefaultHttpProxyServer server, InetSocketAddress address, Function<String, KeyMaterial> keys)
             throws IOException {
+        return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys)));
+    }
+
+    /**
+     * How the proxy's QUIC servers accept clients: ALPN {@code h3}, the certificate {@code keys}
+     * gives for the client's SNI, the HTTP/3 options' stream limits and windows, the proxy's idle
+     * timeout, and Retry if the options ask for it.
+     */
+    static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
         Http3Options options = server.http3Options;
         TlsConfig tls = TlsConfig.builder()
                 .alpnProtocols("h3")
@@ -62,8 +71,7 @@ final class Http3Listener implements AutoCloseable {
                 .streamReceiveWindow(options.streamReceiveWindow())
                 .receiveWindow(options.connectionReceiveWindow())
                 .build();
-        ServerConfig config = ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
-        return new Http3Listener(server, QuicServer.bind(address, config));
+        return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }
 
     /** The UDP address the listener is bound to. */

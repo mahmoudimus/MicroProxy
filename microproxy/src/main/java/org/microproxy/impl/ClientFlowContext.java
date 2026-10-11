@@ -48,6 +48,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile String forwardedVia;
     /** The SOCKS version the client connection began with, or 0. */
     private volatile int socksVersion;
+    /** Whether the client connection is a flow of the transparent QUIC listener. */
+    private volatile boolean transparentQuic;
 
     ClientFlowContext(
             long connectionId,
@@ -154,6 +156,16 @@ final class ClientFlowContext extends FlowContext {
         int version = socksVersion;
         if (version == 0 && connectionFlow != null) return connectionFlow.socksVersion();
         return version == 0 ? OptionalInt.empty() : OptionalInt.of(version);
+    }
+
+    /** Records that the client connection is a QUIC flow of the transparent QUIC listener. */
+    void transparentQuic() {
+        transparentQuic = true;
+    }
+
+    @Override
+    public boolean isTransparentQuic() {
+        return transparentQuic || (connectionFlow != null && connectionFlow.isTransparentQuic());
     }
 
     @Override

@@ -43,6 +43,13 @@ public final class Http3Options {
     private final Duration upstreamFailureTimeout;
     private final boolean altSvc;
     private final Duration altSvcMaxAge;
+    private final Duration transparentRelayIdleTimeout;
+    private final Duration transparentPendingTimeout;
+    private final int transparentMaxPending;
+    private final int transparentMaxPendingPerSource;
+    private final int transparentMaxRelayFlows;
+    private final int transparentMaxRelayFlowsPerSource;
+    private final long transparentMaxBufferedBytes;
 
     private Http3Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -60,6 +67,13 @@ public final class Http3Options {
         upstreamFailureTimeout = b.upstreamFailureTimeout;
         altSvc = b.altSvc;
         altSvcMaxAge = b.altSvcMaxAge;
+        transparentRelayIdleTimeout = b.transparentRelayIdleTimeout;
+        transparentPendingTimeout = b.transparentPendingTimeout;
+        transparentMaxPending = b.transparentMaxPending;
+        transparentMaxPendingPerSource = b.transparentMaxPendingPerSource;
+        transparentMaxRelayFlows = b.transparentMaxRelayFlows;
+        transparentMaxRelayFlowsPerSource = b.transparentMaxRelayFlowsPerSource;
+        transparentMaxBufferedBytes = b.transparentMaxBufferedBytes;
     }
 
     /**
@@ -93,6 +107,13 @@ public final class Http3Options {
         b.upstreamFailureTimeout = upstreamFailureTimeout;
         b.altSvc = altSvc;
         b.altSvcMaxAge = altSvcMaxAge;
+        b.transparentRelayIdleTimeout = transparentRelayIdleTimeout;
+        b.transparentPendingTimeout = transparentPendingTimeout;
+        b.transparentMaxPending = transparentMaxPending;
+        b.transparentMaxPendingPerSource = transparentMaxPendingPerSource;
+        b.transparentMaxRelayFlows = transparentMaxRelayFlows;
+        b.transparentMaxRelayFlowsPerSource = transparentMaxRelayFlowsPerSource;
+        b.transparentMaxBufferedBytes = transparentMaxBufferedBytes;
         return b;
     }
 
@@ -151,7 +172,7 @@ public final class Http3Options {
         return maxRapidResets;
     }
 
-    /** {@return whether the HTTP/3 listener validates client addresses with a QUIC Retry first} */
+    /** {@return whether the HTTP/3 listeners validate client addresses with a QUIC Retry first} */
     public boolean retry() {
         return retry;
     }
@@ -176,6 +197,41 @@ public final class Http3Options {
         return altSvcMaxAge;
     }
 
+    /** {@return how long a relayed QUIC flow of the transparent QUIC listener lives without a datagram either way} */
+    public Duration transparentRelayIdleTimeout() {
+        return transparentRelayIdleTimeout;
+    }
+
+    /** {@return how long the transparent QUIC listener waits for a new client's complete ClientHello, and its decision} */
+    public Duration transparentPendingTimeout() {
+        return transparentPendingTimeout;
+    }
+
+    /** {@return the new clients the transparent QUIC listener holds at once while it reads their ClientHellos} */
+    public int transparentMaxPending() {
+        return transparentMaxPending;
+    }
+
+    /** {@return the new clients from one IP address that the transparent QUIC listener holds at once} */
+    public int transparentMaxPendingPerSource() {
+        return transparentMaxPendingPerSource;
+    }
+
+    /** {@return the QUIC flows the transparent QUIC listener relays at once, each with a socket of its own} */
+    public int transparentMaxRelayFlows() {
+        return transparentMaxRelayFlows;
+    }
+
+    /** {@return the relayed QUIC flows of one IP address at once} */
+    public int transparentMaxRelayFlowsPerSource() {
+        return transparentMaxRelayFlowsPerSource;
+    }
+
+    /** {@return the bytes of datagrams the transparent QUIC listener holds for new clients, all together} */
+    public long transparentMaxBufferedBytes() {
+        return transparentMaxBufferedBytes;
+    }
+
     @Override
     public String toString() {
         return "Http3Options[maxConcurrentStreams=" + maxConcurrentStreams + ", streamReceiveWindow=" + streamReceiveWindow
@@ -185,7 +241,11 @@ public final class Http3Options {
                 + ", maxUnknownStreams=" + maxUnknownStreams + ", maxRapidResets=" + maxRapidResets + ", retry=" + retry
                 + ", upstreamHandshakeTimeout=" + upstreamHandshakeTimeout
                 + ", upstreamFailureTimeout=" + upstreamFailureTimeout + ", altSvc=" + altSvc
-                + ", altSvcMaxAge=" + altSvcMaxAge + "]";
+                + ", altSvcMaxAge=" + altSvcMaxAge + ", transparentRelayIdleTimeout=" + transparentRelayIdleTimeout
+                + ", transparentPendingTimeout=" + transparentPendingTimeout + ", transparentMaxPending="
+                + transparentMaxPending + ", transparentMaxPendingPerSource=" + transparentMaxPendingPerSource
+                + ", transparentMaxRelayFlows=" + transparentMaxRelayFlows + ", transparentMaxRelayFlowsPerSource="
+                + transparentMaxRelayFlowsPerSource + ", transparentMaxBufferedBytes=" + transparentMaxBufferedBytes + "]";
     }
 
     /** Builds {@link Http3Options}. */
@@ -205,6 +265,13 @@ public final class Http3Options {
         private Duration upstreamFailureTimeout = Duration.ofMinutes(5);
         private boolean altSvc = true;
         private Duration altSvcMaxAge = Duration.ofHours(24);
+        private Duration transparentRelayIdleTimeout = Duration.ofSeconds(60);
+        private Duration transparentPendingTimeout = Duration.ofSeconds(5);
+        private int transparentMaxPending = 1024;
+        private int transparentMaxPendingPerSource = 32;
+        private int transparentMaxRelayFlows = 4096;
+        private int transparentMaxRelayFlowsPerSource = 256;
+        private long transparentMaxBufferedBytes = 8L * 1024 * 1024;
 
         private Builder() {}
 
@@ -344,7 +411,8 @@ public final class Http3Options {
         /**
          * Whether the HTTP/3 listener answers a client's first packet with a QUIC Retry, so that
          * only clients that can receive at their address cost it a handshake (default off: it
-         * costs every client a round trip).
+         * costs every client a round trip). The transparent QUIC listener sends Retry only to the
+         * clients it intercepts: a relayed client's server would refuse the token.
          *
          * @param retry whether to send Retry
          * @return this builder
@@ -401,6 +469,79 @@ public final class Http3Options {
          */
         public Builder altSvcMaxAge(Duration maxAge) {
             altSvcMaxAge = positive(maxAge, "altSvcMaxAge");
+            return this;
+        }
+
+        /**
+         * How long a QUIC flow that the transparent QUIC listener relays untouched (an ignored
+         * host, a client offering no HTTP/3) lives without a datagram in either direction (default
+         * 60 s), after which its socket to the server is closed. Make it at least the QUIC idle
+         * timeout of the clients and servers (often 30 s).
+         *
+         * @param timeout the idle timeout of a relayed flow
+         * @return this builder
+         * @see HttpProxyServerBootstrap#withTransparentQuicPort(int)
+         */
+        public Builder transparentRelayIdleTimeout(Duration timeout) {
+            transparentRelayIdleTimeout = positive(timeout, "transparentRelayIdleTimeout");
+            return this;
+        }
+
+        /**
+         * How long the transparent QUIC listener holds a new client's datagrams (default 5 s) for
+         * its ClientHello to complete and the proxy to decide on it; a client still pending then is
+         * forgotten, its datagrams dropped.
+         *
+         * @param timeout the longest a client may stay pending
+         * @return this builder
+         */
+        public Builder transparentPendingTimeout(Duration timeout) {
+            transparentPendingTimeout = positive(timeout, "transparentPendingTimeout");
+            return this;
+        }
+
+        /**
+         * The new clients (half-open QUIC flows: Initials whose ClientHello is being read or decided
+         * on) the transparent QUIC listener holds at once (default 1024), and from one IP address
+         * (default 32). Initials of further new clients are dropped, as a full socket buffer would
+         * drop them; clients send them again.
+         *
+         * @param total the most new clients held at once
+         * @param perSource the most new clients of one IP address held at once
+         * @return this builder
+         */
+        public Builder transparentMaxPending(int total, int perSource) {
+            transparentMaxPending = positive(total, "transparentMaxPending");
+            transparentMaxPendingPerSource = positive(perSource, "transparentMaxPendingPerSource");
+            return this;
+        }
+
+        /**
+         * The QUIC flows the transparent QUIC listener relays at once (default 4096), and for one
+         * IP address (default 256); each has a UDP socket to its server. A new flow past either
+         * limit is dropped.
+         *
+         * @param total the most relayed flows at once
+         * @param perSource the most relayed flows of one IP address at once
+         * @return this builder
+         */
+        public Builder transparentMaxRelayFlows(int total, int perSource) {
+            transparentMaxRelayFlows = positive(total, "transparentMaxRelayFlows");
+            transparentMaxRelayFlowsPerSource = positive(perSource, "transparentMaxRelayFlowsPerSource");
+            return this;
+        }
+
+        /**
+         * The bytes of datagrams the transparent QUIC listener holds for all its new clients
+         * together (default 8 MiB); each one may hold 16 datagrams at most. Datagrams past it are
+         * dropped.
+         *
+         * @param bytes the most bytes held, at least 65536
+         * @return this builder
+         */
+        public Builder transparentMaxBufferedBytes(long bytes) {
+            if (bytes < 65_536) throw new IllegalArgumentException("transparentMaxBufferedBytes below 65536: " + bytes);
+            transparentMaxBufferedBytes = bytes;
             return this;
         }
 

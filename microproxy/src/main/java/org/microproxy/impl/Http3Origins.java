@@ -140,6 +140,32 @@ final class Http3Origins {
     }
 
     /**
+     * Learns that a client just spoke HTTP/3 to {@code hostAndPort}, on its own port: the
+     * transparent QUIC listener intercepted the client's QUIC to it. Remembered for a day unless
+     * the server's own advertisement says otherwise; a server whose QUIC handshake fails still
+     * goes over TCP, as for any advertisement.
+     */
+    void spoke(String hostAndPort) {
+        int port;
+        try {
+            port = HostAndPort.parse(hostAndPort, 443).port();
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        String key = origin(hostAndPort);
+        lock.lock();
+        try {
+            Alternative known = alternatives.get(key);
+            if (known == null || known.expiresNanos() - clock.getAsLong() <= 0) {
+                alternatives.put(key, new Alternative(port, clock.getAsLong() + TimeUnit.DAYS.toNanos(1)));
+                LOG.log(Level.DEBUG, "a client spoke HTTP/3 to " + hostAndPort);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
      * The UDP port to reach {@code hostAndPort} at over HTTP/3, or -1 when it is not known to speak
      * HTTP/3 (or its advertisement has expired).
      */

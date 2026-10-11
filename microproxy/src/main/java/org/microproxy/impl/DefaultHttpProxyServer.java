@@ -111,8 +111,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final String[] tlsProtocols;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
-    /** Whether HTTP/3 alternatives are removed from Alt-Svc response headers. */
+    /** Whether HTTP/3 alternatives are removed from Alt-Svc response headers, for clients of the explicit proxy. */
     final boolean stripAltSvcH3;
+    /** Whether they are removed for clients whose traffic was redirected to the proxy. */
+    final boolean stripAltSvcH3Transparent;
+    /** The UDP port of the transparent QUIC listener (0 for any), or -1 for none. */
+    final int transparentQuicPort;
+    /** The certificate the transparent QUIC listener presents for a server name; null when it intercepts nothing. */
+    private final Function<String, KeyMaterial> transparentQuicKeys;
+    /** The transparent QUIC listener, once started; null without one. */
+    private volatile TransparentQuicListener transparentQuicListener;
     /** Whether intercepted TLS offers HTTP/2 (ALPN {@code h2}); the codec is known to be present. */
     final boolean http2;
     /** Whether TLS connections to servers offer HTTP/2; the codec is known to be present. */
@@ -152,8 +160,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             // Fail at startup, not on the first client that asks for h2.
             throw new IllegalStateException(Http2Support.MISSING);
         }
-        if ((b.http3 || b.http3Upstream) && !Http3Support.available()) {
+        if ((b.http3 || b.http3Upstream || b.transparentQuicPort >= 0) && !Http3Support.available()) {
             throw new IllegalStateException(Http3Support.MISSING);
+        }
+        if (b.transparentQuicPort >= 0 && (!b.transparent || b.reverseProxy != null)) {
+            throw new IllegalStateException("transparent QUIC (withTransparentQuicPort, --transparent-quic-port,"
+                    + " transparent_quic_port) needs transparent mode (withTransparent, --transparent), and no reverse proxy");
         }
         if (b.http3 && (b.reverseProxy == null || b.reverseProxy.rawTcp())) {
             // Clients of an explicit (or transparent, or SOCKS) proxy never speak HTTP/3 to it:
@@ -205,6 +217,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
         this.stripAltSvcH3 = b.stripsAltSvcH3();
+        this.stripAltSvcH3Transparent = b.stripsAltSvcH3ForTransparent();
+        this.transparentQuicPort = b.transparentQuicPort;
+        this.transparentQuicKeys = b.transparentQuicPort >= 0 ? transparentQuicKeys(b.mitmManager) : null;
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
         this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
@@ -257,6 +272,23 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     /**
+     * Where the transparent QUIC listener's certificates come from: the CA of a {@link
+     * CertificateAuthorityMitmManager}, which issues one for the client's SNI; null without one, when
+     * every flow is relayed.
+     */
+    private static Function<String, KeyMaterial> transparentQuicKeys(MitmManager manager) {
+        if (manager instanceof CertificateAuthorityMitmManager ca) {
+            return sni -> sni == null || sni.isEmpty() ? null : ca.keyMaterialFor(sni);
+        }
+        if (manager != null) {
+            LOG.log(Level.WARNING, "the transparent QUIC listener intercepts only with a CertificateAuthorityMitmManager"
+                    + " (--mitm), which issues the certificates QUIC needs; " + manager.getClass().getName()
+                    + " does not, so every QUIC flow is relayed");
+        }
+        return null;
+    }
+
+    /**
      * Starts a proxy configuration with default settings.
      *
      * @return a new proxy bootstrap
@@ -305,6 +337,21 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             }
             LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());
         }
+        if (transparentQuicPort >= 0) {
+            InetSocketAddress udp = new InetSocketAddress(boundAddress.getAddress(), transparentQuicPort);
+            try {
+                transparentQuicListener = TransparentQuicListener.start(this, udp, transparentQuicKeys);
+            } catch (IOException | RuntimeException e) {
+                Http3Listener h3 = http3Listener;
+                if (h3 != null) h3.close();
+                Tls.closeQuietly(serverSocket);
+                executor.shutdownNow();
+                if (pool != null) pool.closeAll();
+                throw new UncheckedIOException("unable to bind the transparent QUIC listener on UDP " + udp,
+                        e instanceof IOException io ? io : new IOException(e));
+            }
+            LOG.log(Level.INFO, "{0} transparent QUIC on UDP {1}", name, transparentQuicListener.localAddress());
+        }
         // A platform, non-daemon acceptor keeps the JVM alive while the proxy runs, like Netty's
         // event loops did; all per-connection work happens on (daemon) virtual threads.
         acceptor = Thread.ofPlatform().name(name + "-acceptor").daemon(false).start(this::acceptLoop);
@@ -349,6 +396,32 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             connections.remove(connection);
             quic.close();
         }
+    }
+
+    /**
+     * Serves an intercepted QUIC connection of the transparent QUIC listener, with the client
+     * connection that decided on it.
+     */
+    void acceptTransparentQuic(io.github.mahmoudimus.quic.QuicConnection quic, ClientConnection connection) {
+        connections.add(connection);
+        try {
+            executor.execute(() -> connection.serveTransparentQuic(quic));
+        } catch (RuntimeException e) {
+            connections.remove(connection);
+            quic.close();
+            connection.endTransparentQuic(false);
+        }
+    }
+
+    /** The transparent QUIC listener, or null without one (for tests). */
+    TransparentQuicListener transparentQuicListener() {
+        return transparentQuicListener;
+    }
+
+    @Override
+    public InetSocketAddress getTransparentQuicAddress() {
+        TransparentQuicListener listener = transparentQuicListener;
+        return listener == null ? null : listener.localAddress();
     }
 
     /** The UDP address of the HTTP/3 listener, or null without one. */
@@ -446,6 +519,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             connections.forEach(ClientConnection::close);
             Http3Listener listener = http3Listener;
             if (listener != null) listener.close();
+            TransparentQuicListener quicListener = transparentQuicListener;
+            if (quicListener != null) quicListener.close();
             if (http2Origins != null) http2Origins.closeAll();
             if (http3Origins != null) http3Origins.closeAll();
             if (pool != null) pool.closeAll();
