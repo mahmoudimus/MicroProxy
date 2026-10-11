@@ -2660,14 +2660,17 @@ final class ClientConnection implements Runnable {
         if (route == null || !route.contains(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION)) {
             // A chained proxy carries no UDP: only a direct route (or a fallback to one) will do.
             LOG.log(Level.DEBUG, ex.log + "no direct route for UDP to " + hostAndPort);
+            server.stats.masque.rejectedPolicy.inc();
             return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
         }
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
         if (shortCircuit != null) {
+            server.stats.masque.rejectedPolicy.inc();
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
         if (server.udpFlows.incrementAndGet() > server.http3Options.connectUdpMaxFlows()) {
             server.udpFlows.decrementAndGet();
+            server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + server.http3Options.connectUdpMaxFlows() + " flows open");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -2712,10 +2715,12 @@ final class ClientConnection implements Runnable {
         }
         Http3Options options = server.http3Options;
         UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
-                options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes());
+                options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes(),
+                server.stats.hooks.udp);
         // Before the answer: the client may send datagrams as soon as it reads it.
         if (!client.attach(flow)) {
             socket.close();
+            server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -2743,6 +2748,7 @@ final class ClientConnection implements Runnable {
             ex.responseStarted = true;
             if (response.status().code() != 101) {
                 // A filter refused the flow: its answer goes to the client as it is.
+                server.stats.masque.rejectedPolicy.inc();
                 writeToClient(() -> ex.channel.writeComplete(response, true));
                 countFull(ex, response, true);
                 sent(ex, response, source);
@@ -2753,7 +2759,15 @@ final class ClientConnection implements Runnable {
             sent(ex, response, source);
             completed(ex, response, source);
             LOG.log(Level.DEBUG, ex.log + "relaying UDP to " + hostAndPort + " (" + address + ")");
-            flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
+            ProtocolStats.MasqueStats masqueStats = server.stats.masque;
+            masqueStats.flowsTotal.inc();
+            masqueStats.flowsActive.inc();
+            try {
+                flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
+            } finally {
+                masqueStats.flowsActive.dec();
+                flow.countInto(masqueStats);
+            }
             return false;
         } finally {
             client.detach(flow);

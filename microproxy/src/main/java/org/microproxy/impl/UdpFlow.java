@@ -65,8 +65,10 @@ final class UdpFlow implements UdpContext {
          * Sends an HTTP Datagram of the stream with {@code content} (a context ID, then the
          * payload): in a QUIC DATAGRAM frame when the client accepts them and it fits, else in a
          * DATAGRAM capsule on the stream, which waits for flow control.
+         *
+         * @return whether it went in a DATAGRAM capsule
          */
-        void sendDatagram(byte[] content) throws IOException;
+        boolean sendDatagram(byte[] content) throws IOException;
 
         /** Ends the stream: with its FIN when {@code clean}, else by resetting it. */
         void endFlow(boolean clean);
@@ -165,6 +167,16 @@ final class UdpFlow implements UdpContext {
     private final AtomicBoolean ended = new AtomicBoolean();
     private final AtomicLong fromClient = new AtomicLong();
     private final AtomicLong fromTarget = new AtomicLong();
+    /** Payload bytes from the client; it sends from its stream's thread and its connection's. */
+    private final AtomicLong bytesFromClient = new AtomicLong();
+    /** DATAGRAM capsules read: the stream's thread's alone. */
+    private long capsulesFromClient;
+    /** Datagrams, capsules among them, and payload bytes sent to the client: its sender's alone. */
+    private long toClientDatagrams;
+    private long toClientCapsules;
+    private long toClientBytes;
+    /** The UDP hooks' stats. */
+    private final ProtocolStats.HookStats hookStats;
     private volatile boolean started;
     /** The QUIC the client's datagrams carry, decided on as transparent QUIC is; null when relayed as UDP. */
     private volatile MasqueQuic.Inner quic;
@@ -175,11 +187,13 @@ final class UdpFlow implements UdpContext {
     /**
      * @param socket a UDP socket connected to the target, which the flow closes when it ends
      * @param hooks the UDP hooks, or null for none
+     * @param hookStats counts the hooks' calls
      */
     UdpFlow(Client client, DatagramChannel socket, HostAndPort target, InetSocketAddress targetAddress,
             ClientFlowContext flow, String logPrefix, UdpInterceptor hooks, Duration idleTimeout, int maxQueued,
-            long maxQueuedBytes) {
+            long maxQueuedBytes, ProtocolStats.HookStats hookStats) {
         this.client = client;
+        this.hookStats = hookStats;
         this.socket = socket;
         this.target = target;
         this.targetAddress = targetAddress;
@@ -271,6 +285,7 @@ final class UdpFlow implements UdpContext {
             }
             byte[] content = in.readNBytes((int) length);
             if (content.length < length) throw new EOFException("the stream ended inside a capsule");
+            capsulesFromClient++;
             fromClient(content);
         }
     }
@@ -315,6 +330,7 @@ final class UdpFlow implements UdpContext {
         fromClient.incrementAndGet();
         byte[] payload = Arrays.copyOfRange(content, 1, content.length);
         flow.addBytesReceived(payload.length);
+        bytesFromClient.addAndGet(payload.length);
         if (payload.length > MAX_PAYLOAD) return;
         MasqueQuic.Inner inner = quic;
         if (inner != null && inner.fromClient(payload)) return;
@@ -398,7 +414,9 @@ final class UdpFlow implements UdpContext {
                 if (data == null) continue;
                 byte[] content = new byte[data.length + 1];
                 System.arraycopy(data, 0, content, 1, data.length);
-                client.sendDatagram(content);
+                if (client.sendDatagram(content)) toClientCapsules++;
+                toClientDatagrams++;
+                toClientBytes += data.length;
                 flow.addBytesSent(data.length);
             }
         } catch (IOException e) {
@@ -415,9 +433,18 @@ final class UdpFlow implements UdpContext {
     private byte[] hook(Item item, boolean fromClient) {
         if (hooks == null) return item.data();
         UdpMessage message = new UdpMessage(item.data(), fromClient, item.received());
+        long start = hookStats.start();
         try {
-            return hooks.udpMessage(message, this);
+            byte[] result = hooks.udpMessage(message, this);
+            hookStats.end(start);
+            if (result == null) {
+                hookStats.drops.inc();
+            } else if (result != item.data()) {
+                hookStats.rewrites.inc();
+            }
+            return result;
         } catch (RuntimeException e) {
+            hookStats.failed(start);
             LOG.log(Level.WARNING, logPrefix + "udpMessage threw; passing the datagram on", e);
             return item.data();
         }
@@ -446,6 +473,20 @@ final class UdpFlow implements UdpContext {
                 LOG.log(Level.WARNING, logPrefix + "udpEnd threw", e);
             }
         }
+    }
+
+    /**
+     * Adds the flow's datagrams, capsules and bytes to {@code stats}, once it has ended (its
+     * threads joined), so that nothing is counted in the registry per datagram.
+     */
+    void countInto(ProtocolStats.MasqueStats stats) {
+        stats.datagramsRx.add(fromClient.get());
+        stats.capsulesRx.add(capsulesFromClient);
+        stats.rxBytes.add(bytesFromClient.get());
+        stats.datagramsTx.add(toClientDatagrams);
+        stats.capsulesTx.add(toClientCapsules);
+        stats.txBytes.add(toClientBytes);
+        stats.datagramsDropped.add(dropped());
     }
 
     /** Datagrams dropped so far, both ways, because a queue was full. */
