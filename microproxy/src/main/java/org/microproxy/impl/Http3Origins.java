@@ -99,6 +99,20 @@ final class Http3Origins {
         this.server = server;
         this.options = server.http3Options;
         this.forced = HostRules.compile(forcedHosts);
+        ProxyStats stats = server.stats;
+        if (stats.enabled) {
+            stats.registry.gauge("http3.alt_svc_origins", "Origins remembered as offering HTTP/3 in Alt-Svc", this::learnedOrigins);
+        }
+    }
+
+    /** How many origins are remembered as offering HTTP/3. */
+    private long learnedOrigins() {
+        lock.lock();
+        try {
+            return alternatives.size();
+        } finally {
+            lock.unlock();
+        }
     }
 
     private static <V> Map<String, V> lru() {
@@ -234,9 +248,9 @@ final class Http3Origins {
         Http3UpstreamConnection c = find(connectionKey);
         boolean made = false;
         if (c == null) {
-            if (!claimed(connectionKey)) return null;
+            if (!claimed(connectionKey)) return tcpFallback();
             c = connect(connectionKey, hostAndPort, port, trust, resolve, log, replaySafe);
-            if (c == null) return null;
+            if (c == null) return tcpFallback();
             made = true;
         }
         try {
@@ -245,11 +259,17 @@ final class Http3Origins {
             return stream;
         } catch (Http3UpstreamConnection.Unprocessed e) {
             LOG.log(Level.DEBUG, log + e.getMessage() + "; going over TCP");
-            return null;
+            return tcpFallback();
         } catch (IOException e) {
             LOG.log(Level.DEBUG, log + "no HTTP/3 stream to " + hostAndPort + ": " + e.getMessage() + "; going over TCP");
-            return null;
+            return tcpFallback();
         }
+    }
+
+    /** An exchange for a server known to speak HTTP/3 goes over TCP: counted, and no stream. */
+    private Http3UpstreamStream tcpFallback() {
+        server.stats.http3Upstream.tcpFallback.inc();
+        return null;
     }
 
     /**

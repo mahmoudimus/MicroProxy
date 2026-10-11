@@ -174,6 +174,7 @@ final class Http3StreamReader {
             } finally {
                 lock.unlock();
             }
+            endpoint.stats.rxReset.inc();
             fail(e);
             if (onReset != null) onReset.run();
         } catch (QuicConnectionException e) {

@@ -61,7 +61,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
 
     Http3UpstreamConnection(DefaultHttpProxyServer server, Http3Origins origins, QuicConnection quic, String key,
             String hostAndPort) {
-        super(server, quic, "[h3 " + hostAndPort + "] ", Http3StreamValidator.Role.CLIENT);
+        super(server, quic, "[h3 " + hostAndPort + "] ", Http3StreamValidator.Role.CLIENT, server.stats.http3Upstream);
         this.origins = origins;
         this.key = key;
         this.hostAndPort = hostAndPort;
@@ -129,6 +129,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
         } finally {
             stateLock.unlock();
         }
+        stats.streamsActive.inc();
         stream.startReading(server.name + "-h3-upstream-" + s.id());
         return stream;
     }
@@ -137,7 +138,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
     void streamDone(Http3UpstreamStream stream) {
         stateLock.lock();
         try {
-            streams.remove(stream.id, stream);
+            if (streams.remove(stream.id, stream)) stats.streamsActive.dec();
         } finally {
             stateLock.unlock();
         }
@@ -168,7 +169,13 @@ final class Http3UpstreamConnection extends Http3Endpoint {
         super.closed();
         if (!shutDown.compareAndSet(false, true)) return;
         long counted = countedAt;
-        if (counted != 0) cluster.closed(ClientFlowContext.now() - counted, !closedLocally);
+        if (counted != 0) {
+            // QUIC counts its datagrams' bytes itself, once, as the connection ends.
+            io.github.mahmoudimus.quic.QuicConnection.Stats bytes = quic.stats();
+            cluster.cxRxBytes.add(bytes.receivedBytes());
+            cluster.cxTxBytes.add(bytes.sentBytes());
+            cluster.closed(ClientFlowContext.now() - counted, !closedLocally);
+        }
         origins.remove(this);
         List<Http3UpstreamStream> open;
         stateLock.lock();
