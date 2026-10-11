@@ -33,6 +33,7 @@ import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.stats.StatsRegistry;
 
 /**
  * Limits how many exchanges run at once per key: per client address by default, or per user,
@@ -291,6 +292,24 @@ public final class ConcurrencyLimiter implements HttpFiltersSource {
         }
         return new Snapshot(java.util.Collections.unmodifiableMap(keys), inUse, waiting, acquired.sum(),
                 rejected.sum(), reclaimed.sum());
+    }
+
+    /**
+     * Registers the limiter's state with {@code registry} as {@code <prefix>.in_use} and {@code
+     * <prefix>.waiting} (gauges), and {@code <prefix>.acquired}, {@code <prefix>.rq_blocked}
+     * (requests over the limit, refused or let through in shadow mode) and {@code
+     * <prefix>.reclaimed} (counters), read when the metrics are shown. A proxy with metrics
+     * registers the limiters among its filters itself, as {@code concurrency_limit}.
+     *
+     * @param registry the registry to add the metrics to
+     * @param prefix the names' prefix, such as {@code concurrency_limit}
+     */
+    public void registerStats(StatsRegistry registry, String prefix) {
+        registry.gauge(prefix + ".in_use", "Permits in use", () -> snapshot().inUse());
+        registry.gauge(prefix + ".waiting", "Requests waiting for a permit", () -> snapshot().waiting());
+        registry.counter(prefix + ".acquired", "Permits granted", acquired::sum);
+        registry.counter(prefix + ".rq_blocked", "Requests over the limit", rejected::sum);
+        registry.counter(prefix + ".reclaimed", "Permits reclaimed after the permit timeout", reclaimed::sum);
     }
 
     // ---------------------------------------------------------------------------------------
