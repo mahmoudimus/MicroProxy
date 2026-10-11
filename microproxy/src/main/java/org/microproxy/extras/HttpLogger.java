@@ -29,6 +29,7 @@ import org.microproxy.FlowTimings;
 import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
+import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.contentviews.ContentView;
@@ -588,6 +589,9 @@ public final class HttpLogger implements HttpFiltersSource {
             t.total().ifPresent(d -> info.add(millis(d)));
             t.timeToFirstByte().ifPresent(d -> info.add("ttfb " + millis(d)));
             info.add("source=" + source.name().toLowerCase(Locale.ROOT));
+            if (ctx != null && !ctx.responseFlags().isEmpty()) {
+                info.add("flags=" + ResponseFlag.render(ctx.responseFlags(), false));
+            }
             OptionalInt upstream = upstream(delivered, source);
             upstream.ifPresent(s -> info.add("upstream=" + s));
             if (level == Level.BASIC) {
@@ -619,6 +623,18 @@ public final class HttpLogger implements HttpFiltersSource {
             return line(sb, end).toString().stripTrailing();
         }
 
+        /** The exchange's response code details, or those its response's source implies. */
+        private String responseCodeDetails(ResponseSource source) {
+            java.util.Optional<String> own = ctx == null ? java.util.Optional.empty() : ctx.responseCodeDetails();
+            return own.orElseGet(() -> switch (source) {
+                case SERVER -> "via_upstream";
+                case PROXY -> "proxy";
+                case FILTER -> "filter";
+                case CACHE -> "cache";
+                case REPLAY -> "replay";
+            });
+        }
+
         private String responseJson(ResponseHead delivered, ResponseHead main, ResponseHead changed,
                 ResponseSource source, BodyView body, BodyView deliveredBody) {
             Json j = start("response");
@@ -629,6 +645,8 @@ public final class HttpLogger implements HttpFiltersSource {
             FlowTimings t = ctx == null ? FlowTimings.NONE : ctx.timings();
             j.raw("ttfb_ms", t.timeToFirstByte().map(HttpLogger::jsonMillis).orElse("null"));
             j.raw("total_ms", t.total().map(HttpLogger::jsonMillis).orElse("null"));
+            j.field("response_flags", ctx == null ? "-" : ResponseFlag.render(ctx.responseFlags(), false));
+            j.field("response_code_details", responseCodeDetails(source));
             if (level != Level.BASIC) {
                 j.raw("headers", headersJson(redacted(main.headers)));
                 if (changed != null) {

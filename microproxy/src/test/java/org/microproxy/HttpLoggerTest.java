@@ -425,7 +425,7 @@ class HttpLoggerTest {
         assertEquals(List.of("", "no", "<-- END HTTP (2-byte body)"), blocked.subList(blocked.size() - 3, blocked.size()));
         assertEquals("--> END GET (no body)", lines(log.get(2)).getLast());
 
-        assertTrue(lines(log.get(5)).getFirst().matches("<-- 502 Bad Gateway \\S+ \\([\\d.]+ ms, source=proxy\\)"),
+        assertTrue(lines(log.get(5)).getFirst().matches("<-- 502 Bad Gateway \\S+ \\([\\d.]+ ms, source=proxy, flags=UF\\)"),
                 log.get(5));
     }
 
@@ -464,6 +464,8 @@ class HttpLoggerTest {
         assertEquals(200L, response.get("upstream_status"));
         assertInstanceOf(Double.class, response.get("total_ms"));
         assertInstanceOf(Double.class, response.get("ttfb_ms"));
+        assertEquals("-", response.get("response_flags"));
+        assertEquals("via_upstream", response.get("response_code_details"));
         assertTrue(((String) response.get("body")).contains("method: POST"));
         assertInstanceOf(Map.class, response.get("delivered"));
     }
