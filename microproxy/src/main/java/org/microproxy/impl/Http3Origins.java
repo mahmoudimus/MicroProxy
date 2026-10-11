@@ -396,6 +396,7 @@ final class Http3Origins {
                     .streamReceiveWindow(options.streamReceiveWindow())
                     .receiveWindow(options.connectionReceiveWindow())
                     .congestionControl(Http3Listener.congestionControl(options))
+                    .qlog(QlogWriter.sink(server, false))
                     .build();
             ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
             InetSocketAddress local = server.localAddress;
@@ -403,6 +404,7 @@ final class Http3Origins {
                     ? new InetSocketAddress(local.getAddress(), 0)
                     : new InetSocketAddress(InetAddress.getByName(ipv6 ? "::" : "0.0.0.0"), 0);
             QuicClient client = QuicClient.create(config, bind, EndpointConfig.defaults());
+            QuicStats.of(server, QuicStats.UPSTREAM).observe(client);
             clients.put(key, client);
             return client;
         } finally {

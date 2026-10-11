@@ -45,6 +45,7 @@ final class MasqueQuic implements AutoCloseable {
         this.flows = new QuicFlows(server, keys, byAddress::get, server.name + "-masque-quic");
         this.quic = QuicServer.unbound(address(0), Http3Listener.serverConfig(server, keys != null ? keys : sni -> null),
                 EndpointConfig.defaults(), this::filter, this::send);
+        QuicStats.of(server, QuicStats.MASQUE).observe(quic);
         flows.start(quic);
     }
 

@@ -26,6 +26,8 @@ import org.microproxy.stats.StatsRegistry;
  * ({@link QuicConnection#stats()}), and this observer adds them to the registry once, when the
  * connection closes. Only code that runs QUIC loads this class, so the proxy runs without the
  * optional {@code quic} module; {@link ProxyStats} keeps the scopes as plain objects ({@link #of}).
+ * It also closes the connections' qlog files ({@link QlogWriter}) as they end, so it observes the
+ * endpoints with qlog on even without metrics.
  */
 final class QuicStats implements QuicConnection.Observer {
 
@@ -65,9 +67,18 @@ final class QuicStats implements QuicConnection.Observer {
     final Counter droppedDatagrams;
     private final ConcurrentHashMap<String, Counter> controllers = new ConcurrentHashMap<>();
     private final List<QuicServer> servers = new CopyOnWriteArrayList<>();
+    /** Closes the qlog files of the scope's connections as they end; null without qlog. */
+    private final QlogWriter qlog;
+    /** {@code server} or {@code client}: the proxy's side of the scope's connections, as qlog names it. */
+    private final String vantage;
 
-    QuicStats(StatsRegistry registry, String scope) {
+    /**
+     * @param qlog the writer of the scope's connections' qlog files, or null for none
+     */
+    QuicStats(StatsRegistry registry, String scope, QlogWriter qlog) {
         this.registry = registry;
+        this.qlog = qlog;
+        this.vantage = scope.equals(UPSTREAM) ? "client" : "server";
         this.enabled = registry.enabled();
         this.prefix = "quic." + scope + ".";
         String p = prefix;
@@ -106,8 +117,9 @@ final class QuicStats implements QuicConnection.Observer {
     }
 
     /** The stats of {@code scope}, made the first time. */
-    static QuicStats of(ProxyStats stats, String scope) {
-        return (QuicStats) stats.quicScope(scope, () -> new QuicStats(stats.registry, scope));
+    static QuicStats of(DefaultHttpProxyServer server, String scope) {
+        ProxyStats stats = server.stats;
+        return (QuicStats) stats.quicScope(scope, () -> new QuicStats(stats.registry, scope, QlogWriter.of(server)));
     }
 
     private long sum(ToLongFunction<QuicServer> f) {
@@ -118,19 +130,14 @@ final class QuicStats implements QuicConnection.Observer {
 
     /** Counts {@code server}'s connections here, and its endpoint's own answers. */
     void observe(QuicServer server) {
-        if (!enabled) return;
-        servers.add(server);
+        if (!enabled && qlog == null) return;
+        if (enabled) servers.add(server);
         server.observe(this);
     }
 
     /** Counts {@code client}'s connections here. */
     void observe(QuicClient client) {
-        if (enabled) client.observe(this);
-    }
-
-    /** Stops counting {@code server}'s endpoint answers (it closed); its counts so far are lost. */
-    void forget(QuicServer server) {
-        servers.remove(server);
+        if (enabled || qlog != null) client.observe(this);
     }
 
     @Override
@@ -167,6 +174,7 @@ final class QuicStats implements QuicConnection.Observer {
         if (s.zeroRttAccepted()) zeroRttAccepted.inc();
         if (s.zeroRttRejected()) zeroRttRejected.inc();
         controller(s.congestionController()).inc();
+        if (qlog != null) qlog.closed(vantage, connection.initialDestinationId().toString());
     }
 
     /** {@code congestion_controller.<name>}: connections by congestion controller, a bounded set of names. */

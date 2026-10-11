@@ -108,6 +108,7 @@ final class QuicSession implements QuicContext {
                 .receiveWindow(server.http3Options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(DATAGRAM_BUFFER)
                 .congestionControl(Http3Listener.congestionControl(server.http3Options))
+                .qlog(QlogWriter.sink(server, false))
                 .build();
         ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
         boolean ipv6 = address.getAddress() instanceof Inet6Address;
@@ -116,6 +117,7 @@ final class QuicSession implements QuicContext {
                 ? new InetSocketAddress(local.getAddress(), 0)
                 : new InetSocketAddress(InetAddress.getByName(ipv6 ? "::" : "0.0.0.0"), 0);
         QuicClient client = QuicClient.create(config, bind, EndpointConfig.defaults());
+        QuicStats.of(server, QuicStats.UPSTREAM).observe(client);
         try {
             return new Upstream(client, client.connect(address, hello.sni(), timeout));
         } catch (IOException | RuntimeException e) {

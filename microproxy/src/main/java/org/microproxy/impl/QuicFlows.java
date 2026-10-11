@@ -550,6 +550,7 @@ final class QuicFlows implements AutoCloseable {
                 .receiveWindow(options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(upstream.connection().maxDatagramSize() >= 0 ? DATAGRAM_BUFFER : 0)
                 .congestionControl(Http3Listener.congestionControl(options))
+                .qlog(QlogWriter.sink(server, true))
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }

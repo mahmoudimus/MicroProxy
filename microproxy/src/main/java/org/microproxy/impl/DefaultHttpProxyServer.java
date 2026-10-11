@@ -172,6 +172,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      * once in all; made on first use.
      */
     volatile Object quicEarlyDataPolicy;
+    /** The writer of the QUIC connections' qlog files (a {@link QlogWriter}), made on first use; null before, or without qlog. */
+    volatile Object qlogWriter;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 

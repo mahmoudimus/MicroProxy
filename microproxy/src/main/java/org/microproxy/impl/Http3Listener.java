@@ -58,7 +58,9 @@ final class Http3Listener implements AutoCloseable {
     static Http3Listener start(DefaultHttpProxyServer server, InetSocketAddress address, Function<String, KeyMaterial> keys)
             throws IOException {
         // A forward proxy's clients may send UDP payloads in QUIC DATAGRAM frames (RFC 9297).
-        return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys, server.reverseProxy == null)));
+        QuicServer quic = QuicServer.bind(address, serverConfig(server, keys, server.reverseProxy == null));
+        QuicStats.of(server, QuicStats.DOWNSTREAM).observe(quic);
+        return new Http3Listener(server, quic);
     }
 
     /** The QUIC congestion controller the options choose, for connections to clients and to servers. */
@@ -109,6 +111,7 @@ final class Http3Listener implements AutoCloseable {
                 .receiveWindow(options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(datagrams ? DATAGRAM_BUFFER : 0)
                 .congestionControl(congestionControl(options))
+                .qlog(QlogWriter.sink(server, true))
                 .build();
         return ServerConfig.builder(tls.build()).transport(transport).retry(options.retry()).build();
     }
