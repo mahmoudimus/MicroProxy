@@ -2,6 +2,7 @@ package org.microproxy;
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -277,9 +278,74 @@ public class FlowContext {
     }
 
     /**
+     * Why the proxy had to answer the exchange in progress on this connection (or the last one)
+     * itself, or abandon it: the failure handed to {@link HttpFilters#proxyToServerFailure}, set
+     * before the filters see it. Empty when there was none, and for contexts made outside the
+     * proxy. Read it in {@link ActivityTracker#flowEnded} to see the whole exchange.
+     *
+     * @return the exchange's failure, or empty
+     */
+    public Optional<ProxyFailure> failure() {
+        return root == this ? Optional.empty() : root.failure();
+    }
+
+    /**
+     * Envoy-style flags saying why the exchange in progress on this connection (or the last one),
+     * or the tunnel or flow it opened, ended as it did ({@code UF} for a refused connection, {@code
+     * DC} for a client that left, ...). A copy, which may grow while the exchange goes on; empty
+     * for contexts made outside the proxy.
+     *
+     * @return a copy of the exchange's response flags
+     */
+    public EnumSet<ResponseFlag> responseFlags() {
+        return root == this ? EnumSet.noneOf(ResponseFlag.class) : root.responseFlags();
+    }
+
+    /**
+     * A short snake_case reason for the response of the exchange in progress on this connection
+     * (or the last one), as Envoy's {@code %RESPONSE_CODE_DETAILS%} gives: {@code via_upstream}
+     * for the server's response, {@code filter}, {@code cache} or {@code replay} for one made
+     * there, {@code proxy_failure:connect_failed} (and so on, one per {@link ProxyFailure}) for the
+     * proxy's answer to a failure, {@code auth_rejected}, {@code too_early}, {@code
+     * downstream_remote_disconnect}, ... Empty before the exchange has an outcome, and for
+     * contexts made outside the proxy.
+     *
+     * @return the exchange's response code details, or empty
+     */
+    public Optional<String> responseCodeDetails() {
+        return root == this ? Optional.empty() : root.responseCodeDetails();
+    }
+
+    /**
+     * Adds {@code flag} to the {@linkplain #responseFlags() response flags} of the exchange in
+     * progress: for a filter that answers or refuses a request for a reason the access log should
+     * show (a rate limiter's {@link ResponseFlag#RATE_LIMITED}, say). Does nothing on a context
+     * made outside the proxy.
+     *
+     * @param flag the flag to add
+     */
+    public void addResponseFlag(ResponseFlag flag) {
+        Objects.requireNonNull(flag);
+        if (root != this) root.addResponseFlag(flag);
+    }
+
+    /**
+     * Sets the {@linkplain #responseCodeDetails() response code details} of the exchange in
+     * progress, for a filter that answers for a reason of its own: a short snake_case string,
+     * which replaces any details set before. Does nothing on a context made outside the proxy.
+     *
+     * @param details the details, such as {@code concurrency_limited}
+     */
+    public void setResponseCodeDetails(String details) {
+        Objects.requireNonNull(details);
+        if (root != this) root.setResponseCodeDetails(details);
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
-     * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
+     * {@link ActivityTracker#responseCompleted} (or {@link ActivityTracker#flowEnded}) to see the
+     * whole exchange. Contexts made outside
      * the proxy return {@link FlowTimings#NONE}.
      *
      * @return a snapshot of the exchange phase timings
