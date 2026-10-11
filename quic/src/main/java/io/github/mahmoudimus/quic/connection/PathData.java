@@ -118,10 +118,11 @@ public final class PathData {
      *
      * @param remote the peer's new address
      * @param local the new local address, or null for the endpoint's default
-     * @return true if the IP addresses at both ends are the same as this path's
+     * @return true if the IP addresses at both ends are the same as this path's (a local address
+     *     that is not known, or a wildcard, counts as the same)
      */
     boolean sameHosts(InetSocketAddress remote, InetSocketAddress local) {
-        return sameIp(this.remote, remote) && sameIp(this.local, local);
+        return sameIp(this.remote, remote) && sameLocalIp(this.local, local);
     }
 
     private static boolean sameIp(InetSocketAddress a, InetSocketAddress b) {
@@ -131,6 +132,19 @@ public final class PathData {
         InetAddress x = a.getAddress();
         InetAddress y = b.getAddress();
         return x == null ? y == null : x.equals(y);
+    }
+
+    /**
+     * Whether two local addresses may be on the same host address: null (the endpoint's default
+     * socket) and wildcard addresses could be any, so they count as the same; a client that
+     * rebinds its socket to a new port so keeps its congestion state.
+     */
+    private static boolean sameLocalIp(InetSocketAddress a, InetSocketAddress b) {
+        if (a == null || b == null || a.getAddress() == null || b.getAddress() == null
+                || a.getAddress().isAnyLocalAddress() || b.getAddress().isAnyLocalAddress()) {
+            return true;
+        }
+        return a.getAddress().equals(b.getAddress());
     }
 
     /**

@@ -13,8 +13,13 @@ public enum Timer {
     CLOSE,
     /** When old keys (0-RTT or the previous 1-RTT generation) are discarded. */
     KEY_DISCARD,
-    /** When validating a new path is abandoned. */
+    /**
+     * When a server's validation of the peer's new path is abandoned, and the connection goes back
+     * to the previous path.
+     */
     PATH_VALIDATION,
+    /** When a client sends its probe of a new path again, or gives up on it. */
+    PATH_PROBE,
     /** When to send a PING to keep the connection alive. */
     KEEP_ALIVE,
     /** When pacing allows the next packet. */

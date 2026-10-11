@@ -3,8 +3,11 @@
  * handle_timeout, close, the handshake state machine in process_decrypted_packet,
  * process_early_payload and process_payload, read_crypto, write_crypto, populate_packet, key
  * update, spin bit, connection ID handling, 0-RTT: init_0rtt, zero_rtt_crypto, accepted_0rtt and
- * the rejection of 0-RTT data, NEW_TOKEN issuance and storage), src/connection/packet_builder.rs
- * and src/connection/packet_crypto.rs (Apache-2.0).
+ * the rejection of 0-RTT data, NEW_TOKEN issuance and storage; path handling: migrate, the
+ * migration in process_payload, send_path_challenge, PATH_CHALLENGE and PATH_RESPONSE, prev_path,
+ * update_rem_cid and the PathValidation timer), src/connection/paths.rs (PathResponses),
+ * src/connection/packet_builder.rs and src/connection/packet_crypto.rs (Apache-2.0). The client's
+ * probing of a new path and the preferred address follow RFC 9000 sections 9.1, 9.5 and 9.6.
  */
 package io.github.mahmoudimus.quic.connection;
 
@@ -27,10 +30,12 @@ import io.github.mahmoudimus.quic.packet.PacketHeader;
 import io.github.mahmoudimus.quic.packet.PacketNumber;
 import io.github.mahmoudimus.quic.packet.PacketType;
 import io.github.mahmoudimus.quic.packet.ProtectedPacket;
+import io.github.mahmoudimus.quic.params.PreferredAddress;
 import io.github.mahmoudimus.quic.params.TransportParameters;
 import io.github.mahmoudimus.quic.tls.SessionTicket;
 import io.github.mahmoudimus.quic.tls.TlsSession;
 import io.github.mahmoudimus.quic.token.TokenValidator;
+import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.security.cert.X509Certificate;
@@ -40,6 +45,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.random.RandomGenerator;
 
@@ -77,8 +83,20 @@ import java.util.random.RandomGenerator;
  * frames during the handshake; {@link #receivedEarlyData(StreamId)} tells which streams carried
  * early data, which the application must treat as replayable.
  *
- * <p>Not supported: connection migration and path validation (packets from another address are
- * dropped; PATH_CHALLENGE is answered on the current path), and sending ACK_FREQUENCY.
+ * <p><b>Migration (RFC 9000 section 9).</b> A server that allows it ({@link
+ * ServerConfig.Builder#migration}) follows its client to a new address once the handshake is
+ * confirmed and a non-probing packet with the largest packet number so far arrives from there: it
+ * validates the new path with PATH_CHALLENGE, sends there no more than three times what it received
+ * there until the client answers, keeps the congestion and RTT state when only the port changed (a
+ * NAT rebinding) and resets them otherwise, challenges the previous path as well, moves to an unused
+ * connection ID of the client's, and goes back to the previous path if validation times out. A
+ * replayed or reordered packet, whose number is not the largest, moves nothing. A client probes a
+ * new path before it moves there ({@link #probePath}, and the server's preferred address), with a
+ * connection ID of the server's not used before, and switches when the PATH_RESPONSE arrives.
+ * Datagrams may then go to or come from addresses other than the current path's: see {@link
+ * Transmit} and {@link #handleDatagram(long, InetSocketAddress, InetSocketAddress, int, ByteBuffer)}.
+ *
+ * <p>Not supported: sending ACK_FREQUENCY.
  */
 public final class Connection {
 
@@ -109,6 +127,8 @@ public final class Connection {
         int payloadStart;
         /** A client's 0-RTT packet: no ACK, CRYPTO, HANDSHAKE_DONE or connection ID frames. */
         boolean zeroRtt;
+        /** Whether it carries PATH_CHALLENGE or PATH_RESPONSE, whose datagram is padded. */
+        boolean pathFrames;
         Retransmits sent = new Retransmits();
         List<StreamMeta> streamFrames = List.of();
     }
@@ -125,6 +145,30 @@ public final class Connection {
     private static final int MAX_EARLY_1RTT_PACKETS = 100;
     /** A CRYPTO frame's overhead bound: type, an 8-byte offset and a 2-byte length. */
     private static final int CRYPTO_SIZE_BOUND = 1 + 8 + 2;
+
+    /**
+     * A client's probe of a new path (RFC 9000 section 9.1): where to, from where, with which of
+     * the server's connection IDs, and the PATH_CHALLENGE data the server must echo.
+     */
+    private static final class Probe {
+        final InetSocketAddress remote;
+        final InetSocketAddress local;
+        final ConnectionId cid;
+        final long challenge;
+        final long deadline;
+        /** Whether a PATH_CHALLENGE must be sent. */
+        boolean pending = true;
+        /** The wait before the PATH_CHALLENGE is sent again. */
+        long backoff;
+
+        Probe(InetSocketAddress remote, InetSocketAddress local, ConnectionId cid, long challenge, long deadline) {
+            this.remote = remote;
+            this.local = local;
+            this.cid = cid;
+            this.challenge = challenge;
+            this.deadline = deadline;
+        }
+    }
 
     private final Side side;
     private final TransportConfig config;
@@ -155,7 +199,27 @@ public final class Connection {
     private final ConnectionId initialDcid;
     /** The Source Connection ID of the Retry this client processed. */
     private ConnectionId retrySrcCid;
-    private final InetSocketAddress remote;
+    /** The peer's address on the current path, for reading without the connection's owner. */
+    private volatile InetSocketAddress remote;
+    /** The loss recovery settings new paths start from. */
+    private final RecoveryConfig recoveryConfig;
+    /** Whether a server follows its client to new addresses. */
+    private boolean remoteMayMigrate;
+    /** Whether a client may move to new local addresses. */
+    private boolean activeMigration = true;
+    /** Whether a client moves to the server's preferred address. */
+    private boolean followPreferredAddress;
+    /** Paths seen, which numbers their generations. */
+    private long pathCounter;
+    /** The peer's connection ID in use on the previous path, for its PATH_CHALLENGE. */
+    private ConnectionId prevPathCid;
+    private final PathResponses pathResponses = new PathResponses();
+    /** A client's probe of a new path; null when none is under way. */
+    private Probe probe;
+    /** The sender, local address and size of the datagram being handled. */
+    private InetSocketAddress rxFrom;
+    private InetSocketAddress rxLocal;
+    private int rxLength;
 
     private State state = State.HANDSHAKE;
     private boolean remoteCidSet;
@@ -190,8 +254,6 @@ public final class Connection {
     private long totalAuthedPackets;
     private boolean receivingEcn;
     private StatelessResetToken peerResetToken;
-    private long pathResponse;
-    private boolean pathResponsePending;
 
     /** A client's cache of tickets and tokens, and its key there; null on a server or without one. */
     private SessionCache sessionCache;
@@ -214,7 +276,7 @@ public final class Connection {
     private Connection(Side side, long now, TransportConfig config, EndpointConfig endpointConfig,
             QuicVersion version, TlsSession tls, InetSocketAddress remote, ConnectionId initialDcid,
             ConnectionId localCid, ConnectionId remoteCid, boolean addressValidated, byte[] token,
-            boolean allowMtud, RandomGenerator random) {
+            boolean allowMtud, RandomGenerator random, ConnectionId preferredCid) {
         this.side = side;
         this.config = config;
         this.version = version;
@@ -229,7 +291,8 @@ public final class Connection {
         this.token = token;
         this.localCidLength = endpointConfig.cidLength();
         this.logId = initialDcid.toString();
-        this.recovery = new Recovery(side, config.recoveryConfig(allowMtud), timers, random, now);
+        this.recoveryConfig = config.recoveryConfig(allowMtud);
+        this.recovery = new Recovery(side, recoveryConfig, timers, random, now, remote, null);
         recovery.setSendingEcn(false); // the socket layer cannot mark ECN
         if (addressValidated) {
             recovery.setAddressValidated();
@@ -238,7 +301,9 @@ public final class Connection {
         this.streams = new StreamsState(side, config.maxConcurrentUniStreams, config.maxConcurrentBidiStreams,
                 config.sendWindow, config.receiveWindow, config.streamReceiveWindow);
         this.listener = Recovery.Listener.forStreams(streams);
-        this.localCids = new LocalCidState(endpointConfig.cidGenerator, endpointConfig.resetKey, now, localCid);
+        this.localCids = preferredCid == null
+                ? new LocalCidState(endpointConfig.cidGenerator, endpointConfig.resetKey, now, localCid)
+                : new LocalCidState(endpointConfig.cidGenerator, endpointConfig.resetKey, now, localCid, preferredCid);
         this.remoteCids = new RemoteCidQueue(remoteCid, activeCidLimit(config, localCidLength));
         this.spinEnabled = config.allowSpin && random.nextInt(8) != 0;
         // A small first key phase makes peers that mishandle key updates fail early, as quinn does
@@ -302,14 +367,18 @@ public final class Connection {
             String serverName, ConnectionId initialDcid, ConnectionId localCid, boolean allowMtud,
             RandomGenerator random, SessionCache cache) {
         TransportConfig transport = config.transport;
-        byte[] params = localParams(transport, endpointConfig.cidLength(), localCid).build().encode();
+        byte[] params = localParams(transport, endpointConfig.cidLength(), localCid)
+                .disableActiveMigration(!config.activeMigration)
+                .build().encode();
         String name = serverName != null ? serverName : config.tls.serverName();
         String key = cacheKey(name, remote);
         SessionTicket ticket = cache != null ? cache.tickets().take(key) : null;
         byte[] token = cache != null ? cache.tokens().take(key) : null;
         TlsSession tls = TlsSession.client(config.tls, name, params, ticket);
         Connection c = new Connection(Side.CLIENT, now, transport, endpointConfig, config.version, tls, remote,
-                initialDcid, localCid, initialDcid, true, token != null ? token : EMPTY, allowMtud, random);
+                initialDcid, localCid, initialDcid, true, token != null ? token : EMPTY, allowMtud, random, null);
+        c.activeMigration = config.activeMigration;
+        c.followPreferredAddress = config.preferredAddress;
         c.sessionCache = cache;
         c.cacheKey = key;
         c.ticket = ticket;
@@ -354,13 +423,15 @@ public final class Connection {
             ConnectionId originalDcid, ConnectionId retrySrcCid, boolean addressValidated, byte[] token,
             boolean allowMtud, RandomGenerator random) {
         return server(now, config, endpointConfig, remote, version, dcid, clientScid, localCid, originalDcid,
-                retrySrcCid, addressValidated, token, allowMtud, random, null);
+                retrySrcCid, addressValidated, token, allowMtud, random, null, null);
     }
 
     /**
      * Accepts a server connection, with a token issuer for the NEW_TOKEN frames it sends.
      *
      * @param tokens the endpoint's token validator, or null to send no NEW_TOKEN frames
+     * @param preferredCid the connection ID (sequence number 1) of the configuration's preferred
+     *     address, or null to advertise none
      * @see #server(long, ServerConfig, EndpointConfig, InetSocketAddress, QuicVersion, ConnectionId,
      *     ConnectionId, ConnectionId, ConnectionId, ConnectionId, boolean, byte[], boolean,
      *     RandomGenerator)
@@ -368,11 +439,15 @@ public final class Connection {
     static Connection server(long now, ServerConfig config, EndpointConfig endpointConfig, InetSocketAddress remote,
             QuicVersion version, ConnectionId dcid, ConnectionId clientScid, ConnectionId localCid,
             ConnectionId originalDcid, ConnectionId retrySrcCid, boolean addressValidated, byte[] token,
-            boolean allowMtud, RandomGenerator random, TokenValidator tokens) {
+            boolean allowMtud, RandomGenerator random, TokenValidator tokens, ConnectionId preferredCid) {
         TransportParameters.Builder params = localParams(config.transport, endpointConfig.cidLength(), localCid)
                 .originalDestinationConnectionId(originalDcid)
                 .statelessResetToken(StatelessResetToken.derive(endpointConfig.resetKey, localCid))
-                .disableActiveMigration(true);
+                .disableActiveMigration(!config.migration);
+        if (preferredCid != null) {
+            params.preferredAddress(new PreferredAddress(config.preferredIpv4, config.preferredIpv6, preferredCid,
+                    StatelessResetToken.derive(endpointConfig.resetKey, preferredCid)));
+        }
         if (retrySrcCid != null) {
             params.retrySourceConnectionId(retrySrcCid);
         }
@@ -386,7 +461,8 @@ public final class Connection {
             }
         });
         Connection c = new Connection(Side.SERVER, now, config.transport, endpointConfig, version, tls, remote, dcid,
-                localCid, clientScid, addressValidated, token, allowMtud, random);
+                localCid, clientScid, addressValidated, token, allowMtud, random, preferredCid);
+        c.remoteMayMigrate = config.migration;
         c.retrySrcCid = retrySrcCid;
         c.tokenValidator = tokens;
         c.newTokens = tokens != null ? config.newTokens : 0;
@@ -397,24 +473,52 @@ public final class Connection {
     // Inputs
 
     /**
+     * Processes a datagram from the peer that arrived at the endpoint's default local address.
+     *
+     * @param now the current time
+     * @param from the address it came from
+     * @param ecn the ECN codepoint it carried (0 not-ECT, 1 ECT(1), 2 ECT(0), 3 CE)
+     * @param datagram the datagram, between its position and limit
+     * @see #handleDatagram(long, InetSocketAddress, InetSocketAddress, int, ByteBuffer)
+     */
+    public void handleDatagram(long now, InetSocketAddress from, int ecn, ByteBuffer datagram) {
+        handleDatagram(now, null, from, ecn, datagram);
+    }
+
+    /**
      * Processes a datagram from the peer: splits coalesced packets, removes protection, and
      * handles their frames. The connection keeps views of {@code datagram}'s contents.
      *
+     * <p>A datagram from an address other than the current path's is dropped, except on a server
+     * that allows migration once its handshake is done (the client may be probing a new path, or
+     * moving to it), and on a client from the address it probes. A server whose client moves to
+     * its preferred address learns it from {@code local}.
+     *
      * @param now the current time
-     * @param from the address it came from; datagrams from other addresses are dropped
+     * @param local the local address it arrived at, or null for the endpoint's default
+     * @param from the address it came from
      * @param ecn the ECN codepoint it carried (0 not-ECT, 1 ECT(1), 2 ECT(0), 3 CE)
      * @param datagram the datagram, between its position and limit
      */
-    public void handleDatagram(long now, InetSocketAddress from, int ecn, ByteBuffer datagram) {
+    public void handleDatagram(long now, InetSocketAddress local, InetSocketAddress from, int ecn,
+            ByteBuffer datagram) {
         if (state == State.DRAINED) {
             return;
         }
-        if (!remote.equals(from)) {
-            return; // no migration: a client never follows, and the server forbids it
+        if (!from.equals(recovery.path().remote())) {
+            // Only a server that allows migration follows its peer, and only after the handshake;
+            // a client takes packets only from the server's address and the one it probes
+            boolean allowed = side.isServer() ? remoteMayMigrate && state != State.HANDSHAKE
+                    : probe != null && from.equals(probe.remote);
+            if (!allowed) {
+                return;
+            }
         }
         boolean wasBlocked = recovery.antiAmplificationBlocked(1);
         int length = datagram.remaining();
-        recovery.onDatagramReceived(length);
+        rxFrom = from;
+        rxLocal = local;
+        rxLength = length;
         ByteBuffer in = datagram.duplicate();
         ConnectionId first = null;
         while (in.hasRemaining() && state != State.DRAINED) {
@@ -438,6 +542,14 @@ public final class Connection {
             } catch (RuntimeException e) {
                 break; // unauthenticated input the codecs did not expect: drop the rest
             }
+        }
+        rxFrom = null;
+        rxLocal = null;
+        // The bytes count for the anti-amplification limit of the path they came on: the current
+        // one, possibly new since this datagram moved the connection there (quinn counts them on
+        // the current path whatever their sender)
+        if (from.equals(recovery.path().remote())) {
+            recovery.onDatagramReceived(length);
         }
         if (wasBlocked) {
             // A loss detection timer the limit kept off may be needed now
@@ -767,7 +879,112 @@ public final class Connection {
             recovery.setHandshakeConfirmed(true);
             recovery.setLossDetectionTimer(now);
             events.add(new ConnectionEvent.HandshakeConfirmed());
+            if (side.isClient() && followPreferredAddress) {
+                probePreferredAddress(now);
+            }
         }
+    }
+
+    /**
+     * Probes the server's preferred address of the current path's address family, if it gave one
+     * (RFC 9000 section 9.6.1), with the connection ID it gave for it.
+     */
+    private void probePreferredAddress(long now) {
+        PreferredAddress preferred = peerParams.preferredAddress();
+        if (preferred == null || state != State.ESTABLISHED) {
+            return;
+        }
+        InetSocketAddress current = recovery.path().remote();
+        InetSocketAddress to = current.getAddress() instanceof Inet4Address ? preferred.ipv4() : preferred.ipv6();
+        if (to == null || to.equals(current) || to.getPort() == 0 || to.getAddress().isAnyLocalAddress()) {
+            return;
+        }
+        if (remoteCids.peekNext() == null || !remoteCids.peekNext().equals(preferred.connectionId())) {
+            return; // the ID for the preferred address is gone already
+        }
+        startProbe(now, to, recovery.path().local());
+    }
+
+    private void startProbe(long now, InetSocketAddress to, InetSocketAddress local) {
+        ConnectionId cid = remoteCids.peekNext();
+        long pto = recovery.pto(SpaceId.DATA);
+        // RFC 9000 section 8.2.4: three times the larger of the current PTO and the new path's,
+        // which starts from the initial RTT
+        long newPathPto = new RttEstimator(recoveryConfig.initialRtt()).ptoBase()
+                + recovery.ackFrequency().maxAckDelayForPto();
+        Probe pr = new Probe(to, local, cid, random.nextLong(), now + 3 * Math.max(pto, newPathPto));
+        pr.backoff = Math.max(pto, RttEstimator.TIMER_GRANULARITY);
+        probe = pr;
+        timers.set(Timer.PATH_PROBE, Math.min(pr.deadline, now + pr.backoff));
+        qlog(now, "connectivity:path_probe", "{\"remote\":\"" + to + "\",\"local\":\"" + local + "\"}");
+    }
+
+    /**
+     * Client: starts moving the connection to a new local address (RFC 9000 section 9.1): probes
+     * the path from {@code local} to the server's address with PATH_CHALLENGE and a connection ID
+     * of the server's not used before, and switches to it when the PATH_RESPONSE arrives ({@link
+     * ConnectionEvent.PathUpdated}), or stays if none comes in three PTOs ({@link
+     * ConnectionEvent.PathProbeFailed}). Datagrams to send from {@code local} come out of {@link
+     * #pollTransmit} with it as their {@linkplain Transmit#source() source}. The congestion and RTT
+     * state carry over when only the port changes, and start over otherwise.
+     *
+     * @param now the current time
+     * @param local the new local address
+     * @throws IllegalStateException on a server; before the handshake is confirmed; while another
+     *     path is probed; when this client or the server disabled active migration; when the
+     *     server uses zero-length connection IDs or gave no unused one
+     */
+    public void probePath(long now, InetSocketAddress local) {
+        Objects.requireNonNull(local, "local");
+        if (side.isServer()) {
+            throw new IllegalStateException("only a client migrates");
+        }
+        if (!activeMigration) {
+            throw new IllegalStateException("active migration is disabled");
+        }
+        if (peerParams.disableActiveMigration()) {
+            throw new IllegalStateException("the server disabled active migration");
+        }
+        if (state != State.ESTABLISHED || !handshakeConfirmed) {
+            throw new IllegalStateException("the handshake is not confirmed");
+        }
+        if (probe != null) {
+            throw new IllegalStateException("a path is being probed already");
+        }
+        if (remoteCids.active().isEmpty()) {
+            throw new IllegalStateException("the server uses zero-length connection IDs");
+        }
+        if (remoteCids.peekNext() == null) {
+            throw new IllegalStateException("no unused connection ID of the server's");
+        }
+        startProbe(now, recovery.path().remote(), local);
+    }
+
+    /**
+     * Whether a client is probing a new path.
+     *
+     * @return true from {@link #probePath} (or the probe of a preferred address) until it ends
+     */
+    public boolean isProbingPath() {
+        return probe != null;
+    }
+
+    /**
+     * The path packets are sent on.
+     *
+     * @return the current path
+     */
+    public PathData path() {
+        return recovery.path();
+    }
+
+    /**
+     * The local address of the current path.
+     *
+     * @return the address, or null for the endpoint's default
+     */
+    public InetSocketAddress localAddress() {
+        return recovery.path().local();
     }
 
     /** Processes an Initial or Handshake packet's frames. */
@@ -801,7 +1018,12 @@ public final class Connection {
         PacketSpace data = recovery.space(SpaceId.DATA);
         Retransmits pending = data.pending();
         ConnectionError close = null;
+        // A packet of only these frames is a probing packet (RFC 9000 section 9.1), which does
+        // not move the connection to the address it came from
+        boolean probing = true;
         for (Frame frame : frames) {
+            probing &= frame instanceof Frame.Padding || frame instanceof Frame.PathChallenge
+                    || frame instanceof Frame.PathResponse || frame instanceof Frame.NewConnectionId;
             switch (frame) {
                 case Frame.Padding p -> {}
                 case Frame.Ping p -> {}
@@ -820,10 +1042,18 @@ public final class Connection {
                 case Frame.ApplicationClose c -> close = new ConnectionError(ConnectionError.Kind.APPLICATION_CLOSED,
                         c.errorCode(), 0, c.reasonPhrase());
                 case Frame.PathChallenge c -> {
-                    pathResponse = c.data();
-                    pathResponsePending = true;
+                    if (rxFrom == null) {
+                        break; // a 1-RTT packet held during the handshake: answered on the path
+                    }
+                    pathResponses.push(number, c.data(), rxFrom, rxLocal, rxLength);
+                    PathData path = recovery.path();
+                    if (rxFrom.equals(path.remote()) && Objects.equals(rxLocal, path.local())) {
+                        // A PATH_CHALLENGE on the active path may mean an attacker forwards our
+                        // packets elsewhere: a non-probing packet takes the connection back here
+                        ping();
+                    }
                 }
-                case Frame.PathResponse r -> {} // no path validation of ours
+                case Frame.PathResponse r -> onPathResponse(now, r.data());
                 case Frame.MaxData m -> streams.receivedMaxData(m.maximum());
                 case Frame.MaxStreamData m -> streams.receivedMaxStreamData(new StreamId(m.streamId()), m.maximum());
                 case Frame.MaxStreams m -> streams.receivedMaxStreams(m.bidirectional() ? Dir.BI : Dir.UNI, m.maximum());
@@ -900,7 +1130,112 @@ public final class Connection {
         if (close != null) {
             peerClosed(close);
             closePending = true; // one CONNECTION_CLOSE in answer, as RFC 9000 section 10.2.2 allows
+            return;
         }
+        PathData path = recovery.path();
+        if (side.isServer() && !probing && rxFrom != null && number == data.rxPacket()
+                && (!rxFrom.equals(path.remote()) || !Objects.equals(rxLocal, path.local()))) {
+            // The client moved: a non-probing packet newer than any other from a new address
+            migrate(now, rxFrom, rxLocal);
+        }
+    }
+
+    /**
+     * Follows the client to a new path (quinn's {@code migrate}, RFC 9000 section 9.3): new
+     * congestion and RTT state unless only the ports changed, validation of the new path with the
+     * previous one kept for going back, and an unused connection ID of the client's.
+     */
+    private void migrate(long now, InetSocketAddress to, InetSocketAddress local) throws QuicException {
+        PathData cur = recovery.path();
+        pathCounter++;
+        PathData next = cur.sameHosts(to, local) ? PathData.fromPrevious(to, local, cur, pathCounter, now)
+                : PathData.create(recoveryConfig, to, local, peerMaxUdpPayloadSize(), pathCounter, now);
+        if (to.equals(cur.remote())) {
+            // Only the local address changed: the client moved to our preferred address, from an
+            // address already validated
+            next.validated = cur.validated;
+            recovery.setPath(next, true);
+            pathChanged(now, next);
+            return;
+        }
+        next.challenge = random.nextLong();
+        next.hasChallenge = true;
+        next.challengePending = true;
+        long prevPto = recovery.pto(SpaceId.DATA);
+        // Do not lose the last validated path while an unvalidated one is replaced
+        boolean keepPrevious = !cur.hasChallenge;
+        recovery.setPath(next, keepPrevious);
+        if (keepPrevious) {
+            cur.challenge = random.nextLong();
+            cur.hasChallenge = true;
+            cur.challengePending = true;
+            prevPathCid = remoteCids.active(); // before the update below
+        }
+        timers.set(Timer.PATH_VALIDATION, now + 3 * Math.max(recovery.pto(SpaceId.DATA), prevPto));
+        pathChanged(now, next);
+        // Break linkability, if the client gave us another connection ID (RFC 9000 section 9.5)
+        updateRemoteCid();
+        spin = false;
+    }
+
+    /** The current path changed: datagrams that no longer fit go, and the application is told. */
+    private void pathChanged(long now, PathData path) {
+        remote = path.remote();
+        int max = maxDatagramSize();
+        if (max >= 0) {
+            datagrams.dropOversized(max);
+        }
+        events.add(new ConnectionEvent.PathUpdated(path.remote(), path.local()));
+        qlog(now, "connectivity:path_updated", "{\"remote\":\"" + path.remote() + "\",\"local\":\""
+                + path.local() + "\",\"validated\":" + path.validated + "}");
+    }
+
+    private int peerMaxUdpPayloadSize() {
+        return (int) Math.min(peerParams.maxUdpPayloadSize(), MtuDiscoveryConfig.MAX_UDP_PAYLOAD);
+    }
+
+    /** A PATH_RESPONSE: the end of the current path's validation, or of a client's probe. */
+    private void onPathResponse(long now, long token) throws QuicException {
+        PathData path = recovery.path();
+        if (path.hasChallenge && token == path.challenge && path.remote().equals(rxFrom)) {
+            timers.stop(Timer.PATH_VALIDATION);
+            path.hasChallenge = false;
+            path.challengePending = false;
+            path.validated = true;
+            PathData prev = recovery.prevPath();
+            if (prev != null) {
+                prev.hasChallenge = false;
+                prev.challengePending = false;
+            }
+            qlog(now, "connectivity:path_validated", "{\"remote\":\"" + path.remote() + "\"}");
+            return;
+        }
+        if (probe != null && token == probe.challenge) {
+            switchToProbe(now);
+        }
+        // else a response to an older challenge, or a forged one: ignored
+    }
+
+    /** A client's probe succeeded: the new path becomes the current one, with a fresh connection ID. */
+    private void switchToProbe(long now) throws QuicException {
+        Probe pr = probe;
+        probe = null;
+        timers.stop(Timer.PATH_PROBE);
+        PathData cur = recovery.path();
+        pathCounter++;
+        PathData next = cur.sameHosts(pr.remote, pr.local)
+                ? PathData.fromPrevious(pr.remote, pr.local, cur, pathCounter, now)
+                : PathData.create(recoveryConfig, pr.remote, pr.local, peerMaxUdpPayloadSize(), pathCounter, now);
+        next.validated = true;
+        recovery.setPath(next, true);
+        if (!remoteCids.active().equals(pr.cid)) {
+            updateRemoteCid(); // to the ID the probe used, unused on the old path
+        } else {
+            setResetToken(peerResetToken); // the same token, from the new address
+        }
+        pathChanged(now, next);
+        spin = false;
+        recovery.setLossDetectionTimer(now);
     }
 
     private void readCrypto(SpaceId spaceId, Frame.Crypto frame, int payloadLength) throws QuicException {
@@ -1161,8 +1496,11 @@ public final class Connection {
     }
 
     private void setResetToken(StatelessResetToken t) {
+        if (t == null) {
+            return;
+        }
         peerResetToken = t;
-        endpointEvents.add(new EndpointEvent.ResetToken(remote, t));
+        endpointEvents.add(new EndpointEvent.ResetToken(recovery.path().remote(), t));
     }
 
     private void issueFirstCids(long now) {
@@ -1246,7 +1584,35 @@ public final class Connection {
                         zeroRttKeys = null;
                     }
                 }
-                case PATH_VALIDATION, PACING -> {}
+                case PATH_VALIDATION -> {
+                    // The client did not answer on its new path: back to the previous one
+                    PathData prev = recovery.prevPath();
+                    if (prev != null) {
+                        recovery.setPath(prev, false);
+                        recovery.setPrevPath(null);
+                        recovery.setLossDetectionTimer(now);
+                        pathChanged(now, prev);
+                    }
+                    PathData path = recovery.path();
+                    path.hasChallenge = false;
+                    path.challengePending = false;
+                }
+                case PATH_PROBE -> {
+                    Probe pr = probe;
+                    if (pr == null) {
+                        break;
+                    }
+                    if (now - pr.deadline >= 0) {
+                        probe = null;
+                        events.add(new ConnectionEvent.PathProbeFailed(pr.remote, pr.local));
+                        qlog(now, "connectivity:path_probe_failed", "{\"remote\":\"" + pr.remote + "\"}");
+                    } else {
+                        pr.pending = true; // send the PATH_CHALLENGE again
+                        pr.backoff = Math.min(pr.backoff * 2, pr.deadline - now);
+                        timers.set(Timer.PATH_PROBE, Math.min(pr.deadline, now + pr.backoff));
+                    }
+                }
+                case PACING -> {}
                 case PUSH_NEW_CID -> {
                     boolean push = localCids.onCidTimeout();
                     if (!isClosed() && push) {
@@ -1307,16 +1673,23 @@ public final class Connection {
     }
 
     /**
-     * Builds datagrams to send to {@link #remoteAddress()}: coalesced packets of each encryption
-     * level, Initial datagrams padded to 1200 bytes, within the congestion window, the pacing rate
-     * and the anti-amplification limit; then path MTU probes.
+     * Builds datagrams to send: first a PATH_CHALLENGE on the previous path or on a path the
+     * client probes, and PATH_RESPONSEs for other paths, each in a datagram of its own; then, to
+     * the current path's address, coalesced packets of each encryption level, Initial datagrams
+     * padded to 1200 bytes, within the congestion window, the pacing rate and the
+     * anti-amplification limit; then path MTU probes.
      *
      * @param now the current time
      * @param maxDatagrams the most datagrams to return
-     * @return the datagrams, possibly none; each a new buffer from position 0 to its length
+     * @return the datagrams, possibly none; each a new buffer from position 0 to its length, with
+     *     where to send it
      */
-    public List<ByteBuffer> pollTransmit(long now, int maxDatagrams) {
-        List<ByteBuffer> out = new ArrayList<>();
+    public List<Transmit> pollTransmit(long now, int maxDatagrams) {
+        List<Transmit> out = new ArrayList<>();
+        PathData path = recovery.path();
+        if (state == State.ESTABLISHED && recovery.space(SpaceId.DATA).keys() != null) {
+            pollPathTransmits(now, maxDatagrams, out);
+        }
         boolean appLimited = false;
         while (out.size() < maxDatagrams) {
             boolean[] limited = new boolean[1];
@@ -1328,16 +1701,75 @@ public final class Connection {
                 appLimited = !limited[0];
                 break;
             }
-            out.add(d);
+            out.add(new Transmit(d, path.remote(), path.local()));
         }
         if (out.size() < maxDatagrams && state == State.ESTABLISHED) {
-            ByteBuffer probe = buildMtuProbe(now);
-            if (probe != null) {
-                out.add(probe);
+            ByteBuffer mtuProbe = buildMtuProbe(now);
+            if (mtuProbe != null) {
+                out.add(new Transmit(mtuProbe, path.remote(), path.local()));
             }
         }
         recovery.setAppLimited(appLimited);
         return out;
+    }
+
+    /**
+     * The datagrams of path validation that do not go on the current path, each on its own and
+     * not tracked for loss: the PATH_CHALLENGE for the previous path (quinn's {@code
+     * send_path_challenge}), with the connection ID used there; a client's PATH_CHALLENGE on the
+     * path it probes, with an unused connection ID; and PATH_RESPONSEs for other paths (quinn's
+     * off-path responses), no larger than three times the datagram that carried the challenge.
+     */
+    private void pollPathTransmits(long now, int maxDatagrams, List<Transmit> out) {
+        PathData prev = recovery.prevPath();
+        if (prev != null && prev.challengePending && out.size() < maxDatagrams) {
+            prev.challengePending = false;
+            long token = prev.challenge;
+            out.add(new Transmit(buildPathPacket(prevPathCid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(token).encode(f)),
+                    prev.remote(), prev.local()));
+        }
+        Probe pr = probe;
+        if (pr != null && pr.pending && out.size() < maxDatagrams) {
+            pr.pending = false;
+            out.add(new Transmit(buildPathPacket(pr.cid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(pr.challenge).encode(f)),
+                    pr.remote, pr.local));
+        }
+        PathData path = recovery.path();
+        while (out.size() < maxDatagrams) {
+            PathResponses.PathResponse r = pathResponses.popOffPath(path.remote(), path.local());
+            if (r == null) {
+                break;
+            }
+            // RFC 9000 section 8.2.2: padded to 1200 bytes, unless that would amplify
+            int size = (int) Math.min(MIN_INITIAL_SIZE, 3L * r.received());
+            if (size < min1rttDatagram()) {
+                continue;
+            }
+            out.add(new Transmit(buildPathPacket(remoteCids.active(), size, f -> new Frame.PathResponse(r.token()).encode(f)),
+                    r.remote(), r.local()));
+        }
+    }
+
+    /**
+     * The smallest 1-RTT datagram worth sending: a short header, a PATH_CHALLENGE or PATH_RESPONSE
+     * (or a small ACK) and the tag, which is what an unvalidated path may be limited to.
+     */
+    private int min1rttDatagram() {
+        return 1 + remoteCids.active().length() + 4 + 9 + PacketKey.TAG_LENGTH;
+    }
+
+    /** A 1-RTT packet of path validation frames, alone in a datagram padded to {@code size}; not tracked. */
+    private ByteBuffer buildPathPacket(ConnectionId dcid, int size, java.util.function.Consumer<ByteBuffer> frames) {
+        PacketSpace space = recovery.space(SpaceId.DATA);
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        PacketBuilder builder = new PacketBuilder(buf, size);
+        long pn = recovery.nextPacketNumber(SpaceId.DATA);
+        int pnLength = PacketNumber.encodedLength(pn, space.largestAckedPacket());
+        ByteBuffer out = builder.begin(new PacketHeader.Short(spinEnabled ? spin : random.nextBoolean(), keyPhase,
+                dcid, pn, pnLength), space.keys().local());
+        frames.accept(out);
+        builder.finish(size);
+        return builder.datagram();
     }
 
     private ByteBuffer buildDatagram(long now, boolean[] congestionLimited) {
@@ -1352,7 +1784,9 @@ public final class Connection {
             close = true;
         }
         long budget = recovery.antiAmplificationBudget();
-        if (budget < MIN_INITIAL_SIZE) {
+        // During the handshake a datagram may need to carry a padded Initial; after it, a server
+        // on an unvalidated new path sends what the limit allows (RFC 9000 section 8.2.1)
+        if (budget < (state == State.HANDSHAKE ? MIN_INITIAL_SIZE : min1rttDatagram())) {
             return null;
         }
         int mtu = recovery.mtud().currentMtu();
@@ -1470,6 +1904,9 @@ public final class Connection {
             if (id == SpaceId.INITIAL && (side.isClient() || open.ackEliciting)) {
                 padDatagram = true;
             }
+            if (open.pathFrames) {
+                padDatagram = true; // RFC 9000 section 8.2.1, within the anti-amplification limit
+            }
             if (id == SpaceId.DATA) {
                 break; // a short header packet ends the datagram
             }
@@ -1480,7 +1917,7 @@ public final class Connection {
         if (open == null) {
             return null;
         }
-        int end = finish(now, builder, open, padDatagram ? MIN_INITIAL_SIZE : 0);
+        int end = finish(now, builder, open, padDatagram ? Math.min(MIN_INITIAL_SIZE, limit) : 0);
         lastNumber = open.number;
         ByteBuffer datagram = builder.datagram();
         recovery.onDatagramSent(now, end, lastNumber);
@@ -1652,7 +2089,7 @@ public final class Connection {
         // NEW_TOKEN: a fresh token each time, for the path it was meant for (RFC 9000 section 8.1.3)
         while (!pending.newTokens.isEmpty() && !p.zeroRtt) {
             InetSocketAddress path = pending.newTokens.get(0);
-            if (tokenValidator == null || !path.equals(remote)) {
+            if (tokenValidator == null || !path.equals(recovery.path().remote())) {
                 pending.newTokens.remove(0);
                 continue;
             }
@@ -1664,11 +2101,23 @@ public final class Connection {
             p.sent.newTokens.add(pending.newTokens.remove(0));
             p.ackEliciting = true;
         }
-        // PATH_RESPONSE
-        if (pathResponsePending && out.position() + 9 <= limit && !p.zeroRtt) {
-            new Frame.PathResponse(pathResponse).encode(out);
-            pathResponsePending = false;
+        PathData path = recovery.path();
+        // PATH_CHALLENGE with every packet on a path being validated, as quinn sends it, though
+        // only once in a packet of its own
+        if (path.hasChallenge && out.position() + 9 <= limit && !p.zeroRtt) {
+            new Frame.PathChallenge(path.challenge).encode(out);
+            path.challengePending = false;
             p.ackEliciting = true;
+            p.pathFrames = true;
+        }
+        // PATH_RESPONSE on the current path
+        if (out.position() + 9 <= limit && !p.zeroRtt) {
+            PathResponses.PathResponse r = pathResponses.popOnPath(path.remote(), path.local());
+            if (r != null) {
+                new Frame.PathResponse(r.token()).encode(out);
+                p.ackEliciting = true;
+                p.pathFrames = true;
+            }
         }
         // DATAGRAM
         while (out.position() + DatagramState.SIZE_BOUND < limit && datagrams.write(out, limit)) {
@@ -1696,13 +2145,15 @@ public final class Connection {
 
     private boolean canSend1rtt(int limit) {
         int frameSpace = limit - (1 + remoteCids.active().length() + 4 + PacketKey.TAG_LENGTH);
-        return streams.canSendStreamData() || pathResponsePending || datagrams.canSend(frameSpace);
+        PathData path = recovery.path();
+        return streams.canSendStreamData() || path.challengePending
+                || pathResponses.hasOnPath(path.remote(), path.local()) || datagrams.canSend(frameSpace);
     }
 
     private ByteBuffer buildMtuProbe(long now) {
         PacketSpace space = recovery.space(SpaceId.DATA);
-        if (space.keys() == null) {
-            return null;
+        if (space.keys() == null || !recovery.path().validated) {
+            return null; // and no probes beyond the anti-amplification limit of a new path
         }
         int size = recovery.mtud().pollTransmit(now, recovery.peekPacketNumber(SpaceId.DATA));
         if (size < 0) {

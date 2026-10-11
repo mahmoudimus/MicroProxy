@@ -15,9 +15,14 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -25,6 +30,12 @@ import java.util.function.Predicate;
  * sockets, no threads, no sleeping. The network can drop datagrams above an MTU, add latency, lose
  * and reorder datagrams from a seeded random source, drop chosen datagrams, or pass them through a
  * bottleneck of limited rate with a drop-tail queue.
+ *
+ * <p>Datagrams go to the endpoint that has their destination address: its {@link
+ * TestEndpoint#address} or one of its {@link TestEndpoint#addresses other addresses} (a server's
+ * preferred address, a client's new local address). {@link TestEndpoint#rebind} changes an
+ * endpoint's address without telling its connections, as a NAT rebinding does; datagrams to an
+ * address no endpoint has are lost.
  */
 final class Pair {
 
@@ -64,6 +75,12 @@ final class Pair {
     final Random random = new Random(42);
     long datagramsFromClient;
     long datagramsFromServer;
+    /** Datagrams to an address no endpoint has. */
+    long misaddressed;
+    /** Bytes the server sent to each address, whether they arrived or not. */
+    final Map<InetSocketAddress, Long> serverBytesTo = new HashMap<>();
+    /** Bytes that reached the server from each address. */
+    final Map<InetSocketAddress, Long> serverBytesFrom = new HashMap<>();
 
     Pair() {
         this(EndpointConfig.defaults(), serverConfig(TransportConfig.defaults()), EndpointConfig.defaults());
@@ -207,7 +224,7 @@ final class Pair {
         client.drive(time);
         for (ByteBuffer d; (d = client.outbound.poll()) != null; ) {
             datagramsFromClient++;
-            transfer(d, server, dropFromClient);
+            transfer(d, client, server, dropFromClient);
         }
     }
 
@@ -215,13 +232,37 @@ final class Pair {
         server.drive(time);
         for (ByteBuffer d; (d = server.outbound.poll()) != null; ) {
             datagramsFromServer++;
-            transfer(d, client, dropFromServer);
+            transfer(d, server, client, dropFromServer);
         }
     }
 
-    private void transfer(ByteBuffer d, TestEndpoint to, Predicate<ByteBuffer> drop) {
+    /** The endpoint that has an address, or null. */
+    TestEndpoint owner(InetSocketAddress address) {
+        for (TestEndpoint e : new TestEndpoint[] {client, server}) {
+            if (e.address.equals(address) || e.addresses.contains(address)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private void transfer(ByteBuffer d, TestEndpoint from, TestEndpoint peer, Predicate<ByteBuffer> drop) {
+        Transmit t = from.routing.remove(d);
+        InetSocketAddress source = t != null && t.source() != null ? t.source() : from.address;
+        InetSocketAddress destination = t != null ? t.destination() : peer.address;
+        if (from == server) {
+            serverBytesTo.merge(destination, (long) d.remaining(), Long::sum);
+        }
+        TestEndpoint to = owner(destination);
+        if (to == null || to == from) {
+            misaddressed++;
+            return;
+        }
         if (d.remaining() > mtu || drop.test(d.duplicate())) {
             return;
+        }
+        if (to == server) {
+            serverBytesFrom.merge(source, (long) d.remaining(), Long::sum);
         }
         if (lossRate > 0 && random.nextDouble() < lossRate) {
             return;
@@ -245,7 +286,8 @@ final class Pair {
         }
         // A copy: the receiver keeps views of the buffer
         ByteBuffer copy = ByteBuffer.allocate(d.remaining()).put(d).flip();
-        to.inbound.add(new Inbound(at, to.sequence++, client == to ? server.address : client.address, copy));
+        InetSocketAddress local = destination.equals(to.address) ? null : destination;
+        to.inbound.add(new Inbound(at, to.sequence++, source, local, copy));
     }
 
     /** Connects with the default client configuration; returns the client connection. */
@@ -299,12 +341,27 @@ final class Pair {
         return out;
     }
 
-    record Inbound(long time, long sequence, InetSocketAddress from, ByteBuffer datagram) {}
+    /**
+     * A datagram on its way.
+     *
+     * @param local the address it was sent to, or null for the endpoint's own
+     */
+    record Inbound(long time, long sequence, InetSocketAddress from, InetSocketAddress local, ByteBuffer datagram) {
+
+        Inbound(long time, long sequence, InetSocketAddress from, ByteBuffer datagram) {
+            this(time, sequence, from, null, datagram);
+        }
+    }
 
     /** One endpoint with its connections and network queues. */
     static final class TestEndpoint {
         Endpoint endpoint;
-        final InetSocketAddress address;
+        /** The endpoint's own address, which its connections know as null. */
+        InetSocketAddress address;
+        /** Other addresses the endpoint receives at. */
+        final Set<InetSocketAddress> addresses = new HashSet<>();
+        /** Where each outbound datagram goes, when not to the peer's own address. */
+        final Map<ByteBuffer, Transmit> routing = new IdentityHashMap<>();
         final List<Connection> connections = new ArrayList<>();
         final PriorityQueue<Inbound> inbound = new PriorityQueue<>(
                 Comparator.comparingLong(Inbound::time).thenComparingLong(Inbound::sequence));
@@ -329,13 +386,15 @@ final class Pair {
                 Inbound in = inbound.poll();
                 Endpoint.DatagramEvent e = endpoint.handle(now, in.from(), 0, in.datagram().duplicate());
                 switch (e) {
-                    case Endpoint.DatagramEvent.Deliver d -> d.connection().handleDatagram(now, in.from(), 0, in.datagram());
+                    case Endpoint.DatagramEvent.Deliver d -> d.connection().handleDatagram(now, in.local(), in.from(), 0,
+                            in.datagram());
                     case Endpoint.DatagramEvent.NewConnection n -> {
                         connections.add(n.connection());
-                        n.connection().handleDatagram(now, in.from(), 0, in.datagram());
+                        n.connection().handleDatagram(now, in.local(), in.from(), 0, in.datagram());
                     }
                     case Endpoint.DatagramEvent.Response r -> {
                         responses.add(r.datagram().duplicate());
+                        routing.put(r.datagram(), new Transmit(r.datagram(), in.from(), in.local()));
                         outbound.add(r.datagram());
                     }
                     case null -> {}
@@ -345,11 +404,24 @@ final class Pair {
                 for (EndpointEvent e; (e = c.pollEndpointEvent()) != null; ) {
                     endpoint.handleEvent(c, e);
                 }
-                outbound.addAll(c.pollTransmit(now, 64));
+                for (Transmit t : c.pollTransmit(now, 64)) {
+                    routing.put(t.datagram(), t);
+                    outbound.add(t.datagram());
+                }
                 for (EndpointEvent e; (e = c.pollEndpointEvent()) != null; ) {
                     endpoint.handleEvent(c, e);
                 }
             }
+        }
+
+        /**
+         * Moves the endpoint to a new address without telling its connections, as a NAT that
+         * rebinds does: datagrams to the old address are lost from now on.
+         *
+         * @param to the new address
+         */
+        void rebind(InetSocketAddress to) {
+            address = to;
         }
 
         /** Holds back what was sent so far, to reorder it after later datagrams. */
