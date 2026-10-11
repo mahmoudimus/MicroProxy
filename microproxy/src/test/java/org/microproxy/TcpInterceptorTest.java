@@ -312,6 +312,22 @@ class TcpInterceptorTest {
     }
 
     @Test
+    void reverseTcpConnectionsAreTunnels() throws Exception {
+        Recorder recorder = new Recorder(TcpInterceptorTest::edit);
+        try (TestSupport.RawServer origin = lineEcho()) {
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withTcpInterceptor(recorder)
+                    .withReverseProxy(ReverseProxyMode.parse("tcp://127.0.0.1:" + origin.port())));
+            try (Socket s = ChainTestSupport.open(proxy.getListenAddress())) {
+                send(s, "no CONNECT, a secret");
+                assertEquals("ECHO: no CONNECT, a public", line(s));
+            }
+            recorder.awaitDone();
+            assertEquals(origin.port(), recorder.context.port());
+        }
+        assertFalse(recorder.context.tlsIntercepted());
+    }
+
+    @Test
     void aFailedTunnelEndsWithAnError() throws Exception {
         Recorder recorder = new Recorder((m, ctx) -> m.data());
         try (TestSupport.RawServer origin = TestSupport.rawServer(s -> {
