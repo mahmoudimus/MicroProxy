@@ -101,6 +101,21 @@ class MigrationLoopbackTest {
     }
 
     @Test
+    void clientRebindsMidStreamWithoutProbing() throws Exception {
+        start(LoopbackTest.serverConfig(LoopbackTest.fastTransport()));
+        QuicConnection c = client.connect(echo.address(), "localhost", Duration.ofSeconds(10));
+        QuicConnection served = echo.accepted.poll(10, TimeUnit.SECONDS);
+        byte[] data = LoopbackTest.data(7, 16 << 20);
+        CompletableFuture<byte[]> echoed = echoLater(c, data);
+        LoopbackTest.pollUntil(() -> c.stats().sentPackets() > 2000, Duration.ofSeconds(30));
+        InetSocketAddress after = c.rebind(new InetSocketAddress(LOOPBACK, 0));
+        assertEquals(after, c.localAddress());
+        assertArrayEquals(LoopbackTest.sha256().digest(data), echoed.get(60, TimeUnit.SECONDS));
+        LoopbackTest.pollUntil(() -> served.remoteAddress().getPort() == after.getPort(), Duration.ofSeconds(10));
+        c.close();
+    }
+
+    @Test
     void clientMigratesOntoASocketOfItsOwn() throws Exception {
         start(LoopbackTest.serverConfig(LoopbackTest.fastTransport()));
         QuicConnection c = client.connect(echo.address(), "localhost", Duration.ofSeconds(10));

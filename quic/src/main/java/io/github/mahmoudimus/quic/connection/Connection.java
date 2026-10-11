@@ -936,6 +936,49 @@ public final class Connection {
      */
     public void probePath(long now, InetSocketAddress local) {
         Objects.requireNonNull(local, "local");
+        checkMayMigrate();
+        if (remoteCids.peekNext() == null) {
+            throw new IllegalStateException("no unused connection ID of the server's");
+        }
+        startProbe(now, recovery.path().remote(), local);
+    }
+
+    /**
+     * Client: moves the connection to a new local address at once, without probing the path
+     * first, as quinn's {@code local_address_changed} does after its endpoint rebinds: the next
+     * packets carry a connection ID of the server's not used before (when the server gave one), and
+     * a PING from the new address makes the server follow and validate it. To the server this looks
+     * like a NAT rebinding. Some servers answer PATH_CHALLENGE only on the path they use (aioquic),
+     * so that {@link #probePath} gets no answer from them; this works with them.
+     *
+     * @param now the current time
+     * @param local the new local address
+     * @throws IllegalStateException as {@link #probePath} does, except that a server that gave no
+     *     unused connection ID is no obstacle
+     */
+    public void rebind(long now, InetSocketAddress local) {
+        Objects.requireNonNull(local, "local");
+        checkMayMigrate();
+        PathData cur = recovery.path();
+        pathCounter++;
+        PathData next = cur.sameHosts(cur.remote(), local)
+                ? PathData.fromPrevious(cur.remote(), local, cur, pathCounter, now)
+                : PathData.create(recoveryConfig, cur.remote(), local, peerMaxUdpPayloadSize(), pathCounter, now);
+        next.validated = true;
+        recovery.setPath(next, true);
+        try {
+            updateRemoteCid();
+        } catch (QuicException e) {
+            finishPacket(now, ConnectionError.transport(e)); // the peer made us retire too many IDs
+            return;
+        }
+        pathChanged(now, next);
+        spin = false;
+        ping();
+        recovery.setLossDetectionTimer(now);
+    }
+
+    private void checkMayMigrate() {
         if (side.isServer()) {
             throw new IllegalStateException("only a client migrates");
         }
@@ -954,10 +997,6 @@ public final class Connection {
         if (remoteCids.active().isEmpty()) {
             throw new IllegalStateException("the server uses zero-length connection IDs");
         }
-        if (remoteCids.peekNext() == null) {
-            throw new IllegalStateException("no unused connection ID of the server's");
-        }
-        startProbe(now, recovery.path().remote(), local);
     }
 
     /**

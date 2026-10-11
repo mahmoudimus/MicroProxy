@@ -27,7 +27,8 @@ import java.util.Objects;
  * <p><b>Migration.</b> A server's connection follows a client that moves to a new address (a NAT
  * rebinding, or a client that {@linkplain #migrate migrates}), validating the new path first, unless
  * its configuration forbids migration; {@link #remoteAddress()} then changes. A client connection
- * moves with {@link #migrate}, and to a server's preferred address on its own.
+ * moves with {@link #migrate} (probing the new path first) or {@link #rebind} (at once), and to a
+ * server's preferred address on its own.
  *
  * <p><b>0-RTT.</b> A connection from {@link QuicClient#connectEarly} may still be handshaking: its
  * streams can be opened and written at once, and what is written goes out as 0-RTT data. A server
@@ -488,7 +489,7 @@ public final class QuicConnection implements AutoCloseable {
      */
     public InetSocketAddress migrate(InetSocketAddress local) throws IOException {
         Objects.requireNonNull(local, "local");
-        return migrate(driver.endpoint().bindSocket(local));
+        return migrate(driver.endpoint().bindSocket(local), true);
     }
 
     /**
@@ -502,10 +503,30 @@ public final class QuicConnection implements AutoCloseable {
      */
     public InetSocketAddress migrate(DatagramChannel channel) throws IOException {
         Objects.requireNonNull(channel, "channel");
-        return migrate(driver.endpoint().adopt(channel));
+        return migrate(driver.endpoint().adopt(channel), true);
     }
 
-    private InetSocketAddress migrate(EndpointDriver.Socket next) throws IOException {
+    /**
+     * Client: moves the connection to a new local address at once, without probing the path
+     * first, as quinn's endpoint does when it rebinds: packets leave from a UDP socket bound at
+     * {@code local} from now on, with a connection ID of the server's not used before when it gave
+     * one, and the server follows as it follows a NAT rebinding, validating the new path itself.
+     * Use it with servers that answer PATH_CHALLENGE only on the path they use, which never answer
+     * {@link #migrate}'s probe (aioquic is one). The old socket is closed once no connection uses
+     * it.
+     *
+     * @param local the address to bind, port 0 for an ephemeral port
+     * @return the new local address, with its port
+     * @throws IOException if the socket cannot be bound, or the connection cannot migrate (as for
+     *     {@link #migrate}, except that the server need not have given an unused connection ID)
+     * @throws QuicConnectionException if the connection ended meanwhile
+     */
+    public InetSocketAddress rebind(InetSocketAddress local) throws IOException {
+        Objects.requireNonNull(local, "local");
+        return migrate(driver.endpoint().bindSocket(local), false);
+    }
+
+    private InetSocketAddress migrate(EndpointDriver.Socket next, boolean probe) throws IOException {
         boolean started = false;
         driver.lock.lock();
         try {
@@ -518,7 +539,7 @@ public final class QuicConnection implements AutoCloseable {
                 driver.changed.await();
             }
             try {
-                driver.startMigration(next);
+                driver.startMigration(next, probe);
             } catch (IllegalStateException e) {
                 throw new IOException("cannot migrate: " + e.getMessage(), e);
             }

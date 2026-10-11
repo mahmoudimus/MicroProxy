@@ -271,15 +271,20 @@ final class ConnectionDriver implements Runnable {
 
     /**
      * Starts a client's migration to {@code next} (bound, its user counted); called with the lock
-     * held. The connection probes the path and switches if the server answers.
+     * held. The connection probes the path and switches if the server answers, or switches at once
+     * without {@code probe}.
      *
      * @throws IllegalStateException if the connection cannot migrate now
      */
-    void startMigration(EndpointDriver.Socket next) {
+    void startMigration(EndpointDriver.Socket next, boolean probe) {
         if (probing != null) {
             throw new IllegalStateException("a migration is under way");
         }
-        conn.probePath(now(), next.address);
+        if (probe) {
+            conn.probePath(now(), next.address);
+        } else {
+            conn.rebind(now(), next.address);
+        }
         probing = next;
         migrated = null;
     }

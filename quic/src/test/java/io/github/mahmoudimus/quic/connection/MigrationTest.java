@@ -452,6 +452,32 @@ class MigrationTest {
         pair.driveUntil(() -> server.path().isValidated());
     }
 
+    /** A client that rebinds without probing: the server sees a NAT rebinding with a new connection ID. */
+    @Test
+    void clientRebindsWithoutProbing() throws Exception {
+        Pair pair = pair();
+        Connection[] c = connected(pair);
+        Connection client = c[0];
+        Connection server = c[1];
+        byte[] data = data(1 << 20);
+        Transfer t = new Transfer(pair, client, server, data);
+        t.runUntil(() -> t.received.size() > data.length / 3);
+        Pair.drainEvents(client);
+        ConnectionId cid = client.remoteCid();
+        InetSocketAddress next = Pair.address(pair.client.address.getPort() + 300);
+        pair.client.addresses.add(next);
+        client.rebind(pair.time, next);
+        assertFalse(client.isProbingPath());
+        assertEquals(next, client.localAddress());
+        assertNotEquals(cid, client.remoteCid());
+        assertEquals(List.of(new ConnectionEvent.PathUpdated(Pair.address(4433), next)),
+                events(client, ConnectionEvent.PathUpdated.class));
+        t.runUntil(() -> server.remoteAddress().equals(next));
+        assertArrayEquals(data, t.finish());
+        pair.driveUntil(() -> server.path().isValidated());
+        assertEquals(next, server.remoteAddress());
+    }
+
     @Test
     void clientProbeWithoutAnAnswerKeepsTheOldPath() throws Exception {
         Pair pair = pair();
