@@ -21,8 +21,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * so {@code on_request} can leave notes for {@code on_response}, {@code timings}, a snapshot of the
  * exchange's timings taken when it is read, {@code client_hello}, the TLS ClientHello that
  * started the client's intercepted session ({@code None} before it is read, and for plain HTTP),
- * and {@code forwarded_via}, the intercepted server that the request is forwarded through as the
- * client's HTTPS proxy ({@code host:port}), or {@code None}.
+ * and {@code forwarded_via}, the session's server that the request is forwarded through as the
+ * client's proxy ({@code host:port}: an intercepted HTTPS proxy, or an HTTP proxy whose session is
+ * plain HTTP), or {@code None}.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
