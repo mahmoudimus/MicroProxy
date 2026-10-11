@@ -37,7 +37,8 @@ The channel owns:
   `writeContent`, and the fast path `writeData` / `flush` / `writeEnd`.
 - **Ending the exchange.** `relay` passes bytes both ways for a `CONNECT` tunnel or after a `101`
   (through a `WebSocketRelay` when filters look at frames or messages: it parses frames, joins
-  messages, and inflates and deflates permessage-deflate per hop with `PerMessageDeflate`),
+  messages, and inflates and deflates permessage-deflate per hop with `PerMessageDeflate`; or,
+  for a raw tunnel with a `TcpInterceptor`, through a `TcpSession` that runs the TCP hooks),
   `reject(status)` answers a malformed request, and `close` closes the connection.
 - **Waiting.** `awaitUnlessClientLeaves` is the chained-proxy backoff wait, which stops early if
   the client disconnects.
@@ -150,7 +151,10 @@ picks the reply code from the `ProxyFailure` that `respondFailure` noted (`Excha
 or from the refusal's status. Without a MITM manager, `handleConnect` still sends a SOCKS
 connection through `interceptOrTunnel` (`inspect`), marking its plain connection `tlsPending` so
 that `peekClient` watches the server and `tunnelAfterPeek` and `servePlainSession` reuse it;
-`declineReason` declines every ClientHello then, and plain HTTP is served as HTTP.
+`declineReason` declines every ClientHello then, and plain HTTP is served as HTTP. Its tunnels
+reach `relay` only through `answerConnect`, `tunnelAfterPeek` and `relayDecrypted`, as a `CONNECT`'s
+and a `tcp://` reverse proxy's do, so each gets the `TcpSession` (`tcpSession`) that runs the TCP
+hooks.
 
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
