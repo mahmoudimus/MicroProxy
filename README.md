@@ -1494,7 +1494,7 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
 - **Reading the ClientHello.** The proxy holds a new client's datagrams and decrypts its Initial
   packets with the keys their Destination Connection ID gives (RFC 9001 section 5.2, QUIC v1 and
   v2), without a handshake, as mitmproxy does. It puts the CRYPTO frames back together across
-  packets and datagrams, in any order (Chrome's post-quantum ClientHellos take two packets, their
+  packets and datagrams, in any order (browsers' post-quantum ClientHellos take two packets, their
   frames shuffled), and parses the same `ClientHello` that TLS over TCP gives.
 - **Deciding**, as for transparent TLS: a `CONNECT sni:443` is made up for the flow (filters see
   it; `clientToProxyRequest` answering it drops the flow; `proxyToServerAllowMitm()` and

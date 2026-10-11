@@ -129,7 +129,7 @@ class QuicClientHelloTest {
 
     /**
      * A ClientHello as large as a post-quantum one, over three Initial packets in three datagrams,
-     * its CRYPTO frames shuffled and mixed with PING (as Chrome sends them).
+     * its CRYPTO frames shuffled and mixed with PING (as browsers send them).
      */
     @ParameterizedTest
     @EnumSource(QuicVersion.class)

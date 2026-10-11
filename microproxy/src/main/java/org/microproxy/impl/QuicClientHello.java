@@ -36,7 +36,7 @@ import org.microproxy.ClientHello;
  * back together and parse the message, as {@link TlsClientHello} does for TLS over TCP.
  *
  * <p>A ClientHello may take several Initial packets, in several datagrams: post-quantum key shares
- * make Chrome's larger than one, and its CRYPTO frames come out of order and mixed with PING and
+ * make browsers' larger than one, and their CRYPTO frames come out of order and mixed with PING and
  * PADDING. The message may be {@link TlsClientHello#MAX_MESSAGE_SIZE} long at most, and must be
  * complete within {@link #MAX_DATAGRAMS} datagrams.
  *
