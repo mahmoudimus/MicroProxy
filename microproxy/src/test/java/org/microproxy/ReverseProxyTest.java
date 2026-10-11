@@ -17,7 +17,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -209,5 +212,91 @@ class ReverseProxyTest {
         assertEquals("/terminated", echoedUri(response.body()));
         assertEquals(List.of("127.0.0.1:" + origin.getAddress().getPort()), echoedHeader(response.body(), "host"));
         assertFalse(echoedHeader(response.body(), "via").isEmpty(), "the proxy's Via");
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // The client never picks the server (SSRF)
+    // -------------------------------------------------------------------------------------------
+
+    /** A server the client names but must never reach: counts the connections it accepts. */
+    private static TestSupport.RawServer forbidden(AtomicInteger reached) {
+        return TestSupport.rawServer(s -> reached.incrementAndGet());
+    }
+
+    @Test
+    void anAbsoluteUriFromTheClientNeverPicksTheServer() throws Exception {
+        origin = TestSupport.origin(TestSupport.echo());
+        String upstream = "127.0.0.1:" + origin.getAddress().getPort();
+        AtomicInteger reached = new AtomicInteger();
+        List<String> filtersSaw = new CopyOnWriteArrayList<>();
+        try (TestSupport.RawServer other = forbidden(reached)) {
+            String elsewhere = "127.0.0.1:" + other.port();
+            for (boolean keepHost : new boolean[] {false, true}) {
+                HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().withReverseProxy("http://" + upstream)
+                        .withKeepHostHeader(keepHost)
+                        // Filters that leave the URI alone: the client's absolute URI is not theirs.
+                        .withFiltersSource(HttpFilters.builder().onRequest(r -> {
+                            filtersSaw.add(r.uri());
+                            return null;
+                        }).build()));
+                for (String scheme : List.of("http", "https", "ws")) {
+                    String response = TestSupport.rawExchange(proxy.getListenAddress(), "GET " + scheme + "://"
+                            + elsewhere + "/secret HTTP/1.1\r\nHost: " + elsewhere + "\r\nConnection: close\r\n\r\n");
+                    assertTrue(response.startsWith("HTTP/1.1 200"), response);
+                    // The upstream got it, in origin-form; the authority only names the Host kept.
+                    assertEquals("/secret", echoedUri(body(response)));
+                    assertEquals(List.of(keepHost ? elsewhere : upstream), echoedHeader(body(response), "host"));
+                }
+            }
+            assertEquals(Collections.nCopies(6, "/secret"), filtersSaw);
+            assertEquals(0, reached.get());
+        }
+    }
+
+    @Test
+    void connectNeverPicksTheServer() throws Exception {
+        origin = TestSupport.origin(TestSupport.echo());
+        AtomicInteger reached = new AtomicInteger();
+        try (TestSupport.RawServer other = forbidden(reached)) {
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap()
+                    .withReverseProxy("http://127.0.0.1:" + origin.getAddress().getPort()));
+            assertEquals(400, ChainTestSupport.connectStatus(proxy.getListenAddress(), "127.0.0.1:" + other.port()));
+            // Nor does a MITM manager change that: there is no session to intercept.
+            HttpProxyServer intercepting = proxies.start(MicroProxy.bootstrap()
+                    .withReverseProxy("http://127.0.0.1:" + origin.getAddress().getPort())
+                    .withManInTheMiddle(new CertificateAuthorityMitmManager(CertificateAuthority.generate("unused"),
+                            originCa.clientContext())));
+            assertEquals(400, ChainTestSupport.connectStatus(intercepting.getListenAddress(), "127.0.0.1:" + other.port()));
+            assertEquals(0, reached.get());
+        }
+    }
+
+    @Test
+    void anHttp2AuthorityNeverPicksTheServer() throws Exception {
+        origin = TestSupport.origin(TestSupport.echo());
+        String upstream = "127.0.0.1:" + origin.getAddress().getPort();
+        AtomicInteger reached = new AtomicInteger();
+        SelfSignedSslContextSource listener = new SelfSignedSslContextSource(false, true, "localhost");
+        try (TestSupport.RawServer other = forbidden(reached)) {
+            String elsewhere = "127.0.0.1:" + other.port();
+            HttpProxyServer tls = proxies.start(MicroProxy.bootstrap().withReverseProxy("http://" + upstream)
+                    .withSslContextSource(listener).withHttp2(true));
+            HttpProxyServer cleartext = proxies.start(MicroProxy.bootstrap().withReverseProxy("http://" + upstream)
+                    .withHttp2Cleartext(true));
+            try (H2StreamClient overTls = H2StreamClient.tls(tls.getListenAddress(),
+                            SslContexts.trusting(listener.getCertificate()), elsewhere);
+                    H2StreamClient prior = H2StreamClient.cleartext(cleartext.getListenAddress(), elsewhere)) {
+                for (H2StreamClient c : List.of(overTls, prior)) {
+                    H2StreamClient.Stream get = c.open(c.request("GET", "/h2-secret"), true);
+                    assertEquals(200, get.status());
+                    String body = get.text();
+                    assertEquals("/h2-secret", echoedUri(body));
+                    assertEquals(List.of(upstream), echoedHeader(body, "host"));
+                    // A CONNECT stream for it is refused.
+                    assertEquals(400, c.open(H2StreamClient.connect(elsewhere), false).status());
+                }
+            }
+            assertEquals(0, reached.get());
+        }
     }
 }

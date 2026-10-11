@@ -89,6 +89,25 @@ class TransparentTlsTest {
     }
 
     @Test
+    void anAbsoluteUriInsideTheSessionStaysWithTheSniServer() throws Exception {
+        // The SNI chose the server, by design; an absolute URI inside the session is a request for
+        // that server (as for a proxy), which never takes the session to the URI's authority.
+        java.util.concurrent.atomic.AtomicInteger reached = new java.util.concurrent.atomic.AtomicInteger();
+        HttpProxyServer proxy = proxies.start(transparent()
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext())));
+        try (TestSupport.RawServer other = TestSupport.rawServer(s -> reached.incrementAndGet());
+                SSLSocket tls = startTls(direct(proxy), "localhost", proxyCa.clientContext(), "http/1.1")) {
+            String elsewhere = "127.0.0.1:" + other.port();
+            TestSupport.write(tls.getOutputStream(), "GET http://" + elsewhere + "/inside HTTP/1.1\r\nHost: " + elsewhere
+                    + "\r\nConnection: close\r\n\r\n");
+            String response = new String(tls.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(response.startsWith("HTTP/1.1 200"), response);
+            assertEquals(List.of("GET http://" + elsewhere + "/inside " + elsewhere), received);
+            assertEquals(0, reached.get());
+        }
+    }
+
+    @Test
     void withoutMitmTheConnectionIsTunnelledToTheSniHost() throws Exception {
         HttpProxyServer proxy = proxies.start(transparent());
         try (SSLSocket tls = startTls(direct(proxy), "localhost", originCa.clientContext())) {
