@@ -111,6 +111,14 @@ final class ClientFlowContext extends FlowContext {
         return own != null || connectionFlow == null ? own : connectionFlow.getClientHello();
     }
 
+    /**
+     * The ClientHello recorded for this context itself: for a stream's, the one read in the
+     * stream's tunnel, never its connection's; null if none was.
+     */
+    ClientHello ownClientHello() {
+        return clientHello;
+    }
+
     void upstreamStatus(int status) {
         upstreamStatus = status;
     }
