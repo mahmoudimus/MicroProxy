@@ -388,6 +388,26 @@ abstract class Http3Endpoint {
         }
     }
 
+    /**
+     * The peer's settings, waiting up to {@code nanos} for its SETTINGS to arrive; the defaults if
+     * they do not in time, or the connection ends.
+     */
+    Http3Settings awaitPeerSettings(long nanos) throws InterruptedIOException {
+        stateLock.lock();
+        try {
+            long remaining = nanos;
+            while (!settingsReceived && !closed && remaining > 0) {
+                remaining = stateChanged.awaitNanos(remaining);
+            }
+            return peerSettings;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("interrupted waiting for SETTINGS");
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
     boolean settingsReceived() {
         stateLock.lock();
         try {

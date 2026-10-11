@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.microproxy.FullFlowContext;
 import org.microproxy.http.FullHttpRequest;
 import org.microproxy.http.HttpContent;
+import org.microproxy.http.HttpHeaderNames;
+import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpHeaders;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
@@ -36,6 +38,11 @@ import org.microproxy.http.LastHttpContent;
  * H3_REQUEST_REJECTED}) {@link Http3UpstreamConnection.Unprocessed}, which is sent again, and
  * other resets and connection errors {@link IOException}s (a {@code 502}, or a reset client stream
  * once the response has started).
+ *
+ * <p>A WebSocket upgrade goes to a server that sent SETTINGS_ENABLE_CONNECT_PROTOCOL as an extended
+ * {@code CONNECT} with {@code :protocol websocket} (RFC 9220); its 2xx is shown to the exchange
+ * logic as the {@code 101} an HTTP/1.1 server would send, and the stream's DATA then carry the
+ * WebSocket's frames ({@link #tunnelInput}, {@link #tunnelOutput}).
  */
 final class Http3UpstreamStream extends ServerConnection {
 
@@ -49,6 +56,11 @@ final class Http3UpstreamStream extends ServerConnection {
     private final AtomicBoolean done = new AtomicBoolean();
     /** The QUIC connection was made for this stream's exchange: it reports the connection to filters and trackers. */
     volatile boolean newConnection;
+    /** The request is a WebSocket upgrade, sent as an extended CONNECT. */
+    private boolean webSocket;
+    private String webSocketKey;
+    /** The server's actual status for an accepted WebSocket, shown to the exchange as a 101; else 0. */
+    private int tunnelStatus;
 
     Http3UpstreamStream(Http3UpstreamConnection connection, QuicStream stream, FullFlowContext flowContext, String logPrefix,
             boolean headRequest) {
@@ -80,9 +92,15 @@ final class Http3UpstreamStream extends ServerConnection {
         return true;
     }
 
+    /** Whether the server allows extended CONNECT, as its SETTINGS (waited for briefly) say. */
     @Override
     boolean supportsWebSockets() {
-        return false;
+        try {
+            return connection.awaitPeerSettings(connection.options.upstreamHandshakeTimeout().toNanos())
+                    .enableConnectProtocol();
+        } catch (java.io.InterruptedIOException e) {
+            return false;
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -93,6 +111,22 @@ final class Http3UpstreamStream extends ServerConnection {
     void writeRequestHead(HttpRequest request, boolean bodyFollows, boolean trailersAccepted) throws IOException {
         if (ProxyUtils.isCONNECT(request)) throw new IOException("CONNECT is not sent to servers over HTTP/3");
         var fields = Http3Messages.requestFields(request, hostAndPort, trailersAccepted);
+        webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(request);
+        if (webSocket) {
+            if (!supportsWebSockets()) throw new IOException("the server has not enabled extended CONNECT");
+            webSocketKey = request.headers().get("Sec-WebSocket-Key");
+            fields.set(0, new io.github.mahmoudimus.http3.HeaderField(":method", "CONNECT"));
+            fields.add(1, new io.github.mahmoudimus.http3.HeaderField(":protocol", "websocket"));
+            fields.removeIf(f -> f.name().equals("sec-websocket-key") || f.name().equals("sec-websocket-accept")
+                    || f.name().equals("content-length"));
+            try {
+                writer.headers(fields, false);
+                writer.flush();
+            } catch (IOException e) {
+                throw translate(e);
+            }
+            return;
+        }
         try {
             if (request instanceof FullHttpRequest full) {
                 byte[] content = full.content();
@@ -194,7 +228,24 @@ final class Http3UpstreamStream extends ServerConnection {
             throw e;
         }
         boolean bodyless = headRequest || response.status() == 204 || response.status() == 304;
+        if (webSocket && response.status() / 100 == 2) {
+            // The server accepted the WebSocket: the exchange logic sees an HTTP/1.1 server's 101.
+            tunnelStatus = response.status();
+            HttpResponse switching = Http3Messages.toHttp1(response, false, true);
+            switching.setStatus(HttpResponseStatus.valueOf(101));
+            switching.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+            switching.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
+            switching.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
+            switching.headers().set(HttpHeaderNames.UPGRADE, "websocket");
+            if (webSocketKey != null) switching.headers().set("Sec-WebSocket-Accept", WebSocketHandshake.accept(webSocketKey));
+            return switching;
+        }
         return Http3Messages.toHttp1(response, reader.endsHere(), bodyless);
+    }
+
+    @Override
+    int responseStatus(HttpResponse response) {
+        return tunnelStatus != 0 ? tunnelStatus : super.responseStatus(response);
     }
 
     @Override
@@ -251,19 +302,72 @@ final class Http3UpstreamStream extends ServerConnection {
         // Nothing buffered for the next exchange: the stream carries only this one.
     }
 
+    /** An accepted WebSocket's bytes from the server: the stream's DATA. */
     @Override
     InputStream tunnelInput() {
-        throw new UnsupportedOperationException("no tunnels over HTTP/3 to servers");
+        InputStream in = reader.body().asInputStream();
+        return new InputStream() {
+            @Override
+            public int read() throws IOException {
+                try {
+                    return in.read();
+                } catch (IOException e) {
+                    throw translate(e);
+                }
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) throws IOException {
+                try {
+                    return in.read(b, off, len);
+                } catch (IOException e) {
+                    throw translate(e);
+                }
+            }
+
+            @Override
+            public int available() throws IOException {
+                return in.available();
+            }
+        };
     }
 
+    /** An accepted WebSocket's bytes to the server, as DATA frames. */
     @Override
     OutputStream tunnelOutput() {
-        throw new UnsupportedOperationException("no tunnels over HTTP/3 to servers");
+        return new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+                write(new byte[] {(byte) b}, 0, 1);
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) throws IOException {
+                if (len == 0) return;
+                if (writer.ended()) throw new java.net.SocketException("the stream's output has ended");
+                writeData(b, off, len);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                writer.flush();
+            }
+
+            @Override
+            public void close() throws IOException {
+                endTunnelOutput();
+            }
+        };
     }
 
+    /** Ends an accepted WebSocket's output: the stream's FIN. */
     @Override
-    void endTunnelOutput() {
-        throw new UnsupportedOperationException("no tunnels over HTTP/3 to servers");
+    void endTunnelOutput() throws IOException {
+        try {
+            writer.end();
+        } catch (IOException e) {
+            throw translate(e);
+        }
     }
 
     /** QUIC's failures as the exchange logic understands them. */

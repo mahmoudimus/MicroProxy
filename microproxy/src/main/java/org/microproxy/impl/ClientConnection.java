@@ -1301,8 +1301,8 @@ final class ClientConnection implements Runnable {
         ex.upstreamTls = mode == Mode.TLS;
         // HTTP/3 to a server known to speak it: only on direct connections, which carry nothing
         // particular to one client (no tunnel through a hop, no PROXY header), and not for a
-        // proxy request or a WebSocket.
-        boolean http3 = server.http3Origins != null && mode == Mode.TLS && via == null && !ex.proxyForm && !webSocket
+        // proxy request. A WebSocket needs the server's extended CONNECT (RFC 9220).
+        boolean http3 = server.http3Origins != null && mode == Mode.TLS && via == null && !ex.proxyForm
                 && !server.sendProxyProtocol;
         // A server known to speak HTTP/3 gets the exchange over it, even when a TCP connection to
         // it is at hand (the one an intercepted CONNECT made, say), which stays for later.
@@ -1450,11 +1450,13 @@ final class ClientConnection implements Runnable {
                 }
             }
             if (webSocket && conn.multiplexed() && !conn.supportsWebSockets()) {
-                // Keep the HTTP/2 connection for ordinary requests. This WebSocket needs a
-                // separate HTTP/1.1 connection when the origin does not advertise RFC 8441.
+                // Keep the HTTP/2 (or HTTP/3) connection for ordinary requests. This WebSocket
+                // needs a separate HTTP/1.1 connection when the origin does not advertise
+                // extended CONNECT (RFC 8441, RFC 9220).
                 conn.close();
                 conn = null;
                 http2 = false;
+                http3 = false;
                 ex.offerHttp2 = false;
                 continue;
             }

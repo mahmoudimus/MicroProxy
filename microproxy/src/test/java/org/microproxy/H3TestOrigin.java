@@ -52,6 +52,10 @@ import org.microproxy.tls.CertificateAuthority;
  *   <li>{@code /trailers}: a body and the trailer {@code x-checksum: 42};
  *   <li>{@code /goaway}: {@code ok}, then GOAWAY on the connection.
  * </ul>
+ *
+ * <p>An extended {@code CONNECT} for {@code websocket} (RFC 9220), which it allows unless {@link
+ * #extendedConnect} is off, gets a WebSocket that answers each text frame with {@code echo:} and
+ * its text, and a close frame with one of its own.
  */
 final class H3TestOrigin implements AutoCloseable {
 
@@ -60,6 +64,10 @@ final class H3TestOrigin implements AutoCloseable {
     final QuicServer server;
     final AtomicInteger connections = new AtomicInteger();
     final AtomicInteger requests = new AtomicInteger();
+    /** WebSockets opened with extended CONNECT. */
+    final AtomicInteger webSockets = new AtomicInteger();
+    /** Whether connections made from now on send SETTINGS_ENABLE_CONNECT_PROTOCOL. */
+    volatile boolean extendedConnect = true;
     private final ReentrantLock lock = new ReentrantLock();
     private final List<Throwable> errors = new ArrayList<>();
     private final List<String> requestLines = new ArrayList<>();
@@ -152,7 +160,8 @@ final class H3TestOrigin implements AutoCloseable {
                 QuicStream c = quic.openUnidirectionalStream();
                 control = new Http3FrameWriter(c.getOutputStream());
                 control.writeStreamType(Http3StreamType.CONTROL);
-                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(4096).qpackBlockedStreams(16).build());
+                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(4096).qpackBlockedStreams(16)
+                        .enableConnectProtocol(extendedConnect).build());
                 control.flush();
                 QuicStream d = quic.openUnidirectionalStream();
                 decoderOut = d.getOutputStream();
@@ -245,6 +254,10 @@ final class H3TestOrigin implements AutoCloseable {
                         List<HeaderField> fields = decode(id, h.fieldSection());
                         if (request == null) {
                             request = Http3Headers.toRequest(id, fields);
+                            if ("websocket".equals(request.protocol())) {
+                                webSocket(s, reader, request);
+                                return;
+                            }
                         } else {
                             trailers = fields;
                         }
@@ -296,6 +309,67 @@ final class H3TestOrigin implements AutoCloseable {
                     control.flush();
                 } finally {
                     controlLock.unlock();
+                }
+            }
+        }
+
+        /** Serves a WebSocket on an extended CONNECT stream: text frames are echoed, a close is answered. */
+        void webSocket(QuicStream s, Http3FrameReader reader, RequestHeaders request) throws IOException {
+            webSockets.incrementAndGet();
+            lock.lock();
+            try {
+                requestLines.add("CONNECT websocket " + request.path());
+            } finally {
+                lock.unlock();
+            }
+            OutputStream raw = s.getOutputStream();
+            Http3FrameWriter w = new Http3FrameWriter(raw);
+            w.writeHeaders(new QpackEncoder().encode(s.id(), List.of(new HeaderField(":status", "200"),
+                    new HeaderField("x-origin-protocol", "h3"))));
+            w.flush();
+            InputStream in = new InputStream() {
+                byte[] pending = new byte[0];
+                int at;
+
+                @Override
+                public int read() throws IOException {
+                    byte[] one = new byte[1];
+                    return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+                }
+
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException {
+                    if (len == 0) return 0;
+                    while (at == pending.length) {
+                        Http3Frame f = reader.readFrame();
+                        if (f == null) return -1;
+                        if (f instanceof Http3Frame.Data d) {
+                            pending = d.data();
+                            at = 0;
+                        }
+                    }
+                    int n = Math.min(len, pending.length - at);
+                    System.arraycopy(pending, at, b, off, n);
+                    at += n;
+                    return n;
+                }
+            };
+            while (true) {
+                org.microproxy.http.WebSocketFrame frame;
+                try {
+                    frame = WebSocketTestSupport.readFrame(in);
+                } catch (java.io.EOFException e) {
+                    raw.close();
+                    return;
+                }
+                if (frame.isClose()) {
+                    w.writeData(org.microproxy.http.WebSocketFrame.close(1000, "bye").toWire(false));
+                    raw.close();
+                    return;
+                }
+                if (frame.isText()) {
+                    w.writeData(org.microproxy.http.WebSocketFrame.text("echo:" + frame.payloadAsText()).toWire(false));
+                    w.flush();
                 }
             }
         }

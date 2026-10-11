@@ -238,6 +238,66 @@ class Http3WebSocketTest {
         assertEquals(501, t.status);
     }
 
+    // -------------------------------------------------------------------------------------------
+    // To HTTP/3 servers that allow extended CONNECT
+    // -------------------------------------------------------------------------------------------
+
+    private static final org.microproxy.tls.CertificateAuthority ORIGIN_CA =
+            org.microproxy.tls.CertificateAuthority.generate("H3 WebSocket Origin CA");
+    private static final org.microproxy.tls.CertificateAuthority PROXY_CA =
+            org.microproxy.tls.CertificateAuthority.generate("H3 WebSocket Proxy CA");
+
+    /** A forward proxy speaking HTTP/3 to {@code localhost} servers, trusting the origin's CA. */
+    private HttpProxyServerBootstrap toHttp3Origins() {
+        return forwardProxy()
+                .withManInTheMiddle(new org.microproxy.tls.CertificateAuthorityMitmManager(PROXY_CA, ORIGIN_CA.clientContext()))
+                .withHttp3Upstream(true)
+                .withHttp3UpstreamHosts("^localhost:");
+    }
+
+    @Test
+    void aWebSocketReachesAnHttp3ServerWithExtendedConnect() throws Exception {
+        List<String> responses = new CopyOnWriteArrayList<>();
+        try (H3TestOrigin origin = new H3TestOrigin(ORIGIN_CA)) {
+            proxy = toHttp3Origins().withFiltersSource((original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+                @Override
+                public HttpObject proxyToClientResponse(HttpObject o) {
+                    if (o instanceof HttpResponse r) responses.add(r.status().code() + " " + r.headers().get("Upgrade"));
+                    return o;
+                }
+            }).start();
+            H3TestClient.Tunnel ws = client().open(H3TestClient.extendedConnect("websocket", "https",
+                    "localhost:" + origin.port(), "/over-h3", new HeaderField("sec-websocket-version", "13")));
+            assertEquals(200, ws.status);
+            assertEquals("h3", ws.header("x-origin-protocol"));
+            for (int i = 0; i < 3; i++) {
+                sendFromClient(ws.out(), WebSocketFrame.text("ping " + i));
+                assertEquals("echo:ping " + i, readFrame(ws.in()).payloadAsText());
+            }
+            sendFromClient(ws.out(), WebSocketFrame.close(1000, ""));
+            assertTrue(readFrame(ws.in()).isClose());
+            assertEquals(-1, ws.in().read());
+            ws.end();
+            assertEquals(1, origin.webSockets.get());
+            assertEquals(List.of("CONNECT websocket /over-h3"), origin.requestLines());
+            assertEquals(List.of("101 websocket"), responses, "filters see an HTTP/1.1 server's answer");
+            assertTrue(origin.errors().isEmpty(), origin.errors().toString());
+        }
+    }
+
+    @Test
+    void anHttp3ServerWithoutExtendedConnectKeepsWebSocketsOnTcp() throws Exception {
+        try (H3TestOrigin origin = new H3TestOrigin(ORIGIN_CA)) {
+            origin.extendedConnect = false;
+            proxy = toHttp3Origins().start();
+            // Nothing listens on the origin's TCP port: the WebSocket's HTTP/1.1 connection fails.
+            H3TestClient.Tunnel ws = client().open(H3TestClient.extendedConnect("websocket", "https",
+                    "localhost:" + origin.port(), "/over-tcp", new HeaderField("sec-websocket-version", "13")));
+            assertEquals(502, ws.status);
+            assertEquals(0, origin.webSockets.get());
+        }
+    }
+
     @Test
     void aReverseProxyServesWebSocketsOverHttp3ToItsUpstream() throws Exception {
         try (EchoServer server = new EchoServer()) {
