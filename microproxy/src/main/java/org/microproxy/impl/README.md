@@ -1,22 +1,26 @@
 # `org.microproxy.impl`: exchanges and transports
 
 A client connection runs on one virtual thread in `ClientConnection`. Its code has two layers,
-split so that HTTP/2 streams ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2))
+split so that HTTP/2 and HTTP/3 streams ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2))
 reuse everything but the wire format, on either side:
 
 ```
 ClientConnection.run / serveRequests     HTTP/1 connection loop   (HTTP/1 only)
         │  request head                  ├─ intercept: ALPN h2 ───────► Http2Connection.serve
         │                                └─ plain listener: preface ──► (frame reader, one thread per stream)
+        │                                Http3Listener (UDP) ─────────► ClientConnection.serveHttp3
+        │                                                                └► Http3Connection (one thread per stream)
         ▼
 ClientConnection.handleRequest(channel, request)   exchange logic   (any transport)
         │  body, interim responses, response head and body, tunnel, close
         ▼
 ClientChannel  ◄── Http1ClientChannel (ByteReader, HttpCodec, Framing, PooledOutputStream)
                ◄── Http2StreamChannel (one per HTTP/2 stream, many at once)
+               ◄── Http3StreamChannel (one per HTTP/3 request stream, many at once)
 
 ServerConnection ◄── itself: HTTP/1.1 (ByteReader, HttpCodec.HttpWriter), one exchange at a time
                  ◄── Http2UpstreamStream (one stream of a shared Http2UpstreamConnection, from Http2Origins)
+                 ◄── Http3UpstreamStream (one stream of a shared Http3UpstreamConnection, from Http3Origins)
 ```
 
 ## The transport: `ClientChannel`
@@ -43,7 +47,8 @@ The channel owns:
 - **Waiting.** `awaitUnlessClientLeaves` is the chained-proxy backoff wait, which stops early if
   the client disconnects.
 - **The exchange's `ClientFlowContext`** (timings, upstream status). For HTTP/1 it is the
-  connection's single one; each HTTP/2 stream has its own (`FlowContext.getStreamId()`).
+  connection's single one; each HTTP/2 or HTTP/3 stream has its own (`FlowContext.getStreamId()`,
+  `getHttpVersion()`).
 - **How exchanges share the connection:** `logPrefix()` (`[conn N]` or `[conn N stream S]`),
   `multiplexed()` (exchanges run concurrently and need server connections of their own),
   `supportsTunnels()` (`CONNECT` and WebSockets are possible), and `serverConnectionInUse` /
@@ -338,8 +343,8 @@ running at once:
 | `HttpLogger` sequence numbers | keyed by `FlowContext` | keyed by `getConnectionContext()`, an `AtomicLong` per connection |
 | `ActivityLogger` maps, user maps keyed by `FlowContext` | one entry per connection | `equals` includes the stream id: one entry per exchange |
 | `ConcurrencyLimiter` permits, `exchangeEnded`, `HttpFilters` | per exchange | unchanged: per exchange, already thread-safe across connections |
-| `idle`, graceful stop | the HTTP/1 loop's flag | `isIdle()` asks the HTTP/2 connection (no open streams); `stopGracefully()` sends GOAWAY |
-| `close()` | closes everything | also fails every stream (`Http2Connection.closed`) and closes busy stream server connections |
+| `idle`, graceful stop | the HTTP/1 loop's flag | `isIdle()` asks the HTTP/2 or HTTP/3 connection (no open streams); `stopGracefully()` sends GOAWAY |
+| `close()` | closes everything | also fails every stream (`Http2Connection.closed`, `Http3Connection.closed`) and closes busy stream server connections |
 
 ## HTTP/2 to servers: `Http2UpstreamConnection` and `Http2Origins`
 
@@ -425,9 +430,128 @@ original frame used.
   edited frame to the current peer settings and refuses an edit that would make the proxy less
   strict than the original; the edited values are then applied, as received ones would be.
 
-HTTP/3 has no transport here: `org.microproxy.frames.Http3FramePipeline` (with `Http3Streams`,
-which alone touches `http3-codec`, loaded once the pipeline is built) applies the same rules to
-stream bytes.
+Live HTTP/3 has `Http3Frames` (below). `org.microproxy.frames.Http3FramePipeline` (with
+`Http3Streams`, which alone touches `http3-codec`, loaded once the pipeline is built) applies the
+same rules to HTTP/3 stream bytes relayed by other means.
+
+## HTTP/3: `Http3Connection` and `Http3StreamChannel`
+
+With `withHttp3` in reverse mode (when the optional `quic` and `http3-codec` modules are both
+present: `Http3Support`), `DefaultHttpProxyServer.start` binds an `Http3Listener`, a `QuicServer`
+on the UDP port with the TCP listener's number, offering ALPN `h3` with the certificate the TLS
+listener's `SslContextSource.getKeyMaterial` gives (or a `CertificateAuthorityMitmManager` issues
+for the SNI). Each established QUIC connection becomes a `ClientConnection` of its own (a
+constructor without a socket: its `Http1ClientChannel` is never attached), served by `serveHttp3`
+on the server's connection executor, so a graceful stop waits for it as for TCP clients.
+
+The proxy serves HTTP/3 only as a reverse proxy: clients of an explicit proxy never speak HTTP/3
+to it (that would be MASQUE's CONNECT-UDP), and a transparent proxy sees only TCP. Their HTTP/3
+is steered to TCP by stripping `h3` from `Alt-Svc` instead; transparent UDP interception is the
+next step.
+
+`Http3Endpoint` is what both ends of an HTTP/3 connection share, as `Http2Endpoint` is for HTTP/2:
+
+- **Streams.** `start` opens the proxy's control stream (SETTINGS: QPACK_MAX_TABLE_CAPACITY,
+  MAX_FIELD_SECTION_SIZE and QPACK_BLOCKED_STREAMS; no ENABLE_CONNECT_PROTOCOL, since `CONNECT` is
+  not served yet, and no H3_DATAGRAM) and its QPACK encoder and decoder streams. `acceptStreams`
+  takes the peer's streams on the connection's thread: each unidirectional one is read on a
+  virtual thread of its own (control: SETTINGS, GOAWAY; QPACK encoder and decoder instructions;
+  unknown and reserved types abandoned with `STOP_SENDING H3_STREAM_CREATION_ERROR`, within a
+  rate limit; push streams are an error, since the proxy never sends MAX_PUSH_ID), and request
+  streams go to `onRequestStream`.
+- **QPACK.** One `QpackEncoder` and one `QpackDecoder` per connection, both with the dynamic table
+  (`Http3Options.qpackMaxTableCapacity`, 4096 by default). `encodeFields` encodes a section and
+  writes the instructions it needs under one hold of `encoderLock`, so they reach the peer in
+  order. `decodeFields` decodes under `decoderLock`; a section that waits for the encoder stream
+  waits on its condition, at most the idle timeout (H3_REQUEST_REJECTED then), and one blocked
+  stream past QPACK_BLOCKED_STREAMS is a connection error. Section acknowledgements, stream
+  cancellations and insert count increments go out on the decoder stream as they arise.
+- **Locks.** `encoderLock`, `decoderLock`, `stateLock` (the peer's settings and GOAWAY, the rate
+  limits) and `controlLock` (writing the control stream) are independent: none is taken while
+  another is held, except that applying the peer's SETTINGS takes `encoderLock` and then, after
+  releasing it, `stateLock`. No `synchronized`.
+- **Errors.** An `Http3Exception` that is a connection error closes the QUIC connection with its
+  code (`connectionError`); a stream error resets the stream both ways with its code.
+
+Each request stream has an `Http3StreamReader`, which reads its frames on a virtual thread of its
+own (decoding field sections, running the interceptor, checking frame order and
+`content-length`) and queues the head, the body and the trailers for the exchange, at most 64 KiB
+of body ahead: past that its reading waits, and QUIC, which credits the peer only for what is
+read, holds the peer back. An `Http3MessageWriter` writes the stream's HEADERS, DATA and trailers
+and ends it with the FIN; its writes wait for QUIC's flow control and send window.
+
+`Http3Connection` serves a client:
+
+- **Threads.** The connection's thread accepts streams. Each request stream starts its reader and
+  a virtual thread that waits for the request head, turns it into an HTTP/1-style request
+  (`Http3Messages.toHttp1`: origin-form, `Host` from `:authority`, version `HTTP/3.0`, chunked
+  towards HTTP/1.1 servers when the length is unknown) and runs `ClientConnection.handleStream`
+  through the stream's `Http3StreamChannel`. HTTP/3 has no END_STREAM flag on HEADERS, so the
+  thread waits up to 20 ms for the stream's end before deciding that a request without
+  `content-length` has a body.
+- **Answered before any exchange.** A head over MAX_FIELD_SECTION_SIZE gets `431` (the decoder
+  still processed the section, so the connection goes on), a malformed one a stream error
+  H3_MESSAGE_ERROR, and `CONNECT` and extended `CONNECT` get `501`.
+- **Limits** (`org.microproxy.Http3Options`): the request streams a client may have open are
+  QUIC's limit (`maxConcurrentBidiStreams`), which the transport enforces; MAX_FIELD_SECTION_SIZE
+  defaults to the HTTP/1 parser limits; rate limits for unknown and empty frames, unknown streams
+  and requests reset before their response (Rapid Reset) end the connection with
+  H3_EXCESSIVE_LOAD.
+- **Ending streams.** A stream whose response is complete while the request still arrives gets
+  `STOP_SENDING H3_NO_ERROR`; one the exchange abandons is reset both ways with
+  H3_REQUEST_CANCELLED, one that failed with H3_INTERNAL_ERROR. A client's reset closes the
+  exchange's server connection, as an HTTP/2 RST_STREAM does.
+- **Graceful stop.** GOAWAY names the first stream not processed; later streams are refused with
+  H3_REQUEST_REJECTED, and the connection closes once its streams are done and the client has
+  closed it, or after two seconds.
+
+`Http3StreamChannel` is `Http2StreamChannel` without tunnels: `supportsTunnels` is false,
+`clientKeepAlive` true, `adaptFraming` drops `Transfer-Encoding`, `setKeepAlive` and `setUpgrade`
+do nothing, `writeContinue` answers only `Expect: 100-continue`, `close` resets the stream. Its
+`ClientFlowContext` has the QUIC stream id and `HttpVersion.HTTP_3_0`.
+
+## HTTP/3 to servers: `Http3UpstreamConnection` and `Http3Origins`
+
+With `withHttp3Upstream`, `proxyRequest` asks `Http3Origins.stream` for a stream before any TCP
+connection, when the server is known to speak HTTP/3 (`http3Port`) and the request goes there
+directly (`directRoute`: no chained proxy, no hop, no PROXY header, not a proxy request or a
+WebSocket); even a TCP connection at hand (the one an intercepted `CONNECT` made) waits for later.
+Requests from any client, HTTP/1, HTTP/2 or HTTP/3, take this way.
+
+- **Learning.** `relayResponse` hands every response from a TLS server to `Http3Origins.learn`
+  before filters or the h3 stripping see it: an `h3` alternative on the server's own host
+  (`AltSvc.http3`; other hosts are never used) is remembered for its `ma`, and `clear` or `ma=0`
+  forgets it. `withHttp3UpstreamHosts` patterns name servers reached over HTTP/3 without an
+  advertisement, on their URI's port.
+- **Keys and sharing.** One `Http3UpstreamConnection` per server, port and trust (the MITM
+  manager's `serverTrustManager`, or the JDK's default trust store; a manager whose context the
+  proxy cannot reproduce keeps the server on TCP), shared by every client: nothing about a QUIC
+  connection is particular to one. A `QuicClient` endpoint per trust and address family makes them.
+- **Making a connection** (happy eyeballs, lite). The exchange that needs one claims its making;
+  others for the same key wait for it, once, up to the handshake timeout. A handshake that fails
+  or outlasts `upstreamHandshakeTimeout` (1 s) sends them all over TCP, and the key stays on TCP
+  for `upstreamFailureTimeout` (5 minutes).
+- **Streams.** `Http3UpstreamConnection.open` opens a request stream, waiting while the server's
+  stream limit is reached; `Http3UpstreamStream` writes the request through an
+  `Http3MessageWriter` and reads the response through an `Http3StreamReader`, on the exchange's
+  thread, as `Http2UpstreamStream` does. Its `close` resets what is still open of the stream.
+- **Failures.** A GOAWAY stops new streams and fails those it did not process with `Unprocessed`,
+  as does a reset with H3_REQUEST_REJECTED: the exchange logic sends those again. The QUIC idle
+  timeout is a `SocketTimeoutException` (`504`); other resets and connection errors are
+  `IOException`s (`502`, or a reset client stream once the response has started).
+
+### HTTP/3 frames: `Http3Frames`
+
+With a `FrameInterceptor`, each `Http3Endpoint` gets an `Http3Frames` (`frames`), as each
+`Http2Endpoint` gets an `Http2Frames`; without one, `frames` is null and nothing is converted.
+`Http3StreamReader` shows each received frame to `onStream` after decoding its field section and
+acts on what comes back; `Http3MessageWriter` shows each frame it is about to write (DATA in
+pieces of at most 16 KiB) and writes what comes back, encoding field sections through the
+connection's QPACK encoder; the control streams' SETTINGS and GOAWAY go through `onControl`.
+`State` keeps each message's order (HEADERS, DATA, trailers; interim responses first); SETTINGS
+received may only become stricter, SETTINGS sent may change only in extension settings, GOAWAY,
+MAX_PUSH_ID and CANCEL_PUSH are read-only, and extension frames may be added and dropped. QUIC's
+flow control counts what is on the wire, whatever the interceptor makes of it.
 
 ## What stays HTTP/1-specific, and why
 

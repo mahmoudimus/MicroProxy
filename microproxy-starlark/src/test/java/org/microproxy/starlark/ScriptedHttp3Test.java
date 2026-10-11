@@ -33,13 +33,17 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 class ScriptedHttp3Test {
 
-    static final String SCRIPT = """
+    static final String HOOKS = """
             def on_request(req, ctx):
                 req.headers["x-version"] = req.http_version
 
             def on_response(req, res, ctx):
                 res.headers["x-seen-version"] = req.http_version
 
+            """;
+
+    /** The README's live HTTP/3 example. */
+    static final String ON_FRAME = """
             def on_frame(frame, ctx):
                 if frame.protocol != "h3":
                     return None
@@ -63,7 +67,7 @@ class ScriptedHttp3Test {
     @BeforeEach
     void setUp() throws Exception {
         origin = TestSupport.origin(TestSupport.echo());
-        ScriptedProxy script = ScriptedProxy.builder(SCRIPT, "h3.star").build();
+        ScriptedProxy script = ScriptedProxy.builder(HOOKS + ScriptedReadmeTest.inReadme(ON_FRAME), "h3.star").build();
         proxy = MicroProxy.bootstrap()
                 .withPort(0)
                 .withReverseProxy("http://127.0.0.1:" + origin.getAddress().getPort())

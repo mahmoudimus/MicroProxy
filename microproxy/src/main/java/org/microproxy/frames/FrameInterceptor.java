@@ -1,8 +1,8 @@
 package org.microproxy.frames;
 
 /**
- * Inspects, edits, drops and adds HTTP/2 frames on live connections, and HTTP/3 frames in an
- * {@link Http3FramePipeline}. Configure one per proxy with {@link
+ * Inspects, edits, drops and adds HTTP/2 and HTTP/3 frames on live connections, and HTTP/3 frames
+ * in an {@link Http3FramePipeline}. Configure one per proxy with {@link
  * org.microproxy.HttpProxyServerBootstrap#withFrameInterceptor(FrameInterceptor)}. It is not an
  * {@link org.microproxy.HttpFilters} hook: SETTINGS, PING and GOAWAY belong to a connection, not to
  * an exchange.
@@ -23,7 +23,9 @@ package org.microproxy.frames;
  * same for every connection to a server ({@link FrameDirection#FROM_SERVER}, {@link
  * FrameDirection#TO_SERVER}). That covers HTTP/2 clients on intercepted TLS, {@code h2c} and the
  * TLS listener, HTTP/2 connections to servers with all their multiplexed streams, full-duplex gRPC,
- * and {@code CONNECT} tunnels and WebSockets over HTTP/2, whose bytes are DATA frames. Header
+ * and {@code CONNECT} tunnels and WebSockets over HTTP/2, whose bytes are DATA frames; and HTTP/3
+ * where the proxy speaks it: clients of a reverse proxy's HTTP/3 listener and connections to
+ * HTTP/3 servers (see {@link Http3FramePipeline} for HTTP/3's differences). Header
  * blocks arrive decoded, CONTINUATION frames folded in and padding removed; frames of extension
  * types, which the proxy otherwise discards unread, are shown as {@link Http2Frame.Unknown}. DATA
  * the proxy sends is shown in pieces of at most 16 KiB, before flow control. PUSH_PROMISE is never
@@ -89,7 +91,8 @@ package org.microproxy.frames;
  * intercepted frame goes on unchanged, without the added frames. So does a frame whose interceptor
  * throws. Without an interceptor, frames cost nothing extra.
  *
- * <p>HTTP/3 follows the same rules in {@link Http3FramePipeline}, which describes the differences.
+ * <p>HTTP/3 follows the same rules, live and in an {@link Http3FramePipeline}, which describes the
+ * differences.
  */
 @FunctionalInterface
 public interface FrameInterceptor {

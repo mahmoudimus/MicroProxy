@@ -59,7 +59,12 @@ public final class SslContexts {
         return null;
     }
 
-    /** Whether {@code trustManager} trusts every server without checking ({@link #trustAll()}). */
+    /**
+     * Whether {@code trustManager} trusts every server without checking, as {@link #trustAll()}'s does.
+     *
+     * @param trustManager the trust manager
+     * @return whether it accepts any server certificate
+     */
     public static boolean trustsAll(X509TrustManager trustManager) {
         return trustManager instanceof TrustingTrustManager;
     }

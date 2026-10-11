@@ -116,9 +116,10 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *       (the server's name did not resolve, the connection was refused, the server timed out,
  *       ...). Return {@code response(...)} to answer, or {@code None} to leave it to the {@link
  *       org.microproxy.FailureResponder} or the default answer.
- *   <li>{@code on_frame(frame, ctx)}: for each HTTP/2 frame, in each direction, when this object's
- *       {@link #frameInterceptor()} is installed ({@code withFrameInterceptor}); and for HTTP/3
- *       frames run through an {@link Http3FramePipeline} with it. Change the frame in place and
+ *   <li>{@code on_frame(frame, ctx)}: for each HTTP/2 and HTTP/3 frame, in each direction, when
+ *       this object's {@link #frameInterceptor()} is installed ({@code withFrameInterceptor}): live
+ *       where the proxy speaks the protocol, and for HTTP/3 frames run through an {@link
+ *       Http3FramePipeline} with it. Change the frame in place and
  *       return {@code None} (or the frame) to pass it on, {@code False} to drop it, another frame
  *       to replace it, or a list of frames to replace it with (an empty list drops it). The rules
  *       of {@link FrameInterceptor} apply; a result that breaks them is logged, and the frame
@@ -636,8 +637,9 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
 
     /**
      * An interceptor that calls the script's {@code on_frame(frame, ctx)}, for {@link
-     * org.microproxy.HttpProxyServerBootstrap#withFrameInterceptor} (HTTP/2) or {@link
-     * Http3FramePipeline#builder} (HTTP/3). Frames pass on unchanged when the script in use (after
+     * org.microproxy.HttpProxyServerBootstrap#withFrameInterceptor} (live HTTP/2 and HTTP/3) or
+     * {@link Http3FramePipeline#builder} (HTTP/3 streams relayed otherwise). Frames pass on
+     * unchanged when the script in use (after
      * a reload) has no {@code on_frame}, and when the call fails, which is logged.
      *
      * @return the interceptor
