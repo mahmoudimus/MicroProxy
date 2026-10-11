@@ -33,7 +33,14 @@ final class EchoServer implements AutoCloseable {
     }
 
     EchoServer(ServerConfig config, EndpointConfig endpointConfig) throws IOException {
-        server = QuicServer.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), config, endpointConfig);
+        this(config, endpointConfig, null);
+    }
+
+    /** A server whose {@code filter} sees the datagrams no connection claims (none when null). */
+    EchoServer(ServerConfig config, EndpointConfig endpointConfig, QuicServer.DatagramFilter filter) throws IOException {
+        InetSocketAddress loopback = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
+        server = filter == null ? QuicServer.bind(loopback, config, endpointConfig)
+                : QuicServer.bind(loopback, config, endpointConfig, filter);
         Thread.ofVirtual().name("echo-acceptor").start(this::acceptLoop);
     }
 

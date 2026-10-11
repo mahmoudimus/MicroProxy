@@ -1865,6 +1865,16 @@ public final class Connection {
     }
 
     /**
+     * The Destination Connection ID of the client's first Initial packet: chosen by the client, or
+     * after a Retry, the Retry's Source Connection ID. A server connection is created for it.
+     *
+     * @return the ID
+     */
+    public ConnectionId initialDcid() {
+        return initialDcid;
+    }
+
+    /**
      * The local connection ID used during the handshake.
      *
      * @return the ID
