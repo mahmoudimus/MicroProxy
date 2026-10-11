@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.echoedHeader;
 import static org.microproxy.TestSupport.echoedUri;
+import static org.microproxy.TestSupport.eventually;
 import static org.microproxy.TestSupport.readUntil;
 import static org.microproxy.TestSupport.write;
 
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
@@ -119,8 +121,7 @@ class ForwardedTunnelTest {
     private void start(Way way, HttpProxyServerBootstrap microProxy) {
         this.way = way;
         HttpProxyServerBootstrap b = MicroProxy.bootstrap().withPort(0).withProxyAlias("corp")
-                .withServerResolver((host, port) -> new InetSocketAddress(
-                        host.endsWith(".test") ? TestSupport.LOOPBACK : InetAddress.getByName(host), port))
+                .withServerResolver(ForwardedTunnelTest::resolve)
                 .plusActivityTracker(new ActivityTrackerAdapter() {
                     @Override
                     public void requestReceivedFromClient(FlowContext ctx, HttpRequest r) {
@@ -128,23 +129,33 @@ class ForwardedTunnelTest {
                     }
                 });
         if (way.https()) {
-            b.withSslContextSource(() -> serverCa.serverContext("localhost", "127.0.0.1")).withHttp2(way.h2Proxy());
+            b.withSslContextSource(() -> serverCa.serverContext("corp.test", "localhost", "127.0.0.1"))
+                    .withHttp2(way.h2Proxy());
         }
         corp = b.start();
         proxy = microProxy.start();
     }
 
+    /** Resolves {@code *.test} to the loopback address, and other names as usual. */
+    private static InetSocketAddress resolve(String host, int port) throws UnknownHostException {
+        return new InetSocketAddress(host.endsWith(".test") ? TestSupport.LOOPBACK : InetAddress.getByName(host), port);
+    }
+
     /** MicroProxy: intercepts everything, offers HTTP/2 to clients and to servers. */
     private static HttpProxyServerBootstrap microProxy() {
         return MicroProxy.bootstrap().withPort(0).withProxyAlias("mp")
+                .withServerResolver(ForwardedTunnelTest::resolve)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, serverCa.clientContext()))
                 .withHttp2(true)
                 .withHttp2Upstream(true);
     }
 
-    /** The client's proxy, as the client names it in its {@code CONNECT} to MicroProxy. */
+    /**
+     * The client's proxy, as the client names it in its {@code CONNECT} to MicroProxy: an HTTPS
+     * proxy by a name that its TLS sends as SNI.
+     */
     private String corpTarget() {
-        return (way.https() ? "localhost:" : "127.0.0.1:") + corp.getListenAddress().getPort();
+        return (way.https() ? "corp.test:" : "127.0.0.1:") + corp.getListenAddress().getPort();
     }
 
     /** The {@code CONNECT} for {@code target} as the client's proxy received it. */
@@ -188,7 +199,7 @@ class ForwardedTunnelTest {
         plain.setSoTimeout(20_000);
         String head = connect(plain, corpTarget());
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
-        Socket session = way.https() ? clientTls(plain, "localhost", corp.getListenAddress().getPort()) : plain;
+        Socket session = way.https() ? clientTls(plain, "corp.test", corp.getListenAddress().getPort()) : plain;
         return target -> {
             String inner = connect(session, target);
             assertTrue(inner.startsWith("HTTP/1.1 200"), inner);
@@ -270,6 +281,47 @@ class ForwardedTunnelTest {
         };
     }
 
+    /** Filters that intercept the session with the client's proxy, but not the tunnels through it. */
+    private static HttpFiltersSource interceptOnlyTheSession() {
+        return (original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+            @Override
+            public boolean proxyToServerAllowMitm() {
+                return ctx.forwardedVia().isEmpty();
+            }
+        };
+    }
+
+    /** Records the server name the TCP hooks report for each tunnel that ends. */
+    private static TcpInterceptor serverNames(List<String> names, CountDownLatch ended) {
+        return new TcpInterceptor() {
+            @Override
+            public byte[] tcpMessage(TcpMessage m, TcpContext ctx) {
+                return m.data();
+            }
+
+            @Override
+            public void tcpEnd(TcpContext ctx) {
+                names.add(ctx.port() + " sni=" + ctx.sni() + " alpn=" + ctx.alpn());
+                ended.countDown();
+            }
+        };
+    }
+
+    /** A TLS server for {@code name} (signed by the servers' CA) that echoes lines until the client is done. */
+    private TestSupport.RawServer tlsLineEcho(String name) {
+        SSLContext context = serverCa.serverContext(name);
+        return rawServer(accepted -> {
+            SSLSocket s = (SSLSocket) context.getSocketFactory().createSocket(accepted, null, true);
+            s.setUseClientMode(false);
+            s.setSoTimeout(20_000);
+            while (true) {
+                String line = readUntil(s.getInputStream(), "\n");
+                if (line.isEmpty()) return;
+                write(s.getOutputStream(), line);
+            }
+        });
+    }
+
     /** Upper-cases what the client sends through a raw tunnel, and records the hooks' calls. */
     private static TcpInterceptor shouting(List<String> seen, CountDownLatch ended) {
         return new TcpInterceptor() {
@@ -281,8 +333,8 @@ class ForwardedTunnelTest {
 
             @Override
             public void tcpEnd(TcpContext ctx) {
-                seen.add("end " + ctx.host() + ":" + ctx.port() + " tls=" + ctx.tlsIntercepted()
-                        + (ctx.tlsIntercepted() ? " sni=" + ctx.sni() + " alpn=" + ctx.alpn() : ""));
+                seen.add("end " + ctx.host() + ":" + ctx.port() + " tls=" + ctx.tlsIntercepted() + " sni=" + ctx.sni()
+                        + " alpn=" + ctx.alpn());
                 ended.countDown();
             }
         };
@@ -429,6 +481,45 @@ class ForwardedTunnelTest {
 
     @ParameterizedTest
     @EnumSource(Way.class)
+    void tcpHooksSeeTheTunnelsOwnServerNameNotTheSessions(Way way) throws Exception {
+        // The client's session with an HTTPS proxy has SNI corp.test; its tunnels have their own.
+        TestSupport.RawServer echo = echoServer();
+        TestSupport.RawServer inner = tlsLineEcho("inner.test");
+        List<String> names = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(2);
+        start(way, microProxy().withIgnoreHosts("^inner\\.test:").withTcpInterceptor(serverNames(names, ended)));
+        // A ClientHello that the host rules decline by its name: relayed as it is, with that name.
+        SSLSocket tls = startTls(session().tunnel(target(inner)), "inner.test", serverCa.clientContext());
+        write(tls.getOutputStream(), "own name\n");
+        assertEquals("own name\n", readUntil(tls.getInputStream(), "\n"));
+        tls.close();
+        eventually("the TLS tunnel to end", () -> names.size() == 1);
+        // No ClientHello: no name.
+        Socket plain = session().tunnel(target(echo));
+        assertEquals("no name", echoBack(plain, "no name"));
+        plain.close();
+        assertTrue(ended.await(10, TimeUnit.SECONDS), names.toString());
+        assertEquals(List.of(inner.port() + " sni=inner.test alpn=null", echo.port() + " sni=null alpn=null"), names);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Way.class)
+    void withoutInterceptionTheTcpHooksSeeNoServerName(Way way) throws Exception {
+        TestSupport.RawServer echo = echoServer();
+        List<String> names = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(1);
+        start(way, microProxy().withFiltersSource(interceptOnlyTheSession())
+                .withTcpInterceptor(serverNames(names, ended)));
+        // Not intercepted, so nothing is read: the session's SNI (corp.test) is not the tunnel's.
+        Socket tunnel = session().tunnel(target(echo));
+        assertEquals("relayed", echoBack(tunnel, "relayed"));
+        tunnel.close();
+        assertTrue(ended.await(10, TimeUnit.SECONDS), names.toString());
+        assertEquals(List.of(echo.port() + " sni=null alpn=null"), names);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Way.class)
     void tcpHooksSeeATunnelThatCarriesNoTls(Way way) throws Exception {
         TestSupport.RawServer echo = echoServer();
         List<String> seen = new CopyOnWriteArrayList<>();
@@ -439,7 +530,8 @@ class ForwardedTunnelTest {
         tunnel.close();
         assertTrue(ended.await(10, TimeUnit.SECONDS), seen.toString());
         assertEquals("> shouted through the proxy", seen.getFirst());
-        assertEquals("end " + target(echo) + " tls=false", seen.getLast());
+        // No ClientHello was read in the tunnel: no server name (not the client's session's with its proxy).
+        assertEquals("end " + target(echo) + " tls=false sni=null alpn=null", seen.getLast());
         assertEquals(List.of(forwarded(target(echo))), corpSaw);
     }
 
