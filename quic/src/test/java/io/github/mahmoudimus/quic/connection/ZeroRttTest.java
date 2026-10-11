@@ -24,7 +24,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -60,6 +62,10 @@ class ZeroRttTest {
     }
 
     private ClientConfig clientConfig(boolean earlyData) {
+        return clientConfig(earlyData, cache);
+    }
+
+    private ClientConfig clientConfig(boolean earlyData, SessionCache cache) {
         return ClientConfig.builder(TlsConfig.builder()
                 .serverName("localhost")
                 .trustManager(TestCerts.CA.trustManager())
@@ -232,6 +238,35 @@ class ZeroRttTest {
     }
 
     @Test
+    void earlyDataRejectedIsSentAgainWhenItsFirst1RttPacketIsLost() throws Exception {
+        Pair first = pair(serverTls(true));
+        firstConnection(first);
+        Pair pair = pair(serverTls(false));
+        Connection client = pair.beginConnect(clientConfig(true));
+        StreamId s = request(client);
+        // The client learns of the rejection with the server's Finished, and at once sends the
+        // request again in 1-RTT, before the handshake is confirmed. Every 1-RTT packet it sends
+        // until then is lost.
+        int[] dropped = {0};
+        pair.dropFromClient = d -> {
+            boolean confirmed = client.isEstablished() && client.recovery().space(SpaceId.HANDSHAKE).keys() == null;
+            if (!confirmed && count(d, PacketType.ONE_RTT) > 0) {
+                dropped[0]++;
+                return true;
+            }
+            return false;
+        };
+        pair.drive();
+        assertTrue(dropped[0] > 0);
+        assertTrue(client.zeroRttAttempted());
+        assertFalse(client.earlyDataAccepted());
+        Connection server = pair.serverConnection();
+        assertEquals(s, server.acceptStream(Dir.BI), "the request was sent once more after the loss");
+        assertArrayEquals(REQUEST, readAvailable(server, s));
+        assertFalse(server.receivedEarlyData(s));
+    }
+
+    @Test
     void replayedFirstFlightGetsNoEarlyData() throws Exception {
         Pair pair = pair(serverTls(true));
         firstConnection(pair);
@@ -389,5 +424,113 @@ class ZeroRttTest {
         pair.server.responses.clear();
         pair.connect(clientConfig(false));
         assertEquals(1, pair.server.responses.size(), "a reused token gets a Retry");
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Under loss
+
+    /**
+     * As a proxy uses a server under seeded loss and reordering: a full connection, a resumed one
+     * with a request as 0-RTT data (accepted, or rejected and sent again in 1-RTT), and another
+     * resumed one with a request sent as soon as its handshake completes, as a POST is. Each
+     * request must be answered: none may wait for the idle timeout.
+     */
+    @Test
+    void resumedConnectionsAnswerEveryRequestUnderLoss() throws Exception {
+        for (int seed = 0; seed < 16; seed++) {
+            for (boolean accepted : new boolean[] {true, false}) {
+                SessionCache sessions = new SessionCache(new ClientSessionMemoryCache(), new TokenMemoryCache());
+                Pair full = lossy(pair(serverTls(true)), seed);
+                String where = "seed " + seed + (accepted ? ", 0-RTT accepted" : ", 0-RTT rejected");
+                exchange(full, sessions, false, "GET /first", where + ", full handshake");
+                Pair pair = full;
+                if (!accepted) {
+                    // The same ticketer, but this server has 0-RTT off
+                    pair = lossy(pair(serverTls(false)), seed);
+                    pair.time = full.time;
+                }
+                exchange(pair, sessions, true, "GET /early", where + ", 0-RTT request");
+                exchange(pair, sessions, false, "POST /after-the-handshake", where + ", request after the handshake");
+            }
+        }
+    }
+
+    private static Pair lossy(Pair pair, int seed) {
+        pair.random.setSeed(seed);
+        pair.latency = 5_000_000L;
+        pair.lossRate = 0.1;
+        pair.reorderRate = 0.2;
+        return pair;
+    }
+
+    /**
+     * A request on a new connection, as 0-RTT data if {@code early} and the ticket allows it, else
+     * once the client's handshake completes; the server echoes it. Then the client closes.
+     */
+    private void exchange(Pair pair, SessionCache sessions, boolean early, String request, String where)
+            throws StreamException {
+        byte[] bytes = request.getBytes(StandardCharsets.US_ASCII);
+        int index = pair.server.connections.size();
+        Connection client = pair.beginConnect(clientConfig(true, sessions));
+        StreamId s = early ? client.openStream(Dir.BI) : null;
+        if (s != null) {
+            client.write(s, ByteBuffer.wrap(bytes));
+            client.finish(s);
+        }
+        Map<StreamId, ByteArrayOutputStream> received = new HashMap<>();
+        ByteArrayOutputStream response = new ByteArrayOutputStream();
+        while (true) {
+            if (pair.server.connections.size() > index) {
+                echo(pair.server.connections.get(index), received);
+            }
+            if (s == null && client.isEstablished()) {
+                s = client.openStream(Dir.BI);
+                client.write(s, ByteBuffer.wrap(bytes));
+                client.finish(s);
+            }
+            if (s != null && readToEnd(client, s, response)) {
+                break;
+            }
+            assertTrue(pair.step(), where + ": idle with the request unanswered");
+        }
+        assertArrayEquals(bytes, response.toByteArray(), where);
+        pair.drive(); // the tickets for the next connection
+        client.close(pair.time, 0, "");
+        pair.drive();
+    }
+
+    /** Sends each request stream's bytes back once its FIN has arrived. */
+    private static void echo(Connection server, Map<StreamId, ByteArrayOutputStream> received) throws StreamException {
+        for (StreamId id; (id = server.acceptStream(Dir.BI)) != null; ) {
+            received.put(id, new ByteArrayOutputStream());
+        }
+        for (Map.Entry<StreamId, ByteArrayOutputStream> e : received.entrySet()) {
+            if (e.getValue() != null && readToEnd(server, e.getKey(), e.getValue())) {
+                server.write(e.getKey(), ByteBuffer.wrap(e.getValue().toByteArray()));
+                server.finish(e.getKey());
+                e.setValue(null);
+            }
+        }
+    }
+
+    /** Reads what is available into {@code out}; true once the FIN has been read. */
+    private static boolean readToEnd(Connection c, StreamId id, ByteArrayOutputStream out) throws StreamException {
+        ByteBuffer buf = ByteBuffer.allocate(64 * 1024);
+        while (true) {
+            buf.clear();
+            int n;
+            try {
+                n = c.read(id, buf);
+            } catch (StreamException e) {
+                if (e.kind() == StreamException.Kind.BLOCKED) {
+                    return false;
+                }
+                throw e;
+            }
+            if (n < 0) {
+                return true;
+            }
+            out.write(buf.array(), 0, n);
+        }
     }
 }

@@ -715,8 +715,10 @@ public final class Connection {
                     for (int i = 0; i < newTokens; i++) {
                         pending.newTokens.add(remote);
                     }
+                    // Confirmed first: discarding the Handshake space rearms loss detection, which
+                    // must then cover the application data already in flight
+                    confirmHandshake(now);
                     recovery.discardSpace(now, SpaceId.HANDSHAKE);
-                    confirmHandshake();
                 }
                 events.add(new ConnectionEvent.Connected());
                 state = State.ESTABLISHED;
@@ -752,10 +754,18 @@ public final class Connection {
         return TransportParameters.decode(encoded, side.isClient());
     }
 
-    private void confirmHandshake() {
+    /**
+     * The handshake is confirmed (RFC 9001 section 4.1.2). Until now the probe timeout ignored the
+     * application data space (RFC 9002 section 6.2.1), so loss detection is armed again: 1-RTT
+     * packets sent before confirmation, such as 0-RTT data sent again after a rejection or a
+     * request sent as soon as the handshake completed, would otherwise never be probed for, and a
+     * lost one would stall its stream until the idle timeout.
+     */
+    private void confirmHandshake(long now) {
         if (!handshakeConfirmed) {
             handshakeConfirmed = true;
             recovery.setHandshakeConfirmed(true);
+            recovery.setLossDetectionTimer(now);
             events.add(new ConnectionEvent.HandshakeConfirmed());
         }
     }
@@ -878,10 +888,10 @@ public final class Connection {
                     if (side.isServer()) {
                         throw new QuicException(QuicException.PROTOCOL_VIOLATION, "client sent HANDSHAKE_DONE");
                     }
+                    confirmHandshake(now);
                     if (recovery.space(SpaceId.HANDSHAKE).keys() != null) {
                         recovery.discardSpace(now, SpaceId.HANDSHAKE);
                     }
-                    confirmHandshake();
                 }
             }
         }
