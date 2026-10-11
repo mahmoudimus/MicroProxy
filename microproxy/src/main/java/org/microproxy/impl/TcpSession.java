@@ -216,8 +216,10 @@ final class TcpSession implements TcpContext {
         try {
             if (out.ended) return;
             out.ended = true;
-            out.sink.end();
+            // Finished before the end is passed on: closing a TLS socket whole fails the other
+            // direction's read at once, which is how that connection ends, not an error.
             out.finished = true;
+            out.sink.end();
         } finally {
             out.lock.unlock();
         }

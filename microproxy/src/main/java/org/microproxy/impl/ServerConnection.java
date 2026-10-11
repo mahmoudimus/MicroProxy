@@ -66,17 +66,19 @@ class ServerConnection {
     /**
      * Made for interception, but its TLS handshake waits for the client's ClientHello, whose ALPN
      * protocols and server name it mirrors: until {@link #layerTls}, the socket is the plain
-     * connection (or tunnel) to the server.
+     * connection (or tunnel, through chained proxies or a proxy the client chose) to the server.
      */
     volatile boolean tlsPending;
     /**
-     * The tunnel this connection runs through, to an intercepted server that the client takes for
-     * its HTTPS proxy (a connection to it, or a stream on one), or null: it closes with this one.
+     * The tunnel this connection runs through, to a session's server that the client takes for
+     * its HTTPS or HTTP proxy (a connection to it, or a stream on one), or null: it closes with
+     * this one.
      */
     volatile ServerConnection through;
     /**
-     * The connection carries a tunnel that an intercepted HTTPS proxy opened: the end of the
-     * client's side ends only the output, where TLS 1.3 allows.
+     * The connection carries a tunnel that a session's server, the client's proxy, opened (with
+     * nothing layered on it): the end of the client's side ends only the output, where TLS 1.3
+     * allows.
      */
     volatile boolean tunnelThroughProxy;
 
@@ -123,13 +125,18 @@ class ServerConnection {
         this.trackers = trackers;
     }
 
-    /** Switches to {@code tls}, a TLS socket over this connection's socket, and its streams. */
+    /**
+     * Switches to {@code tls}, a TLS socket over this connection's socket, and its streams. The
+     * TLS session with the server ends as other TLS tunnels do, even inside a tunnel through a
+     * proxy ({@link #tunnelThroughProxy}).
+     */
     void layerTls(Socket tls, ByteReader tlsIn, OutputStream tlsOut) {
         this.socket = tls;
         this.in = tlsIn;
         this.out = tlsOut;
         this.writer = new HttpCodec.HttpWriter(tlsOut);
         this.tlsPending = false;
+        this.tunnelThroughProxy = false;
     }
 
     // ---------------------------------------------------------------------------------------
