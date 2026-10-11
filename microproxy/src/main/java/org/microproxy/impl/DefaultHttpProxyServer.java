@@ -24,14 +24,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.DoubleSupplier;
+import java.util.function.Function;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
+import org.microproxy.Http3Options;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
+import org.microproxy.KeyMaterial;
 import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
@@ -39,6 +42,7 @@ import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
  * The proxy server. A platform thread accepts connections and hands each to its own virtual
@@ -122,6 +126,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final TcpInterceptor tcpInterceptor;
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
+    /** Whether the reverse proxy serves HTTP/3 on UDP; the modules are known to be present. */
+    final boolean http3;
+    final Http3Options http3Options;
+    /** The certificate the HTTP/3 listener presents for a server name; null without {@link #http3}. */
+    private final Function<String, KeyMaterial> http3Keys;
+    /** The HTTP/3 listener, once started; null without {@link #http3}. */
+    private volatile Http3Listener http3Listener;
+    /** The Alt-Svc value that advertises the HTTP/3 listener on TCP responses; null for none. */
+    volatile String http3AltSvc;
+
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -136,6 +150,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
             // Fail at startup, not on the first client that asks for h2.
             throw new IllegalStateException(Http2Support.MISSING);
+        }
+        if ((b.http3 || b.http3Upstream) && !Http3Support.available()) {
+            throw new IllegalStateException(Http3Support.MISSING);
+        }
+        if (b.http3 && (b.reverseProxy == null || b.reverseProxy.rawTcp())) {
+            // Clients of an explicit (or transparent, or SOCKS) proxy never speak HTTP/3 to it:
+            // that would be CONNECT-UDP (MASQUE). Their HTTP/3 is steered to TCP instead.
+            throw new IllegalStateException("HTTP/3 (withHttp3, --http3, http3) is served only by a reverse proxy for an"
+                    + " http:// or https:// upstream (withReverseProxy, --mode reverse:https://host): clients of an"
+                    + " explicit proxy do not speak HTTP/3 to it");
         }
         this.config = b;
         this.name = b.name;
@@ -193,10 +217,41 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.tcpInterceptor = b.tcpInterceptor;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
+        this.http3 = b.http3;
+        this.http3Options = b.http3Options;
+        this.http3Keys = b.http3 ? http3Keys(b) : null;
+
         if (http2 && mitmManager == null && sslContextSource == null) {
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
         }
+    }
+
+    /**
+     * Where the HTTP/3 listener's certificate comes from: the TLS listener's source, as {@link
+     * KeyMaterial}, or else the CA of a {@link CertificateAuthorityMitmManager}, which issues one for
+     * the name the client asks for (the upstream's host when it asks for none).
+     */
+    private static Function<String, KeyMaterial> http3Keys(DefaultHttpProxyServerBootstrap b) {
+        String upstreamHost = b.reverseProxy.host();
+        if (b.sslContextSource != null) {
+            SslContextSource source = b.sslContextSource;
+            if (source.getKeyMaterial(upstreamHost) == null && source.getKeyMaterial(null) == null) {
+                throw new IllegalStateException("HTTP/3 needs the TLS listener's certificate and key, but its "
+                        + source.getClass().getName() + " provides none (SslContextSource.getKeyMaterial); use a"
+                        + " KeyStoreSslContextSource or SelfSignedSslContextSource, or implement getKeyMaterial");
+            }
+            return sni -> {
+                KeyMaterial key = source.getKeyMaterial(sni);
+                return key != null ? key : source.getKeyMaterial(null);
+            };
+        }
+        if (b.mitmManager instanceof CertificateAuthorityMitmManager ca) {
+            return sni -> ca.keyMaterialFor(sni != null && !sni.isEmpty() ? sni : upstreamHost);
+        }
+        throw new IllegalStateException("HTTP/3 needs a certificate: a TLS listener (withSslContextSource, or"
+                + " --listener-keystore) whose SslContextSource provides its key material, or a"
+                + " CertificateAuthorityMitmManager (--mitm) to issue one");
     }
 
     /**
@@ -232,6 +287,22 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
         executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(name + "-conn-", 0).factory());
+        if (http3) {
+            try {
+                // The same port number on UDP, where clients told by Alt-Svc look for it.
+                http3Listener = Http3Listener.start(this, boundAddress, http3Keys);
+            } catch (IOException | RuntimeException e) {
+                Tls.closeQuietly(serverSocket);
+                executor.shutdownNow();
+                if (pool != null) pool.closeAll();
+                throw new UncheckedIOException("unable to bind the HTTP/3 listener on UDP " + boundAddress,
+                        e instanceof IOException io ? io : new IOException(e));
+            }
+            if (http3Options.altSvc()) {
+                http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
+            }
+            LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());
+        }
         // A platform, non-daemon acceptor keeps the JVM alive while the proxy runs, like Netty's
         // event loops did; all per-connection work happens on (daemon) virtual threads.
         acceptor = Thread.ofPlatform().name(name + "-acceptor").daemon(false).start(this::acceptLoop);
@@ -264,6 +335,24 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
 
     void unregister(ClientConnection connection) {
         connections.remove(connection);
+    }
+
+    /** Serves a QUIC connection the HTTP/3 listener accepted, as a client connection of its own. */
+    void acceptHttp3(io.github.mahmoudimus.quic.QuicConnection quic) {
+        ClientConnection connection = new ClientConnection(this, quic.remoteAddress());
+        connections.add(connection);
+        try {
+            executor.execute(() -> connection.serveHttp3(quic));
+        } catch (RuntimeException e) {
+            connections.remove(connection);
+            quic.close();
+        }
+    }
+
+    /** The UDP address of the HTTP/3 listener, or null without one. */
+    InetSocketAddress http3Address() {
+        Http3Listener listener = http3Listener;
+        return listener == null ? null : listener.localAddress();
     }
 
     /** A number identifying {@code manager} among the MITM managers this server has used. */
@@ -353,6 +442,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 LOG.log(Level.WARNING, "connections still open after {0}; closing", GRACEFUL_STOP_TIMEOUT);
             }
             connections.forEach(ClientConnection::close);
+            Http3Listener listener = http3Listener;
+            if (listener != null) listener.close();
             if (http2Origins != null) http2Origins.closeAll();
             if (pool != null) pool.closeAll();
             executor.shutdownNow();

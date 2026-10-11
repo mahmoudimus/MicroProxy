@@ -560,6 +560,8 @@ final class ClientConnection implements Runnable {
     private volatile StreamServerConnections streamConnections;
     /** The HTTP/2 connection this client switched to, once it has. */
     private volatile Http2Connection http2;
+    /** The HTTP/3 connection this client is, for a client of the HTTP/3 listener; else null. */
+    private volatile Http3Connection http3;
     /** Whether this client may have HTTP/2 connections to servers of its own ({@link #http2Owner}). */
     private volatile boolean ownsHttp2Connections;
 
@@ -643,6 +645,20 @@ final class ClientConnection implements Runnable {
         this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
+    /**
+     * The client connection of a QUIC connection to the HTTP/3 listener ({@link #serveHttp3}),
+     * whose streams run the exchange logic ({@link #handleStream}) concurrently. It has no socket:
+     * its HTTP/1 channel is never attached, and stays unused.
+     */
+    ClientConnection(DefaultHttpProxyServer server, InetSocketAddress clientAddress) {
+        this.server = server;
+        this.rawSocket = new Socket();
+        this.owner = this;
+        clientDetails.setClientAddress(clientAddress);
+        this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
+        this.http1 = new Http1ClientChannel(server, rawSocket, flowContext, logPrefix, this::close);
+    }
+
     /** The connection's own flow context (not one of its streams'). */
     ClientFlowContext connectionFlowContext() {
         return flowContext;
@@ -650,7 +666,9 @@ final class ClientConnection implements Runnable {
 
     boolean isIdle() {
         Http2Connection h2 = http2;
-        return h2 != null ? h2.isIdle() : idle;
+        if (h2 != null) return h2.isIdle();
+        Http3Connection h3 = http3;
+        return h3 != null ? h3.isIdle() : idle;
     }
 
     /**
@@ -660,8 +678,11 @@ final class ClientConnection implements Runnable {
      */
     void stopGracefully() {
         Http2Connection h2 = http2;
+        Http3Connection h3 = http3;
         if (h2 != null) {
             h2.stopGracefully();
+        } else if (h3 != null) {
+            h3.stopGracefully();
         } else if (idle) {
             close();
         }
@@ -672,6 +693,8 @@ final class ClientConnection implements Runnable {
         closed = true;
         Http2Connection h2 = http2;
         if (h2 != null) h2.closed();
+        Http3Connection h3 = http3;
+        if (h3 != null) h3.closed();
         http1.closeSocket();
         Tls.closeQuietly(rawSocket);
         releaseServerConnections();
@@ -1762,8 +1785,14 @@ final class ClientConnection implements Runnable {
         if (!server.transparent) {
             modifyResponseHeadersToReflectProxying(res, ex.forwarding != null || ex.proxyForm);
         }
+        boolean serverAltSvc = res.headers().contains(AltSvc.NAME);
         if (server.stripAltSvcH3) {
             AltSvc.stripHttp3(res.headers());
+        }
+        String ownAltSvc = server.http3AltSvc;
+        if (ownAltSvc != null && !serverAltSvc && !(ex.channel instanceof Http3StreamChannel)) {
+            // A reverse proxy serving HTTP/3 tells TCP clients where to find it.
+            res.headers().set(AltSvc.NAME, ownAltSvc);
         }
         if (switching) {
             ex.channel.setUpgrade(res, upgrade);
@@ -3187,8 +3216,31 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * Handles one HTTP/2 stream's request, on the stream's own thread: the same exchange logic as
-     * any request. Returns false if the exchange closed (reset) its stream.
+     * Serves a QUIC connection to the HTTP/3 listener, on the calling thread, until it ends: each
+     * of its request streams runs its exchange ({@link #handleStream}) on a thread of its own.
+     */
+    void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic) {
+        try {
+            server.trackers.fire(t -> t.clientConnected(flowContext));
+            if (server.mitmManager != null) mitmManager();
+            streamConnections = new StreamServerConnections(server.http3Options.maxConcurrentStreams());
+            Http3Connection h3 = new Http3Connection(server, this, quic, flowContext, logPrefix);
+            http3 = h3;
+            if (!closed) h3.serve();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "unexpected error on HTTP/3 connection", e);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+        } finally {
+            close();
+            quic.close();
+            server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
+            server.unregister(this);
+        }
+    }
+
+    /**
+     * Handles one HTTP/2 or HTTP/3 stream's request, on the stream's own thread: the same exchange
+     * logic as any request. Returns false if the exchange closed (reset) its stream.
      */
     boolean handleStream(ClientChannel channel, HttpRequest request) throws IOException {
         return handleRequest(channel, request);
