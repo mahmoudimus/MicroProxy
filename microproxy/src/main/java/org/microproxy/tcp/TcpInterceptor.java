@@ -17,9 +17,12 @@ package org.microproxy.tcp;
  * is not intercepted (no MITM manager, an ignored host, a declined ClientHello, a protocol other
  * than TLS or HTTP, a server that speaks first), on an HTTP/1 connection or as a stream of an
  * HTTP/2 one, and whether the server is reached directly, through a chained proxy, on a stream of
- * an HTTP/2 connection or through an intercepted HTTPS proxy; and {@code reverse:tcp://}
- * connections. Upgraded WebSocket connections are not: their frames go to the WebSocket frame
- * hooks.
+ * an HTTP/2 connection or through an intercepted HTTPS proxy; {@code reverse:tcp://} connections;
+ * and intercepted TLS sessions that do not carry HTTP (see {@link
+ * org.microproxy.HttpProxyServerBootstrap#withTcpInterceptor}), whose bytes the hooks see
+ * decrypted ({@link TcpContext#tlsIntercepted()}). Hosts matched by {@link
+ * org.microproxy.HttpProxyServerBootstrap#withTcpHosts} are tunnels even when they speak HTTP.
+ * Upgraded WebSocket connections are not: their frames go to the WebSocket frame hooks.
  *
  * <h2>Messages</h2>
  *

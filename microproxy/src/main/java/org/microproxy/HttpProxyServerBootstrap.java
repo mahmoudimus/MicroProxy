@@ -511,6 +511,15 @@ public interface HttpProxyServerBootstrap {
      * which tunnels). One per proxy: a later call replaces it, and null removes it. Without one
      * (the default), tunnels copy bytes through pooled buffers and cost nothing extra.
      *
+     * <p>With an interceptor, TLS that does not carry HTTP is intercepted too, so the hooks see it
+     * decrypted: a client whose ALPN offers only other protocols ({@code imap}, {@code mqtt}, ...)
+     * is intercepted, the server being offered the same protocols and the client getting the
+     * server's choice, rather than tunnelled (unless the other rules decline it; {@code
+     * acme-tls/1} never is). Whatever the interceptor, an intercepted session is relayed as raw
+     * TCP rather than served as HTTP when its ALPN protocol is not HTTP's, when its host is a
+     * {@linkplain #withTcpHosts TCP host}, or, without ALPN, when its decrypted bytes do not start
+     * like an HTTP request or its server speaks first (an SMTP banner).
+     *
      * @param interceptor the interceptor, or null for none
      * @return this bootstrap
      */
