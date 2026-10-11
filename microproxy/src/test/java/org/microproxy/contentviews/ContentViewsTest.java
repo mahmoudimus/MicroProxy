@@ -45,7 +45,7 @@ class ContentViewsTest {
         assertEquals("00000000  68 69", VIEWS.render("hex", utf8("hi"), ContentView.Metadata.of((String) null))
                 .orElseThrow().text().substring(0, 15));
         assertThrows(IllegalArgumentException.class, () -> VIEWS.render("nope", new byte[0], json));
-        assertEquals(List.of("auto", "graphql", "grpc", "hex", "json", "msgpack", "multipart", "protobuf", "query",
+        assertEquals(List.of("auto", "dns", "graphql", "grpc", "hex", "json", "msgpack", "multipart", "protobuf", "query",
                 "socketio", "urlencoded"), VIEWS.names());
     }
 
@@ -355,5 +355,19 @@ class ContentViewsTest {
         assertEquals(null, m.header("x"));
         assertEquals("", m.mediaType());
         assertEquals(new HttpHeaders().size(), m.trailers().size());
+    }
+
+    // --- DNS -----------------------------------------------------------------------------------------
+
+    @Test
+    void dnsMessages() throws DecodeException {
+        byte[] query = org.microproxy.dns.DnsMessage.query(0x1234, "example.com", 28).encode();
+        ContentView.Metadata dns = ContentView.Metadata.of("application/dns-message");
+        ContentViews.Rendered r = VIEWS.render(query, dns).orElseThrow();
+        assertEquals("dns", r.view());
+        assertEquals(";; query, opcode: QUERY, status: NOERROR, id: 4660\n;; flags: rd\n;; QUESTION:\n"
+                + "example.com. IN AAAA\n", r.text());
+        assertEquals(Optional.empty(), VIEWS.render(new byte[3], dns));
+        assertFalse(VIEWS.get("dns").orElseThrow().matches(query, ContentView.Metadata.of("text/plain")));
     }
 }

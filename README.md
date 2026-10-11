@@ -3532,6 +3532,7 @@ views.render(body, ContentView.Metadata.forResponse(request, response))
 | `urlencoded`, `multipart` | `application/x-www-form-urlencoded`, `multipart/form-data` | the fields (a repeated name as a list), files' names, types and sizes |
 | `query` | requests without a body | the query parameters |
 | `socketio` | paths with `/socket.io/` or `/engine.io/` | one line per Engine.IO or Socket.IO packet |
+| `dns` | `application/dns-message` (DNS over HTTPS, and [DNS over QUIC](#quic-message-framing)'s messages) | as `dig` shows it: the header, then each section's records |
 | `hex` | anything, when named | a hex dump |
 
 `views.with(myView)` adds a view (or replaces one of the same name); a view that fails on a body
