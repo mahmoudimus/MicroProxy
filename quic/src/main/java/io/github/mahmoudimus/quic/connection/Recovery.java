@@ -327,6 +327,16 @@ public final class Recovery {
         return !addressValidated && totalReceived * 3 < totalSent + bytesToSend;
     }
 
+    /**
+     * How many more bytes the anti-amplification limit lets this endpoint send.
+     *
+     * @return three times the bytes received less those sent, at least 0; {@link Long#MAX_VALUE}
+     *     once the peer's address is validated
+     */
+    public long antiAmplificationBudget() {
+        return addressValidated ? Long.MAX_VALUE : Math.max(0, totalReceived * 3 - totalSent);
+    }
+
     // ---------------------------------------------------------------------------------------
     // Sending
 
