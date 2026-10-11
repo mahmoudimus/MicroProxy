@@ -23,15 +23,16 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * started the client's intercepted session ({@code None} before it is read, and for plain HTTP),
  * {@code forwarded_via}, the session's server that the request is forwarded through as the
  * client's proxy ({@code host:port}: an intercepted HTTPS proxy, or an HTTP proxy whose session is
- * plain HTTP), or {@code None}, and {@code socks_version}, the SOCKS version the client reached the
- * proxy with ({@code 5}, or {@code 4} for SOCKS4 and 4a), or {@code None} for an HTTP client.
+ * plain HTTP), or {@code None}, {@code socks_version}, the SOCKS version the client reached the
+ * proxy with ({@code 5}, or {@code 4} for SOCKS4 and 4a), or {@code None} for an HTTP client, and
+ * {@code transparent_quic}, whether the client's QUIC came to the transparent QUIC listener.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
-                    "client_hello", "forwarded_via", "socks_version");
+                    "client_hello", "forwarded_via", "socks_version", "transparent_quic");
 
     private final InetSocketAddress client;
     private final String user;
@@ -94,6 +95,7 @@ public final class ScriptContext implements Structure {
                     : flow.forwardedVia().<Object>map(via -> via).orElse(Starlark.NONE);
             case "socks_version" -> flow == null || flow.socksVersion().isEmpty() ? Starlark.NONE
                     : StarlarkInt.of(flow.socksVersion().getAsInt());
+            case "transparent_quic" -> flow != null && flow.isTransparentQuic();
             default -> null;
         };
     }

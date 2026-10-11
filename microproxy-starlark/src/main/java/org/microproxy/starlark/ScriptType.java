@@ -72,17 +72,19 @@ final class ScriptType extends StarlarkType {
             "versions", Types.list(Types.STR),
             "cipher_suites", Types.list(Types.INT)), false);
 
-    static final ScriptType CONTEXT = new ScriptType("Context", ScriptContext.class, ImmutableMap.of(
-            "client_ip", Types.STR,
-            "client_port", Types.INT,
-            "user", Types.union(Types.STR, Types.NONE),
-            "connection_id", Types.INT,
-            "tls", Types.BOOL,
-            "vars", Types.dict(Types.ANY, Types.ANY),
-            "timings", TIMINGS,
-            "client_hello", Types.union(CLIENT_HELLO, Types.NONE),
-            "forwarded_via", Types.union(Types.STR, Types.NONE),
-            "socks_version", Types.union(Types.INT, Types.NONE)), false);
+    static final ScriptType CONTEXT = new ScriptType("Context", ScriptContext.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("client_ip", Types.STR)
+            .put("client_port", Types.INT)
+            .put("user", Types.union(Types.STR, Types.NONE))
+            .put("connection_id", Types.INT)
+            .put("tls", Types.BOOL)
+            .put("vars", Types.dict(Types.ANY, Types.ANY))
+            .put("timings", TIMINGS)
+            .put("client_hello", Types.union(CLIENT_HELLO, Types.NONE))
+            .put("forwarded_via", Types.union(Types.STR, Types.NONE))
+            .put("socks_version", Types.union(Types.INT, Types.NONE))
+            .put("transparent_quic", Types.BOOL)
+            .buildOrThrow(), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
             .put("type", Types.STR)
