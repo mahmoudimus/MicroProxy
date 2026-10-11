@@ -40,13 +40,17 @@ class Http3SupportTest {
     }
 
     @Test
-    void onlyAReverseProxyServesHttp3() {
+    void http3IsServedByAReverseProxyOrNextToAForwardProxysTlsListener() {
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> MicroProxy.bootstrap().withPort(0).withHttp3(true).start());
-        assertTrue(e.getMessage().contains("reverse proxy"), e.getMessage());
+        assertTrue(e.getMessage().contains("TLS listener"), e.getMessage());
+        IllegalStateException transparent = assertThrows(IllegalStateException.class, () -> MicroProxy.bootstrap()
+                .withPort(0).withTransparent(true).withSslContextSource(new org.microproxy.tls.SelfSignedSslContextSource())
+                .withHttp3(true).start());
+        assertTrue(transparent.getMessage().contains("transparent"), transparent.getMessage());
         IllegalStateException tcp = assertThrows(IllegalStateException.class,
                 () -> MicroProxy.bootstrap().withPort(0).withReverseProxy("tcp://127.0.0.1:1").withHttp3(true).start());
-        assertTrue(tcp.getMessage().contains("reverse proxy"), tcp.getMessage());
+        assertTrue(tcp.getMessage().contains("tcp://"), tcp.getMessage());
     }
 
     @Test

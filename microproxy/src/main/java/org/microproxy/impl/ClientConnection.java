@@ -3307,7 +3307,12 @@ final class ClientConnection implements Runnable {
             if (connected) server.trackers.fire(t -> t.clientConnected(flowContext));
             if (server.mitmManager != null) mitmManager();
             streamConnections = new StreamServerConnections(server.http3Options.maxConcurrentStreams());
-            Http3Connection h3 = new Http3Connection(server, this, quic, flowContext, logPrefix);
+            // An intercepted flow's requests are for the server its SNI named; the listener's are
+            // a reverse proxy's or a forward proxy's.
+            Http3Connection.Role role = !connected ? Http3Connection.Role.INTERCEPTED
+                    : server.reverseProxy != null ? Http3Connection.Role.REVERSE : Http3Connection.Role.FORWARD;
+            HostAndPort target = role == Http3Connection.Role.INTERCEPTED ? HostAndPort.parse(mitmHostAndPort, 443) : null;
+            Http3Connection h3 = new Http3Connection(server, this, quic, flowContext, logPrefix, role, target);
             http3 = h3;
             if (!closed) h3.serve();
         } catch (RuntimeException e) {

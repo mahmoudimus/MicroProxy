@@ -9,6 +9,7 @@ import io.github.mahmoudimus.http3.Http3Settings;
 import io.github.mahmoudimus.http3.Http3StreamType;
 import io.github.mahmoudimus.http3.QpackDecoder;
 import io.github.mahmoudimus.http3.QpackEncoder;
+import io.github.mahmoudimus.http3.QuicVarInt;
 import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
 import io.github.mahmoudimus.quic.QuicStream;
@@ -24,10 +25,14 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -72,6 +77,10 @@ public final class H3TestClient implements AutoCloseable {
         /** Whether field sections stay within the server's SETTINGS_MAX_FIELD_SECTION_SIZE, as a well-behaved client's do. */
         boolean obeyFieldSectionSize = true;
         Duration idleTimeout = Duration.ofSeconds(30);
+        /** Whether the client sends SETTINGS_H3_DATAGRAM (RFC 9297), and accepts QUIC DATAGRAM frames. */
+        boolean datagrams = true;
+        /** The {@code :authority} of requests, or null for the server name and port. */
+        String authority;
     }
 
     final QuicClient client;
@@ -108,6 +117,7 @@ public final class H3TestClient implements AutoCloseable {
                 .qpackMaxTableCapacity(options.qpackMaxTableCapacity)
                 .qpackBlockedStreams(options.qpackBlockedStreams)
                 .maxFieldSectionSize(options.maxFieldSectionSize)
+                .h3Datagram(options.datagrams)
                 .grease(3, 7)
                 .build());
         w.flush();
@@ -118,6 +128,7 @@ public final class H3TestClient implements AutoCloseable {
         decoderOut = dec.getOutputStream();
         decoderOut.write(Http3StreamType.encode(Http3StreamType.QPACK_DECODER));
         Thread.ofVirtual().name("h3-test-client-accept").start(this::acceptStreams);
+        if (options.datagrams) Thread.ofVirtual().name("h3-test-client-datagrams").start(this::receiveDatagrams);
     }
 
     /** Connects to {@code address} as {@code serverName}, trusting {@code anchor} (or every server when null). */
@@ -134,12 +145,14 @@ public final class H3TestClient implements AutoCloseable {
             tls.trustManager(trusting(anchor));
         }
         ClientConfig config = ClientConfig.builder(tls.build())
-                .transport(TransportConfig.builder().maxIdleTimeout(options.idleTimeout).build())
+                .transport(TransportConfig.builder().maxIdleTimeout(options.idleTimeout)
+                        .datagramReceiveBufferSize(options.datagrams ? 1 << 20 : 0).build())
                 .build();
         QuicClient client = QuicClient.create(config);
         try {
             QuicConnection quic = client.connect(address, serverName, Duration.ofSeconds(10));
-            return new H3TestClient(client, quic, options, serverName + ":" + address.getPort());
+            return new H3TestClient(client, quic, options,
+                    options.authority != null ? options.authority : serverName + ":" + address.getPort());
         } catch (IOException | RuntimeException e) {
             client.close();
             throw e;
@@ -440,9 +453,280 @@ public final class H3TestClient implements AutoCloseable {
         return new Response(status, head.subList(1, head.size()), body.toByteArray(), trailers);
     }
 
+    // ---------------------------------------------------------------------------------------
+    // CONNECT, extended CONNECT (RFC 9114 section 4.4, RFC 9220) and HTTP Datagrams (RFC 9297)
+
+    /** A plain {@code CONNECT}'s head: {@code :method} and {@code :authority} only, then {@code fields}. */
+    static List<HeaderField> connect(String authority, HeaderField... fields) {
+        List<HeaderField> all = new ArrayList<>();
+        all.add(new HeaderField(":method", "CONNECT"));
+        all.add(new HeaderField(":authority", authority));
+        all.addAll(List.of(fields));
+        return all;
+    }
+
+    /** An extended {@code CONNECT}'s head for {@code protocol}, then {@code fields}. */
+    static List<HeaderField> extendedConnect(String protocol, String scheme, String authority, String path,
+            HeaderField... fields) {
+        List<HeaderField> all = new ArrayList<>();
+        all.add(new HeaderField(":method", "CONNECT"));
+        all.add(new HeaderField(":protocol", protocol));
+        all.add(new HeaderField(":scheme", scheme));
+        all.add(new HeaderField(":authority", authority));
+        all.add(new HeaderField(":path", path));
+        all.addAll(List.of(fields));
+        return all;
+    }
+
+    /**
+     * A request stream that stays open after its response head: a tunnel ({@code CONNECT}, a
+     * WebSocket, CONNECT-UDP). Its DATA arrive in {@link #in()}, DATA go out through {@link #out()},
+     * and the stream's end is the tunnel's.
+     */
+    final class Tunnel {
+        final QuicStream stream;
+        final long id;
+        /** The response's status, 0 if the stream ended before one. */
+        int status;
+        List<HeaderField> fields = List.of();
+        private final Http3FrameReader reader;
+        private final Http3FrameWriter writer;
+        private final OutputStream rawOut;
+        private final InputStream in;
+        private byte[] pending = new byte[0];
+        private int pendingAt;
+        private final ReentrantLock datagramLock = new ReentrantLock();
+        private final Condition datagramArrived = datagramLock.newCondition();
+        private final ArrayDeque<byte[]> datagrams = new ArrayDeque<>();
+
+        private Tunnel(QuicStream stream) {
+            this.stream = stream;
+            this.id = stream.id();
+            this.rawOut = stream.getOutputStream();
+            this.writer = new Http3FrameWriter(rawOut);
+            this.reader = new Http3FrameReader(stream.getInputStream());
+            reader.setMaxFramePayloadSize(1 << 20);
+            this.in = new InputStream() {
+                @Override
+                public int read() throws IOException {
+                    byte[] one = new byte[1];
+                    return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+                }
+
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException {
+                    if (len == 0) return 0;
+                    while (pendingAt == pending.length) {
+                        Http3Frame f = reader.readFrame();
+                        if (f == null) return -1;
+                        if (f instanceof Http3Frame.Data d) {
+                            pending = d.data();
+                            pendingAt = 0;
+                        } else if (f instanceof Http3Frame.Headers) {
+                            throw new IOException("HEADERS in a tunnel");
+                        }
+                    }
+                    int n = Math.min(len, pending.length - pendingAt);
+                    System.arraycopy(pending, pendingAt, b, off, n);
+                    pendingAt += n;
+                    return n;
+                }
+            };
+        }
+
+        String header(String name) {
+            for (HeaderField f : fields) {
+                if (f.name().equals(name)) return f.value();
+            }
+            return null;
+        }
+
+        /** Reads the final response head (skipping interim ones); false if the stream ended first. */
+        private boolean readHead() throws IOException {
+            for (Http3Frame f; (f = reader.readFrame()) != null; ) {
+                if (f instanceof Http3Frame.Headers h) {
+                    List<HeaderField> all = decode(id, h.fieldSection());
+                    String st = all.getFirst().value();
+                    if (st.startsWith("1")) continue;
+                    status = Integer.parseInt(st);
+                    fields = all.subList(1, all.size());
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** The tunnel's bytes from the server: the payloads of its DATA frames. */
+        InputStream in() {
+            return in;
+        }
+
+        /** Writes the tunnel's bytes to the server, as DATA frames. */
+        OutputStream out() {
+            return new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    write(new byte[] {(byte) b}, 0, 1);
+                }
+
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    writer.writeData(b, off, len);
+                    writer.flush();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    end();
+                }
+            };
+        }
+
+        /** Ends the tunnel's output: the stream's FIN. */
+        void end() throws IOException {
+            rawOut.close();
+        }
+
+        /** Resets the stream both ways with {@code code}. */
+        void reset(long code) throws IOException {
+            stream.stopSending(code);
+            stream.reset(code);
+        }
+
+        /** Reads everything until the stream ends. */
+        byte[] readAll() throws IOException {
+            return in.readAllBytes();
+        }
+
+        /** Reads everything until the stream ends, as text. */
+        String text() throws IOException {
+            return new String(readAll(), StandardCharsets.UTF_8);
+        }
+
+        /** Sends a capsule (RFC 9297 section 3.2) of {@code type} on the stream. */
+        void sendCapsule(long type, byte[] value) throws IOException {
+            out().write(capsule(type, value));
+        }
+
+        /** Sends a UDP payload in a DATAGRAM capsule, with context ID 0. */
+        void sendDatagramCapsule(byte[] payload) throws IOException {
+            sendCapsule(0, contextZero(payload));
+        }
+
+        /** Reads the next capsule from the stream: its type and value, or null at the stream's end. */
+        Capsule readCapsule() throws IOException {
+            long type = QuicVarInt.read(in);
+            if (type < 0) return null;
+            long length = QuicVarInt.read(in);
+            byte[] value = in.readNBytes((int) length);
+            if (value.length < length) throw new IOException("the stream ended inside a capsule");
+            return new Capsule(type, value);
+        }
+
+        /** Sends a UDP payload as an HTTP/3 datagram of this stream, with context ID 0. */
+        void sendDatagram(byte[] payload) throws IOException {
+            sendDatagram(contextZero(payload), true);
+        }
+
+        /** Sends an HTTP/3 datagram of this stream with {@code content} (its context ID first). */
+        void sendDatagram(byte[] content, boolean ignored) throws IOException {
+            byte[] quarter = QuicVarInt.encode(id / 4);
+            byte[] d = new byte[quarter.length + content.length];
+            System.arraycopy(quarter, 0, d, 0, quarter.length);
+            System.arraycopy(content, 0, d, quarter.length, content.length);
+            quic.sendDatagram(d);
+        }
+
+        /** The content (context ID first) of the next HTTP/3 datagram of this stream, or null after {@code timeout}. */
+        byte[] receiveDatagram(Duration timeout) throws InterruptedIOException {
+            datagramLock.lock();
+            try {
+                long deadline = System.nanoTime() + timeout.toNanos();
+                while (datagrams.isEmpty()) {
+                    long remaining = deadline - System.nanoTime();
+                    if (remaining <= 0) return null;
+                    datagramArrived.awaitNanos(remaining);
+                }
+                return datagrams.pollFirst();
+            } catch (InterruptedException e) {
+                throw new InterruptedIOException();
+            } finally {
+                datagramLock.unlock();
+            }
+        }
+
+        private void datagram(byte[] content) {
+            datagramLock.lock();
+            try {
+                datagrams.addLast(content);
+                datagramArrived.signalAll();
+            } finally {
+                datagramLock.unlock();
+            }
+        }
+    }
+
+    /** A capsule (RFC 9297 section 3.2). */
+    record Capsule(long type, byte[] value) {}
+
+    /** A capsule's bytes: its type, its length and {@code value}. */
+    static byte[] capsule(long type, byte[] value) {
+        ByteArrayOutputStream c = new ByteArrayOutputStream();
+        c.writeBytes(QuicVarInt.encode(type));
+        c.writeBytes(QuicVarInt.encode(value.length));
+        c.writeBytes(value);
+        return c.toByteArray();
+    }
+
+    /** {@code payload} after a context ID of 0: an HTTP Datagram's content for CONNECT-UDP. */
+    static byte[] contextZero(byte[] payload) {
+        byte[] out = new byte[payload.length + 1];
+        System.arraycopy(payload, 0, out, 1, payload.length);
+        return out;
+    }
+
+    /** The UDP payload of an HTTP Datagram's content with context ID 0, or null for another context. */
+    static byte[] udpPayload(byte[] content) {
+        long context = QuicVarInt.read(content, 0, content.length);
+        if (context != 0) return null;
+        return Arrays.copyOfRange(content, 1, content.length);
+    }
+
+    private final Map<Long, Tunnel> tunnels = new ConcurrentHashMap<>();
+
+    /**
+     * Opens a request stream with {@code fields} as its head, not ending it, and reads the response
+     * head: a 2xx leaves the tunnel open.
+     */
+    Tunnel open(List<HeaderField> fields) throws IOException {
+        QuicStream s = quic.openBidirectionalStream();
+        Tunnel t = new Tunnel(s);
+        tunnels.put(t.id, t);
+        new Http3FrameWriter(s.getOutputStream()).writeHeaders(encode(s.id(), fields));
+        s.getOutputStream().flush();
+        t.readHead();
+        return t;
+    }
+
+    private void receiveDatagrams() {
+        try {
+            while (true) {
+                byte[] d = quic.receiveDatagram();
+                long quarter = QuicVarInt.read(d, 0, d.length);
+                if (quarter < 0) continue;
+                int at = QuicVarInt.length(quarter);
+                Tunnel t = tunnels.get(quarter * 4);
+                if (t != null) t.datagram(Arrays.copyOfRange(d, at, d.length));
+            }
+        } catch (IOException | RuntimeException e) {
+            // the connection ended
+        }
+    }
+
     @Override
     public void close() {
         quic.close(0x0100, "");
         client.close();
     }
 }
+

@@ -24,8 +24,9 @@ import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
 
 /**
- * The server side of an HTTP/3 connection from a client (RFC 9114), on the reverse proxy's QUIC
- * listener ({@link Http3Listener}). Each request stream is an exchange of its own, run by the same
+ * The server side of an HTTP/3 connection from a client (RFC 9114): on the proxy's QUIC listener
+ * ({@link Http3Listener}), as a reverse proxy's or a forward proxy's, or an intercepted connection
+ * of the transparent QUIC listener. Each request stream is an exchange of its own, run by the same
  * exchange logic as HTTP/1 and HTTP/2 requests ({@link ClientConnection#handleStream}) through an
  * {@link Http3StreamChannel}, on a virtual thread of its own; the connection's control and QPACK
  * streams are {@link Http3Endpoint}'s.
@@ -49,9 +50,25 @@ final class Http3Connection extends Http3Endpoint {
     /** How long a connection that sent GOAWAY and has no streams waits for the client to close. */
     private static final long CLOSE_GRACE_NANOS = TimeUnit.SECONDS.toNanos(2);
 
+    /** Who the client takes the proxy for. */
+    enum Role {
+        /** The server of a reverse proxy: requests are for its upstream. */
+        REVERSE,
+        /**
+         * A forward proxy, on its TLS listener's UDP port: requests name their targets ({@code
+         * :scheme} and {@code :authority}), {@code CONNECT} opens tunnels and CONNECT-UDP proxies UDP.
+         */
+        FORWARD,
+        /** The server the client meant to reach, whose QUIC the proxy intercepted (transparent QUIC). */
+        INTERCEPTED
+    }
+
     private final ClientConnection client;
     private final ClientFlowContext connectionFlow;
     private final Http3Frames.Origin origin;
+    final Role role;
+    /** The intercepted server ({@link Role#INTERCEPTED}); null for the proxy's own listener. */
+    private final HostAndPort target;
 
     // Guarded by stateLock.
     private final Map<Long, Http3StreamChannel> streams = new HashMap<>();
@@ -62,11 +79,16 @@ final class Http3Connection extends Http3Endpoint {
     private volatile int activeStreams;
     private final AtomicBoolean shutDown = new AtomicBoolean();
 
+    /**
+     * @param target the intercepted server, for {@link Role#INTERCEPTED}; else null
+     */
     Http3Connection(DefaultHttpProxyServer server, ClientConnection client, QuicConnection quic,
-            ClientFlowContext connectionFlow, String logPrefix) {
+            ClientFlowContext connectionFlow, String logPrefix, Role role, HostAndPort target) {
         super(server, quic, logPrefix, Http3StreamValidator.Role.SERVER);
         this.client = client;
         this.connectionFlow = connectionFlow;
+        this.role = role;
+        this.target = target;
         this.origin = new Http3Frames.Origin(connectionFlow.getConnectionId(), connectionFlow.getClientAddress(), null);
     }
 
@@ -208,9 +230,12 @@ final class Http3Connection extends Http3Endpoint {
             return null;
         }
         if (!reader.endsHere()) reader.awaitNext(END_GRACE_NANOS);
+        // A request for http:// on an intercepted connection is a proxy request: the client takes
+        // the intercepted server for its proxy, and the request goes there in absolute-form.
+        boolean proxyRequest = role == Role.INTERCEPTED && "http".equalsIgnoreCase(request.scheme());
         HttpRequest http1;
         try {
-            http1 = Http3Messages.toHttp1(request, !reader.endsHere());
+            http1 = Http3Messages.toHttp1(request, !reader.endsHere(), role == Role.FORWARD || proxyRequest);
         } catch (IllegalArgumentException e) {
             s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
             return null;

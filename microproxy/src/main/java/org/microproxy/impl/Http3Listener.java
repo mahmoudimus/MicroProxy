@@ -15,11 +15,14 @@ import org.microproxy.Http3Options;
 import org.microproxy.KeyMaterial;
 
 /**
- * The reverse proxy's HTTP/3 listener: a {@link QuicServer} on the UDP port with the TCP
- * listener's number, offering ALPN {@code h3}, with the certificate of the proxy's TLS listener
- * (or one its MITM manager's CA issues, see {@link DefaultHttpProxyServer}). Each established QUIC
- * connection is a client connection of its own ({@link ClientConnection#serveHttp3}), served on
- * the server's connection executor, so a graceful stop waits for it as for TCP clients.
+ * The proxy's HTTP/3 listener: a {@link QuicServer} on the UDP port with the TCP listener's
+ * number, offering ALPN {@code h3}, with the certificate of the proxy's TLS listener (or, for a
+ * reverse proxy, one its MITM manager's CA issues, see {@link DefaultHttpProxyServer}). A reverse
+ * proxy's clients send it requests for its upstream; a forward proxy's send it proxy requests,
+ * {@code CONNECT} and CONNECT-UDP (MASQUE), whose UDP payloads may travel in QUIC DATAGRAM frames,
+ * which only this listener accepts. Each established QUIC connection is a client connection of its
+ * own ({@link ClientConnection#serveHttp3}), served on the server's connection executor, so a
+ * graceful stop waits for it as for TCP clients.
  */
 final class Http3Listener implements AutoCloseable {
 
@@ -27,6 +30,9 @@ final class Http3Listener implements AutoCloseable {
 
     /** Unidirectional streams a client may have open: control, QPACK encoder and decoder, and room for extensions. */
     private static final int MAX_UNI_STREAMS = 16;
+
+    /** QUIC DATAGRAM payloads buffered per connection before the oldest are dropped, where they are accepted. */
+    private static final int DATAGRAM_BUFFER = 1024 * 1024;
 
     private final DefaultHttpProxyServer server;
     private final QuicServer quic;
@@ -46,7 +52,8 @@ final class Http3Listener implements AutoCloseable {
      */
     static Http3Listener start(DefaultHttpProxyServer server, InetSocketAddress address, Function<String, KeyMaterial> keys)
             throws IOException {
-        return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys)));
+        // A forward proxy's clients may send UDP payloads in QUIC DATAGRAM frames (RFC 9297).
+        return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys, server.reverseProxy == null)));
     }
 
     /**
@@ -55,6 +62,16 @@ final class Http3Listener implements AutoCloseable {
      * timeout, and Retry if the options ask for it.
      */
     static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
+        return serverConfig(server, keys, false);
+    }
+
+    /**
+     * {@link #serverConfig(DefaultHttpProxyServer, Function)}, accepting QUIC DATAGRAM frames (RFC
+     * 9221, the {@code max_datagram_frame_size} transport parameter) when {@code datagrams}: only
+     * where HTTP Datagrams have a use (CONNECT-UDP), since nothing else reads them.
+     */
+    static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys,
+            boolean datagrams) {
         Http3Options options = server.http3Options;
         TlsConfig tls = TlsConfig.builder()
                 .alpnProtocols("h3")
@@ -70,6 +87,7 @@ final class Http3Listener implements AutoCloseable {
                 .maxConcurrentUniStreams(MAX_UNI_STREAMS)
                 .streamReceiveWindow(options.streamReceiveWindow())
                 .receiveWindow(options.connectionReceiveWindow())
+                .datagramReceiveBufferSize(datagrams ? DATAGRAM_BUFFER : 0)
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }
