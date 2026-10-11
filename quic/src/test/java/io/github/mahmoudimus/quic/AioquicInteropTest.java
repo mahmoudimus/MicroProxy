@@ -155,10 +155,15 @@ class AioquicInteropTest {
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() throws IOException {
             process.getOutputStream().close(); // the server exits when stdin closes
-            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+            try {
+                if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                }
+            } catch (InterruptedException e) {
                 process.destroyForcibly();
+                Thread.currentThread().interrupt();
             }
         }
     }
