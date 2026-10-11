@@ -1,11 +1,13 @@
 package org.microproxy;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.function.Supplier;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 
 /**
  * Hooks into the life of a single request/response exchange. One instance is created per request
@@ -346,13 +348,17 @@ public interface HttpFilters {
      *
      * <ul>
      *   <li>Frames are rewritten one at a time; a message split across continuation frames is seen
-     *       piece by piece.
-     *   <li>When a filters class overrides this method, the proxy removes {@code
-     *       Sec-WebSocket-Extensions} from the upgrade request so that payloads are not compressed
-     *       (permessage-deflate) and can be read and rewritten.
+     *       piece by piece. {@link #filterWebSocketMessage} sees whole messages.
+     *   <li>When a filters class overrides this method, payloads compressed with permessage-deflate
+     *       (RFC 7692) arrive inflated, with RSV1 clear, and the proxy compresses what it forwards
+     *       again. The proxy keeps only permessage-deflate offers in the upgrade request's {@code
+     *       Sec-WebSocket-Extensions}, since it could not read frames of other extensions.
      *   <li>A frame larger than {@link HttpProxyServerBootstrap#withMaxWebSocketFrameBufferSize(int)}
      *       arrives {@linkplain WebSocketFrame#isTruncated() truncated}: returning it streams it
      *       through, {@code null} discards it, and a replacement frame is sent in its place.
+     *       Compressed frames, and frames of a message that {@link #filterWebSocketMessage} will
+     *       see, are buffered up to {@link HttpProxyServerBootstrap#withMaxWebSocketMessageSize(int)}
+     *       instead.
      *   <li>Like the observer, this is called concurrently for client and server frames.
      * </ul>
      *
@@ -363,5 +369,54 @@ public interface HttpFilters {
      */
     default WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
         return frame;
+    }
+
+    /**
+     * Rewrites or drops a whole WebSocket message on an upgraded connection. A text or binary
+     * message split across continuation frames arrives joined, and inflated when the connection
+     * uses permessage-deflate (RFC 7692). Return {@code message} to forward it unchanged, another
+     * message ({@link WebSocketMessage#withText(String)}, {@link WebSocketMessage#text(String,
+     * boolean)}, ...) to send instead, or {@code null} to drop it.
+     *
+     * <ul>
+     *   <li>Messages are only joined when a filters class overrides this method or {@link
+     *       #filterWebSocketMessages}; otherwise frames are relayed one at a time.
+     *   <li>With {@link #filterWebSocketFrame} as well, the frame hook sees each frame first, and
+     *       this hook sees the message joined from what the frame hook returned. Control frames
+     *       (ping, pong, close) that arrive between a message's frames reach the frame hook and are
+     *       forwarded at once, without waiting for the message.
+     *   <li>A message returned unchanged keeps the fragmentation it arrived with; any other message
+     *       is sent as a single frame (masked towards the server, compressed when the sender's
+     *       message was).
+     *   <li>A message larger than {@link HttpProxyServerBootstrap#withMaxWebSocketMessageSize(int)},
+     *       joined or inflated, fails the connection: both peers get a close frame with status
+     *       1009 (message too big).
+     *   <li>Like the frame hooks, this is called concurrently for client and server messages.
+     * </ul>
+     *
+     * @param message the whole message
+     * @param fromClient true for client-to-server messages
+     * @return the message to forward, or {@code null} to drop it
+     */
+    default WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+        return message;
+    }
+
+    /**
+     * The messages to send in place of {@code message}, in order. Each goes towards the server
+     * when its {@link WebSocketMessage#fromClient()} is true and towards the client otherwise, so
+     * a filter can answer a message itself ({@code message.withFromClient(!fromClient)}) or send
+     * extra ones either way. An empty list drops the message.
+     *
+     * <p>The default returns what {@link #filterWebSocketMessage} returns, if anything; override
+     * this one instead to send several messages.
+     *
+     * @param message the whole message
+     * @param fromClient true for client-to-server messages
+     * @return the messages to send
+     */
+    default List<WebSocketMessage> filterWebSocketMessages(WebSocketMessage message, boolean fromClient) {
+        WebSocketMessage out = filterWebSocketMessage(message, fromClient);
+        return out == null ? List.of() : List.of(out);
     }
 }

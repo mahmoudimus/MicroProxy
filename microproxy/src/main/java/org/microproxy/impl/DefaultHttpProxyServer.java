@@ -77,6 +77,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final boolean acceptProxyProtocol;
     final boolean sendProxyProtocol;
     final int maxWebSocketFrameBufferSize;
+    final int maxWebSocketMessageSize;
     /** Shared server connection pool, or null when connections are kept per client. */
     final SharedConnectionPool pool;
     final boolean poolSharedMitmConnections;
@@ -152,6 +153,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
+        this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool
                 ? new SharedConnectionPool(b.maxConnectionsPerHost, b.maxConnections, b.poolIdleTimeout)
                 : null;

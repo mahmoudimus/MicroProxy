@@ -601,6 +601,17 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes);
 
     /**
+     * Largest WebSocket message, in bytes, that the proxy joins from its frames for {@link
+     * HttpFilters#filterWebSocketMessage(org.microproxy.http.WebSocketMessage, boolean)} or inflates
+     * (permessage-deflate) for the frame and message hooks. A larger message, or one that inflates
+     * past it (a decompression bomb), fails the connection with close code 1009. Default 16 MiB.
+     *
+     * @param maxBytes the maximum message size in bytes
+     * @return this bootstrap
+     */
+    HttpProxyServerBootstrap withMaxWebSocketMessageSize(int maxBytes);
+
+    /**
      * Shares server connections between all clients instead of keeping them per client
      * connection. A connection is leased for one exchange and returned to the pool when the
      * response completes with keep-alive. Disabled by default.
