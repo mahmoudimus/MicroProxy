@@ -107,8 +107,9 @@ final class Http2Connection extends Http2Endpoint {
     private final byte[] received;
     private final ClientFlowContext connectionFlow;
     /**
-     * The {@code CONNECT} target: requests for another authority get 421. Null for a forward proxy
-     * connection (h2c), whose requests name any target.
+     * The {@code CONNECT} target: requests for another authority get 421 (but plain {@code
+     * CONNECT}s, whose authority is a tunnel's target). Null for a forward proxy connection (h2c),
+     * whose requests name any target.
      */
     private final HostAndPort target;
     private final int maxHeaderListSize;
@@ -167,6 +168,11 @@ final class Http2Connection extends Http2Endpoint {
     @Override
     String peer() {
         return "client";
+    }
+
+    /** The address the client connected to, or null if it is unknown. */
+    InetSocketAddress localAddress() {
+        return socket.getLocalSocketAddress() instanceof InetSocketAddress a ? a : null;
     }
 
     @Override
@@ -522,7 +528,9 @@ final class Http2Connection extends Http2Endpoint {
         } finally {
             stateLock.unlock();
         }
-        boolean misdirected = misdirected(head.authority());
+        // A plain CONNECT names the target of a tunnel, not this session's authority: the client
+        // takes the intercepted server for its HTTPS proxy (ClientConnection.forwardConnect).
+        boolean misdirected = !(head.isConnect() && head.protocol() == null) && misdirected(head.authority());
         stream.flowContext().startExchange();
         try {
             Thread.ofVirtual().name(server.name + "-h2-" + connectionFlow.getConnectionId() + "-" + id)
@@ -676,7 +684,8 @@ final class Http2Connection extends Http2Endpoint {
             s = streams.get(id);
             recentlyClosed.putIfAbsent(id, s == null || !s.reset ? RESET_BY_CLIENT : CLOSED_HERE);
             if (s != null && !s.reset) {
-                early = !s.responseEnded;
+                // Resetting an open tunnel is how a client ends it: not a rapid reset.
+                early = !s.responseEnded && !s.tunnelOpen;
                 s.markReset(new IOException("stream " + id + " reset by the client (" + rst.error() + ")"));
                 s.rstWritten = true;
                 serverConnection = s.cancelServer();
@@ -754,7 +763,8 @@ final class Http2Connection extends Http2Endpoint {
      * Whether a request names an authority other than the intercepted one. A client may reuse a
      * connection for any host its certificate covers (connection coalescing), but this session
      * reaches only the {@code CONNECT} target, so such requests get 421 and are retried on a
-     * connection of their own (RFC 9110 section 15.5.20).
+     * connection of their own (RFC 9110 section 15.5.20). So do extended {@code CONNECT}s
+     * (WebSockets) for another authority.
      */
     private boolean misdirected(String authority) {
         if (authority == null || target == null) return false;

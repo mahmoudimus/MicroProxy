@@ -32,6 +32,11 @@ import org.microproxy.FullFlowContext;
  * streams shares one connection from the start. Servers that answer the handshake without {@code
  * h2} are remembered, so their exchanges do not wait for each other again.
  *
+ * <p>A connection made for an intercepted {@code CONNECT} waits for its client's ClientHello
+ * before its TLS handshake ({@link #awaitingClientHello}). Others wait for such a connection only
+ * for {@link #CLIENT_HELLO_GRACE_NANOS} from when that wait began: a client that is slow to send
+ * its ClientHello, or never sends one, does not hold up other clients for longer.
+ *
  * <p>All state is guarded by {@link #lock}, which may be held while taking a connection's state
  * lock, never the other way round.
  */
@@ -40,6 +45,12 @@ final class Http2Origins {
     /** Keys remembered as reaching servers that chose HTTP/1.1. */
     private static final int MAX_HTTP1_KEYS = 4096;
 
+    /**
+     * How long others wait for a connection whose making waits for its client's ClientHello:
+     * enough for a client that sends it right after the {@code CONNECT}'s answer.
+     */
+    static final long CLIENT_HELLO_GRACE_NANOS = TimeUnit.MILLISECONDS.toNanos(200);
+
     private final DefaultHttpProxyServer server;
     private final ReentrantLock lock = new ReentrantLock();
     /** Signalled when a connection is made, or making one ended. */
@@ -47,6 +58,11 @@ final class Http2Origins {
     private final Map<String, List<Http2UpstreamConnection>> open = new HashMap<>();
     /** Keys a connection is being made for, and by which thread. */
     private final Map<String, Thread> connecting = new HashMap<>();
+    /**
+     * Keys whose connection is made but waits for its client's ClientHello before its TLS
+     * handshake, and since when ({@link System#nanoTime()}).
+     */
+    private final Map<String, Long> awaitingClient = new HashMap<>();
     private final Map<String, Boolean> http1Only = new LinkedHashMap<>(64, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
@@ -104,11 +120,17 @@ final class Http2Origins {
                     return null;
                 }
                 if (maker == waitedFor || maker == Thread.currentThread()) return null;
-                // Another exchange is making a connection for this key: wait for it, once.
+                // Another exchange is making a connection for this key: wait for it, once, but not
+                // for long while that connection waits for its client's ClientHello.
                 long remaining = deadline - System.nanoTime();
                 if (remaining <= 0) return null;
                 while (connecting.get(key) == maker && remaining > 0 && !closed) {
-                    remaining = changed.awaitNanos(remaining);
+                    long limit = remaining;
+                    Long since = awaitingClient.get(key);
+                    if (since != null) limit = Math.min(limit, since + CLIENT_HELLO_GRACE_NANOS - System.nanoTime());
+                    if (limit <= 0) break;
+                    changed.awaitNanos(limit);
+                    remaining = deadline - System.nanoTime();
                 }
                 waitedFor = maker;
             }
@@ -202,6 +224,31 @@ final class Http2Origins {
         }
     }
 
+    /**
+     * The connection the calling thread is making for {@code key} waits for its client's
+     * ClientHello before its TLS handshake: others wait for it only briefly.
+     */
+    void awaitingClientHello(String key) {
+        lock.lock();
+        try {
+            if (connecting.get(key) == Thread.currentThread()) awaitingClient.put(key, System.nanoTime());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** The ClientHello for {@link #awaitingClientHello} has come: others may wait for the handshake. */
+    void clientHelloArrived(String key) {
+        lock.lock();
+        try {
+            if (connecting.get(key) == Thread.currentThread() && awaitingClient.remove(key) != null) {
+                changed.signalAll();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Making a connection for {@code lookupKey} failed (or was given up); others may try. */
     void connectFailed(String lookupKey) {
         lock.lock();
@@ -216,6 +263,7 @@ final class Http2Origins {
     private void release(String key) {
         if (connecting.get(key) == Thread.currentThread()) {
             connecting.remove(key);
+            awaitingClient.remove(key);
         }
         changed.signalAll();
     }

@@ -27,6 +27,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLContext;
@@ -39,6 +40,7 @@ import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.ChainedProxyType;
 import org.microproxy.ClientDetails;
+import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
 import org.microproxy.HttpFilters;
@@ -323,6 +325,31 @@ final class ClientConnection implements Runnable {
         boolean offerHttp2;
         /** The client sent {@code TE: trailers} (a hop-by-hop field, removed before the request goes on). */
         boolean trailersAccepted;
+        /**
+         * Server TLS for this exchange's CONNECT waits for the client's ClientHello: connect now
+         * (TCP, and through chained proxies), and run the handshake later ({@link #startServerTls}).
+         */
+        boolean deferServerTls;
+        /**
+         * The proxy made up this CONNECT for a connection that arrived without one (transparent TLS,
+         * a {@code tcp://} reverse proxy): nothing is written to the client in HTTP.
+         */
+        boolean implicit;
+        /**
+         * The HTTP/2 key whose connection this exchange claimed to make ({@link Http2Origins}) and
+         * reports on only once its deferred server TLS has told what the server speaks.
+         */
+        String http2Claim;
+        /** The CONNECT's answer, written, whose completion waits until the session is set up. */
+        HttpResponse connectResponse;
+        ResponseSource connectSource;
+        /**
+         * For a {@code CONNECT} forwarded to the intercepted server ({@link #forwardConnect}): the
+         * hop through that server, which the client takes for its HTTPS proxy; null otherwise.
+         */
+        Hop forwarding;
+        /** The intercepted proxy's 2xx to a forwarded {@code CONNECT}, once its tunnel is open. */
+        HttpResponse tunnelOpened;
 
         Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
             this.channel = channel;
@@ -356,9 +383,71 @@ final class ClientConnection implements Runnable {
         }
     }
 
+    /**
+     * The way to a server through an intercepted server that the client takes for its HTTPS proxy
+     * ({@link #forwardConnect}): the client sent a {@code CONNECT} inside the session with {@link
+     * #proxy}, which the proxy forwarded there. The session inside the tunnel it opened (when that
+     * is intercepted too) reaches its server only through tunnels the same way, each opened with
+     * the client's {@code CONNECT} fields ({@code Proxy-Authorization} among them).
+     */
+    private static final class Hop {
+        private static final AtomicLong IDS = new AtomicLong();
+
+        /** Keeps HTTP/2 connections through this hop apart from all others. */
+        final long id = IDS.incrementAndGet();
+        /** The intercepted server ({@code host:port}) that opens the tunnels. */
+        final String proxy;
+        /** How {@link #proxy} itself is reached: through another hop, or null for the usual routes. */
+        final Hop parent;
+        /** The {@code CONNECT} as it was forwarded: the fields every tunnel is opened with. */
+        final HttpRequest connect;
+        /** The proxy, as the flow contexts of server connections through it name it. */
+        final ChainedProxy chained;
+        /** The client connection whose session runs through this hop: it closes the hop's HTTP/2 connections. */
+        volatile ClientConnection consumer;
+
+        Hop(String proxy, Hop parent, HttpRequest connect) {
+            this.proxy = proxy;
+            this.parent = parent;
+            this.connect = connect;
+            HostAndPort address = HostAndPort.parse(proxy, 443);
+            this.chained = new InterceptedProxy(InetSocketAddress.createUnresolved(address.host(), address.port()));
+        }
+
+        /** The {@code CONNECT} for a tunnel to {@code target}. */
+        HttpRequest connectTo(String target) {
+            HttpRequest request = copy(connect);
+            request.setUri(target);
+            request.headers().set(HttpHeaderNames.HOST, target);
+            return request;
+        }
+    }
+
+    /**
+     * An intercepted server that the client takes for its HTTPS proxy, as the chained proxy of the
+     * server connections made through it ({@link FullFlowContext#getChainedProxy()}).
+     */
+    private record InterceptedProxy(InetSocketAddress address) implements ChainedProxy {
+        @Override
+        public InetSocketAddress getChainedProxyAddress() {
+            return address;
+        }
+
+        @Override
+        public boolean requiresEncryption() {
+            return true;
+        }
+    }
+
     private final DefaultHttpProxyServer server;
     private final Socket rawSocket;
     private final long id = IDS.incrementAndGet();
+    /**
+     * The client connection whose HTTP/2 connections to servers this one's requests share: itself,
+     * or for the TLS session of an intercepted {@code CONNECT} stream ({@link #interceptStream}),
+     * the client connection the stream belongs to (the outermost one, when such sessions nest).
+     */
+    private final ClientConnection owner;
     private final ClientDetails clientDetails = new ClientDetails();
     private final ClientFlowContext flowContext;
     /** Starts every log line about this connection: {@code [conn <id>] }. */
@@ -381,27 +470,71 @@ final class ClientConnection implements Runnable {
     private volatile boolean idle = true;
     private volatile boolean closed;
 
-    // Connection-level state the exchange logic reads. Exchanges outside an intercepted session
-    // run one at a time on the connection's thread (HTTP/1), so the authentication state and the
-    // MITM choice are only ever touched by one thread. HTTP/2 streams, which run concurrently,
-    // exist only inside an intercepted session: they inherit its authentication (and never
-    // authenticate again) and only read mitmHostAndPort and connectionMitm, which were written
-    // before their threads started.
+    // Connection-level state the exchange logic reads. HTTP/1 exchanges run one at a time on the
+    // connection's thread, so the authentication state is only ever touched by one thread. HTTP/2
+    // streams run concurrently: inside an intercepted session they inherit its authentication,
+    // and on a forward-proxy connection (h2c, the TLS listener) each authenticates on its own.
+    // They only read mitmHostAndPort, which was written before their threads started; the MITM
+    // choice is made under mitmLock, since CONNECT streams may ask for it at once.
     private boolean authenticated;
     /** Whether a request has been accepted on this connection, and as whom. */
     private boolean accepted;
     private String acceptedUser;
     /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
     private String mitmHostAndPort;
-    /** The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked. */
+    /**
+     * The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked.
+     * Guarded by {@link #mitmLock}.
+     */
     private MitmManager connectionMitm;
     private boolean mitmChosen;
+    private final ReentrantLock mitmLock = new ReentrantLock();
+    /**
+     * The session after a CONNECT is plain HTTP (the client sent HTTP rather than TLS): its
+     * requests go to {@link #mitmHostAndPort} without TLS.
+     */
+    private boolean plainSession;
+    /** The next exchange is a CONNECT the proxy made up ({@link Exchange#implicit}). */
+    private boolean implicitConnect;
+    /**
+     * How the intercepted server is reached when this session is inside a tunnel that the client
+     * opened through an intercepted HTTPS proxy ({@link #forwardConnect}): every server connection
+     * of the session is a tunnel through that proxy. Null for the usual routes. Written before the
+     * session's requests start.
+     */
+    private volatile Hop via;
 
     ClientConnection(DefaultHttpProxyServer server, Socket socket) {
         this.server = server;
         this.rawSocket = socket;
+        this.owner = this;
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         this.http1 = new Http1ClientChannel(server, socket, flowContext, logPrefix, this::close);
+    }
+
+    /**
+     * The client connection inside an intercepted {@code CONNECT} stream of {@code parent}'s HTTP/2
+     * connection: {@code tunnel} is the stream as a socket, over which the client speaks TLS. It
+     * has the parent's client details, PROXY header and MITM manager, and its requests share the
+     * parent's HTTP/2 connections to servers.
+     *
+     * @param via the hop through the intercepted proxy that opened the tunnel, or null if the
+     *     proxy's own connection reaches the server
+     */
+    private ClientConnection(ClientConnection parent, Socket tunnel, Hop via) {
+        this.server = parent.server;
+        this.rawSocket = tunnel;
+        this.owner = parent.owner;
+        this.via = via;
+        if (via != null) via.consumer = this;
+        clientDetails.setClientAddress(parent.clientDetails.getClientAddress());
+        clientDetails.setUserName(parent.clientDetails.getUserName());
+        this.proxyHeader = parent.proxyHeader;
+        this.connectionMitm = parent.mitmManager();
+        this.mitmChosen = true;
+        this.authenticated = true;
+        this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
+        this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
     /** The connection's own flow context (not one of its streams'). */
@@ -443,7 +576,16 @@ final class ClientConnection implements Runnable {
         StreamServerConnections streams = streamConnections;
         if (streams != null) streams.releaseAll();
         // HTTP/2 connections to servers that only this client could use.
-        if (ownsHttp2Connections) server.http2Origins.closeOwnedBy(this);
+        if (ownsHttp2Connections && owner == this) server.http2Origins.closeOwnedBy(this);
+        // And those through tunnels that this connection's sessions opened.
+        for (Hop hop = via; hop != null && hop.consumer == this; hop = hop.parent) {
+            if (server.http2Origins != null) server.http2Origins.closeOwnedBy(hop);
+        }
+        releaseSessionConnections();
+    }
+
+    /** Gives up the server connections of the session served now (not its streams'). */
+    private void releaseSessionConnections() {
         for (ServerConnection c : List.copyOf(serverConnections.values())) {
             if (c.pool != null && !c.inExchange && c.isOpen()) {
                 // An intercepted session's idle server connection outlives the client.
@@ -479,7 +621,7 @@ final class ClientConnection implements Runnable {
                 SSLSocket tls = handshakeWithClient(server.sslContextSource.getSslContext(),
                         server.authenticateSslClients, s -> {
                             server.sslContextSource.configure(s, false);
-                            if (server.http2) offerHttp2(s, true);
+                            if (server.http2) offerHttp2(s);
                         }, null);
                 if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
                     serveHttp2(tls, new byte[0], null);
@@ -488,6 +630,15 @@ final class ClientConnection implements Runnable {
             } else if (server.http2Cleartext && http1.awaitRequest() && http1.startsWithHttp2Preface()) {
                 // HTTP/2 with prior knowledge: the whole connection, preface included, is HTTP/2's.
                 serveHttp2(rawSocket, http1.drainBuffered(), null);
+                return;
+            } else if (server.transparent && server.reverseProxy == null && http1.awaitRequest()
+                    && http1.startsLikeTls()) {
+                // TLS without a CONNECT (redirected to the proxy): routed by its SNI.
+                serveTransparentTls();
+                return;
+            }
+            if (server.reverseProxy != null && server.reverseProxy.rawTcp()) {
+                serveImplicitConnect(server.reverseProxy.hostAndPort());
                 return;
             }
             serveRequests();
@@ -541,19 +692,64 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * Offers HTTP/2 in a handshake: ALPN {@code h2}, else {@code http/1.1}. As the server (an
-     * intercepted client's handshake), a client that offers neither (or no ALPN at all) gets no
-     * protocol back and speaks HTTP/1.1, as without HTTP/2; the JDK's own selection would instead
-     * fail the handshake. As the client (to a server), a server that ignores ALPN means HTTP/1.1.
+     * Offers HTTP/2 to a client of the proxy's TLS listener: ALPN {@code h2}, else {@code
+     * http/1.1}. A client that offers neither (or no ALPN at all) gets no protocol back and speaks
+     * HTTP/1.1, as without HTTP/2; the JDK's own selection would instead fail the handshake.
      */
-    private static void offerHttp2(SSLSocket socket, boolean serverSide) {
+    private static void offerHttp2(SSLSocket socket) {
         SSLParameters params = socket.getSSLParameters();
         params.setApplicationProtocols(new String[] {"h2", "http/1.1"});
         socket.setSSLParameters(params);
-        if (serverSide) {
-            socket.setHandshakeApplicationProtocolSelector((s, offered) ->
-                    offered.contains("h2") ? "h2" : offered.contains("http/1.1") ? "http/1.1" : "");
+        socket.setHandshakeApplicationProtocolSelector((s, offered) ->
+                offered.contains("h2") ? "h2" : offered.contains("http/1.1") ? "http/1.1" : "");
+    }
+
+    /** A fatal TLS {@code unrecognized_name} alert (RFC 8446 section 6.2), for a ClientHello without SNI. */
+    private static final byte[] UNRECOGNIZED_NAME_ALERT = {0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x70};
+
+    /**
+     * Serves a TLS connection that arrived without a {@code CONNECT} on a transparent listener: its
+     * ClientHello's SNI names the server ({@link DefaultHttpProxyServer#transparentTlsPort} on that
+     * host), and the connection then goes on as a {@code CONNECT} to it would. Java cannot read the
+     * original destination of a redirected connection (no {@code SO_ORIGINAL_DST}), so without SNI
+     * there is nowhere to go.
+     */
+    private void serveTransparentTls() throws IOException {
+        ClientStart start = peekClient(null);
+        ClientHello hello = start.hello();
+        if (hello == null || hello.sni() == null) {
+            String reason = hello == null ? "no readable ClientHello (" + start.note() + ")" : "a ClientHello without SNI";
+            LOG.log(Level.INFO, logPrefix + "transparent TLS connection with " + reason
+                    + ": the server cannot be told (the destination is taken from SNI); closing");
+            if (hello != null) {
+                try {
+                    http1.writeRaw(UNRECOGNIZED_NAME_ALERT);
+                } catch (IOException ignored) {
+                    // closing anyway
+                }
+            }
+            ProtocolException e = new ProtocolException("transparent TLS connection with " + reason);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+            return;
         }
+        // Known before the made-up CONNECT, whose filters may already look at it.
+        flowContext.clientHello(hello);
+        serveImplicitConnect(new HostAndPort(hello.sni(), server.transparentTlsPort).toString());
+    }
+
+    /**
+     * Serves the connection as if its client had sent {@code CONNECT hostAndPort} (and the proxy
+     * had answered it): authentication, filters, routing, the host rules and interception apply as
+     * to a real one, but nothing is written to the client in HTTP. A refused request closes the
+     * connection.
+     */
+    private void serveImplicitConnect(String hostAndPort) throws IOException {
+        idle = false;
+        flowContext.startExchange();
+        HttpRequest connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
+        connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
+        implicitConnect = true;
+        handleRequest(http1, connect);
     }
 
     /** Reads and handles requests until the connection should close. */
@@ -596,6 +792,11 @@ final class ClientConnection implements Runnable {
      * any transport. Returns whether the client connection stays open.
      */
     private boolean handleRequest(ClientChannel channel, HttpRequest request) throws IOException {
+        // A CONNECT inside an intercepted session goes to the intercepted server, which the client
+        // takes for its HTTPS proxy; so does everything inside the tunnel one opened.
+        Hop hop = via;
+        channel.flowContext().forwardedVia(mitmHostAndPort != null && ProxyUtils.isCONNECT(request) ? mitmHostAndPort
+                : hop != null ? hop.proxy : null);
         if (!server.trackers.isEmpty()) {
             // Trackers get a snapshot: the request itself is rewritten while it is proxied.
             HttpRequest snapshot = copy(request);
@@ -609,6 +810,11 @@ final class ClientConnection implements Runnable {
             return false;
         }
         Exchange ex = new Exchange(channel, request, body, channel.clientKeepAlive(request));
+        ex.implicit = implicitConnect;
+        implicitConnect = false;
+        if (server.reverseProxy != null && !ex.implicit && !ProxyUtils.isCONNECT(request)) {
+            reverseProxyTarget(request);
+        }
 
         if (server.proxyAuthenticator != null) {
             // Requests in an intercepted session (HTTP/2 streams included) are covered by the
@@ -623,8 +829,9 @@ final class ClientConnection implements Runnable {
             if (refusal != null) {
                 return respondDirect(ex, refusal, false, ResponseSource.PROXY);
             }
-            // The credentials were for this proxy, whatever their scheme: never forward them.
-            request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
+            // The credentials were for this proxy, whatever their scheme: never forward them. Inside
+            // an intercepted session they are the intercepted server's (a CONNECT forwarded there).
+            if (mitmHostAndPort == null) request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
         }
 
         // With no filters configured, skip the request copy the filters API hands them.
@@ -681,6 +888,9 @@ final class ClientConnection implements Runnable {
         }
 
         if (ProxyUtils.isCONNECT(ex.request)) {
+            if (server.reverseProxy != null && !ex.implicit) {
+                return respondFailure(ex, new ProxyFailure.BadRequest("CONNECT is not supported by a reverse proxy"), true);
+            }
             if (!ex.channel.supportsTunnels()) {
                 // A future transport may carry requests without supporting tunnels.
                 FullHttpResponse notImplemented = errorResponse(ex, HttpResponseStatus.valueOf(501),
@@ -688,6 +898,12 @@ final class ClientConnection implements Runnable {
                 return respondDirect(ex, notImplemented, true, ResponseSource.PROXY);
             }
             return handleConnect(ex);
+        }
+
+        if (server.reverseProxy != null && mitmHostAndPort == null) {
+            // Every request goes to the one upstream; its TLS is set up as an intercepted server's.
+            if (server.mitmManager != null && !ex.channel.multiplexed()) mitmManager();
+            return proxyRequest(ex, server.reverseProxy.hostAndPort());
         }
 
         if (mitmHostAndPort == null
@@ -709,8 +925,64 @@ final class ClientConnection implements Runnable {
     // Plain HTTP requests
     // ---------------------------------------------------------------------------------------
 
+    /** Whether requests of {@code ex} go to their server over TLS. */
+    private Mode requestMode(Exchange ex) {
+        if (mitmHostAndPort != null) return plainSession ? Mode.PLAIN : Mode.TLS;
+        if (server.reverseProxy != null && server.reverseProxy.tls()) return Mode.TLS;
+        return ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+    }
+
+    /**
+     * Points a request at the reverse proxy's upstream: origin-form, with the upstream's {@code
+     * Host} unless {@code keepHostHeader} (as mitmproxy's reverse mode does, before any hook).
+     */
+    private void reverseProxyTarget(HttpRequest request) {
+        String uri = request.uri();
+        if (ProxyUtils.isAbsoluteUri(uri)) {
+            String authority = ProxyUtils.parseHostAndPort(uri);
+            request.setUri(ProxyUtils.stripHost(uri));
+            if (server.keepHostHeader && authority != null && !authority.isEmpty()) {
+                request.headers().set(HttpHeaderNames.HOST, authority);
+            }
+        }
+        if (!server.keepHostHeader) {
+            request.headers().set(HttpHeaderNames.HOST, server.reverseProxy.hostHeader());
+        }
+    }
+
+    /**
+     * Whether the intercepted session's requests may use HTTP/2 to the server: unless its client
+     * offered ALPN protocols without {@code h2}, so a client that wants HTTP/1.1 never gets HTTP/2
+     * upstream.
+     */
+    private boolean sessionAllowsHttp2Upstream() {
+        ClientHello hello = flowContext.getClientHello();
+        return hello == null || hello.alpnProtocols().isEmpty() || hello.offersAlpn(ClientHello.H2);
+    }
+
+    /**
+     * The ALPN protocols TLS connections to servers offer: those the client offered (mitmproxy's
+     * mirroring), of those the proxy speaks ({@code h2} only with {@code offerHttp2}), so the
+     * server picks what the client would have; or, for a client that sent no ALPN (and outside
+     * intercepted sessions), {@code h2} and {@code http/1.1} with {@code offerHttp2}, else none.
+     *
+     * @return the protocols, or null to send no ALPN extension
+     */
+    private static List<String> upstreamAlpn(boolean offerHttp2, ClientHello hello) {
+        if (hello == null || hello.alpnProtocols().isEmpty()) {
+            return offerHttp2 ? List.of(ClientHello.H2, ClientHello.HTTP_1_1) : null;
+        }
+        List<String> mirrored = hello.httpAlpnProtocols(offerHttp2);
+        return mirrored.isEmpty() ? null : mirrored;
+    }
+
+    /** The ClientHello of the intercepted TLS session whose requests are being served, if any. */
+    private ClientHello sessionHello() {
+        return mitmHostAndPort != null && !plainSession ? flowContext.getClientHello() : null;
+    }
+
     private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
-        Mode mode = mitmHostAndPort != null || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+        Mode mode = requestMode(ex);
         String key = mode + "|" + hostAndPort;
         boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
         boolean pooled = !webSocket && usesPool(mode);
@@ -718,7 +990,8 @@ final class ClientConnection implements Runnable {
         // takes an idle one of the client's for the exchange, or makes one.
         boolean multiplexed = ex.channel.multiplexed();
         // HTTP/2 to the server is negotiated on TLS; WebSockets additionally need RFC 8441.
-        boolean http2 = server.http2Origins != null && mode == Mode.TLS;
+        boolean http2 = server.http2Origins != null && mode == Mode.TLS
+                && (mitmHostAndPort == null || sessionAllowsHttp2Upstream());
         ex.offerHttp2 = http2;
         // Per-request leases always come fresh from the pool; otherwise reuse this client's own.
         ServerConnection conn = pooled && leasesPerRequest(mode) ? null
@@ -751,7 +1024,7 @@ final class ClientConnection implements Runnable {
             ex.request.headers().remove(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS);
         }
 
-        if (server.littleProxyCompatibility && conn == null
+        if (server.littleProxyCompatibility && conn == null && via == null
                 && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
             // LittleProxy resolves the server before proxyToServerRequest, and answers 502 without
             // calling it when the name does not resolve.
@@ -873,7 +1146,9 @@ final class ClientConnection implements Runnable {
         if (chainedProxy != null) {
             chainedProxy.filterRequest(request);
         }
-        boolean streamingBody = !(request instanceof FullHttpRequest) && ex.body.hasBody();
+        // (A CONNECT forwarded to a proxy has no body: its stream's DATA are the tunnel's, later.)
+        boolean connect = ProxyUtils.isCONNECT(request);
+        boolean streamingBody = !(request instanceof FullHttpRequest) && ex.body.hasBody() && !connect;
         conn.inExchange = true;
         RequestPump pump = null;
         try {
@@ -925,7 +1200,8 @@ final class ClientConnection implements Runnable {
                     ex.bodyAbandoned = true;
                 }
             }
-            if (!streamingBody && !(request instanceof FullHttpRequest) && observes(filters, OBSERVES_REQUEST_CONTENT)) {
+            if (!streamingBody && !connect && !(request instanceof FullHttpRequest)
+                    && observes(filters, OBSERVES_REQUEST_CONTENT)) {
                 // Filters see every streamed request end with a LastHttpContent, even without a body.
                 HttpContent end = LastHttpContent.empty();
                 filters.clientToProxyRequest(end);
@@ -1144,6 +1420,11 @@ final class ClientConnection implements Runnable {
         int upstreamStatus = conn.responseStatus(response);
         ex.flow.upstreamStatus(upstreamStatus);
         server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
+        if (ex.forwarding != null && response.status().code() / 100 == 2) {
+            // The intercepted proxy opened the tunnel: forwardConnect takes it from here.
+            ex.tunnelOpened = response;
+            return false;
+        }
 
         if ("websocket".equals(ex.channel.tunnelProtocol()) && !conn.multiplexed()
                 && (response.status().code() == 101 || response.status().code() / 100 == 2)
@@ -1200,7 +1481,7 @@ final class ClientConnection implements Runnable {
         // The transport decides how the body is delimited, which may mean closing after it.
         closeClient |= ex.channel.adaptFraming(res, bodyAllowed && !switching && !(res instanceof FullHttpMessage));
         if (!server.transparent) {
-            modifyResponseHeadersToReflectProxying(res);
+            modifyResponseHeadersToReflectProxying(res, ex.forwarding != null);
         }
         if (server.stripAltSvcH3) {
             AltSvc.stripHttp3(res.headers());
@@ -1220,8 +1501,7 @@ final class ClientConnection implements Runnable {
             serverKeepAlive &= drain(body);
             body = null;
         }
-        if (switching && (ex.channel.multiplexed() ? finalResponse.status().code() / 100 != 2
-                : finalResponse.status().code() != 101)) {
+        if (switching && finalResponse.status().code() != 101) {
             // A filter rejected the opening handshake: complete its response and release the
             // origin now, rather than entering a relay that can never become a WebSocket.
             ex.responseStarted = true;
@@ -1294,8 +1574,9 @@ final class ClientConnection implements Runnable {
             ex.channel.serverConnectionDone(conn);
             conn.inExchange = false;
             conn.close();
-        } else if (!serverKeepAlive || !ex.channel.serverConnectionDone(conn)) {
-            // (Or the client cancelled the exchange, and its transport closed the connection.)
+        } else if (!serverKeepAlive || ex.forwarding != null || !ex.channel.serverConnectionDone(conn)) {
+            // (Or the client cancelled the exchange, and its transport closed the connection. A
+            // connection that an intercepted proxy refused a tunnel on is kept by no one.)
             conn.close();
         } else {
             conn.exchangeDone();
@@ -1431,12 +1712,25 @@ final class ClientConnection implements Runnable {
         } catch (IllegalArgumentException e) {
             return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
         }
+        if (mitmHostAndPort != null) {
+            // The client takes the intercepted server for its HTTPS proxy.
+            return forwardConnect(ex);
+        }
         String hostAndPort = target.toString();
-        boolean mitm = !ex.channel.multiplexed() && server.mitmManager != null && mitmHostAndPort == null
+        // An HTTP/2 stream's CONNECT is intercepted inside the stream (interceptStream), as an
+        // HTTP/1 connection's is. (A CONNECT inside a plain HTTP session is tunnelled.)
+        boolean mitm = server.mitmManager != null && mitmHostAndPort == null && server.reverseProxy == null
                 && ex.filters.proxyToServerAllowMitm() && mitmManager() != null;
+        if (mitm && server.hostRules != null && server.hostRules.ignoredByTarget(hostAndPort)) {
+            // Whatever its SNI, the connection is ignored: no need to wait for its ClientHello.
+            LOG.log(Level.DEBUG, ex.log + "tunnelling " + hostAndPort + ": an ignored host");
+            mitm = false;
+        }
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
         // The session's requests may take streams on an HTTP/2 connection made now.
         ex.offerHttp2 = server.http2Origins != null;
+        // TLS with the server waits for the client's ClientHello, whose protocols and name it mirrors.
+        ex.deferServerTls = mitm;
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
@@ -1459,6 +1753,8 @@ final class ClientConnection implements Runnable {
                 return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
             }
         }
+        // The server's ALPN choice on that shared connection.
+        String serverAlpn = serverSession != null ? ClientHello.H2 : null;
         ServerConnection conn = null;
         // (Making a connection for an HTTP/2 key is reported back, so others stop waiting for it.)
         boolean reported = http2Key == null || serverSession != null;
@@ -1490,20 +1786,22 @@ final class ClientConnection implements Runnable {
                     LOG.log(Level.DEBUG, ex.log + "intercepting " + hostAndPort + " without a server connection");
                 }
                 serverSession = conn != null && conn.socket instanceof SSLSocket tls ? tls.getSession() : null;
+                // A reused pooled connection: what it was offered is unknown, so only h2 tells anything.
+                serverAlpn = conn != null && conn.socket instanceof SSLSocket tls
+                        && ClientHello.H2.equals(tls.getApplicationProtocol()) ? ClientHello.H2 : null;
             }
             if (conn != null && conn.http2) {
                 // The server chose HTTP/2: the session's requests take streams on the connection.
                 ServerConnection carrier = conn;
                 conn = null;
                 reported = true;
-                try {
-                    String key = http2Key(mode, hostAndPort, carrier.chainedProxy == null
-                            ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : carrier.chainedProxy);
-                    server.http2Origins.adopt(carrier, http2Key, key, http2Owner(mode), null, hostAndPort, ex.log, false);
-                } catch (IOException e) {
-                    LOG.log(Level.DEBUG, ex.log + "HTTP/2 with " + hostAndPort + " failed: " + e.getMessage()
-                            + "; its requests will connect again");
-                }
+                adoptForSession(ex, carrier, mode, hostAndPort, http2Key);
+            } else if (conn != null && conn.tlsPending && http2Key != null) {
+                // What the server speaks is known only after the ClientHello: reported then. Others
+                // wait for this connection only briefly until the ClientHello has come.
+                ex.http2Claim = http2Key;
+                server.http2Origins.awaitingClientHello(http2Key);
+                reported = true;
             } else if (conn != null && http2Key != null && mode == Mode.TLS) {
                 server.http2Origins.negotiatedHttp1(http2Key);
                 reported = true;
@@ -1511,6 +1809,34 @@ final class ClientConnection implements Runnable {
         } finally {
             if (!reported) server.http2Origins.connectFailed(http2Key);
         }
+        try {
+            return answerConnect(ex, conn, mitm, mode, serverSession, serverAlpn, target, hostAndPort, route, http2Key);
+        } finally {
+            releaseHttp2Claim(ex);
+        }
+    }
+
+    /** Ends {@code ex}'s claim to make an HTTP/2 connection, if it still holds one: others may make it. */
+    private void releaseHttp2Claim(Exchange ex) {
+        if (ex.http2Claim != null) {
+            server.http2Origins.connectFailed(ex.http2Claim);
+            ex.http2Claim = null;
+        }
+    }
+
+    /** Completes the CONNECT exchange whose answer was written earlier (see {@link Exchange#connectResponse}). */
+    private void completeConnect(Exchange ex) {
+        HttpResponse response = ex.connectResponse;
+        if (response != null) {
+            ex.connectResponse = null;
+            completed(ex, response, ex.connectSource);
+        }
+    }
+
+    /** Answers a CONNECT whose server connection is made (or not needed), and goes on with the connection. */
+    private boolean answerConnect(Exchange ex, ServerConnection conn, boolean mitm, Mode mode, SSLSession serverSession,
+            String serverAlpn, HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key)
+            throws IOException {
         if (conn != null) {
             conn.key = mode + "|" + hostAndPort;
             try {
@@ -1520,7 +1846,8 @@ final class ClientConnection implements Runnable {
                 throw e;
             }
             if (ex.channel.multiplexed()) {
-                streamConnections.add(conn);
+                // An intercepted stream's session takes the connection over (serveTunnel).
+                if (!mitm) streamConnections.add(conn);
             } else {
                 serverConnections.put(conn.key, conn);
             }
@@ -1542,10 +1869,26 @@ final class ClientConnection implements Runnable {
             }
             return abort(ex, conn);
         }
-        writeToClient(() -> ex.channel.writeHead(response, response.status().code() / 100 != 2));
         ResponseSource source = source(ResponseSource.PROXY, established, 200, response);
-        server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
-        completed(ex, response, source);
+        if (ex.implicit) {
+            // The client sent no CONNECT, so it gets no answer; a filter's refusal closes it.
+            if (response.status().code() / 100 != 2) {
+                if (conn != null) conn.close();
+                ex.channel.close();
+                return false;
+            }
+        } else {
+            writeToClient(() -> ex.channel.writeHead(response, response.status().code() / 100 != 2));
+            server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
+        }
+        if (mitm && response.status().code() / 100 == 2) {
+            // The exchange is complete once the proxy knows what to do with the connection (after
+            // the server handshake, when intercepting), so its timings include that handshake.
+            ex.connectResponse = response;
+            ex.connectSource = source;
+        } else if (!ex.implicit) {
+            completed(ex, response, source);
+        }
         if (response.status().code() / 100 != 2) {
             // A filter turned the CONNECT into a failure.
             if (conn != null) conn.close();
@@ -1561,7 +1904,693 @@ final class ClientConnection implements Runnable {
             conn.close();
             return false;
         }
-        return intercept(ex, conn, serverSession, target, hostAndPort);
+        if (ex.channel.multiplexed()) {
+            return interceptStream(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key, null);
+        }
+        return interceptOrTunnel(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key);
+    }
+
+    /**
+     * Hands {@code carrier}, whose handshake negotiated HTTP/2, to {@link Http2Origins} for the
+     * requests of the session being intercepted (and of others that may share it).
+     */
+    private void adoptForSession(Exchange ex, ServerConnection carrier, Mode mode, String hostAndPort, String http2Key) {
+        serverConnections.remove(carrier.key, carrier);
+        try {
+            String key = http2Key(mode, hostAndPort, carrier.chainedProxy == null
+                    ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : carrier.chainedProxy);
+            server.http2Origins.adopt(carrier, http2Key, key, http2Owner(mode, via), null, hostAndPort, ex.log, false);
+        } catch (IOException e) {
+            LOG.log(Level.DEBUG, ex.log + "HTTP/2 with " + hostAndPort + " failed: " + e.getMessage()
+                    + "; its requests will connect again");
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // After a CONNECT: the client's first bytes decide (mitmproxy's next layer)
+    // ---------------------------------------------------------------------------------------
+
+    /** What a client sent first after its {@code CONNECT} was accepted, or on a transparent listener. */
+    private enum StartKind {
+        /** A complete, readable ClientHello. */
+        TLS,
+        /** An HTTP/1 request line. */
+        HTTP,
+        /** Anything else: another protocol, an unreadable or oversized ClientHello, or the server spoke first. */
+        OTHER,
+        /** The client closed the connection without sending anything. */
+        CLOSED
+    }
+
+    /**
+     * The client's first bytes, which stay buffered for whatever serves the connection next.
+     *
+     * @param hello the ClientHello, for {@link StartKind#TLS}
+     * @param note why the bytes are {@link StartKind#OTHER}, for log lines
+     */
+    private record ClientStart(StartKind kind, ClientHello hello, String note) {
+        static ClientStart other(String note) {
+            return new ClientStart(StartKind.OTHER, null, note);
+        }
+    }
+
+    /**
+     * How often the proxy looks whether a server spoke first while waiting for a client's first
+     * bytes: a server-speaks-first protocol (SMTP, SSH, ...) through {@code CONNECT} must not wait
+     * for a client that waits for the server.
+     */
+    private static final int SERVER_FIRST_CHECK_MILLIS = 100;
+
+    /** The longest HTTP method the proxy recognizes when telling HTTP from other protocols. */
+    private static final int MAX_METHOD_LENGTH = 20;
+
+    /**
+     * Reads the client's first bytes without consuming them: a TLS ClientHello (across as many
+     * records as it takes, up to {@link TlsClientHello#MAX_MESSAGE_SIZE}), an HTTP request line, or
+     * something else. With a connection to the server ({@code conn}), a server that sends first is
+     * noticed while waiting.
+     */
+    private ClientStart peekClient(ServerConnection conn) throws IOException {
+        ByteReader in = http1.input();
+        if (!awaitClientFirst(in, conn)) {
+            return in.buffered() == 0 && (conn == null || !serverSpoke(conn))
+                    ? new ClientStart(StartKind.CLOSED, null, "closed") : ClientStart.other("the server spoke first");
+        }
+        int first = in.peek();
+        if (first == 0x16) {
+            // The whole ClientHello must arrive within the handshake deadline, as the rest of the
+            // handshake must: a client cannot hold the connection by sending it a byte at a time.
+            long deadline = server.tlsHandshakeTimeout.isZero() ? 0
+                    : System.nanoTime() + server.tlsHandshakeTimeout.toNanos();
+            int[] need = {5};
+            while (true) {
+                if (!ensureBuffered(in, need[0], deadline)) {
+                    return ClientStart.other("the client closed within its ClientHello");
+                }
+                byte[] data = in.peekBuffered();
+                try {
+                    byte[] message = TlsClientHello.message(data, data.length, TlsClientHello.MAX_MESSAGE_SIZE, need);
+                    if (message != null) return new ClientStart(StartKind.TLS, TlsClientHello.parse(message), null);
+                } catch (TlsClientHello.Malformed | TlsClientHello.TooLarge e) {
+                    return ClientStart.other(e.getMessage());
+                }
+            }
+        }
+        // An HTTP/1 request starts with a method token (upper-case letters here) and a space.
+        for (int i = 0; i <= MAX_METHOD_LENGTH; i++) {
+            if (!in.ensureBuffered(i + 1)) return ClientStart.other("not HTTP");
+            byte[] head = in.peekBuffered();
+            int b = head[i];
+            if (b == ' ' && i >= 3) {
+                // "PRI * HTTP/2.0" is HTTP/2's preface: relayed as it is.
+                boolean preface = i == 3 && head[0] == 'P' && head[1] == 'R' && head[2] == 'I';
+                return preface ? ClientStart.other("HTTP/2 with prior knowledge") : new ClientStart(StartKind.HTTP, null, null);
+            }
+            if (b < 'A' || b > 'Z') break;
+        }
+        return ClientStart.other("neither TLS nor HTTP");
+    }
+
+    /**
+     * {@link ByteReader#ensureBuffered} on the client's reader, failing with a {@link
+     * SocketTimeoutException} once {@code deadline} ({@link System#nanoTime()}, 0 for none) passes.
+     */
+    private boolean ensureBuffered(ByteReader in, int n, long deadline) throws IOException {
+        if (in.buffered() >= n || deadline == 0) return in.ensureBuffered(n);
+        long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+        if (remaining <= 0) {
+            throw new SocketTimeoutException("ClientHello not complete within " + server.tlsHandshakeTimeout.toMillis() + " ms");
+        }
+        Socket client = http1.socket();
+        int original = client.getSoTimeout();
+        client.setSoTimeout((int) Math.max(1, original > 0 ? Math.min(original, remaining) : Math.min(Integer.MAX_VALUE, remaining)));
+        try {
+            return in.ensureBuffered(n);
+        } finally {
+            if (!client.isClosed()) client.setSoTimeout(original);
+        }
+    }
+
+    /**
+     * Waits for the client's first byte: true once it has come, false if the client closed first or
+     * the server ({@code conn}, when not null) sent something first. Gives up, like any read, after
+     * the idle timeout.
+     */
+    private boolean awaitClientFirst(ByteReader in, ServerConnection conn) throws IOException {
+        if (in.buffered() > 0) return true;
+        if (conn == null) return in.ensureBuffered(1);
+        Socket client = http1.socket();
+        int original = client.getSoTimeout();
+        long deadline = original > 0 ? System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(original) : Long.MAX_VALUE;
+        try {
+            client.setSoTimeout(SERVER_FIRST_CHECK_MILLIS);
+            while (true) {
+                try {
+                    return in.ensureBuffered(1);
+                } catch (SocketTimeoutException e) {
+                    if (serverSpoke(conn)) return false;
+                    if (original > 0 && System.nanoTime() - deadline >= 0) throw e;
+                }
+            }
+        } finally {
+            if (!client.isClosed()) {
+                try {
+                    client.setSoTimeout(original);
+                } catch (IOException ignored) {
+                    // the connection is failing anyway
+                }
+            }
+        }
+    }
+
+    /** Whether the server has sent bytes on {@code conn} that nobody read yet. */
+    private static boolean serverSpoke(ServerConnection conn) {
+        try {
+            return conn.in.buffered() > 0 || conn.socket.getInputStream().available() > 0;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * After a {@code CONNECT} that may be intercepted has been accepted (or a transparent TLS
+     * connection routed): reads the client's first bytes and serves the connection accordingly.
+     * TLS is intercepted unless a rule, the MITM manager or a filter decides by its ClientHello not
+     * to; then the server handshake runs first, offering the client's ALPN protocols, and the
+     * client's handshake mirrors the server's choice. Plain HTTP is served as HTTP; anything else
+     * is tunnelled, the bytes read so far first. For a {@code CONNECT} stream of an HTTP/2
+     * connection, this runs on the client connection inside the stream ({@link #serveTunnel}),
+     * while {@code ex} is the stream's exchange.
+     *
+     * @param conn the connection to the server, its TLS pending ({@link ServerConnection#tlsPending}),
+     *     already TLS (a pooled one), or null (offline, or an HTTP/2 connection the session shares)
+     * @param serverAlpn the protocol the server chose on an established connection, or null
+     */
+    private boolean interceptOrTunnel(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key) throws IOException {
+        ClientStart start = peekClient(conn != null && conn.tlsPending ? conn : null);
+        if (ex.http2Claim != null) server.http2Origins.clientHelloArrived(ex.http2Claim);
+        switch (start.kind()) {
+            case CLOSED -> {
+                releaseHttp2Claim(ex);
+                completeConnect(ex);
+                if (conn != null) conn.close();
+                ex.channel.close();
+                return false;
+            }
+            case HTTP -> {
+                if (!server.littleProxyCompatibility) return servePlainSession(ex, conn, hostAndPort);
+                return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (LittleProxy compatibility)");
+            }
+            case OTHER -> {
+                return tunnelAfterPeek(ex, conn, hostAndPort, route, start.note());
+            }
+            case TLS -> {
+                // intercepted below, unless declined
+            }
+        }
+        ClientHello hello = start.hello();
+        flowContext.clientHello(hello);
+        // (Inside an intercepted CONNECT stream, the stream's exchange is the CONNECT's.)
+        if (ex.flow != flowContext) ex.flow.clientHello(hello);
+        String declined = declineReason(ex, hello, hostAndPort, target.port());
+        if (declined != null) {
+            return tunnelAfterPeek(ex, conn, hostAndPort, route, declined);
+        }
+        if (conn != null && conn.tlsPending) {
+            if (serverSpoke(conn)) return tunnelAfterPeek(ex, conn, hostAndPort, route, "the server spoke first");
+            try {
+                List<String> offered = startServerTls(ex, conn, hello, target, hostAndPort);
+                SSLSocket tls = (SSLSocket) conn.socket;
+                serverSession = tls.getSession();
+                // The server's choice says what it speaks only if it could have chosen h2.
+                serverAlpn = offered != null && offered.contains(ClientHello.H2) ? tls.getApplicationProtocol() : null;
+                if (conn.http2) {
+                    ServerConnection carrier = conn;
+                    conn = null;
+                    adoptForSession(ex, carrier, Mode.TLS, hostAndPort, http2Key);
+                    ex.http2Claim = null;
+                } else if (ex.http2Claim != null && offered != null && offered.contains(ClientHello.H2)) {
+                    // Offered h2 and refused: the server speaks HTTP/1.1.
+                    server.http2Origins.negotiatedHttp1(ex.http2Claim);
+                    ex.http2Claim = null;
+                }
+            } catch (NotTlsServer e) {
+                // The client speaks TLS, the server does not: relay what the client sends, as is.
+                conn.close();
+                return tunnelAfterPeek(ex, null, hostAndPort, route, e.getMessage());
+            } catch (IOException e) {
+                // Intercept anyway: the session's requests try the server again, and are answered
+                // with the failure (a 502 for a TLS failure) through the usual filters and responder.
+                LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort + " failed (" + unwrap(e).getMessage()
+                        + "); intercepting without a server connection");
+                conn.close();
+                conn = null;
+            }
+        }
+        releaseHttp2Claim(ex);
+        completeConnect(ex);
+        intercept(ex.request, conn, serverSession, serverAlpn, target, hostAndPort, () -> endExchange(ex));
+        return false;
+    }
+
+    /**
+     * Why a TLS connection with {@code hello} is not intercepted, or null if it is: the host rules,
+     * a client offering only protocols the proxy does not speak, the MITM manager, the filters.
+     */
+    private String declineReason(Exchange ex, ClientHello hello, String hostAndPort, int port) {
+        String sniName = hello.sni() == null ? null : new HostAndPort(hello.sni(), port).toString();
+        if (server.hostRules != null && server.hostRules.ignored(hostAndPort, sniName)) {
+            return "an ignored host" + (sniName == null ? "" : " (SNI " + hello.sni() + ")");
+        }
+        if (!hello.alpnProtocols().isEmpty() && hello.httpAlpnProtocols(true).isEmpty()) {
+            return "the client offers no HTTP protocol (ALPN " + hello.alpnProtocols() + ")";
+        }
+        try {
+            if (!connectionMitm.shouldIntercept(hello, ex.flow)) return "the MITM manager declined";
+            if (!ex.filters.proxyToServerAllowMitm(hello)) return "a filter declined";
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "deciding on interception by the ClientHello threw; tunnelling", e);
+            return "the decision failed";
+        }
+        return null;
+    }
+
+    /**
+     * Runs the TLS handshake with the server that {@code conn} waited with, mirroring the client's
+     * ClientHello: its ALPN protocols (those the proxy speaks), and its SNI when the {@code
+     * CONNECT} named an IP address.
+     *
+     * @return the ALPN protocols offered to the server, or null for none
+     */
+    private List<String> startServerTls(Exchange ex, ServerConnection conn, ClientHello hello, HostAndPort target,
+            String hostAndPort) throws IOException {
+        String sniHost = Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
+        List<String> alpn = upstreamAlpn(ex.offerHttp2, hello);
+        SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
+        Supplier<FullFlowContext> context = () -> conn.flowContext;
+        conn.layerTls(tls, new ByteReader(serverInput(tls, context), server.ioBuffers),
+                new PooledOutputStream(serverOutput(tls, context), server.ioBuffers));
+        conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
+        return alpn;
+    }
+
+    /**
+     * Tunnels the client's bytes, those already read first, to the server: over {@code conn} when
+     * it is still a plain connection, else over a new one.
+     */
+    private boolean tunnelAfterPeek(Exchange ex, ServerConnection conn, String hostAndPort, List<ChainedProxy> route,
+            String why) throws IOException {
+        LOG.log(Level.DEBUG, ex.log + "tunnelling " + hostAndPort + ": " + why);
+        releaseHttp2Claim(ex);
+        completeConnect(ex);
+        if (conn != null && conn.tlsPending) {
+            conn.tlsPending = false;
+            if (conn.pool != null) {
+                // Never to be pooled: it carries this tunnel only.
+                conn.perRequestLease = false;
+                conn.pool.discarded(conn);
+            }
+        } else {
+            if (conn != null) {
+                // An established TLS connection is of no use to a tunnel.
+                serverConnections.remove(conn.key, conn);
+                if (conn.pool != null && conn.isOpen()) {
+                    conn.pool.release(conn);
+                } else {
+                    conn.close();
+                }
+            }
+            try {
+                ex.deferServerTls = false;
+                conn = connect(hostAndPort, ex, route, Mode.TUNNEL);
+            } catch (IOException e) {
+                LOG.log(Level.DEBUG, ex.log + "tunnel to " + hostAndPort + " failed: " + unwrap(e));
+                ex.channel.close();
+                return false;
+            }
+            conn.key = Mode.TUNNEL + "|" + hostAndPort;
+            serverConnections.put(conn.key, conn);
+        }
+        // The bytes read so far are this connection's (an HTTP/1 client's, or those inside an
+        // intercepted CONNECT stream), not the CONNECT exchange's channel's.
+        http1.relay(conn, null, server.name + "-tunnel-" + id);
+        conn.close();
+        return false;
+    }
+
+    /**
+     * Serves plain HTTP sent after a {@code CONNECT} (a {@code ws://} WebSocket through the proxy,
+     * say): its requests go to the {@code CONNECT} target, as an intercepted session's would, but
+     * without TLS; the connection made for the {@code CONNECT} serves them when it can.
+     */
+    private boolean servePlainSession(Exchange ex, ServerConnection conn, String hostAndPort) throws IOException {
+        LOG.log(Level.DEBUG, ex.log + "plain HTTP after CONNECT " + hostAndPort + ": serving it as HTTP");
+        releaseHttp2Claim(ex);
+        completeConnect(ex);
+        mitmHostAndPort = hostAndPort;
+        plainSession = true;
+        if (conn != null) {
+            serverConnections.remove(conn.key, conn);
+            if (conn.tlsPending && !usesPool(Mode.PLAIN)) {
+                // A connection (or tunnel) straight to the target: requests are origin-form there.
+                conn.tlsPending = false;
+                if (conn.pool != null) {
+                    conn.perRequestLease = false;
+                    conn.pool.discarded(conn);
+                }
+                conn.key = Mode.PLAIN + "|" + hostAndPort;
+                serverConnections.put(conn.key, conn);
+            } else if (conn.pool != null && !conn.tlsPending && conn.isOpen()) {
+                conn.pool.release(conn);
+            } else {
+                conn.close();
+            }
+        }
+        // The CONNECT exchange is over; the requests that follow are exchanges of their own.
+        endExchange(ex);
+        serveRequests();
+        return false;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT inside an intercepted session: the intercepted server is the client's HTTPS proxy
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Forwards a {@code CONNECT} that the client sent inside an intercepted session to the
+     * intercepted server, which the client takes for its HTTPS proxy (a corporate egress proxy,
+     * say), rather than tunnelling to the target itself, which would bypass the proxy the client
+     * chose. The {@code CONNECT} goes on a stream of the session's HTTP/2 connection to that
+     * server when there is one, else on a TLS connection made as the session's are ({@link
+     * #proxyConnection}), with the client's fields: its {@code Proxy-Authorization} is for that
+     * proxy. Filters see it as any request and may answer or rewrite it. The proxy's refusal
+     * ({@code 407} and its challenge, {@code 403}, ...) reaches the client as it was sent; a 2xx
+     * opens the tunnel ({@link #openForwardedTunnel}).
+     */
+    private boolean forwardConnect(Exchange ex) throws IOException {
+        HttpRequest request = ex.request;
+        // Whether the tunnel's TLS is intercepted in turn, as a CONNECT to this proxy's would be.
+        boolean mitm = server.mitmManager != null && ex.filters.proxyToServerAllowMitm() && mitmManager() != null;
+        List<String> credentials = request.headers().getAll(HttpHeaderNames.PROXY_AUTHORIZATION);
+        modifyRequestHeadersToReflectProxying(request, false, false);
+        for (String credential : credentials) request.headers().add(HttpHeaderNames.PROXY_AUTHORIZATION, credential);
+        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(request);
+        if (shortCircuit != null) {
+            return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
+        }
+        // (Filters may have rewritten the target.)
+        HostAndPort target;
+        try {
+            target = HostAndPort.parse(request.uri(), 443);
+        } catch (IllegalArgumentException e) {
+            return respondFailure(ex, new ProxyFailure.BadRequest("invalid CONNECT target"), false);
+        }
+        String hostAndPort = target.toString();
+        if (mitm && server.hostRules != null && server.hostRules.ignored(hostAndPort)) {
+            // The host rules apply as to a CONNECT to this proxy; the tunnel's ClientHello is not
+            // read, so the target alone decides.
+            LOG.log(Level.DEBUG, ex.log + "not intercepting " + hostAndPort + ": an ignored host");
+            mitm = false;
+        }
+        // An HTTP/2 stream's CONNECT reaches an HTTP/1.1 proxy as HTTP/1.1.
+        request.setProtocolVersion(HttpVersion.HTTP_1_1);
+        Hop hop = new Hop(mitmHostAndPort, via, request);
+        ex.forwarding = hop;
+        LOG.log(Level.DEBUG, ex.log + "forwarding CONNECT " + hostAndPort + " to " + hop.proxy);
+        for (int attempt = 0; ; attempt++) {
+            ServerConnection conn;
+            try {
+                conn = proxyConnection(hop, ex, attempt == 0);
+            } catch (ClientFailure e) {
+                ex.channel.close();
+                return false;
+            } catch (IOException e) {
+                LOG.log(Level.DEBUG, ex.log + "no connection to " + hop.proxy + ": " + unwrap(e));
+                return respondFailure(ex, connectFailure(hop.proxy, e), false);
+            }
+            boolean open;
+            try {
+                // (A reused connection may have been closed by the proxy while idle: retry those.)
+                open = exchange(ex, conn, attempt < 3 && conn.used);
+            } catch (StaleConnection e) {
+                LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
+                conn.close();
+                continue;
+            }
+            HttpResponse established = ex.tunnelOpened;
+            return established == null ? open : openForwardedTunnel(ex, conn, established, target, hostAndPort, mitm);
+        }
+    }
+
+    /**
+     * The intercepted proxy opened the tunnel of a forwarded {@code CONNECT} on {@code conn}:
+     * filters see its 2xx as the response, then the tunnel's bytes are relayed as they are, or,
+     * when MITM applies to the target, its TLS is intercepted as a {@code CONNECT} to this proxy's
+     * would be, with the proxy's own TLS to the target inside the tunnel. The session inside then
+     * reaches the target only through the intercepted proxy ({@link #via}).
+     */
+    private boolean openForwardedTunnel(Exchange ex, ServerConnection conn, HttpResponse established,
+            HostAndPort target, String hostAndPort, boolean mitm) throws IOException {
+        Hop hop = ex.forwarding;
+        // A 2xx to CONNECT has no body (RFC 9110 section 9.3.6).
+        established.headers().remove(HttpHeaderNames.CONTENT_LENGTH);
+        established.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+        ServerConnection session = null;
+        SSLSession serverSession = null;
+        if (mitm) {
+            ex.offerHttp2 = server.http2Origins != null;
+            try {
+                session = serverTlsThrough(conn, hop, hostAndPort, ex);
+                serverSession = ((SSLSocket) session.socket).getSession();
+            } catch (NotTlsServer e) {
+                // As for a CONNECT to this proxy: the client still gets a plain tunnel, a new one.
+                LOG.log(Level.DEBUG, ex.log + e.getMessage() + "; tunnelling instead of intercepting");
+                mitm = false;
+                ServerConnection plain;
+                try {
+                    plain = connectThrough(hop, hostAndPort, ex, Mode.TUNNEL);
+                } catch (ClientFailure failure) {
+                    ex.channel.close();
+                    return false;
+                } catch (IOException failure) {
+                    return respondFailure(ex, connectFailure(hostAndPort, failure), false);
+                }
+                try {
+                    ex.channel.serverConnectionInUse(plain);
+                } catch (IOException failure) {
+                    plain.close();
+                    ex.channel.close();
+                    return false;
+                }
+                conn = plain;
+            } catch (IOException e) {
+                IOException cause = unwrap(e);
+                LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort + " through " + hop.proxy + " failed: " + cause);
+                reportServerFailure(new FullFlowContext(ex.flow, hostAndPort, hop.chained, conn.remoteAddress), cause);
+                return respondFailure(ex, connectFailure(hostAndPort, e), false);
+            }
+        }
+        ServerConnection tunnel = conn;
+        ServerConnection intercepted = session;
+        try {
+            if (!server.transparent) {
+                modifyResponseHeadersToReflectProxying(established, true);
+            }
+            HttpObject o = ex.filters.serverToProxyResponse(established);
+            if (o != null) {
+                o = ex.filters.proxyToClientResponse(o);
+            }
+            if (!(o instanceof HttpResponse response)) {
+                if (intercepted != null) intercepted.close();
+                return abort(ex, tunnel);
+            }
+            ex.responseStarted = true;
+            writeToClient(() -> ex.channel.writeHead(response, response.status().code() / 100 != 2));
+            ResponseSource source = source(ResponseSource.SERVER, established, established.status().code(), response);
+            server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
+            ex.filters.serverToProxyResponseReceived();
+            completed(ex, response, source);
+            if (response.status().code() / 100 != 2) {
+                // A filter turned the tunnel into a failure.
+                if (intercepted != null) intercepted.close();
+                tunnel.close();
+                if (!(HttpUtil.isKeepAlive(response) && ex.clientKeepAlive)) {
+                    ex.channel.close();
+                    return false;
+                }
+                return true;
+            }
+        } catch (IOException | RuntimeException e) {
+            if (intercepted != null) intercepted.close();
+            tunnel.close();
+            throw e;
+        }
+
+        if (!mitm) {
+            tunnel.tunnelThroughProxy = true;
+            ex.channel.relay(tunnel, null, server.name + "-tunnel-" + id);
+            tunnel.close();
+            return false;
+        }
+        // The session inside takes the tunnel over (closing its connection closes the tunnel).
+        if (!ex.channel.serverConnectionDone(tunnel)) {
+            // The client reset the stream meanwhile.
+            intercepted.close();
+            ex.channel.close();
+            return false;
+        }
+        // The server's choice says what it speaks only if it could have chosen h2.
+        String serverAlpn = ex.offerHttp2 ? ((SSLSocket) intercepted.socket).getApplicationProtocol() : null;
+        intercepted = adoptIfHttp2(intercepted, hop, hostAndPort, ex);
+        if (ex.channel.multiplexed()) {
+            return interceptStream(ex, intercepted, serverSession, serverAlpn, target, hostAndPort, null, null, hop);
+        }
+        // An HTTP/1 connection turns into the tunnel: it is done with the intercepted proxy's
+        // session, and its requests from now on reach the target through that proxy. The
+        // ClientHello of the session inside is not read: the outer session's is not its own.
+        releaseSessionConnections();
+        hop.consumer = this;
+        via = hop;
+        flowContext.clientHello(null);
+        if (intercepted != null) serverConnections.put(intercepted.key, intercepted);
+        return intercept(ex, intercepted, serverSession, serverAlpn, target, hostAndPort);
+    }
+
+    /**
+     * Hands {@code conn}, the proxy's TLS connection to a server inside a forwarded tunnel, to
+     * {@link Http2Origins} if its handshake chose {@code h2}, under the key the session's requests
+     * look for (private to the hop): returns null then, else {@code conn}.
+     */
+    private ServerConnection adoptIfHttp2(ServerConnection conn, Hop hop, String hostAndPort, Exchange ex) {
+        if (!conn.http2) return conn;
+        String key = http2Key(Mode.TLS, hostAndPort, ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION, hop);
+        try {
+            server.http2Origins.adopt(conn, key, key, http2Owner(Mode.TLS, hop), null, hostAndPort, ex.log, false);
+        } catch (IOException e) {
+            LOG.log(Level.DEBUG, ex.log + "HTTP/2 with " + hostAndPort + " failed: " + e.getMessage()
+                    + "; its requests will connect again");
+        }
+        return null;
+    }
+
+    /**
+     * A connection to {@code hop}'s intercepted proxy for one tunnel: a stream on an HTTP/2
+     * connection to it (shared, under the key the intercepted session's requests use), an idle
+     * connection of the session's ({@code sessionIdle}), or a new TLS connection made as the
+     * session's are: by the usual routes (or through the hop's own hop), with the same MITM
+     * manager's trust and settings for the server's TLS.
+     */
+    private ServerConnection proxyConnection(Hop hop, Exchange ex, boolean sessionIdle) throws IOException {
+        String key = Mode.TLS + "|" + hop.proxy;
+        if (sessionIdle) {
+            ServerConnection idle = ex.channel.multiplexed() ? takeStreamConnection(key, ex, hop.proxy)
+                    : serverConnections.remove(key);
+            if (idle != null && idle.isOpen() && !idle.inExchange) {
+                idle.flowContext = new FullFlowContext(ex.flow, hop.proxy, idle.chainedProxy, idle.remoteAddress);
+                // It has waited, and may have been closed meanwhile: the CONNECT may be sent again.
+                idle.used = true;
+                return idle;
+            }
+            if (idle != null) idle.close();
+        }
+        List<ChainedProxy> route = hop.parent != null ? DIRECT : chainedRoute(connectRequest(hop.proxy));
+        if (route == null) {
+            throw new ConnectException("no route to " + hop.proxy);
+        }
+        String http2Key = server.http2Origins == null ? null
+                : http2Key(Mode.TLS, hop.proxy, route.getFirst(), hop.parent);
+        if (http2Key != null) {
+            ServerConnection stream = server.http2Origins.stream(http2Key, ex.flow, hop.proxy, ex.log, false,
+                    Math.max(1000, connectTimeoutMillis(ex)));
+            if (stream != null) return stream;
+        }
+        boolean offerHttp2 = ex.offerHttp2;
+        // (Making a connection for an HTTP/2 key is reported back, so others stop waiting for it.)
+        boolean reported = http2Key == null;
+        ex.offerHttp2 = http2Key != null;
+        try {
+            ServerConnection conn = connect(hop.proxy, ex, route, Mode.TLS, hop.parent);
+            reported = true;
+            if (conn.http2) {
+                ChainedProxy actual = conn.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
+                        : conn.chainedProxy;
+                return server.http2Origins.adopt(conn, http2Key, http2Key(Mode.TLS, hop.proxy, actual, hop.parent),
+                        http2Owner(Mode.TLS, hop.parent), ex.flow, hop.proxy, ex.log, false);
+            }
+            if (http2Key != null) server.http2Origins.negotiatedHttp1(http2Key);
+            conn.key = key;
+            return conn;
+        } finally {
+            ex.offerHttp2 = offerHttp2;
+            if (!reported) server.http2Origins.connectFailed(http2Key);
+        }
+    }
+
+    /**
+     * Opens a tunnel to {@code hostAndPort} through {@code hop}'s intercepted proxy, with the
+     * client's {@code CONNECT} fields, for a request of the session inside a forwarded tunnel:
+     * with the proxy's TLS to the server in it ({@link Mode#TLS}), or as it is.
+     *
+     * @throws ConnectException if the proxy refused the tunnel
+     */
+    private ServerConnection connectThrough(Hop hop, String hostAndPort, Exchange ex, Mode mode) throws IOException {
+        ServerConnection tunnel = proxyConnection(hop, ex, false);
+        HttpResponse reply;
+        try {
+            HttpRequest connect = hop.connectTo(hostAndPort);
+            stripRequestHeaders(connect.headers());
+            tunnel.writeRequestHead(connect, false, false);
+            do {
+                if (!tunnel.awaitResponseHead()) throw new EOFException(hop.proxy + " closed the connection");
+                reply = tunnel.readResponse(server.limits);
+                if (reply == null) throw new EOFException(hop.proxy + " closed the connection");
+            } while (reply.status().code() / 100 == 1);
+        } catch (IOException | RuntimeException e) {
+            tunnel.close();
+            throw e;
+        }
+        if (reply.status().code() / 100 != 2) {
+            tunnel.close();
+            throw new ConnectException(hop.proxy + " refused CONNECT " + hostAndPort + ": " + reply.status());
+        }
+        return mode == Mode.TLS ? serverTlsThrough(tunnel, hop, hostAndPort, ex) : tunnel;
+    }
+
+    /**
+     * The proxy's TLS connection to {@code hostAndPort} inside {@code tunnel}, a tunnel through
+     * {@code hop}'s intercepted proxy (an HTTP/1.1 connection to it whose {@code CONNECT} was
+     * answered, or an HTTP/2 stream): set up as a direct one would be ({@link #serverTls}),
+     * offering {@code h2} and {@code http/1.1} when the exchange offers HTTP/2: the session inside
+     * has no ClientHello read to mirror.
+     * Closing it closes the tunnel; so does failing.
+     */
+    private ServerConnection serverTlsThrough(ServerConnection tunnel, Hop hop, String hostAndPort, Exchange ex)
+            throws IOException {
+        try {
+            Socket carrier;
+            if (tunnel instanceof Http2UpstreamStream stream) {
+                carrier = stream.tunnelSocket();
+            } else if (tunnel.in.buffered() > 0) {
+                throw new ProtocolException("unexpected data from server before TLS handshake");
+            } else {
+                carrier = tunnel.socket;
+            }
+            FullFlowContext serverContext =
+                    new FullFlowContext(ex.flow, hostAndPort, hop.chained, tunnel.remoteAddress);
+            ex.attempt = serverContext;
+            HostAndPort target = HostAndPort.parse(hostAndPort, 443);
+            SSLSocket tls = serverTls(ex, carrier, target, target.host(), hostAndPort, serverContext,
+                    upstreamAlpn(ex.offerHttp2, null));
+            ServerConnection conn = tlsConnection(hostAndPort, hop.chained, tls, tunnel.remoteAddress, serverContext);
+            conn.through = tunnel;
+            ex.filters.proxyToServerConnectionSucceeded(conn.flowContext);
+            server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
+            return conn;
+        } catch (IOException | RuntimeException e) {
+            tunnel.close();
+            throw e;
+        }
     }
 
     /**
@@ -1572,13 +2601,30 @@ final class ClientConnection implements Runnable {
      * @param conn the server connection made for the session, or null to intercept without one (or
      *     with an HTTP/2 connection, which the session's requests share with others)
      * @param serverSession the TLS session with the server, or null without one
+     * @param serverAlpn the ALPN protocol the server chose when it was offered {@code h2} (so that
+     *     its choice tells what it speaks), else null
      */
-    private boolean intercept(Exchange ex, ServerConnection conn, SSLSession serverSession, HostAndPort target,
-            String hostAndPort) throws IOException {
+    private boolean intercept(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
+            HostAndPort target, String hostAndPort) throws IOException {
         assert ex.channel == http1 : "only an HTTP/1 connection turns into TLS";
-        SSLContext clientContext = connectionMitm.clientSslContextFor(ex.request, serverSession, flowContext);
-        SSLSocket tls = handshakeWithClient(clientContext, false, server.http2 ? s -> offerHttp2(s, true) : null,
-                target.host());
+        intercept(ex.request, conn, serverSession, serverAlpn, target, hostAndPort, () -> endExchange(ex));
+        return false;
+    }
+
+    /**
+     * Runs the TLS handshake with the client as {@code target}, choosing its ALPN protocol as
+     * {@link #mirrorAlpn} does, then serves the session's decrypted requests (HTTP/1, or HTTP/2 if
+     * the client negotiates {@code h2}).
+     *
+     * @param connect the {@code CONNECT} that started the session
+     * @param serverAlpn the ALPN protocol the server chose when it was offered {@code h2}, else null
+     * @param connectDone ends the {@code CONNECT} exchange, once the session is established
+     */
+    private void intercept(HttpRequest connect, ServerConnection conn, SSLSession serverSession, String serverAlpn,
+            HostAndPort target, String hostAndPort, Runnable connectDone) throws IOException {
+        SSLContext clientContext = connectionMitm.clientSslContextFor(connect, serverSession, flowContext);
+        boolean http2 = server.http2;
+        SSLSocket tls = handshakeWithClient(clientContext, false, s -> mirrorAlpn(s, serverAlpn, http2), target.host());
 
         mitmHostAndPort = hostAndPort;
         if (conn != null && conn.perRequestLease) {
@@ -1587,13 +2633,121 @@ final class ClientConnection implements Runnable {
             conn.pool.release(conn);
         }
         // The CONNECT exchange is over; the requests inside the session are exchanges of their own.
-        endExchange(ex);
+        connectDone.run();
         if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
             serveHttp2(tls, new byte[0], target);
-            return false;
+            return;
         }
         serveRequests();
+    }
+
+    /**
+     * Intercepts a {@code CONNECT} stream of an HTTP/2 connection: the stream, shown as a socket
+     * ({@link ClientChannel#tunnelSocket}), carries the client's TLS session with {@code target},
+     * which a client connection of its own serves on this stream's thread, as {@link #intercept}
+     * serves an HTTP/1 connection's. The stream ends when that connection does.
+     *
+     * @param serverAlpn the ALPN protocol the server chose when it was offered {@code h2}, else null
+     * @param route the routes to the server, for a tunnel made after the client's first bytes
+     * @param http2Key the key of HTTP/2 connections the session's requests may share, or null
+     * @param via the hop through the intercepted proxy that opened the stream's tunnel (a
+     *     forwarded {@code CONNECT}), or null for a tunnel this proxy opened
+     */
+    private boolean interceptStream(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key, Hop via) {
+        Socket tunnel = ex.channel.tunnelSocket();
+        if (tunnel == null) {
+            completeConnect(ex);
+            if (conn != null) conn.close();
+            ex.channel.close();
+            return false;
+        }
+        // The session's connection takes the server connection over: the stream's end must not
+        // close it once that connection has given it back to the pool.
+        if (conn != null && !ex.channel.serverConnectionDone(conn)) {
+            // The client reset the stream meanwhile.
+            completeConnect(ex);
+            conn.close();
+            ex.channel.close();
+            return false;
+        }
+        ClientConnection inner = new ClientConnection(this, tunnel, via);
+        LOG.log(Level.DEBUG, ex.log + "intercepting " + hostAndPort + " inside the stream: " + inner.logPrefix.strip());
+        inner.serveTunnel(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key);
         return false;
+    }
+
+    /**
+     * Chooses the client's ALPN protocol in an intercepted handshake: the server's choice when it
+     * was offered {@code h2} and the client offered that choice (and the proxy may speak it to
+     * clients: {@code h2} needs {@code withHttp2}), so both sides speak the same protocol, as
+     * mitmproxy keeps them. Otherwise, with HTTP/2 to clients on, {@code h2} if offered, else {@code
+     * http/1.1}; without it, no protocol (HTTP/1.1), as before. The handshake never fails over ALPN.
+     */
+    private static void mirrorAlpn(SSLSocket socket, String serverAlpn, boolean http2) {
+        SSLParameters params = socket.getSSLParameters();
+        params.setApplicationProtocols(http2 ? new String[] {ClientHello.H2, ClientHello.HTTP_1_1, ClientHello.HTTP_1_0}
+                : new String[] {ClientHello.HTTP_1_1, ClientHello.HTTP_1_0});
+        socket.setSSLParameters(params);
+        socket.setHandshakeApplicationProtocolSelector((s, offered) -> clientAlpn(offered, serverAlpn, http2));
+    }
+
+    /** The ALPN protocol for a client that offered {@code offered} (see {@link #mirrorAlpn}); "" for none. */
+    static String clientAlpn(List<String> offered, String serverAlpn, boolean http2) {
+        if (serverAlpn != null && !serverAlpn.isEmpty() && offered.contains(serverAlpn)
+                && (http2 || !ClientHello.H2.equals(serverAlpn))) {
+            return serverAlpn;
+        }
+        if (!http2) return "";
+        if (offered.contains(ClientHello.H2)) return ClientHello.H2;
+        return offered.contains(ClientHello.HTTP_1_1) ? ClientHello.HTTP_1_1 : "";
+    }
+
+    /**
+     * Serves the TLS session inside an intercepted {@code CONNECT} stream (this connection was made
+     * by {@link #interceptStream}) until it ends, then closes the stream. In a tunnel this proxy
+     * opened, the client's first bytes decide, as after an HTTP/1 connection's {@code CONNECT}
+     * ({@link #interceptOrTunnel}); in one that an intercepted proxy opened ({@link #via}), whose
+     * server TLS is already made, the session is intercepted.
+     *
+     * @param ex the stream's {@code CONNECT} exchange
+     */
+    private void serveTunnel(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key) {
+        boolean connectedFired = false;
+        try {
+            rawSocket.setSoTimeout(server.idleTimeoutMillis());
+            http1.attach(rawSocket);
+            server.trackers.fire(t -> t.clientConnected(flowContext));
+            connectedFired = true;
+            if (conn != null) {
+                // The server connection made for the CONNECT is this connection's now.
+                conn.onDetach = () -> detach(conn);
+                serverConnections.put(conn.key, conn);
+            }
+            if (via == null) {
+                interceptOrTunnel(ex, conn, serverSession, serverAlpn, target, hostAndPort, route, http2Key);
+            } else {
+                intercept(ex.request, conn, serverSession, serverAlpn, target, hostAndPort, () -> endExchange(ex));
+            }
+        } catch (SocketTimeoutException e) {
+            LOG.log(Level.DEBUG, logPrefix + "client connection timed out");
+            server.trackers.fire(t -> t.connectionTimedOut(flowContext));
+        } catch (IOException e) {
+            if (!closed) {
+                LOG.log(Level.DEBUG, logPrefix + "intercepted stream failed: " + e);
+                server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+            }
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "unexpected error on an intercepted stream", e);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+        } finally {
+            close();
+            if (connectedFired) {
+                SSLSession session = sslSession;
+                server.trackers.fire(t -> t.clientDisconnected(flowContext, session));
+            }
+        }
     }
 
     /**
@@ -1656,15 +2810,28 @@ final class ClientConnection implements Runnable {
 
     /** The MITM manager for this connection, chosen when first needed; null if it declined. */
     private MitmManager mitmManager() {
-        if (!mitmChosen) {
-            connectionMitm = server.mitmManager.forConnection(flowContext);
-            mitmChosen = true;
+        mitmLock.lock();
+        try {
+            if (!mitmChosen) {
+                connectionMitm = server.mitmManager.forConnection(flowContext);
+                mitmChosen = true;
+            }
+            return connectionMitm;
+        } finally {
+            mitmLock.unlock();
         }
-        return connectionMitm;
     }
 
-    /** Whether server connections for {@code mode} come from the shared pool. */
+    /**
+     * Whether server connections for {@code mode} come from the shared pool: never the tunnels
+     * through an intercepted proxy, opened with one client's credentials.
+     */
     private boolean usesPool(Mode mode) {
+        return via == null && poolShares(mode);
+    }
+
+    /** Whether the shared pool may hand connections for {@code mode} made for this client to others. */
+    private boolean poolShares(Mode mode) {
         // A PROXY header names one client, so connections that carry it are never shared; nor are
         // TLS connections set up by a manager that may decide differently for each client.
         return server.pool != null && !server.sendProxyProtocol
@@ -1735,20 +2902,32 @@ final class ClientConnection implements Runnable {
      * route, the MITM manager, and the client connection unless it may be shared with every client.
      */
     private String http2Key(Mode mode, String hostAndPort, ChainedProxy route) {
+        return http2Key(mode, hostAndPort, route, via);
+    }
+
+    /**
+     * The key of HTTP/2 connections reached through {@code via} (an intercepted proxy's tunnels,
+     * private to the hop whatever the route), or by the usual routes when it is null.
+     */
+    private String http2Key(Mode mode, String hostAndPort, ChainedProxy route, Hop via) {
+        if (via != null) return mode + "|" + hostAndPort + "|via" + via.id + mitmPoolKey(mode);
         return mode + "|" + hostAndPort + "|" + routeKey(route) + mitmPoolKey(mode)
-                + (http2Owner(mode) == null ? "" : "|conn" + id);
+                + (http2Owner(mode, null) == null ? "" : "|conn" + owner.id);
     }
 
     /**
      * The client connection HTTP/2 connections to servers are private to, or null if they serve
      * every client. They are shared only as pooled connections are: with the shared pool on, and
      * nothing about them particular to one client (a PROXY protocol header, or TLS set up by a MITM
-     * manager that may decide per client).
+     * manager that may decide per client). Those through an intercepted proxy's tunnels belong to
+     * their hop, {@code via}, and close with the session that runs through it.
      */
-    private Object http2Owner(Mode mode) {
-        if (server.pool != null && usesPool(mode)) return null;
-        ownsHttp2Connections = true;
-        return this;
+    private Object http2Owner(Mode mode, Hop via) {
+        if (via != null) return via;
+        if (server.pool != null && poolShares(mode)) return null;
+        // An intercepted stream's session shares its client connection's, which closes them.
+        owner.ownsHttp2Connections = true;
+        return owner;
     }
 
     /**
@@ -1760,7 +2939,7 @@ final class ClientConnection implements Runnable {
         ChainedProxy actual = carrier.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
                 : carrier.chainedProxy;
         LOG.log(Level.DEBUG, ex.log + "HTTP/2 to " + hostAndPort + " (ALPN h2)");
-        return server.http2Origins.adopt(carrier, lookupKey, http2Key(mode, hostAndPort, actual), http2Owner(mode),
+        return server.http2Origins.adopt(carrier, lookupKey, http2Key(mode, hostAndPort, actual), http2Owner(mode, via),
                 ex.flow, hostAndPort, ex.log, ProxyUtils.isHEAD(ex.request));
     }
 
@@ -1773,13 +2952,22 @@ final class ClientConnection implements Runnable {
         return false;
     }
 
+    private static final List<ChainedProxy> DIRECT = List.of(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+
     /**
      * The chained proxies to try in order, with {@link ChainedProxyAdapter#FALLBACK_TO_DIRECT_CONNECTION}
-     * meaning a direct connection; {@code null} if the manager offered none.
+     * meaning a direct connection; {@code null} if the manager offered none. Inside a tunnel
+     * through an intercepted proxy ({@link #via}) there is one way, through the proxy, which the
+     * manager routes to as it routes the session's other requests to it.
      */
     private List<ChainedProxy> lookupRoute(HttpRequest request) {
+        return via != null ? DIRECT : chainedRoute(request);
+    }
+
+    /** The chained proxy manager's routes for {@code request}, as {@link #lookupRoute}. */
+    private List<ChainedProxy> chainedRoute(HttpRequest request) {
         if (server.chainProxyManager == null) {
-            return List.of(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+            return DIRECT;
         }
         Queue<ChainedProxy> queue = new ArrayDeque<>();
         server.chainProxyManager.lookupChainedProxies(request, queue, clientDetails);
@@ -1794,6 +2982,16 @@ final class ClientConnection implements Runnable {
 
     private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
+        return connect(hostAndPort, ex, route, mode, via);
+    }
+
+    /**
+     * Connects to {@code hostAndPort} by the first of {@code route} that works, or, with {@code
+     * via}, through a tunnel that the hop's intercepted proxy opens ({@link #connectThrough}).
+     */
+    private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via)
+            throws IOException {
+        if (via != null) return connectThrough(via, hostAndPort, ex, mode);
         IOException last = null;
         boolean connecting = false;
         int failures = 0;
@@ -2025,43 +3223,20 @@ final class ClientConnection implements Runnable {
                     writeProxyProtocolHeader(rawOut, remote);
                 }
             }
-            if (mode == Mode.TLS) {
+            boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
+            if (mode == Mode.TLS && !deferTls) {
                 if (reader.buffered() > 0) {
                     throw new ProtocolException("unexpected data from server before TLS handshake");
                 }
-                filters.proxyToServerConnectionSSLHandshakeStarted();
-                MitmManager manager = connectionMitm;
-                SSLContext context;
-                try {
-                    context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
-                            : SSLContext.getDefault();
-                } catch (java.security.NoSuchAlgorithmException e) {
-                    throw new IOException("default TLS context unavailable", e);
-                }
-                boolean offerHttp2 = ex.offerHttp2;
-                try {
-                    ex.flow.markFirst(ClientFlowContext.TLS_START);
-                    active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                            server.tlsProtocols,
-                            s -> {
-                                if (offerHttp2) offerHttp2(s, false);
-                                if (manager != null) manager.configureServerSocket(s, serverContext);
-                            }, server.tlsHandshakeTimeout,
-                            new TlsLog.Peer(ex.log, "server", target.host()));
-                    ex.flow.mark(ClientFlowContext.TLS_END);
-                } catch (IOException e) {
-                    if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
-                        throw new NotTlsServer(hostAndPort, ssl);
-                    }
-                    server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
-                    throw new TlsHandshakeFailed(e);
-                }
+                active = serverTls(ex, active, target, target.host(), hostAndPort, serverContext,
+                        upstreamAlpn(ex.offerHttp2, sessionHello()));
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             }
             holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode == Mode.TLS,
                     active, reader, output, remote, serverContext, server.trackers);
             ServerConnection created = holder[0];
+            created.tlsPending = deferTls;
             created.http2 = mode == Mode.TLS && active instanceof SSLSocket tls && "h2".equals(tls.getApplicationProtocol());
             created.onDetach = () -> detach(created);
             return created;
@@ -2072,6 +3247,67 @@ final class ClientConnection implements Runnable {
             Tls.closeQuietly(plain);
             throw new IOException("connecting to " + hostAndPort + " failed", e);
         }
+    }
+
+    /**
+     * Runs the TLS handshake with the server over {@code active} (the connection to it, or a
+     * tunnel through chained proxies), with the MITM manager's context and socket settings.
+     *
+     * @param sniHost the name sent as SNI and that the certificate is checked against
+     * @param alpn the ALPN protocols to offer, or null for none
+     * @throws NotTlsServer if the server does not speak TLS
+     * @throws TlsHandshakeFailed if the handshake failed otherwise
+     */
+    private SSLSocket serverTls(Exchange ex, Socket active, HostAndPort target, String sniHost, String hostAndPort,
+            FullFlowContext serverContext, List<String> alpn) throws IOException {
+        ex.filters.proxyToServerConnectionSSLHandshakeStarted();
+        MitmManager manager = connectionMitm;
+        SSLContext context;
+        try {
+            context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
+                    : SSLContext.getDefault();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException("default TLS context unavailable", e);
+        }
+        try {
+            ex.flow.markFirst(ClientFlowContext.TLS_START);
+            SSLSocket tls = Tls.clientHandshake(context, active, sniHost, target.port(), true, server.tlsProtocols,
+                    s -> {
+                        if (alpn != null) offerAlpn(s, alpn);
+                        if (manager != null) manager.configureServerSocket(s, serverContext);
+                    }, server.tlsHandshakeTimeout,
+                    new TlsLog.Peer(ex.log, "server", sniHost));
+            ex.flow.mark(ClientFlowContext.TLS_END);
+            return tls;
+        } catch (IOException e) {
+            if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
+                throw new NotTlsServer(hostAndPort, ssl);
+            }
+            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
+            throw new TlsHandshakeFailed(e);
+        }
+    }
+
+    /** Offers {@code protocols} through ALPN, as a TLS client. */
+    private static void offerAlpn(SSLSocket socket, List<String> protocols) {
+        SSLParameters params = socket.getSSLParameters();
+        params.setApplicationProtocols(protocols.toArray(String[]::new));
+        socket.setSSLParameters(params);
+    }
+
+    /** A server connection over {@code tls}, a handshake {@link #serverTls} made, reached via {@code proxy}. */
+    private ServerConnection tlsConnection(String hostAndPort, ChainedProxy proxy, SSLSocket tls,
+            InetSocketAddress remote, FullFlowContext serverContext) throws IOException {
+        ServerConnection[] holder = new ServerConnection[1];
+        Supplier<FullFlowContext> currentContext = () -> holder[0] != null ? holder[0].flowContext : serverContext;
+        ByteReader reader = new ByteReader(serverInput(tls, currentContext), server.ioBuffers);
+        OutputStream output = new PooledOutputStream(serverOutput(tls, currentContext), server.ioBuffers);
+        holder[0] = new ServerConnection(Mode.TLS + "|" + hostAndPort, hostAndPort, proxy, true, tls, reader, output,
+                remote, serverContext, server.trackers);
+        ServerConnection created = holder[0];
+        created.http2 = "h2".equals(tls.getApplicationProtocol());
+        created.onDetach = () -> detach(created);
+        return created;
     }
 
     private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext)
@@ -2118,16 +3354,38 @@ final class ClientConnection implements Runnable {
         os.flush();
     }
 
-    /** The CONNECT sent to an upstream HTTP proxy: the client's own CONNECT if it sent one. */
+    /**
+     * The CONNECT sent to an upstream HTTP proxy: the client's own CONNECT if it sent one for
+     * {@code hostAndPort}, else a bare one. (A CONNECT may need a connection to another server
+     * than the one it names: its fields, credentials for that one, must not go to this proxy.)
+     */
     private static HttpRequest upstreamConnectRequest(HttpRequest clientRequest, String hostAndPort, ChainedProxy proxy) {
         HttpRequest connect;
-        if (ProxyUtils.isCONNECT(clientRequest)) {
+        if (connectsTo(clientRequest, hostAndPort)) {
             connect = copy(clientRequest);
+            // A CONNECT stream of an HTTP/2 client reaches the chained proxy as HTTP/1.1.
+            if (connect.protocolVersion().majorVersion() >= 2) connect.setProtocolVersion(HttpVersion.HTTP_1_1);
         } else {
-            connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
-            connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
+            connect = connectRequest(hostAndPort);
         }
         addUpstreamProxyAuthorization(connect.headers(), proxy);
+        return connect;
+    }
+
+    /** Whether {@code request} is a CONNECT to {@code hostAndPort}. */
+    private static boolean connectsTo(HttpRequest request, String hostAndPort) {
+        if (!ProxyUtils.isCONNECT(request)) return false;
+        try {
+            return HostAndPort.parse(request.uri(), 443).toString().equals(hostAndPort);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** A bare CONNECT to {@code hostAndPort}. */
+    private static HttpRequest connectRequest(String hostAndPort) {
+        HttpRequest connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
+        connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
         return connect;
     }
 
@@ -2187,10 +3445,17 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    private void modifyResponseHeadersToReflectProxying(HttpResponse response) {
+    /**
+     * @param forwarded the response is an intercepted proxy's answer to a forwarded {@code CONNECT}:
+     *     its {@code Proxy-Authenticate} challenges are for the client, which takes that server for
+     *     its proxy
+     */
+    private void modifyResponseHeadersToReflectProxying(HttpResponse response, boolean forwarded) {
         HttpHeaders headers = response.headers();
+        List<String> challenges = forwarded ? headers.getAll(HttpHeaderNames.PROXY_AUTHENTICATE) : List.of();
         ProxyUtils.stripConnectionTokens(headers);
         ProxyUtils.stripHopByHopHeaders(headers);
+        for (String challenge : challenges) headers.add(HttpHeaderNames.PROXY_AUTHENTICATE, challenge);
         ProxyUtils.addVia(response, server.proxyAlias);
         if (!headers.contains(HttpHeaderNames.DATE)) {
             headers.set(HttpHeaderNames.DATE, ProxyUtils.httpDate());
@@ -2325,6 +3590,13 @@ final class ClientConnection implements Runnable {
      */
     private boolean respondDirect(Exchange ex, HttpResponse response, boolean rewriteHeaders, ResponseSource source)
             throws IOException {
+        if (ex.implicit) {
+            // The client sent no HTTP: it cannot be answered in HTTP.
+            LOG.log(Level.DEBUG, ex.log + "closing the connection for " + ex.request.uri() + " instead of answering "
+                    + response.status());
+            ex.channel.close();
+            return false;
+        }
         boolean keepAlive = HttpUtil.isKeepAlive(response) && ex.clientKeepAlive
                 && !ex.bodyUnread() && !ex.bodyAbandoned;
         int status = response.status().code();
@@ -2334,7 +3606,7 @@ final class ClientConnection implements Runnable {
             return false;
         }
         if (rewriteHeaders && !server.transparent) {
-            modifyResponseHeadersToReflectProxying(res);
+            modifyResponseHeadersToReflectProxying(res, false);
         }
         if (rewriteHeaders && server.stripAltSvcH3) {
             AltSvc.stripHttp3(res.headers());

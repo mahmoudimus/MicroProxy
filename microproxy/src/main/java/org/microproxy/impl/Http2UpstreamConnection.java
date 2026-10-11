@@ -149,6 +149,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         final String logPrefix;
         /** The exchange's server side, for the bytes trackers count. */
         volatile FullFlowContext flowContext;
+        /** How long a read of the response body (or tunnel) waits, in ms; 0 for ever. */
+        volatile int readTimeoutMillis = Math.max(0, server.idleTimeoutMillis());
 
         // Guarded by stateLock.
         final ArrayDeque<HttpResponse> heads = new ArrayDeque<>();
@@ -165,7 +167,11 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         boolean remoteClosed;
         /** END_STREAM sent: the request is complete. */
         boolean localClosed;
-        boolean webSocket;
+        /**
+         * A {@code CONNECT}, plain (a tunnel through a proxy) or extended (a WebSocket): a 2xx opens
+         * a tunnel, whose DATA are its bytes, not a message body.
+         */
+        boolean tunnel;
         HttpHeaders trailers;
         /** Counted in {@link #reserved} until the stream closes or is given up. */
         boolean holdsSlot = true;
@@ -500,12 +506,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         stateLock.lock();
         try {
             if (s.reset) return;
-            boolean bodyless = !(s.webSocket && status / 100 == 2) && (s.headRequest || status == 204 || status == 304);
-            s.heads.addLast(toHttp1(head, endStream, bodyless));
+            boolean tunnel = s.tunnel && status / 100 == 2;
+            boolean bodyless = !tunnel && (s.headRequest || status == 204 || status == 304);
+            s.heads.addLast(toHttp1(head, endStream, bodyless, tunnel));
             if (!head.isInformational()) {
                 s.finalHead = true;
                 s.bodyless = bodyless;
-                s.declaredLength = s.webSocket && status / 100 == 2 ? -1 : head.contentLength();
+                s.declaredLength = tunnel ? -1 : head.contentLength();
                 if (endStream) {
                     if (!bodyless) Http2Headers.checkContentLength(id, s.declaredLength, 0, true);
                     s.remoteClosed = true;
@@ -520,12 +527,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
 
     /**
      * The HTTP/1-style response the exchange logic relays: version HTTP/2.0, and, when the server
-     * gave no {@code content-length}, a chunked body (with trailers, if any) or an empty one.
+     * gave no {@code content-length}, a chunked body (with trailers, if any) or an empty one. A
+     * response that opens a tunnel has no body to frame.
      */
-    private static HttpResponse toHttp1(ResponseHeaders head, boolean endStream, boolean bodyless) {
+    private static HttpResponse toHttp1(ResponseHeaders head, boolean endStream, boolean bodyless, boolean tunnel) {
         HttpHeaders headers = new HttpHeaders();
         for (HeaderField f : head.fields()) headers.add(f.name(), f.value());
-        if (!bodyless && !head.isInformational() && head.contentLength() < 0) {
+        if (!bodyless && !tunnel && !head.isInformational() && head.contentLength() < 0) {
             if (endStream) {
                 headers.set(HttpHeaderNames.CONTENT_LENGTH, "0");
             } else {
@@ -751,7 +759,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 streams.put(s.id, s);
                 flow.addStream(s.id);
                 s.localClosed = endStream;
-                s.webSocket = fields.stream().anyMatch(f -> f.name().equals(":protocol") && f.value().equals("websocket"));
+                s.tunnel = fields.stream().anyMatch(f -> f.name().equals(":method") && f.value().equals("CONNECT"));
             } finally {
                 stateLock.unlock();
             }
@@ -777,6 +785,16 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     void sendTrailers(StreamState s, List<HeaderField> fields) throws IOException {
         writeHeaders(s, fields, true);
         localEnded(s);
+    }
+
+    /** Whether the request on {@code s} may still be sent: not ended, nor the stream reset. */
+    boolean sending(StreamState s) {
+        stateLock.lock();
+        try {
+            return !s.localClosed && !s.reset;
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     private void localEnded(StreamState s) {
@@ -997,7 +1015,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
 
         /** The first buffered chunk, waiting for one; null at the end of the body. Holds stateLock. */
         private byte[] awaitChunk() throws IOException {
-            int idle = server.idleTimeoutMillis();
+            int idle = s.readTimeoutMillis;
             long remaining = idle > 0 ? TimeUnit.MILLISECONDS.toNanos(idle) : Long.MAX_VALUE;
             try {
                 while (s.inbound.isEmpty()) {

@@ -21,6 +21,7 @@ class Http2SettingsTest {
         assertEquals(65_535, d.initialWindowSize());
         assertEquals(16_384, d.maxFrameSize());
         assertEquals(Http2Settings.UNLIMITED, d.maxHeaderListSize());
+        assertFalse(d.enableConnectProtocol());
         assertTrue(d.changedValues().isEmpty());
         assertEquals(d, Http2Settings.builder().build());
     }
@@ -34,6 +35,7 @@ class Http2SettingsTest {
                 .maxFrameSize(1 << 15)
                 .maxHeaderListSize(65_536)
                 .headerTableSize(8192)
+                .enableConnectProtocol(true)
                 .build();
         Map<Integer, Long> expected = new LinkedHashMap<>();
         expected.put(Http2Settings.HEADER_TABLE_SIZE, 8192L);
@@ -42,6 +44,7 @@ class Http2SettingsTest {
         expected.put(Http2Settings.INITIAL_WINDOW_SIZE, 1L << 20);
         expected.put(Http2Settings.MAX_FRAME_SIZE, 1L << 15);
         expected.put(Http2Settings.MAX_HEADER_LIST_SIZE, 65_536L);
+        expected.put(Http2Settings.ENABLE_CONNECT_PROTOCOL, 1L);
         assertEquals(expected, s.changedValues());
         assertEquals(expected, s.toFrame().values());
         assertEquals(s, s.toBuilder().build());
@@ -79,6 +82,23 @@ class Http2SettingsTest {
         assertSettingError(Http2Settings.INITIAL_WINDOW_SIZE, 1L << 31, ErrorCode.FLOW_CONTROL_ERROR);
         assertSettingError(Http2Settings.MAX_FRAME_SIZE, 16_383, ErrorCode.PROTOCOL_ERROR);
         assertSettingError(Http2Settings.MAX_FRAME_SIZE, 1 << 24, ErrorCode.PROTOCOL_ERROR);
+        assertSettingError(Http2Settings.ENABLE_CONNECT_PROTOCOL, 2, ErrorCode.PROTOCOL_ERROR);
+    }
+
+    @Test
+    void enableConnectProtocol() throws Http2Exception {
+        Http2Settings on = Http2Settings.DEFAULT.apply(new Frame.Settings(false, Map.of(Http2Settings.ENABLE_CONNECT_PROTOCOL, 1L)));
+        assertTrue(on.enableConnectProtocol());
+        // Sending 1 again, or other settings, keeps it on; going back to 0 is an error (RFC 8441 section 3).
+        assertTrue(on.apply(new Frame.Settings(false, Map.of(Http2Settings.ENABLE_CONNECT_PROTOCOL, 1L))).enableConnectProtocol());
+        assertTrue(on.apply(new Frame.Settings(false, Map.of(Http2Settings.MAX_FRAME_SIZE, 20_000L))).enableConnectProtocol());
+        Http2Exception e = assertThrows(Http2Exception.class,
+                () -> on.apply(new Frame.Settings(false, Map.of(Http2Settings.ENABLE_CONNECT_PROTOCOL, 0L))));
+        assertEquals(ErrorCode.PROTOCOL_ERROR, e.errorCode());
+        assertFalse(Http2Settings.DEFAULT.apply(new Frame.Settings(false, Map.of(Http2Settings.ENABLE_CONNECT_PROTOCOL, 0L)))
+                .enableConnectProtocol());
+        // The six-component constructor (before RFC 8441) leaves it off.
+        assertFalse(new Http2Settings(4096, true, 10, 65_535, 16_384, 100).enableConnectProtocol());
     }
 
     private static void assertSettingError(int id, long value, ErrorCode code) {

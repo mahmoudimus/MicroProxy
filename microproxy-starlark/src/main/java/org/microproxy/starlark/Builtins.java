@@ -75,6 +75,7 @@ final class Builtins {
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
         env.put("Frame", TypeConstructorValue.of(ScriptType.HTTP_FRAME_CONSTRUCTOR));
         env.put("FrameContext", TypeConstructorValue.of(ScriptType.FRAME_CONTEXT_CONSTRUCTOR));
+        env.put("ClientHello", TypeConstructorValue.of(ScriptType.CLIENT_HELLO_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 

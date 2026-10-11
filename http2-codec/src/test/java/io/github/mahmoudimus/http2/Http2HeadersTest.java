@@ -57,6 +57,20 @@ class Http2HeadersTest {
     }
 
     @Test
+    void malformedExtendedConnect() {
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "websocket", ":scheme", "https",
+                ":authority", "a"), ":path");
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "websocket", ":scheme", "https",
+                ":path", "/"), ":authority");
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "", ":scheme", "https", ":path", "/",
+                ":authority", "a"), ":protocol");
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "websocket", ":protocol", "websocket",
+                ":scheme", "https", ":path", "/", ":authority", "a"), "duplicate :protocol");
+        assertMalformedRequest(fields(":method", "CONNECT", ":protocol", "websocket", ":scheme", "https", ":path", "x",
+                ":authority", "a"), ":path must start with /");
+    }
+
+    @Test
     void validRequest() throws Http2Exception {
         RequestHeaders r = Http2Headers.toRequest(1, get("accept", "*/*", "content-length", "12", "te", "trailers"));
         assertEquals("GET", r.method());

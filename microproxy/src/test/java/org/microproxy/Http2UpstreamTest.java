@@ -32,7 +32,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -575,10 +574,9 @@ class Http2UpstreamTest {
         TestSupport.write(raw.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
         String head = TestSupport.readUntil(raw.getInputStream(), "\r\n\r\n");
         assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        // An HTTP/1.1 client that sends no ALPN: one that offered only http/1.1 would have that
+        // offer mirrored to the server, and never get HTTP/2 there (see AlpnMirroringTest).
         SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(raw, "localhost", 443, true);
-        SSLParameters params = tls.getSSLParameters();
-        params.setApplicationProtocols(new String[] {"http/1.1"});
-        tls.setSSLParameters(params);
         tls.startHandshake();
         return tls;
     }
@@ -609,6 +607,29 @@ class Http2UpstreamTest {
             assertTrue(trailers.contains("grpc-message: fine"), trailers);
         }
         assertEquals(List.of("trailers abc hello"), seen);
+    }
+
+    @Test
+    void aClientThatNeverSendsItsClientHelloDoesNotHoldUpOthers() throws Exception {
+        origin(Http2UpstreamTest::echo);
+        // Shared connections, so the second client would wait for the first one's.
+        proxy = mitm().withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true).start();
+        try (Socket silent = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+            silent.setSoTimeout(20_000);
+            String target = "localhost:" + origin.port();
+            TestSupport.write(silent.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
+            String head = TestSupport.readUntil(silent.getInputStream(), "\r\n\r\n");
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            // The first client's connection to the server is made, and waits for a ClientHello
+            // that never comes. Another client's request completes well within the connect
+            // timeout (40 s), which it would otherwise wait out.
+            long start = System.nanoTime();
+            HttpResponse<String> response = TestSupport.send(http1Client(), get(origin.url("/other")));
+            long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+            assertEquals(200, response.statusCode());
+            assertTrue(millis < 5_000, "took " + millis + " ms");
+            assertEquals(List.of("/other"), lines(response.body(), ":path"));
+        }
     }
 
     @Test
