@@ -75,7 +75,11 @@ class AioquicInteropTest {
     static void findPython() throws Exception {
         python = System.getProperty("quic.interop.python", System.getenv().getOrDefault("QUIC_INTEROP_PYTHON",
                 "python3"));
-        Assumptions.assumeTrue(hasAioquic(python), python + " with aioquic is not available");
+        boolean available = hasAioquic(python);
+        if (Boolean.getBoolean("quic.interop.required")) {
+            assertTrue(available, python + " with aioquic is required but not available");
+        }
+        Assumptions.assumeTrue(available, python + " with aioquic is not available");
         script = Path.of(AioquicInteropTest.class.getResource("/interop/echo_server.py").toURI()).getParent();
         certified = TestCerts.CA.issue(TestCerts.KeyType.P256, "localhost");
         certFile = dir.resolve("cert.pem");
