@@ -25,6 +25,34 @@ import java.util.Objects;
  */
 public final class Http3Options {
 
+    /** The congestion controllers of the proxy's QUIC connections (see {@link Builder#quicCongestionControl}). */
+    public enum QuicCongestionControl {
+        /** CUBIC (RFC 9438), the default. */
+        CUBIC,
+        /** NewReno (RFC 9002). */
+        NEW_RENO,
+        /** BBR, experimental: models the bottleneck bandwidth and RTT rather than reacting to loss. */
+        BBR;
+
+        /**
+         * The controller with a name, ignoring case: {@code cubic}, {@code newreno} (or {@code
+         * new_reno}) or {@code bbr}.
+         *
+         * @param name the name
+         * @return the controller
+         * @throws IllegalArgumentException for any other name
+         */
+        public static QuicCongestionControl parse(String name) {
+            return switch (name.strip().toLowerCase(java.util.Locale.ROOT)) {
+                case "cubic" -> CUBIC;
+                case "newreno", "new_reno", "new-reno" -> NEW_RENO;
+                case "bbr" -> BBR;
+                default -> throw new IllegalArgumentException("unknown QUIC congestion controller: " + name
+                        + " (cubic, newreno or bbr)");
+            };
+        }
+    }
+
     /** The defaults: see each {@link Builder} method. */
     public static final Http3Options DEFAULT = builder().build();
 
@@ -50,6 +78,7 @@ public final class Http3Options {
     private final int transparentMaxRelayFlows;
     private final int transparentMaxRelayFlowsPerSource;
     private final long transparentMaxBufferedBytes;
+    private final QuicCongestionControl quicCongestionControl;
 
     private Http3Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -74,6 +103,7 @@ public final class Http3Options {
         transparentMaxRelayFlows = b.transparentMaxRelayFlows;
         transparentMaxRelayFlowsPerSource = b.transparentMaxRelayFlowsPerSource;
         transparentMaxBufferedBytes = b.transparentMaxBufferedBytes;
+        quicCongestionControl = b.quicCongestionControl;
     }
 
     /**
@@ -114,6 +144,7 @@ public final class Http3Options {
         b.transparentMaxRelayFlows = transparentMaxRelayFlows;
         b.transparentMaxRelayFlowsPerSource = transparentMaxRelayFlowsPerSource;
         b.transparentMaxBufferedBytes = transparentMaxBufferedBytes;
+        b.quicCongestionControl = quicCongestionControl;
         return b;
     }
 
@@ -232,6 +263,11 @@ public final class Http3Options {
         return transparentMaxBufferedBytes;
     }
 
+    /** {@return the congestion controller of the proxy's QUIC connections, to clients and to servers} */
+    public QuicCongestionControl quicCongestionControl() {
+        return quicCongestionControl;
+    }
+
     @Override
     public String toString() {
         return "Http3Options[maxConcurrentStreams=" + maxConcurrentStreams + ", streamReceiveWindow=" + streamReceiveWindow
@@ -245,7 +281,8 @@ public final class Http3Options {
                 + ", transparentPendingTimeout=" + transparentPendingTimeout + ", transparentMaxPending="
                 + transparentMaxPending + ", transparentMaxPendingPerSource=" + transparentMaxPendingPerSource
                 + ", transparentMaxRelayFlows=" + transparentMaxRelayFlows + ", transparentMaxRelayFlowsPerSource="
-                + transparentMaxRelayFlowsPerSource + ", transparentMaxBufferedBytes=" + transparentMaxBufferedBytes + "]";
+                + transparentMaxRelayFlowsPerSource + ", transparentMaxBufferedBytes=" + transparentMaxBufferedBytes
+                + ", quicCongestionControl=" + quicCongestionControl + "]";
     }
 
     /** Builds {@link Http3Options}. */
@@ -272,6 +309,7 @@ public final class Http3Options {
         private int transparentMaxRelayFlows = 4096;
         private int transparentMaxRelayFlowsPerSource = 256;
         private long transparentMaxBufferedBytes = 8L * 1024 * 1024;
+        private QuicCongestionControl quicCongestionControl = QuicCongestionControl.CUBIC;
 
         private Builder() {}
 
@@ -542,6 +580,20 @@ public final class Http3Options {
         public Builder transparentMaxBufferedBytes(long bytes) {
             if (bytes < 65_536) throw new IllegalArgumentException("transparentMaxBufferedBytes below 65536: " + bytes);
             transparentMaxBufferedBytes = bytes;
+            return this;
+        }
+
+        /**
+         * The congestion controller of the proxy's QUIC connections, those its HTTP/3 and
+         * transparent QUIC listeners accept and those it opens to servers (default {@link
+         * QuicCongestionControl#CUBIC CUBIC}). {@link QuicCongestionControl#BBR BBR} is
+         * experimental; it suits paths with a large bandwidth-delay product or random loss.
+         *
+         * @param control the controller
+         * @return this builder
+         */
+        public Builder quicCongestionControl(QuicCongestionControl control) {
+            quicCongestionControl = Objects.requireNonNull(control, "control");
             return this;
         }
 
