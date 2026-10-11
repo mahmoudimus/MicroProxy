@@ -206,6 +206,25 @@ class Http3UpstreamTest {
     }
 
     @Test
+    void anHttp2ClientReachesAnHttp3Server() throws Exception {
+        HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
+        H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
+        proxy = mitmProxy().withHttp2(true).withHttp3UpstreamHosts("^localhost:").start();
+        try (H2TestClient client = H2TestClient.connect(proxy.getListenAddress(), "localhost:" + tcp.getAddress().getPort(),
+                proxyCa.clientContext()).handshake()) {
+            client.get(1, "/hello");
+            H2TestClient.Response r = client.response(1);
+            assertEquals(200, r.status());
+            assertEquals("hello over h3", new String(r.body(), StandardCharsets.US_ASCII));
+            client.get(3, "/trailers");
+            H2TestClient.Response t = client.response(3);
+            assertEquals("with trailers", new String(t.body(), StandardCharsets.US_ASCII));
+            assertEquals("42", t.trailers().stream().filter(f -> f.name().equals("x-checksum")).findFirst().orElseThrow().value());
+        }
+        assertEquals(2, h3.requests.get());
+    }
+
+    @Test
     void aGoAwayFromTheServerMovesLaterRequestsToANewConnection() throws Exception {
         HttpsServer tcp = tcpOrigin(TestSupport.fixed(200, "over tcp"));
         H3TestOrigin h3 = h3Origin(tcp.getAddress().getPort());
