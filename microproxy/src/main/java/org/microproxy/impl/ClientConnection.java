@@ -9,13 +9,16 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.System.Logger.Level;
 import java.net.ConnectException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.StandardProtocolFamily;
 import java.net.UnknownHostException;
+import java.nio.channels.DatagramChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -46,6 +49,7 @@ import org.microproxy.ClientDetails;
 import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
+import org.microproxy.Http3Options;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersAdapter;
 import org.microproxy.HttpFiltersBuilder;
@@ -2279,10 +2283,10 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort,
                     new UnknownHostException(address.getHostString())), false);
         }
-        java.nio.channels.DatagramChannel socket;
+        DatagramChannel socket;
         try {
-            socket = java.nio.channels.DatagramChannel.open(address.getAddress() instanceof java.net.Inet6Address
-                    ? java.net.StandardProtocolFamily.INET6 : java.net.StandardProtocolFamily.INET);
+            socket = DatagramChannel.open(address.getAddress() instanceof Inet6Address
+                    ? StandardProtocolFamily.INET6 : StandardProtocolFamily.INET);
             try {
                 if (server.localAddress != null && server.localAddress.getAddress().getClass() == address.getAddress().getClass()) {
                     socket.bind(new InetSocketAddress(server.localAddress.getAddress(), 0));
@@ -2296,7 +2300,7 @@ final class ClientConnection implements Runnable {
             LOG.log(Level.DEBUG, ex.log + "no UDP socket to " + hostAndPort + ": " + e);
             return respondFailure(ex, connectFailure(hostAndPort, e), false);
         }
-        org.microproxy.Http3Options options = server.http3Options;
+        Http3Options options = server.http3Options;
         UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
                 options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes());
         // Before the answer: the client may send datagrams as soon as it reads it.
