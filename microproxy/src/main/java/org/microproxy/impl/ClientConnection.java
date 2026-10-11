@@ -2145,33 +2145,7 @@ final class ClientConnection implements Runnable {
                 if (reader.buffered() > 0) {
                     throw new ProtocolException("unexpected data from server before TLS handshake");
                 }
-                filters.proxyToServerConnectionSSLHandshakeStarted();
-                MitmManager manager = connectionMitm;
-                SSLContext context;
-                try {
-                    context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
-                            : SSLContext.getDefault();
-                } catch (java.security.NoSuchAlgorithmException e) {
-                    throw new IOException("default TLS context unavailable", e);
-                }
-                boolean offerHttp2 = ex.offerHttp2;
-                try {
-                    ex.flow.markFirst(ClientFlowContext.TLS_START);
-                    active = Tls.clientHandshake(context, active, target.host(), target.port(), true,
-                            server.tlsProtocols,
-                            s -> {
-                                if (offerHttp2) offerHttp2(s, false);
-                                if (manager != null) manager.configureServerSocket(s, serverContext);
-                            }, server.tlsHandshakeTimeout,
-                            new TlsLog.Peer(ex.log, "server", target.host()));
-                    ex.flow.mark(ClientFlowContext.TLS_END);
-                } catch (IOException e) {
-                    if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
-                        throw new NotTlsServer(hostAndPort, ssl);
-                    }
-                    server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
-                    throw new TlsHandshakeFailed(e);
-                }
+                active = startServerTls(active, target, hostAndPort, ex, serverContext);
                 reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
             }
@@ -2187,6 +2161,45 @@ final class ClientConnection implements Runnable {
         } catch (RuntimeException e) {
             Tls.closeQuietly(plain);
             throw new IOException("connecting to " + hostAndPort + " failed", e);
+        }
+    }
+
+    /**
+     * Runs the TLS handshake with the server over {@code active} (a socket to it, or a tunnel
+     * through a proxy), with the connection's MITM manager's trust and settings, offering
+     * {@code h2} when the exchange does.
+     *
+     * @throws NotTlsServer if the server answered with something other than TLS
+     */
+    private SSLSocket startServerTls(Socket active, HostAndPort target, String hostAndPort, Exchange ex,
+            FullFlowContext serverContext) throws IOException {
+        ex.filters.proxyToServerConnectionSSLHandshakeStarted();
+        MitmManager manager = connectionMitm;
+        SSLContext context;
+        try {
+            context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
+                    : SSLContext.getDefault();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException("default TLS context unavailable", e);
+        }
+        boolean offerHttp2 = ex.offerHttp2;
+        try {
+            ex.flow.markFirst(ClientFlowContext.TLS_START);
+            SSLSocket tls = Tls.clientHandshake(context, active, target.host(), target.port(), true,
+                    server.tlsProtocols,
+                    s -> {
+                        if (offerHttp2) offerHttp2(s, false);
+                        if (manager != null) manager.configureServerSocket(s, serverContext);
+                    }, server.tlsHandshakeTimeout,
+                    new TlsLog.Peer(ex.log, "server", target.host()));
+            ex.flow.mark(ClientFlowContext.TLS_END);
+            return tls;
+        } catch (IOException e) {
+            if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
+                throw new NotTlsServer(hostAndPort, ssl);
+            }
+            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
+            throw new TlsHandshakeFailed(e);
         }
     }
 
