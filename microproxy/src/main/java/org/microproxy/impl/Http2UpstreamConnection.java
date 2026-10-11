@@ -1162,6 +1162,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             }
         }
         FullFlowContext context = ctx;
+        if (context.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamReceived(n);
         server.trackers.fire(t -> t.bytesReceivedFromServer(context, (int) n));
     }
 
@@ -1172,6 +1173,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         countedOutReported = total;
         if (n <= 0 || server.trackers.isEmpty()) return;
         FullFlowContext ctx = s instanceof StreamState state ? state.flowContext : carrier.flowContext;
+        if (ctx.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamSent(n);
         server.trackers.fire(t -> t.bytesSentToServer(ctx, (int) n));
     }
 

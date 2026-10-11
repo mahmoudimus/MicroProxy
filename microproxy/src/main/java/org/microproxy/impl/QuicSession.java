@@ -322,6 +322,7 @@ final class QuicSession implements QuicContext {
         try {
             while (true) {
                 byte[] data = from.receiveDatagram();
+                count(fromClient, data.length);
                 byte[] result = data;
                 if (hooks != null) {
                     try {
@@ -334,6 +335,18 @@ final class QuicSession implements QuicContext {
             }
         } catch (IOException e) {
             // the connection ended
+        }
+    }
+
+    /** Counts {@code n} bytes read from the client (or the server) for the access log. */
+    private void count(boolean fromClient, int n) {
+        if (!(flow instanceof ClientFlowContext counted)) return;
+        if (fromClient) {
+            counted.addBytesReceived(n);
+            counted.addUpstreamSent(n);
+        } else {
+            counted.addUpstreamReceived(n);
+            counted.addBytesSent(n);
         }
     }
 
@@ -492,7 +505,10 @@ final class QuicSession implements QuicContext {
                         finish(d);
                         return;
                     }
-                    if (n > 0) message(d, Arrays.copyOf(buf, n));
+                    if (n > 0) {
+                        count(d.fromClient, n);
+                        message(d, Arrays.copyOf(buf, n));
+                    }
                 }
             } catch (QuicStreamException e) {
                 if (e.kind() == QuicStreamException.Kind.RESET) {

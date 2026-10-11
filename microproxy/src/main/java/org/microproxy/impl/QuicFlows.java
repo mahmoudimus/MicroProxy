@@ -291,7 +291,10 @@ final class QuicFlows implements AutoCloseable {
         }
         if (!server.trackers.isEmpty()) {
             int n = datagram.remaining();
-            server.trackers.fire(t -> t.bytesReceivedFromClient(relay.connection.connectionFlowContext(), n));
+            ClientFlowContext flow = relay.connection.connectionFlowContext();
+            flow.addBytesReceived(n);
+            flow.addUpstreamSent(n);
+            server.trackers.fire(t -> t.bytesReceivedFromClient(flow, n));
             server.trackers.fire(t -> t.bytesSentToServer(relay.serverFlow, n));
         }
         return true;
@@ -696,8 +699,11 @@ final class QuicFlows implements AutoCloseable {
             }
             quic.send(buf, flow.client);
             if (!server.trackers.isEmpty()) {
+                ClientFlowContext client = flow.connection.connectionFlowContext();
+                client.addUpstreamReceived(n);
+                client.addBytesSent(n);
                 server.trackers.fire(t -> t.bytesReceivedFromServer(flow.serverFlow, n));
-                server.trackers.fire(t -> t.bytesSentToClient(flow.connection.connectionFlowContext(), n));
+                server.trackers.fire(t -> t.bytesSentToClient(client, n));
             }
         }
     }

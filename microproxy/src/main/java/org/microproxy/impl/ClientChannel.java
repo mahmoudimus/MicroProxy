@@ -182,9 +182,10 @@ interface ClientChannel {
      * Relays bytes both ways between the client and {@code server} until both sides are done, for
      * a {@code CONNECT} tunnel or a connection that switched protocols, parsing WebSocket frames
      * through {@code webSocket} when it is non-null, or passing the bytes through {@code tcp}'s
-     * hooks when that is. The client connection is used up afterwards.
+     * hooks when that is, and counting the bytes each way into {@code counted} (when non-null)
+     * for the access log. The client connection is used up afterwards.
      */
-    void relay(ServerConnection server, WebSocketRelay webSocket, TcpSession tcp, String name);
+    void relay(ServerConnection server, WebSocketRelay webSocket, TcpSession tcp, ClientFlowContext counted, String name);
 
     /**
      * The exchange's tunnel as a connected socket, once the response that opened it has been

@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLSocket;
+import org.microproxy.ResponseFlag;
 
 /**
  * Relays bytes in both directions between two sockets until both directions finish, using one
@@ -65,7 +66,7 @@ final class Tunnel {
             Tls.closeQuietly(serverSocket);
         };
         relay(clientIn, clientOut, () -> halfClose(clientSocket), serverIn, serverOut, () -> halfClose(serverSocket),
-                closeAll, idleTimeout, name, logPrefix, webSocket, tcp, pool);
+                closeAll, idleTimeout, name, logPrefix, webSocket, tcp, pool, null);
     }
 
     /**
@@ -73,15 +74,19 @@ final class Tunnel {
      *
      * @param webSocket the frame relay for an upgraded WebSocket connection, or null
      * @param tcp sees the bytes of each read, or null (never together with {@code webSocket})
+     * @param counted counts the bytes read from the client (received) and from the server (sent
+     *     on to the client), and an idle timeout, for the access log; or null
      */
     static void relay(InputStream clientIn, OutputStream clientOut, HalfClose clientEnd,
             InputStream serverIn, OutputStream serverOut, HalfClose serverEnd, Runnable closeAll,
             Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, TcpSession tcp,
-            BufferPool pool) {
+            BufferPool pool, ClientFlowContext counted) {
         AtomicLong lastActivity = new AtomicLong(System.nanoTime());
         long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Direction up = new Direction(clientIn, serverOut, serverEnd, lastActivity, idleNanos, true, pool, logPrefix);
         Direction down = new Direction(serverIn, clientOut, clientEnd, lastActivity, idleNanos, false, pool, logPrefix);
+        up.counted = counted;
+        down.counted = counted;
         if (webSocket != null) webSocket.attach(up, down);
         if (tcp != null) tcp.start(up.sink(), down.sink(), closeAll);
         Thread upstream = null;
@@ -123,6 +128,7 @@ final class Tunnel {
             }
             d.halfClose();
         } catch (IOException | UnsupportedOperationException e) {
+            if (e instanceof IdleTimeout && d.counted != null) d.counted.addResponseFlag(ResponseFlag.STREAM_IDLE_TIMEOUT);
             if (tcp != null) tcp.failed(d.fromClient, e instanceof IOException io ? io : new IOException(e));
             closeAll.run();
         }
@@ -167,6 +173,8 @@ final class Tunnel {
         final boolean fromClient;
         final BufferPool pool;
         final String logPrefix;
+        /** Counts this direction's bytes for the access log, or null. */
+        ClientFlowContext counted;
 
         Direction(InputStream in, OutputStream out, HalfClose destination, AtomicLong lastActivity,
                 long idleNanos, boolean fromClient, BufferPool pool, String logPrefix) {
@@ -185,7 +193,10 @@ final class Tunnel {
             while (true) {
                 try {
                     int n = in.read(b, off, len);
-                    if (n > 0) lastActivity.set(System.nanoTime());
+                    if (n > 0) {
+                        lastActivity.set(System.nanoTime());
+                        count(n);
+                    }
                     return n;
                 } catch (SocketTimeoutException e) {
                     if (idleNanos <= 0 || System.nanoTime() - lastActivity.get() >= idleNanos) {
@@ -217,6 +228,16 @@ final class Tunnel {
             out.write(b, off, len);
         }
 
+        private void count(int n) {
+            ClientFlowContext flow = counted;
+            if (flow == null) return;
+            if (fromClient) {
+                flow.addBytesReceived(n);
+            } else {
+                flow.addBytesSent(n);
+            }
+        }
+
         void flush() throws IOException {
             out.flush();
         }
@@ -226,7 +247,10 @@ final class Tunnel {
             while (true) {
                 try {
                     int b = in.read();
-                    if (b >= 0) lastActivity.set(System.nanoTime());
+                    if (b >= 0) {
+                        lastActivity.set(System.nanoTime());
+                        count(1);
+                    }
                     return b;
                 } catch (SocketTimeoutException e) {
                     if (idleNanos <= 0 || System.nanoTime() - lastActivity.get() >= idleNanos) {
