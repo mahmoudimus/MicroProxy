@@ -1226,6 +1226,9 @@ public final class Connection {
                 break; // a short header packet ends the datagram
             }
         }
+        if (close) {
+            closePending = false; // one CONNECTION_CLOSE datagram per occasion
+        }
         if (open == null) {
             return null;
         }

@@ -56,7 +56,7 @@ final class EndpointDriver implements AutoCloseable {
         try {
             trySetOption(ch, StandardSocketOptions.SO_RCVBUF, SOCKET_BUFFER);
             trySetOption(ch, StandardSocketOptions.SO_SNDBUF, SOCKET_BUFFER);
-            boolean dontFragment = trySetOption(ch, jdk.net.ExtendedSocketOptions.IP_DONTFRAGMENT, true);
+            boolean dontFragment = setDontFragment(ch);
             ch.bind(bind);
             this.channel = ch;
             this.localAddress = (InetSocketAddress) ch.getLocalAddress();
@@ -68,6 +68,15 @@ final class EndpointDriver implements AutoCloseable {
         this.accepted = serverConfig != null ? new LinkedBlockingQueue<>() : null;
         this.receiver = Thread.ofVirtual().name(name + "-recv-" + localAddress.getPort()).unstarted(this::receiveLoop);
         receiver.start();
+    }
+
+    /** Sets IP_DONTFRAGMENT, which path MTU discovery needs; false where the runtime lacks it. */
+    private static boolean setDontFragment(DatagramChannel ch) {
+        try {
+            return trySetOption(ch, jdk.net.ExtendedSocketOptions.IP_DONTFRAGMENT, true);
+        } catch (LinkageError e) {
+            return false; // a runtime without the jdk.net module
+        }
     }
 
     private static <T> boolean trySetOption(DatagramChannel ch, SocketOption<T> option, T value) {
