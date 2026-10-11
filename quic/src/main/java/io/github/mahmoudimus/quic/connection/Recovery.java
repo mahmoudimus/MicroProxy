@@ -427,7 +427,13 @@ public final class Recovery {
      * @return the time to try again, or {@link NanoClock#NONE} to send now
      */
     public long pacingDelay(long now, long bytesToSend) {
-        long t = pacer.delay(rtt.get(), bytesToSend, mtud.currentMtu(), congestion.window(), now);
+        long window = congestion.window();
+        long rate = congestion.pacingRate();
+        if (rate > 0) {
+            // The pacer refills 1.25 windows per RTT: a smaller window paces at the controller's rate
+            window = Pacer.rateLimitedWindow(rtt.get(), window, rate);
+        }
+        long t = pacer.delay(rtt.get(), bytesToSend, mtud.currentMtu(), window, now);
         if (t == NanoClock.NONE) {
             timers.stop(Timer.PACING);
         } else {

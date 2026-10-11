@@ -77,6 +77,18 @@ public interface Controller {
     long window();
 
     /**
+     * The rate the controller wants packets paced at. The connection's pacer sends at no more than
+     * this, nor than 1.25 congestion windows per smoothed RTT; a controller without a rate of its
+     * own leaves pacing to the window. quinn has no such method: its pacer always paces the window,
+     * and BBR's rate only reaches its metrics.
+     *
+     * @return bytes per second, or -1 to pace by the window alone
+     */
+    default long pacingRate() {
+        return -1;
+    }
+
+    /**
      * Metrics for statistics and tracing.
      *
      * @return the window and, where known, the slow start threshold
