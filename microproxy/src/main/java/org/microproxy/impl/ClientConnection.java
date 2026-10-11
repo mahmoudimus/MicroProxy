@@ -3245,8 +3245,8 @@ final class ClientConnection implements Runnable {
             String hostAndPort, List<String> alpn) throws IOException {
         SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
         Supplier<FullFlowContext> context = () -> conn.flowContext;
-        conn.layerTls(tls, new ByteReader(serverInput(tls, context), server.ioBuffers),
-                new PooledOutputStream(serverOutput(tls, context), server.ioBuffers));
+        conn.layerTls(tls, new ByteReader(serverInput(tls, context, conn.cluster), server.ioBuffers),
+                new PooledOutputStream(serverOutput(tls, context, conn.cluster), server.ioBuffers));
         conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
     }
 
@@ -3907,6 +3907,12 @@ final class ClientConnection implements Runnable {
         } finally {
             close();
             quic.close();
+            if (countsBytes()) {
+                // QUIC counts its datagrams' bytes itself; they are added once, as the connection ends.
+                io.github.mahmoudimus.quic.QuicConnection.Stats bytes = quic.stats();
+                server.stats.http.cxRxBytes.add(bytes.receivedBytes());
+                server.stats.http.cxTxBytes.add(bytes.sentBytes());
+            }
             cxClosed(!server.isStopping());
             endQuicFilters(true);
             server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
@@ -4582,8 +4588,8 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
-            ByteReader reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
-            OutputStream output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
+            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+            OutputStream output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();
 
@@ -4623,8 +4629,8 @@ final class ClientConnection implements Runnable {
                 }
                 active = serverTls(ex, active, target, target.host(), hostAndPort, serverContext,
                         upstreamAlpn(ex.offerHttp2, sessionHello()));
-                reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
-                output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
+                reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+                output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             }
             holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode != Mode.PLAIN,
                     active, reader, output, remote, serverContext, server.trackers);
@@ -4700,9 +4706,11 @@ final class ClientConnection implements Runnable {
         socket.setSSLParameters(params);
     }
 
-    private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext)
+    /** {@code s}'s input, counted in {@code cluster}'s {@code upstream_cx_rx_bytes_total} and for trackers. */
+    private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext, ProxyStats.ClusterStats cluster)
             throws IOException {
         InputStream is = server.readLimiter.wrap(s.getInputStream());
+        if (cluster.enabled) is = CountingStreams.counting(is, cluster.cxRxBytes::add);
         if (!server.trackers.isEmpty()) {
             is = CountingStreams.counting(is, n -> {
                 FullFlowContext context = serverContext.get();
@@ -4713,9 +4721,11 @@ final class ClientConnection implements Runnable {
         return is;
     }
 
-    private OutputStream serverOutput(Socket s, Supplier<FullFlowContext> serverContext)
+    /** {@code s}'s output, counted in {@code cluster}'s {@code upstream_cx_tx_bytes_total} and for trackers. */
+    private OutputStream serverOutput(Socket s, Supplier<FullFlowContext> serverContext, ProxyStats.ClusterStats cluster)
             throws IOException {
         OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
+        if (cluster.enabled) os = CountingStreams.counting(os, cluster.cxTxBytes::add);
         if (!server.trackers.isEmpty()) {
             os = CountingStreams.counting(os, n -> {
                 FullFlowContext context = serverContext.get();
