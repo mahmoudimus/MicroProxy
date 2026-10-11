@@ -1249,7 +1249,7 @@ class ConnectionTest {
     void keyLogWritesEverySecret() {
         List<String> lines = new ArrayList<>();
         KeyLog log = (label, random, secret) -> {
-            synchronizedAdd(lines, KeyLog.line(label, random, secret));
+            addLine(lines, KeyLog.line(label, random, secret));
         };
         Pair pair = new Pair();
         Connection client = pair.connect(Pair.clientConfig(TransportConfig.builder().keyLog(log).build()));
@@ -1259,7 +1259,7 @@ class ConnectionTest {
         assertTrue(lines.get(3).startsWith("SERVER_TRAFFIC_SECRET_0 "));
     }
 
-    private static void synchronizedAdd(List<String> list, String s) {
+    private static void addLine(List<String> list, String s) {
         list.add(s);
     }
 

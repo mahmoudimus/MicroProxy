@@ -78,13 +78,13 @@ public final class Endpoint {
 
     private record ResetKey(InetSocketAddress remote, StatelessResetToken token) {}
 
-    private static final class Meta {
+    private static final class Routes {
         final Set<ConnectionId> cids = new HashSet<>();
         final List<ConnectionId> initialCids = new ArrayList<>();
         ResetKey resetKey;
         final InetSocketAddress remote;
 
-        Meta(InetSocketAddress remote) {
+        Routes(InetSocketAddress remote) {
             this.remote = remote;
         }
     }
@@ -103,7 +103,7 @@ public final class Endpoint {
     private final Map<ConnectionId, Connection> cids = new HashMap<>();
     private final Map<InetSocketAddress, Connection> remotes = new HashMap<>();
     private final Map<ResetKey, Connection> resetTokens = new HashMap<>();
-    private final Map<Connection, Meta> connections = new LinkedHashMap<>();
+    private final Map<Connection, Routes> connections = new LinkedHashMap<>();
     private long lastStatelessReset = NanoClock.NONE;
 
     /**
@@ -254,9 +254,9 @@ public final class Endpoint {
         Connection conn = Connection.server(now, serverConfig, config, remote, version, dcid, scid, localCid,
                 incoming.originalDestinationId(), incoming.retrySourceId(), incoming.validated(), token, allowMtud,
                 random.split());
-        Meta meta = register(conn, localCid, remote);
+        Routes routes = register(conn, localCid, remote);
         initialCids.put(dcid, conn);
-        meta.initialCids.add(dcid);
+        routes.initialCids.add(dcid);
         return new DatagramEvent.NewConnection(conn);
     }
 
@@ -336,16 +336,16 @@ public final class Endpoint {
         }
     }
 
-    private Meta register(Connection conn, ConnectionId localCid, InetSocketAddress remote) {
-        Meta meta = new Meta(remote);
-        connections.put(conn, meta);
+    private Routes register(Connection conn, ConnectionId localCid, InetSocketAddress remote) {
+        Routes routes = new Routes(remote);
+        connections.put(conn, routes);
         if (localCid.isEmpty()) {
             remotes.put(remote, conn);
         } else {
             cids.put(localCid, conn);
-            meta.cids.add(localCid);
+            routes.cids.add(localCid);
         }
-        return meta;
+        return routes;
     }
 
     /**
@@ -355,46 +355,46 @@ public final class Endpoint {
      * @param event the event from {@link Connection#pollEndpointEvent()}
      */
     public void handleEvent(Connection conn, EndpointEvent event) {
-        Meta meta = connections.get(conn);
-        if (meta == null) {
+        Routes routes = connections.get(conn);
+        if (routes == null) {
             return;
         }
         switch (event) {
             case EndpointEvent.CidIssued e -> {
                 if (!e.cid().isEmpty() && !cids.containsKey(e.cid())) {
                     cids.put(e.cid(), conn);
-                    meta.cids.add(e.cid());
+                    routes.cids.add(e.cid());
                 }
             }
             case EndpointEvent.CidRetired e -> {
                 if (cids.get(e.cid()) == conn) {
                     cids.remove(e.cid());
                 }
-                meta.cids.remove(e.cid());
+                routes.cids.remove(e.cid());
             }
             case EndpointEvent.ResetToken e -> {
-                if (meta.resetKey != null) {
-                    resetTokens.remove(meta.resetKey, conn);
+                if (routes.resetKey != null) {
+                    resetTokens.remove(routes.resetKey, conn);
                 }
-                meta.resetKey = new ResetKey(e.remote(), e.token());
-                resetTokens.put(meta.resetKey, conn);
+                routes.resetKey = new ResetKey(e.remote(), e.token());
+                resetTokens.put(routes.resetKey, conn);
             }
-            case EndpointEvent.Drained e -> forget(conn, meta);
+            case EndpointEvent.Drained e -> forget(conn, routes);
         }
     }
 
-    private void forget(Connection conn, Meta meta) {
+    private void forget(Connection conn, Routes routes) {
         connections.remove(conn);
-        for (ConnectionId cid : meta.cids) {
+        for (ConnectionId cid : routes.cids) {
             cids.remove(cid, conn);
         }
-        for (ConnectionId cid : meta.initialCids) {
+        for (ConnectionId cid : routes.initialCids) {
             initialCids.remove(cid, conn);
         }
-        if (meta.resetKey != null) {
-            resetTokens.remove(meta.resetKey, conn);
+        if (routes.resetKey != null) {
+            resetTokens.remove(routes.resetKey, conn);
         }
-        remotes.remove(meta.remote, conn);
+        remotes.remove(routes.remote, conn);
     }
 
     /**
