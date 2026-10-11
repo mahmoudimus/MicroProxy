@@ -9,7 +9,10 @@ machine) and the TLS 1.3 client and server of [rustls](https://github.com/rustls
 under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20-Poly1305, HMAC for
 HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
 
-The module is in progress; this README grows with it.
+The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
+endpoint, tested against itself on loopback and against aioquic as client and server. Not yet:
+0-RTT and resumption, connection migration, BBR (see [Connections and
+endpoints](#connections-and-endpoints)).
 
 ## Packets and protection
 
@@ -164,8 +167,8 @@ and ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
 The building blocks a connection is assembled from, ported from quinn-proto's `connection` module,
 `congestion.rs`, `range_set`, `cid_generator.rs`, `cid_queue.rs`, `token.rs` and
 `bloom_token_log.rs`. Like the rest of the module they are sans-I/O: they take frames and times in
-and hand frames, packet numbers and deadlines out. The connection layer that drives them (packet
-assembly, the handshake state machine, migration) is the next step.
+and hand frames, packet numbers and deadlines out. [Connections and
+endpoints](#connections-and-endpoints) drive them.
 
 ```java
 TimerTable timers = new TimerTable();
@@ -242,7 +245,191 @@ stricter than quinn:
   client's anti-deadlock probe goes in the Handshake space once it has Handshake keys.
 - MTU probes and black hole detection only count application data packets.
 - No flow-control window auto-tuning (quinn has none); windows can be changed at run time.
-- Not ported: BBR, the hashed connection ID generator, qlog, connection statistics beyond the
-  loss counters on `Recovery`, and DATAGRAM buffering.
+- Not ported: BBR, the hashed connection ID generator, quinn's qlog module (the connection layer
+  has a smaller qlog-style sink instead), and connection statistics beyond the loss counters on
+  `Recovery`. DATAGRAM buffering lives in the connection layer.
 - ECN: counts on received packets, ACK frames with ECN counts and validation of the peer's
   counts are here; marking outgoing packets is the socket layer's job.
+
+## Connections and endpoints
+
+The protocol layer is sans-I/O, ported from quinn-proto (`connection/mod.rs`,
+`connection/packet_builder.rs`, `connection/packet_crypto.rs`, `connection/datagrams.rs`,
+`endpoint.rs`, `config/`): a `Connection` takes datagrams, timeouts and application calls, and hands
+out datagrams, deadlines and events; an `Endpoint` routes datagrams to connections. On top, a small
+I/O runtime gives each endpoint one `DatagramChannel` and each connection one virtual thread, behind
+a blocking API.
+
+```java
+// Server: per-SNI certificates, an ALPN, Retry-based address validation
+ServerConfig serverConfig = ServerConfig.builder(TlsConfig.builder()
+                .certificateSelector(hello -> certificateFor(hello.serverName()))
+                .alpnProtocols("echo")
+                .build())
+        .transport(TransportConfig.builder()
+                .maxIdleTimeout(Duration.ofSeconds(30))
+                .maxConcurrentBidiStreams(100)
+                .congestionControl(TransportConfig.CongestionControl.CUBIC)
+                .mtuDiscovery(true)
+                .build())
+        .retry(true)
+        .build();
+try (QuicServer server = QuicServer.bind(new InetSocketAddress(4433), serverConfig)) {
+    while (true) {
+        QuicConnection connection = server.accept();          // handshake done
+        Thread.ofVirtual().start(() -> {
+            try {
+                while (true) {
+                    QuicStream stream = connection.acceptStream();
+                    Thread.ofVirtual().start(() -> {
+                        try (InputStream in = stream.getInputStream(); OutputStream out = stream.getOutputStream()) {
+                            in.transferTo(out);                    // echo; closing the output sends the FIN
+                        } catch (IOException e) { /* reset by the peer, or the connection ended */ }
+                    });
+                }
+            } catch (IOException e) { /* QuicConnectionException: the connection ended */ }
+        });
+    }
+}
+
+// Client: trust and the server name to check
+ClientConfig clientConfig = ClientConfig.builder(TlsConfig.builder()
+        .serverName("example.com")
+        .alpnProtocols("echo")
+        .build()).build();
+try (QuicClient client = QuicClient.create(clientConfig);
+        QuicConnection connection = client.connect(new InetSocketAddress("example.com", 4433))) {
+    QuicStream stream = connection.openBidirectionalStream();
+    try (OutputStream out = stream.getOutputStream()) {
+        out.write("hello".getBytes(StandardCharsets.UTF_8));
+    }
+    byte[] echo = stream.getInputStream().readAllBytes();   // read() returns -1 at the FIN
+    connection.sendDatagram(new byte[] {1, 2, 3});           // RFC 9221, unreliable
+    connection.close(0, "done");                             // CONNECTION_CLOSE with an application code
+}
+```
+
+### API
+
+| Type | Role |
+| --- | --- |
+| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig])`, `accept()` (blocks until a handshake completes), `localAddress()`, `close()` |
+| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout])`, `close()` |
+| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `remoteAddress()`, `localAddress()`, `stats()` |
+| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread) |
+| `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
+| `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
+| `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `connect(...)`; `handleEvent(connection, event)` |
+| `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `ConnectionLost(ConnectionError)` |
+| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, connection cap; trust, server name, version; CID length and lifetime, reset key, versions |
+
+### What a connection does
+
+- **Handshake.** CRYPTO frames per encryption level feed `TlsSession`; keys are installed as
+  `Secrets` arrive, with the next 1-RTT generation derived in advance. A client discards Initial keys
+  when it sends its first Handshake packet, a server when it receives one (RFC 9001 section 4.9.1);
+  the server confirms the handshake with HANDSHAKE_DONE and drops Handshake keys. A server buffers up
+  to 100 1-RTT packets that overtake the client's Finished. Client Initials, and server datagrams
+  with ack-eliciting Initials, are padded to 1200 bytes.
+- **Transport parameters** are built from `TransportConfig`, exchanged through TLS and authenticated
+  (`original_destination_connection_id`, `initial_source_connection_id`,
+  `retry_source_connection_id`). The idle timeout is the smaller of both sides' non-zero values.
+- **Address validation.** Until the client's address is validated (a Handshake packet, or a Retry
+  token) a server sends at most three times what it received. With `retry(true)` the endpoint
+  answers token-less Initials with Retry and a sealed token from `...quic.token`, and checks it on
+  the client's second Initial; an invalid or expired token gets CONNECTION_CLOSE `INVALID_TOKEN`.
+- **Packets.** Coalesced packets are split, protection removed, packet numbers decoded against the
+  largest received, duplicates dropped, frames checked against the packet type (RFC 9000 Table 3).
+  ACKs go into `Recovery` (RTT, loss detection, congestion, MTU probes); lost STREAM, CRYPTO and
+  control frames are queued again. ACKs are sent at once in Initial and Handshake, by `PendingAcks`
+  rules in 1-RTT, and bundled with other frames once per RTT.
+- **Sending** builds one datagram at a time, Initial then Handshake then 1-RTT, within the congestion
+  window, the pacer and the anti-amplification budget; probes and CONNECTION_CLOSE bypass the window.
+  Pacing starts with the first RTT sample, so the 333 ms initial RTT guess does not spread the
+  handshake flight out. Path MTU probes follow when there is nothing else to send.
+- **Key update.** Routine updates when a key's packet budget runs out (the first one after 10 to 1000
+  packets, as quinn does, so peers that mishandle updates fail early), `updateKeys()` on demand, and
+  updates started by the peer. The previous keys stay for three PTOs to decrypt reordered packets;
+  a second update before the first is acknowledged is `KEY_UPDATE_ERROR`.
+- **Connection IDs.** After the handshake each side issues `min(active_connection_id_limit, 8)` IDs;
+  RETIRE_CONNECTION_ID gets a replacement; IDs with a lifetime (`RandomConnectionIdGenerator`) are
+  rotated through Retire Prior To. Every change reaches the endpoint's routes. Zero-length IDs are
+  routed by the peer's address.
+- **Closing** (RFC 9000 section 10). `close(code, reason)` sends CONNECTION_CLOSE in every space
+  with keys (an application close becomes `APPLICATION_ERROR` without a reason in Initial and
+  Handshake packets), repeats it in answer to packets while closing, and drains for three PTOs; a
+  peer's close starts draining. The idle timeout and a stateless reset (the peer's token at the end
+  of a datagram) end the connection at once. Version Negotiation without our version ends a client
+  connection.
+- **Datagrams** (RFC 9221) are bounded in both directions; the oldest are dropped first.
+- **Errors** from the peer become CONNECTION_CLOSE with the RFC 9000 code and the frame type;
+  `ConnectionError` says why a connection ended (`TRANSPORT_ERROR`, `CONNECTION_CLOSED`,
+  `APPLICATION_CLOSED`, `LOCALLY_CLOSED`, `TIMED_OUT`, `RESET`, `VERSION_MISMATCH`).
+
+The endpoint sends Version Negotiation (with a GREASE version) for unknown versions in datagrams of
+at least 1200 bytes, drops shorter Initials, rejects Initials whose Destination Connection ID is
+shorter than 8 bytes, authenticates the first Initial before creating any state, refuses connections
+beyond `maxConnections` with `CONNECTION_REFUSED`, and answers packets for unknown connection IDs
+with a stateless reset, at most one per 20 ms and always smaller than the packet that caused it.
+
+### Threads and limits
+
+- One virtual thread per endpoint receives datagrams, copies each into a buffer of its own (the
+  connection keeps views of stream data), routes it under the endpoint's lock and queues it for the
+  connection. One virtual thread per connection owns it under a `ReentrantLock` (no `synchronized`
+  anywhere), and wakes on datagrams, on `pollTimeout()` and on application calls. Each wake-up
+  handles at most 64 datagrams in and 64 out, then releases the lock and yields, so streams and other
+  connections get their turn. Application threads block on a `Condition` of the connection's lock.
+- Memory a peer can drive is bounded: 1024 queued datagrams per connection (more are dropped, like
+  a full socket buffer), the stream and connection receive windows, the CRYPTO buffer (16 KiB of
+  out-of-order data per level), 100 early 1-RTT packets, the DATAGRAM receive buffer, 1024 pieces
+  per reassembled stream, the connection ID limits, and `maxConnections` per server.
+- Closing a `QuicServer` or `QuicClient` closes its connections with code 0, waits briefly for the
+  CONNECTION_CLOSE packets to go out, stops the threads and closes the socket.
+- The socket asks for 4 MiB buffers and sets `IP_DONTFRAGMENT`; where that is unsupported, MTU
+  discovery stays off.
+
+### Debugging
+
+`TransportConfig.Builder.keyLog(KeyLog.file(path))` (or `KeyLog.fromEnvironment()` for
+`SSLKEYLOGFILE`) writes the TLS secrets in the NSS key log format, so Wireshark can decrypt a
+capture. `qlog(QlogSink.logger(System.getLogger("quic")))` reports qlog-style events (packets sent,
+received and lost, key updates, state changes) as JSON lines. Both are off by default.
+
+### Tests
+
+- `ConnectionTest` ports quinn-proto's connection tests to an in-memory pair (`Pair`): two endpoints
+  on a fake clock, with an MTU, latency, random loss and reordering from a fixed seed, and hooks to
+  drop or hold back datagrams. Handshakes over every cipher suite and both versions, stream
+  transfer, flow-control blocking, stream limits, loss recovery and tail loss, key updates (simple,
+  reordered, routine), idle timeout and keep-alive, closes in every state, stateless resets (and
+  their rate limit), Version Negotiation, Retry (and expired tokens), CID rotation and retirement,
+  zero-length CIDs, datagrams, MTU discovery, anti-amplification, the connection cap.
+- `LoopbackTest` runs the blocking API over real UDP on loopback: 32 concurrent streams echoing 1 MB
+  each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
+  updates during a transfer. On a 4-core container it moves 120 to 180 MB/s.
+- `AioquicInteropTest` runs against aioquic 1.4.0 as an external peer, with the echo client and
+  server in `src/test/resources/interop/` (raw streams, ALPN `microproxy-test`). It covers a Java
+  server with an aioquic client and an aioquic server with a Java client: all three cipher suites
+  with X25519, P-256 and P-384 (the server choosing), many streams and multi-megabyte transfers,
+  unidirectional streams, datagrams, key updates started by either side, Retry, QUIC version 2, and
+  closes from either side with their codes and reasons.
+
+The interop tests are skipped unless Python 3 with aioquic is available. To run them, keep the
+virtual environment out of the sources, under `target/` or elsewhere:
+
+```sh
+python3 -m venv quic/target/aioquic
+quic/target/aioquic/bin/pip install aioquic==1.4.0
+mvn -pl quic test -Dtest=AioquicInteropTest -Dquic.interop.python=quic/target/aioquic/bin/python
+```
+
+`QUIC_INTEROP_PYTHON` works as well as `-Dquic.interop.python`; `-Dquic.interop.required=true`
+turns a missing aioquic into a failure, as the `quic-interop` CI job does.
+
+### Not yet
+
+0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
+validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
+path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
+ECN bits), GSO, and HTTP/3 interop with aioquic's HTTP/3 client through `http3-codec`.
