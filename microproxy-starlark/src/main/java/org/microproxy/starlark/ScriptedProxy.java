@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import org.microproxy.AuthResult;
@@ -48,9 +49,13 @@ import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.tcp.TcpContext;
+import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.tcp.TcpMessage;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
+import org.microproxy.thirdparty.starlark.eval.StarlarkBytes;
 import org.microproxy.thirdparty.starlark.eval.StarlarkList;
 import org.microproxy.thirdparty.starlark.eval.Tuple;
 
@@ -108,6 +113,16 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *       to replace it, or a list of frames to replace it with (an empty list drops it). The rules
  *       of {@link FrameInterceptor} apply; a result that breaks them is logged, and the frame
  *       passed on unchanged.
+ *   <li>{@code on_tcp_start(ctx)}, {@code on_tcp_message(msg, ctx)} and {@code on_tcp_end(ctx)}:
+ *       for raw TCP tunnels (see {@link TcpInterceptor}), when this object's {@link
+ *       #tcpInterceptor()} is installed ({@code withTcpInterceptor}). {@code msg} is a {@code
+ *       TcpMessage}: {@code data}, {@code text}, {@code from_client} and {@code timestamp}. Change
+ *       it in place and return {@code None} (or {@code True}, or the message) to pass it on,
+ *       {@code False} to drop it, or bytes, a string or another message to replace it. {@code ctx}
+ *       is a {@code TcpContext}: the target, {@code tls}, {@code sni}, {@code alpn}, {@code vars}
+ *       for the tunnel, {@code error} in {@code on_tcp_end} after a failure, and {@code
+ *       send(from_client, data)} to add bytes. A failing {@code on_tcp_message} passes the bytes
+ *       on unchanged.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm} or
@@ -601,6 +616,121 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return frame;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // TcpInterceptor
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether the script in use defines {@code on_tcp_start}, {@code on_tcp_message} or {@code
+     * on_tcp_end}, so {@link #tcpInterceptor()} is worth installing. A proxy without one copies
+     * tunnel bytes as before.
+     *
+     * @return whether the current script provides a TCP hook
+     */
+    public boolean definesTcpHooks() {
+        StarlarkScript s = script();
+        return s.defines("on_tcp_start") || s.defines("on_tcp_message") || s.defines("on_tcp_end");
+    }
+
+    /**
+     * An interceptor that calls the script's {@code on_tcp_start(ctx)}, {@code on_tcp_message(msg,
+     * ctx)} and {@code on_tcp_end(ctx)}, for {@link
+     * org.microproxy.HttpProxyServerBootstrap#withTcpInterceptor}. The calls of one tunnel, which
+     * come from a thread per direction, run one at a time, so they can share {@code ctx.vars}.
+     * Bytes pass on unchanged when the script in use (after a reload) has no {@code
+     * on_tcp_message}, and when the call fails, which is logged.
+     *
+     * @return the interceptor
+     */
+    public TcpInterceptor tcpInterceptor() {
+        return new ScriptTcpInterceptor();
+    }
+
+    /** One tunnel's script state: its context, and the lock its calls take turns with. */
+    private static final class TcpTunnel {
+        final Mutability mu = Mutability.create("tcp");
+        final ScriptTcpContext ctx;
+        final ReentrantLock lock = new ReentrantLock();
+
+        TcpTunnel(TcpContext context) {
+            this.ctx = new ScriptTcpContext(context, mu);
+        }
+    }
+
+    private final class ScriptTcpInterceptor implements TcpInterceptor {
+        private final Map<TcpContext, TcpTunnel> tunnels = new ConcurrentHashMap<>();
+
+        private TcpTunnel tunnel(TcpContext context) {
+            return tunnels.computeIfAbsent(context, TcpTunnel::new);
+        }
+
+        @Override
+        public void tcpStart(TcpContext context) {
+            TcpTunnel t = tunnel(context);
+            StarlarkScript s = script();
+            if (s.defines("on_tcp_start")) call(s, t, "on_tcp_start", t.ctx);
+        }
+
+        @Override
+        public byte[] tcpMessage(TcpMessage message, TcpContext context) {
+            StarlarkScript s = script();
+            if (!s.defines("on_tcp_message")) return message.data();
+            TcpTunnel t = tunnel(context);
+            ScriptTcpMessage m = new ScriptTcpMessage(message.data(), message.fromClient(), message.timestamp());
+            t.lock.lock();
+            try {
+                Object r = s.call("on_tcp_message", t.mu, m, t.ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
+                if (r == Boolean.FALSE) return null;
+                if (r instanceof ScriptTcpMessage other) return other.data();
+                if (r instanceof String || r instanceof StarlarkBytes) return Builtins.bytes(r, "the result");
+                throw Starlark.errorf("on_tcp_message must return None, True, False, bytes, a string or a message,"
+                        + " not %s", Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_tcp_message failed; passing the bytes on: "
+                        + e.getMessageWithStack());
+                return message.data();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return message.data();
+            } finally {
+                t.lock.unlock();
+            }
+        }
+
+        @Override
+        public void tcpEnd(TcpContext context) {
+            end(context, null);
+        }
+
+        @Override
+        public void tcpError(TcpContext context, Throwable error) {
+            end(context, error);
+        }
+
+        private void end(TcpContext context, Throwable error) {
+            TcpTunnel t = tunnels.remove(context);
+            if (t == null) t = new TcpTunnel(context);
+            if (error != null) t.ctx.error(error);
+            StarlarkScript s = script();
+            if (s.defines("on_tcp_end")) call(s, t, "on_tcp_end", t.ctx);
+        }
+
+        /** Calls a hook whose result does not matter; a failure is logged. */
+        private void call(StarlarkScript s, TcpTunnel t, String hook, Object... args) {
+            t.lock.lock();
+            try {
+                s.call(hook, t.mu, args);
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                t.lock.unlock();
+            }
         }
     }
 

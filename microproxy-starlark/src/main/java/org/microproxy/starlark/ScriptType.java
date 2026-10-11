@@ -123,6 +123,28 @@ final class ScriptType extends StarlarkType {
             "client_port", Types.INT,
             "server", TEXT), false);
 
+    /** Bytes of a raw TCP tunnel ({@code on_tcp_message}); named {@code TcpMessage}. */
+    static final ScriptType TCP_MESSAGE = new ScriptType("TcpMessage", ScriptTcpMessage.class, ImmutableMap.of(
+            "data", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT),
+            "text", TEXT,
+            "from_client", Types.BOOL,
+            "timestamp", Types.FLOAT), true);
+
+    /** A raw TCP tunnel ({@code on_tcp_start}, {@code on_tcp_message}, {@code on_tcp_end}); named {@code TcpContext}. */
+    static final ScriptType TCP_CONTEXT = new ScriptType("TcpContext", ScriptTcpContext.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("connection_id", Types.INT)
+            .put("client_ip", Types.STR)
+            .put("client_port", Types.INT)
+            .put("host", Types.STR)
+            .put("port", Types.INT)
+            .put("server", Types.STR)
+            .put("tls", Types.BOOL)
+            .put("sni", TEXT)
+            .put("alpn", TEXT)
+            .put("vars", Types.dict(Types.ANY, Types.ANY))
+            .put("error", TEXT)
+            .buildOrThrow(), false);
+
     static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
             "kind", Types.STR,
             "status", Types.INT,
@@ -150,6 +172,8 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor HTTP_FRAME_CONSTRUCTOR = Types.wrapType("Frame", HTTP_FRAME);
     static final TypeConstructor FRAME_CONTEXT_CONSTRUCTOR = Types.wrapType("FrameContext", FRAME_CONTEXT);
     static final TypeConstructor CLIENT_HELLO_CONSTRUCTOR = Types.wrapType("ClientHello", CLIENT_HELLO);
+    static final TypeConstructor TCP_MESSAGE_CONSTRUCTOR = Types.wrapType("TcpMessage", TCP_MESSAGE);
+    static final TypeConstructor TCP_CONTEXT_CONSTRUCTOR = Types.wrapType("TcpContext", TCP_CONTEXT);
 
     private final String name;
     private final Class<?> javaClass;

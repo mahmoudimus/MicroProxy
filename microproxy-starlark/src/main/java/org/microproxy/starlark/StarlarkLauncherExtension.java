@@ -98,13 +98,19 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
             // Only then: a proxy without an interceptor pays nothing per HTTP/2 frame.
             bootstrap.withFrameInterceptor(proxy.frameInterceptor());
         }
+        boolean tcp = proxy.definesTcpHooks();
+        if (tcp) {
+            // Only then: without an interceptor, tunnels copy bytes through pooled buffers.
+            bootstrap.withTcpInterceptor(proxy.tcpInterceptor());
+        }
         if (!constants.isEmpty()) {
             // Names only: the values may be secrets.
             console.println("Script constants: " + String.join(", ", constants.keySet()));
         }
         console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : "")
                 + (authenticates ? "; clients authenticate with its authenticate()" : "")
-                + (frames ? "; HTTP/2 frames go through its on_frame()" : ""));
+                + (frames ? "; HTTP/2 frames go through its on_frame()" : "")
+                + (tcp ? "; raw TCP tunnels go through its on_tcp_*() hooks" : ""));
     }
 
     /** The constants from the command line; later ones replace earlier ones of the same name. */
