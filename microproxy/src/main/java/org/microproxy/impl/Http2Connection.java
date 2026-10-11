@@ -796,6 +796,8 @@ final class Http2Connection extends Http2Endpoint {
                 FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                         HttpResponseStatus.valueOf(421), "Misdirected Request");
                 s.writeComplete(response, !ProxyUtils.isHEAD(s.request));
+                s.flowContext().setResponseCodeDetails("misdirected_request");
+                client.recordAnswered(s.flowContext(), org.microproxy.FlowRecord.Kind.HTTP2, s.request, response);
             } else {
                 client.handleStream(s, s.request);
             }

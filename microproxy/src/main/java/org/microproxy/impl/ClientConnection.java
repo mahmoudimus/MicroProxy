@@ -1171,6 +1171,7 @@ final class ClientConnection implements Runnable {
             throw e;
         } catch (SocketTimeoutException e) {
             ex.flow.addResponseFlag(ResponseFlag.STREAM_IDLE_TIMEOUT);
+            ex.flow.defaultResponseCodeDetails("stream_idle_timeout");
             throw e;
         } finally {
             endExchange(ex);

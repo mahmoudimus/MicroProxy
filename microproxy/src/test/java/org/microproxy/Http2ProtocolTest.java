@@ -336,13 +336,17 @@ class Http2ProtocolTest {
 
     @Test
     void otherAuthoritiesGetMisdirectedRequest() throws IOException {
-        start(Http2Options.DEFAULT);
+        RecordedFlows flows = new RecordedFlows();
+        start(Http2Options.DEFAULT, MicroProxy.bootstrap().plusActivityTracker(flows));
         try (H2TestClient h2 = connect().handshake()) {
             List<HeaderField> fields = new ArrayList<>(h2.request("GET", "/x"));
             fields.set(2, new HeaderField(":authority", "other.example:443"));
             h2.headers(1, fields, true);
             assertEquals(421, h2.response(1).status());
         }
+        FlowRecord r = flows.await("the 421's record", f -> f.responseCode() == 421);
+        assertEquals("misdirected_request", r.responseCodeDetails());
+        assertEquals(FlowRecord.Kind.HTTP2, r.kind());
     }
 
     @Test
