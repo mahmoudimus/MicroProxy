@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -181,6 +182,20 @@ public class FlowContext {
      */
     public OptionalInt upstreamStatus() {
         return root == this ? OptionalInt.empty() : root.upstreamStatus();
+    }
+
+    /**
+     * The intercepted server that the exchange in progress (or the last one) is forwarded
+     * through, as {@code host:port}, when the client takes that server for its HTTPS proxy: the
+     * client sent a {@code CONNECT} inside the intercepted session, which the proxy forwards to
+     * that server rather than tunnelling to the target itself, or the request travels inside the
+     * tunnel such a {@code CONNECT} opened. Empty otherwise, and for contexts made outside the
+     * proxy.
+     *
+     * @return the intercepted proxy's {@code host:port}, or empty
+     */
+    public Optional<String> forwardedVia() {
+        return root == this ? Optional.empty() : root.forwardedVia();
     }
 
     /**

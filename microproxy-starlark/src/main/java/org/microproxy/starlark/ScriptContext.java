@@ -19,14 +19,17 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 /**
  * Per-request context: who the client is, {@code vars}, a dict that lives as long as the request
  * so {@code on_request} can leave notes for {@code on_response}, {@code timings}, a snapshot of the
- * exchange's timings taken when it is read, and {@code client_hello}, the TLS ClientHello that
- * started the client's intercepted session ({@code None} before it is read, and for plain HTTP).
+ * exchange's timings taken when it is read, {@code client_hello}, the TLS ClientHello that
+ * started the client's intercepted session ({@code None} before it is read, and for plain HTTP),
+ * and {@code forwarded_via}, the intercepted server that the request is forwarded through as the
+ * client's HTTPS proxy ({@code host:port}), or {@code None}.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
-            ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings", "client_hello");
+            ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
+                    "client_hello", "forwarded_via");
 
     private final InetSocketAddress client;
     private final String user;
@@ -85,6 +88,8 @@ public final class ScriptContext implements Structure {
                 ClientHello hello = flow == null ? null : flow.getClientHello();
                 yield hello == null ? Starlark.NONE : new ScriptClientHello(hello);
             }
+            case "forwarded_via" -> flow == null ? Starlark.NONE
+                    : flow.forwardedVia().<Object>map(via -> via).orElse(Starlark.NONE);
             default -> null;
         };
     }

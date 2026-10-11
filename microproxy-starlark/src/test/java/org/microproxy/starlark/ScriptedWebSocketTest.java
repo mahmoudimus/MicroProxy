@@ -2,6 +2,7 @@ package org.microproxy.starlark;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.OutputStream;
@@ -9,6 +10,7 @@ import java.net.Socket;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.microproxy.H2StreamClient;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
 import org.microproxy.WebSocketTestSupport;
@@ -59,6 +61,42 @@ class ScriptedWebSocketTest {
                     .map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
             assertEquals(List.of("HELLO", "PING", "<close>"), texts);
             assertFalse(server.upgradeRequest.toLowerCase().contains("sec-websocket-extensions"));
+        }
+    }
+
+    @Test
+    void theHookSeesFramesOfWebSocketsOverHttp2() throws Exception {
+        proxy = MicroProxy.bootstrap().withPort(0).withHttp2Cleartext(true)
+                .withFiltersSource(ScriptedProxy.builder("""
+                        def on_request(req, ctx):
+                            ctx.vars["version"] = req.http_version
+                            ctx.vars["upgrade"] = req.headers.get("Upgrade")
+
+                        def on_websocket_frame(req, frame, ctx):
+                            if frame.type != "text":
+                                return None
+                            if frame.from_client:
+                                if "drop" in frame.text:
+                                    return False
+                                frame.text = frame.text.upper()
+                            else:
+                                frame.text = "%s via %s %s %s" % (frame.text, ctx.vars["version"], req.method, ctx.vars["upgrade"])
+                        """, "ws2.star").build())
+                .start();
+        try (EchoServer server = new EchoServer();
+                H2StreamClient c = H2StreamClient.cleartext(proxy.getListenAddress(), "127.0.0.1:" + server.raw().port())) {
+            H2StreamClient.Stream ws = c.open(c.webSocket("/chat"), false);
+            assertEquals(200, ws.status());
+            WebSocketTestSupport.sendFromClient(ws.out(), WebSocketFrame.text("please drop me"));
+            WebSocketTestSupport.sendFromClient(ws.out(), WebSocketFrame.text("ping"));
+            assertEquals("echo:PING via HTTP/2 GET websocket", WebSocketTestSupport.readFrame(ws.in()).payloadAsText());
+            WebSocketTestSupport.sendFromClient(ws.out(), WebSocketFrame.close(1000, ""));
+            assertTrue(WebSocketTestSupport.readFrame(ws.in()).isClose());
+            ws.end();
+            assertNull(ws.awaitEnd());
+            List<String> texts = server.received.stream().map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
+            assertEquals(List.of("PING", "<close>"), texts);
+            assertTrue(server.received.stream().allMatch(WebSocketFrame::isMasked));
         }
     }
 

@@ -2,6 +2,7 @@ package org.microproxy.impl;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLSession;
@@ -43,6 +44,8 @@ final class ClientFlowContext extends FlowContext {
     private final ClientFlowContext connectionFlow;
     /** The ClientHello that started the connection's session, once read. */
     private volatile ClientHello clientHello;
+    /** The intercepted proxy the current exchange is forwarded through, or null. */
+    private volatile String forwardedVia;
 
     ClientFlowContext(
             long connectionId,
@@ -91,14 +94,19 @@ final class ClientFlowContext extends FlowContext {
         clientTlsEnd = now();
     }
 
-    /** Records the ClientHello the client connection's session started with. */
+    /**
+     * Records the ClientHello the client connection's session started with; for a stream's
+     * context, the one that started the session inside the stream (an intercepted {@code CONNECT}
+     * stream), which the stream's exchange sees rather than its connection's.
+     */
     void clientHello(ClientHello hello) {
         clientHello = hello;
     }
 
     @Override
     public ClientHello getClientHello() {
-        return connectionFlow != null ? connectionFlow.getClientHello() : clientHello;
+        ClientHello own = clientHello;
+        return own != null || connectionFlow == null ? own : connectionFlow.getClientHello();
     }
 
     void upstreamStatus(int status) {
@@ -109,6 +117,16 @@ final class ClientFlowContext extends FlowContext {
     public OptionalInt upstreamStatus() {
         int status = upstreamStatus;
         return status == 0 ? OptionalInt.empty() : OptionalInt.of(status);
+    }
+
+    /** The intercepted proxy ({@code host:port}) the current exchange is forwarded through, or null. */
+    void forwardedVia(String proxy) {
+        forwardedVia = proxy;
+    }
+
+    @Override
+    public Optional<String> forwardedVia() {
+        return Optional.ofNullable(forwardedVia);
     }
 
     @Override
