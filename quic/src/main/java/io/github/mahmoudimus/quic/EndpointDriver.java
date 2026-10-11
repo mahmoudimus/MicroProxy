@@ -172,6 +172,10 @@ final class EndpointDriver implements AutoCloseable {
             if (event instanceof Endpoint.DatagramEvent.NewConnection n) {
                 created = new ConnectionDriver(this, n.connection(), true);
                 drivers.put(n.connection(), created);
+                // Queued before the lock goes: once it does, another thread (the socket's, or one
+                // injecting) may route the client's next datagrams to the connection, and 0-RTT
+                // packets that reach it before the Initial with their keys are dropped.
+                created.deliver(from, datagram);
             }
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "dropping a datagram that broke routing", e);
@@ -186,10 +190,7 @@ final class EndpointDriver implements AutoCloseable {
                     driver.deliver(from, datagram);
                 }
             }
-            case Endpoint.DatagramEvent.NewConnection n -> {
-                created.start();
-                created.deliver(from, datagram);
-            }
+            case Endpoint.DatagramEvent.NewConnection n -> created.start();
             case Endpoint.DatagramEvent.Response r -> send(r.datagram(), from);
             case null -> {}
         }
