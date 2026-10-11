@@ -2234,18 +2234,38 @@ final class ClientConnection implements Runnable {
         os.flush();
     }
 
-    /** The CONNECT sent to an upstream HTTP proxy: the client's own CONNECT if it sent one. */
+    /**
+     * The CONNECT sent to an upstream HTTP proxy: the client's own CONNECT if it sent one for
+     * {@code hostAndPort}, else a bare one. (A CONNECT may need a connection to another server
+     * than the one it names: its fields, credentials for that one, must not go to this proxy.)
+     */
     private static HttpRequest upstreamConnectRequest(HttpRequest clientRequest, String hostAndPort, ChainedProxy proxy) {
         HttpRequest connect;
-        if (ProxyUtils.isCONNECT(clientRequest)) {
+        if (connectsTo(clientRequest, hostAndPort)) {
             connect = copy(clientRequest);
             // A CONNECT stream of an HTTP/2 client reaches the chained proxy as HTTP/1.1.
             if (connect.protocolVersion().majorVersion() >= 2) connect.setProtocolVersion(HttpVersion.HTTP_1_1);
         } else {
-            connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
-            connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
+            connect = connectRequest(hostAndPort);
         }
         addUpstreamProxyAuthorization(connect.headers(), proxy);
+        return connect;
+    }
+
+    /** Whether {@code request} is a CONNECT to {@code hostAndPort}. */
+    private static boolean connectsTo(HttpRequest request, String hostAndPort) {
+        if (!ProxyUtils.isCONNECT(request)) return false;
+        try {
+            return HostAndPort.parse(request.uri(), 443).toString().equals(hostAndPort);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** A bare CONNECT to {@code hostAndPort}. */
+    private static HttpRequest connectRequest(String hostAndPort) {
+        HttpRequest connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
+        connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
         return connect;
     }
 
