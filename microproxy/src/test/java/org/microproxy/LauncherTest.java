@@ -120,7 +120,8 @@ class LauncherTest {
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
                 "--no-http3-alt-svc", "--http3-retry", "--masque-udp-template", "--masque-udp-idle-timeout",
-                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
+                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
+                "--masque-quic-ports", "--quic-hosts", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
@@ -158,6 +159,9 @@ class LauncherTest {
         assertEquals(List.of("^mail\\.", "imap"),
                 BootstrapView.tcpHosts(parse("--tcp-hosts", "^mail\\.", "--tcp-hosts", "imap").bootstrap()));
         assertThrows(IllegalArgumentException.class, () -> parse("--tcp-hosts", "[unclosed"));
+        assertEquals(List.of("^doq\\.", "custom"),
+                BootstrapView.quicHosts(parse("--quic-hosts", "^doq\\.", "--quic-hosts", "custom").bootstrap()));
+        assertThrows(IllegalArgumentException.class, () -> parse("--quic-hosts", "[unclosed"));
         assertThrows(IllegalArgumentException.class, () -> parse("--transparent-tls-port", "0"));
     }
 
@@ -210,6 +214,30 @@ class LauncherTest {
         assertEquals(java.time.Duration.ofSeconds(5), fromFile.connectUdpIdleTimeout());
         assertEquals(4096, fromFile.connectUdpMaxFlows());
         assertEquals(8, fromFile.connectUdpMaxFlowsPerConnection());
+        assertFalse(fromFile.connectUdpInterceptQuic());
+        assertEquals(java.util.Set.of(443), fromFile.connectUdpQuicPorts());
+    }
+
+    @Test
+    void masqueQuicFlagsAndProperties() throws IOException {
+        Http3Options h3 = BootstrapView.http3Options(parse("--masque-intercept-quic", "--masque-quic-ports", "443, 8443").bootstrap());
+        assertTrue(h3.connectUdpInterceptQuic());
+        assertEquals(java.util.Set.of(443, 8443), h3.connectUdpQuicPorts());
+        Http3Options any = BootstrapView.http3Options(parse("--masque-intercept-quic", "--masque-quic-ports", "any").bootstrap());
+        assertEquals(java.util.Set.of(), any.connectUdpQuicPorts(), "every port");
+        Http3Options defaults = BootstrapView.http3Options(parse("--masque-intercept-quic").bootstrap());
+        assertEquals(java.util.Set.of(443), defaults.connectUdpQuicPorts());
+        assertThrows(IllegalArgumentException.class, () -> parse("--masque-quic-ports", "https"));
+        assertThrows(IllegalArgumentException.class, () -> parse("--masque-quic-ports", "70000"));
+
+        java.util.Properties p = new java.util.Properties();
+        p.setProperty("masque_intercept_quic", "true");
+        p.setProperty("masque_quic_ports", "4433");
+        p.setProperty("quic_hosts", "^doq\\., custom");
+        HttpProxyServerBootstrap fromFile = BootstrapView.fromProperties(p);
+        assertTrue(BootstrapView.http3Options(fromFile).connectUdpInterceptQuic());
+        assertEquals(java.util.Set.of(4433), BootstrapView.http3Options(fromFile).connectUdpQuicPorts());
+        assertEquals(List.of("^doq\\.", "custom"), BootstrapView.quicHosts(fromFile));
     }
 
     @Test

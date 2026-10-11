@@ -145,6 +145,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).tcpHosts;
     }
 
+    /** The {@code quic_hosts} patterns, as configured. */
+    public static List<String> quicHosts(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).quicHosts;
+    }
+
     /** The reverse proxy upstream as configured, or null. */
     public static ReverseProxyMode reverseProxy(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).reverseProxy;
