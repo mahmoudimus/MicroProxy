@@ -201,8 +201,7 @@ public final class AioquicPeers {
      * Runs aioquic's raw QUIC client ({@code interop/quic_echo_client.py}) with {@code alpn},
      * asking for {@code serverName} and trusting {@code ca}: over UDP to loopback {@code port}, or,
      * with a {@code masqueTarget}, inside a CONNECT-UDP flow to it, opened on the forward proxy's
-     * HTTP/3 listener at {@code port} (trusted with {@code proxyCa}), with 300 KB rather than a
-     * megabyte on its large stream. Returns what it saw: {@code
+     * HTTP/3 listener at {@code port} (trusted with {@code proxyCa}). Returns what it saw: {@code
      * alpn}, {@code echoes}, {@code big_ok}, {@code big_length}, {@code uni_reply}, {@code datagram},
      * {@code reset_stream} and, inside a flow, {@code masque_status}.
      */
@@ -212,11 +211,7 @@ public final class AioquicPeers {
         assumeAvailable();
         List<String> cmd = new ArrayList<>(List.of(python, script(dir, "quic_echo_client.py").toString(), "127.0.0.1",
                 Integer.toString(port), "--ca", ca.toString(), "--server-name", serverName, "--alpn", alpn));
-        if (masqueTarget != null) {
-            // Inside a flow, the inner connection's packets queue in the flow, which drops what
-            // does not fit, as a network would: a smaller transfer keeps loss recovery short.
-            cmd.addAll(List.of("--masque-target", masqueTarget, "--proxy-ca", proxyCa.toString(), "--big-size", "300000"));
-        }
+        if (masqueTarget != null) cmd.addAll(List.of("--masque-target", masqueTarget, "--proxy-ca", proxyCa.toString()));
         Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
         StringBuilder output = new StringBuilder();
         Thread reader = Thread.ofVirtual().start(() -> {
