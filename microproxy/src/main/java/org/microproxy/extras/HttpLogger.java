@@ -774,7 +774,7 @@ public final class HttpLogger implements HttpFiltersSource {
                 return;
             }
             j.field("body_bytes", body.bytes);
-            if (!body.trailers.isEmpty()) j.headers("trailers", redacted(body.trailers));
+            if (!body.trailers.isEmpty()) j.raw("trailers", headersJson(redacted(body.trailers)));
             if (body.bytes == 0) return;
             j.raw("body", Json.string(body.text));
             if (body.text == null) j.field("body_note", body.placeholder);
