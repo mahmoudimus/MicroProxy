@@ -13,6 +13,7 @@ import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
 import io.github.mahmoudimus.quic.QuicStream;
 import io.github.mahmoudimus.quic.connection.ClientConfig;
+import io.github.mahmoudimus.quic.connection.SessionCache;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.ByteArrayOutputStream;
@@ -72,6 +73,10 @@ public final class H3TestClient implements AutoCloseable {
         /** Whether field sections stay within the server's SETTINGS_MAX_FIELD_SECTION_SIZE, as a well-behaved client's do. */
         boolean obeyFieldSectionSize = true;
         Duration idleTimeout = Duration.ofSeconds(30);
+        /** Session tickets and tokens to resume with and keep, shared by the connections that use them; null for none. */
+        SessionCache sessions;
+        /** Whether to send the first requests as 0-RTT data when a ticket allows it, before the handshake completes. */
+        boolean earlyData;
     }
 
     final QuicClient client;
@@ -127,7 +132,7 @@ public final class H3TestClient implements AutoCloseable {
 
     public static H3TestClient connect(InetSocketAddress address, String serverName, X509Certificate anchor, Options options)
             throws IOException {
-        TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3").serverName(serverName);
+        TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3").serverName(serverName).earlyData(options.earlyData);
         if (anchor == null) {
             tls.trustAllCertificates(true);
         } else {
@@ -135,10 +140,12 @@ public final class H3TestClient implements AutoCloseable {
         }
         ClientConfig config = ClientConfig.builder(tls.build())
                 .transport(TransportConfig.builder().maxIdleTimeout(options.idleTimeout).build())
+                .sessionCache(options.sessions != null ? options.sessions : SessionCache.none())
                 .build();
         QuicClient client = QuicClient.create(config);
         try {
-            QuicConnection quic = client.connect(address, serverName, Duration.ofSeconds(10));
+            QuicConnection quic = options.earlyData ? client.connectEarly(address, serverName, Duration.ofSeconds(10))
+                    : client.connect(address, serverName, Duration.ofSeconds(10));
             return new H3TestClient(client, quic, options, serverName + ":" + address.getPort());
         } catch (IOException | RuntimeException e) {
             client.close();
