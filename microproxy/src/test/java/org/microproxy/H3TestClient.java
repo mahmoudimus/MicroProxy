@@ -457,7 +457,7 @@ public final class H3TestClient implements AutoCloseable {
     // CONNECT, extended CONNECT (RFC 9114 section 4.4, RFC 9220) and HTTP Datagrams (RFC 9297)
 
     /** A plain {@code CONNECT}'s head: {@code :method} and {@code :authority} only, then {@code fields}. */
-    static List<HeaderField> connect(String authority, HeaderField... fields) {
+    public static List<HeaderField> connect(String authority, HeaderField... fields) {
         List<HeaderField> all = new ArrayList<>();
         all.add(new HeaderField(":method", "CONNECT"));
         all.add(new HeaderField(":authority", authority));
@@ -466,7 +466,7 @@ public final class H3TestClient implements AutoCloseable {
     }
 
     /** An extended {@code CONNECT}'s head for {@code protocol}, then {@code fields}. */
-    static List<HeaderField> extendedConnect(String protocol, String scheme, String authority, String path,
+    public static List<HeaderField> extendedConnect(String protocol, String scheme, String authority, String path,
             HeaderField... fields) {
         List<HeaderField> all = new ArrayList<>();
         all.add(new HeaderField(":method", "CONNECT"));
@@ -483,11 +483,11 @@ public final class H3TestClient implements AutoCloseable {
      * WebSocket, CONNECT-UDP). Its DATA arrive in {@link #in()}, DATA go out through {@link #out()},
      * and the stream's end is the tunnel's.
      */
-    final class Tunnel {
+    public final class Tunnel {
         final QuicStream stream;
         final long id;
         /** The response's status, 0 if the stream ended before one. */
-        int status;
+        public int status;
         List<HeaderField> fields = List.of();
         private final Http3FrameReader reader;
         private final Http3FrameWriter writer;
@@ -534,7 +534,7 @@ public final class H3TestClient implements AutoCloseable {
             };
         }
 
-        String header(String name) {
+        public String header(String name) {
             for (HeaderField f : fields) {
                 if (f.name().equals(name)) return f.value();
             }
@@ -557,12 +557,12 @@ public final class H3TestClient implements AutoCloseable {
         }
 
         /** The tunnel's bytes from the server: the payloads of its DATA frames. */
-        InputStream in() {
+        public InputStream in() {
             return in;
         }
 
         /** Writes the tunnel's bytes to the server, as DATA frames. */
-        OutputStream out() {
+        public OutputStream out() {
             return new OutputStream() {
                 @Override
                 public void write(int b) throws IOException {
@@ -583,12 +583,12 @@ public final class H3TestClient implements AutoCloseable {
         }
 
         /** Ends the tunnel's output: the stream's FIN. */
-        void end() throws IOException {
+        public void end() throws IOException {
             rawOut.close();
         }
 
         /** Resets the stream both ways with {@code code}. */
-        void reset(long code) throws IOException {
+        public void reset(long code) throws IOException {
             stream.stopSending(code);
             stream.reset(code);
         }
@@ -682,7 +682,7 @@ public final class H3TestClient implements AutoCloseable {
         }
 
         /** Sends a UDP payload in a DATAGRAM capsule, with context ID 0. */
-        void sendDatagramCapsule(byte[] payload) throws IOException {
+        public void sendDatagramCapsule(byte[] payload) throws IOException {
             sendCapsule(0, contextZero(payload));
         }
 
@@ -697,7 +697,7 @@ public final class H3TestClient implements AutoCloseable {
         }
 
         /** Sends a UDP payload as an HTTP/3 datagram of this stream, with context ID 0. */
-        void sendDatagram(byte[] payload) throws IOException {
+        public void sendDatagram(byte[] payload) throws IOException {
             sendDatagram(contextZero(payload), true);
         }
 
@@ -711,7 +711,7 @@ public final class H3TestClient implements AutoCloseable {
         }
 
         /** The content (context ID first) of the next HTTP/3 datagram of this stream, or null after {@code timeout}. */
-        byte[] receiveDatagram(Duration timeout) throws InterruptedIOException {
+        public byte[] receiveDatagram(Duration timeout) throws InterruptedIOException {
             datagramLock.lock();
             try {
                 long deadline = System.nanoTime() + timeout.toNanos();
@@ -759,7 +759,7 @@ public final class H3TestClient implements AutoCloseable {
     }
 
     /** The UDP payload of an HTTP Datagram's content with context ID 0, or null for another context. */
-    static byte[] udpPayload(byte[] content) {
+    public static byte[] udpPayload(byte[] content) {
         long context = QuicVarInt.read(content, 0, content.length);
         if (context != 0) return null;
         return Arrays.copyOfRange(content, 1, content.length);
@@ -771,7 +771,7 @@ public final class H3TestClient implements AutoCloseable {
      * Opens a request stream with {@code fields} as its head, not ending it, and reads the response
      * head: a 2xx leaves the tunnel open.
      */
-    Tunnel open(List<HeaderField> fields) throws IOException {
+    public Tunnel open(List<HeaderField> fields) throws IOException {
         QuicStream s = quic.openBidirectionalStream();
         Tunnel t = new Tunnel(s);
         tunnels.put(t.id, t);

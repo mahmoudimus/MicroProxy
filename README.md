@@ -2014,6 +2014,7 @@ bootstrap.start();
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
 | `on_frame(frame, ctx)` | for each HTTP/2 and HTTP/3 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
+| `on_udp_start(ctx)`, `on_udp_message(msg, ctx)`, `on_udp_end(ctx)` | for CONNECT-UDP flows, when the script defines one of them (see [UDP](#udp-hooks)): when a flow opens, for each datagram, and when it ends | `on_udp_message`: as `on_tcp_message`, for one datagram |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2554,11 +2555,33 @@ def on_tcp_message(msg: TcpMessage, ctx: TcpContext) -> TcpMessage | str | bool 
     return text + "!"
 ```
 
+<a id="udp-hooks"></a>**UDP.** A script that defines `on_udp_start(ctx)`, `on_udp_message(msg, ctx)` or
+`on_udp_end(ctx)` sees the datagrams of [CONNECT-UDP flows](#connect-udp-masque), which `--script`
+then installs the UDP interceptor for (from Java: `bootstrap.withUdpInterceptor(script.udpInterceptor())`
+when `script.definesUdpHooks()`). `msg` is a `UdpMessage`, one datagram, with the fields,
+methods and results of a `TcpMessage` (`False` drops the datagram); `ctx` is a `UdpContext`:
+`connection_id`, `client_ip`, `client_port`, `host`, `port`, `server`, `address` (what the
+target's name resolved to) and `vars`, with `ctx.send(from_client, data)` to add a datagram.
+
+```python
+def on_udp_start(ctx):
+    log.info("UDP flow to %s (%s) from %s" % (ctx.server, ctx.address, ctx.client_ip))
+
+def on_udp_message(msg, ctx):
+    # Drop the client's datagrams that mention "blocked"; tag the target's answers.
+    if msg.text == None:
+        return None
+    if msg.from_client and "blocked" in msg.text:
+        return False
+    if not msg.from_client:
+        return msg.text + " (via MicroProxy)"
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
 `Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame`, `FrameContext`,
-`TcpMessage` and `TcpContext`:
+`TcpMessage`, `TcpContext`, `UdpMessage` and `UdpContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]

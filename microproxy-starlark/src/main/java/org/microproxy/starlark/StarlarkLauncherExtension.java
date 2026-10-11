@@ -103,6 +103,10 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
             // Only then: without an interceptor, tunnels copy bytes through pooled buffers.
             bootstrap.withTcpInterceptor(proxy.tcpInterceptor());
         }
+        boolean udp = proxy.definesUdpHooks();
+        if (udp) {
+            bootstrap.withUdpInterceptor(proxy.udpInterceptor());
+        }
         if (!constants.isEmpty()) {
             // Names only: the values may be secrets.
             console.println("Script constants: " + String.join(", ", constants.keySet()));
@@ -110,7 +114,8 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
         console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : "")
                 + (authenticates ? "; clients authenticate with its authenticate()" : "")
                 + (frames ? "; HTTP/2 and HTTP/3 frames go through its on_frame()" : "")
-                + (tcp ? "; raw TCP tunnels go through its on_tcp_*() hooks" : ""));
+                + (tcp ? "; raw TCP tunnels go through its on_tcp_*() hooks" : "")
+                + (udp ? "; CONNECT-UDP flows go through its on_udp_*() hooks" : ""));
     }
 
     /** The constants from the command line; later ones replace earlier ones of the same name. */
