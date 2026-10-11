@@ -14,6 +14,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLParameters;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Timeout;
 import org.microproxy.http.HttpObject;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
+import org.microproxy.http.WebSocketMessage;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -350,6 +352,68 @@ class HttpProxyForwardingTest {
                 "GET http://" + authority(origin) + "/private HTTP/1.1 null",
                 "GET http://" + authority(origin) + "/private HTTP/1.1 " + CORP_CREDENTIALS,
                 "CONNECT " + target + " HTTP/1.1 " + CORP_CREDENTIALS), corpSaw);
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // WebSockets through the HTTP proxy
+    // -------------------------------------------------------------------------------------------
+
+    /** Filters that upper-case every text message the client sends. */
+    private static HttpFiltersSource shoutingClientMessages() {
+        return (original, ctx) -> new HttpFiltersAdapter(original, ctx) {
+            @Override
+            public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+                return fromClient && message.isText() ? message.withText(message.text().toUpperCase(Locale.ROOT))
+                        : message;
+            }
+        };
+    }
+
+    /** Asks for a WebSocket upgrade with {@code requestLine}, offering permessage-deflate, over {@code s}. */
+    private static WebSocketPeer upgrade(Socket s, String requestLine, String host) throws IOException {
+        String head = request(s, requestLine, host, "Upgrade: websocket", "Connection: Upgrade",
+                "Sec-WebSocket-Version: 13", "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+                "Sec-WebSocket-Extensions: permessage-deflate");
+        assertTrue(head.startsWith("HTTP/1.1 101"), head);
+        return WebSocketPeer.client(s.getInputStream(), s.getOutputStream(),
+                WebSocketPeer.Agreement.parse(WebSocketTestSupport.header(head, "Sec-WebSocket-Extensions")));
+    }
+
+    @Test
+    void anAbsoluteFormWebSocketThroughTheHttpProxyGetsTheMessageHooks() throws Exception {
+        startCorp(null);
+        proxy = microProxy().withFiltersSource(shoutingClientMessages()).start();
+        try (WebSocketPeer.Server server = new WebSocketPeer.Server("permessage-deflate")) {
+            String target = "127.0.0.1:" + server.port();
+            Socket session = plainSession();
+            WebSocketPeer ws = upgrade(session, "GET http://" + target + "/chat HTTP/1.1", target);
+            ws.sendText("ping through the http proxy");
+            assertEquals("echo:PING THROUGH THE HTTP PROXY", ws.readMessage().text());
+            assertEquals(List.of("PING THROUGH THE HTTP PROXY"), server.texts());
+            assertEquals(List.of("GET http://" + target + "/chat HTTP/1.1 null"), corpSaw);
+        }
+    }
+
+    @Test
+    void aWebSocketInATunnelThroughTheHttpProxyGetsTheMessageHooks() throws Exception {
+        startCorp(null);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = microProxy().withFiltersSource(HttpFiltersChain.of(recording(seen), shoutingClientMessages())).start();
+        try (WebSocketPeer.Server server =
+                new WebSocketPeer.Server("permessage-deflate", serverCa.serverContext("localhost", "127.0.0.1"))) {
+            String target = "localhost:" + server.port();
+            Socket session = plainSession();
+            String head = request(session, "CONNECT " + target + " HTTP/1.1", target);
+            assertTrue(head.startsWith("HTTP/1.1 200"), head);
+            // The TLS in the tunnel the HTTP proxy opened is intercepted, and the upgrade inside it too.
+            SSLSocket tls = tls(session, "localhost", server.port(), "http/1.1");
+            WebSocketPeer ws = upgrade(tls, "GET /chat HTTP/1.1", target);
+            ws.sendText("ping through the tunnel");
+            assertEquals("echo:PING THROUGH THE TUNNEL", ws.readMessage().text());
+            assertEquals(List.of("PING THROUGH THE TUNNEL"), server.texts());
+            assertEquals(List.of("CONNECT " + target + " HTTP/1.1 null"), corpSaw);
+            assertTrue(seen.contains("GET /chat via=" + corpTarget()), seen.toString());
+        }
     }
 
     // -------------------------------------------------------------------------------------------

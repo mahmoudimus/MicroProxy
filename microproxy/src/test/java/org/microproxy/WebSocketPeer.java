@@ -274,7 +274,19 @@ public final class WebSocketPeer implements AutoCloseable {
         private final TestSupport.RawServer server;
 
         public Server(String extensions) {
-            server = TestSupport.rawServer(socket -> {
+            this(extensions, null);
+        }
+
+        /** A server that speaks TLS with {@code tls}'s certificate first, when {@code tls} is non-null. */
+        public Server(String extensions, javax.net.ssl.SSLContext tls) {
+            server = TestSupport.rawServer(accepted -> {
+                Socket socket = accepted;
+                if (tls != null) {
+                    javax.net.ssl.SSLSocket secure =
+                            (javax.net.ssl.SSLSocket) tls.getSocketFactory().createSocket(accepted, null, true);
+                    secure.setUseClientMode(false);
+                    socket = secure;
+                }
                 socket.setSoTimeout(10_000);
                 String request = TestSupport.readUntil(socket.getInputStream(), "\r\n\r\n");
                 requests.add(request);
