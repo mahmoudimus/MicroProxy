@@ -3,8 +3,12 @@
  * module: range sets ({@link io.github.mahmoudimus.quic.connection.RangeSet}), reassembly of
  * received data ({@link io.github.mahmoudimus.quic.connection.Assembler}), buffering of sent data
  * ({@link io.github.mahmoudimus.quic.connection.SendBuffer}), streams and flow control ({@link
- * io.github.mahmoudimus.quic.connection.StreamsState}) and pacing ({@link
- * io.github.mahmoudimus.quic.connection.Pacer}).
+ * io.github.mahmoudimus.quic.connection.StreamsState}), packet number spaces and ACK generation
+ * ({@link io.github.mahmoudimus.quic.connection.PacketSpace}), loss detection ({@link
+ * io.github.mahmoudimus.quic.connection.Recovery}), pacing ({@link
+ * io.github.mahmoudimus.quic.connection.Pacer}), path MTU discovery ({@link
+ * io.github.mahmoudimus.quic.connection.MtuDiscovery}) and timers ({@link
+ * io.github.mahmoudimus.quic.connection.TimerTable}).
  *
  * <p>Nothing here performs I/O, reads a clock or starts a thread: every method that depends on time
  * takes the current time as a {@code long} in nanoseconds from one monotonic clock (see {@link
