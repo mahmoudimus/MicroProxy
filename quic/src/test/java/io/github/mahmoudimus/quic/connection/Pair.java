@@ -23,7 +23,8 @@ import java.util.function.Predicate;
 /**
  * Two endpoints joined by an in-memory network on a fake clock, as quinn's tests drive them: no
  * sockets, no threads, no sleeping. The network can drop datagrams above an MTU, add latency, lose
- * and reorder datagrams from a seeded random source, or drop chosen datagrams.
+ * and reorder datagrams from a seeded random source, drop chosen datagrams, or pass them through a
+ * bottleneck of limited rate with a drop-tail queue.
  */
 final class Pair {
 
@@ -42,6 +43,20 @@ final class Pair {
     double lossRate;
     /** The probability that a datagram is delayed by an extra random amount, reordering it. */
     double reorderRate;
+    /**
+     * The bottleneck rate of each direction in bytes per second, or 0 for none: a token bucket
+     * refilled at this rate with no room for bursts, so that datagrams leave one after another at
+     * the rate, waiting in a FIFO queue, and then take the latency.
+     */
+    long bandwidth;
+    /** The bytes the bottleneck queue of each direction holds; datagrams arriving to a full queue are dropped. */
+    long queueLimit = Long.MAX_VALUE;
+    /** When each direction's bottleneck is free again: client to server, then server to client. */
+    private final long[] linkFreeAt = new long[2];
+    /** Datagrams dropped by a full bottleneck queue. */
+    long queueDrops;
+    /** The longest a datagram waited in a bottleneck queue, in nanoseconds. */
+    long maxQueueDelay;
     /** Drops datagrams the client sends when it returns true. */
     Predicate<ByteBuffer> dropFromClient = d -> false;
     /** Drops datagrams the server sends when it returns true. */
@@ -164,7 +179,20 @@ final class Pair {
         if (lossRate > 0 && random.nextDouble() < lossRate) {
             return;
         }
-        long at = time + latency;
+        long at = time;
+        if (bandwidth > 0) {
+            int direction = to == server ? 0 : 1;
+            long start = Math.max(time, linkFreeAt[direction]);
+            long queued = (start - time) * bandwidth / 1_000_000_000L; // bytes ahead of this one
+            if (queued + d.remaining() > queueLimit) {
+                queueDrops++;
+                return;
+            }
+            maxQueueDelay = Math.max(maxQueueDelay, start - time);
+            linkFreeAt[direction] = start + d.remaining() * 1_000_000_000L / bandwidth;
+            at = linkFreeAt[direction];
+        }
+        at += latency;
         if (reorderRate > 0 && random.nextDouble() < reorderRate) {
             at += 1 + random.nextInt(5_000_000);
         }
