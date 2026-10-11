@@ -12,7 +12,7 @@ import java.util.function.LongSupplier;
 /**
  * The proxy's metrics, by Envoy's flat stat names ({@code http.<prefix>.downstream_rq_total},
  * {@code cluster.<name>.upstream_cx_connect_ms}, ...), each with the tags its name carries ({@link
- * TagExtractor}), for {@link StatsFormatter} to show.
+ * TagExtractor}), for {@link StatsFormatter} and {@link StatsdSink} to show.
  *
  * <p>Metrics are made once and then kept: the proxy resolves its own when it starts, per
  * listener, per cluster and per connection, and keeps them in fields, so counting a request is an
