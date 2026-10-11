@@ -94,6 +94,13 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         }
     }
 
+    /** {@return the upstream proxies, their credentials masked ({@code http://***@host:port}), and whether direct is a fallback} */
+    @Override
+    public String toString() {
+        return "UpstreamProxyManager[http=" + httpProxy + ", https=" + httpsProxy + ", fallbackToDirect="
+                + fallbackToDirect + "]";
+    }
+
     private record Target(String host, int port, boolean secure) {}
 
     /**
