@@ -34,7 +34,9 @@ public final class StreamException extends Exception {
         ILLEGAL_ORDERED_READ
     }
 
+    /** Why the operation failed. */
     private final Kind kind;
+    /** The peer's application error code, or -1. */
     private final long errorCode;
 
     /**

@@ -47,7 +47,12 @@ public final class StreamsState {
     /** The largest stream count MAX_STREAMS may carry, 2<sup>60</sup>. */
     public static final long MAX_STREAM_COUNT = 1L << 60;
 
-    /** The number of bytes and whole chunks {@link #writeChunks} took. */
+    /**
+     * What {@link #writeChunks} took.
+     *
+     * @param bytes the number of bytes
+     * @param chunks the number of whole chunks; a partly taken chunk is not counted
+     */
     public record Written(long bytes, int chunks) {}
 
     private final Side side;

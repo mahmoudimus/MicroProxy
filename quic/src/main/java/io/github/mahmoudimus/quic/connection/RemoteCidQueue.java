@@ -239,6 +239,7 @@ public final class RemoteCidQueue {
         @java.io.Serial
         private static final long serialVersionUID = 1L;
 
+        /** Why the ID was refused. */
         private final InsertError error;
 
         /**
