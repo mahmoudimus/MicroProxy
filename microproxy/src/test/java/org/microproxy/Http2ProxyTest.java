@@ -392,7 +392,7 @@ class Http2ProxyTest {
         assertTrue(request.contains("/logged HTTP/2.0"), request);
         assertTrue(request.contains("--> forwarded as GET /logged HTTP/1.1"), request);
         assertTrue(request.startsWith("[conn ") && request.contains(" stream "), request);
-        eventually("the access log line", () -> access.stream().anyMatch(l -> l.contains("/logged HTTP/2.0")));
+        eventually("the access log line", () -> access.stream().anyMatch(l -> l.contains("/logged HTTP/2\"")));
     }
 
     @Test
