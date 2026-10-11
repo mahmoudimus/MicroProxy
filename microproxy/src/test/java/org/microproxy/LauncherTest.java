@@ -119,7 +119,8 @@ class LauncherTest {
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
-                "--no-http3-alt-svc", "--http3-retry", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
+                "--no-http3-alt-svc", "--http3-retry", "--masque-udp-template", "--masque-udp-idle-timeout",
+                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
@@ -182,6 +183,33 @@ class LauncherTest {
         assertEquals(0, BootstrapView.transparentQuicPort(fromFile));
         assertEquals(java.time.Duration.ofSeconds(30), BootstrapView.http3Options(fromFile).transparentRelayIdleTimeout());
         assertTrue(BootstrapView.http3Options(fromFile).retry());
+    }
+
+    @Test
+    void masqueFlagsAndProperties() throws IOException {
+        HttpProxyServerBootstrap b = parse("--masque-udp-template", "/udp?h={target_host}&p={target_port}",
+                "--masque-udp-idle-timeout", "20", "--masque-max-udp-flows", "100",
+                "--masque-max-udp-flows-per-connection", "4").bootstrap();
+        Http3Options h3 = BootstrapView.http3Options(b);
+        assertEquals("/udp?h={target_host}&p={target_port}", h3.connectUdpTemplate());
+        assertEquals(java.time.Duration.ofSeconds(20), h3.connectUdpIdleTimeout());
+        assertEquals(100, h3.connectUdpMaxFlows());
+        assertEquals(4, h3.connectUdpMaxFlowsPerConnection());
+        Http3Options defaults = BootstrapView.http3Options(parse("--masque-max-udp-flows", "10").bootstrap());
+        assertEquals("/.well-known/masque/udp/{target_host}/{target_port}/", defaults.connectUdpTemplate());
+        assertEquals(10, defaults.connectUdpMaxFlows());
+        assertEquals(64, defaults.connectUdpMaxFlowsPerConnection());
+        assertThrows(IllegalArgumentException.class, () -> parse("--masque-udp-template", "/udp/{target_host}/"));
+
+        java.util.Properties p = new java.util.Properties();
+        p.setProperty("masque_udp_template", "/m/{target_host}/{target_port}");
+        p.setProperty("masque_udp_idle_timeout", "5");
+        p.setProperty("masque_max_udp_flows_per_connection", "8");
+        Http3Options fromFile = BootstrapView.http3Options(BootstrapView.fromProperties(p));
+        assertEquals("/m/{target_host}/{target_port}", fromFile.connectUdpTemplate());
+        assertEquals(java.time.Duration.ofSeconds(5), fromFile.connectUdpIdleTimeout());
+        assertEquals(4096, fromFile.connectUdpMaxFlows());
+        assertEquals(8, fromFile.connectUdpMaxFlowsPerConnection());
     }
 
     @Test

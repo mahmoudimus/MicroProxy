@@ -344,8 +344,20 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
-                || p.containsKey("transparent_quic_relay_idle_timeout")) {
+                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("masque_udp_template")
+                || p.containsKey("masque_udp_idle_timeout") || p.containsKey("masque_max_udp_flows")
+                || p.containsKey("masque_max_udp_flows_per_connection")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("masque_udp_template")) h3.connectUdpTemplate(p.getProperty("masque_udp_template").strip());
+            if (p.containsKey("masque_udp_idle_timeout")) {
+                h3.connectUdpIdleTimeout(Duration.ofSeconds(Long.parseLong(p.getProperty("masque_udp_idle_timeout").strip())));
+            }
+            if (p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection")) {
+                h3.connectUdpMaxFlows(
+                        Integer.parseInt(p.getProperty("masque_max_udp_flows", Integer.toString(http3Options.connectUdpMaxFlows())).strip()),
+                        Integer.parseInt(p.getProperty("masque_max_udp_flows_per_connection",
+                                Integer.toString(http3Options.connectUdpMaxFlowsPerConnection())).strip()));
+            }
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
             }
