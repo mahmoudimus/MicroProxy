@@ -10,6 +10,8 @@ ClientConnection.run / serveRequests     HTTP/1 connection loop   (HTTP/1 only)
         │                                └─ plain listener: preface ──► (frame reader, one thread per stream)
         │                                Http3Listener (UDP) ─────────► ClientConnection.serveHttp3
         │                                                                └► Http3Connection (one thread per stream)
+        │                                TransparentQuicListener (UDP) ► decideTransparentQuic, then
+        │                                                                 serveTransparentQuic (as serveHttp3) or a relay
         ▼
 ClientConnection.handleRequest(channel, request)   exchange logic   (any transport)
         │  body, interim responses, response head and body, tunnel, close
@@ -444,10 +446,9 @@ for the SNI). Each established QUIC connection becomes a `ClientConnection` of i
 constructor without a socket: its `Http1ClientChannel` is never attached), served by `serveHttp3`
 on the server's connection executor, so a graceful stop waits for it as for TCP clients.
 
-The proxy serves HTTP/3 only as a reverse proxy: clients of an explicit proxy never speak HTTP/3
-to it (that would be MASQUE's CONNECT-UDP), and a transparent proxy sees only TCP. Their HTTP/3
-is steered to TCP by stripping `h3` from `Alt-Svc` instead; transparent UDP interception is the
-next step.
+The proxy serves HTTP/3 to a reverse proxy's clients, and to transparent QUIC clients (below):
+clients of an explicit proxy never speak HTTP/3 to it (that would be MASQUE's CONNECT-UDP), so
+their HTTP/3 is steered to TCP by stripping `h3` from `Alt-Svc` instead.
 
 `Http3Endpoint` is what both ends of an HTTP/3 connection share, as `Http2Endpoint` is for HTTP/2:
 
@@ -510,6 +511,57 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 do nothing, `writeContinue` answers only `Expect: 100-continue`, `close` resets the stream. Its
 `ClientFlowContext` has the QUIC stream id and `HttpVersion.HTTP_3_0`.
 
+## Transparent QUIC: `TransparentQuicListener`
+
+With `withTransparentQuicPort`, `DefaultHttpProxyServer.start` binds a `TransparentQuicListener`:
+a `QuicServer` (offering `h3`, with `Http3Listener.serverConfig`, whose certificate selector asks
+the `CertificateAuthorityMitmManager` for the SNI's certificate) given a
+`QuicServer.DatagramFilter`. The QUIC server's receiving thread routes the datagrams of its own
+connections first, by the connection IDs it issued; everything else goes to the listener's
+filter, which keeps flows by client address.
+
+- **Pending.** A client's first Initial (a v1 or v2 long header Initial, in a datagram of 1200
+  bytes or more) starts a `Flow` keyed by the client address and the Initial's Destination
+  Connection ID, within the pending bounds. Its datagrams are held, and `QuicClientHello` (ported
+  from mitmproxy's `quic/_client_hello_parser.py`) reads them: it decrypts each Initial packet on
+  a copy with the keys of `Keys.initial(version, dcid, true)`, decodes the frames
+  (`FrameDecoder`), puts the CRYPTO data where its offset says (a `TreeMap` of received ranges),
+  and once the first `4 + length` bytes are there, hands the message to `TlsClientHello.parse`.
+  Anything unreadable drops the flow. A datagram of another version, or not QUIC, with no flow
+  goes back to the QUIC server, which answers Version Negotiation or drops it.
+- **Deciding**, on a virtual thread per flow: a new `ClientConnection(server, clientAddress)`
+  runs `decideTransparentQuic`, which marks its `ClientFlowContext` (`transparentQuic`), records
+  the ClientHello, reports the client and a made-up `CONNECT sni:transparentTlsPort` to trackers,
+  asks the authenticator, makes the filters (kept as `quicFilters` until the flow ends, for
+  `exchangeEnded`) and applies the same checks as `declineReason`, plus ALPN `h3` and whether a
+  certificate can be issued. It answers `INTERCEPT`, `RELAY` or `DROP`, with why.
+- **Intercepting.** The held datagrams are injected into the QUIC server in order, under the
+  listener's lock, and the flow stays (state `INTERCEPTED`) for the pending timeout to inject
+  stragglers until the endpoint routes them itself. The deciding `ClientConnection` waits in
+  `accepting`, keyed by the client address and that Destination Connection ID, which the accepted
+  `QuicConnection` names (`initialDestinationId`); `DefaultHttpProxyServer.acceptTransparentQuic`
+  then serves it on the connection executor with `serveTransparentQuic`, which is `serveHttp3`
+  with `mitmHostAndPort` set: the requests go to the SNI's host as an intercepted session's do,
+  and `sessionHello` is null, so servers are offered `h2` and `http/1.1` (the client's ALPN says
+  only `h3`). With Retry, the QUIC server answers the injected Initial; the client's next Initial
+  (a new Destination Connection ID) starts a pending flow again, whose ClientHello is matched to
+  the `accepting` entry of its address and SNI instead of being decided on again.
+- **Relaying.** The SNI's host is resolved with the server's `HostResolver`, and a connected
+  `DatagramChannel` of the flow's own sends the held datagrams, then each one the filter matches
+  to the flow. A virtual thread reads the server's datagrams, learns the server's connection IDs
+  (the Source Connection ID of its long header packets) and sends them to the client with
+  `QuicServer.send`, from the listener's socket. The filter matches a client's datagram to a
+  flow by the Initials' Destination Connection ID or a learned server ID; failing that, anything
+  but an Initial goes to the address's most recently active relayed flow.
+- **Ending.** A sweeper thread, every half second or so, forgets pending flows past their
+  timeout, intercepted flows past their routing window, `accepting` entries whose handshake never
+  completed, and relayed flows idle past `transparentRelayIdleTimeout`, telling their
+  `ClientConnection`s (`endTransparentQuic`: filters' `exchangeEnded`, `clientDisconnected`).
+- **Locks.** One `ReentrantLock` guards the flows, the counts and `accepting`; it is held while
+  injecting and while writing to a relay's socket, so datagrams keep their order, and never while
+  deciding, resolving or calling trackers. The QUIC server's endpoint lock is taken under it (by
+  `inject`), never the other way round. No `synchronized`.
+
 ## HTTP/3 to servers: `Http3UpstreamConnection` and `Http3Origins`
 
 With `withHttp3Upstream`, `proxyRequest` asks `Http3Origins.stream` for a stream before any TCP
@@ -522,7 +574,8 @@ Requests from any client, HTTP/1, HTTP/2 or HTTP/3, take this way.
   before filters or the h3 stripping see it: an `h3` alternative on the server's own host
   (`AltSvc.http3`; other hosts are never used) is remembered for its `ma`, and `clear` or `ma=0`
   forgets it. `withHttp3UpstreamHosts` patterns name servers reached over HTTP/3 without an
-  advertisement, on their URI's port.
+  advertisement, on their URI's port. An intercepted transparent QUIC flow tells it that its host
+  speaks HTTP/3 on its own port (`spoke`), unless an advertisement says otherwise.
 - **Keys and sharing.** One `Http3UpstreamConnection` per server, port and trust (the MITM
   manager's `serverTrustManager`, or the JDK's default trust store; a manager whose context the
   proxy cannot reproduce keeps the server on TCP), shared by every client: nothing about a QUIC

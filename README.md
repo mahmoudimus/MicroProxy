@@ -132,6 +132,10 @@ java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-a
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
     --mode reverse:https://example.com --listener-keystore site.p12 --listener-keystore-password secret \
     --http2 --http3 --http3-upstream
+
+# A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too:
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --server \
+    --transparent --transparent-quic-port 8443 --mitm --http2 --http3-upstream
 ```
 <!-- x-release-please-end -->
 
@@ -207,7 +211,9 @@ Command-line flags override values from the file.
 | `port` / `address` | listen port / `host:port` | `8080` |
 | `allow_local_only` | listen on loopback only | `true` |
 | `transparent` | don't add `Via` or strip hop-by-hop headers, and route TLS that arrives without `CONNECT` by its SNI (see [Transparent mode](#transparent-mode)) | `false` |
-| `transparent_tls_port` | the port SNI-routed transparent TLS goes to | `443` |
+| `transparent_tls_port` | the port SNI-routed transparent TLS (and QUIC) goes to | `443` |
+| `transparent_quic_port` | with `transparent`, a UDP port for redirected QUIC, intercepted or relayed by its SNI (see [Transparent QUIC](#transparent-quic)) | none |
+| `transparent_quic_relay_idle_timeout` | seconds a relayed QUIC flow lives without a datagram | `60` |
 | `mode` | `regular`, `transparent`, `socks5` (see [SOCKS5 mode](#socks5-mode)), or `reverse:<scheme>://<host>[:<port>]` with `http`, `https` or `tcp` (see [Reverse proxy mode](#reverse-proxy-mode)) | `regular` |
 | `socks` | also serve SOCKS5 and SOCKS4(a) clients on the regular listener, told apart by their first byte | `false` |
 | `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
@@ -237,7 +243,7 @@ Command-line flags override values from the file.
 | `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](#retries-and-backoff)) | off / 8 × initial |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
-| `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [HTTP/3 and QUIC](#http3-and-quic)) | `true` with interception or `transparent`, else `false` |
+| `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [Alt-Svc](#alt-svc-which-clients-may-move-to-http3)) | `true` with interception or `transparent`, except for redirected clients with `transparent_quic_port`; else `false` |
 | `http2` | serve HTTP/2 to clients on intercepted TLS and the proxy TLS listener (needs the `http2-codec` jar; see [HTTP/2](#http2)) | `false` |
 | `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges (see [HTTP/2 to servers](#http2-to-servers)) | `false` |
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
@@ -248,6 +254,7 @@ Command-line flags override values from the file.
 | `http3_upstream_hosts` | comma-separated regular expressions for `host:port` names reached over HTTP/3 without waiting for `Alt-Svc` | none |
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
+| `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
@@ -732,6 +739,10 @@ leaving out `Via` and keeping hop-by-hop headers, the listener then accepts:
   connections are tunnelled: an SNI proxy.
 - **Plain HTTP**, routed by its `Host` field, when origin-form requests are allowed
   (`--allow-requests-to-origin-server`, `allow_requests_to_origin_server=true`), as before.
+- **QUIC (HTTP/3)** on a UDP port of its own, with `--transparent-quic-port <port>`
+  (`withTransparentQuicPort`, `transparent_quic_port`): routed by the SNI of the ClientHello in
+  its first packets, then intercepted or relayed by the same rules (see
+  [Transparent QUIC](#transparent-quic)).
 
 Java cannot read a redirected connection's original destination (Linux's `SO_ORIGINAL_DST`), so
 the server is the one the SNI or the `Host` field names, not the address the client connected to.
@@ -757,8 +768,8 @@ sudo -u proxy java -jar microproxy.jar --server --port 8080 --transparent --mitm
 ```
 
 Clients must trust the proxy's CA (`microproxy-ca.pem`) for the hosts that are intercepted. QUIC
-(UDP 443) is not redirected: block it so that browsers fall back to TCP (see
-[HTTP/3 and QUIC](#http3-and-quic)).
+(UDP 443) is not redirected by these rules: redirect it to a [transparent QUIC](#transparent-quic)
+port too, or block it so that browsers fall back to TCP.
 
 ### Reverse proxy mode
 
@@ -1349,8 +1360,9 @@ Scripts get the same with [`on_frame`](#frames).
 
 MicroProxy speaks HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114)) over its own
 QUIC transport, the [`quic`](quic/README.md) module (ported from quinn and rustls), with
-[`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in two places: to the
-clients of a reverse proxy, and to origin servers known to support it. Both need the optional
+[`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in three places: to the
+clients of a reverse proxy, to clients whose QUIC is redirected to a
+[transparent proxy](#transparent-quic), and to origin servers known to support it. All need the optional
 `quic` and `http3-codec` jars on the class path (the `microproxy-starlark` `-all` jar bundles
 them); a proxy started with HTTP/3 enabled without them fails at startup with an
 `IllegalStateException` that says so, and without HTTP/3 nothing loads them.
@@ -1404,7 +1416,9 @@ listener on the TCP listener's port number and serves HTTP/3 there (ALPN `h3`).
 **Why only reverse mode.** Clients of an explicit proxy (and of the proxy's TLS listener as a
 forward proxy) never speak HTTP/3 to it: browsers send HTTP/3 only to origins, and tunnelling it
 through a proxy would be MASQUE's CONNECT-UDP (RFC 9298), which is out of scope. So `withHttp3`
-on any other proxy fails at startup, and such clients are steered to TCP instead (below).
+on any other proxy fails at startup. A transparent proxy takes the QUIC that clients send to
+origins on a [transparent QUIC](#transparent-quic) port instead; other clients are steered to TCP
+([Alt-Svc](#alt-svc-which-clients-may-move-to-http3)).
 
 **Limits.** Much of HTTP/2's defence is QUIC's in HTTP/3: the stream limit and flow control are
 the transport's, which a peer cannot exceed without a QUIC error. The proxy's own limits are set
@@ -1468,27 +1482,123 @@ HTTP/3), in any mode.
   through a tunnel a session's server opened, with a PROXY protocol header, proxy requests and
   WebSockets keep using TCP.
 
-#### Clients of an explicit or transparent proxy: Alt-Svc
+#### Transparent QUIC
+
+`--transparent-quic-port <port>` (`withTransparentQuicPort(port)`, `transparent_quic_port`, with
+`--transparent`) opens a UDP listener for QUIC that a firewall redirects to the proxy: the UDP
+counterpart of [transparent TLS](#transparent-mode). Java cannot read a redirected datagram's
+original destination either, so each new client flow (a client address and the Destination
+Connection ID of its first Initial packets) is routed by its SNI, to that host's
+`--transparent-tls-port` (443).
+
+- **Reading the ClientHello.** The proxy holds a new client's datagrams and decrypts its Initial
+  packets with the keys their Destination Connection ID gives (RFC 9001 section 5.2, QUIC v1 and
+  v2), without a handshake, as mitmproxy does. It puts the CRYPTO frames back together across
+  packets and datagrams, in any order (Chrome's post-quantum ClientHellos take two packets, their
+  frames shuffled), and parses the same `ClientHello` that TLS over TCP gives.
+- **Deciding**, as for transparent TLS: a `CONNECT sni:443` is made up for the flow (filters see
+  it; `clientToProxyRequest` answering it drops the flow; `proxyToServerAllowMitm()` and
+  `allow_mitm` may decline), then the [ignore and allow rules](#ignoring-and-allowing-hosts),
+  the client's ALPN (only `h3` is intercepted), `MitmManager.shouldIntercept(hello, flow)`, and
+  `proxyToServerAllowMitm(hello)` / `on_client_hello`. A redirected client sends no proxy
+  credentials: with an authenticator, it must accept clients without.
+- **Intercepted** (HTTP/3 with a MITM manager, which must be a `CertificateAuthorityMitmManager`
+  to issue QUIC's certificates): the held datagrams go to the proxy's QUIC server, whose handshake
+  presents a certificate the CA issues for the SNI, and the connection is served HTTP/3 like a
+  [reverse proxy's](#serving-http3-in-reverse-mode) clients, with its requests going to the SNI's
+  host: over HTTP/3 with `--http3-upstream` (the proxy takes the client's HTTP/3 as the origin's
+  advertisement, and falls back to TCP if its QUIC handshake fails), else over HTTP/2 or
+  HTTP/1.1. Filters, scripts (`on_request`, `on_frame`, ...), logging and trackers see the
+  requests, with `FlowContext.isTransparentQuic()` (and `ctx.transparent_quic`) true.
+- **Relayed** (no MITM manager, an ignored or declined host, another ALPN such as DNS over QUIC's
+  `doq`): the datagrams go to the server untouched from a UDP socket of the flow's own, and the
+  server's back to the client from the listener's socket, until the flow is idle for
+  `--transparent-quic-relay-idle-timeout` (60 s). The client completes its handshake with the
+  real server. Intercepting other QUIC protocols stream by stream is not done yet.
+- **Demultiplexing.** One socket serves every client. Intercepted connections are routed by the
+  connection IDs the proxy issued (so they survive the client moving to new ones); relayed flows
+  by the client address and the connection IDs seen in their long headers, and otherwise to the
+  client address's most recently active flow (servers issue more IDs in encrypted frames).
+- **Versions.** A new client offering a version the proxy cannot read gets Version Negotiation
+  (v1, v2), since its destination is in a ClientHello the proxy cannot decrypt; on an existing
+  relayed flow, other versions are relayed like anything else.
+- **Retry.** `--http3-retry` (`Http3Options.retry`) makes intercepted clients prove their address
+  first. Relayed clients never get one: their server would refuse the proxy's token.
+- **Bounds** (`Http3Options`): new clients held at once (1024, and 32 per client IP address, each
+  holding 16 datagrams and 64 KiB at most, all together 8 MiB), how long one may take to send its
+  ClientHello and be decided on (5 s), relayed flows (4096, and 256 per client IP address).
+  Datagrams past a bound are dropped, as a full socket buffer would drop them.
+
+```java
+MicroProxy.bootstrap()
+        .withTransparent(true)
+        .withTransparentQuicPort(8443)                                   // --transparent-quic-port 8443
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp3Upstream(true)                                         // HTTP/3 to origins too
+        .withIgnoreHosts("\\.bank\\.example:443$")                         // relayed untouched
+        .start();
+```
+
+Redirecting a gateway's clients' QUIC (`eth1`) to UDP port 8443, next to their TCP:
+
+```bash
+# REDIRECT (NAT): the proxy answers from its listener socket, and the kernel's connection
+# tracking turns the replies' source back into the address the client sent to.
+iptables -t nat -A PREROUTING -i eth1 -p udp --dport 443 -j REDIRECT --to-ports 8443
+# On the proxy's own machine, its own QUIC (relays, HTTP/3 to origins) must not be redirected:
+iptables -t nat -A OUTPUT -p udp -m owner ! --uid-owner proxy --dport 443 -j REDIRECT --to-ports 8443
+
+# TPROXY keeps the original destination on the packet instead of rewriting it:
+ip rule add fwmark 1 lookup 100
+ip route add local 0.0.0.0/0 dev lo table 100
+iptables -t mangle -A PREROUTING -i eth1 -p udp --dport 443 -j TPROXY --on-port 8443 --tproxy-mark 1
+```
+
+**NAT.** Use REDIRECT. With it, replies must leave from the socket the client's datagrams arrived
+at, as the proxy's do, so that connection tracking maps them back; and the conntrack entry of a
+UDP flow (`nf_conntrack_udp_timeout_stream`, 120 s by default) should outlive the relay's idle
+timeout. TPROXY needs a listening socket with `IP_TRANSPARENT`, which the JDK cannot set, and
+replies sent from the original destination address, which the JDK cannot do either: it does not
+work with MicroProxy as it is. Relayed flows reach servers from a new UDP socket each, so a
+firewall in front of the proxy sees each as a flow of its own. A client that moves to another
+address (QUIC connection migration) is not followed: its datagrams from the new address belong to
+no flow, and are dropped (intercepted connections drop them too, as the QUIC module does not
+migrate connections yet).
+
+#### Alt-Svc: which clients may move to HTTP/3
 
 HTTP/3 runs over QUIC, on UDP. Browsers never send QUIC through an HTTP proxy, and a transparent
-setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
-switch to it and bypass the proxy, and with it interception, filters and logging, until
-transparent UDP interception exists (the next step). Clients learn about HTTP/3 in two ways:
+setup may redirect only TCP. So a client that learns that an origin speaks HTTP/3 can switch to it
+and bypass the proxy, and with it interception, filters and logging, unless its UDP is redirected
+to a [transparent QUIC](#transparent-quic) port. Clients learn about HTTP/3 in two ways:
 
 - **From `Alt-Svc` response headers** such as `Alt-Svc: h3=":443"; ma=86400, h2=":443"`. The
   proxy removes the `h3` alternatives, including the draft versions (`h3-29`, `h3-Q050`, ...)
   and Google QUIC's `quic`. Other alternatives such as `h2=":443"` are kept with their
   parameters (`ma`, `persist`), a header left empty is removed, and `Alt-Svc: clear` is passed
   on. This is **on by default with interception (`--mitm`, `withManInTheMiddle`) or
-  `--transparent`**, and off for a plain forward proxy. `--no-alt-svc-h3`,
-  `withoutHttp3Advertisement()` or `strip_alt_svc_h3=true` turn it on, and `--keep-alt-svc-h3`,
-  `withAltSvcH3Stripping(false)` or `strip_alt_svc_h3=false` turn it off. Filters see server
+  `--transparent`**, and off for a plain forward proxy; **with `--transparent-quic-port`, it is
+  off by default for clients whose traffic was redirected to the proxy**, whose QUIC reaches the
+  proxy too (table below). `--no-alt-svc-h3`, `withoutHttp3Advertisement()` or
+  `strip_alt_svc_h3=true` turn it on for every client, and `--keep-alt-svc-h3`,
+  `withAltSvcH3Stripping(false)` or `strip_alt_svc_h3=false` off for every client. Filters see server
   responses unchanged in `serverToProxyResponse` and already stripped in
   `proxyToClientResponse`. Short-circuit responses (including cache answers) are stripped as
   they are sent. With `--http3-upstream`, the proxy itself learns from the advertisement first.
-- **From DNS `HTTPS` records**, which the proxy never sees. In transparent deployments,
-  **block UDP port 443** (for example `iptables -A FORWARD -p udp --dport 443 -j REJECT`).
-  Clients then fall back to TCP, which the proxy does see.
+- **From DNS `HTTPS` records**, which the proxy never sees. In transparent deployments without
+  a transparent QUIC port, **block UDP port 443** (for example `iptables -A FORWARD -p udp
+  --dport 443 -j REJECT`). Clients then fall back to TCP, which the proxy does see.
+
+Who keeps `h3` alternatives, by default (an explicit `strip_alt_svc_h3` applies to every row):
+
+| Client | Configuration | `h3` in `Alt-Svc` | Its HTTP/3 then |
+|---|---|---|---|
+| Explicit proxy client (`CONNECT`, absolute-form) | plain forward proxy | kept | goes around the proxy |
+| Explicit proxy client | `--mitm` or `--transparent` (with or without `--transparent-quic-port`) | stripped | stays on TCP through the proxy; a client whose UDP is redirected to the QUIC port anyway may turn stripping off (`--keep-alt-svc-h3`) |
+| Redirected client (SNI-routed TLS, HTTP routed by `Host`) | `--transparent`, no QUIC port | stripped | stays on TCP; block UDP 443 for DNS `HTTPS` records |
+| Redirected client | `--transparent --transparent-quic-port` | kept | redirected to the QUIC port: intercepted (`h3` with `--mitm`) or relayed |
+| HTTP/3 client of the transparent QUIC port | `--transparent-quic-port` | kept | already on HTTP/3 through the proxy |
+| Reverse proxy client | `--http3` | the proxy's own `h3` | the proxy's HTTP/3 listener |
 
 HTTP/2 can also announce alternatives in `ALTSVC` frames. The proxy never sends them, and drops
 any that HTTP/2 servers send (as frames of a type it does not handle), so alternatives reach
@@ -1497,8 +1607,9 @@ HTTP/2 clients only as `Alt-Svc` headers, which are stripped the same way.
 #### HTTP/3 frame interception
 
 The [frame interceptor](#frame-interception) sees HTTP/3 frames live wherever the proxy speaks
-HTTP/3: `FROM_CLIENT` and `TO_CLIENT` on the reverse proxy's HTTP/3 listener, `TO_SERVER` and
-`FROM_SERVER` on connections to HTTP/3 servers, with the stream's QUIC id and, from a stream's
+HTTP/3: `FROM_CLIENT` and `TO_CLIENT` on the reverse proxy's HTTP/3 listener and on intercepted
+transparent QUIC, `TO_SERVER` and `FROM_SERVER` on connections to HTTP/3 servers, with the
+stream's QUIC id and, from a stream's
 first frame on, its exchange's `FlowContext`. `Http3Frame` has `Data`, `Headers`, `Settings`,
 `GoAway`, `CancelPush`, `MaxPushId`, `PushPromise` and `Unknown`. The rules are HTTP/2's,
 adapted: HTTP/3 frames carry no stream id or END_STREAM (a message ends with its stream), so
@@ -1527,8 +1638,9 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
 
 #### Limitations and what is next
 
-- **Transparent UDP interception** of QUIC that clients send straight to origins is the next
-  step; until then, explicit and transparent clients are steered to TCP (above).
+- **Transparent QUIC** intercepts HTTP/3 only: other QUIC protocols are relayed, and its
+  original destination is the SNI's host (no TPROXY, no `SO_ORIGINAL_DST`). Clients of an
+  explicit proxy are still steered to TCP.
 - `CONNECT`, extended `CONNECT` and WebSockets over HTTP/3, HTTP datagrams and MASQUE.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
 - From the QUIC module: 0-RTT and session resumption, connection migration (see its
@@ -1894,7 +2006,7 @@ bootstrap.start();
 | `on_response(req, res, ctx)` | for every response head (the whole response when buffered) | `None`, or a new `response(...)` to replace it |
 | `upstream(req, ctx)` | when a server connection is needed | `None` for the default route, `"DIRECT"`, a proxy URL (`http://`, `https://`, `socks4://`, `socks5://`), or a list to try in order |
 | `allow_mitm(req, ctx)` | for `CONNECT` when `--mitm` is on | whether to intercept |
-| `on_client_hello(hello, ctx)` | once a client that may be intercepted has sent its TLS ClientHello (after `allow_mitm` and the host rules) | `False` to tunnel the connection untouched; `True` or `None` to intercept |
+| `on_client_hello(hello, ctx)` | once a client that may be intercepted has sent its TLS ClientHello (after `allow_mitm` and the host rules), over TCP or in the Initial packets of a [transparent QUIC](#transparent-quic) flow | `False` to tunnel (or relay) the connection untouched; `True` or `None` to intercept |
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
@@ -1922,7 +2034,8 @@ bootstrap.start();
   absolute-form request inside its session, or a request inside the tunnel one opened, goes
   through, else `None`; see
   [In front of an HTTP or HTTPS proxy](#in-front-of-an-http-or-https-proxy)), `socks_version` (5
-  or 4 for a [SOCKS client](#socks5-mode), else `None`), and `vars`, a dict that lives for
+  or 4 for a [SOCKS client](#socks5-mode), else `None`), `transparent_quic` (whether the client's
+  QUIC came to the [transparent QUIC](#transparent-quic) listener), and `vars`, a dict that lives for
   one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
   as the connection.
 - `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
@@ -3126,6 +3239,13 @@ byte[] encoded = Protobuf.encode(Map.of("id", 42L, "status", "SHIPPED"), schema,
   concurrently, on the streams' threads. A stream that ends without a complete response (the
   client reset it, or the connection closed) is reported with `connectionExceptionCaught(streamCtx,
   cause)`. The request's `protocolVersion()` is `HTTP/2.0`, so access log lines show it.
+- **Transparent QUIC:** each flow of the [transparent QUIC](#transparent-quic) listener is a
+  client connection of its own (`clientConnected` ... `clientDisconnected`, with
+  `ctx.isTransparentQuic()` true), whose made-up `CONNECT` is reported as a request.
+  `transparentQuicFlowDecided(ctx, clientHello, intercepted, reason)` says whether it is
+  intercepted or relayed, and why; a relayed flow then reports `serverConnected`, the bytes both
+  ways and `serverDisconnected`. The logger `org.microproxy.impl.TransparentQuicListener` writes
+  each decision, and why a new client was dropped, at DEBUG.
 - **In filters:** `HttpFilters.proxyToClientResponseSent(response, source)` is called once a
   response has been written in full, whoever made it, with the head as sent and its
   `ResponseSource`; `ctx.timings()` covers the whole exchange by then.
@@ -3268,7 +3388,8 @@ the `README.md` next to each copy:
   ElementTree notices in some files), in `microproxy-starlark`.
 - Logic ported from [mitmproxy](https://github.com/mitmproxy/mitmproxy) and
   [mitmproxy_rs](https://github.com/mitmproxy/mitmproxy_rs) (MIT): in the core, ClientHello
-  parsing, the ignore / allow host rules and the reverse mode specification; in
+  parsing (from TLS records and from QUIC Initial packets), the ignore / allow host rules and the
+  reverse mode specification; in
   `org.microproxy.extras`, the addons, flow filter expressions, HAR export and reading, and server
   and client replay; and for the content views in `org.microproxy.contentviews`, the schema-less
   protobuf heuristics and rendering, the gRPC view, the choice of views by priority, and the
