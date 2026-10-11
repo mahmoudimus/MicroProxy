@@ -165,6 +165,17 @@ public final class RemoteCidQueue {
     }
 
     /**
+     * The ID {@link #next()} would switch to, without switching: a probe of a new path uses it
+     * before the connection moves there (RFC 9000 section 9.5).
+     *
+     * @return the ID, or null if the peer supplied no unused one
+     */
+    public ConnectionId peekNext() {
+        int step = firstPresent(1);
+        return step < 0 ? null : cids[(cursor + step) % len()];
+    }
+
+    /**
      * Switches to the next known ID, as when migrating or for a server leaving the handshake ID.
      *
      * @return the new ID's reset token and the sequence numbers to retire, or null if no other ID

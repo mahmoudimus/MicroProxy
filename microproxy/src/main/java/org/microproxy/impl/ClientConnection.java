@@ -3887,8 +3887,8 @@ final class ClientConnection implements Runnable {
         try {
             server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
-            QuicSession session = new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext,
-                    target, serverFlow.getRemoteAddress(), masque, logPrefix);
+            QuicSession session = new QuicSession(server.quicInterceptor, server.quicFraming, quic,
+                    upstream.connection(), flowContext, target, serverFlow.getRemoteAddress(), masque, logPrefix);
             quicSession = session;
             if (!closed) session.run();
             completed = true;

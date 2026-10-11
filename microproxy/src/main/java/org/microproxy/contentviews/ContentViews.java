@@ -25,9 +25,9 @@ import java.util.TreeSet;
  * }</pre>
  *
  * <p>The default views: {@code protobuf}, {@code grpc}, {@code json}, {@code graphql}, {@code
- * msgpack}, {@code urlencoded}, {@code multipart}, {@code query}, {@code socketio}, and {@code
- * hex} (only when named). Instances are immutable and safe to share; {@link #with} and {@link
- * #withSchema} return new ones.
+ * msgpack}, {@code urlencoded}, {@code multipart}, {@code query}, {@code socketio}, {@code dns}
+ * ({@code application/dns-message}), and {@code hex} (only when named). Instances are immutable
+ * and safe to share; {@link #with} and {@link #withSchema} return new ones.
  */
 public final class ContentViews {
 
@@ -56,7 +56,7 @@ public final class ContentViews {
     private static List<ContentView> standard(ProtoSchema schema) {
         return List.of(new ProtobufView(schema), new GrpcView(schema), new JsonView(), new GraphQlView(),
                 new MsgPackView(), new FormViews.UrlEncoded(), new FormViews.Multipart(), new FormViews.Query(),
-                new SocketIoView(), new HexView());
+                new SocketIoView(), new DnsView(), new HexView());
     }
 
     /** {@return the default views, decoding protobuf without a schema} */

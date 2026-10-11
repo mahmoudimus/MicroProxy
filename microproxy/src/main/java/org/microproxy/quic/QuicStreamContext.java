@@ -41,9 +41,11 @@ public interface QuicStreamContext extends QuicContext {
 
     /**
      * Adds bytes to the stream, as if one side had sent them: with {@code fromClient} they go to
-     * the server, else to the client. They do not pass through {@link QuicInterceptor#streamData}.
-     * Called from a {@code streamData} hook of the same direction, they follow that message (or
-     * what replaced it); otherwise, from any hook or any thread while that direction is open, they
+     * the server, else to the client. They do not pass through {@link QuicInterceptor#streamData}
+     * or {@link QuicInterceptor#streamMessage}, and are not framed: on a framed stream, return
+     * messages from {@code streamMessage} instead. Called from a {@code streamData} or {@code
+     * streamMessage} hook of the same direction, they follow that message (or what replaced it);
+     * otherwise, from any hook or any thread while that direction is open, they
      * are written at once, between messages. The call may block while the destination's flow
      * control holds the data back.
      *

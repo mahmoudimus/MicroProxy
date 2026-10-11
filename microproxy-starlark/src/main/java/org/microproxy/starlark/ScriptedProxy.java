@@ -52,9 +52,11 @@ import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.WebSocketFrame;
 import org.microproxy.http.WebSocketMessage;
+import org.microproxy.quic.MessageFramer;
 import org.microproxy.quic.QuicContext;
 import org.microproxy.quic.QuicDatagram;
 import org.microproxy.quic.QuicInterceptor;
+import org.microproxy.quic.QuicMessage;
 import org.microproxy.quic.QuicStreamContext;
 import org.microproxy.quic.QuicStreamMessage;
 import org.microproxy.tcp.TcpContext;
@@ -68,6 +70,7 @@ import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkBytes;
+import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
 import org.microproxy.thirdparty.starlark.eval.StarlarkList;
 import org.microproxy.thirdparty.starlark.eval.Tuple;
 
@@ -161,6 +164,18 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *       None} outside {@code on_quic_stream_data}), {@code vars} for the connection, {@code error}
  *       in {@code on_quic_end} after a failure, {@code send(from_client, data)} to add bytes to the
  *       stream and {@code send_datagram(from_client, data)} to add a datagram.
+ *   <li>{@code on_quic_message(msg, ctx)}: for each whole message of a stream that the proxy's
+ *       {@link org.microproxy.quic.QuicFraming} frames (DNS over QUIC by default), instead of {@code
+ *       on_quic_stream_data}: {@code msg.data} is the payload, without its length prefix or
+ *       delimiter, and {@code msg.stream_id} names the stream. As with {@code
+ *       on_websocket_message}: change {@code msg} in place and return {@code None} (or the message)
+ *       to send it, {@code False} to drop it, another message, bytes or a string to replace it, or
+ *       a list of them to send instead, each message in the direction its {@code from_client}
+ *       names (an empty list drops it). Each is framed again, its length prefix computed afresh.
+ *   <li>{@code quic_message_length(data)}: a framer of the script's own, which framing rules name
+ *       {@code script} ({@link #quicFramer()}): given the bytes kept of a stream direction, the
+ *       length of the message they start with (the message is given to {@code on_quic_message}
+ *       whole), or {@code None} until the bytes say.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm} or
@@ -820,15 +835,16 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
 
     /**
      * Whether the script in use defines {@code on_quic_start}, {@code on_quic_stream_data}, {@code
-     * on_quic_datagram} or {@code on_quic_end}, so {@link #quicInterceptor()} is worth installing.
+     * on_quic_message}, {@code on_quic_datagram} or {@code on_quic_end}, so {@link #quicInterceptor()}
+     * is worth installing.
      * Installing it makes the proxy intercept QUIC that is not HTTP/3 (see {@link QuicInterceptor}).
      *
      * @return whether the current script provides a QUIC hook
      */
     public boolean definesQuicHooks() {
         StarlarkScript s = script();
-        return s.defines("on_quic_start") || s.defines("on_quic_stream_data") || s.defines("on_quic_datagram")
-                || s.defines("on_quic_end");
+        return s.defines("on_quic_start") || s.defines("on_quic_stream_data") || s.defines("on_quic_message")
+                || s.defines("on_quic_datagram") || s.defines("on_quic_end");
     }
 
     /**
@@ -842,10 +858,55 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
      * message to send instead. Bytes pass on unchanged when the script in use has no such hook, and
      * when the call fails, which is logged.
      *
+     * <p>When the script defines {@code on_quic_message} as this is called, the interceptor also
+     * overrides {@link QuicInterceptor#streamMessage}, so the streams that the proxy's {@link
+     * org.microproxy.quic.QuicFraming} frames go to {@code on_quic_message} as whole messages instead
+     * of to {@code on_quic_stream_data}; a later reload that adds the hook takes effect after a
+     * restart, and one that removes it passes messages on unchanged.
+     *
      * @return the interceptor
      */
     public QuicInterceptor quicInterceptor() {
-        return new ScriptQuicInterceptor();
+        return script().defines("on_quic_message") ? new ScriptQuicMessageInterceptor() : new ScriptQuicInterceptor();
+    }
+
+    /**
+     * Whether the script in use defines {@code quic_message_length}, a framer of its own for {@link
+     * #quicFramer()}.
+     *
+     * @return whether the current script provides a framer
+     */
+    public boolean definesQuicFramer() {
+        return script().defines("quic_message_length");
+    }
+
+    /**
+     * A {@link MessageFramer} that asks the script's {@code quic_message_length(data)} how long the
+     * message at the start of a stream direction's bytes is: an int (the whole message's length,
+     * which may be more than the bytes so far), or {@code None} until the bytes say. The message goes
+     * to {@code on_quic_message} as it is, and what that returns is sent as it is. A call that fails
+     * or returns something else makes the bytes malformed: the proxy resets the stream. Name it in
+     * the framing rules with {@link org.microproxy.quic.QuicFraming#withFramer} ({@code --script} names
+     * it {@code script}: {@code --quic-framing myproto=script}).
+     *
+     * @return the framer
+     */
+    public MessageFramer quicFramer() {
+        return (data, offset, length) -> {
+            StarlarkScript s = script();
+            try (Mutability mu = Mutability.create("quic framer")) {
+                Object r = s.call("quic_message_length", mu,
+                        StarlarkBytes.of(null, java.util.Arrays.copyOfRange(data, offset, offset + length)));
+                if (r == Starlark.NONE) return MessageFramer.NEED_MORE;
+                if (r instanceof StarlarkInt i) return i.toLong("the length");
+                throw Starlark.errorf("quic_message_length must return an int or None, not %s", Starlark.type(r));
+            } catch (EvalException e) {
+                throw new IllegalArgumentException(s.name() + ": quic_message_length failed: " + e.getMessage(), e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalArgumentException("interrupted", e);
+            }
+        };
     }
 
     /** One connection's script state: its {@code vars}, and the lock its calls take turns with. */
@@ -855,10 +916,10 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         final ReentrantLock lock = new ReentrantLock();
     }
 
-    private final class ScriptQuicInterceptor implements QuicInterceptor {
+    private class ScriptQuicInterceptor implements QuicInterceptor {
         private final Map<QuicContext, QuicConnectionState> connections = new ConcurrentHashMap<>();
 
-        private QuicConnectionState state(QuicContext context) {
+        QuicConnectionState state(QuicContext context) {
             return connections.computeIfAbsent(context.connection(), c -> new QuicConnectionState());
         }
 
@@ -887,7 +948,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             StarlarkScript s = script();
             if (!s.defines(hook)) return data;
             QuicConnectionState c = state(context);
-            ScriptQuicMessage m = new ScriptQuicMessage(data, fromClient, timestamp);
+            ScriptQuicMessage m = new ScriptQuicMessage(data, fromClient, stream == null ? null : stream.streamId(),
+                    timestamp);
             c.lock.lock();
             try {
                 Object r = s.call(hook, c.mu, m, new ScriptQuicContext(context.connection(), stream, c.vars, null));
@@ -943,6 +1005,49 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             } finally {
                 c.lock.unlock();
             }
+        }
+    }
+
+    /** Adds {@code on_quic_message}, for the streams the proxy frames. */
+    private final class ScriptQuicMessageInterceptor extends ScriptQuicInterceptor {
+
+        @Override
+        public List<QuicMessage> streamMessage(QuicMessage message, QuicStreamContext stream) {
+            StarlarkScript s = script();
+            if (!s.defines("on_quic_message")) return List.of(message);
+            QuicConnectionState c = state(stream);
+            ScriptQuicMessage m = new ScriptQuicMessage(message.data(), message.fromClient(), message.streamId(),
+                    message.timestamp());
+            c.lock.lock();
+            try {
+                Object r = s.call("on_quic_message", c.mu, m, new ScriptQuicContext(stream.connection(), stream, c.vars,
+                        null));
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return List.of(message.withData(m.data()));
+                if (r == Boolean.FALSE) return List.of();
+                if (r instanceof StarlarkList<?> || r instanceof Tuple) {
+                    List<QuicMessage> out = new ArrayList<>();
+                    for (Object item : (Iterable<?>) r) out.add(result(message, item));
+                    return out;
+                }
+                return List.of(result(message, r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_quic_message failed; passing the message on: "
+                        + e.getMessageWithStack());
+                return List.of(message);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return List.of(message);
+            } finally {
+                c.lock.unlock();
+            }
+        }
+
+        /** A message {@code on_quic_message} returned, or bytes or a string to send the same way. */
+        private QuicMessage result(QuicMessage message, Object r) throws EvalException {
+            if (r instanceof ScriptQuicMessage other) return message.withData(other.data()).withFromClient(other.fromClient());
+            if (r instanceof String || r instanceof StarlarkBytes) return message.withData(Builtins.bytes(r, "the result"));
+            throw Starlark.errorf("on_quic_message must return None, True, False, a message, bytes, a string or a list"
+                    + " of them, not %s", Starlark.type(r));
         }
     }
 

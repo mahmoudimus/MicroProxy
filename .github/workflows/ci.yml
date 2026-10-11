@@ -46,10 +46,12 @@ jobs:
 
   quic-interop:
     # QUIC and HTTP/3 interoperability with aioquic (pinned): as client and as server of the Java
-    # QUIC stack, session resumption with 0-RTT each way, and on either side of the proxy's HTTP/3
+    # QUIC stack, session resumption with 0-RTT each way, connection migration each way (aioquic's
+    # client moving to a new port mid-transfer, the Java client rebinding against aioquic's server,
+    # whose probe aioquic never answers on any path, checked from its qlog), and on either side of the proxy's HTTP/3
     # (reverse mode, upstream, scripts, transparent QUIC, intercepted and relayed, the forward
-    # proxy's CONNECT, WebSockets and CONNECT-UDP, and raw QUIC through the QUIC stream hooks,
-    # redirected and inside CONNECT-UDP).
+    # proxy's CONNECT, WebSockets and CONNECT-UDP, raw QUIC through the QUIC stream hooks,
+    # redirected and inside CONNECT-UDP, and DNS over QUIC through the message hooks).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
@@ -67,7 +69,7 @@ jobs:
       - name: Run the interop tests
         run: >-
           mvn --batch-mode -pl quic,microproxy,microproxy-starlark -am verify
-          -Dtest=AioquicInteropTest,AioquicHttp3Test,AioquicTransparentQuicTest,AioquicMasqueTest,AioquicQuicStreamsTest,ScriptedHttp3Test
+          -Dtest=AioquicInteropTest,AioquicHttp3Test,AioquicTransparentQuicTest,AioquicMasqueTest,AioquicQuicStreamsTest,AioquicDoqTest,ScriptedHttp3Test
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dquic.interop.python=python -Dquic.interop.required=true
 

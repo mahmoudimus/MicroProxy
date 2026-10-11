@@ -187,11 +187,15 @@ final class ScriptType extends StarlarkType {
             .put("vars", Types.dict(Types.ANY, Types.ANY))
             .buildOrThrow(), false);
 
-    /** Bytes of an intercepted QUIC connection ({@code on_quic_stream_data}, {@code on_quic_datagram}); named {@code QuicMessage}. */
+    /**
+     * Bytes of an intercepted QUIC connection ({@code on_quic_stream_data}, {@code on_quic_message},
+     * {@code on_quic_datagram}); named {@code QuicMessage}.
+     */
     static final ScriptType QUIC_MESSAGE = new ScriptType("QuicMessage", ScriptQuicMessage.class, ImmutableMap.of(
             "data", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT),
             "text", TEXT,
             "from_client", Types.BOOL,
+            "stream_id", INT_OR_NONE,
             "timestamp", Types.FLOAT), true);
 
     /** An intercepted QUIC connection or stream ({@code on_quic_*} hooks); named {@code QuicContext}. */

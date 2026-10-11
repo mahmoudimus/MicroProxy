@@ -227,6 +227,8 @@ Command-line flags override values from the file.
 | `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `tcp_hosts` | comma-separated regular expressions for host names (CONNECT target, SNI) relayed as raw TCP even when they look like HTTP (see [Raw TCP streams](#raw-tcp-streams)) | none |
 | `quic_hosts` | comma-separated regular expressions for host names (server, SNI) whose intercepted QUIC is relayed stream by stream, even HTTP/3 (see [QUIC stream hooks](#quic-stream-hooks)) | none |
+| `quic_framing` | comma-separated `key=framer` rules choosing, by ALPN or host, how the streams of QUIC intercepted stream by stream are cut into messages for the message hooks (see [QUIC message framing](#quic-message-framing)); added to the default | `doq=u16` |
+| `quic_max_message_size` / `quic_message_error_code` | the largest framed QUIC message, in bytes, and the error code of the reset of a stream that sends a larger one | `1048576` / `2` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -1748,6 +1750,30 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
   connection IDs the proxy issued (so they survive the client moving to new ones); relayed flows
   by the client address and the connection IDs seen in their long headers, and otherwise to the
   client address's most recently active flow (servers issue more IDs in encrypted frames).
+- **Clients that move** (QUIC connection migration, RFC 9000 section 9: a NAT that rebinds the
+  client to a new port, a phone that goes from Wi-Fi to cellular, a client that migrates on
+  purpose). An intercepted connection, HTTP/3 or [stream by stream](#quic-stream-hooks), follows
+  its client as any QUIC server does: its datagrams are routed by connection ID from any address,
+  the proxy validates the new path with PATH_CHALLENGE, sends there no more than three times what
+  it received until the client answers, keeps the congestion state for a new port and starts it
+  over for a new address, goes back to the old path if the new one does not answer, and answers
+  from the new path. The proxy's own connection to the server (stream by stream, and HTTP/3 to
+  origins) stays where it is. A relayed flow is harder: the proxy cannot read the client's packets,
+  nor the encrypted frames in which the server gives the client the connection IDs it moves to.
+  A short header packet from an address with no flow goes to the relayed flow that knows its
+  connection ID (from any address), else to the flow of the same client IP address whose known
+  server IDs share the longest prefix of at least 4 bytes with it (servers that encode routing in
+  their IDs), else to that IP address's most recently active relayed flow, which is what a NAT
+  rebinding needs. The flow then sends the server's datagrams to the new address, as a NAT sends
+  replies to its latest mapping, and learns the client's new ID when the server's IDs all have
+  one length. Limits: a relayed client that changes both IP address and connection ID is found
+  only by an ID prefix; with several relayed flows from one IP address the fallback may pick the
+  wrong one; and since the proxy can neither validate the new address nor tell a newer packet from
+  a replayed one, a sender that can spoof the client's IP address with one of the flow's
+  connection IDs can turn its replies elsewhere until the client sends again (the end-to-end
+  connection stays the client's: the server, whose path to the proxy does not change, validates
+  nothing). A server that sends `disable_active_migration` is not migrated away from by clients
+  that honour it.
 - **Versions.** A new client offering a version the proxy cannot read gets Version Negotiation
   (v1, v2), since its destination is in a ClientHello the proxy cannot decrypt; on an existing
   relayed flow, other versions are relayed like anything else.
@@ -1806,10 +1832,8 @@ UDP flow (`nf_conntrack_udp_timeout_stream`, 120 s by default) should outlive th
 timeout. TPROXY needs a listening socket with `IP_TRANSPARENT`, which the JDK cannot set, and
 replies sent from the original destination address, which the JDK cannot do either: it does not
 work with MicroProxy as it is. Relayed flows reach servers from a new UDP socket each, so a
-firewall in front of the proxy sees each as a flow of its own. A client that moves to another
-address (QUIC connection migration) is not followed: its datagrams from the new address belong to
-no flow, and are dropped (intercepted connections drop them too, as the QUIC module does not
-migrate connections yet).
+firewall in front of the proxy sees each as a flow of its own. A client the NAT maps to a new port
+is followed (see **Clients that move** above).
 
 #### QUIC stream hooks
 
@@ -1872,7 +1896,9 @@ MicroProxy.bootstrap()
   through the hooks.
 - **Messages.** A stream is a byte stream, as TCP is: a `QuicStreamMessage` is whatever one read
   returned (at most 16 KiB), so a peer's write may show up in pieces, or joined with the next one.
-  Hooks that look for a protocol's messages keep the start of one until its end arrives.
+  Hooks that look for a protocol's messages keep the start of one until its end arrives, or let
+  the proxy cut the stream into messages for `streamMessage`
+  ([QUIC message framing](#quic-message-framing)).
 - **Flow control.** End to end: each direction of each stream is read only as fast as the other
   side takes the bytes, so QUIC's flow control holds a fast sender back while a slow receiver
   reads, and the proxy keeps at most one read per direction. The proxy's receive windows are
@@ -1881,6 +1907,97 @@ MicroProxy.bootstrap()
   the interceptor must be thread-safe; within one direction of one stream, calls come in order.
   The context names the client connection (`connectionId`, `clientAddress`, `flowContext`), the
   server (`host`, `port`, `serverAddress`), `sni`, `alpn` and `masque()`.
+
+#### QUIC message framing
+
+A stream's bytes come to `streamData` in reads, without the protocol's message boundaries. Many
+protocols over QUIC frame their messages simply, and the proxy can cut their streams into whole
+messages for a hook: `QuicInterceptor.streamMessage(QuicMessage msg, QuicStreamContext stream)`
+(or a script's [`on_quic_message`](#quic-hooks)) sees each message's payload, without its length
+prefix or delimiter, and returns the messages to send in its place. What it returns is framed
+again, so an edited payload gets a length prefix of its new length.
+
+`--quic-framing` (`quic_framing`, `withQuicFraming(QuicFraming)`) chooses a framer by ALPN or by
+host: comma-separated `key=framer` rules, where a key is an ALPN protocol (`doq`), a host name
+matched against the server's host and the SNI (`dns.example.com`, or `*.example.com` for it and
+the names below it), or `*` for any connection. A host rule wins over an ALPN rule, which wins
+over `*`. DNS over QUIC (`doq`) is framed with `u16` by default; `doq=none` turns that off.
+
+| Framer | Messages |
+|---|---|
+| `u16` | a two-byte big-endian length, then the payload: DNS over QUIC (RFC 9250), DNS over TCP |
+| `u32` | a four-byte big-endian length, then the payload |
+| `varint` | a QUIC variable-length integer (RFC 9000 section 16) as the length; written in its shortest form |
+| `lf` | a line ending with a line feed, which the payload leaves out (a carriage return before it stays) |
+| `crlf` | a line ending with a carriage return and a line feed |
+| `none` | not framed: `streamData` sees the reads |
+| `script` | a script's `quic_message_length(data)` (see [QUIC](#quic-hooks)) |
+| a `MessageFramer` | from Java: `framing.withRule("myproto", framer)` or `withFramer(name, framer)` |
+
+```bash
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 \
+    --transparent --transparent-quic-port 8443 --mitm --script doq.star \
+    --quic-framing doq=u16,myproto=varint,*=none --quic-max-message-size 65537
+```
+
+- **Which streams.** Every stream of a connection whose framing rule names a framer, when the
+  interceptor overrides `streamMessage` (a script, when it defines `on_quic_message`). Framing
+  replaces the chunk hook there: `streamData` (`on_quic_stream_data`) is not called on those
+  streams, and is called as before on the streams of other connections. An interceptor that does
+  not override `streamMessage` is never framed, whatever the rules say: **without framing, or
+  without a message hook, nothing is kept**, and each read goes on as it came.
+- **What a hook returns.** `List.of(msg)` passes the message on (changed in place or not); other
+  messages replace it, in order; `null` or an empty list drops it. A message whose `fromClient()`
+  is the other direction's (`msg.withFromClient(false)`) goes to the side that sent `msg`, on the
+  same stream, as if the other side had answered. `QuicStreamContext.send` still writes bytes as
+  they are, not framed. A hook that throws, or returns a payload its framer cannot frame (more
+  than 65535 bytes for `u16`), has the message passed on unchanged.
+- **Limits.** A message larger than `--quic-max-message-size` (`quic_max_message_size`,
+  `QuicFraming.withMaxMessageSize`; 1 MiB, the prefix or delimiter included), known from a length
+  prefix as soon as it arrives or from a delimiter that does not come in time, and bytes a framer
+  cannot read (a custom framer that throws), **reset the stream** in both directions on both
+  connections, and ask both sides to stop sending, with `--quic-message-error-code`
+  (`quic_message_error_code`, `withErrorCode`; 2, DNS over QUIC's `DOQ_PROTOCOL_ERROR`), as a
+  WebSocket message too big closes its connection with 1009. The connection and its other
+  streams go on. Bytes left over when a side finishes its stream, not a whole message, are passed
+  on as they are, before the FIN.
+- **Flow control** stays end to end: a direction keeps at most one message's bytes and a read.
+- **Datagrams** are whole messages already: `datagram` (`on_quic_datagram`) sees them as before.
+- **Decoding.** `QuicMessage` has `data()`, `text()`, `fromClient()`, `streamId()`, `alpn()`,
+  `timestamp()`, the copies `withData`, `withText`, `withFromClient` and `withDns`, and decoders:
+  `dns()` reads the payload as a DNS message (`org.microproxy.dns.DnsMessage`: the header, the
+  questions, and records with typed data for A, AAAA, NS, CNAME, PTR, DNAME, MX, SRV, TXT and
+  SOA; it encodes back, names compressed); `protobuf()` and `protobuf(schema, type)` decode
+  protobuf as the [content views](#content-views) do; `render()` renders the payload with the
+  best content view, as `dig` shows it for DNS over QUIC (the `dns` view), for logging.
+
+DNS over QUIC, logging each query and answering a blocked name with `0.0.0.0` by rewriting the
+server's answer:
+
+```java
+Set<String> blocked = Set.of("ads.example", "tracker.example");
+bootstrap.withQuicInterceptor(new QuicInterceptor() {
+    @Override
+    public byte[] streamData(QuicStreamMessage msg, QuicStreamContext stream) {
+        return msg.data();                                  // streams that are not framed
+    }
+
+    @Override
+    public List<QuicMessage> streamMessage(QuicMessage msg, QuicStreamContext stream) {
+        DnsMessage dns = msg.dns();
+        DnsMessage.Question q = dns.questions().getFirst();
+        if (msg.fromClient()) {
+            log(stream.clientAddress() + " asks for " + q.name() + " " + q.typeName());
+            return List.of(msg);
+        }
+        if (!blocked.contains(q.name().toLowerCase(Locale.ROOT))) return List.of(msg);
+        List<DnsMessage.ResourceRecord> answers = dns.answers().stream()
+                .map(r -> r.type() == DnsMessage.A ? r.withData(DnsMessage.Address.of("0.0.0.0")) : r)
+                .toList();
+        return List.of(msg.withDns(dns.withAnswers(answers)));   // framed again, its length recomputed
+    }
+});
+```
 
 #### QUIC inside CONNECT-UDP flows
 
@@ -2005,14 +2122,26 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
   before the client's, so a server that is slow to answer delays the client's, which may
   retransmit its Initials meanwhile; one that cannot be reached drops the flow rather than relay
   it. 0-RTT is not offered, as the QUIC module has none.
+- **QUIC message framing.** A connection's streams all get the framer its ALPN or host chooses,
+  each carrying that protocol's messages from its start (a stream type or a header before them,
+  as HTTP/3's unidirectional streams have, needs a framer of one's own). Framers keep no state
+  between calls, and a script's framer is called with all the bytes kept so far each time. Bytes
+  a framer cannot read reset the stream rather than fall back to the reads, and the hooks are not
+  told of the resets framing makes.
 - **MASQUE.** QUIC inside a CONNECT-UDP flow is intercepted only with `--masque-intercept-quic`,
   and a flow is inspected from its first datagram: one that starts with anything but a QUIC
   Initial is relayed as UDP throughout, and once one of its QUIC connections is relayed, so is the
-  rest of the flow. QUIC that moves between flows (connection migration) is not followed. CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
+  rest of the flow. An intercepted connection that its client carries over to another CONNECT-UDP
+  flow to the same target follows it there (a flow whose first datagram belongs to the connection
+  goes to the proxy's QUIC server, which validates the path through the new flow), and closes when
+  the flow it is on ends, not one it left; relayed QUIC that moves between flows is not followed.
+  CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
   chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
-- From the QUIC module: 0-RTT and session resumption, connection migration (see its
-  [README](quic/README.md)).
+- The proxy's own QUIC connections to servers (stream by stream, HTTP/3 to origins) never move to
+  a new local address, having no reason to; they move to a server's preferred address as any
+  client does, and do not follow a server that moves to another address of its own accord (see
+  the QUIC module's [README](quic/README.md)).
 - HTTP/3 to servers only over direct connections, and without client certificates.
 
 ### Rewriting bodies
@@ -2384,6 +2513,8 @@ bootstrap.start();
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `on_udp_start(ctx)`, `on_udp_message(msg, ctx)`, `on_udp_end(ctx)` | for CONNECT-UDP flows, when the script defines one of them (see [UDP](#udp-hooks)): when a flow opens, for each datagram, and when it ends | `on_udp_message`: as `on_tcp_message`, for one datagram |
 | `on_quic_start(ctx)`, `on_quic_stream_data(msg, ctx)`, `on_quic_datagram(msg, ctx)`, `on_quic_end(ctx)` | for QUIC that is not HTTP/3, intercepted stream by stream, when the script defines one of them (see [QUIC](#quic-hooks)): when a connection is intercepted, for the bytes of each read of a stream, for each datagram, and when it ends | `on_quic_stream_data`: as `on_tcp_message`; `on_quic_datagram`: as `on_udp_message` |
+| `on_quic_message(msg, ctx)` | for each whole message of a stream that [QUIC message framing](#quic-message-framing) cuts into messages (DNS over QUIC by default), instead of `on_quic_stream_data` | as `on_websocket_message`: `None` (or `msg`) to send the message with any changes, `False` to drop it, another message (or bytes, or a string) to replace it, or a list of them to send instead (`[]` drops it); each is framed again |
+| `quic_message_length(data)` | a framer of the script's own, for the streams `--quic-framing` gives to `script`: given the bytes kept of a stream direction | the length of the whole message they start with, or `None` until the bytes say |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2453,6 +2584,8 @@ bootstrap.start();
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
 - `protobuf` and `grpc`: protobuf messages as dicts, and gRPC's framing (see **Protobuf and
   gRPC** below).
+- `dns`: DNS messages as dicts, for DNS over QUIC, DNS over HTTPS bodies and DNS in UDP flows
+  (see **DNS** below).
 - More with `load()`: Python's `hashlib`, `hmac`, `re`, `urllib.parse`, `json`, `zlib`, ... (see
   **Standard library** below).
 
@@ -2501,6 +2634,26 @@ a schema from Java, `ScriptedProxy.builder(path).protoSchema(ProtoSchema.load(Pa
 `protobuf.decode(data, type="shop.Order")` keys fields by name (enum values by name too) and
 `protobuf.encode(fields, type="shop.Order")` takes names. Typed scripts can annotate with
 `ProtoFixed` and `ProtoGroup`; the dicts are untyped.
+
+**DNS.** `dns.decode(data)` turns a DNS message (wire format) into a dict, and `dns.encode(m)`
+turns such a dict back into bytes, owner names compressed; `dns.render(data)` is the text `dig`
+would show. The dict:
+
+| Key | Value |
+|---|---|
+| `id`, `flags` | the message ID, and the header's 16 bits of flags |
+| `response`, `opcode`, `authoritative`, `truncated`, `recursion_desired`, `recursion_available`, `rcode` | the flags by name; `encode` lets them win over `flags` |
+| `questions` | dicts with `name`, `type` and `class` |
+| `answers`, `authorities`, `additionals` | dicts with `name`, `type`, `class`, `ttl` and `data` |
+
+Names are written without the final dot. Types are names (`"A"`, `"AAAA"`, `"MX"`, `"TYPE65280"`
+for a type without one), and `encode` also takes numbers. The `data` of A and AAAA records is the
+address (`"192.0.2.1"`, `"2001:db8::1"`), of NS, CNAME, PTR and DNAME records the name, of TXT
+records a list of strings, of MX, SRV and SOA records a dict of their fields (`preference` and
+`exchange`; `priority`, `weight`, `port` and `target`; `mname`, `rname`, `serial`, `refresh`,
+`retry`, `expire` and `minimum`), and of other types (an EDNS `OPT` record included) its bytes;
+`encode` takes bytes for any type. `encode` fills in what is left out: `id` 0, `class` 1 (IN),
+`ttl` 0, no flags.
 
 **Where a response came from, and how long it took.** `res.source` tells the server's responses
 from the others, like the `source` of the [access log](#access-logs-envoy-compatible), and `res.upstream_status`
@@ -2952,15 +3105,17 @@ def on_udp_message(msg, ctx):
 ```
 
 <a id="quic-hooks"></a>**QUIC.** A script that defines `on_quic_start(ctx)`, `on_quic_stream_data(msg,
-ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the streams and datagrams of QUIC
-that the proxy intercepts without speaking its protocol ([QUIC stream hooks](#quic-stream-hooks)).
+ctx)`, `on_quic_message(msg, ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the
+streams and datagrams of QUIC that the proxy intercepts without speaking its protocol
+([QUIC stream hooks](#quic-stream-hooks)).
 `--script` installs the QUIC interceptor only when the script defines one of these hooks when it
 loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relayed (from Java:
 `bootstrap.withQuicInterceptor(script.quicInterceptor())` when `script.definesQuicHooks()`).
 
-- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`: the bytes of
-  one read of a stream for `on_quic_stream_data` (a stream has no message boundaries either), one
-  datagram for `on_quic_datagram`.
+- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`, and `stream_id`
+  (`None` for a datagram) and `with_from_client`: the bytes of one read of a stream for
+  `on_quic_stream_data` (a stream has no message boundaries either), one datagram for
+  `on_quic_datagram`.
 - `ctx`: a `QuicContext`: `connection_id`, `client_ip`, `client_port`, `host`, `port`, `server`,
   `address` (where the proxy connected), `sni`, `alpn`, `masque` (whether the QUIC came inside a
   CONNECT-UDP flow), `vars`, a dict that lives as long as the connection and that its streams
@@ -2970,6 +3125,19 @@ loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relay
   data)` adds a datagram.
 - The hooks of one connection run one at a time, though its streams are read concurrently. A
   failing hook is logged and the bytes passed on unchanged.
+- `on_quic_message(msg, ctx)` sees the whole messages of the streams that
+  [QUIC message framing](#quic-message-framing) cuts into messages: by default those of DNS over
+  QUIC (ALPN `doq`), whose messages have a two-byte length, and those `--quic-framing` names
+  (`--quic-framing myproto=varint,chat=lf`). `--script` frames streams only when the script
+  defines `on_quic_message` when it loads (from Java: `script.quicInterceptor()` overrides
+  `streamMessage` only then), and on those streams `on_quic_stream_data` is not called. `msg` is a
+  `QuicMessage` whose `data` is the payload, without its length prefix or delimiter, with
+  `stream_id` (`None` only for datagrams); `with_data`, `with_text` and `with_from_client` make
+  copies. It returns as `on_websocket_message` does, each message going the way its
+  `from_client` says (`msg.with_from_client(False)` answers the client on the same stream), and
+  what it returns is framed again, with a length prefix computed for the new payload. A message
+  larger than `--quic-max-message-size` (1 MiB) resets the stream with
+  `--quic-message-error-code` (2). `ctx.send(from_client, data)` still sends bytes unframed.
 
 ```python
 def on_quic_start(ctx):
@@ -2983,6 +3151,44 @@ def on_quic_stream_data(msg, ctx):
 def on_quic_datagram(msg, ctx):
     if msg.from_client and msg.text == "blocked":
         return False
+```
+
+DNS over QUIC through a transparent QUIC port, logging each query and answering a blocked name
+with `0.0.0.0` by rewriting the server's answer (`--script doq.star`; `doq` is framed by default):
+
+```python
+BLOCKED = ["ads.example", "tracker.example"]
+
+def on_quic_message(msg, ctx):
+    # DNS over QUIC (ALPN doq): one DNS message each way on each stream.
+    if ctx.alpn != "doq":
+        return None
+    m = dns.decode(msg.data)
+    q = m["questions"][0]
+    if msg.from_client:
+        log.info("%s asks for %s %s" % (ctx.client_ip, q["name"], q["type"]))
+    elif q["name"].lower() in BLOCKED:
+        for answer in m["answers"]:
+            if answer["type"] == "A":
+                answer["data"] = "0.0.0.0"
+                answer["ttl"] = 60
+        msg.data = dns.encode(m)
+```
+
+A protocol of one's own, framed by the script (`--quic-framing tiny=script`): `quic_message_length`
+gets the bytes kept of a stream direction and returns the length of the message they start with,
+or `None` until it can tell; the message, its prefix included, goes to `on_quic_message` as it is,
+and what that returns is sent as it is. A framer that fails resets the stream.
+
+```python
+def quic_message_length(data):
+    # Each message: a byte with the length of what follows, then that many bytes.
+    return 1 + data[0]
+
+def on_quic_message(msg, ctx):
+    # The message as quic_message_length cut it, its length byte included.
+    if msg.from_client and msg.text != None:
+        return msg.text.upper()
 ```
 
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
@@ -3658,6 +3864,7 @@ views.render(body, ContentView.Metadata.forResponse(request, response))
 | `urlencoded`, `multipart` | `application/x-www-form-urlencoded`, `multipart/form-data` | the fields (a repeated name as a list), files' names, types and sizes |
 | `query` | requests without a body | the query parameters |
 | `socketio` | paths with `/socket.io/` or `/engine.io/` | one line per Engine.IO or Socket.IO packet |
+| `dns` | `application/dns-message` (DNS over HTTPS, and [DNS over QUIC](#quic-message-framing)'s messages) | as `dig` shows it: the header, then each section's records |
 | `hex` | anything, when named | a hex dump |
 
 `views.with(myView)` adds a view (or replaces one of the same name); a view that fails on a body

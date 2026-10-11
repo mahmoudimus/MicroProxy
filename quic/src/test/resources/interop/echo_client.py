@@ -2,7 +2,8 @@
 
 It connects with the ALPN "microproxy-test", sends seeded random data on bidirectional streams
 and checks the echo, optionally sends a unidirectional stream and checks the SHA-256 digest the
-server returns on a unidirectional stream of its own, sends datagrams, starts key updates, and
+server returns on a unidirectional stream of its own, sends datagrams, starts key updates, moves
+to a new local port with a new connection ID in the middle of the transfer (--migrate-after), and
 closes with a chosen code. It prints one "RESULT <json>" line and exits with status 0 if every
 check passed.
 """
@@ -84,6 +85,23 @@ async def echo_stream(protocol, seed, size):
     return len(received)
 
 
+async def migrate(protocol):
+    """Moves the connection to a new UDP socket on a new port, with the server's next connection
+    ID, as a client whose NAT rebinds or that changes networks would: aioquic switches at once,
+    without probing. Returns the new port and the socket left, which still receives."""
+    loop = asyncio.get_running_loop()
+    quic = protocol._quic
+    quic.change_connection_id()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("0.0.0.0", 0))
+    old = protocol._transport
+    # The protocol takes the new transport in connection_made: what it sends leaves from there
+    transport, _ = await loop.create_datagram_endpoint(lambda: protocol, sock=sock)
+    quic.send_ping(1)
+    protocol.transmit()
+    return sock.getsockname()[1], old, transport
+
+
 async def main(args):
     configuration = QuicConfiguration(
         alpn_protocols=[ALPN],
@@ -120,6 +138,13 @@ async def main(args):
             return 0
 
         tasks = [asyncio.ensure_future(echo_stream(protocol, i, args.size)) for i in range(args.streams)]
+        transports = []
+        if args.migrate_after is not None:
+            await asyncio.sleep(args.migrate_after)
+            port, old, new = await migrate(protocol)
+            transports.append(new)
+            result["migrated_port"] = port
+            result["migrated_while_busy"] = not all(t.done() for t in tasks)
         for _ in range(args.key_updates):
             await asyncio.sleep(0.05)
             protocol.request_key_update()
@@ -153,6 +178,8 @@ async def main(args):
         result.update(ok=True, bytes=total, datagrams_echoed=echoed, seconds=round(seconds, 3))
         protocol.close(error_code=args.close_code, reason_phrase=args.close_reason)
         await protocol.wait_closed()
+        for t in transports:
+            t.close()
     print("RESULT " + json.dumps(result, default=str), flush=True)
     return 0
 
@@ -174,6 +201,7 @@ if __name__ == "__main__":
     parser.add_argument("--close-reason", default="")
     parser.add_argument("--expect-server-close", help="data to send on a stream before waiting for the close")
     parser.add_argument("--secrets-log")
+    parser.add_argument("--migrate-after", type=float, help="seconds into the transfer to move to a new port")
     try:
         sys.exit(asyncio.run(main(parser.parse_args())))
     except Exception as e:  # report every failure the same way

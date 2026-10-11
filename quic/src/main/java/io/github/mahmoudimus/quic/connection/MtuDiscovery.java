@@ -71,6 +71,18 @@ public final class MtuDiscovery {
     }
 
     /**
+     * A copy with the same MTU, search and black hole state, for a new path that is presumably the
+     * same network (a NAT rebinding), as quinn clones it.
+     *
+     * @return the copy
+     */
+    public MtuDiscovery copy() {
+        MtuDiscovery c = new MtuDiscovery(currentMtu, blackHoleDetector.minMtu, state == null ? null : state.copy());
+        c.blackHoleDetector.copyFrom(blackHoleDetector);
+        return c;
+    }
+
+    /**
      * The current MTU.
      *
      * @return the largest UDP payload to send
@@ -199,6 +211,15 @@ public final class MtuDiscovery {
             this.config = config;
         }
 
+        Enabled copy() {
+            Enabled c = new Enabled(config);
+            c.phase = phase;
+            c.nextActivation = nextActivation;
+            c.search = search == null ? null : search.copy();
+            c.peerMaxUdpPayloadSize = peerMaxUdpPayloadSize;
+            return c;
+        }
+
         int pollTransmit(long now, int currentMtu, long nextPn) {
             if (phase == Phase.INITIAL) {
                 startSearch(currentMtu);
@@ -285,6 +306,19 @@ public final class MtuDiscovery {
             this.lastProbedMtu = lowerBound;
         }
 
+        private SearchState(SearchState o) {
+            this.lowerBound = o.lowerBound;
+            this.upperBound = o.upperBound;
+            this.minimumChange = o.minimumChange;
+            this.lastProbedMtu = o.lastProbedMtu;
+            this.inFlightProbe = o.inFlightProbe;
+            this.lostProbeCount = o.lostProbeCount;
+        }
+
+        SearchState copy() {
+            return new SearchState(this);
+        }
+
         /** The next size to probe, or -1 when the search is done. */
         int nextMtuToProbe(boolean lastProbeSucceeded) {
             if (lastProbeSucceeded) {
@@ -325,6 +359,15 @@ public final class MtuDiscovery {
         BlackHoleDetector(int minMtu) {
             this.minMtu = minMtu;
             this.ackedMtu = minMtu;
+        }
+
+        void copyFrom(BlackHoleDetector o) {
+            suspiciousLossBursts.clear();
+            suspiciousLossBursts.addAll(o.suspiciousLossBursts);
+            currentLatestNonProbe = o.currentLatestNonProbe;
+            currentSmallestPacketSize = o.currentSmallestPacketSize;
+            largestPostLossPacket = o.largestPostLossPacket;
+            ackedMtu = o.ackedMtu;
         }
 
         void onProbeAcked(long pn, int len) {

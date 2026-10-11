@@ -34,8 +34,9 @@ import java.util.SplittableRandom;
 
 /**
  * The connections of one UDP socket, as a sans-I/O state machine after quinn-proto's {@code
- * Endpoint}: it routes incoming datagrams to connections by Destination Connection ID (or by the
- * peer's address when local IDs are zero-length), creates server connections from Initial packets,
+ * Endpoint}: it routes incoming datagrams to connections by Destination Connection ID, whatever
+ * address they come from, so that a connection follows a peer that migrates (or by the peer's
+ * address when local IDs are zero-length, which rules migration out), creates server connections from Initial packets,
  * and answers what no connection should see: Version Negotiation for unknown versions, Retry for
  * address validation, stateless resets for unknown connection IDs, and CONNECTION_CLOSE for refused
  * attempts.
@@ -286,10 +287,17 @@ public final class Endpoint {
             return new DatagramEvent.Response(retry(version, remote, dcid, scid));
         }
         ConnectionId localCid = newCid();
+        // A preferred address comes with a connection ID of its own (RFC 9000 section 9.6)
+        ConnectionId preferredCid = (accept.preferredIpv4 != null || accept.preferredIpv6 != null)
+                && config.cidLength() > 0 ? newCid() : null;
         Connection conn = Connection.server(now, accept, config, remote, version, dcid, scid, localCid,
                 incoming.originalDestinationId(), incoming.retrySourceId(), incoming.validated(), token, allowMtud,
-                random.split(), tokenValidator);
+                random.split(), tokenValidator, preferredCid);
         Routes routes = register(conn, localCid, remote);
+        if (preferredCid != null && !preferredCid.equals(localCid)) {
+            cids.put(preferredCid, conn);
+            routes.cids.add(preferredCid);
+        }
         initialCids.put(dcid, conn);
         routes.initialCids.add(dcid);
         return new DatagramEvent.NewConnection(conn);
