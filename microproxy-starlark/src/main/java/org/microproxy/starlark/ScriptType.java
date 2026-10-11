@@ -72,6 +72,12 @@ final class ScriptType extends StarlarkType {
             "versions", Types.list(Types.STR),
             "cipher_suites", Types.list(Types.INT)), false);
 
+    static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
+            "kind", Types.STR,
+            "status", Types.INT,
+            "host", Types.union(Types.STR, Types.NONE),
+            "message", Types.STR), false);
+
     static final ScriptType CONTEXT = new ScriptType("Context", ScriptContext.class, ImmutableMap.<String, StarlarkType>builder()
             .put("client_ip", Types.STR)
             .put("client_port", Types.INT)
@@ -85,6 +91,9 @@ final class ScriptType extends StarlarkType {
             .put("socks_version", Types.union(Types.INT, Types.NONE))
             .put("transparent_quic", Types.BOOL)
             .put("early_data", Types.BOOL)
+            .put("failure", Types.union(FAILURE, Types.NONE))
+            .put("response_flags", Types.list(Types.STR))
+            .put("response_code_details", Types.union(Types.STR, Types.NONE))
             .buildOrThrow(), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
@@ -203,12 +212,6 @@ final class ScriptType extends StarlarkType {
             .put("vars", Types.dict(Types.ANY, Types.ANY))
             .put("error", TEXT)
             .buildOrThrow(), false);
-
-    static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
-            "kind", Types.STR,
-            "status", Types.INT,
-            "host", Types.union(Types.STR, Types.NONE),
-            "message", Types.STR), false);
 
     static final ScriptType PROTO_FIXED = new ScriptType("ProtoFixed", ProtoFixed.class, ImmutableMap.of(
             "bits", Types.INT,

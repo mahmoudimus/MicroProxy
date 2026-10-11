@@ -2,12 +2,16 @@ package org.microproxy.starlark;
 
 import com.google.common.collect.ImmutableList;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FlowTimings;
+import org.microproxy.ResponseFlag;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
+import org.microproxy.thirdparty.starlark.eval.StarlarkList;
 import org.microproxy.thirdparty.starlark.eval.Printer;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
 import org.microproxy.thirdparty.starlark.eval.StarlarkInt;
@@ -28,14 +32,18 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * {@code transparent_quic}, whether the client's QUIC came to the transparent QUIC listener, and
  * {@code early_data}, whether the HTTP/3 request arrived as 0-RTT early data, which may be a
  * replay: a hook may answer it {@code 425} (Too Early) for its client to send again after the
- * handshake.
+ * handshake. How the exchange is going: {@code failure}, why the proxy has to answer it itself (a
+ * {@code Failure}, as {@code on_failure} gets it) or {@code None}, {@code response_flags}, the
+ * Envoy-style flags so far as short codes ({@code ["UF"]}), and {@code response_code_details}
+ * ({@code "proxy_failure:connect_failed"}, ...) or {@code None}.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
-                    "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data");
+                    "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data", "failure",
+                    "response_flags", "response_code_details");
 
     private final InetSocketAddress client;
     private final String user;
@@ -100,6 +108,17 @@ public final class ScriptContext implements Structure {
                     : StarlarkInt.of(flow.socksVersion().getAsInt());
             case "transparent_quic" -> flow != null && flow.isTransparentQuic();
             case "early_data" -> flow != null && flow.isEarlyData();
+            case "failure" -> flow == null ? Starlark.NONE
+                    : flow.failure().<Object>map(ScriptFailure::new).orElse(Starlark.NONE);
+            case "response_flags" -> {
+                List<String> codes = new ArrayList<>();
+                if (flow != null) {
+                    for (ResponseFlag f : flow.responseFlags()) codes.add(f.code());
+                }
+                yield StarlarkList.immutableCopyOf(codes);
+            }
+            case "response_code_details" -> flow == null ? Starlark.NONE
+                    : flow.responseCodeDetails().<Object>map(d -> d).orElse(Starlark.NONE);
             default -> null;
         };
     }
