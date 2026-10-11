@@ -44,7 +44,7 @@ final class ClientFlowContext extends FlowContext {
     private final ClientFlowContext connectionFlow;
     /** The ClientHello that started the connection's session, once read. */
     private volatile ClientHello clientHello;
-    /** The intercepted proxy the current exchange is forwarded through, or null. */
+    /** The session's server (the client's proxy) the current exchange is forwarded through, or null. */
     private volatile String forwardedVia;
     /** The SOCKS version the client connection began with, or 0. */
     private volatile int socksVersion;
@@ -121,7 +121,7 @@ final class ClientFlowContext extends FlowContext {
         return status == 0 ? OptionalInt.empty() : OptionalInt.of(status);
     }
 
-    /** The intercepted proxy ({@code host:port}) the current exchange is forwarded through, or null. */
+    /** The client's proxy ({@code host:port}) the current exchange is forwarded through, or null. */
     void forwardedVia(String proxy) {
         forwardedVia = proxy;
     }

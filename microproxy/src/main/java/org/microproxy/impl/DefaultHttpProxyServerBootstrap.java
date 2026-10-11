@@ -88,6 +88,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     boolean acceptProxyProtocol;
     boolean sendProxyProtocol;
     int maxWebSocketFrameBufferSize = 1 << 20;
+    int maxWebSocketMessageSize = 16 << 20;
     boolean sharedServerConnectionPool;
     ServerConnectionPoolType serverConnectionPoolType = ServerConnectionPoolType.CONCURRENT_MAP;
     int maxConnectionsPerHost = 10;
@@ -155,6 +156,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.acceptProxyProtocol = acceptProxyProtocol;
         c.sendProxyProtocol = sendProxyProtocol;
         c.maxWebSocketFrameBufferSize = maxWebSocketFrameBufferSize;
+        c.maxWebSocketMessageSize = maxWebSocketMessageSize;
         c.sharedServerConnectionPool = sharedServerConnectionPool;
         c.serverConnectionPoolType = serverConnectionPoolType;
         c.maxConnectionsPerHost = maxConnectionsPerHost;
@@ -744,6 +746,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withMaxWebSocketFrameBufferSize(int maxBytes) {
         if (maxBytes < 0) throw new IllegalArgumentException("must not be negative: " + maxBytes);
         this.maxWebSocketFrameBufferSize = maxBytes;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withMaxWebSocketMessageSize(int maxBytes) {
+        if (maxBytes <= 0) throw new IllegalArgumentException("must be positive: " + maxBytes);
+        this.maxWebSocketMessageSize = maxBytes;
         return this;
     }
 

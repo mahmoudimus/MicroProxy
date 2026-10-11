@@ -1,6 +1,10 @@
 package org.microproxy.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.microproxy.ClientDetails;
@@ -18,6 +22,7 @@ import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 
 /** Which streams the proxy parses piece by piece for given filters; the rest take the fast path. */
 class FastPathDetectionTest {
@@ -66,6 +71,31 @@ class FastPathDetectionTest {
     void selectiveFiltersAreTakenAtTheirWord() {
         assertArrayEquals(new boolean[] {false, false, false}, streams(new SelectiveHeadReader(false)));
         assertArrayEquals(new boolean[] {false, false, true}, streams(new SelectiveHeadReader(true)));
+    }
+
+    @Test
+    void onlyMessageHooksJoinMessages() {
+        assertFalse(ClientConnection.joinsWebSocketMessages(new HeadReader()));
+        assertFalse(ClientConnection.joinsWebSocketMessages(HttpFilters.builder().onWebSocketFrame((f, c) -> f).build()));
+        HttpFilters messages = HttpFilters.builder().onWebSocketMessage((m, c) -> m).build();
+        assertTrue(ClientConnection.joinsWebSocketMessages(messages));
+        assertArrayEquals(new boolean[] {false, false, true}, streams(messages));
+        HttpFilters lists = new HttpFilters() {
+            @Override
+            public List<WebSocketMessage> filterWebSocketMessages(WebSocketMessage message, boolean fromClient) {
+                return List.of(message);
+            }
+        };
+        assertTrue(ClientConnection.joinsWebSocketMessages(lists));
+        assertTrue(ClientConnection.joinsWebSocketMessages(new HttpFilters() {
+            @Override
+            public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+                return message;
+            }
+        }));
+        assertTrue(ClientConnection.joinsWebSocketMessages(
+                filtersFor(HttpFiltersChain.of(HttpFilters.builder().onRequest(r -> null).build(), (r, c) -> lists))));
+        assertFalse(ClientConnection.joinsWebSocketMessages(filtersFor(logger(Level.BODY).webSocketFrames(true).build())));
     }
 
     @Test
