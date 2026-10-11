@@ -525,7 +525,9 @@ final class QuicFlows implements AutoCloseable {
     /**
      * How the client's connection of a flow intercepted stream by stream is accepted: a certificate
      * for its SNI, the ALPN protocol the server chose, DATAGRAM frames when the server takes them,
-     * and room for the streams of both kinds that either side opens.
+     * room for the streams of both kinds that either side opens, the options' congestion
+     * controller, and no session tickets: what its streams carry is opaque, so no early data could
+     * be judged safe to replay.
      */
     private ServerConfig streamsConfig(QuicSession.Upstream upstream) {
         String alpn = upstream.connection().alpn();
@@ -544,6 +546,7 @@ final class QuicFlows implements AutoCloseable {
                 .streamReceiveWindow(options.streamReceiveWindow())
                 .receiveWindow(options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(upstream.connection().maxDatagramSize() >= 0 ? DATAGRAM_BUFFER : 0)
+                .congestionControl(Http3Listener.congestionControl(options))
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }

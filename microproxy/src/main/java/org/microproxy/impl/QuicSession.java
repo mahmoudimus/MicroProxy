@@ -86,7 +86,8 @@ final class QuicSession implements QuicContext {
     /**
      * Connects to the server of a flow intercepted stream by stream, from a UDP socket of its own:
      * the client's server name and ALPN protocols (the server's choice is the one the client is
-     * then given), the server validated with {@code trust}, DATAGRAM frames accepted.
+     * then given), the server validated with {@code trust}, DATAGRAM frames accepted, and the
+     * options' congestion controller.
      */
     static Upstream connect(DefaultHttpProxyServer server, ClientHello hello, X509TrustManager trust,
             InetSocketAddress address, Duration timeout) throws IOException {
@@ -106,6 +107,7 @@ final class QuicSession implements QuicContext {
                 .streamReceiveWindow(server.http3Options.streamReceiveWindow())
                 .receiveWindow(server.http3Options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(DATAGRAM_BUFFER)
+                .congestionControl(Http3Listener.congestionControl(server.http3Options))
                 .build();
         ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
         boolean ipv6 = address.getAddress() instanceof Inet6Address;

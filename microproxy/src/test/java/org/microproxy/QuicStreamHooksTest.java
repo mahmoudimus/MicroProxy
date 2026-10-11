@@ -225,6 +225,20 @@ class QuicStreamHooksTest {
         assertEquals("connected " + ALPN + " " + HOST, origin.events.getFirst(), "the server got the client's SNI and ALPN");
     }
 
+    /** The proxy's two connections of a flow relayed stream by stream run the congestion controller the options choose. */
+    @Test
+    void streamsGoThroughWithTheChosenCongestionController() throws Exception {
+        QuicEchoOrigin origin = origin(ALPN);
+        proxy = transparent(origin)
+                .withHttp3Options(Http3Options.builder().quicCongestionControl(Http3Options.QuicCongestionControl.BBR).build())
+                .withQuicInterceptor((message, stream) -> message.data())
+                .start();
+        QuicConnection c = connect(proxyCa.getCertificate(), ALPN);
+        String big = "x".repeat(256 * 1024);
+        assertEquals(big, exchange(c, "echo\n" + big));
+        c.close(0, "");
+    }
+
     @Test
     void unidirectionalAndServerInitiatedStreamsGoBothWays() throws Exception {
         QuicEchoOrigin origin = origin(ALPN);
