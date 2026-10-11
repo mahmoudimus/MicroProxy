@@ -133,6 +133,11 @@ java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-a
     --mode reverse:https://example.com --listener-keystore site.p12 --listener-keystore-password secret \
     --http2 --http3 --http3-upstream
 
+# A forward proxy on TLS (8443) that also serves HTTP/3 on UDP 8443: CONNECT, WebSockets and
+# CONNECT-UDP (MASQUE) for HTTP/3 clients:
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
+    --listener-keystore proxy.p12 --listener-keystore-password secret --http2 --http3
+
 # A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --server \
     --transparent --transparent-quic-port 8443 --mitm --http2 --http3-upstream
@@ -249,12 +254,15 @@ Command-line flags override values from the file.
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
 | `http2_initial_window_size` / `http2_connection_window_size` | request bytes buffered per HTTP/2 stream / per connection | `262144` / `1048576` |
-| `http3` | in reverse mode, serve HTTP/3 on the UDP port with the listener's number (needs the `quic` and `http3-codec` jars and a certificate; see [HTTP/3 and QUIC](#http3-and-quic)) | `false` |
+| `http3` | serve HTTP/3 on the UDP port with the listener's number: in reverse mode, or in forward mode next to the TLS listener (`listener_keystore`) for `CONNECT`, WebSockets and CONNECT-UDP (needs the `quic` and `http3-codec` jars and a certificate; see [HTTP/3 and QUIC](#http3-and-quic)) | `false` |
 | `http3_upstream` | speak HTTP/3 to servers known to support it, from `Alt-Svc` or `http3_upstream_hosts` (see [HTTP/3 to servers](#http3-to-servers)) | `false` |
 | `http3_upstream_hosts` | comma-separated regular expressions for `host:port` names reached over HTTP/3 without waiting for `Alt-Svc` | none |
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
 | `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
+| `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](#connect-udp-masque)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
+| `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
+| `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
@@ -275,7 +283,7 @@ Command-line flags override values from the file.
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
-| HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; servers that advertise `h3` get their exchanges over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
+| HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
@@ -1360,9 +1368,11 @@ Scripts get the same with [`on_frame`](#frames).
 
 MicroProxy speaks HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114)) over its own
 QUIC transport, the [`quic`](quic/README.md) module (ported from quinn and rustls), with
-[`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in three places: to the
-clients of a reverse proxy, to clients whose QUIC is redirected to a
-[transparent proxy](#transparent-quic), and to origin servers known to support it. All need the optional
+[`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in four places: to the
+clients of a reverse proxy, to the clients of a [forward proxy](#an-http3-forward-proxy-listener)
+that serves it next to its TLS listener (for `CONNECT`, WebSockets and MASQUE), to clients whose
+QUIC is redirected to a [transparent proxy](#transparent-quic), and to origin servers known to
+support it. All need the optional
 `quic` and `http3-codec` jars on the class path (the `microproxy-starlark` `-all` jar bundles
 them); a proxy started with HTTP/3 enabled without them fails at startup with an
 `IllegalStateException` that says so, and without HTTP/3 nothing loads them.
@@ -1409,18 +1419,12 @@ listener on the TCP listener's port number and serves HTTP/3 there (ALPN `h3`).
   remove the field. `Http3Options.altSvc(false)` (`--no-http3-alt-svc`, `http3_alt_svc=false`)
   turns it off, and `altSvcMaxAge` sets `ma`. Browsers act on `Alt-Svc` only over HTTPS, so pair
   HTTP/3 with a TLS listener.
-- **Not yet.** `CONNECT` and extended `CONNECT` (RFC 9220, WebSockets over HTTP/3) are answered
-  `501`, and the proxy does not advertise SETTINGS_ENABLE_CONNECT_PROTOCOL; there is no server push
-  and no HTTP datagrams (SETTINGS_H3_DATAGRAM is not sent).
+- **WebSockets** over extended `CONNECT` (RFC 9220) reach the upstream as described
+  [below](#websockets-over-http3); `CONNECT` is refused with `400`, as over HTTP/1 and HTTP/2, and
+  CONNECT-UDP with `501`. There is no server push, and no HTTP datagrams (SETTINGS_H3_DATAGRAM is
+  not sent, nor QUIC DATAGRAM frames accepted).
 
-**Why only reverse mode.** Clients of an explicit proxy (and of the proxy's TLS listener as a
-forward proxy) never speak HTTP/3 to it: browsers send HTTP/3 only to origins, and tunnelling it
-through a proxy would be MASQUE's CONNECT-UDP (RFC 9298), which is out of scope. So `withHttp3`
-on any other proxy fails at startup. A transparent proxy takes the QUIC that clients send to
-origins on a [transparent QUIC](#transparent-quic) port instead; other clients are steered to TCP
-([Alt-Svc](#alt-svc-which-clients-may-move-to-http3)).
-
-**Limits.** Much of HTTP/2's defence is QUIC's in HTTP/3: the stream limit and flow control are
+**Limits** (of every HTTP/3 connection to clients). Much of HTTP/2's defence is QUIC's in HTTP/3: the stream limit and flow control are
 the transport's, which a peer cannot exceed without a QUIC error. The proxy's own limits are set
 with `Http3Options` (or `http3_*` properties and `--http3-max-streams`); rate limits count per
 window of 10 seconds (`rateWindow`).
@@ -1449,6 +1453,135 @@ place (`H3_FRAME_UNEXPECTED`, `H3_MISSING_SETTINGS`), a critical stream that end
 will not process; streams opened after it are refused with `H3_REQUEST_REJECTED`, which clients
 retry elsewhere, the streams in progress finish (for up to the graceful stop timeout), and the
 connection closes once the client has closed it, or after two seconds.
+
+#### An HTTP/3 forward-proxy listener
+
+With `--http3` (`withHttp3(true)`, `http3=true`) on a forward proxy whose own TLS listener is on
+(`--listener-keystore`, `withSslContextSource`), the proxy also serves HTTP/3 on UDP at the TCP
+listener's port, with the same certificate. Browsers send HTTP/3 only to origins, never to a
+proxy; this listener is for clients configured to use an HTTP/3 proxy, MASQUE clients first:
+they tunnel TCP with `CONNECT`, WebSockets with extended `CONNECT`, and UDP (QUIC included) with
+CONNECT-UDP, all over one QUIC connection to the proxy.
+
+- **Proxy requests.** A request names its target with `:scheme` and `:authority`, and goes on as
+  an HTTP/1 client's absolute-form proxy request does: filters see `http://host:port/path` with
+  version `HTTP/3.0`. Every authority is served (no `421`: a forward proxy's requests name their
+  targets), and no `Alt-Svc` is added (a forward proxy's responses are its servers').
+- **Proxy authentication** applies per stream, as on `h2c`: a stream without valid credentials
+  gets `407` with `proxy-authenticate`, and the connection goes on.
+- **SETTINGS.** The listener sends SETTINGS_ENABLE_CONNECT_PROTOCOL and SETTINGS_H3_DATAGRAM,
+  and accepts QUIC DATAGRAM frames (the `max_datagram_frame_size` transport parameter). The
+  reverse proxy's listener and intercepted transparent QUIC send neither datagram setting and
+  refuse DATAGRAM frames.
+- **Not served.** A forward proxy without a TLS listener, and a transparent proxy (whose clients'
+  QUIC goes to `--transparent-quic-port`), fail at startup with `--http3`.
+
+```java
+MicroProxy.bootstrap()
+        .withPort(8443)
+        .withSslContextSource(new KeyStoreSslContextSource(Path.of("proxy.p12"), password))  // --listener-keystore
+        .withHttp3(true)                                                   // --http3: UDP 8443 too
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))       // intercept CONNECT streams (optional)
+        .withHttp3Options(Http3Options.builder()
+                .connectUdpIdleTimeout(Duration.ofSeconds(30))             // --masque-udp-idle-timeout 30
+                .connectUdpMaxFlows(4096, 64)                              // --masque-max-udp-flows(-per-connection)
+                .build())
+        .start();
+```
+
+#### CONNECT over HTTP/3
+
+A `CONNECT` stream (RFC 9114 section 4.4: `:method CONNECT` and `:authority host:port` only)
+opens a byte tunnel, as an HTTP/2 `CONNECT` stream does ([CONNECT and
+WebSockets](#connect-and-websockets)): its `200` leaves the stream open, DATA frames carry the
+tunnel's bytes, and the stream's FIN half-closes one direction. A reset ends the tunnel and
+closes its server connection, and is not counted as a rapid reset; a server connection that fails
+resets the stream with H3_CONNECT_ERROR. HEADERS after the `CONNECT`'s are a connection error
+(H3_FRAME_UNEXPECTED).
+
+The stream goes the way an HTTP/1 or HTTP/2 `CONNECT` does, because it is shown to the same code
+as a socket: with a MITM manager, the stream's first bytes decide ([Deciding what to
+intercept](#deciding-what-to-intercept-the-clienthello)): a ClientHello goes through the host
+rules and the ClientHello hooks, and an intercepted session is a client connection of its own
+inside the stream (HTTP/1.1, or HTTP/2 when the client negotiates `h2`), whose requests filters
+see; plain HTTP is served as HTTP; anything else is tunnelled, through the [TCP
+hooks](#raw-tcp-streams) and `--tcp-hosts`. Chained proxies and NO_PROXY apply as to any
+`CONNECT`. Inside an intercepted HTTP/3 session (transparent QUIC), a `CONNECT` goes to the
+intercepted server, which the client takes for its HTTPS proxy ([below](#in-front-of-an-http-or-https-proxy)),
+and a request for another host gets `421`.
+
+<a id="websockets-over-http3"></a>**WebSockets over HTTP/3** (RFC 9220) work on every HTTP/3
+connection to clients, as over HTTP/2: an extended `CONNECT` with `:protocol websocket`, `:scheme`
+`http` or `https`, `:authority` and `:path` becomes the HTTP/1.1 upgrade an HTTP/1.1 client would
+send. Filters see a `GET` with `Upgrade: websocket` (absolute-form on a forward proxy) and the
+answer as a `101`, which the client gets as a `200`; the frame and message hooks, the WebSocket
+limits and permessage-deflate apply as for HTTP/1 and HTTP/2 ([WebSocket frames and
+messages](#websocket-frames-and-messages)). Towards the server the WebSocket goes as an HTTP/1.1
+upgrade, as an extended `CONNECT` to an HTTP/2 server that enables RFC 8441, or, with
+`--http3-upstream`, as an extended `CONNECT` on the shared QUIC connection to an HTTP/3 server
+whose SETTINGS enable it. A server that resets the connection cancels the stream
+(H3_REQUEST_CANCELLED). Other `:protocol`s get `501`.
+
+```python
+# aioquic's H3Connection, a WebSocket through the proxy's HTTP/3 listener:
+http.send_headers(stream_id, [(b":method", b"CONNECT"), (b":protocol", b"websocket"),
+                              (b":scheme", b"https"), (b":authority", b"chat.example:443"),
+                              (b":path", b"/socket"), (b"sec-websocket-version", b"13")])
+```
+
+#### CONNECT-UDP (MASQUE)
+
+On the forward-proxy listener, CONNECT-UDP (RFC 9298) proxies UDP: an extended `CONNECT` with
+`:protocol connect-udp` whose `:path` names the target by the URI template, by default the
+well-known `/.well-known/masque/udp/{target_host}/{target_port}/` (`--masque-udp-template`,
+`Http3Options.connectUdpTemplate`, `masque_udp_template`: a path with an optional query, or an
+absolute URI, whose authority is the proxy's own, with each variable once; values are
+percent-decoded, so an IPv6 address's colons may be encoded).
+
+- **Policy.** The request is an exchange like any other: authentication applies (`407`), filters
+  see it as the HTTP/1.1 upgrade an HTTP/1.1 client would send (`GET` of the path with `Upgrade:
+  connect-udp`) and may answer it, the target is routed as `CONNECT host:port` would be (chained
+  proxies carry no UDP, so a route through them only gets `502`), `proxyToServerRequest` may
+  answer, and the target's name is resolved by the proxy's resolver and the filters' resolution
+  hooks (`502` when it does not resolve). A path that does not match the template gets `400`. The
+  acceptance is a `101` with `Upgrade: connect-udp` for filters and trackers, and a `200` with
+  `capsule-protocol: ?1` for the client. CONNECT-UDP elsewhere (a reverse proxy, an intercepted
+  session) gets `501`.
+- **HTTP Datagrams** (RFC 9297). UDP payloads travel as HTTP Datagrams with context ID 0: in QUIC
+  DATAGRAM frames, whose payload starts with the stream's quarter stream ID, or in DATAGRAM
+  capsules on the request stream (the capsule protocol, RFC 9297 section 3), which the proxy reads
+  whatever the client negotiated, skipping capsules of unknown types. Towards the client the
+  proxy uses DATAGRAM frames when the client's SETTINGS_H3_DATAGRAM and QUIC transport parameters
+  allow them and the payload fits, else capsules. Payloads with other context IDs are dropped.
+- **Relaying.** Each flow has a UDP socket of its own, connected to the target; datagrams go both
+  ways, one for one, until the client ends or resets its stream, or the flow is idle for
+  `--masque-udp-idle-timeout` (60 s), after which the proxy ends the stream.
+- **Bounds** (`Http3Options`). Flows at once, in total (4096) and per client connection (64;
+  `--masque-max-udp-flows`, `--masque-max-udp-flows-per-connection`): a request past either gets
+  `503`. Each direction of a flow queues at most 128 datagrams and 512 KiB
+  (`connectUdpQueue`); past that datagrams are dropped, as a network drops what it cannot carry,
+  so a client that does not read its stream, or a slow target, holds up nothing else.
+- **Hooks.** `withUdpInterceptor(UdpInterceptor)` sees every datagram, both ways: `udpStart`,
+  `udpMessage` (return the payload to send, changed or not, or `null` to drop it), `udpEnd`, and
+  `UdpContext.send` to add datagrams; scripts get [`on_udp_message`](#udp-hooks).
+
+```java
+bootstrap.withUdpInterceptor((msg, ctx) ->
+        msg.fromClient() && ctx.port() == 53 && msg.text().contains("blocked") ? null : msg.data());
+```
+
+A MASQUE client, such as aioquic's `H3Connection` (with HTTP/3 datagrams on), opens a flow and
+sends a DNS query through it:
+
+```python
+http = H3Connection(quic, enable_webtransport=True)   # sends SETTINGS_H3_DATAGRAM
+http.send_headers(stream_id, [(b":method", b"CONNECT"), (b":protocol", b"connect-udp"),
+                              (b":scheme", b"https"), (b":authority", b"proxy.example:8443"),
+                              (b":path", b"/.well-known/masque/udp/192.0.2.53/53/"),
+                              (b"capsule-protocol", b"?1")])
+# once the 200 arrives: context ID 0, then the UDP payload
+http.send_datagram(stream_id, b"\x00" + dns_query)
+```
 
 #### HTTP/3 to servers
 
@@ -1479,8 +1612,11 @@ HTTP/3), in any mode.
   (`ProxyFailure.ServerTimeout`); other resets and connection errors `502`
   (`ProxyFailure.BadServerResponse`), or reset the client's stream once the response has started.
 - **Only direct connections.** Requests through chained proxies (UDP does not go through them),
-  through a tunnel a session's server opened, with a PROXY protocol header, proxy requests and
-  WebSockets keep using TCP.
+  through a tunnel a session's server opened, with a PROXY protocol header, and proxy requests
+  keep using TCP.
+- **WebSockets** go over HTTP/3 to a server whose SETTINGS enable extended `CONNECT` (RFC 9220),
+  waited for up to `upstreamHandshakeTimeout`; to other servers on an HTTP/1.1 connection of their
+  own.
 
 #### Transparent QUIC
 
@@ -1640,8 +1776,12 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
 
 - **Transparent QUIC** intercepts HTTP/3 only: other QUIC protocols are relayed, and its
   original destination is the SNI's host (no TPROXY, no `SO_ORIGINAL_DST`). Clients of an
-  explicit proxy are still steered to TCP.
-- `CONNECT`, extended `CONNECT` and WebSockets over HTTP/3, HTTP datagrams and MASQUE.
+  explicit proxy are still steered to TCP, unless they use the forward proxy's HTTP/3 listener.
+- **MASQUE.** QUIC inside a CONNECT-UDP flow is relayed, not intercepted (the transparent QUIC
+  machinery would need a flow's datagrams instead of a socket's), so the ignore and allow host
+  rules, which decide interception, do not apply to UDP flows yet. CONNECT-UDP to an upstream
+  MASQUE proxy (HTTP/3 chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are
+  not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
 - From the QUIC module: 0-RTT and session resumption, connection migration (see its
   [README](quic/README.md)).
@@ -2886,7 +3026,8 @@ is relayed decrypted. TLS is still intercepted, unlike with `--ignore-hosts`.
 **Limitations.** A session can be relayed as raw TCP only over a server connection of its own:
 one shared as an HTTP/2 connection, a pooled one or none at all (offline interception) leaves it
 served as HTTP. Bytes added with `send` do not pass through `tcpMessage`, unlike mitmproxy's
-injected messages. UDP is not proxied.
+injected messages. UDP flows ([CONNECT-UDP](#connect-udp-masque)) have hooks of their own,
+`withUdpInterceptor`.
 
 ### Access logs
 
