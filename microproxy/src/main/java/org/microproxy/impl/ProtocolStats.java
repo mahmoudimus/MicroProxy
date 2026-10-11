@@ -354,6 +354,18 @@ final class ProtocolStats {
                 rewrites.inc();
             }
         }
+
+        /**
+         * Counts what a frame interceptor made of {@code frame}: dropped (nothing in its place),
+         * passed on (itself alone), or rewritten (anything else, frames it added included).
+         */
+        void frameOutcome(Object frame, Object result, boolean added) {
+            if (result == null && !added) {
+                drops.inc();
+            } else if (result != frame || added) {
+                rewrites.inc();
+            }
+        }
     }
 
     /** Every family of hooks. */

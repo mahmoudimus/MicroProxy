@@ -120,7 +120,7 @@ final class Http2Frames {
         try {
             result = interceptor.intercept(frame, direction, ctx);
             stats.end(start);
-            stats.outcome(frame, ctx.sent.isEmpty() || result == null ? result : ctx);
+            stats.frameOutcome(frame, result, !ctx.sent.isEmpty());
         } catch (RuntimeException e) {
             stats.failed(start);
             LOG.log(Level.WARNING, endpoint.logPrefix + "frame interceptor failed on " + describe(frame, direction)

@@ -112,7 +112,7 @@ final class QlogWriter {
             if (t == null) return;
         }
         if (t.full || t.failed) return;
-        long micros = (timeNanos - t.startNanos) / 1_000;
+        long micros = Math.max(0, (timeNanos - t.startNanos) / 1_000);
         String record = RECORD_SEPARATOR + "{\"time\":" + micros / 1000 + "." + pad3(micros % 1000) + ",\"name\":\""
                 + name + "\",\"data\":" + data + "}\n";
         if (t.bytes + record.length() > maxFileBytes) {

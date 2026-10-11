@@ -147,7 +147,7 @@ final class Http3Frames {
         try {
             result = interceptor.intercept(frame, direction, ctx);
             stats.end(start);
-            stats.outcome(frame, ctx.sent.isEmpty() || result == null ? result : ctx);
+            stats.frameOutcome(frame, result, !ctx.sent.isEmpty());
         } catch (RuntimeException e) {
             stats.failed(start);
             LOG.log(Level.WARNING, "frame interceptor failed on HTTP/3 " + frame.typeName() + " on stream " + streamId
