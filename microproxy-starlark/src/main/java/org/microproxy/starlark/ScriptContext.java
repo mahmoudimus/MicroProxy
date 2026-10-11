@@ -17,14 +17,17 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 
 /**
  * Per-request context: who the client is, {@code vars}, a dict that lives as long as the request
- * so {@code on_request} can leave notes for {@code on_response}, and {@code timings}, a snapshot
- * of the exchange's timings taken when it is read.
+ * so {@code on_request} can leave notes for {@code on_response}, {@code timings}, a snapshot
+ * of the exchange's timings taken when it is read, and {@code forwarded_via}, the intercepted
+ * server that the request is forwarded through as the client's HTTPS proxy ({@code host:port}),
+ * or {@code None}.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
-            ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings");
+            ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
+                    "forwarded_via");
 
     private final InetSocketAddress client;
     private final String user;
@@ -79,6 +82,8 @@ public final class ScriptContext implements Structure {
             case "tls" -> tls;
             case "vars" -> vars;
             case "timings" -> new ScriptTimings(flow == null ? FlowTimings.NONE : flow.timings());
+            case "forwarded_via" -> flow == null ? Starlark.NONE
+                    : flow.forwardedVia().<Object>map(via -> via).orElse(Starlark.NONE);
             default -> null;
         };
     }
