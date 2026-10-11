@@ -107,6 +107,31 @@ class ScriptedStatsTest {
     }
 
     @Test
+    void callsIntoScriptsAreCountedAsHooks() throws Exception {
+        origin = origin(echo());
+        StatsRegistry registry = StatsRegistry.create();
+        ScriptedProxy script = ScriptedProxy.builder("""
+                def on_request(req, ctx):
+                    if req.path == "/fail":
+                        fail("refused by a broken script")
+
+                def on_response(req, res, ctx):
+                    pass
+                """, "hooks.star").stats(registry).build();
+        proxy = MicroProxy.bootstrap().withPort(0).withStats(registry).withFiltersSource(script).start();
+        HttpClient client = client(proxy);
+        assertEquals(200, get(client, url(origin, "/ok")).statusCode());
+        get(client, url(origin, "/fail"));
+        // on_request twice, on_response at least once
+        long calls = ((Counter) registry.get("hooks.starlark.invocations")).value();
+        assertTrue(calls >= 3, "calls: " + calls);
+        assertEquals(1, ((Counter) registry.get("hooks.starlark.errors")).value());
+        assertEquals(calls, ((Histogram) registry.get("hooks.starlark.latency_us")).snapshot().count());
+        String scrape = StatsFormatter.prometheus(registry);
+        assertTrue(scrape.contains("envoy_hooks_errors{microproxy_hook=\"starlark\"} 1"), scrape);
+    }
+
+    @Test
     void withoutMetricsScriptStatsCountNothing() throws Exception {
         origin = origin(echo());
         ScriptedProxy script = ScriptedProxy.builder(SOURCE, "stats.star").build();
