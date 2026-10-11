@@ -48,13 +48,23 @@ public final class TestSupport {
         }
     }
 
-    /** Starts an HTTPS origin presenting the certificate in {@code context}. */
+    /**
+     * Starts an HTTPS origin presenting the certificate in {@code context}. Its exchanges run on
+     * platform threads: the JDK server reads TLS under a monitor, so an exchange waiting on an idle
+     * connection would pin a virtual thread's carrier, and as many idle connections as there are
+     * cores (a proxy keeping its TLS connections to a few such origins) would starve every virtual
+     * thread in the JVM, the proxy's and QUIC's included.
+     */
     public static HttpsServer httpsOrigin(SSLContext context, HttpHandler handler) {
         try {
             HttpsServer server = HttpsServer.create(new InetSocketAddress(LOOPBACK, 0), 0);
             server.setHttpsConfigurator(new HttpsConfigurator(context));
             server.createContext("/", handler);
-            server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+            server.setExecutor(Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "https-origin");
+                t.setDaemon(true);
+                return t;
+            }));
             server.start();
             return server;
         } catch (IOException e) {
