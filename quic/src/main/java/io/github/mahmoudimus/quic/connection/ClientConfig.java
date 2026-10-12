@@ -20,6 +20,8 @@ public final class ClientConfig {
     final QuicVersion version;
     final int initialDcidLength;
     final SessionCache sessionCache;
+    final boolean activeMigration;
+    final boolean preferredAddress;
 
     private ClientConfig(Builder b) {
         this.tls = b.tls;
@@ -27,6 +29,8 @@ public final class ClientConfig {
         this.version = b.version;
         this.initialDcidLength = b.initialDcidLength;
         this.sessionCache = b.sessionCache;
+        this.activeMigration = b.activeMigration;
+        this.preferredAddress = b.preferredAddress;
     }
 
     /**
@@ -83,6 +87,8 @@ public final class ClientConfig {
         private QuicVersion version = QuicVersion.V1;
         private int initialDcidLength = ConnectionId.MAX_LENGTH;
         private SessionCache sessionCache;
+        private boolean activeMigration = true;
+        private boolean preferredAddress = true;
 
         private Builder(TlsConfig tls) {
             this.tls = Objects.requireNonNull(tls, "tls");
@@ -134,6 +140,34 @@ public final class ClientConfig {
          */
         public Builder sessionCache(SessionCache cache) {
             this.sessionCache = cache;
+            return this;
+        }
+
+        /**
+         * Whether connections may migrate to a new local address ({@link Connection#probePath}),
+         * on by default. Off, the client sends {@code disable_active_migration} and refuses to
+         * migrate. A server that sent {@code disable_active_migration} is never migrated away from
+         * either way, except to its preferred address.
+         *
+         * @param activeMigration whether to allow active migration
+         * @return this builder
+         */
+        public Builder activeMigration(boolean activeMigration) {
+            this.activeMigration = activeMigration;
+            return this;
+        }
+
+        /**
+         * Whether to move to a server's preferred address (RFC 9000 section 9.6) once the
+         * handshake is confirmed, on by default: the client probes the address of its current
+         * path's family with the connection ID the server gave for it, and switches when the
+         * server answers.
+         *
+         * @param preferredAddress whether to follow a preferred address
+         * @return this builder
+         */
+        public Builder preferredAddress(boolean preferredAddress) {
+            this.preferredAddress = preferredAddress;
             return this;
         }
 

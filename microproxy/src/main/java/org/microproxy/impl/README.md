@@ -674,11 +674,25 @@ since the server's filter is its own.
   `QuicServer.send`, from the listener's socket. The filter matches a client's datagram to a
   flow by the Initials' Destination Connection ID or a learned server ID; failing that, anything
   but an Initial goes to the address's most recently active relayed flow.
+- **Clients that move.** An intercepted connection follows its client inside the QUIC module (the
+  endpoint routes by connection ID, the connection validates the new path and answers there), so
+  `QuicFlows` has nothing to do for it. A relayed flow's client that moves sends short header
+  packets from an address with no flow: `QuicFlows.moved` looks for the flow in `byServerId` (every
+  relayed flow's known server IDs, tried at each length in use, `serverIdLengths`), then among
+  `relayedByIp` of the client's IP address by the longest common prefix of at least
+  `MIN_CID_PREFIX` (4) bytes with a known server ID (`byPrefix`), then the most recently active
+  flow of that IP address. `rekey` moves the flow to the new address in `flows` and
+  `relayedByIp` (and the per-IP count when the IP changed), and `Flow.client`, which is volatile,
+  is where `relayReplies` sends from then on. `learnClientId` adds the Destination Connection ID
+  of a client packet that matched no known ID, at the length all the flow's server IDs share (none
+  when they differ), so that later packets match exactly; `remember` keeps at most 8 IDs per flow,
+  forgetting the oldest. Long header packets never move a flow (migration comes after the
+  handshake), so a new client's 0-RTT packets cannot be taken for another flow's.
 - **Ending.** A sweeper thread, every half second or so, forgets pending flows past their
   timeout, intercepted flows past their routing window, `accepting` entries whose handshake never
   completed, and relayed flows idle past `transparentRelayIdleTimeout`, telling their
   `ClientConnection`s (`endTransparentQuic`: filters' `exchangeEnded`, `clientDisconnected`).
-- **Locks.** One `ReentrantLock` guards the flows, the counts and `accepting`; it is held while
+- **Locks.** One `ReentrantLock` guards the flows, the indexes, the counts and `accepting`; it is held while
   injecting and while writing to a relay's socket, so datagrams keep their order, and never while
   deciding, resolving, connecting or calling trackers. The QUIC server's endpoint lock is taken
   under it (by `inject`), never the other way round; so are a CONNECT-UDP flow's queue locks (an
@@ -697,12 +711,29 @@ to the server, and implements `QuicContext` for the `QuicInterceptor` (when ther
   per direction, a pump and a watcher.
 - **Pumps.** A pump reads at most 16 KiB (`BUFFER`) from the source, calls `streamData` and
   writes the result to the sink, blocking while the sink's flow control holds it: nothing is
-  buffered beyond the one read, so flow control is end to end. The source's FIN calls
+  buffered beyond the one read (and, with framing, a message's bytes), so flow control is end to
+  end. The source's FIN calls
   `streamFinished`, then closes the sink's output; a `QuicStreamException` of kind `RESET` calls
   `streamReset` and resets the sink with the same code; one of kind `STOPPED` (the sink's side
   asked to stop) is a stop. Each direction's `Direction` has a lock its writes, and
   `QuicStreamContext.send` from other threads, take; `send` from the hook's own thread queues the
   bytes until the hook's result is written, as `TcpSession` does.
+- **Messages.** The session's framer is chosen once, in the constructor: only when the
+  interceptor's class overrides `streamMessage` (checked by reflection, cached in a `ClassValue`,
+  as `ClientConnection` checks filters' WebSocket hooks), by `QuicFraming.framerFor(alpn, host,
+  sni)`. Then each `Direction` has a `MessageAssembler`, and the pump hands it each read instead
+  of calling `streamData`: it keeps the bytes that do not make a whole message (asking the
+  `MessageFramer` for the length of the next one, which a length prefix gives before the rest has
+  arrived), and returns the whole ones. Each goes through `streamMessage`; what it returns is
+  framed again (`MessageFramer.frame`) and written under the direction's lock, or, for a message
+  whose `fromClient` names the other direction, sent there as `QuicStreamContext.send` sends.
+  A hook that throws, or a payload that cannot be framed, passes the message on as it came. The
+  bytes kept when the source finishes are written as they are, before the FIN. When the
+  assembler fails (a message over `maxMessageSize`, or a framer that throws or says a length below
+  1), `Stream.abort` marks both directions ended under their locks first, so that neither pump
+  passes on what a peer does in answer (a server that finishes its side when its input is reset),
+  then resets both sinks and stops both sources with the framing's error code; the hooks are not
+  told. Without a framer nothing is kept, and the pump is as before.
 - **Watchers.** A sink's STOP_SENDING shows only when a write fails, so a watcher waits for it
   with `QuicStream.awaitStopped()` and then, once per direction, calls `streamStopped`, asks the
   source to stop with the same code (which ends the pump's read) and resets the sink.
@@ -720,7 +751,10 @@ own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Or
 
 - **The first datagram** the client sends decides (`Inner.fromClient`, called by
   `UdpFlow.fromClient` before it queues a payload): a QUIC Initial of a version the proxy reads
-  puts the flow in `QUIC` mode, anything else in `RELAYED` mode, for good.
+  puts the flow in `QUIC` mode, and so does a packet of a connection the unbound server knows
+  (`QuicServer.knows`, by connection ID): an intercepted connection its client carried over from
+  another flow, which follows it here as to a new address. Anything else puts it in `RELAYED`
+  mode, for good.
 - **QUIC mode.** Payloads go to the unbound server's `receive` under the flow's address: those of
   an intercepted connection reach it by connection ID, others go through the server's filter to
   `QuicFlows.filter`, which holds and decides as for the listener. The server's datagrams for the
@@ -735,8 +769,9 @@ own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Or
   connection's `mitmHostAndPort` is the target, or, for an IP address, the SNI on the target's
   port, so the server's certificate is checked against the name.
 - **Ending.** `UdpFlow.end` calls `Inner.ended`: the flow's address is forgotten, its pending flows
-  and handshakes too (`QuicFlows.forget(origin)`), an intercepted connection is closed and a
-  relaying client connection is told.
+  and handshakes too (`QuicFlows.forget(origin)`), the intercepted connections still on the
+  flow's address are closed (`Origin.intercepted` hands each to `MasqueQuic`; one that moved to
+  another flow stays), and a relaying client connection is told.
 
 ## HTTP/3 to servers: `Http3UpstreamConnection` and `Http3Origins`
 

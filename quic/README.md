@@ -10,10 +10,9 @@ under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20
 HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
-endpoint, with session resumption, 0-RTT, NEW_TOKEN and a choice of CUBIC, NewReno or BBR
-congestion control, tested against itself on loopback and against aioquic as client and
-server. Not yet: connection migration (see [Connections and
-endpoints](#connections-and-endpoints)).
+endpoint, with session resumption, 0-RTT, NEW_TOKEN, connection migration and the preferred
+address (see [Migration](#migration)), and a choice of CUBIC, NewReno or BBR congestion control,
+tested against itself on loopback and against aioquic as client and server.
 
 ## Packets and protection
 
@@ -273,7 +272,8 @@ for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
 | MTU discovery | `MtuDiscovery`, `MtuDiscoveryConfig` | DPLPMTUD (RFC 8899) by binary search up to 1452 bytes by default, three retransmissions per probe size, black hole detection |
 | Connection IDs | `ConnectionIdGenerator`, `RandomConnectionIdGenerator`, `LocalCidState`, `RemoteCidQueue`, `IssuedCid` | Sequence numbers, HMAC-derived stateless reset tokens, at most `min(active_connection_id_limit, 8)` issued, rotation through Retire Prior To when IDs have a lifetime, the peer's IDs bounded by our `active_connection_id_limit` |
 | ACK frequency | `AckFrequencyState` | The `max_ack_delay` each side uses, and ACK_FREQUENCY thresholds |
-| Timers | `Timer`, `TimerTable`, `NanoClock` | Loss detection and PTO, idle, close and drain, key discard, path validation, keep-alive, pacing, CID rotation, ACK delay |
+| Paths (RFC 9000 sections 8.2 and 9) | `PathData`, `PathResponses`, `Transmit` | Each path's RTT, congestion controller, pacer, MTU discovery, delivery rate, bytes in flight and anti-amplification counts; packets remember their path's generation; PATH_RESPONSEs owed per path |
+| Timers | `Timer`, `TimerTable`, `NanoClock` | Loss detection and PTO, idle, close and drain, key discard, path validation and probes, keep-alive, pacing, CID rotation, ACK delay |
 | Address validation (`...quic.token`) | `TokenKey`, `Token`, `TokenPayload`, `TokenValidator`, `IncomingToken`, `TokenLog`, `BloomTokenLog` | Retry tokens bound to the client's address and port (15 s) and NEW_TOKEN tokens bound to its IP (two weeks), sealed with a one-time AES-256-GCM key derived by HKDF from the server's key; expiry from an injectable `InstantSource`; a bounded replay log |
 
 - **Time.** Every method that depends on time takes `now` in nanoseconds from one monotonic clock;
@@ -298,8 +298,8 @@ detection), CUBIC, connection ID queue, ACK frequency state and tokens with the 
 bloom filter replaces the `fastbloom` crate). Differences, mostly where RFC 9000 and 9002 are
 stricter than quinn:
 
-- Single path: no path generations, migration or path validation logic (only its timer), so the
-  in-flight counts are per connection.
+- Paths: `Recovery` keeps the current and the previous `PathData` (quinn keeps them in the
+  connection); the packet number spaces stay per connection.
 - The explicit RFC state names (Ready versus Send, DataRecvd, ResetRecvd; SizeKnown, DataRecvd,
   DataRead, ResetRead) are tracked for inspection; quinn folds them into three and two states.
 - A FIN below data already received is a `FINAL_SIZE_ERROR`; STOP_SENDING beyond the stream limit
@@ -461,16 +461,16 @@ try (QuicClient client = QuicClient.create(clientConfig);
 
 | Type | Role |
 | --- | --- |
-| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `unbound(local, ServerConfig, EndpointConfig, DatagramFilter, DatagramSink)` (no socket), `accept()` (blocks until a handshake completes), `receive(from, datagram)`, `inject(from, datagram[, ServerConfig])`, `send(datagram, to)`, `localAddress()`, `close()` |
+| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])` (and a socket at each preferred address), `unbound(local, ServerConfig, EndpointConfig, DatagramFilter, DatagramSink)` (no socket), `accept()` (blocks until a handshake completes), `receive(from, datagram)`, `inject(from, datagram[, ServerConfig])`, `send(datagram, to)`, `knows(from, datagram)`, `localAddress()`, `close()` |
 | `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `close()` |
-| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
+| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `migrate(local or DatagramChannel)` (probes, then switches), `rebind(local)` (switches at once), `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
 | `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `awaitStopped()` (the peer's STOP_SENDING code, for a writer that is not writing), `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
 | `...connection.SessionCache` | A client's session tickets (`ClientSessionStore`) and NEW_TOKEN tokens (`TokenStore`, `TokenMemoryCache` after quinn's), by server name: `memory()`, `none()` |
 | `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
-| `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
+| `...connection.Connection` | sans-I/O: `handleDatagram(now, [local,] remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)` (`Transmit`s: datagram, destination, source), `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; `probePath(now, local)`, `rebind(now, local)`, `path()`; stream, datagram and close calls |
 | `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `knows(remote, bytes)`; `connect(...)`; `handleEvent(connection, event)` |
-| `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `ConnectionLost(ConnectionError)` |
-| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, NEW_TOKEN tokens and their lifetime, connection cap; trust, server name, version, session cache; CID length and lifetime, reset key, versions |
+| `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `PathUpdated(remote, local)`, `PathProbeFailed(remote, local)`, `ConnectionLost(ConnectionError)` |
+| `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, NEW_TOKEN tokens and their lifetime, connection cap, `migration`, `preferredAddress`; trust, server name, version, session cache, `activeMigration`, `preferredAddress`; CID length and lifetime, reset key, versions |
 
 With a `Ticketer` and `earlyData(true)` in its TLS configuration, a server's `accept()` hands out
 a connection that accepted 0-RTT data as soon as its handshake data is ready, before the handshake
@@ -553,6 +553,10 @@ Path MTU discovery stays off on such a server.
   RETIRE_CONNECTION_ID gets a replacement; IDs with a lifetime (`RandomConnectionIdGenerator`) are
   rotated through Retire Prior To. Every change reaches the endpoint's routes. Zero-length IDs are
   routed by the peer's address.
+- **Migration** (RFC 9000 section 9; see [Migration](#migration)). A server follows a client to
+  a new address and validates it; a client probes a new local address or rebinds to it, and moves
+  to a server's preferred address. Datagrams come with the local address they arrived at and leave
+  as `Transmit`s that name their destination and source.
 - **Closing** (RFC 9000 section 10). `close(code, reason)` sends CONNECTION_CLOSE in every space
   with keys (an application close becomes `APPLICATION_ERROR` without a reason in Initial and
   Handshake packets), repeats it in answer to packets while closing, and drains for three PTOs; a
@@ -570,6 +574,74 @@ shorter than 8 bytes, authenticates the first Initial before creating any state,
 beyond `maxConnections` with `CONNECTION_REFUSED`, and answers packets for unknown connection IDs
 with a stateless reset, at most one per 20 ms and always smaller than the packet that caused it.
 
+### Migration
+
+Ported from quinn-proto's path handling (`connection/mod.rs`: `migrate`, the migration in
+`process_payload`, `send_path_challenge`, `prev_path`, the path validation timer; `paths.rs`:
+`PathData`, `PathResponses`), with the client's probing and the preferred address after RFC 9000
+sections 9.1 and 9.6, which quinn does not have.
+
+```java
+// Server: clients may migrate (the default); a socket at a preferred address too
+ServerConfig config = ServerConfig.builder(tls)
+        .migration(true)                                           // false: disable_active_migration
+        .preferredAddress(new InetSocketAddress("192.0.2.10", 4433), null)
+        .build();
+
+// Client: move a connection to a new local port in the middle of whatever it is doing
+InetSocketAddress now = connection.migrate(new InetSocketAddress(0));   // probes, then switches
+connection.rebind(new InetSocketAddress(0));                             // switches at once
+```
+
+- **Routing.** The endpoint routes datagrams by Destination Connection ID whatever address they
+  come from (zero-length connection IDs are routed by address, which rules migration out).
+- **A server follows its client** (`ServerConfig.migration`, on by default, as in quinn) once the
+  handshake is confirmed and a non-probing packet with the largest packet number so far arrives
+  from a new address; a probing packet (only PATH_CHALLENGE, PATH_RESPONSE, NEW_CONNECTION_ID and
+  PADDING) gets its PATH_RESPONSE in a datagram of its own, sent to where it came from and no
+  larger than three times its datagram. Following, the server starts a new path: it keeps the
+  RTT, congestion and MTU state when only a port changed (a NAT rebinding, RFC 9000 section 9.4),
+  and starts them over otherwise (MTU discovery runs again there); sends PATH_CHALLENGE with every
+  packet until the client answers, padded to 1200 bytes within the limit; sends no more than three
+  times what it received on the path until then (RFC 9000 section 8), including MTU probes, which
+  wait; ignores ACKs for congestion meanwhile; challenges the previous path too, with the
+  connection ID used there; and moves to an unused connection ID of the client's, so that the
+  paths cannot be linked. No answer in three PTOs (of the larger of both paths), and it goes back
+  to the previous path. A replayed packet is a duplicate and moves nothing; a copy that overtakes
+  the original moves the server, but the new path gets no answer, the previous path's challenge
+  makes the real client send a newer packet, and the server returns (RFC 9000 section 9.3.3). A
+  PATH_RESPONSE validates the path its challenge went out on whatever path it comes back on, matched
+  by its data (RFC 9000 section 8.2.2; quinn also wants it from the new address). Off,
+  the server sends `disable_active_migration` and drops packets from other addresses.
+- **A client moves** with `QuicConnection.migrate` (`Connection.probePath`): it binds a socket,
+  waits for the handshake to be confirmed, sends PATH_CHALLENGE from there with an unused
+  connection ID of the server's (RFC 9000 section 9.5), padded to 1200 bytes and sent again with
+  backoff, and switches when the PATH_RESPONSE arrives (`ConnectionEvent.PathUpdated`); no answer
+  in three PTOs (of the larger of the current path's and a new one's), and it stays
+  (`PathProbeFailed`, an `IOException`). The old socket keeps receiving meanwhile, so an answer
+  that comes back on the old path counts too. `rebind` (`Connection.rebind`, quinn's
+  `local_address_changed`) switches at once with an unused connection ID and a PING, which the
+  server follows as a NAT rebinding. Either keeps the congestion state when the local IP address
+  stays the same (a wildcard counts as the same), and the old socket is closed once no connection
+  uses it; a client's first socket gives way to the new one for later connections. A client never
+  follows the server to another address, except to its preferred address, and refuses to migrate
+  when either side sent `disable_active_migration` (`ClientConfig.activeMigration(false)` sends
+  it).
+- **Preferred address** (RFC 9000 section 9.6). A server with `preferredAddress(v4, v6)` binds a
+  socket at each address (port 0 picks one, which is advertised), and its connections advertise
+  them with a connection ID of their own (sequence number 1) and its reset token. A client
+  (`ClientConfig.preferredAddress`, on by default) probes the address of its current path's family
+  once the handshake is confirmed, with that connection ID, and switches when it answers; the
+  server, seeing the client's packets arrive at the preferred address, answers from there. It is
+  allowed even when the server disables active migration.
+
+Limits: one path at a time (no multipath); a server never moves to a new address of its own
+accord (only through its preferred address); and aioquic's server never answers a probe: it
+queues the PATH_RESPONSE on the probed path but writes responses only on the path it sends on,
+which a probing packet does not change, so no answer comes back on any path (its qlog shows the
+challenges received and no response sent). With it, `migrate` fails, leaving the connection where
+it was, and `rebind` works.
+
 ### Threads and limits
 
 - One virtual thread per endpoint receives datagrams, copies each into a buffer of its own (the
@@ -583,7 +655,9 @@ with a stateless reset, at most one per 20 ms and always smaller than the packet
   out-of-order data per level), 100 early 1-RTT packets, the DATAGRAM receive buffer, 1024 pieces
   per reassembled stream, the connection ID limits, and `maxConnections` per server.
 - Closing a `QuicServer` or `QuicClient` closes its connections with code 0, waits briefly for the
-  CONNECTION_CLOSE packets to go out, stops the threads and closes the socket.
+  CONNECTION_CLOSE packets to go out, stops the threads and closes the sockets.
+- Each socket has a receiving thread: a server's own and those at its preferred addresses; a
+  client's, and one per migrated connection's.
 - The socket asks for 4 MiB buffers and sets `IP_DONTFRAGMENT`; where that is unsupported, MTU
   discovery stays off.
 
@@ -612,6 +686,20 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   data, nothing processed), an expired ticket, an ALPN change, smaller transport parameters (the
   streams that no longer fit are forgotten), an application veto, NEW_TOKEN skipping Retry, and a
   reused token. `ZeroRttLoopbackTest` does the same over the blocking API on loopback.
+- `MigrationTest` moves connections between `Pair`s (which can rebind an endpoint's address
+  without telling its connections, as a NAT does): a NAT rebinding in the middle of a transfer
+  (nothing lost, the congestion window and RTT kept, a new connection ID), a new IP address (the
+  path validated, RTT, window and MTU started over, then measured again), a validation that fails
+  and falls back, the anti-amplification limit of an unvalidated path, a spoofed source address
+  (a replay after the original moves nothing; one that overtakes it moves the server, which comes
+  back), a client's probe that succeeds and one that fails, `rebind`, the preferred address
+  (followed, and ignored when the client says so), `disable_active_migration` both ways, and
+  quinn's `migration`, `migrate_detects_new_mtu_and_respects_original_peer_max_udp_payload_size`
+  and `path_changes_unblock_oversized_datagrams`. `MigrationLoopbackTest` does it over real sockets:
+  a client that migrates (twice) and one that rebinds in the middle of an echo of 16 to 24 MB, one
+  that takes over a `DatagramChannel` of its own, a NAT on loopback that maps the client to a new
+  port mid-echo, the preferred address, and a server that refuses migration, all checked with
+  SHA-256.
 - `LoopbackTest` runs the blocking API over real UDP on loopback: 32 concurrent streams echoing 1 MB
   each with SHA-256 checks, a 24 MB upload, parallel connections, datagrams, closes, resets, key
   updates during a transfer. On a 4-core container, with an 8 KB MTU, the 32-stream echo moves
@@ -629,7 +717,14 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
   closes from either side with their codes and reasons, and resumption with 0-RTT both ways:
   aioquic's client resumes against the Java server and has its request served from early data
   (`resume_client.py`), and the Java client resumes against aioquic's server (`--tickets`) through
-  `connectEarly`, both with the early data accepted. An HTTP/3 client on aioquic's
+  `connectEarly`, both with the early data accepted. Migration each way: aioquic's client moves
+  to a new port with the server's next connection ID in the middle of four 4 MB echoes and the
+  Java server follows it; the Java client rebinds in the middle of an 8 MB echo against aioquic's
+  server, whose path to the new port it then uses; the Java client's probe, which aioquic's server
+  never answers on any path (its qlog shows the challenges received and no PATH_RESPONSE sent),
+  fails and leaves the
+  connection where it was; and aioquic's client connects to a Java server with a preferred
+  address, which it does not use. An HTTP/3 client on aioquic's
   `H3Connection` also runs GET and POST requests (2 MB down, 1 MB echoed, concurrent and
   sequential) against a small HTTP/3 server built on the blocking API and `http3-codec` (a
   test-scoped dependency; static QPACK only).
@@ -649,8 +744,7 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 
 ### Not yet
 
-Connection migration and path validation (datagrams from another address are dropped;
-PATH_CHALLENGE is answered on the current path), the preferred address, sending ACK_FREQUENCY,
+Multipath, a server that moves to a new address other than its preferred one, sending ACK_FREQUENCY,
 ECN marking (the JDK cannot set or read
 ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
 `http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see

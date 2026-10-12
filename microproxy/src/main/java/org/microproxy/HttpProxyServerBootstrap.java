@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicFraming;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tcp.TcpInterceptor;
@@ -787,6 +788,25 @@ public interface HttpProxyServerBootstrap {
     /** {@return the QUIC interceptor configured so far, or null} */
     default QuicInterceptor getQuicInterceptor() {
         return null;
+    }
+
+    /**
+     * Which intercepted QUIC connections' streams a {@link QuicInterceptor} that overrides {@link
+     * QuicInterceptor#streamMessage} sees as whole messages, cut by a {@link
+     * org.microproxy.quic.MessageFramer} chosen by ALPN or host; how large a message may be; and the
+     * error code a stream is reset with when one is too large. {@link QuicFraming#defaults()} (DNS
+     * over QUIC with its two-byte length prefix) by default.
+     *
+     * @param framing the framing
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withQuicFraming(QuicFraming framing) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support QUIC framing");
+    }
+
+    /** {@return the QUIC framing configured so far} */
+    default QuicFraming getQuicFraming() {
+        return QuicFraming.defaults();
     }
 
     /**

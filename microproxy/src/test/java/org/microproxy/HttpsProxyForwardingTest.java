@@ -13,6 +13,7 @@ import com.sun.net.httpserver.HttpsServer;
 import io.github.mahmoudimus.http2.ErrorCode;
 import io.github.mahmoudimus.http2.HeaderField;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -486,6 +487,14 @@ class HttpsProxyForwardingTest {
             int first = s.getInputStream().read();
             if (first == 0x16) {
                 write(s.getOutputStream(), "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+                // Ends its side, then reads the rest of the ClientHello (and anything after it)
+                // until the client is done: a socket closed with bytes unread is reset, and the
+                // reset can overtake the answer, through the corporate proxy's tunnel too. Both
+                // ClientHellos need it: the proxy's own, whose handshake must fail on the plain
+                // text and not on a reset, and the client's in the second, plain tunnel, whose
+                // 400 must reach the client.
+                s.shutdownOutput();
+                s.getInputStream().transferTo(OutputStream.nullOutputStream());
             } else if (first >= 0) {
                 s.getOutputStream().write(first);
                 s.getInputStream().transferTo(s.getOutputStream());

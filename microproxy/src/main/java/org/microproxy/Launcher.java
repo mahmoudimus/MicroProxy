@@ -177,6 +177,13 @@ public final class Launcher {
               --quic-hosts <regex>         relay matching hosts' intercepted QUIC (server host or
                                            SNI) stream by stream through the QUIC hooks, even
                                            HTTP/3, and intercept their other QUIC; repeatable
+              --quic-framing <rules>       cut intercepted QUIC streams into messages for the
+                                           message hooks, by ALPN or host: key=framer pairs, such
+                                           as doq=u16,myproto=varint,*=none; framers u16, u32,
+                                           varint, lf, crlf, none, script (default doq=u16)
+              --quic-max-message-size <n>  the largest QUIC message framed, in bytes (default
+                                           1048576); a larger one resets its stream
+              --quic-message-error-code <n>  the error code of that reset (default 2)
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -607,6 +614,11 @@ public final class Launcher {
                 case "--allow-hosts" -> allowHosts.add(value(queue, arg));
                 case "--tcp-hosts" -> tcpHosts.add(value(queue, arg));
                 case "--quic-hosts" -> quicHosts.add(value(queue, arg));
+                case "--quic-framing" -> bootstrap.withQuicFraming(bootstrap.getQuicFraming().withRules(value(queue, arg)));
+                case "--quic-max-message-size" ->
+                        bootstrap.withQuicFraming(bootstrap.getQuicFraming().withMaxMessageSize(intValue(queue, arg)));
+                case "--quic-message-error-code" ->
+                        bootstrap.withQuicFraming(bootstrap.getQuicFraming().withErrorCode(Long.decode(value(queue, arg))));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);

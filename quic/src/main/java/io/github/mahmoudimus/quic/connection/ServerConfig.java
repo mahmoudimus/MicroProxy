@@ -1,6 +1,7 @@
 /*
  * Ported from quinn-proto src/config/mod.rs (ServerConfig and ValidationTokenConfig: the NEW_TOKEN
- * tokens sent per connection, their lifetime and the reuse log) (Apache-2.0).
+ * tokens sent per connection, their lifetime and the reuse log; migration and
+ * preferred_address) (Apache-2.0).
  */
 package io.github.mahmoudimus.quic.connection;
 
@@ -9,6 +10,9 @@ import io.github.mahmoudimus.quic.token.BloomTokenLog;
 import io.github.mahmoudimus.quic.token.TokenKey;
 import io.github.mahmoudimus.quic.token.TokenLog;
 import io.github.mahmoudimus.quic.token.TokenValidator;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.InstantSource;
@@ -17,8 +21,8 @@ import java.util.Objects;
 /**
  * How a server accepts connections: its TLS configuration (certificates, possibly selected per SNI,
  * ALPN, session tickets and 0-RTT), the transport settings, Retry-based address validation, the
- * NEW_TOKEN tokens that let returning clients skip the Retry, and the connection cap. Immutable and
- * shareable.
+ * NEW_TOKEN tokens that let returning clients skip the Retry, the connection cap, whether clients
+ * may migrate, and a preferred address. Immutable and shareable.
  */
 public final class ServerConfig {
 
@@ -31,6 +35,9 @@ public final class ServerConfig {
     final InstantSource clock;
     final int newTokens;
     final Duration validationTokenLifetime;
+    final boolean migration;
+    final InetSocketAddress preferredIpv4;
+    final InetSocketAddress preferredIpv6;
 
     private ServerConfig(Builder b) {
         this.tls = b.tls;
@@ -42,6 +49,58 @@ public final class ServerConfig {
         this.clock = b.clock;
         this.newTokens = b.newTokens;
         this.validationTokenLifetime = b.validationTokenLifetime;
+        this.migration = b.migration;
+        this.preferredIpv4 = b.preferredIpv4;
+        this.preferredIpv6 = b.preferredIpv6;
+    }
+
+    /**
+     * Whether clients may migrate to new addresses (RFC 9000 section 9).
+     *
+     * @return false if the server sends {@code disable_active_migration} and drops packets from
+     *     new addresses
+     */
+    public boolean migration() {
+        return migration;
+    }
+
+    /**
+     * The IPv4 preferred address (RFC 9000 section 9.6).
+     *
+     * @return the address, or null
+     */
+    public InetSocketAddress preferredIpv4() {
+        return preferredIpv4;
+    }
+
+    /**
+     * The IPv6 preferred address (RFC 9000 section 9.6).
+     *
+     * @return the address, or null
+     */
+    public InetSocketAddress preferredIpv6() {
+        return preferredIpv6;
+    }
+
+    /**
+     * A builder that starts from this configuration, with the same token key.
+     *
+     * @return a new builder
+     */
+    public Builder toBuilder() {
+        Builder b = new Builder(tls);
+        b.transport = transport;
+        b.retry = retry;
+        b.tokenKey = tokenKey;
+        b.retryTokenLifetime = retryTokenLifetime;
+        b.maxConnections = maxConnections;
+        b.clock = clock;
+        b.newTokens = newTokens;
+        b.validationTokenLifetime = validationTokenLifetime;
+        b.migration = migration;
+        b.preferredIpv4 = preferredIpv4;
+        b.preferredIpv6 = preferredIpv6;
+        return b;
     }
 
     /**
@@ -117,6 +176,9 @@ public final class ServerConfig {
         private InstantSource clock = InstantSource.system();
         private int newTokens = 2;
         private Duration validationTokenLifetime = TokenValidator.DEFAULT_VALIDATION_TOKEN_LIFETIME;
+        private boolean migration = true;
+        private InetSocketAddress preferredIpv4;
+        private InetSocketAddress preferredIpv6;
 
         private Builder(TlsConfig tls) {
             this.tls = Objects.requireNonNull(tls, "tls");
@@ -190,6 +252,45 @@ public final class ServerConfig {
          */
         public Builder validationTokenLifetime(Duration lifetime) {
             this.validationTokenLifetime = Objects.requireNonNull(lifetime, "lifetime");
+            return this;
+        }
+
+        /**
+         * Whether clients may migrate (RFC 9000 section 9): on by default, as in quinn. A connection
+         * then follows a client to a new address once a non-probing packet arrives from it,
+         * validates the new path, and goes back to the old one if validation fails. Off, the server
+         * sends {@code disable_active_migration} and drops packets from any address but the one
+         * the handshake used; a client may still move to the preferred address.
+         *
+         * @param migration whether to allow migration
+         * @return this builder
+         */
+        public Builder migration(boolean migration) {
+            this.migration = migration;
+            return this;
+        }
+
+        /**
+         * Advertises a preferred address (RFC 9000 section 9.6) in the {@code preferred_address}
+         * transport parameter, with a connection ID of its own: a client may validate it after the
+         * handshake and move there. The server must receive datagrams at the address; {@code
+         * QuicServer} binds a socket to each address given (port 0 takes an ephemeral port, which
+         * is then advertised).
+         *
+         * @param ipv4 the IPv4 address, or null
+         * @param ipv6 the IPv6 address, or null
+         * @return this builder
+         * @throws IllegalArgumentException if an address is of the other family
+         */
+        public Builder preferredAddress(InetSocketAddress ipv4, InetSocketAddress ipv6) {
+            if (ipv4 != null && !(ipv4.getAddress() instanceof Inet4Address)) {
+                throw new IllegalArgumentException("not an IPv4 address: " + ipv4);
+            }
+            if (ipv6 != null && !(ipv6.getAddress() instanceof Inet6Address)) {
+                throw new IllegalArgumentException("not an IPv6 address: " + ipv6);
+            }
+            this.preferredIpv4 = ipv4;
+            this.preferredIpv6 = ipv6;
             return this;
         }
 
