@@ -318,11 +318,13 @@ class TransparentQuicTest {
         H3TestOrigin origin = h3Origin();
         RecordedFlows flows = new RecordedFlows();
         start(transparent(origin.port()).withIgnoreHosts("^origin\\.test:").plusActivityTracker(flows)
-                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(java.time.Duration.ofMillis(500)).build()));
+                // Long enough that no pause of a loaded machine ends the relay before the exchange is over.
+                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(java.time.Duration.ofSeconds(3)).build()));
         try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, originCa.getCertificate())) {
             assertEquals("hello over h3", client.get("/hello").text());
         }
-        FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY);
+        // The record comes once the relay has been idle for its timeout, and the sweep after.
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY, java.time.Duration.ofSeconds(30));
         assertTrue(r.bytesReceived() > 1000 && r.bytesSent() > 1000, r.toString());
         assertEquals(r.bytesReceived(), r.upstreamBytesSent());
         assertEquals(r.bytesSent(), r.upstreamBytesReceived());

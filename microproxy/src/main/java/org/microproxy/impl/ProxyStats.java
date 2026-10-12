@@ -17,6 +17,7 @@ import org.microproxy.FlowRecord;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.ResponseFlag;
+import org.microproxy.ServerState;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.stats.Counter;
@@ -51,6 +52,8 @@ final class ProxyStats {
     final ClusterStats direct;
     final ClusterStats cache;
     final ClusterStats replay;
+    /** {@code listener_manager.listener_stopped}: listeners closed. */
+    final Counter listenerStopped;
     private final ClusterTable clusters;
     /** {@code http2.downstream.*} and {@code http2.upstream.*}. */
     final ProtocolStats.Http2Stats http2Downstream;
@@ -79,6 +82,7 @@ final class ProxyStats {
         this.direct = new ClusterStats(registry, "direct");
         this.cache = new ClusterStats(registry, "cache");
         this.replay = new ClusterStats(registry, "replay");
+        this.listenerStopped = registry.counter("listener_manager.listener_stopped", "Listeners closed");
         this.clusters = new ClusterTable(registry);
         this.http2Downstream = new ProtocolStats.Http2Stats(registry, "downstream");
         this.http2Upstream = new ProtocolStats.Http2Stats(registry, "upstream");
@@ -96,6 +100,25 @@ final class ProxyStats {
     Object quicScope(String scope, java.util.function.Supplier<Object> make) {
         Object o = quicScopes.get(scope);
         return o != null ? o : quicScopes.computeIfAbsent(scope, k -> make.get());
+    }
+
+    /** What a cluster is: {@code direct}, {@code cache}, {@code replay}, a chained proxy, a server, or the overflow. */
+    static final String DIRECT = "direct";
+    static final String CACHE = "cache";
+    static final String REPLAY = "replay";
+    static final String CHAINED_PROXY = "chained_proxy";
+    static final String HOST = "host";
+    static final String OVERFLOW = "overflow";
+
+    /** A cluster with stats of its own, and what it is. */
+    record Cluster(String name, String kind) {}
+
+    /** The clusters with stats now, for the admin listener: the fixed ones, then those met so far, by name. */
+    List<Cluster> clusters() {
+        List<Cluster> all = new ArrayList<>(List.of(new Cluster(direct.name, DIRECT), new Cluster(cache.name, CACHE),
+                new Cluster(replay.name, REPLAY)));
+        all.addAll(clusters.list());
+        return all;
     }
 
     /** {@code listener.<address>.*} of the listener bound at {@code address}. */
@@ -136,12 +159,12 @@ final class ProxyStats {
     ClusterStats cluster(ChainedProxy proxy, String hostAndPort) {
         if (!enabled) return direct;
         if (proxy == null || proxy == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
-            return registry.perHostClusters() && hostAndPort != null ? clusters.get(TagExtractor.sanitize(hostAndPort))
+            return registry.perHostClusters() && hostAndPort != null ? clusters.get(TagExtractor.sanitize(hostAndPort), HOST)
                     : direct;
         }
         InetSocketAddress address = proxy.getChainedProxyAddress();
-        if (address == null) return clusters.get("chained_proxy");
-        return clusters.get(TagExtractor.sanitize(address.getHostString() + "_" + address.getPort()));
+        if (address == null) return clusters.get("chained_proxy", CHAINED_PROXY);
+        return clusters.get(TagExtractor.sanitize(address.getHostString() + "_" + address.getPort()), CHAINED_PROXY);
     }
 
     /**
@@ -155,7 +178,14 @@ final class ProxyStats {
         MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
         registry.gauge("server.uptime", "Seconds the proxy has been running",
                 () -> (System.nanoTime() - started) / 1_000_000_000L);
-        registry.gauge("server.live", "1 while the proxy serves, 0 once it is stopping", () -> server.isStopping() ? 0 : 1);
+        registry.gauge("server.live", "1 while the proxy is live, 0 once it drains or stops",
+                () -> server.state() == ServerState.LIVE ? 1 : 0);
+        registry.gauge("server.state", "0 live, 1 draining, 2 pre-initializing, 3 initializing, 4 stopped",
+                () -> server.state().code());
+        registry.gauge("listener_manager.total_listeners_active", "Listeners accepting connections",
+                server::activeListeners);
+        registry.gauge("listener_manager.total_listeners_draining", "Listeners accepting connections while the proxy drains",
+                () -> server.state() == ServerState.DRAINING ? server.activeListeners() : 0);
         registry.gauge("server.concurrency", "Processors available to the JVM",
                 () -> Runtime.getRuntime().availableProcessors());
         registry.gauge("server.memory_allocated", "Heap bytes in use", () -> memory.getHeapMemoryUsage().getUsed());
@@ -240,6 +270,7 @@ final class ProxyStats {
         final Histogram cxLength;
         final Counter cxRxBytes;
         final Counter cxTxBytes;
+        final Counter cxDrainClose;
 
         HttpStats(StatsRegistry registry, String name) {
             this.registry = registry;
@@ -271,6 +302,8 @@ final class ProxyStats {
             cxLength = registry.histogram(prefix + "downstream_cx_length_ms", "Milliseconds client connections were open");
             cxRxBytes = registry.counter(prefix + "downstream_cx_rx_bytes_total", "Bytes read from clients");
             cxTxBytes = registry.counter(prefix + "downstream_cx_tx_bytes_total", "Bytes written to clients");
+            cxDrainClose = registry.counter(prefix + "downstream_cx_drain_close",
+                    "Client connections drained: a response with Connection: close, or GOAWAY");
         }
 
         /** Counts a request whose exchange starts on a {@code kind} channel ({@code h1}, {@code h2} or {@code h3}). */
@@ -415,6 +448,8 @@ final class ProxyStats {
         final Counter backoffEngaged;
         final Counter failover;
         final Gauge backoffActive;
+        /** What the cluster is ({@link #CHAINED_PROXY}, {@link #HOST}), for the admin listener; null for the fixed ones. */
+        volatile String kind;
         /** When it was last handed out, for {@link StatsRegistry.Overflow#LRU}. */
         volatile long lastUsed = System.nanoTime();
         private final List<String> names = new ArrayList<>();
@@ -538,7 +573,7 @@ final class ProxyStats {
             this.registry = registry;
         }
 
-        ClusterStats get(String name) {
+        ClusterStats get(String name, String kind) {
             ClusterStats c = clusters.get(name);
             if (c != null) {
                 c.lastUsed = System.nanoTime();
@@ -553,6 +588,7 @@ final class ProxyStats {
                     evictLeastRecentlyUsed();
                 }
                 c = new ClusterStats(registry, name);
+                c.kind = kind;
                 clusters.put(name, c);
                 return c;
             } finally {
@@ -575,6 +611,15 @@ final class ProxyStats {
                 if (oldest == null || c.lastUsed - oldest.lastUsed < 0) oldest = c;
             }
             if (oldest != null && clusters.remove(oldest.name, oldest)) oldest.unregister();
+        }
+
+        /** The clusters with stats of their own now, and {@code other} once used, sorted by name. */
+        List<Cluster> list() {
+            List<Cluster> all = new ArrayList<>();
+            for (ClusterStats c : clusters.values()) all.add(new Cluster(c.name, c.kind));
+            all.sort(java.util.Comparator.comparing(Cluster::name));
+            if (other != null) all.add(new Cluster(StatsRegistry.OTHER_CLUSTER, OVERFLOW));
+            return all;
         }
 
         /** The clusters with stats of their own now, for tests. */

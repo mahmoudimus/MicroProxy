@@ -28,16 +28,47 @@ final class DnsName implements Comparable<DnsName> {
         return labels.length == 0 ? ROOT : new DnsName(labels.clone());
     }
 
-    /** Parses presentation format ({@code www.example.com} or {@code www.example.com.}). */
+    /**
+     * Parses presentation format ({@code www.example.com} or {@code www.example.com.}), with
+     * {@code \.}, {@code \\} and {@code \DDD} escapes as {@link #toString()} writes them.
+     */
     static DnsName parse(String text) {
-        String t = text.endsWith(".") ? text.substring(0, text.length() - 1) : text;
-        if (t.isEmpty()) return ROOT;
-        String[] parts = t.split("\\.", -1);
-        byte[][] labels = new byte[parts.length][];
-        for (int i = 0; i < parts.length; i++) {
-            labels[i] = parts[i].getBytes(StandardCharsets.US_ASCII);
+        if (text.equals(".") || text.isEmpty()) return ROOT;
+        List<byte[]> labels = new ArrayList<>();
+        ByteArrayOutputStream label = new ByteArrayOutputStream();
+        int n = text.length();
+        for (int i = 0; i < n; i++) {
+            char c = text.charAt(i);
+            if (c == '.') {
+                if (label.size() == 0) throw new IllegalArgumentException("empty label in " + text);
+                labels.add(label.toByteArray());
+                label.reset();
+            } else if (c == '\\') {
+                if (i + 1 >= n) throw new IllegalArgumentException("trailing backslash in " + text);
+                char d = text.charAt(i + 1);
+                if (d >= '0' && d <= '9') {
+                    String digits = i + 4 <= n ? text.substring(i + 1, i + 4) : "";
+                    if (digits.length() != 3 || !digits.chars().allMatch(ch -> ch >= '0' && ch <= '9')) {
+                        throw new IllegalArgumentException("bad escape in " + text);
+                    }
+                    int v = Integer.parseInt(digits);
+                    if (v > 255) throw new IllegalArgumentException("bad escape in " + text);
+                    label.write(v);
+                    i += 3;
+                } else {
+                    label.write(d);
+                    i++;
+                }
+            } else if (c < 0x80) {
+                label.write(c);
+            } else {
+                int cp = text.codePointAt(i);
+                label.writeBytes(new String(Character.toChars(cp)).getBytes(StandardCharsets.UTF_8));
+                i += Character.charCount(cp) - 1;
+            }
         }
-        return of(labels);
+        if (label.size() > 0) labels.add(label.toByteArray());
+        return of(labels.toArray(byte[][]::new));
     }
 
     int labelCount() {

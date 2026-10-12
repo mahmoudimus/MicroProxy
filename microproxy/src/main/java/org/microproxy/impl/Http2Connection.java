@@ -569,6 +569,10 @@ final class Http2Connection extends Http2Endpoint {
             finishStream(stream);
             throw e;
         }
+        if (server.drainClose()) {
+            // Draining: this stream is served, and GOAWAY names it the last one.
+            client.drain();
+        }
     }
 
     /** A stream's HEADERS after the first: trailers, which end the request. */

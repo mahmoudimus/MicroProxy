@@ -166,6 +166,19 @@ public final class QuicServer implements AutoCloseable {
     }
 
     /**
+     * Whether a datagram belongs to one of the server's connections, by its Destination
+     * Connection ID, whatever address it comes from (a client that migrated). Any thread may call
+     * it.
+     *
+     * @param from the sender
+     * @param datagram the datagram, between its position and limit; not modified
+     * @return true if a connection would get it
+     */
+    public boolean knows(InetSocketAddress from, ByteBuffer datagram) {
+        return driver.routes(Objects.requireNonNull(from, "from"), Objects.requireNonNull(datagram, "datagram"));
+    }
+
+    /**
      * Routes a datagram the {@linkplain DatagramFilter filter} took as if it had just arrived,
      * without asking the filter again: a client's first Initial starts a connection. Datagrams
      * injected from one thread are routed in order. Does nothing once the server is closed.

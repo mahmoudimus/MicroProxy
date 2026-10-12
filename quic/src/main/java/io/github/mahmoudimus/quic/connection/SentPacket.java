@@ -24,6 +24,8 @@ public final class SentPacket {
     private long deliveredTime = Long.MIN_VALUE;
     private long firstSentTime = Long.MIN_VALUE;
     private boolean appLimited;
+    /** The generation of the path the packet was sent on, set by {@link Recovery#onPacketSent}. */
+    private long pathGeneration;
 
     /**
      * A sent packet.
@@ -159,6 +161,19 @@ public final class SentPacket {
     }
 
     /** Whether the control frames still matter for {@code streams}. */
+    /**
+     * The generation of the path the packet was sent on.
+     *
+     * @return the generation
+     */
+    public long pathGeneration() {
+        return pathGeneration;
+    }
+
+    void setPathGeneration(long generation) {
+        this.pathGeneration = generation;
+    }
+
     boolean hasRetransmits(StreamsState streams) {
         return retransmits != null && !retransmits.isEmpty(streams);
     }

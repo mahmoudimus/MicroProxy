@@ -60,6 +60,25 @@ import org.microproxy.KeyMaterial;
  * client address's most recently active relayed flow, and so do packets of versions the proxy
  * cannot read.
  *
+ * <p><b>Clients that move.</b> An intercepted connection follows its client to a new address
+ * itself (RFC 9000 section 9): the QUIC server routes by the connection IDs the proxy issued,
+ * whatever the source, validates the new path, and answers there. A relayed flow cannot: the proxy
+ * cannot read the client's packets, nor the NEW_CONNECTION_ID frames in which the server gave the
+ * client the IDs it moves to. A short header packet from an address with no flow goes, in order, to
+ * the relayed flow that knows its Destination Connection ID (from any address: the client kept its
+ * ID, or the proxy learned it), to the flow of the same client IP address whose known server IDs
+ * share the longest prefix of at least {@value #MIN_CID_PREFIX} bytes with it (servers that encode
+ * routing information in their IDs), or else to the most recently active relayed flow of that IP
+ * address, which covers a NAT rebinding (a new port). The flow then takes the new address: the
+ * server's datagrams go there, as a NAT sends replies to the latest mapping. When a flow's server
+ * IDs all have one length, the IDs a client switches to are learned at that length, so later
+ * packets match exactly. The limits: a client that changes IP address and connection ID at once is
+ * found only by prefix; between several flows of one IP address the fallback can pick the wrong
+ * one; and since the proxy can neither validate the new path nor tell a newer packet from a
+ * replayed one, anyone who can send from the client's IP address with a connection ID of the flow
+ * can turn its replies elsewhere until the client sends again (the end-to-end connection itself
+ * stays the client's, and the server validates nothing, since its path to the proxy is unchanged).
+ *
  * <p><b>New flows.</b> A client's first Initial starts a pending flow: its datagrams are held while
  * {@link QuicClientHello} reads the ClientHello from them (decrypting the Initial packets), then
  * {@link ClientConnection#decideTransparentQuic} decides, on a thread of its own, with the server
@@ -96,6 +115,8 @@ final class QuicFlows implements AutoCloseable {
     private static final int MIN_INITIAL_DATAGRAM = 1200;
     /** Server connection IDs a relayed flow remembers. */
     private static final int MAX_SERVER_CIDS = 8;
+    /** The shortest prefix a short header packet's Destination Connection ID must share with a flow's server ID. */
+    static final int MIN_CID_PREFIX = 4;
     /** How long an intercepted connection may take to complete its handshake. */
     private static final long HANDSHAKE_NANOS = TimeUnit.SECONDS.toNanos(10);
     /** Streams of each kind a client of QUIC intercepted stream by stream may open at once. */
@@ -138,8 +159,11 @@ final class QuicFlows implements AutoCloseable {
             return false;
         }
 
-        /** The proxy intercepted the flow's connection: {@code close} closes it, when the origin ends first. */
-        default void intercepted(Runnable close) {}
+        /**
+         * The proxy intercepted the flow's connection, which the origin closes when it ends first
+         * (unless the client moved the connection elsewhere meanwhile).
+         */
+        default void intercepted(QuicConnection connection) {}
     }
 
     private enum State {
@@ -165,7 +189,8 @@ final class QuicFlows implements AutoCloseable {
             QuicSession.Upstream upstream) {}
 
     private final class Flow {
-        final InetSocketAddress client;
+        /** The client's address: where a relayed flow's replies go; it follows a client that moves. */
+        volatile InetSocketAddress client;
         final ConnectionId destinationId;
         final Origin origin;
         State state = State.PENDING;
@@ -221,6 +246,12 @@ final class QuicFlows implements AutoCloseable {
     private final Map<InetAddress, Integer> pendingBySource = new HashMap<>();
     private final Map<InetAddress, Integer> relayedBySource = new HashMap<>();
     private final Map<FlowKey, Accepting> accepting = new HashMap<>();
+    /** Relayed flows by client IP address, for clients that move. */
+    private final Map<InetAddress, List<Flow>> relayedByIp = new HashMap<>();
+    /** Relayed flows by the server connection IDs they know. */
+    private final Map<ConnectionId, Flow> byServerId = new HashMap<>();
+    /** How many known server IDs have each length. */
+    private final int[] serverIdLengths = new int[ConnectionId.MAX_LENGTH + 1];
     private int pending;
     private int relayed;
     private long heldBytes;
@@ -228,6 +259,8 @@ final class QuicFlows implements AutoCloseable {
 
     /** Datagrams dropped: past a bound, unreadable Initials, refused flows. */
     private final AtomicLong dropped = new AtomicLong();
+    /** Relayed flows whose client moved to a new address. */
+    private final AtomicLong moves = new AtomicLong();
     private volatile QuicServer quic;
     private Thread acceptor;
     private Thread sweeper;
@@ -311,11 +344,13 @@ final class QuicFlows implements AutoCloseable {
     /**
      * The flow of a client's datagram: by the Destination Connection ID of a long header packet,
      * or the first bytes of a short header one; else, for anything but a new Initial, the client
-     * address's most recently active relayed flow. Holds lock.
+     * address's most recently active relayed flow. A short header packet from an address with no
+     * flow may be a relayed flow's client that moved ({@link #moved}). Holds lock.
      */
     private Flow find(InetSocketAddress from, ByteBuffer datagram) {
+        if (!datagram.hasRemaining()) return null;
         List<Flow> list = flows.get(from);
-        if (list == null || !datagram.hasRemaining()) return null;
+        if (list == null) return moved(from, datagram);
         int at = datagram.position();
         boolean longHeader = (datagram.get(at) & 0x80) != 0;
         for (Flow f : list) {
@@ -333,11 +368,148 @@ final class QuicFlows implements AutoCloseable {
             }
         }
         if (longHeader && isInitial(datagram)) return null;
+        Flow latest = latestRelayed(list);
+        if (latest != null && !longHeader) learnClientId(latest, datagram);
+        return latest;
+    }
+
+    private static Flow latestRelayed(List<Flow> list) {
         Flow latest = null;
         for (Flow f : list) {
             if (f.state == State.RELAYED && (latest == null || f.lastActive - latest.lastActive > 0)) latest = f;
         }
         return latest;
+    }
+
+    /**
+     * The relayed flow a short header packet from an address without flows belongs to, if its
+     * client moved there: by a server connection ID it knows, from any address; by prefix among the
+     * flows of the client's IP address; or the most recently active of those. The flow then takes
+     * the new address. Holds lock.
+     */
+    private Flow moved(InetSocketAddress from, ByteBuffer datagram) {
+        int at = datagram.position();
+        if ((datagram.get(at) & 0x80) != 0) return null; // migration happens after the handshake
+        Flow flow = byKnownId(datagram);
+        String how = "its connection ID";
+        if (flow == null) {
+            List<Flow> sameIp = relayedByIp.get(from.getAddress());
+            if (sameIp == null || sameIp.isEmpty()) return null;
+            flow = byPrefix(sameIp, datagram);
+            how = "a connection ID prefix";
+            if (flow == null) {
+                flow = latestRelayed(sameIp);
+                how = "its IP address";
+            }
+            if (flow == null) return null;
+            learnClientId(flow, datagram);
+        }
+        Flow f = flow;
+        String by = how;
+        InetSocketAddress old = f.client;
+        LOG.log(Level.DEBUG, () -> f.log() + "the client moved to " + from + " (found by " + by + "); relaying its replies there");
+        rekey(f, from);
+        moves.incrementAndGet();
+        if (!old.getAddress().equals(from.getAddress())) {
+            decrement(relayedBySource, old.getAddress());
+            relayedBySource.merge(from.getAddress(), 1, Integer::sum);
+        }
+        return f;
+    }
+
+    /** The relayed flow that knows the Destination Connection ID of a short header packet. Holds lock. */
+    private Flow byKnownId(ByteBuffer datagram) {
+        int at = datagram.position();
+        for (int length = 1; length <= ConnectionId.MAX_LENGTH; length++) {
+            if (serverIdLengths[length] == 0 || at + 1 + length > datagram.limit()) continue;
+            Flow f = byServerId.get(ConnectionId.of(bytes(datagram, at + 1, length)));
+            if (f != null && f.state == State.RELAYED) return f;
+        }
+        return null;
+    }
+
+    /**
+     * The flow whose server IDs share the longest prefix, of at least {@value #MIN_CID_PREFIX}
+     * bytes, with the Destination Connection ID of a short header packet; ties go to the most
+     * recently active. Holds lock.
+     */
+    private static Flow byPrefix(List<Flow> candidates, ByteBuffer datagram) {
+        int at = datagram.position() + 1;
+        Flow best = null;
+        int bestPrefix = MIN_CID_PREFIX - 1;
+        for (Flow f : candidates) {
+            if (f.state != State.RELAYED) continue;
+            for (ConnectionId id : f.serverIds) {
+                int n = 0;
+                while (n < id.length() && at + n < datagram.limit() && datagram.get(at + n) == id.get(n)) n++;
+                if (n > bestPrefix || n == bestPrefix && best != null && n >= MIN_CID_PREFIX
+                        && f.lastActive - best.lastActive > 0) {
+                    best = f;
+                    bestPrefix = n;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Moves a flow to another client address. Holds lock. */
+    private void rekey(Flow f, InetSocketAddress to) {
+        List<Flow> list = flows.get(f.client);
+        if (list != null && list.remove(f) && list.isEmpty()) flows.remove(f.client);
+        if (f.state == State.RELAYED) unindexIp(f);
+        f.client = to;
+        flows.computeIfAbsent(to, k -> new ArrayList<>(1)).add(f);
+        if (f.state == State.RELAYED) relayedByIp.computeIfAbsent(to.getAddress(), k -> new ArrayList<>(1)).add(f);
+    }
+
+    private void unindexIp(Flow f) {
+        List<Flow> sameIp = relayedByIp.get(f.client.getAddress());
+        if (sameIp != null && sameIp.remove(f) && sameIp.isEmpty()) relayedByIp.remove(f.client.getAddress());
+    }
+
+    /**
+     * Learns the Destination Connection ID of a client's short header packet that matched none of
+     * its relayed flow's server IDs (the client switched to one the server gave it in a
+     * NEW_CONNECTION_ID frame), when those IDs all have one length, which the new one presumably
+     * has too. Holds lock.
+     */
+    private void learnClientId(Flow flow, ByteBuffer datagram) {
+        if (flow.serverIds.isEmpty()) return;
+        int length = -1;
+        for (ConnectionId id : flow.serverIds) {
+            if (length >= 0 && id.length() != length) return; // lengths vary: the ID cannot be told
+            length = id.length();
+        }
+        int at = datagram.position();
+        if (length <= 0 || at + 1 + length + 1 + 16 > datagram.limit()) return;
+        remember(flow, ConnectionId.of(bytes(datagram, at + 1, length)));
+    }
+
+    /** Adds a server connection ID to a relayed flow's, forgetting its oldest past the bound. Holds lock. */
+    private void remember(Flow flow, ConnectionId id) {
+        if (id.isEmpty() || flow.serverIds.contains(id)) return;
+        if (flow.serverIds.size() >= MAX_SERVER_CIDS) {
+            ConnectionId oldest = flow.serverIds.iterator().next();
+            flow.serverIds.remove(oldest);
+            unindex(flow, oldest);
+        }
+        flow.serverIds.add(id);
+        if (flow.state == State.RELAYED) index(flow, id);
+    }
+
+    private void index(Flow flow, ConnectionId id) {
+        Flow previous = byServerId.put(id, flow);
+        if (previous == null) serverIdLengths[id.length()]++;
+    }
+
+    private void unindex(Flow flow, ConnectionId id) {
+        if (byServerId.remove(id, flow)) serverIdLengths[id.length()]--;
+    }
+
+    private static byte[] bytes(ByteBuffer datagram, int at, int length) {
+        byte[] b = new byte[length];
+        datagram.get(at, b);
+        return b;
     }
 
     private static boolean matches(ByteBuffer datagram, int at, int length, ConnectionId id) {
@@ -374,7 +546,7 @@ final class QuicFlows implements AutoCloseable {
         } catch (TlsClientHello.Malformed e) {
             return false;
         }
-        if (origin == null || datagram.remaining() < MIN_INITIAL_DATAGRAM || server.isStopping()) {
+        if (origin == null || datagram.remaining() < MIN_INITIAL_DATAGRAM || server.refusesNewConnections()) {
             dropped.incrementAndGet();
             (datagram.remaining() < MIN_INITIAL_DATAGRAM ? stats.droppedMalformed : stats.droppedRefused).inc();
             return true;
@@ -649,6 +821,8 @@ final class QuicFlows implements AutoCloseable {
                 relayed++;
                 relayedBySource.merge(source, 1, Integer::sum);
                 stats.relayedTotal.inc();
+                relayedByIp.computeIfAbsent(source, k -> new ArrayList<>(1)).add(flow);
+                for (ConnectionId id : flow.serverIds) index(flow, id);
                 for (ByteBuffer datagram : flow.held) {
                     flow.relayedIn += datagram.remaining();
                     write(flow, datagram);
@@ -719,16 +893,18 @@ final class QuicFlows implements AutoCloseable {
             }
             buf.flip();
             int n = buf.remaining();
+            InetSocketAddress to;
             lock.lock();
             try {
                 if (flow.upstream == null || !flow.upstream.isOpen()) return;
                 flow.lastActive = System.nanoTime();
                 flow.relayedOut += n;
                 learnServerId(flow, buf);
+                to = flow.client;
             } finally {
                 lock.unlock();
             }
-            quic.send(buf, flow.client);
+            quic.send(buf, to);
             if (!server.trackers.isEmpty()) {
                 ClientFlowContext client = flow.connection.connectionFlowContext();
                 client.addUpstreamReceived(n);
@@ -743,7 +919,7 @@ final class QuicFlows implements AutoCloseable {
      * Remembers the connection ID a server chose, from the Source Connection ID of its long header
      * packets: the client's packets carry it as their Destination Connection ID. Holds lock.
      */
-    private static void learnServerId(Flow flow, ByteBuffer datagram) {
+    private void learnServerId(Flow flow, ByteBuffer datagram) {
         int at = datagram.position();
         if (datagram.remaining() < 7 || (datagram.get(at) & 0x80) == 0) return;
         int dcidLength = datagram.get(at + 5) & 0xff;
@@ -751,9 +927,7 @@ final class QuicFlows implements AutoCloseable {
         if (dcidLength > ConnectionId.MAX_LENGTH || scidAt >= datagram.limit()) return;
         int scidLength = datagram.get(scidAt) & 0xff;
         if (scidLength > ConnectionId.MAX_LENGTH || scidAt + 1 + scidLength > datagram.limit()) return;
-        ConnectionId id = ConnectionId.of(datagram.array(), datagram.arrayOffset() + scidAt + 1, scidLength);
-        if (flow.serverIds.contains(id) || flow.serverIds.size() >= MAX_SERVER_CIDS) return;
-        flow.serverIds.add(id);
+        remember(flow, ConnectionId.of(bytes(datagram, scidAt + 1, scidLength)));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -781,12 +955,12 @@ final class QuicFlows implements AutoCloseable {
                 connection.close(0x0100, "");
                 continue;
             }
-            if (server.isStopping()) {
+            if (server.refusesNewConnections()) {
                 connection.close(0x0100, "the proxy is stopping");
                 abandon(a);
                 continue;
             }
-            a.origin().intercepted(() -> connection.close(0, ""));
+            a.origin().intercepted(connection);
             if (a.upstream() != null) {
                 server.acceptQuicStreams(connection, a.client(), a.upstream(), a.origin().masque());
             } else {
@@ -892,6 +1066,8 @@ final class QuicFlows implements AutoCloseable {
         f.relayedOut = 0;
         relayed--;
         decrement(relayedBySource, f.client.getAddress());
+        unindexIp(f);
+        for (ConnectionId id : f.serverIds) unindex(f, id);
         remove(f);
     }
 
@@ -983,6 +1159,11 @@ final class QuicFlows implements AutoCloseable {
     /** The datagrams dropped so far. */
     long droppedDatagrams() {
         return dropped.get();
+    }
+
+    /** How often a relayed flow's client moved to a new address. */
+    long relayMoves() {
+        return moves.get();
     }
 
     /** Closes the relays and the QUIC server (and with it the intercepted connections). */

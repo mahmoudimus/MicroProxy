@@ -9,6 +9,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import io.github.mahmoudimus.quic.QuicConnection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,6 +28,13 @@ import org.microproxy.KeyMaterial;
  * stream, by a client connection of the MASQUE client's ({@link ClientConnection#ClientConnection(
  * ClientConnection, InetSocketAddress)}); a relayed one goes back to the flow, which sends its held
  * datagrams to the target, and every later one, as any CONNECT-UDP flow does.
+ *
+ * <p><b>Clients that move.</b> A MASQUE client may carry an intercepted connection over to a new
+ * CONNECT-UDP flow to the same target (its own connection to the proxy changed, say): a flow whose
+ * first datagram belongs to an intercepted connection, by its connection ID, goes to the QUIC
+ * server too, whose connection follows the client to the flow's address as it would follow a
+ * client to a new UDP address (RFC 9000 section 9), validating the path through the new flow. An
+ * intercepted connection closes when the flow it is on ends, not when a flow it left does.
  */
 final class MasqueQuic implements AutoCloseable {
 
@@ -38,6 +46,8 @@ final class MasqueQuic implements AutoCloseable {
     private final QuicServer quic;
     private final Map<InetSocketAddress, Inner> byAddress = new ConcurrentHashMap<>();
     private final AtomicLong next = new AtomicLong();
+    /** The connections intercepted, until the flow each is on ends. */
+    private final Set<QuicConnection> intercepted = ConcurrentHashMap.newKeySet();
 
     /** @param keys the certificate for a server name, or null when nothing can be intercepted */
     MasqueQuic(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
@@ -89,6 +99,18 @@ final class MasqueQuic implements AutoCloseable {
         inner.flow.toClientFromProxy(payload);
     }
 
+    /** Closes the intercepted connections on the flow of {@code address}, which ended, and forgets those gone. */
+    private void closeInterceptedOn(InetSocketAddress address) {
+        for (QuicConnection c : intercepted) {
+            if (!c.isOpen()) {
+                intercepted.remove(c);
+            } else if (c.remoteAddress().equals(address)) {
+                intercepted.remove(c);
+                c.close(0, "");
+            }
+        }
+    }
+
     @Override
     public void close() {
         flows.close();
@@ -112,8 +134,6 @@ final class MasqueQuic implements AutoCloseable {
         private volatile Mode mode = Mode.FIRST;
         /** The client connection that decided to relay the flow, told once when it ends; null for none. */
         private final AtomicReference<ClientConnection> relayedBy = new AtomicReference<>();
-        /** Closes the intercepted connection; null while there is none. */
-        private volatile Runnable closeIntercepted;
         private volatile boolean ended;
 
         Inner(InetSocketAddress address, UdpFlow flow, Function<InetSocketAddress, ClientConnection> connections) {
@@ -132,7 +152,9 @@ final class MasqueQuic implements AutoCloseable {
             if (m == Mode.RELAYED || ended) return false;
             ByteBuffer datagram = ByteBuffer.wrap(payload);
             if (m == Mode.FIRST) {
-                if (!QuicFlows.isInitial(datagram)) {
+                // QUIC starts with an Initial, or moves here from another flow: a packet of an
+                // intercepted connection, which follows its client to this flow
+                if (!QuicFlows.isInitial(datagram) && !quic.knows(address, datagram)) {
                     mode = Mode.RELAYED;
                     return false;
                 }
@@ -147,8 +169,7 @@ final class MasqueQuic implements AutoCloseable {
             ended = true;
             byAddress.remove(address);
             flows.forget(this);
-            Runnable close = closeIntercepted;
-            if (close != null) close.run();
+            closeInterceptedOn(address);
             ClientConnection c = relayedBy.getAndSet(null);
             if (c != null) c.endTransparentQuic(true);
         }
@@ -197,9 +218,9 @@ final class MasqueQuic implements AutoCloseable {
         }
 
         @Override
-        public void intercepted(Runnable close) {
-            closeIntercepted = close;
-            if (ended) close.run();
+        public void intercepted(QuicConnection connection) {
+            MasqueQuic.this.intercepted.add(connection);
+            if (ended) closeInterceptedOn(address);
         }
 
         @Override

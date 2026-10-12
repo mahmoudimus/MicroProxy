@@ -683,6 +683,8 @@ final class ClientConnection implements Runnable {
     private volatile ProxyProtocol.Header proxyHeader;
     private volatile boolean idle = true;
     private volatile boolean closed;
+    /** Set once the connection has been told to go away because the proxy drains. */
+    private final java.util.concurrent.atomic.AtomicBoolean drained = new java.util.concurrent.atomic.AtomicBoolean();
 
     // Client connection stats (ProxyStats.HttpStats, ListenerStats): only for connections the
     // listeners accepted, not for those of intercepted streams or CONNECT-UDP flows. Touched by
@@ -853,6 +855,22 @@ final class ClientConnection implements Runnable {
         } else if (idle) {
             close();
         }
+    }
+
+    /**
+     * Tells the connection to go away because the proxy drains, once: an idle HTTP/1 connection
+     * closes now and a busy one after its exchange in progress; an HTTP/2 or HTTP/3 one is sent
+     * GOAWAY and closes once its streams have finished.
+     */
+    void drain() {
+        if (markDrained()) stopGracefully();
+    }
+
+    /** Marks the connection drained; whether it was not already (then it counts in {@code downstream_cx_drain_close}). */
+    private boolean markDrained() {
+        if (!drained.compareAndSet(false, true)) return false;
+        server.stats.http.cxDrainClose.inc();
+        return true;
     }
 
     /** Closes the client connection and every server connection it owns. */
@@ -1239,7 +1257,7 @@ final class ClientConnection implements Runnable {
         preCxDone();
         while (!closed) {
             idle = true;
-            if (server.isStopping()) {
+            if (server.isStopping() || drained.get()) {
                 return;
             }
             HttpRequest request;
@@ -1302,7 +1320,14 @@ final class ClientConnection implements Runnable {
             return false;
         }
         if (snapshot != null) body = new CountedBody(body, channel.flowContext());
-        Exchange ex = new Exchange(channel, request, body, channel.clientKeepAlive(request));
+        boolean keepAlive = channel.clientKeepAlive(request);
+        if (keepAlive && !implicitConnect && socksConnect == 0 && channel instanceof Http1ClientChannel
+                && !ProxyUtils.isCONNECT(request) && (drained.get() || server.drainClose())) {
+            // Draining: the response says Connection: close. (HTTP/2 and HTTP/3 connections are sent GOAWAY.)
+            keepAlive = false;
+            markDrained();
+        }
+        Exchange ex = new Exchange(channel, request, body, keepAlive);
         ex.logRequest = snapshot;
         ex.kind = kind(channel);
         ex.implicit = implicitConnect;
@@ -1310,6 +1335,19 @@ final class ClientConnection implements Runnable {
         implicitConnect = false;
         socksConnect = 0;
         if (ex.kind == FlowRecord.Kind.HTTP1) cxCarries(1);
+        if (server.healthCheckPath != null && !ex.implicit && ex.socks == 0 && mitmHostAndPort == null
+                && isHealthCheck(request)) {
+            HttpResponse answer = server.healthCheckResponse();
+            if (answer != null) {
+                // Before authentication and the filters, as a load balancer's probe expects.
+                requestStarted(ex);
+                try {
+                    return respondDirect(ex, answer, false, ResponseSource.PROXY);
+                } finally {
+                    recordExchange(ex);
+                }
+            }
+        }
         if (server.reverseProxy != null && !ex.implicit && !ProxyUtils.isCONNECT(request)) {
             reverseProxyTarget(request);
         }
@@ -1655,6 +1693,18 @@ final class ClientConnection implements Runnable {
      */
     private static boolean isProxyRequest(HttpRequest request) {
         return ProxyUtils.isCONNECT(request) || ProxyUtils.isAbsoluteUri(request.uri());
+    }
+
+    /**
+     * Whether {@code request} is for the proxy's health-check path: in origin-form (sent to the
+     * proxy itself, not through it), its path without the query equal to it.
+     */
+    private boolean isHealthCheck(HttpRequest request) {
+        String uri = request.uri();
+        if (!uri.startsWith("/")) return false;
+        int query = uri.indexOf('?');
+        String path = server.healthCheckPath;
+        return query < 0 ? uri.equals(path) : query == path.length() && uri.startsWith(path);
     }
 
     /** Whether {@code uri} is an absolute {@code https://} (or {@code wss://}) URI. */
@@ -4192,8 +4242,9 @@ final class ClientConnection implements Runnable {
         try {
             server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
-            QuicSession session = new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext,
-                    target, serverFlow.getRemoteAddress(), masque, logPrefix, server.stats.hooks);
+            QuicSession session = new QuicSession(server.quicInterceptor, server.quicFraming, quic,
+                    upstream.connection(), flowContext, target, serverFlow.getRemoteAddress(), masque, logPrefix,
+                    server.stats.hooks);
             quicSession = session;
             if (!closed) session.run();
             completed = true;

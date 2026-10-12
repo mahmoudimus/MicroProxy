@@ -126,6 +126,21 @@ public final class Launcher {
               --stats-cluster-lru          evict the least recently used cluster's stats instead
               --stats-per-host             a cluster per server of direct connections (host_port),
                                            not one "direct" cluster, bounded by --stats-max-clusters
+              --admin-port <port>          serve Envoy's admin API (/stats, /stats/prometheus, /ready,
+                                           /server_info, /config_dump, /drain_listeners, ...; see
+                                           README) on this port of 127.0.0.1 (implies --metrics)
+              --admin-address <host:port>  the same on another address, such as 0.0.0.0:9901 (then
+                                           set --admin-token)
+              --admin-token <token>        require this bearer token (or basic password) on every
+                                           admin path but /ready
+              --admin-token-file <file>    the same, read from the file's first line
+              --drain-time <seconds>       how long a drain lasts, and how long stopping (SIGTERM)
+                                           lets exchanges in progress finish (default 10)
+              --drain-strategy <strategy>  gradual (default: more and more new requests are told to
+                                           go elsewhere) or immediate (all at once)
+              --health-check-path <path>   answer health checks on the proxy's listener: 200, or
+                                           503 when failed (admin /healthcheck/fail) or draining
+              --health-check-pass-through  forward a healthy health check to the server instead
               --log-http <level>           log whole requests and responses: basic, headers or
                                            body (to the System.Logger org.microproxy.http)
               --log-http-json              write --log-http as JSON lines (headers if no level)
@@ -162,6 +177,13 @@ public final class Launcher {
               --quic-hosts <regex>         relay matching hosts' intercepted QUIC (server host or
                                            SNI) stream by stream through the QUIC hooks, even
                                            HTTP/3, and intercept their other QUIC; repeatable
+              --quic-framing <rules>       cut intercepted QUIC streams into messages for the
+                                           message hooks, by ALPN or host: key=framer pairs, such
+                                           as doq=u16,myproto=varint,*=none; framers u16, u32,
+                                           varint, lf, crlf, none, script (default doq=u16)
+              --quic-max-message-size <n>  the largest QUIC message framed, in bytes (default
+                                           1048576); a larger one resets its stream
+              --quic-message-error-code <n>  the error code of that reset (default 2)
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -259,8 +281,28 @@ public final class Launcher {
     public static void main(String[] args) throws IOException {
         HttpProxyServer server = start(args, System.out);
         if (server != null) {
-            Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "microproxy-shutdown"));
+            Runtime.getRuntime().addShutdownHook(shutdownHook(server, System.out));
         }
+    }
+
+    /**
+     * The shutdown hook: on SIGTERM (or SIGINT, or {@code System.exit}) the proxy drains, then the
+     * JVM exits. Stopping closes the listeners, tells clients to go away (idle connections close,
+     * HTTP/2 and HTTP/3 ones get GOAWAY, HTTP/1 ones close after their exchange) and lets the
+     * exchanges in progress finish for up to the drain time ({@code --drain-time}), as Envoy's
+     * shutdown does; then whatever is left is closed. To keep accepting while a load balancer
+     * forgets the proxy, drain first through the admin listener ({@code POST
+     * /drain_listeners?graceful}).
+     */
+    static Thread shutdownHook(HttpProxyServer server, PrintStream console) {
+        return new Thread(() -> shutdown(server, console), "microproxy-shutdown");
+    }
+
+    /** What the shutdown hook does: stops {@code server} gracefully, unless it has stopped already. */
+    static void shutdown(HttpProxyServer server, PrintStream console) {
+        if (server.state() == ServerState.STOPPED) return;
+        console.println("MicroProxy stopping: draining for up to " + server.getDrainTime().toMillis() / 1000.0 + " s");
+        server.stop();
     }
 
     /** Parses {@code args} and starts the proxy; returns null if only help was printed. */
@@ -274,6 +316,9 @@ public final class Launcher {
             if (resource instanceof StatsdSink sink) sink.start();
         }
         console.println("MicroProxy listening on " + server.getListenAddress());
+        if (server.getAdminAddress() != null) {
+            console.println("Admin listening on " + server.getAdminAddress());
+        }
         if (Simd.isVectorized()) {
             console.println("SIMD: " + Simd.ops().description());
         }
@@ -396,6 +441,8 @@ public final class Launcher {
         List<Path> clientReplay = new ArrayList<>();
         int clientReplayConcurrency = 1;
         boolean keepServing = false;
+        String healthCheckPath = null;
+        boolean healthCheckPassThrough = false;
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
             int i = all.indexOf("--config");
@@ -475,6 +522,19 @@ public final class Launcher {
                 case "--stats-max-clusters" -> statsOptions = statsOptions(statsOptions).maxClusters(intValue(queue, arg));
                 case "--stats-cluster-lru" -> statsOptions = statsOptions(statsOptions).clusterOverflow(StatsRegistry.Overflow.LRU);
                 case "--stats-per-host" -> statsOptions = statsOptions(statsOptions).perHostClusters(true);
+                case "--admin-port" -> bootstrap.withAdmin(new InetSocketAddress(InetAddress.getLoopbackAddress(),
+                        intValue(queue, arg)));
+                case "--admin-address" -> bootstrap.withAdmin(address(value(queue, arg), arg));
+                case "--admin-token" -> bootstrap.withAdminToken(value(queue, arg));
+                case "--admin-token-file" -> bootstrap.withAdminToken(firstLine(Path.of(value(queue, arg)), arg));
+                case "--drain-time" -> {
+                    long seconds = longValue(queue, arg);
+                    if (seconds < 0) throw new IllegalArgumentException(arg + " needs a non-negative number");
+                    bootstrap.withDrainTime(Duration.ofSeconds(seconds));
+                }
+                case "--drain-strategy" -> bootstrap.withDrainStrategy(DrainStrategy.parse(value(queue, arg)));
+                case "--health-check-path" -> healthCheckPath = value(queue, arg);
+                case "--health-check-pass-through" -> healthCheckPassThrough = true;
                 case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
                 case "--log-http-json" -> logHttpJson = true;
                 case "--log-http-view" -> logHttpView = value(queue, arg);
@@ -560,6 +620,11 @@ public final class Launcher {
                 case "--allow-hosts" -> allowHosts.add(value(queue, arg));
                 case "--tcp-hosts" -> tcpHosts.add(value(queue, arg));
                 case "--quic-hosts" -> quicHosts.add(value(queue, arg));
+                case "--quic-framing" -> bootstrap.withQuicFraming(bootstrap.getQuicFraming().withRules(value(queue, arg)));
+                case "--quic-max-message-size" ->
+                        bootstrap.withQuicFraming(bootstrap.getQuicFraming().withMaxMessageSize(intValue(queue, arg)));
+                case "--quic-message-error-code" ->
+                        bootstrap.withQuicFraming(bootstrap.getQuicFraming().withErrorCode(Long.decode(value(queue, arg))));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
@@ -589,6 +654,11 @@ public final class Launcher {
                     }
                 }
             }
+        }
+        if (healthCheckPath != null) {
+            bootstrap.withHealthCheckPath(healthCheckPath, healthCheckPassThrough);
+        } else if (healthCheckPassThrough) {
+            throw new IllegalArgumentException("--health-check-pass-through needs --health-check-path");
         }
         if (!ignoreHosts.isEmpty()) bootstrap.withIgnoreHosts(ignoreHosts.toArray(String[]::new));
         if (!allowHosts.isEmpty()) bootstrap.withAllowHosts(allowHosts.toArray(String[]::new));
@@ -766,7 +836,31 @@ public final class Launcher {
         } else if (keepServing || clientReplayConcurrency != 1) {
             throw new IllegalArgumentException("--keepserving and --client-replay-concurrency need --client-replay");
         }
+        // For the admin's /server_info, which redacts the secrets among them.
+        bootstrap.withCommandLineOptions(List.of(args));
         return new Parsed(bootstrap, List.copyOf(resources), plan);
+    }
+
+    /** {@code host:port} as a socket address ({@code [::1]:9901} for IPv6). */
+    private static InetSocketAddress address(String value, String option) {
+        int colon = value.lastIndexOf(':');
+        if (colon <= 0 || colon == value.length() - 1) throw new IllegalArgumentException(option + " needs host:port, got: " + value);
+        String host = value.substring(0, colon);
+        if (host.startsWith("[") && host.endsWith("]")) host = host.substring(1, host.length() - 1);
+        try {
+            return new InetSocketAddress(host, Integer.parseInt(value.substring(colon + 1)));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(option + " needs host:port, got: " + value);
+        }
+    }
+
+    /** The first line of {@code file}, stripped: a secret kept off the command line. */
+    private static String firstLine(Path file, String option) throws IOException {
+        try (var lines = java.nio.file.Files.lines(file)) {
+            String line = lines.findFirst().orElse("").strip();
+            if (line.isEmpty()) throw new IllegalArgumentException(option + ": " + file + " is empty");
+            return line;
+        }
     }
 
     private static String usage(List<LauncherExtension> extensions) {

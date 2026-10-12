@@ -227,6 +227,8 @@ Command-line flags override values from the file.
 | `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `tcp_hosts` | comma-separated regular expressions for host names (CONNECT target, SNI) relayed as raw TCP even when they look like HTTP (see [Raw TCP streams](#raw-tcp-streams)) | none |
 | `quic_hosts` | comma-separated regular expressions for host names (server, SNI) whose intercepted QUIC is relayed stream by stream, even HTTP/3 (see [QUIC stream hooks](#quic-stream-hooks)) | none |
+| `quic_framing` | comma-separated `key=framer` rules choosing, by ALPN or host, how the streams of QUIC intercepted stream by stream are cut into messages for the message hooks (see [QUIC message framing](#quic-message-framing)); added to the default | `doq=u16` |
+| `quic_max_message_size` / `quic_message_error_code` | the largest framed QUIC message, in bytes, and the error code of the reset of a stream that sends a larger one | `1048576` / `2` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -282,6 +284,11 @@ Command-line flags override values from the file.
 | `access_log_filter` | log only what passes, e.g. `status>=500 \|\| response_flag` | everything |
 | `metrics` | keep Envoy-style stats for Prometheus and statsd (see [Metrics](#metrics-envoy-compatible-stats)) | `false` |
 | `stats_prefix` | prefix of exported stat names (implies `metrics`) | `envoy` |
+| `admin_port` / `admin_address` | serve the [admin API](#admin-interface) on this port of `127.0.0.1` / on this `host:port` (implies `metrics`) | off |
+| `admin_token` | the token the admin API requires on every path but `/ready` | none |
+| `drain_time` | seconds a drain lasts, and stopping lets exchanges finish (see [Lifecycle, draining and shutdown](#lifecycle-draining-and-shutdown)) | `10` |
+| `drain_strategy` | `gradual` or `immediate` | `gradual` |
+| `health_check_path` / `health_check_pass_through` | answer health checks on the proxy's listener / forward healthy ones to the server | off / `false` |
 | `log_http` | log whole requests and responses: `basic`, `headers` or `body` (see [Request/response logging](#requestresponse-logging)) | off |
 | `log_http_format` | `text` or `json` (one object per line) for `log_http` | `text` |
 | `log_http_view` | render bodies logged by `log_http` through [content views](#content-views): `auto` or a view's name | off |
@@ -321,6 +328,7 @@ Command-line flags override values from the file.
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
 | Access logs | `ActivityLogger`: Envoy-compatible format strings and JSON, Envoy's response flags, filters, and one line per exchange, tunnel or UDP and QUIC flow; LittleProxy's nine formats as presets (see below) |
 | Metrics | Envoy's stat names and tags (`http.*`, `cluster.*`, `listener.*`, `server.*`, `http2.*`, `http3.*`, ...) in a `StatsRegistry`, as Prometheus text, Envoy's `/stats` text and JSON, or pushed to statsd and DogStatsD; per-protocol stats (QUIC, transparent QUIC, SOCKS, CONNECT-UDP, tunnels, WebSockets) and the hooks'; bounded clusters; scripts' own `stats`; qlog files per QUIC connection (see below) |
+| Admin interface | Envoy's admin API on a listener of its own: `/stats`, `/stats/prometheus`, `/ready`, `/server_info`, `/listeners`, `/clusters`, `/config_dump` (secrets redacted), `/logging`, health check, `/drain_listeners` and `/quitquitquit`, with an optional token; server states, gradual or immediate draining, and a drain time for graceful shutdown (see below) |
 | Request/response logging | `HttpLogger` dumps whole messages (heads, the changes the proxy and filters made, bodies on request) as readable blocks or JSON lines, with redaction (see below) |
 | Content views | `org.microproxy.contentviews` renders bodies readably: protobuf without a schema (YAML with field numbers, as mitmproxy shows it), gRPC message by message with its trailers and `google.rpc.Status` details, msgpack, form data, GraphQL, Socket.IO; field names from a `protoc` descriptor set; `protobuf` and `grpc` modules for scripts (see below) |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
@@ -1752,6 +1760,30 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
   connection IDs the proxy issued (so they survive the client moving to new ones); relayed flows
   by the client address and the connection IDs seen in their long headers, and otherwise to the
   client address's most recently active flow (servers issue more IDs in encrypted frames).
+- **Clients that move** (QUIC connection migration, RFC 9000 section 9: a NAT that rebinds the
+  client to a new port, a phone that goes from Wi-Fi to cellular, a client that migrates on
+  purpose). An intercepted connection, HTTP/3 or [stream by stream](#quic-stream-hooks), follows
+  its client as any QUIC server does: its datagrams are routed by connection ID from any address,
+  the proxy validates the new path with PATH_CHALLENGE, sends there no more than three times what
+  it received until the client answers, keeps the congestion state for a new port and starts it
+  over for a new address, goes back to the old path if the new one does not answer, and answers
+  from the new path. The proxy's own connection to the server (stream by stream, and HTTP/3 to
+  origins) stays where it is. A relayed flow is harder: the proxy cannot read the client's packets,
+  nor the encrypted frames in which the server gives the client the connection IDs it moves to.
+  A short header packet from an address with no flow goes to the relayed flow that knows its
+  connection ID (from any address), else to the flow of the same client IP address whose known
+  server IDs share the longest prefix of at least 4 bytes with it (servers that encode routing in
+  their IDs), else to that IP address's most recently active relayed flow, which is what a NAT
+  rebinding needs. The flow then sends the server's datagrams to the new address, as a NAT sends
+  replies to its latest mapping, and learns the client's new ID when the server's IDs all have
+  one length. Limits: a relayed client that changes both IP address and connection ID is found
+  only by an ID prefix; with several relayed flows from one IP address the fallback may pick the
+  wrong one; and since the proxy can neither validate the new address nor tell a newer packet from
+  a replayed one, a sender that can spoof the client's IP address with one of the flow's
+  connection IDs can turn its replies elsewhere until the client sends again (the end-to-end
+  connection stays the client's: the server, whose path to the proxy does not change, validates
+  nothing). A server that sends `disable_active_migration` is not migrated away from by clients
+  that honour it.
 - **Versions.** A new client offering a version the proxy cannot read gets Version Negotiation
   (v1, v2), since its destination is in a ClientHello the proxy cannot decrypt; on an existing
   relayed flow, other versions are relayed like anything else.
@@ -1810,10 +1842,8 @@ UDP flow (`nf_conntrack_udp_timeout_stream`, 120 s by default) should outlive th
 timeout. TPROXY needs a listening socket with `IP_TRANSPARENT`, which the JDK cannot set, and
 replies sent from the original destination address, which the JDK cannot do either: it does not
 work with MicroProxy as it is. Relayed flows reach servers from a new UDP socket each, so a
-firewall in front of the proxy sees each as a flow of its own. A client that moves to another
-address (QUIC connection migration) is not followed: its datagrams from the new address belong to
-no flow, and are dropped (intercepted connections drop them too, as the QUIC module does not
-migrate connections yet).
+firewall in front of the proxy sees each as a flow of its own. A client the NAT maps to a new port
+is followed (see **Clients that move** above).
 
 #### QUIC stream hooks
 
@@ -1876,7 +1906,9 @@ MicroProxy.bootstrap()
   through the hooks.
 - **Messages.** A stream is a byte stream, as TCP is: a `QuicStreamMessage` is whatever one read
   returned (at most 16 KiB), so a peer's write may show up in pieces, or joined with the next one.
-  Hooks that look for a protocol's messages keep the start of one until its end arrives.
+  Hooks that look for a protocol's messages keep the start of one until its end arrives, or let
+  the proxy cut the stream into messages for `streamMessage`
+  ([QUIC message framing](#quic-message-framing)).
 - **Flow control.** End to end: each direction of each stream is read only as fast as the other
   side takes the bytes, so QUIC's flow control holds a fast sender back while a slow receiver
   reads, and the proxy keeps at most one read per direction. The proxy's receive windows are
@@ -1885,6 +1917,97 @@ MicroProxy.bootstrap()
   the interceptor must be thread-safe; within one direction of one stream, calls come in order.
   The context names the client connection (`connectionId`, `clientAddress`, `flowContext`), the
   server (`host`, `port`, `serverAddress`), `sni`, `alpn` and `masque()`.
+
+#### QUIC message framing
+
+A stream's bytes come to `streamData` in reads, without the protocol's message boundaries. Many
+protocols over QUIC frame their messages simply, and the proxy can cut their streams into whole
+messages for a hook: `QuicInterceptor.streamMessage(QuicMessage msg, QuicStreamContext stream)`
+(or a script's [`on_quic_message`](#quic-hooks)) sees each message's payload, without its length
+prefix or delimiter, and returns the messages to send in its place. What it returns is framed
+again, so an edited payload gets a length prefix of its new length.
+
+`--quic-framing` (`quic_framing`, `withQuicFraming(QuicFraming)`) chooses a framer by ALPN or by
+host: comma-separated `key=framer` rules, where a key is an ALPN protocol (`doq`), a host name
+matched against the server's host and the SNI (`dns.example.com`, or `*.example.com` for it and
+the names below it), or `*` for any connection. A host rule wins over an ALPN rule, which wins
+over `*`. DNS over QUIC (`doq`) is framed with `u16` by default; `doq=none` turns that off.
+
+| Framer | Messages |
+|---|---|
+| `u16` | a two-byte big-endian length, then the payload: DNS over QUIC (RFC 9250), DNS over TCP |
+| `u32` | a four-byte big-endian length, then the payload |
+| `varint` | a QUIC variable-length integer (RFC 9000 section 16) as the length; written in its shortest form |
+| `lf` | a line ending with a line feed, which the payload leaves out (a carriage return before it stays) |
+| `crlf` | a line ending with a carriage return and a line feed |
+| `none` | not framed: `streamData` sees the reads |
+| `script` | a script's `quic_message_length(data)` (see [QUIC](#quic-hooks)) |
+| a `MessageFramer` | from Java: `framing.withRule("myproto", framer)` or `withFramer(name, framer)` |
+
+```bash
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 \
+    --transparent --transparent-quic-port 8443 --mitm --script doq.star \
+    --quic-framing doq=u16,myproto=varint,*=none --quic-max-message-size 65537
+```
+
+- **Which streams.** Every stream of a connection whose framing rule names a framer, when the
+  interceptor overrides `streamMessage` (a script, when it defines `on_quic_message`). Framing
+  replaces the chunk hook there: `streamData` (`on_quic_stream_data`) is not called on those
+  streams, and is called as before on the streams of other connections. An interceptor that does
+  not override `streamMessage` is never framed, whatever the rules say: **without framing, or
+  without a message hook, nothing is kept**, and each read goes on as it came.
+- **What a hook returns.** `List.of(msg)` passes the message on (changed in place or not); other
+  messages replace it, in order; `null` or an empty list drops it. A message whose `fromClient()`
+  is the other direction's (`msg.withFromClient(false)`) goes to the side that sent `msg`, on the
+  same stream, as if the other side had answered. `QuicStreamContext.send` still writes bytes as
+  they are, not framed. A hook that throws, or returns a payload its framer cannot frame (more
+  than 65535 bytes for `u16`), has the message passed on unchanged.
+- **Limits.** A message larger than `--quic-max-message-size` (`quic_max_message_size`,
+  `QuicFraming.withMaxMessageSize`; 1 MiB, the prefix or delimiter included), known from a length
+  prefix as soon as it arrives or from a delimiter that does not come in time, and bytes a framer
+  cannot read (a custom framer that throws), **reset the stream** in both directions on both
+  connections, and ask both sides to stop sending, with `--quic-message-error-code`
+  (`quic_message_error_code`, `withErrorCode`; 2, DNS over QUIC's `DOQ_PROTOCOL_ERROR`), as a
+  WebSocket message too big closes its connection with 1009. The connection and its other
+  streams go on. Bytes left over when a side finishes its stream, not a whole message, are passed
+  on as they are, before the FIN.
+- **Flow control** stays end to end: a direction keeps at most one message's bytes and a read.
+- **Datagrams** are whole messages already: `datagram` (`on_quic_datagram`) sees them as before.
+- **Decoding.** `QuicMessage` has `data()`, `text()`, `fromClient()`, `streamId()`, `alpn()`,
+  `timestamp()`, the copies `withData`, `withText`, `withFromClient` and `withDns`, and decoders:
+  `dns()` reads the payload as a DNS message (`org.microproxy.dns.DnsMessage`: the header, the
+  questions, and records with typed data for A, AAAA, NS, CNAME, PTR, DNAME, MX, SRV, TXT and
+  SOA; it encodes back, names compressed); `protobuf()` and `protobuf(schema, type)` decode
+  protobuf as the [content views](#content-views) do; `render()` renders the payload with the
+  best content view, as `dig` shows it for DNS over QUIC (the `dns` view), for logging.
+
+DNS over QUIC, logging each query and answering a blocked name with `0.0.0.0` by rewriting the
+server's answer:
+
+```java
+Set<String> blocked = Set.of("ads.example", "tracker.example");
+bootstrap.withQuicInterceptor(new QuicInterceptor() {
+    @Override
+    public byte[] streamData(QuicStreamMessage msg, QuicStreamContext stream) {
+        return msg.data();                                  // streams that are not framed
+    }
+
+    @Override
+    public List<QuicMessage> streamMessage(QuicMessage msg, QuicStreamContext stream) {
+        DnsMessage dns = msg.dns();
+        DnsMessage.Question q = dns.questions().getFirst();
+        if (msg.fromClient()) {
+            log(stream.clientAddress() + " asks for " + q.name() + " " + q.typeName());
+            return List.of(msg);
+        }
+        if (!blocked.contains(q.name().toLowerCase(Locale.ROOT))) return List.of(msg);
+        List<DnsMessage.ResourceRecord> answers = dns.answers().stream()
+                .map(r -> r.type() == DnsMessage.A ? r.withData(DnsMessage.Address.of("0.0.0.0")) : r)
+                .toList();
+        return List.of(msg.withDns(dns.withAnswers(answers)));   // framed again, its length recomputed
+    }
+});
+```
 
 #### QUIC inside CONNECT-UDP flows
 
@@ -2009,14 +2132,26 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
   before the client's, so a server that is slow to answer delays the client's, which may
   retransmit its Initials meanwhile; one that cannot be reached drops the flow rather than relay
   it. 0-RTT is not offered, as the QUIC module has none.
+- **QUIC message framing.** A connection's streams all get the framer its ALPN or host chooses,
+  each carrying that protocol's messages from its start (a stream type or a header before them,
+  as HTTP/3's unidirectional streams have, needs a framer of one's own). Framers keep no state
+  between calls, and a script's framer is called with all the bytes kept so far each time. Bytes
+  a framer cannot read reset the stream rather than fall back to the reads, and the hooks are not
+  told of the resets framing makes.
 - **MASQUE.** QUIC inside a CONNECT-UDP flow is intercepted only with `--masque-intercept-quic`,
   and a flow is inspected from its first datagram: one that starts with anything but a QUIC
   Initial is relayed as UDP throughout, and once one of its QUIC connections is relayed, so is the
-  rest of the flow. QUIC that moves between flows (connection migration) is not followed. CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
+  rest of the flow. An intercepted connection that its client carries over to another CONNECT-UDP
+  flow to the same target follows it there (a flow whose first datagram belongs to the connection
+  goes to the proxy's QUIC server, which validates the path through the new flow), and closes when
+  the flow it is on ends, not one it left; relayed QUIC that moves between flows is not followed.
+  CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
   chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
-- From the QUIC module: 0-RTT and session resumption, connection migration (see its
-  [README](quic/README.md)).
+- The proxy's own QUIC connections to servers (stream by stream, HTTP/3 to origins) never move to
+  a new local address, having no reason to; they move to a server's preferred address as any
+  client does, and do not follow a server that moves to another address of its own accord (see
+  the QUIC module's [README](quic/README.md)).
 - HTTP/3 to servers only over direct connections, and without client certificates.
 
 ### Rewriting bodies
@@ -2388,6 +2523,8 @@ bootstrap.start();
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `on_udp_start(ctx)`, `on_udp_message(msg, ctx)`, `on_udp_end(ctx)` | for CONNECT-UDP flows, when the script defines one of them (see [UDP](#udp-hooks)): when a flow opens, for each datagram, and when it ends | `on_udp_message`: as `on_tcp_message`, for one datagram |
 | `on_quic_start(ctx)`, `on_quic_stream_data(msg, ctx)`, `on_quic_datagram(msg, ctx)`, `on_quic_end(ctx)` | for QUIC that is not HTTP/3, intercepted stream by stream, when the script defines one of them (see [QUIC](#quic-hooks)): when a connection is intercepted, for the bytes of each read of a stream, for each datagram, and when it ends | `on_quic_stream_data`: as `on_tcp_message`; `on_quic_datagram`: as `on_udp_message` |
+| `on_quic_message(msg, ctx)` | for each whole message of a stream that [QUIC message framing](#quic-message-framing) cuts into messages (DNS over QUIC by default), instead of `on_quic_stream_data` | as `on_websocket_message`: `None` (or `msg`) to send the message with any changes, `False` to drop it, another message (or bytes, or a string) to replace it, or a list of them to send instead (`[]` drops it); each is framed again |
+| `quic_message_length(data)` | a framer of the script's own, for the streams `--quic-framing` gives to `script`: given the bytes kept of a stream direction | the length of the whole message they start with, or `None` until the bytes say |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2457,6 +2594,8 @@ bootstrap.start();
 - `time.now`/`monotonic`, and `log.debug`/`info`/`warn`/`error`. `print` also goes to the log.
 - `protobuf` and `grpc`: protobuf messages as dicts, and gRPC's framing (see **Protobuf and
   gRPC** below).
+- `dns`: DNS messages as dicts, for DNS over QUIC, DNS over HTTPS bodies and DNS in UDP flows
+  (see **DNS** below).
 - More with `load()`: Python's `hashlib`, `hmac`, `re`, `urllib.parse`, `json`, `zlib`, ... (see
   **Standard library** below).
 
@@ -2505,6 +2644,26 @@ a schema from Java, `ScriptedProxy.builder(path).protoSchema(ProtoSchema.load(Pa
 `protobuf.decode(data, type="shop.Order")` keys fields by name (enum values by name too) and
 `protobuf.encode(fields, type="shop.Order")` takes names. Typed scripts can annotate with
 `ProtoFixed` and `ProtoGroup`; the dicts are untyped.
+
+**DNS.** `dns.decode(data)` turns a DNS message (wire format) into a dict, and `dns.encode(m)`
+turns such a dict back into bytes, owner names compressed; `dns.render(data)` is the text `dig`
+would show. The dict:
+
+| Key | Value |
+|---|---|
+| `id`, `flags` | the message ID, and the header's 16 bits of flags |
+| `response`, `opcode`, `authoritative`, `truncated`, `recursion_desired`, `recursion_available`, `rcode` | the flags by name; `encode` lets them win over `flags` |
+| `questions` | dicts with `name`, `type` and `class` |
+| `answers`, `authorities`, `additionals` | dicts with `name`, `type`, `class`, `ttl` and `data` |
+
+Names are written without the final dot. Types are names (`"A"`, `"AAAA"`, `"MX"`, `"TYPE65280"`
+for a type without one), and `encode` also takes numbers. The `data` of A and AAAA records is the
+address (`"192.0.2.1"`, `"2001:db8::1"`), of NS, CNAME, PTR and DNAME records the name, of TXT
+records a list of strings, of MX, SRV and SOA records a dict of their fields (`preference` and
+`exchange`; `priority`, `weight`, `port` and `target`; `mname`, `rname`, `serial`, `refresh`,
+`retry`, `expire` and `minimum`), and of other types (an EDNS `OPT` record included) its bytes;
+`encode` takes bytes for any type. `encode` fills in what is left out: `id` 0, `class` 1 (IN),
+`ttl` 0, no flags.
 
 **Where a response came from, and how long it took.** `res.source` tells the server's responses
 from the others, like the `source` of the [access log](#access-logs-envoy-compatible), and `res.upstream_status`
@@ -2956,15 +3115,17 @@ def on_udp_message(msg, ctx):
 ```
 
 <a id="quic-hooks"></a>**QUIC.** A script that defines `on_quic_start(ctx)`, `on_quic_stream_data(msg,
-ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the streams and datagrams of QUIC
-that the proxy intercepts without speaking its protocol ([QUIC stream hooks](#quic-stream-hooks)).
+ctx)`, `on_quic_message(msg, ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the
+streams and datagrams of QUIC that the proxy intercepts without speaking its protocol
+([QUIC stream hooks](#quic-stream-hooks)).
 `--script` installs the QUIC interceptor only when the script defines one of these hooks when it
 loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relayed (from Java:
 `bootstrap.withQuicInterceptor(script.quicInterceptor())` when `script.definesQuicHooks()`).
 
-- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`: the bytes of
-  one read of a stream for `on_quic_stream_data` (a stream has no message boundaries either), one
-  datagram for `on_quic_datagram`.
+- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`, and `stream_id`
+  (`None` for a datagram) and `with_from_client`: the bytes of one read of a stream for
+  `on_quic_stream_data` (a stream has no message boundaries either), one datagram for
+  `on_quic_datagram`.
 - `ctx`: a `QuicContext`: `connection_id`, `client_ip`, `client_port`, `host`, `port`, `server`,
   `address` (where the proxy connected), `sni`, `alpn`, `masque` (whether the QUIC came inside a
   CONNECT-UDP flow), `vars`, a dict that lives as long as the connection and that its streams
@@ -2974,6 +3135,19 @@ loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relay
   data)` adds a datagram.
 - The hooks of one connection run one at a time, though its streams are read concurrently. A
   failing hook is logged and the bytes passed on unchanged.
+- `on_quic_message(msg, ctx)` sees the whole messages of the streams that
+  [QUIC message framing](#quic-message-framing) cuts into messages: by default those of DNS over
+  QUIC (ALPN `doq`), whose messages have a two-byte length, and those `--quic-framing` names
+  (`--quic-framing myproto=varint,chat=lf`). `--script` frames streams only when the script
+  defines `on_quic_message` when it loads (from Java: `script.quicInterceptor()` overrides
+  `streamMessage` only then), and on those streams `on_quic_stream_data` is not called. `msg` is a
+  `QuicMessage` whose `data` is the payload, without its length prefix or delimiter, with
+  `stream_id` (`None` only for datagrams); `with_data`, `with_text` and `with_from_client` make
+  copies. It returns as `on_websocket_message` does, each message going the way its
+  `from_client` says (`msg.with_from_client(False)` answers the client on the same stream), and
+  what it returns is framed again, with a length prefix computed for the new payload. A message
+  larger than `--quic-max-message-size` (1 MiB) resets the stream with
+  `--quic-message-error-code` (2). `ctx.send(from_client, data)` still sends bytes unframed.
 
 ```python
 def on_quic_start(ctx):
@@ -2987,6 +3161,44 @@ def on_quic_stream_data(msg, ctx):
 def on_quic_datagram(msg, ctx):
     if msg.from_client and msg.text == "blocked":
         return False
+```
+
+DNS over QUIC through a transparent QUIC port, logging each query and answering a blocked name
+with `0.0.0.0` by rewriting the server's answer (`--script doq.star`; `doq` is framed by default):
+
+```python
+BLOCKED = ["ads.example", "tracker.example"]
+
+def on_quic_message(msg, ctx):
+    # DNS over QUIC (ALPN doq): one DNS message each way on each stream.
+    if ctx.alpn != "doq":
+        return None
+    m = dns.decode(msg.data)
+    q = m["questions"][0]
+    if msg.from_client:
+        log.info("%s asks for %s %s" % (ctx.client_ip, q["name"], q["type"]))
+    elif q["name"].lower() in BLOCKED:
+        for answer in m["answers"]:
+            if answer["type"] == "A":
+                answer["data"] = "0.0.0.0"
+                answer["ttl"] = 60
+        msg.data = dns.encode(m)
+```
+
+A protocol of one's own, framed by the script (`--quic-framing tiny=script`): `quic_message_length`
+gets the bytes kept of a stream direction and returns the length of the message they start with,
+or `None` until it can tell; the message, its prefix included, goes to `on_quic_message` as it is,
+and what that returns is sent as it is. A framer that fails resets the stream.
+
+```python
+def quic_message_length(data):
+    # Each message: a byte with the length of what follows, then that many bytes.
+    return 1 + data[0]
+
+def on_quic_message(msg, ctx):
+    # The message as quic_message_length cut it, its length byte included.
+    if msg.from_client and msg.text != None:
+        return msg.text.upper()
 ```
 
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
@@ -3479,7 +3691,8 @@ dashboards and alerts written for Envoy read them: `http.<name>.downstream_rq_5x
 `cluster.<cluster>.upstream_cx_connect_fail`, `listener.<address>.downstream_cx_active`, and so on.
 They live in a `StatsRegistry` (package `org.microproxy.stats`); `StatsFormatter` renders them as
 Prometheus's text exposition format, Envoy's `/stats` text dump, or its JSON form, and
-`StatsdSink` pushes them to statsd. The admin endpoint that serves them over HTTP comes later.
+`StatsdSink` pushes them to statsd. The [admin interface](#admin-interface) serves them over HTTP
+(`/stats`, `/stats/prometheus`).
 
 ```java
 StatsRegistry stats = StatsRegistry.builder().prefix("envoy").build();   // or .withMetrics(true)
@@ -3561,7 +3774,10 @@ milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 
 | `cache.hits`, `misses`, `stores`, `revalidations`, `stale_served` | counter | the [HTTP cache](#http-cache)'s counts (`HttpCache.stats()`) |
 | `concurrency_limit.in_use`, `waiting` / `acquired`, `rq_blocked`, `reclaimed` | gauge / counter | the [concurrency limiter](#concurrency-limiting) among the filters |
 | `connection_pool.total_connections`, `active_connections`, `idle_connections` / `borrow`, `return`, `eviction`, `validation_failure` | gauge / counter | the [shared pool](#shared-server-connection-pool) (`getServerConnectionPoolMetrics()`) |
-| `server.uptime`, `live`, `concurrency`, `memory_allocated`, `memory_heap_size`, `total_connections` | gauge | seconds running, 1 until stopping, processors, heap used and committed (`MemoryMXBean`), client connections open |
+| `server.uptime`, `live`, `concurrency`, `memory_allocated`, `memory_heap_size`, `total_connections` | gauge | seconds running, 1 while `LIVE` (0 once draining or stopping), processors, heap used and committed (`MemoryMXBean`), client connections open |
+| `server.state` | gauge | Envoy's numbers: 0 live, 1 draining, 2 pre-initializing, 3 initializing (4 stopped) |
+| `http.<name>.downstream_cx_drain_close` | counter | client connections told to go away while draining or with a failed health check (`Connection: close`, GOAWAY) |
+| `listener_manager.total_listeners_active`, `total_listeners_draining` / `listener_stopped` | gauge / counter | listeners accepting, those accepting while the proxy drains / listeners closed |
 
 **HTTP/2 and HTTP/3 codecs.** `http2.<direction>.*` and `http3.<direction>.*`, where the
 direction is `downstream` (connections from clients) or `upstream` (to servers), Prometheus's
@@ -3725,6 +3941,183 @@ Envoy's `upstream_cx_destroy_*` and
 `downstream_cx_destroy_*` tell who closed first only where the proxy saw it (an end of stream
 before a request, a server that closed its connection). Statsd gets a histogram as one timer per
 flush, the mean of its new values sampled at `1/n`, which keeps the count and mean, not the spread.
+
+### Admin interface
+
+The admin listener serves Envoy's admin API (the same paths and semantics, reimplemented) on a
+listener of its own, apart from the proxy's: metrics for Prometheus, readiness for load balancers
+and orchestrators, the configuration in effect, log levels, and draining. It runs on the JDK's
+built-in HTTP server (`com.sun.net.httpserver`, module `jdk.httpserver`), so it adds no dependency;
+a `jlink`ed runtime needs `--add-modules jdk.httpserver`. It turns [metrics](#metrics-envoy-compatible-stats) on.
+
+```sh
+java -jar microproxy.jar --port 8080 --admin-port 9901            # admin on 127.0.0.1:9901
+
+curl -s localhost:9901/ready                                       # LIVE
+curl -s 'localhost:9901/stats?filter=^cluster\.&usedonly'
+curl -s localhost:9901/stats/prometheus
+curl -s -X POST 'localhost:9901/logging?org.microproxy.impl.Tls=debug'
+curl -s -X POST 'localhost:9901/drain_listeners?graceful'         # drain for --drain-time
+```
+
+```java
+HttpProxyServer proxy = MicroProxy.bootstrap()
+        .withAdmin(new InetSocketAddress(InetAddress.getLoopbackAddress(), 9901))
+        .withAdminToken(System.getenv("MICROPROXY_ADMIN_TOKEN"))   // optional
+        .withDrainTime(Duration.ofSeconds(20))
+        .start();
+proxy.state();                          // LIVE
+proxy.drain(Duration.ofSeconds(20));    // returns when the drain is over
+proxy.stop();                           // STOPPED
+```
+
+| path | method | answer |
+|---|---|---|
+| `/`, `/help` | GET | the paths and what they do |
+| `/stats` | GET | the stats as `name: value` lines, histograms as their quantiles (Envoy's text dump); `?filter=<regex>` keeps the names it finds, `?usedonly` the stats with a value, `?format=json` or `?format=prometheus` changes the form |
+| `/stats/prometheus` | GET | Prometheus's text exposition format 0.0.4 (`text/plain; version=0.0.4; charset=utf-8`), with `?filter=` and `?usedonly` too |
+| `/ready` | GET | `200 LIVE`, or `503` and the state: `DRAINING`, `INITIALIZING`, `PRE_INITIALIZING`, or `HEALTH_CHECK_FAILED` after `/healthcheck/fail`; needs no token |
+| `/server_info` | GET | JSON: the version, state, uptime (`uptime_current_epoch`), listeners, the features in use (`h2`, `h2c`, `h3`, `quic`, `socks`, `masque`, `mitm`, `transparent`, `reverse_proxy`, `cache`, `replay`, `scripting`, ...), the drain settings, the JVM, and the command line, secrets redacted |
+| `/listeners` | GET | a line per listener, `name::address::transport::protocols` (`edge::127.0.0.1:8080::tcp::http/1.1,h2c`); `?format=json` |
+| `/clusters` | GET | a line per cluster stat, `cluster::stat::value`, for `direct`, the chained proxies, `cache`, `replay` and, with `--stats-per-host`, each server; with the shared pool's state on `direct`; `?format=json` (histograms as count, p50 and p99) |
+| `/config_dump` | GET | JSON: the configuration in effect (listener, modes, timeouts, limits, pool, chained proxies, HTTP/2 and HTTP/3 options, TLS, interception, filters, trackers, stats, drain, health check, admin, command line), every secret `[redacted]` |
+| `/logging` | GET, POST | GET lists the proxy's loggers and their levels; `POST /logging?level=<level>` sets them all, `POST /logging?<logger>=<level>` one (and its children) |
+| `/healthcheck/fail` | POST | fails the health check: `/ready` and the [health-check path](#lifecycle-draining-and-shutdown) answer `503`, and connections drain as their next request comes |
+| `/healthcheck/ok` | POST | restores it |
+| `/drain_listeners` | POST | stops accepting connections now (open ones are left alone); with `?graceful`, drains for the drain time first, still accepting; `?inboundonly` is accepted, every proxy listener being inbound |
+| `/quitquitquit` | POST | stops the proxy gracefully, as `stop()` does |
+
+Reads are `GET` (and `HEAD`); what changes the proxy takes `POST` only, so that a link or a
+prefetch cannot change it; any other method gets `405` with an `Allow` header. An unknown path
+gets `404` and the list. Envoy's other paths (`/certs`, `/memory`, `/runtime`,
+`/stats/recentlookups`, `/reset_counters`, `/heap_dump`, `/hot_restart_version`, ...) are not
+served: MicroProxy has no runtime-overridable settings, hot restarts or certificates to list.
+
+| flag | property | meaning |
+|---|---|---|
+| `--admin-port <port>` | `admin_port` | serve the admin API on this port of `127.0.0.1` (0 for any free port) |
+| `--admin-address <host:port>` | `admin_address` | on another address, such as `0.0.0.0:9901` or `[::1]:9901` |
+| `--admin-token <token>` | `admin_token` | require the token on every path but `/ready` |
+| `--admin-token-file <file>` | | the same, from the file's first line (kept out of the process list) |
+| `--drain-time <seconds>` | `drain_time` | how long a drain lasts, and how long stopping lets exchanges finish (default 10) |
+| `--drain-strategy <strategy>` | `drain_strategy` | `gradual` (the default) or `immediate` |
+| `--health-check-path <path>` | `health_check_path` | answer health checks on the proxy's listener |
+| `--health-check-pass-through` | `health_check_pass_through` | forward a healthy health check to the server instead |
+
+**Security.** The admin API can drain and stop the proxy, so it listens on `127.0.0.1` unless told
+otherwise. A token (`withAdminToken`, `--admin-token`) is then required on every path but
+`/ready`: as `Authorization: Bearer <token>`, or as the password of basic authentication with
+any user name (or as `user:password` itself, when the token has a colon); it is compared in
+constant time. Bound to a loopback address, the listener also answers only requests whose `Host`
+is `localhost` or a loopback address, so a web page cannot reach it through DNS rebinding, and it
+refuses every `POST` that carries an `Origin`, as a browser's would. It speaks plain HTTP: to reach
+it from elsewhere, bind it to a private address with a token, or tunnel to it (`kubectl
+port-forward`, SSH). `/config_dump` and `/server_info` redact the secrets they would show: key
+store passwords, the admin token, proxy authentication credentials and those in chained proxy
+URLs, the interception CA's private key and its key store password, `--script-var` values, and any
+option named for a password, token, secret or credential.
+
+**Threads.** The JDK's server reads requests and writes responses inside `synchronized` methods
+(`sun.net.httpserver.Request.ReadStream.read` and `WriteStream.write`). On JDK 21 a virtual thread
+blocked in one pins its carrier, so a client sending its request or reading the answer slowly
+would hold one of the few carriers every virtual thread of the proxy shares. The admin listener
+therefore runs on four platform threads of its own (idle keep-alive connections hold none: they
+wait in the server's selector). `HttpsServer` pins the same way, and more, which is why the admin
+listener has no TLS. JDK 24 (JEP 491) no longer pins on monitors.
+
+**Logging levels.** The proxy logs through `System.Logger`, which the JDK backs with
+`java.util.logging` unless another backend is on the class path (SLF4J's
+`slf4j-jdk-platform-logging`, Log4j's `log4j-jpl`). With `java.util.logging`, `/logging` lists the
+loggers under `org.microproxy` and `io.github.mahmoudimus` with their effective levels, and sets
+them with Envoy's names (`trace`, `debug`, `info`, `warning`, `error`, `critical`, `off`) or
+`java.util.logging`'s (`FINE`, `ALL`, ...); a root handler that would drop the records of a lower
+level is lowered to it. With another backend, `/logging` says which one, and levels are set there:
+the JDK gives no portable way to change them.
+
+### Lifecycle, draining and shutdown
+
+A proxy is `INITIALIZING` while it starts (the admin listener first, then the proxy's own),
+`LIVE` once it serves, `DRAINING` once it drains, stops accepting or stops, and `STOPPED` at the
+end: `HttpProxyServer.state()`, the admin's `/ready`, and the `server.state` gauge with Envoy's
+numbers (0 live, 1 draining, 2 pre-initializing, 3 initializing; 4 stopped, which Envoy has not).
+
+- **Drain** (`drain(time)`, `POST /drain_listeners?graceful`): `/ready` fails at once, and the
+  listeners keep accepting, so that clients a load balancer still sends are served. Each new
+  request is told to go elsewhere: an HTTP/1 response gets `Connection: close` and its connection
+  closes after it; an HTTP/2 or HTTP/3 connection is sent GOAWAY (the request is served, and named
+  the last one). With the `gradual` strategy (Envoy's default) the chance that a request does so
+  grows from 0 at the start of the drain to 1 at its end, so clients move away gradually; with
+  `immediate`, every connection is told at once (idle ones close now). Exchanges in progress get
+  until the drain time is over; then the listeners close and so does every connection still open.
+  The proxy stays `DRAINING`, its admin listener up, until it is stopped.
+- **Stop accepting** (`stopListeners()`, `POST /drain_listeners`): the TCP listener closes, the UDP
+  ones (HTTP/3, transparent QUIC) refuse new QUIC connections, and open connections are left
+  alone.
+- **Stop** (`stop()`, `POST /quitquitquit`, and the launcher's SIGTERM or Ctrl-C): the listeners
+  close, idle connections close, HTTP/2 and HTTP/3 ones get GOAWAY, HTTP/1 ones close after their
+  exchange in progress; exchanges get up to the drain time to finish (`withDrainTime`,
+  `--drain-time`, 10 seconds by default), then everything is closed, resources added with
+  `closeOnStop` are closed, and last the admin listener. `abort()` closes everything at once.
+- **Health check** (`setHealthCheckFailed`, `POST /healthcheck/fail` and `/healthcheck/ok`): while
+  it fails, `/ready` answers `503 HEALTH_CHECK_FAILED`, and every new request drains its
+  connection, as Envoy does. `withHealthCheckPath("/healthz", passThrough)` (`--health-check-path`)
+  answers health checks on the proxy's own listener, before authentication and the filters, as
+  Envoy's health check filter: an origin-form request for the path gets `200`, or `503` with
+  `x-envoy-immediate-health-check-fail: true` while the health check fails or the proxy is not
+  `LIVE`. With pass-through, a healthy check goes on to the server (in reverse mode, the
+  upstream's own health) and only failures are answered by the proxy.
+
+The drain counts `http.<name>.downstream_cx_drain_close` (connections told to go away),
+`listener_manager.listener_stopped`, and the gauges `listener_manager.total_listeners_active` and
+`total_listeners_draining`; `server.live` is 1 only while `LIVE`.
+
+**Kubernetes.** Readiness follows `/ready`; on deletion, a `preStop` hook drains while the
+endpoints controller and the load balancers forget the pod, then the kubelet's SIGTERM stops the
+proxy, which finishes the exchanges still in progress:
+
+```yaml
+spec:
+  terminationGracePeriodSeconds: 45          # > preStop sleep + drain time
+  containers:
+    - name: microproxy
+      image: example/microproxy
+      args: ["--port", "8080", "--server", "--admin-address", "0.0.0.0:9901",
+             "--admin-token-file", "/etc/microproxy/admin-token", "--drain-time", "15"]
+      ports: [{containerPort: 8080}, {containerPort: 9901}]
+      readinessProbe:
+        httpGet: {path: /ready, port: 9901}  # /ready needs no token
+        periodSeconds: 2
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - sh
+              - -c
+              - |
+                curl -sf -X POST -H "Authorization: Bearer $(cat /etc/microproxy/admin-token)" \
+                  'http://127.0.0.1:9901/drain_listeners?graceful&inboundonly'
+                sleep 15
+      volumeMounts: [{name: admin-token, mountPath: /etc/microproxy, readOnly: true}]
+  volumes:
+    - name: admin-token
+      secret: {secretName: microproxy-admin-token}
+```
+
+The kubelet probes the pod's address, so this binds the admin listener to every interface, with a
+token. To keep it on loopback instead, probe with `exec` (`curl -sf localhost:9901/ready`), or
+give the proxy `--health-check-path /healthz` and probe `httpGet: {path: /healthz, port: 8080}`,
+which also fails while draining. Without a `preStop` hook (an image without `curl` or `sh`),
+SIGTERM alone stops accepting at once and lets the exchanges in progress finish for up to
+`--drain-time`; a `preStop` of `sleep 5` covers most of the time endpoints take to update.
+
+**Limitations.** `/clusters` lists the clusters that have stats so far, so a chained proxy shows
+once it has been used; every cluster is reported `healthy`, as the proxy runs no active health
+checks. `?usedonly` keeps what is not zero, where Envoy keeps what was ever written (a gauge back
+at zero shows there). A gradual drain is a matter of chance per request, so an HTTP/1 client that
+sends few requests may keep its connection until the drain ends. Envoy's `?inboundonly` and
+`traffic_direction` distinction has nothing to choose from here, and the admin listener itself is
+never drained. Scripts do not see the state: they run per request, and a draining proxy's own
+answers (`Connection: close`, GOAWAY) need nothing from them.
 
 ### Request/response logging
 
@@ -3916,6 +4309,7 @@ views.render(body, ContentView.Metadata.forResponse(request, response))
 | `urlencoded`, `multipart` | `application/x-www-form-urlencoded`, `multipart/form-data` | the fields (a repeated name as a list), files' names, types and sizes |
 | `query` | requests without a body | the query parameters |
 | `socketio` | paths with `/socket.io/` or `/engine.io/` | one line per Engine.IO or Socket.IO packet |
+| `dns` | `application/dns-message` (DNS over HTTPS, and [DNS over QUIC](#quic-message-framing)'s messages) | as `dig` shows it: the header, then each section's records |
 | `hex` | anything, when named | a hex dump |
 
 `views.with(myView)` adds a view (or replaces one of the same name); a view that fails on a body

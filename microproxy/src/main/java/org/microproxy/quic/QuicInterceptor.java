@@ -1,5 +1,7 @@
 package org.microproxy.quic;
 
+import java.util.List;
+
 /**
  * Sees, rewrites, drops and adds the stream data and datagrams of QUIC connections the proxy
  * terminates without speaking their protocol: the QUIC counterpart of {@link
@@ -40,8 +42,38 @@ package org.microproxy.quic;
  *
  * <p>Flow control is end to end: each direction of each stream is read only as fast as the other
  * side takes its data, so a slow reader slows its writer down through QUIC's own flow control,
- * and the proxy holds at most one read per direction. Stream limits are the peers' too: a stream
- * one side opens waits until the other side's limit allows it.
+ * and the proxy holds at most one read per direction (with framing, a message's bytes and one
+ * read). Stream limits are the peers' too: a stream one side opens waits until the other side's
+ * limit allows it.
+ *
+ * <h2>Messages</h2>
+ *
+ * <p>An interceptor that overrides {@link #streamMessage} sees whole messages instead, on the
+ * connections that {@link QuicFraming} (configured with {@link
+ * org.microproxy.HttpProxyServerBootstrap#withQuicFraming}) gives a {@link MessageFramer}: by
+ * default DNS over QUIC ({@code doq}), whose messages have a two-byte length prefix. The proxy
+ * keeps each direction's bytes until a message is whole, shows its payload to {@code streamMessage},
+ * and frames what that returns again, computing a length prefix afresh for an edited payload. On
+ * such a stream {@link #streamData} is not called: framing replaces it. A message larger than
+ * {@link QuicFraming#maxMessageSize()}, or bytes the framer cannot read, reset the stream in both
+ * directions on both connections with {@link QuicFraming#errorCode()}. Bytes left over when a side
+ * finishes its stream, not a whole message, are passed on as they are. Streams of connections
+ * without a framer, and every stream when the interceptor does not override {@code streamMessage},
+ * go through {@code streamData} as before, and nothing is kept.
+ *
+ * <pre>{@code
+ * bootstrap.withQuicInterceptor(new QuicInterceptor() {
+ *     public byte[] streamData(QuicStreamMessage message, QuicStreamContext stream) {
+ *         return message.data();                                  // other protocols' streams
+ *     }
+ *
+ *     public List<QuicMessage> streamMessage(QuicMessage message, QuicStreamContext stream) {
+ *         DnsMessage dns = message.dns();                          // a DNS over QUIC message
+ *         log(dns.questions());
+ *         return List.of(message);
+ *     }
+ * });
+ * }</pre>
  *
  * <h2>Threads</h2>
  *
@@ -52,8 +84,8 @@ package org.microproxy.quic;
  *
  * <p>Every connection gets {@link #quicStart} first, then its streams' and datagrams' hooks (each
  * stream's {@link #streamOpened} before its data), then either {@link #quicEnd} or {@link
- * #quicError}, never both. A hook that throws is logged; a throwing {@link #streamData} or {@link
- * #datagram} passes the bytes on unchanged.
+ * #quicError}, never both. A hook that throws is logged; a throwing {@link #streamData}, {@link
+ * #streamMessage} or {@link #datagram} passes the bytes on unchanged.
  */
 @FunctionalInterface
 public interface QuicInterceptor {
@@ -83,6 +115,28 @@ public interface QuicInterceptor {
      *     bytes, or null or an empty array to drop them
      */
     byte[] streamData(QuicStreamMessage message, QuicStreamContext stream);
+
+    /**
+     * A whole message from one side of a stream, on a connection that {@link QuicFraming} gives a
+     * framer, before it is passed on; on such streams this replaces {@link #streamData}. Only
+     * interceptors that override this method see messages: the proxy frames streams for no other.
+     *
+     * <p>Each message returned is framed again ({@link MessageFramer#frame}) and sent in the
+     * direction its {@link QuicMessage#fromClient()} says, on the same stream: those of the same
+     * direction follow each other in place of {@code message}, and those of the other direction
+     * (made with {@link QuicMessage#withFromClient}) are sent to the side that sent {@code
+     * message}, as if the other side had answered. A hook that throws, or returns a payload the
+     * framer cannot frame, has the message passed on unchanged.
+     *
+     * @param message the message's payload, which side sent it, on which stream and when
+     * @param stream the stream, and {@link QuicStreamContext#send} to add bytes as they are (not
+     *     framed) after these
+     * @return the messages to send: {@code List.of(message)} (the default) to pass it on with any
+     *     change made in place, others, or null or an empty list to drop it
+     */
+    default List<QuicMessage> streamMessage(QuicMessage message, QuicStreamContext stream) {
+        return List.of(message);
+    }
 
     /**
      * One side finished sending on a stream (its FIN): called before the end is passed on, so

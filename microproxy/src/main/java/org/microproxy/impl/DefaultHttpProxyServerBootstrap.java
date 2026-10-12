@@ -15,6 +15,7 @@ import java.util.Properties;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
+import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
@@ -42,6 +43,7 @@ import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicFraming;
 import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tcp.TcpInterceptor;
@@ -137,6 +139,19 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     TcpInterceptor tcpInterceptor;
     UdpInterceptor udpInterceptor;
     QuicInterceptor quicInterceptor;
+    QuicFraming quicFraming = QuicFraming.defaults();
+    /** How long stopping lets exchanges finish, and how long a drain lasts. */
+    Duration drainTime = Duration.ofSeconds(10);
+    DrainStrategy drainStrategy = DrainStrategy.GRADUAL;
+    /** The path the proxy answers health checks on; null for none. */
+    String healthCheckPath;
+    boolean healthCheckPassThrough;
+    /** Where the admin listener listens; null for none. */
+    InetSocketAddress adminAddress;
+    /** What admin requests must present; null for nothing. */
+    String adminToken;
+    /** The command line, for the admin's {@code /server_info}. */
+    List<String> commandLineOptions = List.of();
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -208,6 +223,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.tcpInterceptor = tcpInterceptor;
         c.udpInterceptor = udpInterceptor;
         c.quicInterceptor = quicInterceptor;
+        c.quicFraming = quicFraming;
+        c.drainTime = drainTime;
+        c.drainStrategy = drainStrategy;
+        c.healthCheckPath = healthCheckPath;
+        c.healthCheckPassThrough = healthCheckPassThrough;
+        c.adminAddress = adminAddress;
+        c.adminToken = adminToken;
+        c.commandLineOptions = commandLineOptions;
         return c;
     }
 
@@ -249,6 +272,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("quic_hosts")) {
             withQuicHosts(HostRules.split(p.getProperty("quic_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("quic_framing")) withQuicFraming(quicFraming.withRules(p.getProperty("quic_framing")));
+        if (p.containsKey("quic_max_message_size")) {
+            withQuicFraming(quicFraming.withMaxMessageSize(Integer.parseInt(p.getProperty("quic_max_message_size").strip())));
+        }
+        if (p.containsKey("quic_message_error_code")) {
+            withQuicFraming(quicFraming.withErrorCode(Long.decode(p.getProperty("quic_message_error_code").strip())));
         }
         if (p.containsKey("mode")) {
             String mode = p.getProperty("mode").strip();
@@ -487,6 +517,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             }
             withHttpCache(cache.build());
         }
+        if (p.containsKey("drain_time")) withDrainTime(Duration.ofSeconds(Long.parseLong(p.getProperty("drain_time").strip())));
+        if (p.containsKey("drain_strategy")) withDrainStrategy(DrainStrategy.parse(p.getProperty("drain_strategy")));
+        if (p.containsKey("health_check_path")) {
+            withHealthCheckPath(p.getProperty("health_check_path").strip(), bool(p, "health_check_pass_through"));
+        }
+        if (p.containsKey("admin_port")) {
+            withAdmin(new InetSocketAddress(DefaultHttpProxyServer.loopback(),
+                    Integer.parseInt(p.getProperty("admin_port").strip())));
+        }
+        if (p.containsKey("admin_address")) withAdmin(parseAddress(p.getProperty("admin_address")));
+        if (p.containsKey("admin_token")) withAdminToken(p.getProperty("admin_token").strip());
         long read = Long.parseLong(p.getProperty("throttle_read_bytes_per_second", "0").strip());
         long write = Long.parseLong(p.getProperty("throttle_write_bytes_per_second", "0").strip());
         withThrottling(read, write);
@@ -923,6 +964,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withQuicFraming(QuicFraming framing) {
+        this.quicFraming = Objects.requireNonNull(framing, "framing");
+        return this;
+    }
+
+    @Override
+    public QuicFraming getQuicFraming() {
+        return quicFraming;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withTlsProtocols(String... protocols) {
         List<String> chosen = new ArrayList<>();
         for (String protocol : protocols) {
@@ -1059,6 +1111,50 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
         this.serverResolver = useDnsSec ? new DnssecHostResolver() : new DefaultHostResolver();
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withDrainTime(Duration drainTime) {
+        if (Objects.requireNonNull(drainTime, "drainTime").isNegative()) {
+            throw new IllegalArgumentException("the drain time must not be negative: " + drainTime);
+        }
+        this.drainTime = drainTime;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withDrainStrategy(DrainStrategy strategy) {
+        this.drainStrategy = Objects.requireNonNull(strategy, "strategy");
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHealthCheckPath(String path, boolean passThrough) {
+        if (path != null && !path.startsWith("/")) {
+            throw new IllegalArgumentException("a health-check path starts with /: " + path);
+        }
+        this.healthCheckPath = path;
+        this.healthCheckPassThrough = passThrough;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAdmin(InetSocketAddress address) {
+        this.adminAddress = address;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAdminToken(String token) {
+        if (token != null && token.isEmpty()) throw new IllegalArgumentException("the admin token is empty");
+        this.adminToken = token;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withCommandLineOptions(List<String> options) {
+        this.commandLineOptions = List.copyOf(options);
         return this;
     }
 

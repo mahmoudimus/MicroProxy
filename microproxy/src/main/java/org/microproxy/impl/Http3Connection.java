@@ -289,6 +289,10 @@ final class Http3Connection extends Http3Endpoint {
             finishStream(stream);
             throw e;
         }
+        if (server.drainClose()) {
+            // Draining: this stream is served, and GOAWAY names the next one as the first refused.
+            client.drain();
+        }
     }
 
     private void runStream(Http3StreamChannel s) {

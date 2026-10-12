@@ -13,6 +13,7 @@ import io.github.mahmoudimus.quic.congestion.RateSample;
 import io.github.mahmoudimus.quic.congestion.RttEstimator;
 import io.github.mahmoudimus.quic.frame.Frame;
 import io.github.mahmoudimus.quic.params.TransportParameters;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -106,32 +107,24 @@ public final class Recovery {
     private final TimerTable timers;
     private final RandomGenerator random;
     private final PacketSpace[] spaces = new PacketSpace[3];
-    private final RttEstimator rtt;
-    private final Controller congestion;
-    private final Pacer pacer;
-    private final DeliveryRate deliveryRate = new DeliveryRate();
-    private final MtuDiscovery mtud;
     private final AckFrequencyState ackFrequency;
     PacketNumberFilter packetNumberFilter;
+    /** The path packets are sent on. */
+    private PathData path;
+    /** The path before the last migration, whose packets may still be in flight; null if none. */
+    private PathData prevPath;
 
-    /** Bytes of congestion-controlled packets in flight. */
-    private long inFlightBytes;
-    /** Ack-eliciting packets in flight. */
-    private long inFlightAckEliciting;
     private int ptoCount;
     /** Probe timeouts so far, which {@link #ptoCount} forgets on every acknowledgment. */
     private long probeTimeoutCount;
+    /** Bytes of datagrams sent and received on every path, which each path's counts start over for. */
+    private long sentBytesTotal;
+    private long receivedBytesTotal;
     private boolean appLimited;
     private boolean handshakeConfirmed;
     private boolean closed;
     private boolean sendingEcn = true;
-    private boolean addressValidated;
-    private long totalSent;
-    private long totalReceived;
     private long peerAckDelayExponent = TransportParameters.DEFAULT_ACK_DELAY_EXPONENT;
-    /** The space and number of the first packet sent after the first RTT sample, or null. */
-    private SpaceId firstAfterRttSampleSpace;
-    private long firstAfterRttSamplePacket;
 
     private long sentPacketCount;
     private long lostPacketCount;
@@ -153,6 +146,18 @@ public final class Recovery {
      * @param now the current time
      */
     public Recovery(Side side, RecoveryConfig config, TimerTable timers, RandomGenerator random, long now) {
+        this(side, config, timers, random, now, null, null);
+    }
+
+    /**
+     * Loss recovery for a new connection on a path between two addresses.
+     *
+     * @param remote the peer's address, or null
+     * @param local the local address, or null for the endpoint's default
+     * @see #Recovery(Side, RecoveryConfig, TimerTable, RandomGenerator, long)
+     */
+    Recovery(Side side, RecoveryConfig config, TimerTable timers, RandomGenerator random, long now,
+            InetSocketAddress remote, InetSocketAddress local) {
         this.side = side;
         this.config = config;
         this.timers = timers;
@@ -160,16 +165,10 @@ public final class Recovery {
         for (SpaceId id : SpaceId.values()) {
             spaces[id.ordinal()] = new PacketSpace(id, now);
         }
-        this.rtt = new RttEstimator(config.initialRtt());
-        this.congestion = config.congestionControllerFactory().build(now, config.initialMtu());
-        this.pacer = new Pacer(config.initialRtt(), congestion.initialWindow(), config.initialMtu(),
-                config.maxOutgoingBytesPerSecond(), now);
-        this.mtud = config.mtuDiscovery() == null
-                ? MtuDiscovery.disabled(config.initialMtu(), config.minMtu())
-                : MtuDiscovery.enabled(config.initialMtu(), config.minMtu(), -1, config.mtuDiscovery());
+        this.path = PathData.create(config, remote, local, -1, 0, now);
+        path.validated = side.isClient();
         this.ackFrequency = new AckFrequencyState(config.maxAckDelay());
         this.packetNumberFilter = new PacketNumberFilter(random);
-        this.addressValidated = side.isClient();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -186,12 +185,56 @@ public final class Recovery {
     }
 
     /**
+     * The path packets are sent on.
+     *
+     * @return the current path
+     */
+    public PathData path() {
+        return path;
+    }
+
+    /**
+     * The path before the last migration, kept for the packets still in flight on it.
+     *
+     * @return the previous path, or null
+     */
+    public PathData prevPath() {
+        return prevPath;
+    }
+
+    /**
+     * Switches to another path; packets in flight on the one it replaces stay counted there.
+     *
+     * @param next the new current path
+     * @param keepPrevious whether the replaced path becomes the previous path; else the previous
+     *     path stays as it was
+     * @return the replaced path
+     */
+    PathData setPath(PathData next, boolean keepPrevious) {
+        PathData old = path;
+        path = next;
+        if (keepPrevious) {
+            prevPath = old;
+        }
+        return old;
+    }
+
+    /**
+     * Forgets the previous path, or sets it.
+     *
+     * @param prev the previous path, or null
+     */
+    void setPrevPath(PathData prev) {
+        prevPath = prev;
+    }
+
+    /**
      * The RTT estimator.
      *
      * @return the estimator
      */
     public RttEstimator rtt() {
-        return rtt;
+        return path.rtt;
     }
 
     /**
@@ -200,7 +243,7 @@ public final class Recovery {
      * @return the controller
      */
     public Controller congestion() {
-        return congestion;
+        return path.congestion;
     }
 
     /**
@@ -209,7 +252,7 @@ public final class Recovery {
      * @return the discovery state
      */
     public MtuDiscovery mtud() {
-        return mtud;
+        return path.mtud;
     }
 
     /**
@@ -227,7 +270,7 @@ public final class Recovery {
      * @return the size of congestion-controlled packets neither acknowledged nor lost
      */
     public long bytesInFlight() {
-        return inFlightBytes;
+        return path.inFlightBytes;
     }
 
     /**
@@ -236,7 +279,7 @@ public final class Recovery {
      * @return the count
      */
     public long ackElicitingInFlight() {
-        return inFlightAckEliciting;
+        return path.inFlightAckEliciting;
     }
 
     /**
@@ -255,7 +298,7 @@ public final class Recovery {
      * @return true if sending it would exceed the window
      */
     public boolean isCongestionBlocked(long bytes) {
-        return inFlightBytes + bytes > congestion.window();
+        return path.inFlightBytes + bytes > path.congestion.window();
     }
 
     /**
@@ -267,7 +310,7 @@ public final class Recovery {
     public void setAppLimited(boolean appLimited) {
         this.appLimited = appLimited;
         if (appLimited) {
-            deliveryRate.onAppLimited(inFlightBytes);
+            path.deliveryRate.onAppLimited(path.inFlightBytes);
         }
     }
 
@@ -277,7 +320,7 @@ public final class Recovery {
      * @return the sampler
      */
     public DeliveryRate deliveryRate() {
-        return deliveryRate;
+        return path.deliveryRate;
     }
 
     /**
@@ -333,12 +376,12 @@ public final class Recovery {
     public void setPeerParams(TransportParameters params) {
         peerAckDelayExponent = params.ackDelayExponent();
         ackFrequency.setPeerMaxAckDelay(params.maxAckDelay() * 1_000_000L);
-        mtud.onPeerMaxUdpPayloadSizeReceived((int) Math.min(params.maxUdpPayloadSize(), MtuDiscoveryConfig.MAX_UDP_PAYLOAD));
+        path.mtud.onPeerMaxUdpPayloadSizeReceived((int) Math.min(params.maxUdpPayloadSize(), MtuDiscoveryConfig.MAX_UDP_PAYLOAD));
     }
 
     /** Records that the peer's address is validated, lifting the anti-amplification limit. */
     public void setAddressValidated() {
-        addressValidated = true;
+        path.validated = true;
     }
 
     /**
@@ -349,7 +392,7 @@ public final class Recovery {
      * @return true if they would exceed the limit
      */
     public boolean antiAmplificationBlocked(long bytesToSend) {
-        return !addressValidated && totalReceived * 3 < totalSent + bytesToSend;
+        return !path.validated && path.totalReceived * 3 < path.totalSent + bytesToSend;
     }
 
     /**
@@ -359,7 +402,7 @@ public final class Recovery {
      *     once the peer's address is validated
      */
     public long antiAmplificationBudget() {
-        return addressValidated ? Long.MAX_VALUE : Math.max(0, totalReceived * 3 - totalSent);
+        return path.validated ? Long.MAX_VALUE : Math.max(0, path.totalReceived * 3 - path.totalSent);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -400,7 +443,7 @@ public final class Recovery {
     public void onPacketSent(long now, SpaceId id, long packetNumber, SentPacket packet) {
         PacketSpace space = space(id);
         if (packet.size() != 0) {
-            deliveryRate.onPacketSent(now, packet, inFlightBytes);
+            path.deliveryRate.onPacketSent(now, packet, path.inFlightBytes);
         }
         addInFlight(packet);
         SentPacket forgotten = space.sent(packetNumber, packet);
@@ -413,7 +456,7 @@ public final class Recovery {
                 space.timeOfLastAckElicitingPacket = now;
             }
             setLossDetectionTimer(now);
-            pacer.onTransmit(packet.size());
+            path.pacer.onTransmit(packet.size());
         }
     }
 
@@ -425,8 +468,9 @@ public final class Recovery {
      * @param lastPacketNumber the number of the last packet in it
      */
     public void onDatagramSent(long now, long bytes, long lastPacketNumber) {
-        totalSent += bytes;
-        congestion.onSent(now, bytes, lastPacketNumber);
+        path.totalSent += bytes;
+        sentBytesTotal += bytes;
+        path.congestion.onSent(now, bytes, lastPacketNumber);
     }
 
     /**
@@ -435,7 +479,28 @@ public final class Recovery {
      * @param bytes the datagram's size
      */
     public void onDatagramReceived(long bytes) {
-        totalReceived += bytes;
+        path.totalReceived += bytes;
+        receivedBytesTotal += bytes;
+    }
+
+    /**
+     * Records a datagram of path validation frames sent outside the current path's accounting (to
+     * the previous path, a probed one, or another the peer challenged from), for {@link #sentBytes}.
+     *
+     * @param bytes the datagram's size
+     */
+    void onPathDatagramSent(long bytes) {
+        sentBytesTotal += bytes;
+    }
+
+    /**
+     * Records a datagram received from an address other than the current path's (a probed path, or
+     * a peer probing a new one), for {@link #receivedBytes}.
+     *
+     * @param bytes the datagram's size
+     */
+    void onOffPathDatagramReceived(long bytes) {
+        receivedBytesTotal += bytes;
     }
 
     /**
@@ -446,13 +511,13 @@ public final class Recovery {
      * @return the time to try again, or {@link NanoClock#NONE} to send now
      */
     public long pacingDelay(long now, long bytesToSend) {
-        long window = congestion.window();
-        long rate = congestion.pacingRate();
+        long window = path.congestion.window();
+        long rate = path.congestion.pacingRate();
         if (rate > 0) {
             // The pacer refills 1.25 windows per RTT: a smaller window paces at the controller's rate
-            window = Pacer.rateLimitedWindow(rtt.get(), window, rate);
+            window = Pacer.rateLimitedWindow(path.rtt.get(), window, rate);
         }
-        long t = pacer.delay(rtt.get(), bytesToSend, mtud.currentMtu(), window, now);
+        long t = path.pacer.delay(path.rtt.get(), bytesToSend, path.mtud.currentMtu(), window, now);
         if (t == NanoClock.NONE) {
             timers.stop(Timer.PACING);
         } else {
@@ -532,7 +597,7 @@ public final class Recovery {
         }
         if (detectSpuriousLoss(ack, space)) {
             spuriousCongestionEventCount++;
-            congestion.onSpuriousCongestionEvent();
+            path.congestion.onSpuriousCongestionEvent();
         }
         // Look only at packets actually tracked, so huge ranges cost nothing
         RangeSet newlyAcked = new RangeSet();
@@ -560,19 +625,19 @@ public final class Recovery {
             }
             ackElicitingAcked |= info.ackEliciting();
             // An MTU probe raises the MTU when acknowledged
-            if (mtud.onAcked(id, pn, info.size())) {
-                congestion.onMtuUpdate(mtud.currentMtu());
+            if (path.mtud.onAcked(id, pn, info.size())) {
+                path.congestion.onMtuUpdate(path.mtud.currentMtu());
             }
             if (id == SpaceId.DATA) {
                 ackFrequency.onAcked(pn);
             }
             onPacketAcked(now, id, pn, info, listener);
         }
-        RateSample rateSample = deliveryRate.sample(rtt.hasSample() ? rtt.min() : 0);
+        RateSample rateSample = path.deliveryRate.sample(path.rtt.hasSample() ? path.rtt.min() : 0);
         if (rateSample != null) {
-            congestion.onRateSample(now, rateSample);
+            path.congestion.onRateSample(now, rateSample);
         }
-        congestion.onEndAcks(now, inFlightBytes, appLimited, space.largestAckedPacket);
+        path.congestion.onEndAcks(now, path.inFlightBytes, appLimited, space.largestAckedPacket);
 
         if (newLargest && ackElicitingAcked) {
             long ackDelay = 0;
@@ -583,10 +648,10 @@ public final class Recovery {
                 ackDelay = Math.min(ackFrequency.peerMaxAckDelay(), saturatingMul(micros, 1_000));
             }
             long sample = Math.max(0, now - space.largestAckedPacketSent);
-            rtt.update(ackDelay, sample);
-            if (firstAfterRttSampleSpace == null) {
-                firstAfterRttSampleSpace = id;
-                firstAfterRttSamplePacket = space.nextPacketNumber;
+            path.rtt.update(ackDelay, sample);
+            if (path.firstAfterRttSampleSpace == null) {
+                path.firstAfterRttSampleSpace = id;
+                path.firstAfterRttSamplePacket = space.nextPacketNumber;
             }
         }
 
@@ -622,7 +687,7 @@ public final class Recovery {
 
     /** Forgets lost packets sent more than two PTOs ago, which will not be acknowledged. */
     private void drainLostPackets(long now, PacketSpace space) {
-        long twoPto = 2 * rtt.ptoBase();
+        long twoPto = 2 * path.rtt.ptoBase();
         space.lostPackets.values().removeIf(timeSent -> Math.max(0, now - timeSent) > twoPto);
     }
 
@@ -638,17 +703,19 @@ public final class Recovery {
         }
         if (ce) {
             congestionEventCount++;
-            congestion.onCongestionEvent(now, largestSentTime, false, true, 0);
+            path.congestion.onCongestionEvent(now, largestSentTime, false, true, 0);
         }
     }
 
     private void onPacketAcked(long now, SpaceId id, long pn, SentPacket info, Listener listener) {
         removeInFlight(info);
         if (info.size() != 0) {
-            deliveryRate.onPacketAcked(now, info);
+            path.deliveryRate.onPacketAcked(now, info);
         }
-        if (info.ackEliciting()) {
-            congestion.onAck(now, info.timeSent(), info.size(), appLimited, rtt);
+        if (info.ackEliciting() && !path.hasChallenge) {
+            // Only while the current path is not being validated, so that ACKs of packets sent on
+            // an older path do not grow the window of a path that may be an attacker's
+            path.congestion.onAck(now, info.timeSent(), info.size(), appLimited, path.rtt);
         }
         listener.onPacketAcked(id, pn, info);
     }
@@ -676,7 +743,7 @@ public final class Recovery {
             return;
         }
         // Without ack-eliciting packets in flight this is the client's anti-deadlock probe
-        int count = inFlightAckEliciting == 0 ? 1 : 2;
+        int count = path.inFlightAckEliciting == 0 ? 1 : 2;
         PacketSpace space = space(pto.space());
         space.lossProbes = (int) Math.min((long) space.lossProbes + count, Integer.MAX_VALUE);
         ptoCount = ptoCount == Integer.MAX_VALUE ? ptoCount : ptoCount + 1;
@@ -693,8 +760,8 @@ public final class Recovery {
         PacketSpace space = space(id);
         List<Long> lost = new ArrayList<>();
         long lostMtuProbe = -1;
-        long inFlightMtuProbe = id == SpaceId.DATA ? mtud.inFlightMtuProbe() : -1;
-        long lossDelay = Math.max((long) (rtt.conservative() * config.timeThreshold()), RttEstimator.TIMER_GRANULARITY);
+        long inFlightMtuProbe = id == SpaceId.DATA ? path.mtud.inFlightMtuProbe() : -1;
+        long lossDelay = Math.max((long) (path.rtt.conservative() * config.timeThreshold()), RttEstimator.TIMER_GRANULARITY);
         long largestAcked = space.largestAckedPacket;
         long packetThreshold = config.packetThreshold();
         long lostBytes = 0;
@@ -740,7 +807,7 @@ public final class Recovery {
         drainLostPackets(now, space);
 
         if (!lost.isEmpty()) {
-            long oldBytesInFlight = inFlightBytes;
+            long oldBytesInFlight = path.inFlightBytes;
             long largestLostSent = space.sentPackets.get(lost.get(lost.size() - 1)).timeSent();
             lostPacketCount += lost.size();
             lostByteCount += lostBytes;
@@ -752,35 +819,35 @@ public final class Recovery {
                 }
                 listener.onPacketLost(id, pn, info);
                 if (id == SpaceId.DATA) {
-                    mtud.onNonProbeLost(pn, info.size());
+                    path.mtud.onNonProbeLost(pn, info.size());
                 }
                 space.lostPackets.put(pn, info.timeSent());
             }
-            if (mtud.blackHoleDetected(now)) {
+            if (path.mtud.blackHoleDetected(now)) {
                 blackHoleCount++;
-                congestion.onMtuUpdate(mtud.currentMtu());
+                path.congestion.onMtuUpdate(path.mtud.currentMtu());
             }
             // Lost ACK-only packets carry no congestion penalty
-            if (oldBytesInFlight != inFlightBytes) {
+            if (oldBytesInFlight != path.inFlightBytes) {
                 congestionEventCount++;
-                congestion.onCongestionEvent(now, largestLostSent, inPersistentCongestion, false, lostBytes);
+                path.congestion.onCongestionEvent(now, largestLostSent, inPersistentCongestion, false, lostBytes);
             }
         }
         if (lostMtuProbe >= 0) {
             SentPacket info = space.take(lostMtuProbe);
             removeInFlight(info);
-            mtud.onProbeLost();
+            path.mtud.onProbeLost();
             lostMtuProbeCount++;
         }
     }
 
     /** Whether a packet was sent after the first RTT sample was taken. */
     private boolean sentAfterFirstRttSample(SpaceId id, long packet) {
-        if (firstAfterRttSampleSpace == null) {
+        if (path.firstAfterRttSampleSpace == null) {
             return false;
         }
-        int c = Integer.compare(firstAfterRttSampleSpace.ordinal(), id.ordinal());
-        return c < 0 || (c == 0 && firstAfterRttSamplePacket < packet);
+        int c = Integer.compare(path.firstAfterRttSampleSpace.ordinal(), id.ordinal());
+        return c < 0 || (c == 0 && path.firstAfterRttSamplePacket < packet);
     }
 
     private Deadline lossTimeAndSpace() {
@@ -796,8 +863,8 @@ public final class Recovery {
     /** The earliest probe timeout and its space (RFC 9002 appendix A.8). */
     private Deadline ptoTimeAndSpace(long now) {
         long backoff = 1L << Math.min(ptoCount, MAX_BACKOFF_EXPONENT);
-        long duration = saturatingMul(rtt.ptoBase(), backoff);
-        if (inFlightAckEliciting == 0) {
+        long duration = saturatingMul(path.rtt.ptoBase(), backoff);
+        if (path.inFlightAckEliciting == 0) {
             // The client's anti-deadlock probe (RFC 9002 section 6.2.2.1): Handshake if it has the
             // keys, else Initial
             SpaceId id = space(SpaceId.HANDSHAKE).keys != null ? SpaceId.HANDSHAKE : SpaceId.INITIAL;
@@ -858,7 +925,7 @@ public final class Recovery {
             timers.stop(Timer.LOSS_DETECTION); // nothing could be sent anyway
             return;
         }
-        if (inFlightAckEliciting == 0 && peerCompletedAddressValidation()) {
+        if (path.inFlightAckEliciting == 0 && peerCompletedAddressValidation()) {
             // Nothing to detect, and no anti-amplification deadlock to prevent
             timers.stop(Timer.LOSS_DETECTION);
             return;
@@ -880,7 +947,7 @@ public final class Recovery {
      */
     public long pto(SpaceId id) {
         long maxAckDelay = id == SpaceId.DATA ? ackFrequency.maxAckDelayForPto() : 0;
-        return rtt.ptoBase() + maxAckDelay;
+        return path.rtt.ptoBase() + maxAckDelay;
     }
 
     /**
@@ -971,21 +1038,21 @@ public final class Recovery {
     }
 
     /**
-     * Bytes of datagrams sent, as UDP payloads.
+     * Bytes of datagrams sent, as UDP payloads, on every path.
      *
      * @return the count
      */
     public long sentBytes() {
-        return totalSent;
+        return sentBytesTotal;
     }
 
     /**
-     * Bytes of datagrams received, as UDP payloads (those from the peer's address).
+     * Bytes of datagrams received and taken by the connection, as UDP payloads, on every path.
      *
      * @return the count
      */
     public long receivedBytes() {
-        return totalReceived;
+        return receivedBytesTotal;
     }
 
     /**
@@ -1054,13 +1121,15 @@ public final class Recovery {
     // ---------------------------------------------------------------------------------------
 
     private void addInFlight(SentPacket p) {
-        inFlightBytes += p.size();
-        inFlightAckEliciting += p.ackEliciting() ? 1 : 0;
+        p.setPathGeneration(path.generation());
+        path.addInFlight(p);
     }
 
+    /** Takes a packet out of the in-flight counts of the path it was sent on, newest path first. */
     private void removeInFlight(SentPacket p) {
-        inFlightBytes -= p.size();
-        inFlightAckEliciting -= p.ackEliciting() ? 1 : 0;
+        if (!path.removeInFlight(p) && prevPath != null) {
+            prevPath.removeInFlight(p);
+        }
     }
 
     private static long saturatingMul(long a, long b) {
