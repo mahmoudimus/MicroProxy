@@ -251,6 +251,7 @@ Command-line flags override values from the file.
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
 | `allow_requests_to_origin_server` | accept origin-form requests | `false` |
+| `originate_tls` | fetch `https://` URIs that clients ask a forward proxy for without `CONNECT` over TLS the proxy opens itself; `false` refuses them with `400` (see [TLS origination](#tls-origination-https-uris-without-connect)) | `true` |
 | `allow_proxy_protocol` / `send_proxy_protocol` | PROXY protocol in / out | `false` |
 | `throttle_read_bytes_per_second` / `throttle_write_bytes_per_second` | global server bandwidth | `0` (unlimited) |
 | `use_shared_server_connection_pool` | share server connections between clients | `false` |
@@ -322,6 +323,7 @@ Command-line flags override values from the file.
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy ([tested with grpcio](#grpc-interop-grpcio)); connection coalescing across names a server's certificate covers (`--http2-coalesce`, RFC 9113 and RFC 8336's ORIGIN frame) |
 | HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
+| TLS origination | `https://` URIs asked for without `CONNECT` (absolute-form over plain HTTP, `:scheme https` on `h2c`) are fetched over TLS the proxy opens, with the upstream trust, pooling, HTTP/2 and HTTP/3 of intercepted sessions, and through chained proxies' tunnels; `--no-originate-tls` refuses them (see below) |
 | CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
 | ClientHello inspection | after `CONNECT`, the client's ClientHello is read without consuming it (SNI, ALPN, versions, cipher suites), and interception is decided by it: ignore / allow host rules as in mitmproxy, `MitmManager` and filter hooks; plain HTTP after `CONNECT` is served as HTTP, other protocols are tunnelled; ALPN is mirrored between client and server (see below) |
@@ -404,12 +406,12 @@ When the proxy has to answer a request itself, it sends a short plain-text body 
 |---|---|---|
 | `UnresolvedHost` | the server's name did not resolve | `502` |
 | `ConnectFailed` | connection refused, unreachable or timed out; a chained proxy refused, or its own name did not resolve | `502` |
-| `TlsFailed` | the TLS handshake with the server (MITM) or a TLS chained proxy failed or timed out | `502` |
+| `TlsFailed` | the TLS handshake with the server (MITM, or [TLS origination](#tls-origination-https-uris-without-connect)) or a TLS chained proxy failed or timed out | `502` |
 | `ServerTimeout` | no response within the idle timeout | `504` |
 | `BadServerResponse` | malformed response, or the server closed or failed before the head was complete | `502` |
 | `NoRoute` | the request names no host, or the chained proxy manager offered no route | `502` |
 | `NoConnectionAvailable` | the shared connection pool had no connection to spare | `503` |
-| `BadRequest` | an origin-form request (unless allowed) or an invalid `CONNECT` target | `400` |
+| `BadRequest` | an origin-form request (unless allowed), a client's `https://` request with TLS origination off, or an invalid `CONNECT` target | `400` |
 | `RequestTooLarge` | the body exceeds what the filters asked to buffer | `413` |
 
 Filters can answer first (`HttpFilters.proxyToServerFailure`, or `onFailure` in the builder; in a
@@ -490,6 +492,57 @@ command line turns waiting off, overriding a properties file.
   the remaining candidates are tried without waiting.
 - The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
   only a `DEBUG` log line.
+
+### TLS origination: `https://` URIs without `CONNECT`
+
+Browsers ask a forward proxy for `https://` pages with `CONNECT` and speak TLS to the server
+themselves. Some clients instead hand the proxy the URI in plain HTTP and leave TLS to it: `GET
+https://example.com/ HTTP/1.1` in absolute-form, an HTTP/2 stream with `:scheme https` on an
+[h2c](#h2c-with-prior-knowledge) connection or on the proxy's TLS listener, or a secure WebSocket
+(`wss://`, or extended `CONNECT` with `:scheme https`). A forward proxy fetches these over TLS
+that it opens to the server itself, as it does for the requests of an intercepted session:
+
+- **Trust.** The server's certificate and name are checked with the MITM manager's server TLS
+  context (`CertificateAuthorityMitmManager`'s upstream trust, `--mitm-trust-all` included; a
+  manager chosen per client connection is asked as for interception), or with the JVM's default
+  trust store when there is no manager. A failed handshake is `ProxyFailure.TlsFailed`: a `502`
+  from the [failure responder](#failure-responses), the `UF` response flag with
+  `proxy_failure:tls_failed` details, the handshake's error in `%UPSTREAM_TRANSPORT_FAILURE_REASON%`
+  (an untrusted issuer, a name the certificate does not cover), `on_failure` in scripts, and the
+  cluster's `ssl.connection_error`, as for an intercepted session's server.
+- **Connections.** They are the same kind of connection an intercepted session's requests use, and
+  pooled with them under the same keys, kept apart by target, route (direct, or which chained
+  proxy) and MITM manager: a client connection keeps its own, or, with the [shared
+  pool](#shared-server-connection-pool) and `pool_shared_mitm_connections`, every client shares
+  them, whether they were made for an intercepted session or for a client's `https://` URI.
+- **HTTP/2 and HTTP/3.** With `--http2-upstream`, the handshake offers `h2` and `http/1.1`, and a
+  server that picks `h2` gets the requests as streams on a shared connection, with [connection
+  coalescing](#connection-coalescing) when it is on; with `--http3-upstream`, a server known to
+  speak HTTP/3 gets them over QUIC, on direct routes.
+- **Chained proxies.** Through an HTTP chained proxy the request does not go in absolute-form, as
+  an `http://` one does: the proxy asks it for a tunnel to the server (`CONNECT host:443`) and runs
+  TLS inside, as a browser would, so the chained proxy never sees the request. SOCKS proxies give
+  a tunnel the same way, and `UpstreamProxyManager` picks its HTTPS upstream
+  (`--upstream-https-proxy`) for an `https://` URI.
+- **What everyone sees.** Filters get the request as the client sent it, `https://...` included;
+  scripts see `req.scheme == "https"` and the `https://` URL in every hook; the server gets it in
+  origin-form with `Host` from the URI. Access logs record the `https://` request with the
+  server's TLS session (`%UPSTREAM_TLS_VERSION%`, `%UPSTREAM_PEER_SUBJECT%`, ...), stats count the
+  handshakes in the route's cluster (`cluster.direct.ssl.handshake`, ...), and the OpenTelemetry
+  SERVER span (`url.scheme`, `url.full`) and CLIENT span (`url.full`) say `https`.
+
+This is on by default, as it has been since 0.2.0 (before, such a request went to the server's
+port in plain text). `withTlsOrigination(false)` (`--no-originate-tls`, `originate_tls=false`)
+turns it off: such requests are refused with `ProxyFailure.BadRequest` (`400 Bad Request:
+https:// URIs need CONNECT (TLS origination is off)`, flag `DPE`) before any connection is made.
+Turn it off when plain-HTTP clients should reach TLS servers only through tunnels, as operators
+may expect of them: with TLS origination the proxy reads and handles in the clear what host rules
+(`--ignore-hosts`, `--allow-hosts`) and `proxyToServerAllowMitm` would have kept from it on a
+`CONNECT`, and on the plain listener the request, cookies and credentials included, crosses the
+network between client and proxy in plain text. An `https://` URI that a filter or script gives
+a request (`MapRemote`, `req.uri = ...`) is fetched over TLS either way: that is the operator's
+choice, not the client's. So are the requests of intercepted sessions, and a reverse proxy's
+`https://` upstream.
 
 ### Proxy authentication
 
@@ -1049,8 +1102,9 @@ may run concurrently, on the streams' threads.
 #### HTTP/2 to servers
 
 With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
-connections to servers, for intercepted HTTPS and secure WebSocket extended `CONNECT`, offer
-`h2` and `http/1.1` through
+connections to servers, for intercepted HTTPS and the `https://` and secure WebSocket requests it
+[originates TLS](#tls-origination-https-uris-without-connect) for, offer `h2` and `http/1.1`
+through
 ALPN (before `MitmManager.configureServerSocket`, which may change that). An intercepted client
 that sent ALPN has its own offer mirrored instead: one that offered only `http/1.1` never gets
 HTTP/2 upstream (see [ALPN mirroring](#alpn-mirroring)). A server that picks `h2`
@@ -1207,7 +1261,9 @@ section 3.4) is served as HTTP/2. The first bytes are compared without consuming
 HTTP/1 request is told apart by its first byte or two, so HTTP/1 clients are unaffected. Its
 streams are proxy requests: `:scheme` and `:authority` name the target, so any authority is valid
 (the `421` check applies only to intercepted sessions), and they reach servers as HTTP/1.1 (HTTP/2
-to servers needs TLS; secure WebSocket extended `CONNECT` also establishes origin TLS).
+to servers needs TLS). A `:scheme https` stream, a secure WebSocket's extended `CONNECT`
+included, is fetched over TLS the proxy opens to the server ([TLS
+origination](#tls-origination-https-uris-without-connect)), and may use HTTP/2 or HTTP/3 there.
 `Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
 before: the request is answered in HTTP/1.1. The same limits as for intercepted HTTP/2 apply.
 
@@ -1245,7 +1301,9 @@ a TLS origin that advertises extended CONNECT gets a WebSocket stream on the exi
 HTTP/2 connection. An origin that does not advertise it gets a separate HTTP/1.1 upgrade connection.
 The proxy translates `101` and `200` handshakes, and generates the HTTP/1 nonce/accept fields where
 needed. For secure extended CONNECT on a forward-proxy connection, origin TLS uses the configured
-MITM manager's server TLS settings, or the default JVM trust context when there is no manager.
+MITM manager's server TLS settings, or the default JVM trust context when there is no manager, as
+for any `https://` request the proxy [originates TLS](#tls-origination-https-uris-without-connect)
+for.
 
 Request filters see an extended WebSocket CONNECT as a GET upgrade request, with version
 `HTTP/2.0`, its resource URI and generated HTTP/1 upgrade headers. Response filters and trackers
@@ -1261,9 +1319,10 @@ A filter that rejects the handshake finishes the exchange without starting the r
 **Remaining limits.** A request for an authority other than the intercepted one gets `421
 Misdirected Request`, which makes the client retry on a connection of its own; so does an extended
 `CONNECT` (`:protocol websocket`) for another authority. A plain `CONNECT`, and a `:scheme http`
-request, are proxy requests, forwarded instead ([below](#in-front-of-an-http-or-https-proxy)). The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
-ordinary `:scheme https` requests on a forward-proxy HTTP/2 connection); secure WebSocket extended
-CONNECT is the exception described above. HTTP/2 chained proxies are not supported.
+request, are proxy requests, forwarded instead ([below](#in-front-of-an-http-or-https-proxy)). On a
+forward-proxy HTTP/2 connection (`h2c`, or the proxy's TLS listener), a `:scheme https` request is
+fetched over TLS the proxy opens itself ([TLS origination](#tls-origination-https-uris-without-connect)),
+as an absolute `https://` URI sent in plain HTTP is. HTTP/2 chained proxies are not supported.
 
 #### In front of an HTTP or HTTPS proxy
 
@@ -2670,7 +2729,11 @@ bootstrap.start();
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`, plus `http_version`: the version the client used, `"HTTP/1.1"`,
   `"HTTP/1.0"`, `"HTTP/2"` or `"HTTP/3"` (requests reach servers as HTTP/1.1, or as HTTP/2 or
-  HTTP/3 to servers that speak it with `http2_upstream` or `http3_upstream`).
+  HTTP/3 to servers that speak it with `http2_upstream` or `http3_upstream`). `scheme` (and
+  `url`) is the absolute URI's for a request that has one, `https` for one the proxy fetches over
+  TLS of its own ([TLS origination](#tls-origination-https-uris-without-connect)), and stays so in
+  `on_response` and `on_failure`, after the proxy has made the request origin-form for the server;
+  an origin-form request's is the client connection's.
 - `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`, plus `source` and
   `upstream_status` (below).
 - `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
@@ -4294,7 +4357,7 @@ are exchanges of their own, with the context they carry.
 | attribute | on | value |
 |---|---|---|
 | `http.request.method` (`_OTHER` and `http.request.method_original` for others) | all | the method |
-| `url.full` | CLIENT; SERVER for absolute-form (proxy) requests | the URL; a CLIENT span's scheme is `https` when the proxy speaks TLS to the server itself (an `https` origin, an intercepted session's server, a reverse proxy's `https://` upstream, HTTP/2 and HTTP/3), on any port, and `http` otherwise |
+| `url.full` | CLIENT; SERVER for absolute-form (proxy) requests | the URL; a CLIENT span's scheme is `https` when the proxy speaks TLS to the server itself (an `https://` URI a client asked for without `CONNECT`, an intercepted session's server, a reverse proxy's `https://` upstream, HTTP/2 and HTTP/3), on any port, and `http` otherwise |
 | `url.scheme`, `url.path`, `url.query` | SERVER | the request target |
 | `server.address`, `server.port` | all | the target (CLIENT: the server the attempt was for) |
 | `client.address`, `client.port` | SERVER, INTERNAL | the client (the PROXY protocol's source, when there was one) |

@@ -73,6 +73,7 @@ final class AdminConfigDump {
         boot.put("network_interface", AdminServer.hostPort(b.localAddress));
         boot.put("proxy_alias", server.proxyAlias);
         boot.put("allow_requests_to_origin_server", b.allowRequestToOriginServer);
+        boot.put("originate_tls", b.tlsOrigination);
         boot.put("littleproxy_compatibility", b.littleProxyCompatibility);
         boot.put("proxy_protocol", Map.of("accept", b.acceptProxyProtocol, "send", b.sendProxyProtocol));
         boot.put("throttle", Map.of("read_bytes_per_second", server.readLimiter.rate(),

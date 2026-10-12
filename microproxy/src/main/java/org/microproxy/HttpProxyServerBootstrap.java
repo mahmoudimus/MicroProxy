@@ -560,7 +560,8 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * Speaks HTTP/2 to origin servers that offer it: TLS connections to servers (intercepted
-     * HTTPS and secure WebSocket extended CONNECT) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
+     * HTTPS, and the {@code https://} requests of {@link #withTlsOrigination}, secure WebSockets
+     * included) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
      * gets every exchange for it as a stream on one connection, shared by concurrent exchanges up
      * to the server's stream limit; others keep HTTP/1.1. Independent of {@link #withHttp2}, which
      * is about clients. Off by default.
@@ -943,6 +944,32 @@ public interface HttpProxyServerBootstrap {
      * @return this bootstrap
      */
     HttpProxyServerBootstrap withAllowRequestToOriginServer(boolean allowRequestToOriginServer);
+
+    /**
+     * Whether a forward proxy fetches an {@code https://} URI a client asks for directly, rather
+     * than through {@code CONNECT}, by opening TLS to the server itself: an absolute-form {@code
+     * GET https://example.com/} sent in plain HTTP, an HTTP/2 stream with {@code :scheme https} on
+     * an {@code h2c} connection or the proxy's TLS listener, or a secure WebSocket (an absolute
+     * {@code wss://} URI, or extended {@code CONNECT} with {@code :scheme https}). The server's
+     * certificate is checked as an intercepted server's is (the {@link MitmManager}'s server TLS
+     * context, or the JVM's default trust without one), and the connection is pooled, and speaks
+     * HTTP/2 ({@link #withHttp2Upstream}) or HTTP/3 ({@link #withHttp3Upstream}), as an
+     * intercepted server's would. On by default.
+     *
+     * <p>Turned off, such requests are refused with {@link ProxyFailure.BadRequest} ({@code 400}),
+     * so that plain-HTTP clients reach TLS servers only through tunnels, which host rules and
+     * {@link HttpFilters#proxyToServerAllowMitm} see as such. An {@code https://} URI that a filter
+     * or script gives a request is fetched over TLS either way, as are requests inside intercepted
+     * sessions and a reverse proxy's {@code https://} upstream: they are the proxy's choice, not
+     * the client's.
+     *
+     * @param enabled whether to originate TLS for clients' {@code https://} requests
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withTlsOrigination(boolean enabled) {
+        if (enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " cannot refuse https:// requests");
+    }
 
     /**
      * Name used in the {@code Via} header; defaults to the host name.

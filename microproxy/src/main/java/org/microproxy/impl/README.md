@@ -338,7 +338,15 @@ CONNECT or proxy request, the hop's proxy inside a tunnel.
 The rule that keeps the paths apart: a client's own `CONNECT` or absolute URI picks the server
 only where the client is entitled to, and a filter's absolute URI always may.
 
-- **Forward proxy** (no session): the request's authority is the server, by design.
+- **Forward proxy** (no session): the request's authority is the server, by design, and its
+  scheme says how to reach it: an `https://` (or `wss://`) URI, which an HTTP/2 stream's `:scheme
+  https` becomes, or a secure WebSocket's extended `CONNECT`, goes over TLS that the proxy opens
+  (`proxyRequest`'s `tls`, `Mode.TLS`), exactly as an intercepted session's requests do: the same
+  `connectVia` and `serverTls` (the MITM manager's server context, `TlsFailed` and `UF` on
+  failure), pool and `Http2Origins` keys, `Http2Coalescing.Request`, HTTP/3, and, through an HTTP
+  chained proxy, a `CONNECT` tunnel (`isNextHopOrigin` is true for TLS) rather than absolute-form.
+  With `withTlsOrigination(false)`, `handleFilteredRequest` refuses such a request the client sent
+  (`originatesTls`: not a filter's `redirected` URI) with `BadRequest` before routing it.
 - **Inside a session** (intercepted TLS, or plain HTTP after a `CONNECT`): the session's server,
   which the `CONNECT` chose; the client's proxy requests go there as they are (above).
 - **Transparent**: the SNI (or `Host`) chooses, by design; inside an SNI-routed session, as in any
@@ -371,7 +379,8 @@ running at once:
 ## HTTP/2 to servers: `Http2UpstreamConnection` and `Http2Origins`
 
 With `withHttp2Upstream`, `connectVia` offers ALPN `h2` on TLS connections to servers (for
-intercepted HTTPS and secure WebSocket extended CONNECT). A connection whose handshake picks `h2` is marked
+intercepted HTTPS, and for the `https://` URIs and secure WebSocket extended CONNECTs of forward-proxy
+clients). A connection whose handshake picks `h2` is marked
 (`ServerConnection.http2`) and handed to `Http2Origins.adopt`, which runs it as an
 `Http2UpstreamConnection` (the "carrier" keeps its socket, pool slot and trackers) and keeps it for
 other exchanges. `proxyRequest` first asks `Http2Origins.stream` for a stream; `handleConnect` asks

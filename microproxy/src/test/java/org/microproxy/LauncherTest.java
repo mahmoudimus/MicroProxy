@@ -130,7 +130,8 @@ class LauncherTest {
                 "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
-                "--keep-host-header", "--allow-requests-to-origin-server", "--admin-port", "--admin-address",
+                "--keep-host-header", "--allow-requests-to-origin-server", "--no-originate-tls", "--originate-tls",
+                "--admin-port", "--admin-address",
                 "--admin-token", "--admin-token-file", "--drain-time", "--drain-strategy", "--health-check-path",
                 "--health-check-pass-through", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
@@ -155,6 +156,10 @@ class LauncherTest {
         assertTrue(view("--mode", "transparent").transparent());
         assertNull(BootstrapView.reverseProxy(parse("--mode", "regular").bootstrap()));
         assertTrue(view("--allow-requests-to-origin-server").allowRequestToOriginServer());
+        // TLS origination for clients' https:// requests is on unless turned off; the last flag wins.
+        assertTrue(BootstrapView.tlsOrigination(parse().bootstrap()));
+        assertFalse(BootstrapView.tlsOrigination(parse("--no-originate-tls").bootstrap()));
+        assertTrue(BootstrapView.tlsOrigination(parse("--no-originate-tls", "--originate-tls").bootstrap()));
         assertTrue(BootstrapView.socksServer(parse("--mode", "socks5").bootstrap()));
         assertFalse(BootstrapView.socksServer(parse("--mode", "socks5", "--mode", "regular").bootstrap()));
         assertNull(BootstrapView.reverseProxy(parse("--reverse", "https://a.test", "--mode", "socks5").bootstrap()));
@@ -1027,6 +1032,7 @@ class LauncherTest {
                 max_chunk_size=3000
                 nic=127.0.0.1
                 allow_requests_to_origin_server=true
+                originate_tls=false
                 """.formatted(dir.resolve("cache").toString().replace("\\", "\\\\")));
         BootstrapView v = view("--config", props.toString());
         assertEquals("props", v.name());
@@ -1056,6 +1062,7 @@ class LauncherTest {
         assertEquals(3000, v.maxChunkSize());
         assertEquals(new InetSocketAddress("127.0.0.1", 0), v.networkInterface());
         assertTrue(v.allowRequestToOriginServer());
+        assertFalse(BootstrapView.tlsOrigination(parse("--config", props.toString()).bootstrap()));
     }
 
     @Test

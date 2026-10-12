@@ -95,6 +95,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final InetSocketAddress localAddress;
     final HttpCodec.Limits limits;
     final boolean allowRequestsToOriginServer;
+    /** Whether clients' own {@code https://} requests are fetched over TLS, or refused. */
+    final boolean tlsOrigination;
     final String proxyAlias;
     final boolean acceptProxyProtocol;
     final boolean sendProxyProtocol;
@@ -289,6 +291,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.localAddress = b.localAddress;
         this.limits = new HttpCodec.Limits(b.maxInitialLineLength, b.maxHeaderSize, b.maxChunkSize);
         this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
+        this.tlsOrigination = b.tlsOrigination;
         this.proxyAlias = Objects.requireNonNullElseGet(b.proxyAlias, ProxyUtils::getHostName);
         this.acceptProxyProtocol = b.acceptProxyProtocol;
         this.sendProxyProtocol = b.sendProxyProtocol;

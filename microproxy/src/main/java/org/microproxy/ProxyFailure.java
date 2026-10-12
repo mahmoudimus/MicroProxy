@@ -118,8 +118,9 @@ public sealed interface ProxyFailure {
 
     /**
      * The proxy refuses the request: an origin-form request without {@link
-     * HttpProxyServerBootstrap#withAllowRequestToOriginServer}, or a {@code CONNECT} target that is
-     * not {@code host:port}. Default {@code 400} with the body {@code "Bad Request: " + reason}.
+     * HttpProxyServerBootstrap#withAllowRequestToOriginServer}, an {@code https://} request without
+     * {@link HttpProxyServerBootstrap#withTlsOrigination}, or a {@code CONNECT} target that is not
+     * {@code host:port}. Default {@code 400} with the body {@code "Bad Request: " + reason}.
      *
      * @param reason the reason the request was rejected
      */
