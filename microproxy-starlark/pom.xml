@@ -84,6 +84,14 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- The OTLP test collector, for the spans of hook calls. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy-otel</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

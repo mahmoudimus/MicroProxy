@@ -46,7 +46,10 @@ Changes from upstream:
   backreferences; look-around, backreferences, atomic groups and possessive quantifiers are
   accepted; conditional groups are rejected); `re/PyRegex` and `re/RegexPattern` are rewritten for
   Java's matcher (regions with transparent, non-anchoring bounds; matching aborts at the calling
-  thread's deadline), and `RegexModule` is the `jregex` module.
+  thread's deadline, a `System.nanoTime()` value), and `RegexModule` is the `jregex` module.
+- Structs (`SimpleStruct`), Python objects (`LarkyPyObject`) and the strings `codecs.decode` and
+  `utf_8_decode` return count against the calling thread's allocation budget (see the
+  interpreter's `README.md`).
 - Values that remember the thread that made them (structs, Python objects, properties, iterators,
   `super`) run their code in the caller's thread (`StarlarkThread.current()`, through
   `StarlarkUtil.callerOr`), since MicroProxy shares loaded modules between scripts and

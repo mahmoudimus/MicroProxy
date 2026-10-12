@@ -11,12 +11,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.microproxy.contentviews.ProtoSchema;
+import org.microproxy.FlowContext;
 import org.microproxy.FlowTrace;
+import org.microproxy.ScriptCallObserver;
+import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.stats.Counter;
 import org.microproxy.stats.Histogram;
 import org.microproxy.stats.StatsRegistry;
+import org.microproxy.stats.TagExtractor;
 import org.microproxy.starlark.stdlib.Stdlib;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Module;
@@ -36,8 +40,16 @@ import org.microproxy.thirdparty.starlark.syntax.SyntaxError;
 /**
  * A compiled Starlark file whose top-level statements have run. Its globals are frozen, so one
  * script is safely shared by every connection: each call gets its own {@link StarlarkThread}, and
- * functions cannot change global state. Calls are bounded by a step count and a wall-clock
- * timeout ({@link Limits}).
+ * functions cannot change global state. Calls are bounded by a step count, a wall-clock timeout
+ * and an allocation budget ({@link Limits}).
+ *
+ * <p>Each call is measured: its interpreter steps, about how many bytes of values it created
+ * ({@link StarlarkThread#getAllocatedBytes()}, an estimate of what was made rather than of what
+ * stayed in memory) and its time. With metrics they go to {@code
+ * hooks.starlark.<script>.<hook>.*}, tagged with the script's {@linkplain #statsName() name} and
+ * the hook; they add up per exchange in {@link FlowContext#scriptStats()}; a {@link
+ * ScriptCallObserver} sees each call; and a call for an exchange whose trace is sampled gets a
+ * span of its own, a child of the exchange's ({@code starlark <hook>}, see {@link ScriptSpans}).
  *
  * <p>A script may {@code load()} modules of the standard library ported from starlarky ({@link
  * Stdlib}), e.g. {@code load("@stdlib//urllib/parse", "parse")}. Such a script runs with Python's
@@ -67,13 +79,30 @@ public final class StarlarkScript {
     }
 
     /**
-     * Bounds on each call into a script (and on running its top level).
+     * Bounds on each call into a script (and on running its top level). A call that goes past one
+     * fails with an {@link EvalException}, as any failing call does; the thread running it is not
+     * stopped otherwise.
      *
      * @param maxSteps the positive maximum number of interpreter steps
-     * @param timeout the wall-clock limit; non-positive millisecond values disable the deadline
+     * @param timeout the wall-clock limit, checked every few steps and by long-running builtins
+     *     (regular expressions); non-positive millisecond values disable the deadline
+     * @param maxAllocBytes the most bytes of values a call may create, as {@link
+     *     StarlarkThread#getAllocatedBytes()} estimates them; {@code Long.MAX_VALUE} for no limit
      */
-    public record Limits(long maxSteps, Duration timeout) {
-        /** Ten million steps and five seconds per call. */
+    public record Limits(long maxSteps, Duration timeout, long maxAllocBytes) {
+
+        /**
+         * The default allocation budget, 256 MiB a call. It counts what a call creates, most of it
+         * garbage soon, not what it keeps, so it is not a heap size: it stops runaway allocation (a
+         * string repeated a billion times, a list or string doubling in a loop) long before that
+         * fills a heap, and leaves room for heavy but ordinary calls. A buffered body of the default
+         * 10 MiB counts about 20 MiB as a string (two bytes a character), so a call can copy it
+         * many times, and the heaviest tests of the ported standard library create up to 150 MB in
+         * one call (tables of thousands of formatting cases).
+         */
+        public static final long DEFAULT_MAX_ALLOC_BYTES = 256L << 20;
+
+        /** Ten million steps, five seconds and 256 MiB per call. */
         public static final Limits DEFAULT = new Limits(10_000_000, Duration.ofSeconds(5));
 
         /**
@@ -81,12 +110,56 @@ public final class StarlarkScript {
          *
          * @param maxSteps the positive maximum number of interpreter steps
          * @param timeout the non-null wall-clock limit
-         * @throws IllegalArgumentException if {@code maxSteps} is not positive
+         * @param maxAllocBytes the positive allocation budget, or {@code Long.MAX_VALUE} for none
+         * @throws IllegalArgumentException if {@code maxSteps} or {@code maxAllocBytes} is not
+         *     positive
          * @throws NullPointerException if {@code timeout} is null
          */
         public Limits {
             if (maxSteps <= 0) throw new IllegalArgumentException("maxSteps must be positive");
             Objects.requireNonNull(timeout, "timeout");
+            if (maxAllocBytes <= 0) throw new IllegalArgumentException("maxAllocBytes must be positive");
+        }
+
+        /**
+         * Creates execution bounds with the {@linkplain #DEFAULT_MAX_ALLOC_BYTES default allocation
+         * budget}.
+         *
+         * @param maxSteps the positive maximum number of interpreter steps
+         * @param timeout the non-null wall-clock limit
+         */
+        public Limits(long maxSteps, Duration timeout) {
+            this(maxSteps, timeout, DEFAULT_MAX_ALLOC_BYTES);
+        }
+
+        /**
+         * These bounds with another step limit.
+         *
+         * @param maxSteps the positive maximum number of interpreter steps
+         * @return the new bounds
+         */
+        public Limits withMaxSteps(long maxSteps) {
+            return new Limits(maxSteps, timeout, maxAllocBytes);
+        }
+
+        /**
+         * These bounds with another wall-clock limit.
+         *
+         * @param timeout the limit; zero for none
+         * @return the new bounds
+         */
+        public Limits withTimeout(Duration timeout) {
+            return new Limits(maxSteps, timeout, maxAllocBytes);
+        }
+
+        /**
+         * These bounds with another allocation budget.
+         *
+         * @param maxAllocBytes the positive budget, or {@code Long.MAX_VALUE} for none
+         * @return the new bounds
+         */
+        public Limits withMaxAllocBytes(long maxAllocBytes) {
+            return new Limits(maxSteps, timeout, maxAllocBytes);
         }
     }
 
@@ -95,29 +168,127 @@ public final class StarlarkScript {
     private final Limits limits;
     private final StarlarkSemantics semantics;
     private final ProtoSchema protoSchema;
-    /** {@code hooks.starlark.*}: the calls into scripts, resolved once; null without metrics, when no clock is read. */
-    private final HookStats hookStats;
+    /** The registry for {@code hooks.starlark.*}; null without metrics. */
+    private final StatsRegistry stats;
+    /** The name the stats are tagged with ({@code microproxy_script}). */
+    private final String statsName;
+    /** Sees every call; null for none. */
+    private final ScriptCallObserver observer;
+    /** The deadline of a call, in nanoseconds after it starts; 0 for none. */
+    private final long timeoutNanos;
+    /** The hooks called so far, each resolved (with its stats) once. */
+    private final Map<String, Hook> hooks = new ConcurrentHashMap<>();
 
-    /** The counts of calls into scripts, which every script of a registry shares. */
-    private record HookStats(Counter invocations, Counter errors, Histogram latencyUs) {
+    /** A function of the script that is called as a hook, and its stats (null without metrics). */
+    private record Hook(StarlarkCallable function, HookStats stats) {}
 
-        static HookStats of(StatsRegistry stats) {
-            if (stats == null || !stats.enabled()) return null;
-            return new HookStats(stats.counter("hooks.starlark.invocations", "Hook calls"),
-                    stats.counter("hooks.starlark.errors", "Hook calls that threw"),
-                    stats.histogram("hooks.starlark.latency_us", "Microseconds hook calls took",
-                            Histogram.microsecondBounds()));
+    /**
+     * {@code hooks.starlark.<script>.<hook>.*}: one hook's calls into one script. Scripts are few and
+     * hooks a fixed set, so there are few of these; a reloaded script shares its predecessor's.
+     */
+    private record HookStats(Counter invocations, Counter errors, Histogram latencyUs, Histogram steps,
+            Histogram allocBytes, Counter stepsExceeded, Counter memoryExceeded, Counter timeExceeded) {
+
+        static HookStats of(StatsRegistry stats, String script, String hook, Limits limits) {
+            String p = "hooks.starlark." + script + "." + TagExtractor.sanitize(hook) + ".";
+            String budget = p + "budget_exceeded.";
+            return new HookStats(stats.counter(p + "invocations", "Hook calls"),
+                    stats.counter(p + "errors", "Hook calls that threw"),
+                    stats.histogram(p + "latency_us", "Microseconds hook calls took", Histogram.microsecondBounds()),
+                    stats.histogram(p + "steps", "Interpreter steps hook calls ran", powers(10, 10, limits.maxSteps())),
+                    stats.histogram(p + "alloc_bytes", "Bytes of values hook calls created (an estimate)",
+                            powers(1024, 4, Math.min(limits.maxAllocBytes(), 1L << 30))),
+                    stats.counter(budget + "steps", "Hook calls stopped at the step limit"),
+                    stats.counter(budget + "memory", "Hook calls stopped at the allocation budget"),
+                    stats.counter(budget + "time", "Hook calls stopped at the deadline"));
+        }
+
+        /** Bucket bounds {@code first, first * factor, ...}, up to the first at or past {@code max}. */
+        static double[] powers(long first, long factor, long max) {
+            List<Double> bounds = new ArrayList<>();
+            for (long b = first; ; b *= factor) {
+                bounds.add((double) b);
+                if (b >= max || b > Long.MAX_VALUE / factor) break;
+            }
+            return bounds.stream().mapToDouble(Double::doubleValue).toArray();
+        }
+
+        void record(long nanos, long steps, long allocBytes, boolean failed, StarlarkThread.Budget exceeded) {
+            invocations.inc();
+            if (failed) errors.inc();
+            latencyUs.record(nanos / 1_000.0);
+            this.steps.record(steps);
+            this.allocBytes.record(allocBytes);
+            if (exceeded != null) {
+                switch (exceeded) {
+                    case STEPS -> stepsExceeded.inc();
+                    case MEMORY -> memoryExceeded.inc();
+                    case TIME -> timeExceeded.inc();
+                }
+            }
         }
     }
 
     private StarlarkScript(String name, Module module, Limits limits, StarlarkSemantics semantics,
-            ProtoSchema protoSchema, HookStats hookStats) {
+            ProtoSchema protoSchema, StatsRegistry stats, String statsName, ScriptCallObserver observer) {
         this.name = name;
         this.module = module;
         this.limits = limits;
         this.semantics = semantics;
         this.protoSchema = protoSchema;
-        this.hookStats = hookStats;
+        this.stats = stats == null || !stats.enabled() ? null : stats;
+        this.statsName = statsName;
+        this.observer = observer == ScriptCallObserver.NOOP ? null : observer;
+        long millis = limits.timeout().toMillis();
+        this.timeoutNanos = millis > 0 ? limits.timeout().toNanos() : 0;
+    }
+
+    /**
+     * The name the stats of a script called {@code name} are tagged with: its file name without
+     * {@code .star}, with only letters, digits, {@code _} and {@code -}.
+     *
+     * @param name a file path or script name
+     * @return the stats name
+     */
+    static String statsName(String name) {
+        String file = name.substring(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
+        if (file.endsWith(".star") && file.length() > ".star".length()) {
+            file = file.substring(0, file.length() - ".star".length());
+        }
+        return TagExtractor.sanitize(file);
+    }
+
+    /**
+     * The name this script's stats are tagged with ({@code microproxy_script}): its file name
+     * without {@code .star}, or the one given to {@link #withStatsName}.
+     *
+     * @return the stats name
+     */
+    public String statsName() {
+        return statsName;
+    }
+
+    /**
+     * This script with its stats tagged {@code name} rather than after its file. The script itself
+     * is shared, not run again.
+     *
+     * @param name the name, made fit for a stat name as {@link TagExtractor#sanitize} does
+     * @return the script with the name
+     */
+    public StarlarkScript withStatsName(String name) {
+        return new StarlarkScript(this.name, module, limits, semantics, protoSchema, stats,
+                TagExtractor.sanitize(Objects.requireNonNull(name)), observer);
+    }
+
+    /**
+     * This script with {@code observer} seeing every call into it. The script itself is shared,
+     * not run again.
+     *
+     * @param observer the observer, or null for none
+     * @return the script with the observer
+     */
+    public StarlarkScript withObserver(ScriptCallObserver observer) {
+        return new StarlarkScript(name, module, limits, semantics, protoSchema, stats, statsName, observer);
     }
 
     /**
@@ -129,7 +300,7 @@ public final class StarlarkScript {
      * @return the script with the schema
      */
     public StarlarkScript withProtoSchema(ProtoSchema schema) {
-        return new StarlarkScript(name, module, limits, semantics, schema, hookStats);
+        return new StarlarkScript(name, module, limits, semantics, schema, stats, statsName, observer);
     }
 
     /** {@return the protobuf schema the script decodes with, or {@code null}} */
@@ -254,6 +425,8 @@ public final class StarlarkScript {
         try (Mutability mu = Mutability.create(name)) {
             Program program = Starlark.maybeWithTypeInfo(Program.compileFile(file, module), module, semantics, loaded::get);
             StarlarkThread thread = newThread(mu, limits, semantics);
+            long timeout = limits.timeout().toMillis();
+            if (timeout > 0) thread.setDeadlineNanos(System.nanoTime() + limits.timeout().toNanos());
             thread.setLoader(loaded::get);
             Starlark.execFileProgram(program, module, thread);
         } catch (SyntaxError.Exception e) {
@@ -270,7 +443,7 @@ public final class StarlarkScript {
             }
         }
         // Closing the mutability froze the globals.
-        return new StarlarkScript(name, module, limits, semantics, null, HookStats.of(stats));
+        return new StarlarkScript(name, module, limits, semantics, null, stats, statsName(name), null);
     }
 
     /** The labels of the file's load statements. */
@@ -314,9 +487,8 @@ public final class StarlarkScript {
     }
 
     /**
-     * Calls {@code function} with {@code args}. Values the call creates belong to {@code mu}, so
-     * several calls for one request can share state through it. With metrics, the call is counted
-     * in {@code hooks.starlark.*}: its time, and whether it failed.
+     * Calls {@code function} with {@code args}, for no exchange (see {@link #call(FlowContext,
+     * String, Mutability, Object...)}).
      *
      * @param function the global function name
      * @param mu the owner of values created by this call
@@ -326,41 +498,97 @@ public final class StarlarkScript {
      * @throws InterruptedException if the calling thread is interrupted
      */
     public Object call(String function, Mutability mu, Object... args) throws EvalException, InterruptedException {
-        Object fn = module.getGlobal(function);
-        if (!(fn instanceof StarlarkCallable)) {
+        return call(null, function, mu, args);
+    }
+
+    /**
+     * Calls {@code function} with {@code args} for the exchange {@code flow}. Values the call
+     * creates belong to {@code mu}, so several calls for one request can share state through it.
+     * The call is measured (steps, bytes of values created, time): with metrics, in {@code
+     * hooks.starlark.<script>.<function>.*}; in {@code flow}'s {@linkplain FlowContext#scriptStats()
+     * totals}; and by the {@linkplain #withObserver observer}. Without any of them, and without a
+     * timeout, no clock is read.
+     *
+     * @param flow the exchange the call is for, or null
+     * @param function the global function name
+     * @param mu the owner of values created by this call
+     * @param args the positional Starlark arguments
+     * @return the function's Starlark result
+     * @throws EvalException if the function is absent, evaluation fails or an execution limit is reached
+     * @throws InterruptedException if the calling thread is interrupted
+     */
+    public Object call(FlowContext flow, String function, Mutability mu, Object... args)
+            throws EvalException, InterruptedException {
+        Hook hook = hooks.get(function);
+        if (hook == null) hook = hooks.computeIfAbsent(function, this::hook);
+        if (hook.function() == null) {
             throw Starlark.errorf("%s does not define %s()", name, function);
         }
         StarlarkThread thread = newThread(mu, limits, semantics);
         if (protoSchema != null) thread.setThreadLocal(ProtoSchema.class, protoSchema);
-        for (Object arg : args) {
-            // The trace module adds to the span of the exchange the hook runs for.
-            if (arg instanceof ScriptContext ctx && ctx.flow() != null) {
-                thread.setThreadLocal(FlowTrace.class, ctx.flow().trace());
-            }
+        HookStats hookStats = hook.stats();
+        ScriptCallObserver observer = this.observer;
+        if (hookStats == null && flow == null && observer == null) {
+            if (timeoutNanos > 0) thread.setDeadlineNanos(System.nanoTime() + timeoutNanos);
+            return Starlark.call(thread, hook.function(), List.of(args), Map.of());
         }
-        HookStats stats = hookStats;
-        if (stats == null) return Starlark.call(thread, fn, List.of(args), Map.of());
+        FlowTrace trace = flow == null ? FlowTrace.NONE : flow.trace();
+        // The trace module adds to the span of the exchange (or flow) the hook runs for.
+        if (trace != FlowTrace.NONE) thread.setThreadLocal(FlowTrace.class, trace);
         long start = System.nanoTime();
-        boolean failed = true;
+        if (timeoutNanos > 0) thread.setDeadlineNanos(start + timeoutNanos);
+        Object token = observer == null ? null : observer.onCallStart(function, statsName, flow);
+        // A sampled exchange's hook calls get spans of their own.
+        Object span = trace.isSampled() ? ScriptSpans.INSTANCE.onCallStart(function, statsName, flow) : null;
+        Throwable error = null;
         try {
-            Object result = Starlark.call(thread, fn, List.of(args), Map.of());
-            failed = false;
-            return result;
+            return Starlark.call(thread, hook.function(), List.of(args), Map.of());
+        } catch (Throwable t) {
+            error = t;
+            throw t;
         } finally {
-            stats.invocations().inc();
-            if (failed) stats.errors().inc();
-            stats.latencyUs().record((System.nanoTime() - start) / 1_000.0);
+            long nanos = System.nanoTime() - start;
+            long steps = thread.getExecutedSteps();
+            long allocBytes = thread.getAllocatedBytes();
+            StarlarkThread.Budget exceeded = error == null ? null : thread.exceededBudget();
+            if (hookStats != null) hookStats.record(nanos, steps, allocBytes, error != null, exceeded);
+            if (flow != null) flow.recordScriptCall(nanos, steps, allocBytes);
+            String budget = budgetName(exceeded);
+            if (span != null) {
+                ScriptSpans.INSTANCE.onCallEnd(span, function, statsName, flow, steps, allocBytes, nanos, budget, error);
+            }
+            if (observer != null) {
+                observer.onCallEnd(token, function, statsName, flow, steps, allocBytes, nanos, budget, error);
+            }
         }
     }
 
+    /** Resolves a hook, once: the function, and its stats. */
+    private Hook hook(String function) {
+        Object fn = module.getGlobal(function);
+        if (!(fn instanceof StarlarkCallable callable)) return new Hook(null, null);
+        return new Hook(callable, stats == null ? null : HookStats.of(stats, statsName, function, limits));
+    }
+
+    /** {@code steps}, {@code memory}, {@code time}, or null: the tag value of a budget. */
+    static String budgetName(StarlarkThread.Budget budget) {
+        if (budget == null) return null;
+        return switch (budget) {
+            case STEPS -> "steps";
+            case MEMORY -> "memory";
+            case TIME -> "time";
+        };
+    }
+
+    private static final StarlarkThread.PrintHandler PRINT =
+            (t, msg) -> LOG.log(Level.INFO, "{0}: {1}", t.getCallerLocation(), msg);
+
+    /** A thread with the step and allocation limits; the caller sets the deadline. */
     private static StarlarkThread newThread(Mutability mu, Limits limits, StarlarkSemantics semantics) {
         StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
         thread.setMaxExecutionSteps(limits.maxSteps());
-        long timeout = limits.timeout().toMillis();
-        if (timeout > 0) {
-            thread.setExpirationMs(System.currentTimeMillis() + timeout);
-        }
-        thread.setPrintHandler((t, msg) -> LOG.log(Level.INFO, "{0}: {1}", t.getCallerLocation(), msg));
+        if (limits.maxAllocBytes() != Long.MAX_VALUE) thread.setMaxAllocatedBytes(limits.maxAllocBytes());
+        thread.setPrintHandler(PRINT);
         return thread;
     }
 

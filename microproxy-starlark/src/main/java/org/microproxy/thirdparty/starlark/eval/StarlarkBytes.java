@@ -356,6 +356,7 @@ public class StarlarkBytes implements ByteStringModuleApi,
   private StarlarkBytes(@Nullable Mutability mutability, ByteList elems) {
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
     this.delegate = elems;
+    StarlarkThread.allocateCurrentLater(Allocations.bytes(elems.size())); // MicroProxy
   }
 
   /**
@@ -975,7 +976,9 @@ public class StarlarkBytes implements ByteStringModuleApi,
       sep = -1; // intentionally set to be less than -1 to avoid allocating an array
       nbytesPerSep = 0;
     }
-    return this.delegate.hex(sep, nbytesPerSep);
+    String hex = this.delegate.hex(sep, nbytesPerSep);
+    StarlarkThread.allocateCurrent(Allocations.string(hex.length())); // MicroProxy
+    return hex;
   }
 
   /** Reports whether {@code x} is Java null or Starlark None. */
@@ -1051,10 +1054,14 @@ public class StarlarkBytes implements ByteStringModuleApi,
   @Override
   public String decode(String encoding, String errors, StarlarkThread thread) throws EvalException {
     Decoder d = decoder;
+    String s;
     if (d != null && thread.getSemantics().getBool(PYTHON_CODECS)) {
-      return d.decode(this.delegate.toArray(), encoding, errors);
+      s = d.decode(this.delegate.toArray(), encoding, errors);
+    } else {
+      s = decodeWithCharset(encoding, errors);
     }
-    return decodeWithCharset(encoding, errors);
+    thread.allocate(Allocations.string(s.length())); // MicroProxy
+    return s;
   }
 
   /** Decodes with Java's charsets. */
@@ -1510,6 +1517,12 @@ public class StarlarkBytes implements ByteStringModuleApi,
    * Returns a new StarlarkBytes containing n consecutive repeats of this byte array.
    */
   public StarlarkBytes repeat(StarlarkInt n, Mutability mutability) throws EvalException {
+    long total = n.signum() > 0 ? (long) size() * n.toInt("repeat") : 0;
+    if (total <= ByteList.MAXIMUM_CAPACITY) {
+      // MicroProxy: before allocating, so that b"x" * 10**9 fails at once (a repeat past the
+      // capacity fails as before, as an excessive repeat).
+      StarlarkThread.checkAllocationCurrent(Allocations.bytes(total));
+    }
     try {
       return derived(mutability, this.delegate.repeat(n.toInt("repeat")));
     } catch(IllegalArgumentException ex) {

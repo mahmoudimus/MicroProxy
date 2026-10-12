@@ -669,8 +669,24 @@ public abstract sealed class Dict<K, V>
       Starlark.checkMutable(this);
       Starlark.checkHashable(key);
 
+      int size = contents.size();
       V prev = contents.putIfAbsent(key, defaultValue); // see class doc comment
+      grew(size);
       return prev != null ? prev : defaultValue;
+    }
+
+    /**
+     * MicroProxy: counts the entries added since the dict had {@code before}, against the
+     * allocation budget of the thread running on this Java thread. To keep most puts to a
+     * comparison, entries are counted when the size reaches a power of two (all of them up to it),
+     * so a dict whose size is not a power of two has up to half its entries uncounted.
+     */
+    private void grew(int before) throws EvalException {
+      int counted =
+          Integer.highestOneBit(contents.size()) - Integer.highestOneBit(before);
+      if (counted > 0) {
+        StarlarkThread.allocateCurrent((long) Allocations.DICT_ENTRY * counted);
+      }
     }
 
     @Override
@@ -697,17 +713,21 @@ public abstract sealed class Dict<K, V>
     public void putEntry(K key, V value) throws EvalException {
       Starlark.checkMutable(this);
       Starlark.checkHashable(key);
+      int size = contents.size();
       contents.put(key, value);
+      grew(size);
     }
 
     @Override
     public <K2 extends K, V2 extends V> void putEntries(Map<K2, V2> map) throws EvalException {
       Starlark.checkMutable(this);
+      int size = contents.size();
       for (Map.Entry<K2, V2> e : map.entrySet()) {
         K2 k = e.getKey();
         Starlark.checkHashable(k);
         contents.put(k, e.getValue());
       }
+      grew(size);
     }
 
     @Override
@@ -788,6 +808,7 @@ public abstract sealed class Dict<K, V>
       Preconditions.checkNotNull(mutability);
       Preconditions.checkArgument(mutability != Mutability.IMMUTABLE, mutability);
       this.mutability = mutability;
+      StarlarkThread.allocateCurrentLater(Allocations.dict(contents.size())); // MicroProxy
     }
 
     @Override

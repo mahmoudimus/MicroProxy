@@ -22,9 +22,11 @@ import org.microproxy.thirdparty.starlark.eval.StarlarkValue;
  * The {@code trace} module: the distributed trace of the exchange a hook runs for (see {@code
  * microproxy-otel}), whose span a script can add attributes and events to: {@code
  * trace.set_attribute("tenant", "acme")}, {@code trace.add_event("rule.matched", {"rule": "r1"})}.
- * {@code ctx.trace_id} and {@code ctx.span_id} read its ids. In a hook without an exchange (the
- * TCP, UDP and QUIC hooks), or without a tracer, or when the exchange is not sampled, the calls do
- * nothing. Values are strings, booleans, ints, floats, or lists of those; others are recorded as
+ * {@code ctx.trace_id} and {@code ctx.span_id} read its ids. The calls add to the exchange's span
+ * (the tunnel's or flow's, in the TCP, UDP and QUIC hooks), not to the span of the hook call itself
+ * ({@link ScriptSpans}): what a script notes describes the exchange, and stays on its span however
+ * many hooks see it. In a hook without an exchange ({@code upstream}, a QUIC framer), or without a
+ * tracer, or when the exchange is not sampled, the calls do nothing. Values are strings, booleans, ints, floats, or lists of those; others are recorded as
  * their {@code str()}.
  */
 @StarlarkBuiltin(name = "trace", doc = "The exchange's distributed trace: attributes and events on its span.")

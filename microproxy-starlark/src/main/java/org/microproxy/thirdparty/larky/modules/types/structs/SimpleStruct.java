@@ -11,6 +11,7 @@ import org.microproxy.thirdparty.larky.modules.types.PyProtocols;
 import org.microproxy.thirdparty.larky.parser.StarlarkUtil;
 
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Allocations;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.HasBinary;
@@ -46,6 +47,8 @@ public class SimpleStruct implements LarkyCallable, LarkyCollection, HasBinary, 
   protected SimpleStruct(Map<String, Object> fields, StarlarkThread currentThread) {
     this.currentThread = currentThread;
     this.fields = fields;
+    // MicroProxy: a struct counts against the allocation budget of the thread making it.
+    StarlarkThread.allocateCurrentLater(Allocations.struct(fields.size()));
   }
 
   public static SimpleStruct immutable(Dict<String, Object> kwargs, StarlarkThread thread) {

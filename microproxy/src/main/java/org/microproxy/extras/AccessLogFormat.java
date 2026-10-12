@@ -596,6 +596,10 @@ public final class AccessLogFormat {
                 case "MP_URL" -> text(Operators::url);
                 case "MP_UPSTREAM_STATUS" -> number(r -> r.context().upstreamStatus().orElse(-1));
                 case "MP_TIMING" -> timing(arg);
+                case "MP_SCRIPT_TIME" -> millisWithDecimals(r -> r.context().scriptStats().nanos());
+                case "MP_SCRIPT_STEPS" -> number(r -> r.context().scriptStats().steps());
+                case "MP_SCRIPT_ALLOC" -> number(r -> r.context().scriptStats().allocBytes());
+                case "MP_SCRIPT_CALLS" -> number(r -> r.context().scriptStats().calls());
                 default -> UNKNOWN;
             };
         }
@@ -828,6 +832,11 @@ public final class AccessLogFormat {
                 default -> null;
             };
             if (nanos == null) return UNKNOWN;
+            return millisWithDecimals(nanos);
+        }
+
+        /** Nanoseconds as milliseconds with three decimals; unavailable when negative. */
+        private static Operator millisWithDecimals(NumberValue nanos) {
             return new Operator(Type.NUMBER) {
                 @Override
                 boolean append(FlowRecord record, StringBuilder out) {

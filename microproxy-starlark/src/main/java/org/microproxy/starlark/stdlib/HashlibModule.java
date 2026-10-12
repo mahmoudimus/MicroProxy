@@ -219,7 +219,8 @@ public final class HashlibModule implements StarlarkValue {
         }
         byte[] s = bytes(salt, "salt");
         byte[] out = new byte[length];
-        long deadline = thread.getExpirationMs();
+        boolean bounded = thread.hasDeadline();
+        long deadline = thread.getDeadlineNanos();
         int blocks = (length + hLen - 1) / hLen;
         for (int block = 1; block <= blocks; block++) {
             prf.mac.reset();
@@ -228,7 +229,7 @@ public final class HashlibModule implements StarlarkValue {
             byte[] u = prf.mac.doFinal();
             byte[] t = u.clone();
             for (int i = 1; i < rounds; i++) {
-                if ((i & 0x3FF) == 0 && System.currentTimeMillis() > deadline) {
+                if ((i & 0x3FF) == 0 && bounded && System.nanoTime() - deadline > 0) {
                     throw Starlark.errorf("pbkdf2_hmac ran past the deadline");
                 }
                 u = prf.mac.doFinal(u);

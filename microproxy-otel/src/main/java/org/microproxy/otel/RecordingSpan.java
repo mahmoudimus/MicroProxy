@@ -12,7 +12,8 @@ import org.microproxy.http.HttpVersion;
 
 /**
  * The trace of a sampled exchange: the proxy's SERVER span for it (INTERNAL for a tunnel or a
- * flow), and a CLIENT span for each attempt to reach the server. What the request said is read
+ * flow), a CLIENT span for each attempt to reach the server, and an INTERNAL span for each piece
+ * of the proxy's own work {@link #startSpan} starts (a script's hook call). What the request said is read
  * when it arrives; the rest comes from the exchange's {@link FlowRecord} when it is over, and the
  * spans are queued for export then. Attributes and events that filters and scripts add are kept
  * within the {@link SpanLimits}.
@@ -265,6 +266,48 @@ final class RecordingSpan extends PropagatedTrace {
         return new OtlpData.Span(traceIdHigh, traceIdLow, attempt.spanId, spanId, traceState, flags,
                 spanName(request.method()), OtlpData.KIND_CLIENT, start, Math.max(start, end), a, List.of(), 0,
                 error ? OtlpData.STATUS_ERROR : OtlpData.STATUS_UNSET, error ? errorType : null);
+    }
+
+    @Override
+    public Span startSpan(String name) {
+        return new Child(name);
+    }
+
+    /**
+     * An INTERNAL span of the proxy's own work for the exchange, a child of its span, exported when
+     * it ends (before the exchange's span, which a hook call may outlive: a tunnel's last hook).
+     */
+    private final class Child implements Span {
+        private final long childId = SpanContext.randomSpanId();
+        private final String name;
+        private final long start = Telemetry.epochNanos();
+        private final Attrs attributes =
+                new Attrs(telemetry.limits.maxAttributes(), telemetry.limits.maxAttributeValueLength());
+        private boolean ended;
+
+        Child(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public void setAttribute(String key, Object value) {
+            if (!ended) attributes.put(key, value);
+        }
+
+        @Override
+        public void end(String error) {
+            if (ended) return;
+            ended = true;
+            long end = Math.max(start, Telemetry.epochNanos());
+            telemetry.export(new OtlpData.Span(traceIdHigh, traceIdLow, childId, spanId, traceState,
+                    SpanContext.SAMPLED | OtlpData.FLAG_HAS_IS_REMOTE, name, OtlpData.KIND_INTERNAL, start, end,
+                    attributes, List.of(), 0, error != null ? OtlpData.STATUS_ERROR : OtlpData.STATUS_UNSET, error));
+        }
+
+        @Override
+        public String toString() {
+            return "Span[" + name + "]";
+        }
     }
 
     /** The name of an HTTP span: its method, or {@code HTTP} for one the conventions do not name. */

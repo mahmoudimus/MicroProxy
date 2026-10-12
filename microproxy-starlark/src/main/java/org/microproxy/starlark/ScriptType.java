@@ -66,6 +66,12 @@ final class ScriptType extends StarlarkType {
             "ttfb_ms", MILLIS,
             "total_ms", MILLIS), false);
 
+    static final ScriptType SCRIPT_STATS = new ScriptType("ScriptStats", ScriptUsageValue.class, ImmutableMap.of(
+            "calls", Types.INT,
+            "time_ms", Types.FLOAT,
+            "steps", Types.INT,
+            "alloc_bytes", Types.INT), false);
+
     static final ScriptType CLIENT_HELLO = new ScriptType("ClientHello", ScriptClientHello.class, ImmutableMap.of(
             "sni", Types.union(Types.STR, Types.NONE),
             "alpn", Types.list(Types.STR),
@@ -86,6 +92,7 @@ final class ScriptType extends StarlarkType {
             .put("tls", Types.BOOL)
             .put("vars", Types.dict(Types.ANY, Types.ANY))
             .put("timings", TIMINGS)
+            .put("script_stats", SCRIPT_STATS)
             .put("client_hello", Types.union(CLIENT_HELLO, Types.NONE))
             .put("forwarded_via", Types.union(Types.STR, Types.NONE))
             .put("socks_version", Types.union(Types.INT, Types.NONE))
@@ -236,6 +243,7 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor WEBSOCKET_MESSAGE_CONSTRUCTOR = Types.wrapType("WebSocketMessage", WEBSOCKET_MESSAGE);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
+    static final TypeConstructor SCRIPT_STATS_CONSTRUCTOR = Types.wrapType("ScriptStats", SCRIPT_STATS);
     static final TypeConstructor PROTO_FIXED_CONSTRUCTOR = Types.wrapType("ProtoFixed", PROTO_FIXED);
     static final TypeConstructor PROTO_GROUP_CONSTRUCTOR = Types.wrapType("ProtoGroup", PROTO_GROUP);
     static final TypeConstructor HTTP_FRAME_CONSTRUCTOR = Types.wrapType("Frame", HTTP_FRAME);

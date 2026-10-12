@@ -22,7 +22,9 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
+import org.microproxy.starlark.StarlarkScript;
 import org.microproxy.starlark.stdlib.UnittestModule.Outcome;
+import org.microproxy.starlark.stdlib.UnittestModule.PerTestBudget;
 import org.microproxy.starlark.stdlib.UnittestModule.Results;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Module;
@@ -43,6 +45,9 @@ import org.microproxy.thirdparty.starlark.syntax.SyntaxError;
  *
  * <p>{@code microproxy_tests/} holds MicroProxy's own tests of what it changed (hashlib and hmac on
  * the JDK, re on java.util.regex).
+ *
+ * <p>Each test runs within the default budgets of a hook call ({@link StarlarkScript.Limits#DEFAULT}):
+ * the bytes of values it creates and its time, so the budgets do not break the library.
  *
  * <p>Tests that fail because of a known difference from starlarky are listed in {@link
  * #EXPECTED_FAILURES} with the reason; they must fail (an entry that passes, or names no test, fails
@@ -113,6 +118,8 @@ class StarlarkyStdlibTest {
                 StarlarkThread thread = StarlarkThread.createTransient(mu, Stdlib.MODULE_SEMANTICS);
                 thread.setLoader(loads::get);
                 thread.setThreadLocal(Results.class, results);
+                thread.setThreadLocal(PerTestBudget.class, new PerTestBudget(
+                        StarlarkScript.Limits.DEFAULT.maxAllocBytes(), StarlarkScript.Limits.DEFAULT.timeout()));
                 thread.setMaxExecutionSteps(2_000_000_000L);
                 thread.setExpirationMs(System.currentTimeMillis() + 300_000);
                 thread.setPrintHandler((t, msg) -> {});

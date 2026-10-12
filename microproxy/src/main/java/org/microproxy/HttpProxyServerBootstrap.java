@@ -722,6 +722,23 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Shows every call into a script's hooks to {@code observer} (see {@link ScriptCallObserver}):
+     * the scripting module ({@code --script}) passes it on to the script it loads. One per proxy: a
+     * later call replaces it, and null removes it.
+     *
+     * @param observer the observer, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withScriptCallObserver(ScriptCallObserver observer) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support script call observers");
+    }
+
+    /** {@return the script call observer configured so far, or null} */
+    default ScriptCallObserver getScriptCallObserver() {
+        return null;
+    }
+
+    /**
      * Shows the bytes of every raw TCP tunnel to {@code interceptor}, which may rewrite, drop and
      * add them (mitmproxy's {@code tcp_message} and related hooks; see {@link TcpInterceptor} for
      * which tunnels). One per proxy: a later call replaces it, and null removes it. Without one

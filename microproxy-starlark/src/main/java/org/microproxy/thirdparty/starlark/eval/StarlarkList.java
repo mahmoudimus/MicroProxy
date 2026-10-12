@@ -229,7 +229,9 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
       throws EvalException {
     int xsize = x.size();
     int ysize = y.size();
-    Object[] res = new Object[addSizesAndFailIfExcessive(xsize, ysize)];
+    int size = addSizesAndFailIfExcessive(xsize, ysize);
+    StarlarkThread.checkAllocationCurrent(Allocations.sequence(size)); // MicroProxy
+    Object[] res = new Object[size];
     System.arraycopy(x.elems(), 0, res, 0, xsize);
     System.arraycopy(y.elems(), 0, res, xsize, ysize);
     return wrap(mutability, res);
@@ -299,6 +301,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     if (sz > MAX_ALLOC) {
       throw Starlark.errorf("excessive repeat (%d * %d elements)", size, ni);
     }
+    StarlarkThread.checkAllocationCurrent(Allocations.sequence(sz)); // MicroProxy: before allocating
     Object[] res = new Object[(int) sz];
     for (int i = 0; i < ni; i++) {
       System.arraycopy(elems(), 0, res, i * size, size);

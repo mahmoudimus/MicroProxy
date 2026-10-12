@@ -245,6 +245,7 @@ class AccessLogFormatTest {
                 Arguments.of("%MP_TIMING(dns)% %MP_TIMING(connect)% %MP_TIMING(tls)% %MP_TIMING(client_tls)%"
                         + " %MP_TIMING(ttfb)% %MP_TIMING(total)% %MP_TIMING(nope)%",
                         "1.000 2.000 3.000 2.000 10.000 25.000 -"),
+                Arguments.of("%MP_SCRIPT_CALLS% %MP_SCRIPT_STEPS% %MP_SCRIPT_ALLOC% %MP_SCRIPT_TIME%", "0 0 0 0.000"),
                 // Unknown operators, literals
                 Arguments.of("%NOT_AN_OPERATOR%", "-"),
                 Arguments.of("%REQ%", "-"),
@@ -257,6 +258,20 @@ class AccessLogFormatTest {
     @MethodSource("operators")
     void operator(String format, String expected) {
         assertEquals(expected, render(format, record()));
+    }
+
+    @Test
+    void scriptOperatorsShowTheExchangesScriptTotals() {
+        Context context = new Context(new InetSocketAddress("10.0.0.1", 5555), null);
+        context.recordScriptCall(1_250_000, 120, 2_048);
+        context.recordScriptCall(250_400, 30, 1_024);
+        FlowRecord record = builder(context).build();
+        assertEquals("2 150 3072 1.500", render("%MP_SCRIPT_CALLS% %MP_SCRIPT_STEPS% %MP_SCRIPT_ALLOC% %MP_SCRIPT_TIME%",
+                record));
+        Map<String, Object> dict = new LinkedHashMap<>();
+        dict.put("script_ms", "%MP_SCRIPT_TIME%");
+        dict.put("script_alloc", "%MP_SCRIPT_ALLOC%");
+        assertEquals("{\"script_ms\":1.500,\"script_alloc\":3072}", AccessLogFormat.envoyJson(dict).format(record));
     }
 
     @Test

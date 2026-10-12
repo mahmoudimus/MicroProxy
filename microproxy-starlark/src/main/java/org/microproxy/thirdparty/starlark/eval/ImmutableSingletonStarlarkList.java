@@ -24,6 +24,7 @@ final class ImmutableSingletonStarlarkList<E> extends ImmutableStarlarkList<E> {
 
   ImmutableSingletonStarlarkList(Object elem) {
     this.elem = elem;
+    StarlarkThread.allocateCurrentLater(Allocations.sequence(1)); // MicroProxy
   }
 
   @Override

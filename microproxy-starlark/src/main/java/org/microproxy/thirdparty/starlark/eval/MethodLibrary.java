@@ -394,6 +394,7 @@ class MethodLibrary {
     if (x instanceof Tuple) {
       return Tuple.copyOf((Tuple) x); // VGS: a namedtuple becomes a plain tuple, as in Python
     }
+    StarlarkThread.checkAllocationCurrent(Allocations.sequence(Math.max(0, Starlark.len(x))));
     return Tuple.wrap(Starlark.toArray(x));
   }
 
@@ -408,6 +409,8 @@ class MethodLibrary {
       useStarlarkThread = true,
       isTypeConstructor = true)
   public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
+    // MicroProxy: list(range(10**9)) fails before making its array.
+    thread.checkAllocation(Allocations.sequence(Math.max(0, Starlark.len(x))));
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
@@ -444,7 +447,11 @@ class MethodLibrary {
       useStarlarkThread = true,
       isTypeConstructor = true)
   public String str(Object x, StarlarkThread thread) throws EvalException {
-    return Starlark.str(x, thread.getSemantics());
+    String s = Starlark.str(x, thread.getSemantics());
+    if (s != x) {
+      thread.allocate(Allocations.string(s.length())); // MicroProxy
+    }
+    return s;
   }
 
   @StarlarkMethod(
@@ -529,8 +536,10 @@ class MethodLibrary {
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.")},
       useStarlarkThread = true)
-  public String repr(Object x, StarlarkThread thread) {
-    return Starlark.repr(x, thread.getSemantics());
+  public String repr(Object x, StarlarkThread thread) throws EvalException {
+    String s = Starlark.repr(x, thread.getSemantics());
+    thread.allocate(Allocations.string(s.length())); // MicroProxy
+    return s;
   }
 
   @StarlarkMethod(

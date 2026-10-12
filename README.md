@@ -2467,9 +2467,9 @@ in a directory of them (see [Replaying traffic](#replaying-traffic)).
 The optional `microproxy-starlark` module runs proxy logic written in
 [Starlark](https://github.com/bazelbuild/starlark/blob/master/spec.md), the Python dialect Bazel
 uses for configuration. Scripts are sandboxed: they have no file, network or process access,
-cannot change global state after loading, and each hook call is limited in steps and wall-clock
-time (10 million steps and 5 seconds by default). One loaded script is shared by every
-connection.
+cannot change global state after loading, and each hook call is limited in steps, wall-clock
+time and the bytes of values it creates (10 million steps, 5 seconds and 256 MiB by default; see
+[Budgets and measurements](#script-budgets)). One loaded script is shared by every connection.
 
 ```python
 # proxy.star
@@ -2559,7 +2559,9 @@ bootstrap.start();
   [Session resumption and 0-RTT](#session-resumption-and-0-rtt)), `failure` (why the proxy has to
   answer the request itself, a `Failure` as `on_failure` gets it, else `None`), `response_flags`
   (the exchange's [response flags](#response-flags-and-details) so far, as short codes: `["UF"]`),
-  `response_code_details` (`"proxy_failure:connect_failed"`, ..., or `None`), and `vars`, a dict that lives for
+  `response_code_details` (`"proxy_failure:connect_failed"`, ..., or `None`), `script_stats`
+  (what the calls into scripts for the exchange added up to before this one: `calls`, `time_ms`,
+  `steps` and `alloc_bytes`; see [Budgets and measurements](#script-budgets)), and `vars`, a dict that lives for
   one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
   as the connection.
 - `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
@@ -2716,8 +2718,18 @@ def on_response(req, res, ctx):
 one), and the `trace` module adds to that span: `trace.set_attribute(key, value)` (a string, bool,
 int, float or a list of those), `trace.add_event(name, attributes={})`, and
 `trace.is_recording()`, false when the exchange is not sampled and the calls would be ignored. In
-hooks that run for no exchange (the TCP, UDP and QUIC hooks) the calls do nothing. The span's
+the TCP, UDP and QUIC hooks they add to the span of the tunnel or flow; in hooks that run for no
+exchange (`upstream`, `quic_message_length`) they do nothing. The span's
 [limits](#opentelemetry) bound what a script adds.
+
+Each hook call for a sampled exchange is also a span of its own, `starlark <hook>` (INTERNAL, a
+child of the exchange's, tunnel's or flow's span), with `starlark.hook`, `starlark.script`,
+`starlark.steps`, `starlark.alloc_bytes` and, when a [budget](#script-budgets) stopped it,
+`starlark.budget_exceeded` (`steps`, `memory` or `time`); a call that failed has an error status
+with its message. What `trace.set_attribute` and `trace.add_event` add goes on the exchange's span,
+not on the hook call's: it describes the exchange, and stays in one place however many hooks see
+it. Exchanges that are not sampled, and proxies without a tracer, get no hook spans and pay nothing
+for them.
 
 ```python
 def on_request(req, ctx):
@@ -3323,6 +3335,60 @@ namespace; and `hashlib`'s BLAKE2 and SHAKE, which the JDK lacks (`hashlib.blake
 with `unsupported hash type`). starlarky's own tests run in the build against the port
 (`StarlarkyStdlibTest`), with the few known differences listed there.
 
+<a id="script-budgets"></a>
+**Budgets and measurements.** Every hook call is bounded, and measured, three ways:
+
+| budget | option (`StarlarkScript.Limits`) | default | checked |
+|---|---|---|---|
+| interpreter steps | `--script-max-steps <n>` (`maxSteps`) | 10000000 | at every statement and expression |
+| wall-clock time | `--script-max-time <time>`, as `250ms`, `5s` or `1m` (`timeout`); `0` for none | `5s` | every 64 steps, and as they go by long-running builtins (`re`, the standard library's `re`, `hashlib.pbkdf2_hmac`) |
+| bytes of values created | `--script-max-alloc <bytes>`, as `512k`, `64m` or `1g` (`maxAllocBytes`); `0` for none | `256m` | where values are made |
+
+A call past a budget fails with an error (`too many steps`, `past expiration date` or `memory
+budget exceeded`), which is handled as any failing hook is (below): the call stops at its next
+check, cooperatively, and no thread is killed. Once past a budget, every later step of the call
+fails too, so a script cannot catch the error and go on. `--script-name <name>`
+(`ScriptedProxy.Builder.statsName`) names the script in its stats; by default it is the file name
+without `.star`.
+
+The bytes are an **estimate of what a call creates, not a measure of the heap**: the JVM cannot
+count a virtual thread's allocations, so the interpreter counts the values it makes, at about
+what they take on a 64-bit JVM: a string two bytes a character plus its objects (a Latin-1 string
+takes half that), bytes their length, lists and tuples a reference a slot (a list each time its
+array grows), dicts about 48 bytes an entry, structs and objects their fields; the strings and
+objects builtins return (`json`, `re`, `base64`, `digest`, `codecs`, `url`, `protobuf`, `grpc`,
+`dns`, the standard library's natives) count too, and ints, floats and booleans do not. Values
+that become garbage stay counted, so the budget bounds the work a call does with memory rather
+than what it keeps. A size known in advance is counted before the value is made, so
+`"x" * 10**9`, `[0] * 10**9` or `list(range(10**9))` fail at once without allocating; `replace`,
+`re.sub` and `json.encode` check as their output grows. The default leaves room for a buffered
+10 MiB body (about 20 MiB as a string) to be copied several times, and for the heaviest tests of
+the standard library (about 150 MB in one call), while stopping runaway allocation long before it
+fills a heap.
+
+With metrics, each script's calls are counted per hook, in `hooks.starlark.<script>.<hook>.*`
+(see [Metrics](#metrics-envoy-compatible-stats)): `invocations`, `errors`, `latency_us`, the
+histograms `steps` (in powers of ten up to the step limit) and `alloc_bytes` (in powers of four
+from 1 KiB), and `budget_exceeded.steps`, `.memory` and `.time`. Each exchange adds its calls up
+(`FlowContext.scriptStats()`: calls, time, steps and bytes), which a script reads as
+`ctx.script_stats` and the access log shows with `%MP_SCRIPT_CALLS%`, `%MP_SCRIPT_TIME%`
+(milliseconds), `%MP_SCRIPT_STEPS%` and `%MP_SCRIPT_ALLOC%`. A `ScriptCallObserver`
+(`HttpProxyServerBootstrap.withScriptCallObserver`, or `ScriptedProxy.Builder.observer`) sees
+each call start, and end with its steps, bytes, time, exhausted budget and error: the place for
+tracing to make a span of each call.
+
+```python
+def on_response(req, res, ctx):
+    s = ctx.script_stats  # the calls before this one, here on_request's
+    res.headers["X-Script"] = "%d calls, %d steps, %d bytes" % (s.calls, s.steps, s.alloc_bytes)
+```
+
+Measuring costs little: without metrics, an exchange, an observer or budgets, a call reads a few
+fields more, and counting allocations is a field addition where values are made (a thread-local
+lookup where the interpreter does not hand its code the thread: list growth, tuples, dicts and
+bytes); a representative hook (80 steps, 1 KB of values) runs within a few percent of its speed
+before counting.
+
 **Errors and reloading.**
 
 - A hook that fails is logged with its Starlark stack trace, and the client gets a bare `500`.
@@ -3632,6 +3698,8 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%MP_SOCKS_VERSION%`, `%MP_FORWARDED_VIA%` | the SOCKS version; the client's own proxy the request went through |
 | `%MP_USER%`, `%MP_URL%`, `%MP_UPSTREAM_STATUS%` | the authenticated user; the absolute URL; the status the server sent (before a filter changed it) |
 | `%MP_TIMING(phase)%` | `dns`, `connect`, `tls`, `client_tls`, `ttfb` or `total`, in milliseconds with three decimals |
+| `%MP_SCRIPT_CALLS%`, `%MP_SCRIPT_TIME%` | the exchange's calls into [scripts](#script-budgets), and the milliseconds they took together, with three decimals |
+| `%MP_SCRIPT_STEPS%`, `%MP_SCRIPT_ALLOC%` | the interpreter steps those calls ran, and about how many bytes of values they created (an estimate) |
 
 #### Response flags and details
 
@@ -3758,7 +3826,8 @@ tags are Envoy's `envoy_http_conn_manager_prefix` (the proxy's name, `withName`,
 per-protocol stats below: `microproxy_direction` (`downstream`, `upstream`), `microproxy_quic_scope`,
 `microproxy_quic_error`, `microproxy_congestion_controller`, `microproxy_drop_reason`,
 `microproxy_socks_version`, `microproxy_socks_reply`, `microproxy_reject_reason`,
-`microproxy_tunnel_kind`, `microproxy_close_code` and `microproxy_hook`. Histograms are in
+`microproxy_tunnel_kind`, `microproxy_close_code`, `microproxy_hook`, and for scripts'
+calls `microproxy_script`, `microproxy_script_hook` and `microproxy_budget`. Histograms are in
 milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
 30000, 60000, 300000, 600000, 1800000, 3600000), shown as `_bucket{le="..."}`, `_sum` and `_count`.
 
@@ -3892,16 +3961,24 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 head hooks `clientToProxyRequest`, `proxyToServerRequest`, `serverToProxyResponse` and
 `proxyToClientResponse`), `frame_interceptor`, `tcp` (`tcpMessage`), `udp` (`udpMessage`),
 `quic_stream` (`streamData`), `quic_message` (`streamMessage`), `quic_datagram` (`datagram`),
-`websocket_frame`, `websocket_message`, and `starlark` (every call into a script).
+`websocket_frame`, `websocket_message`, and `starlark` (every call into a script). The `starlark`
+family is kept per script and hook function, as `hooks.starlark.<script>.<hook>.*`, tagged
+`microproxy_script` (the file name without `.star`, or `--script-name`) and
+`microproxy_script_hook` (`on_request`, `on_response`, `on_frame`, `on_tcp_message`, ...); a
+script's stats for a hook are made on its first call.
 
 | stat | type | meaning |
 |---|---|---|
 | `hooks.<family>.invocations`, `errors` | counter | calls, and calls that threw |
 | `hooks.<family>.drops`, `rewrites` | counter | calls that dropped what they were given (returned null or nothing) / replaced it, or answered for the server (not for `starlark`) |
 | `hooks.<family>.latency_us` | histogram | microseconds calls took, in buckets of 1, 5, 10, 25, ... 1000000 µs |
+| `hooks.starlark.<script>.<hook>.steps` | histogram | interpreter steps each call ran, in buckets of 10, 100, ... up to the step limit |
+| `hooks.starlark.<script>.<hook>.alloc_bytes` | histogram | about how many bytes of values each call created (an [estimate](#script-budgets)), in buckets of 1 KiB, 4 KiB, 16 KiB, ... up to the budget |
+| `hooks.starlark.<script>.<hook>.budget_exceeded.<kind>` | counter | calls stopped by a budget: `steps`, `memory` or `time` (`microproxy_budget`) |
 
-The clock is read only with metrics on. A hook that changes what it was given in place, rather
-than returning something else, counts as neither a drop nor a rewrite.
+The clock is read only with metrics on (a script call also reads it for its deadline and its
+exchange's totals). A hook that changes what it was given in place, rather than returning
+something else, counts as neither a drop nor a rewrite.
 
 <a id="qlog-files"></a>
 **qlog.** With `--qlog-dir <dir>` (`Http3Options.Builder.qlogDirectory`, `qlog_dir`), each of the
@@ -4075,6 +4152,7 @@ its exchanges ended: what is queued is exported then.
 | an attempt to reach the server, a child of the exchange's span | CLIENT | the method | from the connection attempt (directly, or through a chained proxy) or, on a connection at hand, from the request, to the response; each chained proxy tried and each request sent again after a stale keep-alive connection is one more, with `http.request.resend_count` |
 | a `CONNECT` tunnel, a SOCKS client, a WebSocket session, a TCP-hook tunnel, a CONNECT-UDP flow | INTERNAL | `tunnel example.com:443`, `socks ...`, `websocket ...`, `udp ...` | until it closes; its connection's CLIENT span lasts as long |
 | a QUIC flow relayed or intercepted stream by stream, a request a transport answered itself | INTERNAL (SERVER for HTTP) | `quic_relay ...`, `quic ...` | a span of its own, under the context its request carried |
+| a call into a [script's](#scripting-with-starlark) hook, a child of its exchange's (tunnel's, flow's) span | INTERNAL | `starlark on_request`, `starlark on_tcp_message`, ... | the call, with `starlark.hook`, `starlark.script`, `starlark.steps`, `starlark.alloc_bytes` and `starlark.budget_exceeded` |
 
 The server sees the CLIENT span as its parent: the proxy writes its own `traceparent` (and the
 configured propagators' headers) on each request it sends, after the filters, so the trace goes

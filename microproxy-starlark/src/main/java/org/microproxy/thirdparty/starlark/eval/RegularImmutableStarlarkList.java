@@ -33,6 +33,7 @@ final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
   RegularImmutableStarlarkList(Object[] elems) {
     Preconditions.checkArgument(elems.getClass() == Object[].class);
     this.elems = elems;
+    StarlarkThread.allocateCurrentLater(Allocations.sequence(elems.length)); // MicroProxy
   }
 
   @Override

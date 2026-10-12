@@ -14,16 +14,13 @@
 
 package org.microproxy.thirdparty.starlark.eval;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import org.microproxy.thirdparty.starlark.syntax.Location;
@@ -76,9 +73,33 @@ public final class StarlarkThread {
   private final CallUtils.BuiltinManager builtinManager;
 
   long steps; // count of logical computation steps executed so far
-  long stepLimit = Long.MAX_VALUE; // limit on logical computation steps
-  long expirationMs = Long.MAX_VALUE; // time after which execution should halt
-  Clock clock = Clock.systemUTC(); // Used to check expiration. Can be set for debug purposes
+  // MicroProxy: the step count at which the next step fails: maxSteps, or 0 once the thread is
+  // past its allocation budget (so that code that cannot throw can stop it, see allocateLater).
+  long stepLimit = Long.MAX_VALUE;
+  private long maxSteps = Long.MAX_VALUE; // limit on logical computation steps
+
+  // MicroProxy: the approximate bytes of the values this thread created (see Allocations), and
+  // the budget allocate() checks them against.
+  private long allocatedBytes;
+  private long maxAllocatedBytes = Long.MAX_VALUE;
+
+  // MicroProxy: the deadline is a System.nanoTime() value (it was epoch milliseconds read from a
+  // Clock), so that it does not move with the wall clock; hasDeadline says whether there is one.
+  private boolean hasDeadline;
+  private long deadlineNanos;
+
+  /** MicroProxy: the bounds a call can run out of, as {@link #exceededBudget} reports them. */
+  public enum Budget {
+    /** The step limit ({@link #setMaxExecutionSteps}). */
+    STEPS,
+    /** The allocation budget ({@link #setMaxAllocatedBytes}). */
+    MEMORY,
+    /** The deadline ({@link #setDeadlineNanos}). */
+    TIME
+  }
+
+  /** MicroProxy: the budget this thread ran out of, or null. */
+  @Nullable private Budget exceeded;
 
   /**
    * Returns the number of Starlark computation steps executed by this thread according to a
@@ -106,14 +127,170 @@ public final class StarlarkThread {
    * fails with an EvalException.
    */
   public void setMaxExecutionSteps(long steps) {
-    this.stepLimit = steps;
+    this.maxSteps = steps;
+    this.stepLimit = allocatedBytes > maxAllocatedBytes ? 0 : steps;
   }
 
   /**
    * Returns the maximum number of Starlark computation steps that may be executed by this thread.
    */
   public long getMaxExecutionSteps() {
-    return stepLimit;
+    return maxSteps;
+  }
+
+  /**
+   * The error for a step at {@code stepLimit}: too many steps, or (MicroProxy) the allocation
+   * budget, which {@link #allocateLater} could not report itself. It records the budget.
+   */
+  EvalException tooManySteps() {
+    if (allocatedBytes > maxAllocatedBytes) {
+      return memoryBudgetExceeded();
+    }
+    exceeded = Budget.STEPS;
+    return new EvalException("Starlark computation cancelled: too many steps");
+  }
+
+  /**
+   * MicroProxy: the approximate number of bytes of the Starlark values this thread has created
+   * (strings, bytes, lists and their growth, dicts, tuples, structs, and what builtins return), as
+   * counted by {@link #allocate}. It counts bytes created, not bytes still reachable: values that
+   * became garbage stay counted, and a value counts in the thread that made it. See {@link
+   * Allocations} for the sizes.
+   *
+   * @return the bytes counted so far
+   */
+  public long getAllocatedBytes() {
+    return allocatedBytes;
+  }
+
+  /**
+   * MicroProxy: sets the most bytes this thread may create (see {@link #getAllocatedBytes}); {@link
+   * #allocate} fails once the count goes past it. {@code Long.MAX_VALUE}, the default, means no
+   * limit.
+   *
+   * @param bytes the positive budget
+   */
+  public void setMaxAllocatedBytes(long bytes) {
+    Preconditions.checkArgument(bytes > 0, "the allocation budget must be positive");
+    this.maxAllocatedBytes = bytes;
+    // A larger budget lets the thread go on (a test runner gives each test one of its own).
+    this.stepLimit = allocatedBytes > maxAllocatedBytes ? 0 : maxSteps;
+  }
+
+  /**
+   * MicroProxy: the most bytes this thread may create, or {@code Long.MAX_VALUE} for no limit.
+   *
+   * @return the allocation budget
+   */
+  public long getMaxAllocatedBytes() {
+    return maxAllocatedBytes;
+  }
+
+  /**
+   * MicroProxy: counts {@code bytes} as created by this thread, and fails if that takes the count
+   * past the budget ({@link #setMaxAllocatedBytes}). Callers count a value before they make it when
+   * its size is known (so that {@code "x" * 10**9} fails without allocating), and after otherwise.
+   * Once past the budget every later call fails too, so a script that catches the error cannot go
+   * on allocating.
+   *
+   * @param bytes the approximate size of the values about to be (or just) created
+   * @throws EvalException if the count goes past the budget
+   */
+  public void allocate(long bytes) throws EvalException {
+    if ((allocatedBytes += bytes) > maxAllocatedBytes) {
+      throw memoryBudgetExceeded();
+    }
+  }
+
+  /**
+   * MicroProxy: fails, counting {@code bytes}, if counting them would take this thread past its
+   * budget; otherwise counts nothing. For code that checks the size of a value before making it
+   * and has the value counted where it is made (a {@link StarlarkBytes}, say).
+   *
+   * @param bytes the approximate size of the value about to be made
+   * @throws EvalException if the value would take the count past the budget
+   */
+  public void checkAllocation(long bytes) throws EvalException {
+    if (allocatedBytes + bytes > maxAllocatedBytes) {
+      allocate(bytes);
+    }
+  }
+
+  /**
+   * MicroProxy: {@link #allocate} for code that cannot throw an {@link EvalException}: past the
+   * budget, the thread's next step fails instead.
+   *
+   * @param bytes the approximate size of the values just created
+   */
+  public void allocateLater(long bytes) {
+    if ((allocatedBytes += bytes) > maxAllocatedBytes) {
+      stepLimit = 0;
+    }
+  }
+
+  /**
+   * MicroProxy: {@link #allocate} on the thread running Starlark code on the calling Java thread
+   * ({@link #current()}), for code that is not handed its thread; nothing outside any call.
+   *
+   * @param bytes the approximate size of the values about to be (or just) created
+   * @throws EvalException if the count goes past that thread's budget
+   */
+  public static void allocateCurrent(long bytes) throws EvalException {
+    StarlarkThread thread = CURRENT.get();
+    if (thread != null) {
+      thread.allocate(bytes);
+    }
+  }
+
+  /**
+   * MicroProxy: {@link #checkAllocation} on the thread running Starlark code on the calling Java
+   * thread, if any.
+   *
+   * @param bytes the approximate size of the value about to be made
+   * @throws EvalException if the value would take that thread past its budget
+   */
+  public static void checkAllocationCurrent(long bytes) throws EvalException {
+    StarlarkThread thread = CURRENT.get();
+    if (thread != null) {
+      thread.checkAllocation(bytes);
+    }
+  }
+
+  /**
+   * MicroProxy: {@link #allocateLater} on the thread running Starlark code on the calling Java
+   * thread, if any.
+   *
+   * @param bytes the approximate size of the values just created
+   */
+  public static void allocateCurrentLater(long bytes) {
+    StarlarkThread thread = CURRENT.get();
+    if (thread != null) {
+      thread.allocateLater(bytes);
+    }
+  }
+
+  private EvalException memoryBudgetExceeded() {
+    stepLimit = 0; // every later step fails too
+    exceeded = Budget.MEMORY;
+    return new EvalException(
+        String.format(
+            "memory budget exceeded: the call created about %d bytes of values (budget %d)",
+            allocatedBytes, maxAllocatedBytes));
+  }
+
+  /**
+   * MicroProxy: the budget this thread ran out of, or null: the step limit, the allocation budget,
+   * or the deadline (also when a builtin that watches it, such as a regular expression, gave up at
+   * the deadline rather than the interpreter).
+   *
+   * @return the exceeded budget, or null
+   */
+  @Nullable
+  public Budget exceededBudget() {
+    if (exceeded != null) {
+      return exceeded;
+    }
+    return isExpired() ? Budget.TIME : null;
   }
 
   /**
@@ -121,41 +298,83 @@ public final class StarlarkThread {
    * @return expiration date in ms since 1970
    */
   public long getExpirationMs() {
-    return expirationMs;
+    if (!hasDeadline) {
+      return Long.MAX_VALUE;
+    }
+    return System.currentTimeMillis() + (deadlineNanos - System.nanoTime()) / 1_000_000;
   }
+
+  // The most milliseconds a deadline can be away, so that its nanoseconds do not overflow.
+  private static final long MAX_DEADLINE_MILLIS = Long.MAX_VALUE / 4 / 1_000_000;
 
   /**
    * Sets the expiration date.
    * Will halt execution on the next evaluation after the given date.
    * If not called, evals will not expire.
    *
-   * @param expirationMs expiration date in ms since 1970
+   * <p>MicroProxy: the date becomes a {@linkplain #setDeadlineNanos deadline} of {@link
+   * System#nanoTime}.
+   *
+   * @param expirationMs expiration date in ms since 1970, or {@code Long.MAX_VALUE} for none
    */
   public void setExpirationMs(long expirationMs) {
-    this.expirationMs = expirationMs;
+    if (expirationMs == Long.MAX_VALUE) {
+      clearDeadline();
+      return;
+    }
+    long remaining =
+        Math.max(
+            -MAX_DEADLINE_MILLIS,
+            Math.min(MAX_DEADLINE_MILLIS, expirationMs - System.currentTimeMillis()));
+    setDeadlineNanos(System.nanoTime() + remaining * 1_000_000);
+  }
+
+  /**
+   * MicroProxy: sets the deadline, a {@link System#nanoTime} value after which evaluation stops:
+   * the interpreter checks it every few steps, and builtins that may run long (regular
+   * expressions, key derivation) check it as they go.
+   *
+   * @param deadlineNanos the deadline, as {@code System.nanoTime() + budget}
+   */
+  public void setDeadlineNanos(long deadlineNanos) {
+    this.hasDeadline = true;
+    this.deadlineNanos = deadlineNanos;
     this.checksUntilClockRead = 0;
     this.expired = false; // a new date re-arms the check
   }
 
+  /** MicroProxy: removes the deadline. */
+  public void clearDeadline() {
+    this.hasDeadline = false;
+    this.expired = false;
+  }
+
   /**
+   * MicroProxy: whether the thread has a deadline.
    *
-   * @return current Clock object
+   * @return whether a deadline is set
    */
-  public Clock getClock() {
-    return clock;
+  public boolean hasDeadline() {
+    return hasDeadline;
   }
 
   /**
-   * Sets a specific clock object for testing purposes
-   * @param clock Clock for testing
+   * MicroProxy: the deadline, a {@link System#nanoTime} value; meaningful only when {@link
+   * #hasDeadline}.
+   *
+   * @return the deadline
    */
-  @VisibleForTesting
-  public void setClock(@Nonnull Clock clock) {
-    this.clock = clock;
+  public long getDeadlineNanos() {
+    return deadlineNanos;
   }
 
+  /**
+   * Whether the deadline has passed (never, without one).
+   *
+   * @return whether evaluation has run past the deadline
+   */
   public boolean isExpired(){
-    return clock.millis() > expirationMs;
+    return hasDeadline && System.nanoTime() - deadlineNanos > 0;
   }
 
   // checkExpired reads the clock on the first check after an expiration date is set and on every
@@ -173,12 +392,13 @@ public final class StarlarkThread {
     if (expired) {
       throw new EvalException("Starlark computation cancelled: past expiration date");
     }
-    if (expirationMs == Long.MAX_VALUE || --checksUntilClockRead > 0) {
+    if (!hasDeadline || --checksUntilClockRead > 0) {
       return;
     }
     checksUntilClockRead = EXPIRY_CHECK_INTERVAL;
     if (isExpired()) {
       expired = true;
+      exceeded = Budget.TIME;
       throw new EvalException("Starlark computation cancelled: past expiration date");
     }
   }

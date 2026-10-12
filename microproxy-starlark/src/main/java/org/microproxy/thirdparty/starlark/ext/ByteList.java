@@ -182,7 +182,8 @@ public class ByteList implements CharSequence, RandomAccess, Iterable<Byte>, Com
    * because the top two bits of 32bit hash fields are used for
    * control purposes.
    */
-  private static final int MAXIMUM_CAPACITY = 1 << 30;
+  /** The most bytes a ByteList holds (MicroProxy: public, for StarlarkBytes.repeat). */
+  public static final int MAXIMUM_CAPACITY = 1 << 30;
 
   /* Fields */
 

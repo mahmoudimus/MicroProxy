@@ -146,6 +146,7 @@ final class ClientFlowContext extends FlowContext {
         upstreamLocalAddress = null;
         upstreamCluster = null;
         upstreamSslSession = null;
+        resetScriptStats();
         trace = FlowTrace.NONE;
         startMillis = System.currentTimeMillis();
         startNanos = now();

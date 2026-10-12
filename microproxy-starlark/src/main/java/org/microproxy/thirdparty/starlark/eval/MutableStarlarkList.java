@@ -40,6 +40,7 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
     this.elems = elems.length == 0 ? StarlarkList.EMPTY_ARRAY : elems;
     this.size = elems.length;
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
+    StarlarkThread.allocateCurrentLater(Allocations.sequence(elems.length)); // MicroProxy
   }
 
   @Override
@@ -110,13 +111,15 @@ final class MutableStarlarkList<E> extends StarlarkList<E> implements Compactabl
   }
 
   // Postcondition: elems.length >= mincap.
-  private void grow(int mincap) {
+  private void grow(int mincap) throws EvalException {
     int oldcap = elems.length;
     if (oldcap < mincap) {
       int newcap = oldcap + (oldcap >> 1); // grow by at least 50%
       if (newcap < mincap) {
         newcap = mincap;
       }
+      // MicroProxy: the new array counts against the allocation budget before it is made.
+      StarlarkThread.allocateCurrent(Allocations.array(newcap));
       elems = Arrays.copyOf(elems, newcap);
     }
   }
