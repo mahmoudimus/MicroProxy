@@ -42,6 +42,11 @@
             <groupId>io.github.mahmoudimus</groupId>
             <artifactId>quic</artifactId>
         </dependency>
+        <!-- Bundled into the -all jar so the launcher can trace and export over OTLP (the otel launcher flags). -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy-otel</artifactId>
+        </dependency>
         <!-- The only runtime dependency of the bundled interpreter. -->
         <dependency>
             <groupId>com.google.guava</groupId>

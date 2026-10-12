@@ -359,6 +359,18 @@ public class FlowContext {
     }
 
     /**
+     * The distributed trace of the exchange in progress on this connection (or the last one), made
+     * by the proxy's {@link FlowTracer}: its trace and span ids, and the span a filter may add
+     * attributes and events to. {@link FlowTrace#NONE} without a tracer, and for contexts made
+     * outside the proxy.
+     *
+     * @return the exchange's trace
+     */
+    public FlowTrace trace() {
+        return root == this ? FlowTrace.NONE : root.trace();
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} (or {@link ActivityTracker#flowEnded}) to see the

@@ -87,6 +87,7 @@ public final class FlowRecord {
     private final EnumSet<ResponseFlag> responseFlags;
     private final ProxyFailure failure;
     private final String responseCodeDetails;
+    private final FlowTrace trace;
     private volatile String uniqueId;
 
     private FlowRecord(Builder b) {
@@ -113,7 +114,8 @@ public final class FlowRecord {
         this.responseFlags.addAll(b.responseFlags);
         this.failure = b.failure;
         this.responseCodeDetails = b.responseCodeDetails;
-        this.uniqueId = b.uniqueId;
+        this.trace = b.trace;
+        this.uniqueId = b.uniqueId != null ? b.uniqueId : b.trace.requestId();
     }
 
     /**
@@ -275,7 +277,19 @@ public final class FlowRecord {
     }
 
     /**
-     * An id unique to this exchange or flow: a random UUID made the first time it is asked for.
+     * The exchange's distributed trace ({@link FlowTracer}), whose ids access logs show as {@code
+     * %TRACE_ID%} and {@code %SPAN_ID%}; {@link FlowTrace#NONE} when nothing traced it.
+     *
+     * @return the trace
+     */
+    public FlowTrace trace() {
+        return trace;
+    }
+
+    /**
+     * An id unique to this exchange or flow: its trace's {@linkplain FlowTrace#requestId() request
+     * id} ({@code X-Request-Id}) when it has one, else a random UUID made the first time it is
+     * asked for.
      *
      * @return the unique id
      */
@@ -319,6 +333,7 @@ public final class FlowRecord {
         private Set<ResponseFlag> responseFlags = Set.of();
         private ProxyFailure failure;
         private String responseCodeDetails;
+        private FlowTrace trace = FlowTrace.NONE;
         private String uniqueId;
 
         private Builder(FlowContext context, Kind kind) {
@@ -463,6 +478,17 @@ public final class FlowRecord {
             this.responseFlags = Objects.requireNonNull(flags);
             this.failure = failure;
             this.responseCodeDetails = details;
+            return this;
+        }
+
+        /**
+         * Sets the exchange's distributed trace.
+         *
+         * @param trace the trace, {@link FlowTrace#NONE} for none
+         * @return this builder
+         */
+        public Builder trace(FlowTrace trace) {
+            this.trace = Objects.requireNonNull(trace);
             return this;
         }
 

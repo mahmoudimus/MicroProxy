@@ -17,6 +17,7 @@ import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
 import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
+import org.microproxy.FlowTracer;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
 import org.microproxy.Http3Options;
@@ -68,6 +69,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     HttpCache httpCache;
     /** Where the proxy keeps its metrics; {@link StatsRegistry#NOOP} when they are off. */
     StatsRegistry stats = StatsRegistry.NOOP;
+    /** Traces exchanges and flows; {@link FlowTracer#NOOP} when tracing is off. */
+    FlowTracer tracer = FlowTracer.NOOP;
     FailureResponder failureResponder;
     boolean transparent;
     /** The port transparent TLS connections are routed to, on the host their SNI names. */
@@ -171,6 +174,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.filtersSource = filtersSource;
         c.httpCache = httpCache;
         c.stats = stats;
+        c.tracer = tracer;
         c.failureResponder = failureResponder;
         c.transparent = transparent;
         c.transparentTlsPort = transparentTlsPort;
@@ -647,6 +651,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public StatsRegistry getStats() {
         return stats;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTracer(FlowTracer tracer) {
+        this.tracer = Objects.requireNonNull(tracer, "tracer");
+        return this;
+    }
+
+    @Override
+    public FlowTracer getTracer() {
+        return tracer;
     }
 
     @Override

@@ -158,6 +158,24 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Traces the proxy's exchanges and flows with {@code tracer} (see {@link FlowTracer}): the
+     * {@code microproxy-otel} module's OpenTelemetry tracing and OTLP export, or another. {@link
+     * FlowTracer#NOOP} (the default) traces nothing, and costs nothing. The proxy closes the tracer
+     * when it stops.
+     *
+     * @param tracer the tracer
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withTracer(FlowTracer tracer) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support tracing");
+    }
+
+    /** {@return the tracer configured so far: {@link FlowTracer#NOOP} without one} */
+    default FlowTracer getTracer() {
+        return FlowTracer.NOOP;
+    }
+
+    /**
      * Makes the proxy's own answers when requests fail (see {@link ProxyFailure}): unreachable or
      * misbehaving servers, timeouts, an exhausted connection pool, refused requests. Filters'
      * {@link HttpFilters#proxyToServerFailure} answers take precedence; {@code null} (the

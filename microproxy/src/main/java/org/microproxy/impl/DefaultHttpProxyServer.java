@@ -30,6 +30,7 @@ import java.util.function.Function;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
+import org.microproxy.FlowTracer;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
 import org.microproxy.Http3Options;
@@ -108,6 +109,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private final ReentrantLock mitmManagerIdsLock = new ReentrantLock();
     private long nextMitmManagerId;
     final Trackers trackers = new Trackers();
+    /** Traces exchanges and flows; {@link FlowTracer#NOOP} when tracing is off. */
+    final FlowTracer tracer;
     /** The proxy's own metrics, resolved once; no-ops without metrics. */
     final ProxyStats stats;
     final RateLimiter readLimiter;
@@ -124,6 +127,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final String[] tlsProtocols;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
+    /** Whether {@link #strippedRequestHeaders} removes {@code traceparent}, so a tracer injects its own context only. */
+    final boolean stripsTracingHeaders;
     /** Whether HTTP/3 alternatives are removed from Alt-Svc response headers, for clients of the explicit proxy. */
     final boolean stripAltSvcH3;
     /** Whether they are removed for clients whose traffic was redirected to the proxy. */
@@ -287,6 +292,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.littleProxyCompatibility = b.littleProxyCompatibility;
         this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
+        this.stripsTracingHeaders = b.strippedRequestHeaders.containsKey("traceparent");
+        this.tracer = b.tracer;
         this.stripAltSvcH3 = b.stripsAltSvcH3();
         this.stripAltSvcH3Transparent = b.stripsAltSvcH3ForTransparent();
         this.transparentQuicPort = b.transparentQuicPort;
@@ -466,6 +473,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         acceptor = Thread.ofPlatform().name(name + "-acceptor").daemon(false).start(this::acceptLoop);
         state.compareAndSet(ServerState.INITIALIZING, ServerState.LIVE);
         LOG.log(Level.INFO, "{0} listening on {1}", name, boundAddress);
+        if (tracer != FlowTracer.NOOP) {
+            // Closed last of the resources, once the exchanges have ended and been traced.
+            closeOnStop.addLast(tracer);
+            tracer.proxyStarted(this);
+        }
         return this;
     }
 

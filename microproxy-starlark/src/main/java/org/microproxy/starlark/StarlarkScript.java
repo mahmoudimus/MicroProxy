@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.microproxy.FlowContext;
+import org.microproxy.FlowTrace;
 import org.microproxy.ScriptCallObserver;
 import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.stats.Counter;
@@ -530,6 +531,9 @@ public final class StarlarkScript {
             if (timeoutNanos > 0) thread.setDeadlineNanos(System.nanoTime() + timeoutNanos);
             return Starlark.call(thread, hook.function(), List.of(args), Map.of());
         }
+        FlowTrace trace = flow == null ? FlowTrace.NONE : flow.trace();
+        // The trace module adds to the span of the exchange (or flow) the hook runs for.
+        if (trace != FlowTrace.NONE) thread.setThreadLocal(FlowTrace.class, trace);
         long start = System.nanoTime();
         if (timeoutNanos > 0) thread.setDeadlineNanos(start + timeoutNanos);
         Object token = observer == null ? null : observer.onCallStart(function, statsName, flow);

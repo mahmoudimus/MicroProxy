@@ -47,6 +47,8 @@
         <module>quic</module>
         <!-- The proxy itself: no required runtime dependencies. -->
         <module>microproxy</module>
+        <!-- Optional: OpenTelemetry tracing and OTLP export, with no dependencies. -->
+        <module>microproxy-otel</module>
         <!-- Optional: script the proxy in Starlark. -->
         <module>microproxy-starlark</module>
     </modules>
@@ -67,6 +69,11 @@
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>microproxy</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.mahmoudimus</groupId>
+                <artifactId>microproxy-otel</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
