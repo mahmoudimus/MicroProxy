@@ -1,5 +1,7 @@
 package org.microproxy;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.EnumSet;
@@ -29,6 +31,21 @@ public class FlowContext {
     private final HttpVersion streamVersion;
     /** The context of the client connection: this one, or the connection's for a stream's context. */
     private final FlowContext connection;
+    /**
+     * The totals of the calls into scripts for the exchange in progress, kept on the root context;
+     * null until the first call, and again when a new exchange starts.
+     */
+    private volatile ScriptUsage scriptUsage;
+
+    private static final VarHandle SCRIPT_USAGE;
+
+    static {
+        try {
+            SCRIPT_USAGE = MethodHandles.lookup().findVarHandle(FlowContext.class, "scriptUsage", ScriptUsage.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     /**
      * Creates a context for the supplied client address and TLS session.
@@ -364,6 +381,43 @@ public class FlowContext {
      */
     public ClientHello getClientHello() {
         return root == this ? null : root.getClientHello();
+    }
+
+    /**
+     * What the calls into scripts for the exchange in progress on this connection (or the last
+     * one) added up to: how many, how long they took, the interpreter steps they ran and about how
+     * many bytes of values they created. Live totals, which grow while calls go on; {@link
+     * ScriptUsage#NONE} when no script was called for the exchange.
+     *
+     * @return the exchange's script totals
+     */
+    public ScriptUsage scriptStats() {
+        ScriptUsage usage = root.scriptUsage;
+        return usage == null ? ScriptUsage.NONE : usage;
+    }
+
+    /**
+     * Adds a call into a script to the exchange's {@linkplain #scriptStats() totals}; scripting
+     * modules call it at the end of every hook call they make for the exchange.
+     *
+     * @param nanos how long the call took
+     * @param steps the interpreter steps it ran
+     * @param allocBytes about how many bytes of values it created
+     */
+    public void recordScriptCall(long nanos, long steps, long allocBytes) {
+        FlowContext r = root;
+        ScriptUsage usage = r.scriptUsage;
+        if (usage == null) {
+            ScriptUsage made = new ScriptUsage();
+            usage = (ScriptUsage) SCRIPT_USAGE.compareAndExchange(r, null, made);
+            if (usage == null) usage = made;
+        }
+        usage.add(nanos, steps, allocBytes);
+    }
+
+    /** Forgets the script totals of the previous exchange: for the proxy, when a new one starts. */
+    protected void resetScriptStats() {
+        root.scriptUsage = null;
     }
 
     /** {@return the client address and authentication details} */
