@@ -60,6 +60,37 @@ class UpstreamProxyManagerTest {
         assertEquals(1080, UpstreamProxyManager.proxy("socks5://s").getChainedProxyAddress().getPort());
         assertEquals(80, UpstreamProxyManager.proxy("plainhost").getChainedProxyAddress().getPort());
         assertThrows(IllegalArgumentException.class, () -> UpstreamProxyManager.proxy("ftp://x"));
+        assertFalse(p.http2());
+        assertFalse(tls.http2());
+    }
+
+    @Test
+    void http2ProxyUrls() {
+        ChainedProxy h2 = UpstreamProxyManager.proxy("h2://user:pw@proxy.corp");
+        assertEquals(ChainedProxyType.HTTP, h2.getChainedProxyType());
+        assertTrue(h2.http2());
+        assertTrue(h2.requiresEncryption());
+        assertEquals(443, h2.getChainedProxyAddress().getPort());
+        assertEquals("user", h2.getUsername());
+        assertEquals("pw", h2.getPassword());
+        // One TLS context for every URL proxy: their HTTP/2 connections are shared by it.
+        assertSame(h2.getSslContext(), UpstreamProxyManager.proxy("h2://other.proxy:8443").getSslContext());
+        assertSame(h2.getSslContext(), UpstreamProxyManager.proxy("https://other.proxy").getSslContext());
+
+        ChainedProxy h2c = UpstreamProxyManager.proxy("h2c://proxy.corp:3128");
+        assertTrue(h2c.http2());
+        assertFalse(h2c.requiresEncryption());
+        assertNull(h2c.getSslContext());
+        assertEquals(3128, h2c.getChainedProxyAddress().getPort());
+        assertEquals(80, UpstreamProxyManager.proxy("H2C://proxy.corp").getChainedProxyAddress().getPort());
+        assertEquals("h2c://proxy.corp:3128", h2c.toString());
+
+        assertTrue(new UpstreamProxyManager("h2c://p:1", null, null).usesHttp2());
+        assertTrue(new UpstreamProxyManager("http://p:1", "h2://p:2", null).usesHttp2());
+        assertFalse(new UpstreamProxyManager("http://p:1", "https://p:2", null).usesHttp2());
+        // The same URL for both kinds of request is one proxy.
+        UpstreamProxyManager same = new UpstreamProxyManager("h2://p:1", "h2://p:1", null);
+        assertSame(route(same, HttpMethod.GET, "http://x/").get(0), route(same, HttpMethod.CONNECT, "x:443").get(0));
     }
 
     private static List<ChainedProxy> route(ChainedProxyManager m, HttpMethod method, String uri) {
