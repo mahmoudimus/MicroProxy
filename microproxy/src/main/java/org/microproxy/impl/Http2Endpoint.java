@@ -125,6 +125,13 @@ abstract class Http2Endpoint {
     /** Called under {@link #writeLock} after each write for stream {@code s} (null: the connection). */
     void written(Stream s) {}
 
+    /**
+     * Stream {@code s} is about to write END_STREAM: called before the frame that carries it is
+     * written (and whether or not the write then succeeds), with no lock held, so the stream's
+     * state can change under {@link #stateLock} before the peer can see the frame.
+     */
+    void endingStream(Stream s) {}
+
     // ---------------------------------------------------------------------------------------
     // What the frame interceptor is told (only called when there is one)
     // ---------------------------------------------------------------------------------------
@@ -248,10 +255,13 @@ abstract class Http2Endpoint {
     /** Writes a header block for stream {@code s}. */
     final void writeHeaders(Stream s, List<HeaderField> fields, boolean endStream) throws IOException {
         if (frames == null) {
+            if (endStream) endingStream(s);
             write(s, () -> writer.writeHeaders(s.id, encoder.encode(fields), endStream), true);
             return;
         }
+        // The interceptor's frames end the stream where the original did (Http2Frames.withEndStream).
         List<Http2Frame> out = sent(s, new Http2Frame.Headers(s.id, Http2Frames.fields(fields), endStream));
+        if (endStream) endingStream(s);
         write(s, () -> writeFrames(out), true);
     }
 
@@ -274,6 +284,7 @@ abstract class Http2Endpoint {
                     // An empty DATA frame that does not end the stream says nothing: not sent.
                     if (d.data().length > 0 || d.endStream()) writeDataFrames(s, d.data(), 0, d.data().length, d.endStream(), flush);
                 } else {
+                    if (f instanceof Http2Frame.Headers h && h.endStream()) endingStream(s);
                     write(s, () -> writeFrames(List.of(f)), flush || f instanceof Http2Frame.Headers);
                 }
             }
@@ -288,6 +299,7 @@ abstract class Http2Endpoint {
             int n = reserveSendWindow(s, len);
             boolean end = endStream && n == len;
             int at = off;
+            if (end) endingStream(s);
             write(s, () -> writer.writeData(s.id, data, at, n, end), flush || end || n < len);
             off += n;
             len -= n;

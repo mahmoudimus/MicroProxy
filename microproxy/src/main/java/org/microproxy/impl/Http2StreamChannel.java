@@ -82,6 +82,11 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     /** END_STREAM received: the request is complete. */
     boolean remoteClosed;
     HttpHeaders trailers;
+    /**
+     * END_STREAM is about to be written, or was: set before the client can read it, so once the
+     * request is complete too ({@link #remoteClosed}) the stream is closed (RFC 9113 section 5.1).
+     */
+    boolean localClosed;
     /** END_STREAM has been sent: the response is complete. */
     volatile boolean responseEnded;
     /**
