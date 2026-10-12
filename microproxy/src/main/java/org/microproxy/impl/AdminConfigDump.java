@@ -103,8 +103,9 @@ final class AdminConfigDump {
         boot.put("stripped_request_headers", List.copyOf(b.strippedRequestHeaders.values()));
         boot.put("strip_alt_svc_h3", b.stripsAltSvcH3());
         Map<String, Object> h2 = new LinkedHashMap<>();
-        h2.put("downstream", b.http2);
-        h2.put("upstream", b.http2Upstream);
+        // In effect: on by default with the codec, off without it.
+        h2.put("downstream", b.offersHttp2());
+        h2.put("upstream", b.offersHttp2Upstream());
         h2.put("cleartext", b.http2Cleartext);
         h2.put("options", b.http2Options.toString());
         boot.put("http2", h2);

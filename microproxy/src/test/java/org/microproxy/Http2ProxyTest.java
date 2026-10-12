@@ -561,6 +561,7 @@ class Http2ProxyTest {
     void withoutHttp2ClientsGetHttp11() {
         proxy = MicroProxy.bootstrap().withPort(0)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                .withHttp2(false)
                 .start();
         HttpResponse<String> response = TestSupport.send(client(), get(url("/plain")));
         assertEquals(200, response.statusCode());

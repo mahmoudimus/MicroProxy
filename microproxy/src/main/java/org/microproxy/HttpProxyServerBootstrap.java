@@ -544,11 +544,13 @@ public interface HttpProxyServerBootstrap {
      * {@code h2} has each of its streams handled as an exchange of its own, concurrently, with the
      * same filters, cache, authentication, failure answers and trackers as HTTP/1 requests.
      * Requests reach servers as HTTP/1.1, each stream on a server connection of its own, unless
-     * {@link #withHttp2Upstream} lets them share an HTTP/2 connection. Off by default; limits are
-     * set with {@link #withHttp2Options}.
+     * {@link #withHttp2Upstream} lets them share an HTTP/2 connection (as it does by default).
+     * Limits are set with {@link #withHttp2Options}.
      *
-     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
-     * HTTP/2 enabled without it fails with {@link IllegalStateException}.
+     * <p>On by default when the optional {@code http2-codec} module is on the class path; {@code
+     * false} offers clients HTTP/1.1 only. Without the module, a server left at the default speaks
+     * HTTP/1.1 to clients (and logs so once), while starting one with {@code true} fails with
+     * {@link IllegalStateException}.
      *
      * @param enabled whether the feature is enabled
      * @return this bootstrap
@@ -564,10 +566,12 @@ public interface HttpProxyServerBootstrap {
      * included) offer {@code h2} and {@code http/1.1} through ALPN, and a server that picks {@code h2}
      * gets every exchange for it as a stream on one connection, shared by concurrent exchanges up
      * to the server's stream limit; others keep HTTP/1.1. Independent of {@link #withHttp2}, which
-     * is about clients. Off by default.
+     * is about clients.
      *
-     * <p>Needs the optional {@code http2-codec} module on the class path: starting a server with
-     * it enabled without the module fails with {@link IllegalStateException}.
+     * <p>On by default when the optional {@code http2-codec} module is on the class path; {@code
+     * false} offers servers HTTP/1.1 only. Without the module, a server left at the default speaks
+     * HTTP/1.1 to servers (and logs so once), while starting one with {@code true} fails with
+     * {@link IllegalStateException}.
      *
      * @param enabled whether the feature is enabled
      * @return this bootstrap

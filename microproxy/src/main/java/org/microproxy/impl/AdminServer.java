@@ -448,7 +448,9 @@ final class AdminServer {
     private Map<String, Object> features() {
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("http1", true);
-        f.put("h2", server.http2);
+        // Served inside intercepted TLS and on the TLS listener: on by default, it is in use only
+        // on a proxy that has either.
+        f.put("h2", server.http2 && (server.mitmManager != null || server.sslContextSource != null));
         f.put("h2_upstream", server.http2Upstream);
         f.put("h2c", server.http2Cleartext);
         f.put("h3", server.http3);

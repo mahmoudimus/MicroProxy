@@ -25,8 +25,9 @@ import org.microproxy.tls.CertificateAuthority;
  * The proxy without the optional {@code http2-codec} and {@code http3-codec} modules, for real: its
  * classes are loaded by a class loader that sees them and nothing of the codecs, and plain and
  * intercepted requests still work, which they would not if any class on their path (and the
- * verifier's) needed a codec. Enabling any kind of HTTP/2 there fails at startup, and so does
- * building an HTTP/3 frame pipeline.
+ * verifier's) needed a codec. HTTP/2 to clients and servers, on by default, falls back to
+ * HTTP/1.1 there; enabling any kind of HTTP/2 explicitly fails at startup, and so does building an
+ * HTTP/3 frame pipeline.
  */
 class Http2CodecAbsentTest {
 
@@ -140,6 +141,29 @@ class Http2CodecAbsentTest {
                     .proxy(java.net.ProxySelector.of(address)).sslContext(trust).build();
             assertEquals("plain", TestSupport.get(client, TestSupport.url(origin, "/")).body());
             assertEquals("tls", TestSupport.get(client, TestSupport.localhostUrl(httpsOrigin, "/")).body());
+        } finally {
+            serverType.getMethod("abort").invoke(server);
+        }
+    }
+
+    /**
+     * HTTP/2 is on by default, but not without the codec: a client offering {@code h2} on an
+     * intercepted session gets HTTP/1.1, with no flag to say so.
+     */
+    @Test
+    void theDefaultsFallBackToHttp1() throws Exception {
+        Object proxyCa = load("org.microproxy.tls.CertificateAuthority").getMethod("generate", String.class)
+                .invoke(null, "Codec-Absent Defaults CA");
+        Object server = start(bootstrap(proxyCa));
+        Class<?> serverType = load("org.microproxy.HttpProxyServer");
+        try {
+            InetSocketAddress address = (InetSocketAddress) serverType.getMethod("getListenAddress").invoke(server);
+            SSLContext trust = (SSLContext) proxyCa.getClass().getMethod("clientContext").invoke(proxyCa);
+            HttpClient h2 = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
+                    .proxy(java.net.ProxySelector.of(address)).sslContext(trust).build();
+            HttpResponse<String> intercepted = TestSupport.get(h2, TestSupport.localhostUrl(httpsOrigin, "/"));
+            assertEquals("tls", intercepted.body());
+            assertEquals(HttpClient.Version.HTTP_1_1, intercepted.version());
         } finally {
             serverType.getMethod("abort").invoke(server);
         }

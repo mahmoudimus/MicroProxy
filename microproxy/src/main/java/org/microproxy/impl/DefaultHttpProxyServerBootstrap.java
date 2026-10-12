@@ -125,10 +125,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
     /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
     Boolean altSvcH3Stripping;
-    /** Whether intercepted TLS offers HTTP/2. */
-    boolean http2;
-    /** Whether TLS connections to servers offer HTTP/2. */
-    boolean http2Upstream;
+    /**
+     * Whether intercepted TLS and the TLS listener offer HTTP/2; null for the default (on when the
+     * http2-codec module is present, see {@link DefaultHttpProxyServer}).
+     */
+    Boolean http2;
+    /** Whether TLS connections to servers offer HTTP/2; null for the default, as for {@link #http2}. */
+    Boolean http2Upstream;
     /** Whether the plain listener serves HTTP/2 with prior knowledge. */
     boolean http2Cleartext;
     Http2Options http2Options = Http2Options.DEFAULT;
@@ -896,6 +899,22 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withHttp2Upstream(boolean enabled) {
         this.http2Upstream = enabled;
         return this;
+    }
+
+    /**
+     * Whether intercepted TLS and the TLS listener offer clients HTTP/2: as configured, else
+     * whenever the http2-codec module is present.
+     */
+    boolean offersHttp2() {
+        return http2 != null ? http2 : Http2Support.available();
+    }
+
+    /**
+     * Whether TLS connections to servers offer HTTP/2: as configured, else whenever the
+     * http2-codec module is present.
+     */
+    boolean offersHttp2Upstream() {
+        return http2Upstream != null ? http2Upstream : Http2Support.available();
     }
 
     @Override

@@ -23,15 +23,16 @@ import java.util.regex.Pattern;
  *   <li>{@code https://host[:port]} (the default scheme): TLS to the upstream, validated with the
  *       {@link MitmManager}'s server context when one is configured ({@link
  *       MitmManager#serverSslContext(String, int, FlowContext)}), else the JVM's default trust.
- *       HTTP/2 to the upstream with {@link HttpProxyServerBootstrap#withHttp2Upstream}.
+ *       HTTP/2 to the upstream when it offers it ({@link
+ *       HttpProxyServerBootstrap#withHttp2Upstream}, on by default).
  *   <li>{@code http://host[:port]}: plain HTTP to the upstream.
  *   <li>{@code tcp://host:port}: each client connection is relayed to the upstream as raw bytes,
  *       without parsing.
  * </ul>
  *
  * <p>The listener may itself speak TLS ({@link HttpProxyServerBootstrap#withSslContextSource}),
- * which terminates TLS for the upstream, with HTTP/2 to clients when {@link
- * HttpProxyServerBootstrap#withHttp2} is on.
+ * which terminates TLS for the upstream, with HTTP/2 to clients that offer it unless {@link
+ * HttpProxyServerBootstrap#withHttp2} is turned off.
  *
  * @param scheme {@code http}, {@code https} or {@code tcp}
  * @param host the upstream host name or IP address (IPv6 without brackets)

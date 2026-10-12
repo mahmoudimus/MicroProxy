@@ -364,6 +364,52 @@ class AdminTest {
         assertTrue(get("/listeners").body().endsWith("::not_accepting\n"));
     }
 
+    /** The HTTP/2 section of the bootstrap's config dump, without its options. */
+    private Map<?, ?> http2ConfigDump() throws Exception {
+        List<?> configs = (List<?>) ((Map<?, ?>) Json.parse(get("/config_dump").body())).get("configs");
+        Map<Object, Object> http2 = new HashMap<>(
+                (Map<?, ?>) ((Map<?, ?>) ((Map<?, ?>) configs.get(0)).get("bootstrap")).get("http2"));
+        assertNotNull(http2.remove("options"));
+        return http2;
+    }
+
+    private Map<?, ?> features() throws Exception {
+        return (Map<?, ?>) ((Map<?, ?>) Json.parse(get("/server_info").body())).get("features");
+    }
+
+    /**
+     * HTTP/2 to clients and servers is on by default, which the server info, the listeners and the
+     * config dump show, and turned off they say so.
+     */
+    @Test
+    void http2DefaultsShowInServerInfoListenersAndConfigDump() throws Exception {
+        CertificateAuthority ca = CertificateAuthority.generate("Admin H2 CA");
+        proxy = withAdmin().withSslContextSource(() -> ca.serverContext("localhost")).start();
+        String listeners = get("/listeners").body();
+        assertTrue(listeners.endsWith("::tcp::tls,http/1.1,h2\n"), listeners);
+        assertEquals(true, features().get("h2"));
+        assertEquals(true, features().get("h2_upstream"));
+        assertEquals(false, features().get("h2c"));
+        assertEquals(Map.of("downstream", true, "upstream", true, "cleartext", false),
+                http2ConfigDump());
+        proxy.abort();
+
+        proxy = withAdmin().withSslContextSource(() -> ca.serverContext("localhost")).withHttp2(false)
+                .withHttp2Upstream(false).start();
+        listeners = get("/listeners").body();
+        assertTrue(listeners.endsWith("::tcp::tls,http/1.1\n"), listeners);
+        assertEquals(false, features().get("h2"));
+        assertEquals(false, features().get("h2_upstream"));
+        assertEquals(Map.of("downstream", false, "upstream", false, "cleartext", false),
+                http2ConfigDump());
+        proxy.abort();
+
+        // A plain forward proxy has nothing to serve h2 on (no TLS listener, no interception).
+        proxy = withAdmin().start();
+        assertEquals(false, features().get("h2"));
+        assertEquals(true, features().get("h2_upstream"));
+    }
+
     @Test
     void clustersShowTheirStatsPoolAndHealth() throws Exception {
         proxy = withAdmin().withSharedServerConnectionPool(true).start();
