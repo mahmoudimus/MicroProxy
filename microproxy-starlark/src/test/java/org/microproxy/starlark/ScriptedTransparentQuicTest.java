@@ -15,6 +15,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.cert.X509Certificate;
 import java.security.spec.ECGenParameterSpec;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -92,7 +93,11 @@ class ScriptedTransparentQuicTest {
         if (origin != null) origin.stop(0);
     }
 
-    /** A QUIC server for {@code skip.test} on UDP {@code port}, offering h3, that only completes handshakes. */
+    /**
+     * A QUIC server for {@code skip.test} on UDP {@code port}, offering h3, that only completes
+     * handshakes, and leaves each connection for its client to close: closed at once, it could end
+     * before the client had sent its HTTP/3 SETTINGS, which then failed.
+     */
     private static QuicServer quicServer(int port) throws Exception {
         KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
         g.initialize(new ECGenParameterSpec("secp256r1"));
@@ -107,7 +112,14 @@ class ScriptedTransparentQuicTest {
             try {
                 while (true) {
                     QuicConnection c = server.accept();
-                    c.close(0, "");
+                    Thread.ofVirtual().start(() -> {
+                        try {
+                            c.awaitClosed(Duration.ofSeconds(10));
+                        } catch (IOException e) {
+                            // interrupted: closed below
+                        }
+                        c.close(0, "");
+                    });
                 }
             } catch (IOException e) {
                 // closed
