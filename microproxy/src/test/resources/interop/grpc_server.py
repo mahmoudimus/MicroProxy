@@ -140,9 +140,32 @@ def wait(request, context):
 
 
 def hold(request, context):
+    """Sends "started", then holds the call open until it ends; "HOLD_ENDED" says how it ended.
+
+    The end line comes from the call's termination callback, added before the first message, not
+    from code after the yield: once a message is sent, grpcio resumes a streaming handler only if
+    the call is still active, so when the client's cancellation arrives before the send of
+    "started" has completed on the server, the handler is never resumed. The handler never ends
+    the call itself (no status before the wait gives up), so "active=False" is the client's
+    cancellation having reached the server; "active=True" is the wait giving up first.
+    """
     emit("HOLD remaining=" + remaining(context))
+    ended = threading.Event()
+    reported = threading.Lock()
+
+    def report(active):
+        if reported.acquire(blocking=False):
+            emit("HOLD_ENDED active=%s" % active)
+
+    def on_end():
+        report(context.is_active())
+        ended.set()
+
+    if not context.add_callback(on_end):
+        on_end()
     yield b"started"
-    emit("HOLD_ENDED active=%s" % await_end(context))
+    if not ended.wait(ENDED_WAIT):
+        report(True)
 
 
 def main():
