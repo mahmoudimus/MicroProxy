@@ -73,6 +73,51 @@ public interface FlowTrace {
     default void addEvent(String name, Map<String, ?> attributes) {}
 
     /**
+     * Starts a span of the proxy's own work for the exchange, such as a script's hook call: an
+     * INTERNAL span, a child of the exchange's span (of the tunnel's or flow's, for the hooks of a
+     * tunnel or a flow), which ends when {@link Span#end} is called. A trace that is not sampled
+     * returns {@link Span#NONE}, so callers that only start spans when {@link #isSampled()} pay
+     * nothing otherwise.
+     *
+     * @param name the span's name, such as {@code starlark on_request}
+     * @return the span, or {@link Span#NONE}
+     */
+    default Span startSpan(String name) {
+        return Span.NONE;
+    }
+
+    /**
+     * A span {@link #startSpan} started, used by one thread at a time. Every method has a no-op
+     * default.
+     */
+    interface Span {
+
+        /** No span: every call does nothing. */
+        Span NONE = new Span() {
+            @Override
+            public String toString() {
+                return "FlowTrace.Span.NONE";
+            }
+        };
+
+        /**
+         * Adds an attribute to the span.
+         *
+         * @param key the attribute's name
+         * @param value a value as for {@link FlowTrace#setAttribute}
+         */
+        default void setAttribute(String key, Object value) {}
+
+        /**
+         * Ends the span, now; later calls do nothing.
+         *
+         * @param error why the work failed, which gives the span an error status with this message,
+         *     or {@code null} when it did not
+         */
+        default void end(String error) {}
+    }
+
+    /**
      * An attempt to reach the server begins: a connection to it or to a chained proxy, or a request
      * on a connection at hand.
      *
