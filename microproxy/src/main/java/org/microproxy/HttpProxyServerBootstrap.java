@@ -132,12 +132,104 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withFailureResponder(FailureResponder responder);
 
     /**
-     * Forward messages without adding {@code Via} or stripping hop-by-hop headers.
+     * Transparent proxying: forward messages without adding {@code Via} or stripping hop-by-hop
+     * headers, and accept TLS connections that arrive without a {@code CONNECT}, such as ones a
+     * firewall redirects to the proxy. Such a connection is routed by its {@code ClientHello}'s
+     * server name (SNI) to that host's port 443 (see {@link #withTransparentTlsPort}), and is
+     * intercepted or tunnelled as a {@code CONNECT} to that host would be. Java cannot read a
+     * redirected connection's original destination address, so a ClientHello without SNI cannot
+     * be routed: the connection is refused with a TLS {@code unrecognized_name} alert. Plain HTTP
+     * is routed by its {@code Host} field when {@link #withAllowRequestToOriginServer} allows
+     * origin-form requests.
      *
-     * @param transparent whether to preserve headers for transparent proxying
+     * @param transparent whether to proxy transparently
      * @return this bootstrap
      */
     HttpProxyServerBootstrap withTransparent(boolean transparent);
+
+    /**
+     * The port that TLS connections arriving without a {@code CONNECT} in {@linkplain
+     * #withTransparent transparent} mode are routed to, on the host their SNI names (default 443).
+     *
+     * @param port the server port, 1 to 65535
+     * @return this bootstrap
+     * @throws IllegalArgumentException if the port is out of range
+     */
+    default HttpProxyServerBootstrap withTransparentTlsPort(int port) {
+        if (port == 443) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support transparent TLS");
+    }
+
+    /**
+     * Hosts whose TLS connections are never intercepted, but tunnelled untouched, so their clients
+     * see the real server's certificate (mitmproxy's {@code ignore_hosts}). Each pattern is a
+     * regular expression searched for, ignoring case, in {@code host:port} names of the
+     * connection: the {@code CONNECT} target and the client's SNI with that port. For example,
+     * {@code example\.com} ignores {@code example.com:443} and {@code www.example.com:443}; {@code
+     * ^example\.com:443$} ignores only that one. A connection whose {@code CONNECT} target matches
+     * is tunnelled without waiting for its ClientHello. Replaces earlier patterns; none by default.
+     * Only matters with a {@link #withManInTheMiddle MITM manager}.
+     *
+     * @param patterns the regular expressions
+     * @return this bootstrap
+     * @throws IllegalArgumentException if a pattern is not a valid regular expression
+     */
+    default HttpProxyServerBootstrap withIgnoreHosts(String... patterns) {
+        if (patterns.length == 0) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support host rules");
+    }
+
+    /**
+     * Hosts whose TLS connections are intercepted; all others are tunnelled untouched (mitmproxy's
+     * {@code allow_hosts}). Patterns are matched as for {@link #withIgnoreHosts}, which still
+     * applies to the allowed hosts. Replaces earlier patterns; none (everything allowed) by
+     * default.
+     *
+     * @param patterns the regular expressions
+     * @return this bootstrap
+     * @throws IllegalArgumentException if a pattern is not a valid regular expression
+     */
+    default HttpProxyServerBootstrap withAllowHosts(String... patterns) {
+        if (patterns.length == 0) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support host rules");
+    }
+
+    /**
+     * Runs as a reverse proxy for one upstream server (see {@link ReverseProxyMode}); {@code null}
+     * (the default) is a forward proxy.
+     *
+     * @param mode the upstream, or {@code null}
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withReverseProxy(ReverseProxyMode mode) {
+        if (mode == null) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support reverse proxying");
+    }
+
+    /**
+     * Runs as a reverse proxy for the upstream {@code spec}, such as {@code https://example.com}
+     * (see {@link ReverseProxyMode#parse}).
+     *
+     * @param spec the upstream, {@code [scheme://]host[:port]}
+     * @return this bootstrap
+     * @throws IllegalArgumentException if the specification is invalid
+     */
+    default HttpProxyServerBootstrap withReverseProxy(String spec) {
+        return withReverseProxy(ReverseProxyMode.parse(spec));
+    }
+
+    /**
+     * In {@linkplain #withReverseProxy reverse proxy} mode, keeps the {@code Host} field the client
+     * sent instead of setting it to the upstream's (mitmproxy's {@code keep_host_header}). Off by
+     * default.
+     *
+     * @param keep whether to keep the client's {@code Host}
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withKeepHostHeader(boolean keep) {
+        if (!keep) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support reverse proxying");
+    }
 
     /**
      * Sets the maximum idle time for client and server connections.

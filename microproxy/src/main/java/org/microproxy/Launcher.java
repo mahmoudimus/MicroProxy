@@ -36,7 +36,15 @@ public final class Launcher {
               --address <host:port>        listen address
               --server                     listen on all interfaces, not just loopback
               --name <name>                server name for logs and threads
-              --transparent                do not add Via / strip hop-by-hop headers
+              --transparent                do not add Via / strip hop-by-hop headers, and route TLS
+                                           that arrives without CONNECT by its SNI
+              --transparent-tls-port <port>  port SNI-routed TLS goes to (default 443)
+              --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
+                                           transparent HTTP)
+              --mode <mode>                regular, transparent or reverse:<scheme>://<host>[:<port>]
+                                           (scheme http, https or tcp; default https)
+              --reverse <spec>             reverse proxy to one upstream: [scheme://]host[:port]
+              --keep-host-header           in reverse mode, keep the client's Host
               --idle-timeout <seconds>     idle connection timeout (default 70, 0 = none)
               --connect-timeout <millis>   outbound connect timeout (default 40000)
               --tls-handshake-timeout <millis>  longest TLS handshake (default 10000, 0 = none)
@@ -82,6 +90,9 @@ public final class Launcher {
                                            default ./microproxy-ca.p12)
               --mitm-ca-password <pw>      key store password (default "microproxy")
               --mitm-trust-all             do not validate upstream server certificates
+              --ignore-hosts <regex>       tunnel TLS to matching host:port names (CONNECT target or
+                                           SNI) untouched; repeatable
+              --allow-hosts <regex>        intercept only TLS to matching host:port names; repeatable
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -158,6 +169,8 @@ public final class Launcher {
         int maxConcurrentPerClient = 0;
         int http2MaxStreams = 0;
         List<AutoCloseable> resources = new ArrayList<>();
+        List<String> ignoreHosts = new ArrayList<>();
+        List<String> allowHosts = new ArrayList<>();
         String caPassword = "microproxy";
         if (queue.contains("--config")) {
             List<String> all = List.copyOf(queue);
@@ -185,6 +198,15 @@ public final class Launcher {
                 case "--server" -> bootstrap.withAllowLocalOnly(false);
                 case "--name" -> bootstrap.withName(value(queue, arg));
                 case "--transparent" -> bootstrap.withTransparent(true);
+                case "--transparent-tls-port" -> bootstrap.withTransparentTlsPort(intValue(queue, arg));
+                case "--allow-requests-to-origin-server" -> bootstrap.withAllowRequestToOriginServer(true);
+                case "--mode" -> {
+                    String mode = value(queue, arg);
+                    bootstrap.withReverseProxy(ReverseProxyMode.parseMode(mode));
+                    if (mode.strip().equals("transparent")) bootstrap.withTransparent(true);
+                }
+                case "--reverse" -> bootstrap.withReverseProxy(ReverseProxyMode.parse(value(queue, arg)));
+                case "--keep-host-header" -> bootstrap.withKeepHostHeader(true);
                 case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(intValue(queue, arg));
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
                 case "--littleproxy-compat" -> bootstrap.withLittleProxyCompatibility(true);
@@ -227,6 +249,8 @@ public final class Launcher {
                 case "--mitm-ca" -> caPath = Path.of(value(queue, arg));
                 case "--mitm-ca-password" -> caPassword = value(queue, arg);
                 case "--mitm-trust-all" -> mitmTrustAll = true;
+                case "--ignore-hosts" -> ignoreHosts.add(value(queue, arg));
+                case "--allow-hosts" -> allowHosts.add(value(queue, arg));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
@@ -238,6 +262,8 @@ public final class Launcher {
                 }
             }
         }
+        if (!ignoreHosts.isEmpty()) bootstrap.withIgnoreHosts(ignoreHosts.toArray(String[]::new));
+        if (!allowHosts.isEmpty()) bootstrap.withAllowHosts(allowHosts.toArray(String[]::new));
         if (upstream != null || upstreamHttps != null) {
             bootstrap.withChainProxyManager(
                     new UpstreamProxyManager(upstream, upstreamHttps, NoProxyRules.parse(noProxy)));

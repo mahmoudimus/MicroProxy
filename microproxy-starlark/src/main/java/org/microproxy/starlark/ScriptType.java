@@ -63,6 +63,12 @@ final class ScriptType extends StarlarkType {
             "ttfb_ms", MILLIS,
             "total_ms", MILLIS), false);
 
+    static final ScriptType CLIENT_HELLO = new ScriptType("ClientHello", ScriptClientHello.class, ImmutableMap.of(
+            "sni", Types.union(Types.STR, Types.NONE),
+            "alpn", Types.list(Types.STR),
+            "versions", Types.list(Types.STR),
+            "cipher_suites", Types.list(Types.INT)), false);
+
     static final ScriptType CONTEXT = new ScriptType("Context", ScriptContext.class, ImmutableMap.of(
             "client_ip", Types.STR,
             "client_port", Types.INT,
@@ -71,6 +77,7 @@ final class ScriptType extends StarlarkType {
             "tls", Types.BOOL,
             "vars", Types.dict(Types.ANY, Types.ANY),
             "timings", TIMINGS,
+            "client_hello", Types.union(CLIENT_HELLO, Types.NONE),
             "forwarded_via", Types.union(Types.STR, Types.NONE)), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
@@ -97,6 +104,7 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
+    static final TypeConstructor CLIENT_HELLO_CONSTRUCTOR = Types.wrapType("ClientHello", CLIENT_HELLO);
 
     private final String name;
     private final Class<?> javaClass;

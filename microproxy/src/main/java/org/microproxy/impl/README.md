@@ -84,6 +84,57 @@ are. `Http2UpstreamStream` overrides them for one stream of an HTTP/2 connection
   threads at once. HTTP/1 clients stay half-duplex: their next request is read from the same
   buffer after this one's body.
 
+## CONNECT: the client's first bytes decide
+
+`handleConnect` decides at the `CONNECT` only what it can without the client: whether
+interception is possible at all (a MITM manager, `proxyToServerAllowMitm()`, an ignore rule that
+finds the target). When it is, the exchange sets `deferServerTls`, so `connectVia` makes the
+connection (TCP, chained proxies, the PROXY header) but leaves its TLS for later: the
+`ServerConnection` is `tlsPending`. Pooled TLS connections and a shared HTTP/2 connection
+(`Http2Origins.session`) are used as before, and need no handshake. The `200` is written, and
+`interceptOrTunnel` takes over (mitmproxy's next-layer decision, `next_layer.py`):
+
+- `peekClient` reads the client's first bytes through the connection's `ByteReader` without
+  consuming them (`ensureBuffered`, `peekBuffered`, which grow past one pooled buffer when a
+  ClientHello needs it). `TlsClientHello` (ported from mitmproxy's `tls.py` and its
+  `tls_client_hello.ksy`) gathers the handshake message from as many records as it spans, up to
+  `MAX_MESSAGE_SIZE`, and parses it into the public `ClientHello`. The wait for the first byte
+  also watches the server (`serverSpoke`), every `SERVER_FIRST_CHECK_MILLIS`, for protocols where
+  the server speaks first; the rest of the ClientHello must come within the TLS handshake
+  timeout.
+- `ClientStart` says what came: `TLS` (with the ClientHello, which goes into the connection's
+  `ClientFlowContext`, where every flow of the connection reads it; inside a `CONNECT` stream, into
+  the stream's too), `HTTP`, `OTHER` or `CLOSED`.
+- TLS that `declineReason` lets through (host rules, an ALPN offer with no HTTP protocol,
+  `MitmManager.shouldIntercept`, `HttpFilters.proxyToServerAllowMitm(ClientHello)`) gets the server
+  handshake first (`startServerTls`, offering `upstreamAlpn`: the client's protocols that the proxy
+  speaks), then the client's (`intercept`, whose `mirrorAlpn` selector picks the server's choice
+  when the server was offered `h2`). The client's buffered bytes start that handshake:
+  `Http1ClientChannel.startTls` drains them into `Tls.serverHandshake`, which hands them to
+  `SSLSocketFactory.createSocket(socket, consumed, autoClose)`.
+- Declined TLS and `OTHER` go to `tunnelAfterPeek`, which relays over the pending connection (or
+  a new one when the connection is already TLS, or there is none); the relay reads the buffered
+  bytes first. `HTTP` goes to `servePlainSession`: the connection's requests go to the `CONNECT`
+  target in `Mode.PLAIN` (`plainSession`), on the pending connection when it is not pooled.
+- A failed server handshake does not fail the client: `NotTlsServer` tunnels, and other failures
+  intercept without a server connection, so each request reconnects and is answered with the
+  failure (a `502`, `TlsFailed`).
+
+Two pieces of the `CONNECT` exchange wait for this: its completion (`connectResponse`, so that
+`responseCompleted` and the timings include the server handshake), and the claim on making the
+`Http2Origins` connection for its key (`http2Claim`), which is reported once the server handshake
+has told whether the server speaks `h2`, so that concurrent `CONNECT`s still share one HTTP/2
+connection. Until the ClientHello has come, the claim is marked (`awaitingClientHello`), and
+others wait for it at most `CLIENT_HELLO_GRACE_NANOS` (200 ms) from when it was marked: a client
+that is slow to send its ClientHello, or never does, cannot hold up other clients' connections. `releaseHttp2Claim` and `completeConnect` run on every path out.
+
+The same flow serves connections that never sent a `CONNECT`: `serveImplicitConnect` makes one up
+(`Exchange.implicit`), for TLS on a transparent listener (`serveTransparentTls`, routed by SNI)
+and for `tcp://` reverse proxying. Nothing is written to such a client in HTTP: `respondDirect`
+closes the connection instead. Other reverse proxy requests are pointed at the upstream in
+`handleRequest` (`reverseProxyTarget`, before the filters) and sent there by
+`handleFilteredRequest`, over TLS for `https://` upstreams (`requestMode`).
+
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
 When an intercepted handshake or the proxy TLS listener negotiates ALPN `h2` (offered with
@@ -149,7 +200,11 @@ A CONNECT stream is intercepted when an HTTP/1 CONNECT would be (`interceptStrea
 is shown as a socket (`tunnelSocket`, a `StreamSocket`: its streams are the tunnel's DATA,
 `setSoTimeout` is the read timeout, `shutdownOutput` sends END_STREAM, `close` ends the output and
 fails reads), the JDK's `SSLSocket` is layered over it, and a `ClientConnection` of its own serves
-it with `serveTunnel` → `intercept`, on the stream's thread: HTTP/1, or HTTP/2 inside HTTP/2. It
+it with `serveTunnel`, on the stream's thread. Its server TLS is deferred as for HTTP/1, so
+`serveTunnel` runs `interceptOrTunnel` (above) on the stream's bytes, with the stream's exchange:
+the ClientHello decides, a declined or non-TLS stream is relayed through the nested connection's
+`ByteReader` (which holds the bytes read), and plain HTTP is served by its loop. Then `intercept`:
+HTTP/1, or HTTP/2 inside HTTP/2. (A forwarded tunnel's session, below, is intercepted at once.) It
 takes the outer connection's client details, PROXY header and MITM manager; its HTTP/2 connections
 to servers are keyed and owned by the outermost connection (`owner`). `mitmManager()` chooses under
 `mitmLock`, since CONNECT streams may ask at once. A reset of an open tunnel is not a rapid reset.
@@ -176,13 +231,14 @@ tunnels inside the session. `handleConnect` hands a `CONNECT` with `mitmHostAndP
   stale-connection retries; a CONNECT never has a streamed body), and `relayResponse` relays a
   refusal as any response, keeping `Proxy-Authenticate`. A 2xx stops there (`Exchange.tunnelOpened`),
   and `openForwardedTunnel` takes over: the response filters see the 2xx; then `relay`, or, when
-  MITM applies to the target, `serverTls` runs the proxy's TLS to the target over the tunnel (the
+  MITM applies to the target (and the host rules do not ignore it), `serverTlsThrough` runs the
+  proxy's TLS to the target over the tunnel (the
   HTTP/1.1 connection's socket, or the upstream stream's `StreamSocket`), and the client side is
   intercepted as usual: `interceptStream` for an HTTP/2 client, with the hop (`via`) given to the
   nested connection; an HTTP/1 connection gives up the proxy's session (`releaseSessionConnections`)
   and serves the tunnel's session itself.
 - **Inside the tunnel** (`via` set), every server connection is a new tunnel through the hop
-  (`connect` → `connectThrough`: `proxyConnection`, CONNECT, then `serverTls`), whose `through`
+  (`connect` → `connectThrough`: `proxyConnection`, CONNECT, then `serverTlsThrough`), whose `through`
   closes with it. `lookupRoute` offers only that way, `usesPool` is false (the connections carry
   one client's credentials), and HTTP/2 connections are keyed by the hop's id and owned by the hop
   (`http2Owner`), which the connection serving the session (`Hop.consumer`) closes when it closes.
@@ -264,10 +320,11 @@ HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary reques
 - **The connection loop** (`serveRequests`): waiting for the next request without holding a
   buffer, pipelining (unread requests wait in the buffer), and answering unparseable request
   heads. An HTTP/2 connection reads frames and starts a thread per stream instead.
-- **Connection-wide CONNECT interception** (`intercept`). An HTTP/1 `CONNECT` that is intercepted
-  turns the whole connection into TLS and serves the decrypted requests with the same loop, or
-  with `Http2Connection` when the client negotiates `h2`. Under HTTP/2, `CONNECT` is per stream,
-  and an intercepted one gets a `ClientConnection` of its own over the stream (above). The `h2c`
+- **Connection-wide CONNECT interception** (`interceptOrTunnel`, `intercept`). An HTTP/1
+  `CONNECT` that is intercepted turns the whole connection into TLS and serves the decrypted
+  requests with the same loop, or with `Http2Connection` when the client negotiates `h2`. Under
+  HTTP/2, `CONNECT` is per stream, and an intercepted one gets a `ClientConnection` of its own over
+  the stream (above), which runs the same `interceptOrTunnel`. The `h2c`
   preface is recognized only as the first bytes of a plain connection.
 - **`101 Switching Protocols`.** HTTP/2 has no upgrade. Its WebSockets use extended `CONNECT`
   (RFC 8441). The bridge translates handshake fields/status and uses the same relay and frame hooks.

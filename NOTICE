@@ -30,3 +30,9 @@ This product includes third-party software:
   Smith, licensed to the Python Software Foundation); and xml/etree/ElementTree, ElementPath and
   vendor/elementtree/SimpleXMLTreeBuilder, from ElementTree (Copyright Fredrik Lundh, under the
   ElementTree license reproduced in those files).
+
+- Logic ported from mitmproxy (https://github.com/mitmproxy/mitmproxy), Copyright (c) 2013,
+  Aldo Cortesi, and from mitmproxy_rs (https://github.com/mitmproxy/mitmproxy_rs), Copyright (c)
+  2022, Fabio Valentini and Maximilian Hils. Licensed under the MIT License; see
+  META-INF/LICENSE-mitmproxy.txt and META-INF/LICENSE-mitmproxy_rs.txt. Ported files say so in
+  their header comments.
