@@ -38,8 +38,10 @@ import org.microproxy.http.HttpResponse;
  *
  * <p>URLs are matched in absolute form: as sent by the client, or rebuilt from the {@code Host}
  * header ({@code https://} inside an intercepted TLS session). Body edits apply to textual
- * responses ({@link HttpBodies#isText}) whose content coding can be decoded (gzip, deflate); only
- * those responses are buffered, everything else streams. Responses larger than {@link
+ * responses ({@link HttpBodies#isText}, except event streams) whose content coding can be decoded
+ * (gzip, deflate); only those responses are buffered, everything else streams. {@link
+ * ModifyBody} edits request and response bodies of any type with mitmproxy's spec syntax and
+ * filter expressions. Responses larger than {@link
  * Builder#maxBodySize} also stream through unmodified.
  */
 public final class RewriteRules implements HttpFiltersSource {
@@ -117,7 +119,7 @@ public final class RewriteRules implements HttpFiltersSource {
 
         @Override
         public int responseBufferSizeInBytes(HttpResponse response) {
-            return editsBody && HttpBodies.isText(response) && HttpBodies.canDecode(response) ? maxBodySize : 0;
+            return editsBody && HttpBodies.isText(response) && Bodies.editable(response) ? maxBodySize : 0;
         }
 
         @Override
@@ -129,16 +131,15 @@ public final class RewriteRules implements HttpFiltersSource {
                 if (editsBody && response instanceof FullHttpMessage full && HttpBodies.isText(response)
                         && HttpBodies.canDecode(response)) {
                     try {
-                        String original = HttpBodies.text(full);
-                        String text = original;
-                        for (Rule rule : rules) {
-                            for (UnaryOperator<String> edit : rule.bodyEdits) {
-                                text = edit.apply(text);
+                        Bodies.editText(full, original -> {
+                            String text = original;
+                            for (Rule rule : rules) {
+                                for (UnaryOperator<String> edit : rule.bodyEdits) {
+                                    text = edit.apply(text);
+                                }
                             }
-                        }
-                        if (!text.equals(original)) {
-                            HttpBodies.setText(full, text);
-                        }
+                            return text;
+                        });
                     } catch (IOException e) {
                         LOG.log(Level.DEBUG, "leaving undecodable body unmodified", e);
                     }

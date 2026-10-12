@@ -89,6 +89,36 @@ class ReverseProxyTest {
     }
 
     @Test
+    void anAbsoluteUriFromAFilterLeavesTheUpstream() throws Exception {
+        origin = TestSupport.origin(TestSupport.echo());
+        HttpServer other = TestSupport.origin(exchange -> {
+            exchange.getResponseHeaders().set("X-Origin", "other");
+            TestSupport.echo().handle(exchange);
+        });
+        try {
+            String elsewhere = "http://127.0.0.1:" + other.getAddress().getPort();
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap()
+                    .withReverseProxy("http://127.0.0.1:" + origin.getAddress().getPort())
+                    .withFiltersSource(HttpFilters.builder().onRequest(req -> {
+                        if (req.uri().startsWith("/elsewhere/")) {
+                            req.setUri(elsewhere + req.uri().substring("/elsewhere".length()));
+                        }
+                        return null;
+                    }).build()));
+            // As in an intercepted session, a filter's absolute URI takes the request elsewhere ...
+            String moved = get(proxy, "/elsewhere/moved", "proxy.test");
+            assertTrue(moved.toLowerCase(java.util.Locale.ROOT).contains("x-origin: other"), moved);
+            assertEquals("/moved", echoedUri(body(moved)));
+            // ... and the others still go to the upstream.
+            String stayed = get(proxy, "/stayed", "proxy.test");
+            assertFalse(stayed.toLowerCase(java.util.Locale.ROOT).contains("x-origin"), stayed);
+            assertEquals("/stayed", echoedUri(body(stayed)));
+        } finally {
+            other.stop(0);
+        }
+    }
+
+    @Test
     void theClientsHostIsKeptOnRequest() throws Exception {
         origin = TestSupport.origin(TestSupport.echo());
         HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap()

@@ -53,6 +53,7 @@ import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.cache.HttpCache;
+import org.microproxy.extras.ServerReplay;
 import org.microproxy.http.DefaultFullHttpRequest;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.DefaultHttpRequest;
@@ -480,7 +481,10 @@ final class ClientConnection implements Runnable {
     /** Whether a request has been accepted on this connection, and as whom. */
     private boolean accepted;
     private String acceptedUser;
-    /** While serving intercepted (MITM) traffic: the CONNECT target all requests go to. */
+    /**
+     * While serving intercepted (MITM) traffic: the CONNECT target that requests go to, unless
+     * filters give one an absolute URI of its own ({@link #redirected}).
+     */
     private String mitmHostAndPort;
     /**
      * The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked.
@@ -900,10 +904,11 @@ final class ClientConnection implements Runnable {
             return handleConnect(ex);
         }
 
-        if (server.reverseProxy != null && mitmHostAndPort == null) {
-            // Every request goes to the one upstream; its TLS is set up as an intercepted server's.
-            if (server.mitmManager != null && !ex.channel.multiplexed()) mitmManager();
-            return proxyRequest(ex, server.reverseProxy.hostAndPort());
+        if (server.reverseProxy != null && mitmHostAndPort == null && !redirected(ex)) {
+            // Every request goes to the one upstream, unless a filter pointed it at an absolute URI
+            // of its own (as in an intercepted session, below); its TLS is set up as an
+            // intercepted server's.
+            return proxyRequest(ex, server.reverseProxy.hostAndPort(), server.reverseProxy.tls());
         }
 
         if (mitmHostAndPort == null
@@ -914,23 +919,34 @@ final class ClientConnection implements Runnable {
             return respondFailure(ex, new ProxyFailure.BadRequest("the proxy needs an absolute URI"), true);
         }
 
-        String hostAndPort = mitmHostAndPort != null ? mitmHostAndPort : identifyHostAndPort(ex.request);
+        // Requests in an intercepted session go to the CONNECT target, unless a filter pointed the
+        // request at an absolute URI of its own (map_remote, a script assigning req.uri): then it
+        // goes where that URI says, over TLS for https. (A plain HTTP session's go without TLS.)
+        boolean pinned = mitmHostAndPort != null && !redirected(ex);
+        String hostAndPort = pinned ? mitmHostAndPort : identifyHostAndPort(ex.request);
         if (hostAndPort == null) {
             return respondFailure(ex, new ProxyFailure.NoRoute(null), false);
         }
-        return proxyRequest(ex, hostAndPort);
+        return proxyRequest(ex, hostAndPort, pinned ? !plainSession : isSecureUri(ex.request.uri()));
+    }
+
+    /**
+     * Whether filters gave a request inside an intercepted session an absolute URI it did not
+     * arrive with (requests there arrive in origin-form), so that it leaves the session's server.
+     */
+    private static boolean redirected(Exchange ex) {
+        String uri = ex.request.uri();
+        return ProxyUtils.isAbsoluteUri(uri) && !uri.equals(ex.originalUri);
+    }
+
+    /** Whether {@code uri} is an absolute {@code https://} (or {@code wss://}) URI. */
+    private static boolean isSecureUri(String uri) {
+        return uri.regionMatches(true, 0, "https://", 0, 8) || uri.regionMatches(true, 0, "wss://", 0, 6);
     }
 
     // ---------------------------------------------------------------------------------------
     // Plain HTTP requests
     // ---------------------------------------------------------------------------------------
-
-    /** Whether requests of {@code ex} go to their server over TLS. */
-    private Mode requestMode(Exchange ex) {
-        if (mitmHostAndPort != null) return plainSession ? Mode.PLAIN : Mode.TLS;
-        if (server.reverseProxy != null && server.reverseProxy.tls()) return Mode.TLS;
-        return ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
-    }
 
     /**
      * Points a request at the reverse proxy's upstream: origin-form, with the upstream's {@code
@@ -981,8 +997,20 @@ final class ClientConnection implements Runnable {
         return mitmHostAndPort != null && !plainSession ? flowContext.getClientHello() : null;
     }
 
-    private boolean proxyRequest(Exchange ex, String hostAndPort) throws IOException {
-        Mode mode = requestMode(ex);
+    /**
+     * Proxies a request (not a {@code CONNECT}) to {@code hostAndPort}.
+     *
+     * @param tls whether the server connection uses TLS: inside an intercepted TLS session (not a
+     *     plain HTTP one), to a reverse proxy's {@code https://} upstream, or for an absolute {@code
+     *     https://} URI
+     */
+    private boolean proxyRequest(Exchange ex, String hostAndPort, boolean tls) throws IOException {
+        Mode mode = tls || ex.channel.secureWebSocket() ? Mode.TLS : Mode.PLAIN;
+        if (mode == Mode.TLS && mitmHostAndPort == null && server.mitmManager != null) {
+            // TLS to an https:// URI (or a reverse proxy's upstream) outside an intercepted
+            // session: the manager's server trust applies, as it does to intercepted requests.
+            mitmManager();
+        }
         String key = mode + "|" + hostAndPort;
         boolean webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(ex.request);
         boolean pooled = !webSocket && usesPool(mode);
@@ -3654,12 +3682,15 @@ final class ClientConnection implements Runnable {
 
     /**
      * Where {@code sent} came from, given that filters made it out of {@code made} (with status
-     * {@code madeStatus}, from {@code source}): a cache answer, a filter's replacement or status
-     * change, or {@code made} as it was.
+     * {@code madeStatus}, from {@code source}): a cache answer, a replayed response, a filter's
+     * replacement or status change, or {@code made} as it was.
      */
     private static ResponseSource source(ResponseSource source, HttpObject made, int madeStatus, HttpResponse sent) {
         if (sent instanceof HttpCache.Answer) {
             return ResponseSource.CACHE;
+        }
+        if (sent instanceof ServerReplay.Replayed) {
+            return ResponseSource.REPLAY;
         }
         if (sent != made || sent.status().code() != madeStatus) {
             return ResponseSource.FILTER;
