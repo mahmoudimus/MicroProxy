@@ -49,6 +49,7 @@ jobs:
              http3-codec/target/http3-codec-*.jar \
              quic/target/quic-*.jar \
              microproxy/target/microproxy-*.jar \
+             microproxy-otel/target/microproxy-otel-*.jar \
              microproxy-starlark/target/microproxy-starlark-*.jar dist/
           rm -f dist/*-tests.jar
           (cd dist && sha256sum ./*.jar > SHA256SUMS)
