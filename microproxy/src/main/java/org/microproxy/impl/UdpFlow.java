@@ -227,6 +227,8 @@ final class UdpFlow implements UdpContext {
         } catch (Idle e) {
             LOG.log(Level.DEBUG, logPrefix + "UDP flow to " + target + " idle for " + Duration.ofNanos(idleNanos).toMillis()
                     + " ms; closing it");
+            flow.addResponseFlag(org.microproxy.ResponseFlag.STREAM_IDLE_TIMEOUT);
+            flow.defaultResponseCodeDetails("stream_idle_timeout");
             clean = true;
         } catch (IOException e) {
             if (!ended.get()) LOG.log(Level.DEBUG, logPrefix + "UDP flow to " + target + " ended: " + e);
@@ -312,6 +314,7 @@ final class UdpFlow implements UdpContext {
         lastActivity.set(System.nanoTime());
         fromClient.incrementAndGet();
         byte[] payload = Arrays.copyOfRange(content, 1, content.length);
+        flow.addBytesReceived(payload.length);
         if (payload.length > MAX_PAYLOAD) return;
         MasqueQuic.Inner inner = quic;
         if (inner != null && inner.fromClient(payload)) return;
@@ -352,6 +355,7 @@ final class UdpFlow implements UdpContext {
                 if (n < 0) return;
                 lastActivity.set(System.nanoTime());
                 fromTarget.incrementAndGet();
+                flow.addUpstreamReceived(n);
                 toClient.offer(new Item(Arrays.copyOf(buffer.array(), n), false, Instant.now()));
             }
         } catch (ClosedChannelException e) {
@@ -370,7 +374,7 @@ final class UdpFlow implements UdpContext {
                 byte[] data = item.injected() ? item.data() : hook(item, true);
                 if (data == null) continue;
                 try {
-                    socket.write(ByteBuffer.wrap(data));
+                    flow.addUpstreamSent(socket.write(ByteBuffer.wrap(data)));
                 } catch (PortUnreachableException e) {
                     // An ICMP error for an earlier datagram: UDP goes on.
                 }
@@ -395,6 +399,7 @@ final class UdpFlow implements UdpContext {
                 byte[] content = new byte[data.length + 1];
                 System.arraycopy(data, 0, content, 1, data.length);
                 client.sendDatagram(content);
+                flow.addBytesSent(data.length);
             }
         } catch (IOException e) {
             if (!ended.get()) {

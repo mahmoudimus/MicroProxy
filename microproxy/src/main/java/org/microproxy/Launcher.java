@@ -19,6 +19,9 @@ import org.microproxy.cache.MemoryCacheStore;
 import org.microproxy.contentviews.ContentViews;
 import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.dns.DnssecHostResolver;
+import org.microproxy.extras.AccessLogFilter;
+import org.microproxy.extras.AccessLogFormat;
+import org.microproxy.extras.AccessLogWriter;
 import org.microproxy.extras.ActivityLogger;
 import org.microproxy.extras.AntiCache;
 import org.microproxy.extras.BlockList;
@@ -98,8 +101,17 @@ public final class Launcher {
                                            --transparent
               --dnssec                     resolve server names with DNSSEC validation
               --dnssec-resolver <spec>     DoH URL or comma-separated resolver IPs for --dnssec
-              --activity-log-format <fmt>  access log: CLF, ELF, JSON, JSON_EXTENDED, SQUID,
-                                           W3C, LTSV, CSV, HAPROXY
+              --activity-log-format <fmt>  access log to the System.Logger: CLF, ELF, JSON,
+                                           JSON_EXTENDED, SQUID, W3C, LTSV, CSV, HAPROXY, ENVOY
+              --access-log <path|->        write an access log line per exchange or flow to a
+                                           file, or - for standard output (Envoy's default
+                                           format unless --access-log-format or -json says)
+              --access-log-format <fmt>    a preset name, or an Envoy format string such as
+                                           '%START_TIME% %REQ(:METHOD)% %RESPONSE_CODE% %RESPONSE_FLAGS%'
+              --access-log-json <dict>     a JSON object of keys and Envoy format strings, one
+                                           JSON line per exchange
+              --access-log-filter <expr>   log only what passes, e.g. 'status>=500 ||
+                                           response_flag' (repeatable: all must pass)
               --log-http <level>           log whole requests and responses: basic, headers or
                                            body (to the System.Logger org.microproxy.http)
               --log-http-json              write --log-http as JSON lines (headers if no level)
@@ -315,6 +327,10 @@ public final class Launcher {
         long cacheMemoryMb = 0;
         boolean offline = false;
         Path warcDir = null;
+        String accessLog = null;
+        String accessLogFormat = null;
+        String accessLogJson = null;
+        List<String> accessLogFilters = new ArrayList<>();
         HttpLogger.Level logHttp = null;
         boolean logHttpJson = false;
         String logHttpView = null;
@@ -426,6 +442,10 @@ public final class Launcher {
                     dnssecResolver = value(queue, arg);
                 }
                 case "--activity-log-format" -> bootstrap.plusActivityTracker(new ActivityLogger(logFormat(value(queue, arg))));
+                case "--access-log" -> accessLog = value(queue, arg);
+                case "--access-log-format" -> accessLogFormat = value(queue, arg);
+                case "--access-log-json" -> accessLogJson = value(queue, arg);
+                case "--access-log-filter" -> accessLogFilters.add(value(queue, arg));
                 case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
                 case "--log-http-json" -> logHttpJson = true;
                 case "--log-http-view" -> logHttpView = value(queue, arg);
@@ -628,6 +648,24 @@ public final class Launcher {
         // As in mitmproxy, block_list and anticache act before scripts, the other addons after them.
         if (!blockList.isEmpty()) bootstrap.plusFiltersSource(BlockList.of(blockList.toArray(String[]::new)));
         if (anticache) bootstrap.plusFiltersSource(AntiCache.create());
+        if (accessLog != null || accessLogFormat != null || accessLogJson != null || !accessLogFilters.isEmpty()) {
+            if (accessLogFormat != null && accessLogJson != null) {
+                throw new IllegalArgumentException("--access-log-format and --access-log-json are exclusive");
+            }
+            ActivityLogger.Builder logger = ActivityLogger.builder();
+            if (accessLogJson != null) logger.format(AccessLogFormat.envoyJson(accessLogJson));
+            if (accessLogFormat != null) logger.format(LogFormat.parse(accessLogFormat));
+            for (String filter : accessLogFilters) logger.filter(AccessLogFilter.parse(filter));
+            if (accessLog != null) {
+                AccessLogWriter writer = AccessLogWriter.of(accessLog);
+                resources.add(writer);
+                logger.sink(writer);
+            }
+            bootstrap.plusActivityTracker(logger.build());
+            console.println("Writing access logs to " + (accessLog == null ? "the System.Logger "
+                    + ActivityLogger.class.getName() : "-".equals(accessLog.strip()) ? "standard output"
+                    : Path.of(accessLog.strip()).toAbsolutePath()));
+        }
         if (logHttp != null || logHttpJson || logHttpView != null || protoDescriptors != null) {
             HttpLogger fromConfig = findHttpLogger(bootstrap.getFiltersSource());
             boolean views = logHttpView != null || protoDescriptors != null;

@@ -142,6 +142,19 @@ public interface ActivityTracker {
     default void responseCompleted(FlowContext flowContext, HttpResponse httpResponse) {}
 
     /**
+     * Called once when an exchange or a flow is over, with what an access log needs to know about
+     * it: an HTTP exchange whose response has been written or that was abandoned (after {@link
+     * #responseCompleted}, when that was called), and a {@code CONNECT} tunnel, a SOCKS client's
+     * tunnel, a WebSocket session, a TCP-hook tunnel, a CONNECT-UDP flow, or a transparent QUIC
+     * flow that was relayed or intercepted stream by stream, when it closes. {@link
+     * FlowRecord#context()}'s {@link FlowContext#failure()} and {@link
+     * FlowContext#responseFlags()} are final then.
+     *
+     * @param record the finished exchange or flow
+     */
+    default void flowEnded(FlowRecord record) {}
+
+    /**
      * Called when the proxy connects to a server.
      *
      * @param flowContext the server connection context

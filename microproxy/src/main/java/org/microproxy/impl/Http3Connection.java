@@ -370,7 +370,11 @@ final class Http3Connection extends Http3Endpoint {
                 LOG.log(Level.DEBUG, s.logPrefix() + "425: " + (request.isConnect() ? "CONNECT" : http1.method())
                         + " in 0-RTT data");
                 if (!reader.endsHere()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
-                answer(s, HttpResponseStatus.valueOf(425), "Too Early");
+                s.flowContext().setResponseCodeDetails("too_early");
+                FullHttpResponse tooEarly = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                        HttpResponseStatus.valueOf(425), "Too Early");
+                s.writeComplete(tooEarly, true);
+                client.recordAnswered(s.flowContext(), org.microproxy.FlowRecord.Kind.HTTP3, http1, tooEarly);
                 return null;
             }
             http1.headers().set(EARLY_DATA, "1");
@@ -440,6 +444,10 @@ final class Http3Connection extends Http3Endpoint {
         if (early) {
             LOG.log(Level.DEBUG, s.logPrefix() + (s.tunnelOpen ? "client ended the tunnel with a reset"
                     : "client reset the stream"));
+            if (!s.tunnelOpen) {
+                s.flowContext().addResponseFlag(org.microproxy.ResponseFlag.DOWNSTREAM_REMOTE_RESET);
+                s.flowContext().defaultResponseCodeDetails("downstream_remote_reset");
+            }
             serverConnection = s.cancelServer();
         }
         if (serverConnection != null) serverConnection.close();

@@ -240,6 +240,23 @@ class QuicStreamHooksTest {
     }
 
     @Test
+    void aSessionInterceptedStreamByStreamIsOneRecordWhenItEnds() throws Exception {
+        QuicEchoOrigin origin = origin(ALPN);
+        RecordedFlows flows = new RecordedFlows();
+        proxy = transparent(origin).withQuicInterceptor((message, stream) -> message.data())
+                .plusActivityTracker(flows).start();
+        QuicConnection c = connect(proxyCa.getCertificate(), ALPN);
+        assertEquals("hello", exchange(c, "echo\nhello"));
+        c.close(0, "");
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC);
+        assertEquals("quic_streams", r.responseCodeDetails());
+        assertTrue(r.bytesReceived() >= "echo\nhello".length() && r.bytesSent() >= "hello".length(), r.toString());
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertEquals(1, flows.records.size(), flows.records.toString());
+    }
+
+    @Test
     void unidirectionalAndServerInitiatedStreamsGoBothWays() throws Exception {
         QuicEchoOrigin origin = origin(ALPN);
         proxy = transparent(origin).withQuicInterceptor(rewriting()).start();

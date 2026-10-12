@@ -308,11 +308,12 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, Ud
     }
 
     @Override
-    public void relay(ServerConnection conn, WebSocketRelay webSocket, TcpSession tcp, String name) {
+    public void relay(ServerConnection conn, WebSocketRelay webSocket, TcpSession tcp, ClientFlowContext counted,
+            String name) {
         Tunnel.relay(reader.body().asInputStream(), new TunnelOutput(), this::endTunnelOutput,
                 conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
                 () -> { closeTunnelStream(); conn.close(); }, connection.server.getIdleConnectionTimeout(), name,
-                logPrefix, webSocket, tcp, connection.server.ioBuffers);
+                logPrefix, webSocket, tcp, connection.server.ioBuffers, counted);
     }
 
     /**

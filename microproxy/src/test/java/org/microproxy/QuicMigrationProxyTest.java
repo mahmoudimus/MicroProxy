@@ -38,7 +38,8 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
  * listener: a relayed flow (the proxy finds it by the client's IP address and sends the server's
  * datagrams to the new port), a flow intercepted stream by stream (the client's connection to the
  * proxy follows it; the proxy's own connection to the server stays where it is), and intercepted
- * HTTP/3. Every transfer is checked with SHA-256.
+ * HTTP/3. Every transfer is checked with SHA-256, and a relayed or intercepted flow whose client
+ * moved is still one {@link FlowRecord} when it ends, with the bytes of both paths.
  */
 @Timeout(value = 90, unit = TimeUnit.SECONDS)
 class QuicMigrationProxyTest {
@@ -178,6 +179,45 @@ class QuicMigrationProxyTest {
         echoWhileMoving(c);
         assertEquals(List.of("true ALPN [" + ALPN + "]"), decisions);
         c.close(0, "");
+    }
+
+    @Test
+    void aRelayedFlowWhoseClientMovedIsOneRecordWhenItEnds() throws Exception {
+        QuicEchoOrigin origin = new QuicEchoOrigin(originCa, ALPN);
+        closeables.add(origin);
+        RecordedFlows flows = new RecordedFlows();
+        proxy = transparent(origin.port()).plusActivityTracker(flows)
+                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(Duration.ofMillis(500)).build())
+                .start();
+        QuicConnection c = connect(originCa.getCertificate());
+        echoWhileMoving(c);
+        c.close(0, "");
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY);
+        assertEquals("quic_relayed", r.responseCodeDetails());
+        assertTrue(r.bytesReceived() > 8 << 20 && r.bytesSent() > 8 << 20, "both paths counted: " + r);
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertEquals(r.bytesSent(), r.upstreamBytesReceived());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertEquals(1, flows.records.size(), flows.records.toString());
+    }
+
+    @Test
+    void aSessionWhoseClientMovedIsOneRecordWhenItEnds() throws Exception {
+        QuicEchoOrigin origin = new QuicEchoOrigin(originCa, ALPN);
+        closeables.add(origin);
+        RecordedFlows flows = new RecordedFlows();
+        proxy = transparent(origin.port()).withQuicInterceptor((message, stream) -> message.data())
+                .plusActivityTracker(flows).start();
+        QuicConnection c = connect(proxyCa.getCertificate());
+        echoWhileMoving(c);
+        c.close(0, "");
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC);
+        assertEquals("quic_streams", r.responseCodeDetails());
+        assertTrue(r.bytesReceived() > 8 << 20 && r.bytesSent() > 8 << 20, "both paths counted: " + r);
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertEquals(r.bytesSent(), r.upstreamBytesReceived());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertEquals(1, flows.records.size(), flows.records.toString());
     }
 
     @Test

@@ -692,6 +692,10 @@ final class Http2Connection extends Http2Endpoint {
             if (s != null && !s.reset) {
                 // Resetting an open tunnel is how a client ends it: not a rapid reset.
                 early = !s.responseEnded && !s.tunnelOpen;
+                if (early) {
+                    s.flowContext().addResponseFlag(org.microproxy.ResponseFlag.DOWNSTREAM_REMOTE_RESET);
+                    s.flowContext().defaultResponseCodeDetails("downstream_remote_reset");
+                }
                 s.markReset(new IOException("stream " + id + " reset by the client (" + rst.error() + ")"));
                 s.rstWritten = true;
                 serverConnection = s.cancelServer();
@@ -792,6 +796,8 @@ final class Http2Connection extends Http2Endpoint {
                 FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                         HttpResponseStatus.valueOf(421), "Misdirected Request");
                 s.writeComplete(response, !ProxyUtils.isHEAD(s.request));
+                s.flowContext().setResponseCodeDetails("misdirected_request");
+                client.recordAnswered(s.flowContext(), org.microproxy.FlowRecord.Kind.HTTP2, s.request, response);
             } else {
                 client.handleStream(s, s.request);
             }

@@ -314,6 +314,28 @@ class TransparentQuicTest {
     }
 
     @Test
+    void aRelayedFlowIsOneRecordWhenItEnds() throws Exception {
+        H3TestOrigin origin = h3Origin();
+        RecordedFlows flows = new RecordedFlows();
+        start(transparent(origin.port()).withIgnoreHosts("^origin\\.test:").plusActivityTracker(flows)
+                // Long enough that no pause of a loaded machine ends the relay before the exchange is over.
+                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(java.time.Duration.ofSeconds(3)).build()));
+        try (H3TestClient client = H3TestClient.connect(quicAddress(), HOST, originCa.getCertificate())) {
+            assertEquals("hello over h3", client.get("/hello").text());
+        }
+        // The record comes once the relay has been idle for its timeout, and the sweep after.
+        FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY, java.time.Duration.ofSeconds(30));
+        assertTrue(r.bytesReceived() > 1000 && r.bytesSent() > 1000, r.toString());
+        assertEquals(r.bytesReceived(), r.upstreamBytesSent());
+        assertEquals(r.bytesSent(), r.upstreamBytesReceived());
+        assertEquals("quic_relayed", r.responseCodeDetails());
+        assertEquals(origin.port(), r.upstreamAddress().getPort());
+        assertTrue(r.context().isTransparentQuic());
+        assertEquals("quic_relay " + HOST + " q", org.microproxy.extras.AccessLogFormat
+                .envoy("%MP_FLOW% %REQUESTED_SERVER_NAME% %TLS_JA4_FINGERPRINT:1%").format(r));
+    }
+
+    @Test
     void hostsOutsideTheAllowRulesAreRelayed() throws Exception {
         H3TestOrigin origin = h3Origin();
         start(transparent(origin.port()).withAllowHosts("^allowed\\.test:"));

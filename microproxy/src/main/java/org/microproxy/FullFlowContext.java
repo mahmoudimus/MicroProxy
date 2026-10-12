@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 /** A {@link FlowContext} that also knows the server side of the flow. */
 public class FullFlowContext extends FlowContext {
 
+    private final FlowContext clientContext;
     private final String serverHostAndPort;
     private final ChainedProxy chainedProxy;
     private final InetSocketAddress remoteAddress;
@@ -23,9 +24,15 @@ public class FullFlowContext extends FlowContext {
             ChainedProxy chainedProxy,
             InetSocketAddress remoteAddress) {
         super(clientContext);
+        this.clientContext = clientContext;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
         this.remoteAddress = remoteAddress;
+    }
+
+    /** {@return the client-side context this server-side view was made from} */
+    public FlowContext getClientContext() {
+        return clientContext;
     }
 
     /** {@return the {@code host:port} the client asked for} */

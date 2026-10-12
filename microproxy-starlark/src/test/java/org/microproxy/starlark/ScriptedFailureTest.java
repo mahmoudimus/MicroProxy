@@ -93,6 +93,23 @@ class ScriptedFailureTest {
     }
 
     @Test
+    void contextShowsTheFailureFlagsAndDetails() throws Exception {
+        int port = closedPort();
+        start("""
+                def on_failure(req, failure, ctx):
+                    return response(599, "%s %s %s %s" % (ctx.failure.kind, ",".join(ctx.response_flags),
+                        ctx.response_code_details, ctx.failure.status == failure.status))
+
+                def on_request(req, ctx):
+                    if ctx.failure != None or ctx.response_flags or ctx.response_code_details != None:
+                        return response(500, "not fresh")
+                """, MicroProxy.bootstrap());
+        HttpResponse<String> response = get(client(proxy), "http://127.0.0.1:" + port + "/r");
+        assertEquals(599, response.statusCode());
+        assertEquals("connect_failed UF proxy_failure:connect_failed True", response.body());
+    }
+
+    @Test
     void serverTimeout() throws Exception {
         try (TestSupport.RawServer silent = TestSupport.rawServer(s -> {
             readUntil(s.getInputStream(), "\r\n\r\n");

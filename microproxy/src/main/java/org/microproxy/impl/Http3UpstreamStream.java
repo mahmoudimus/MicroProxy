@@ -79,9 +79,15 @@ final class Http3UpstreamStream extends ServerConnection {
         this.logPrefix = logPrefix;
         Trackers trackers = connection.server.trackers;
         this.reader = new Http3StreamReader(connection, stream, true,
-                trackers.isEmpty() ? null : n -> trackers.fire(t -> t.bytesReceivedFromServer(this.flowContext, n)), null);
+                trackers.isEmpty() ? null : n -> {
+                    if (this.flowContext.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamReceived(n);
+                    trackers.fire(t -> t.bytesReceivedFromServer(this.flowContext, n));
+                }, null);
         this.writer = new Http3MessageWriter(connection, stream, false,
-                trackers.isEmpty() ? null : n -> trackers.fire(t -> t.bytesSentToServer(this.flowContext, n)));
+                trackers.isEmpty() ? null : n -> {
+                    if (this.flowContext.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamSent(n);
+                    trackers.fire(t -> t.bytesSentToServer(this.flowContext, n));
+                });
         reader.headRequest = headRequest;
         reader.flow = flowContext;
         writer.flow = flowContext;

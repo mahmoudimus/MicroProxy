@@ -276,7 +276,11 @@ Command-line flags override values from the file.
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
-| `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
+| `activity_log_format` | access log to the `System.Logger`: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY`, `ENVOY` | off |
+| `access_log` | write the access log to this file, or `-` for standard output (see [Access logs](#access-logs-envoy-compatible)) | off |
+| `access_log_format` | an Envoy format string, or a preset's name, for the access log | Envoy's default |
+| `access_log_json` | a JSON object of keys and Envoy format strings: one JSON line per exchange | off |
+| `access_log_filter` | log only what passes, e.g. `status>=500 \|\| response_flag` | everything |
 | `log_http` | log whole requests and responses: `basic`, `headers` or `body` (see [Request/response logging](#requestresponse-logging)) | off |
 | `log_http_format` | `text` or `json` (one object per line) for `log_http` | `text` |
 | `log_http_view` | render bodies logged by `log_http` through [content views](#content-views): `auto` or a view's name | off |
@@ -314,7 +318,7 @@ Command-line flags override values from the file.
 | WebSockets | HTTP/1 `Upgrade` and HTTP/2 extended `CONNECT` (RFC 8441), with the same frame and whole-message hooks in both directions, reading through permessage-deflate (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
-| Access logs | `ActivityLogger` in nine formats, one with per-phase timings |
+| Access logs | `ActivityLogger`: Envoy-compatible format strings and JSON, Envoy's response flags, filters, and one line per exchange, tunnel or UDP and QUIC flow; LittleProxy's nine formats as presets (see below) |
 | Request/response logging | `HttpLogger` dumps whole messages (heads, the changes the proxy and filters made, bodies on request) as readable blocks or JSON lines, with redaction (see below) |
 | Content views | `org.microproxy.contentviews` renders bodies readably: protobuf without a schema (YAML with field numbers, as mitmproxy shows it), gRPC message by message with its trailers and `google.rpc.Status` details, msgpack, form data, GraphQL, Socket.IO; field names from a `protoc` descriptor set; `protobuf` and `grpc` modules for scripts (see below) |
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
@@ -2534,7 +2538,10 @@ bootstrap.start();
   or 4 for a [SOCKS client](#socks5-mode), else `None`), `transparent_quic` (whether the client's
   QUIC came to the [transparent QUIC](#transparent-quic) listener), `early_data` (whether the
   HTTP/3 request arrived as 0-RTT early data, which may be a replay; see
-  [Session resumption and 0-RTT](#session-resumption-and-0-rtt)), and `vars`, a dict that lives for
+  [Session resumption and 0-RTT](#session-resumption-and-0-rtt)), `failure` (why the proxy has to
+  answer the request itself, a `Failure` as `on_failure` gets it, else `None`), `response_flags`
+  (the exchange's [response flags](#response-flags-and-details) so far, as short codes: `["UF"]`),
+  `response_code_details` (`"proxy_failure:connect_failed"`, ..., or `None`), and `vars`, a dict that lives for
   one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
   as the connection.
 - `hello` (and `ctx.client_hello`): `sni` (`None` without one), `alpn` (the offered protocols, in
@@ -2649,7 +2656,7 @@ records a list of strings, of MX, SRV and SOA records a dict of their fields (`p
 `ttl` 0, no flags.
 
 **Where a response came from, and how long it took.** `res.source` tells the server's responses
-from the others, like the `source` of the [access log](#access-logs), and `res.upstream_status`
+from the others, like the `source` of the [access log](#access-logs-envoy-compatible), and `res.upstream_status`
 is the status the server sent (`None` if it sent none). They describe the response as the hook
 received it, not the script's own changes:
 
@@ -3497,23 +3504,170 @@ injected messages. UDP flows ([CONNECT-UDP](#connect-udp-masque)) have hooks of 
 `withUdpInterceptor`, and so do the streams of intercepted QUIC, `withQuicInterceptor`
 ([QUIC stream hooks](#quic-stream-hooks)).
 
-### Access logs
+### Access logs (Envoy-compatible)
 
-`bootstrap.plusActivityTracker(new ActivityLogger(LogFormat.CLF))` writes one line per response
-to the `System.Logger` named `org.microproxy.extras.ActivityLogger`, or to a `Consumer<String>`
-you pass. The formats are `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV` and
-`HAPROXY`. These are LittleProxy's formats, with three of its bugs fixed: JSON escaping, Squid
-timestamps and RFC 4180 CSV quoting. Lines also include the authenticated user, and URLs inside
-intercepted sessions are logged as `https://`.
+`ActivityLogger` writes one access-log line per finished exchange or flow. Its format strings are
+compatible with Envoy's access-log command operators, so `%START_TIME%`, `%REQ(:PATH)%`,
+`%RESPONSE_FLAGS%` and the rest mean what they mean in Envoy, and tools that read Envoy's logs
+read these. Formats are parsed once, into an array of pieces that each render one literal or one
+operator: rendering a line uses no regular expressions and allocates a few small strings.
 
-`JSON_EXTENDED` adds fields to the `JSON` line: `source` (`SERVER`, `PROXY`, `FILTER`, `CACHE` or `REPLAY`),
-`upstream_status` (what the server sent, when a filter or the cache changed it), and `ttfb_ms`,
-`total_ms`, `dns_ms`, `connect_ms` and `tls_ms`. Its lines are written when the response is
-complete rather than when its head is sent; see [Observability](#observability).
+```java
+MicroProxy.bootstrap()
+        .plusActivityTracker(ActivityLogger.builder()
+                .format(LogFormat.envoy("[%START_TIME%] %REQ(:METHOD)% %REQ(:AUTHORITY)%%REQ(:PATH)%"
+                        + " %RESPONSE_CODE% %RESPONSE_FLAGS% %DURATION%ms %UPSTREAM_HOST%"))
+                .filter(AccessLogFilter.parse("status>=500 || response_flag"))
+                .sink(AccessLogWriter.open(Path.of("access.log")))   // default: the System.Logger
+                .build())
+        .start();
+```
+
+From the command line, `--access-log <path|->` writes to a file (appended, a line flushed at a
+time) or to standard output, in Envoy's default format unless `--access-log-format` (a format
+string, or a preset's name) or `--access-log-json` (a JSON object of keys and format strings) says
+otherwise; `--access-log-filter` (repeatable, all must pass) leaves lines out. Without
+`--access-log`, the lines go to the `System.Logger` named `org.microproxy.extras.ActivityLogger`.
+The properties file takes `access_log`, `access_log_format`, `access_log_json` and
+`access_log_filter`.
+
+```sh
+java -jar microproxy.jar --port 8080 --access-log - \
+    --access-log-format '[%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS%'
+# [2026-10-08T12:34:56.789Z] "GET /api HTTP/1.1" 502 UF proxy_failure:connect_failed
+
+java -jar microproxy.jar --port 8080 --access-log access.jsonl \
+    --access-log-json '{"start":"%START_TIME%","status":"%RESPONSE_CODE%","flags":"%RESPONSE_FLAGS%","ms":"%DURATION%","flow":"%MP_FLOW%"}' \
+    --access-log-filter 'not_health_check && (status>=400 || duration>=1s)'
+# {"start":"2026-10-08T12:34:56.789Z","status":504,"flags":"UT","ms":10003,"flow":"h2"}
+```
+
+**When lines are written.** Once per HTTP exchange, when its response has been written or it was
+abandoned (then with the flag that says why); once per `CONNECT` tunnel (over HTTP/1, HTTP/2 or
+HTTP/3), SOCKS client, WebSocket session, TCP-hook tunnel, CONNECT-UDP flow, QUIC flow
+intercepted stream by stream and relayed transparent QUIC flow, when it closes, with its bytes,
+duration and flags. A `CONNECT` the proxy intercepts is a line of its own, which ends when the
+session inside starts; the requests inside are lines of their own. Trackers get the same records
+from `ActivityTracker.flowEnded(FlowRecord)`.
+
+**Text and JSON.** An operator whose value is unavailable renders `-`, as does an operator this
+proxy does not know; `%%` is a literal `%`; `%OPERATOR(...):N%` keeps the first `N` characters. In
+text formats, control characters in values are escaped (`\n`, `\t`, `\u0001`), so a header cannot
+break a line. A trailing newline (Envoy's formats end with one) is dropped. In the JSON form a value
+that is a single operator keeps the operator's type, as in Envoy: numbers for codes, sizes and
+durations, `true` or `false` for flags, `null` when unavailable; other values are JSON strings.
+Nested objects, numbers and booleans in the dictionary are written as they are.
+
+#### Operators
+
+| operator | value |
+|---|---|
+| `%START_TIME%`, `%START_TIME(fmt)%` | when the request started, UTC; default `2026-10-08T12:34:56.789Z`. `fmt` takes `%Y %y %C %m %d %e %j %H %I %M %S %p %b %B %a %A %u %w %z %Z %s %T %F %D %R`, and `%f` or `%1f`..`%9f` for fractions of a second |
+| `%REQ(X?Y):N%`, `%REQUEST_HEADER(...)%` | the request header `X`, else `Y`; pseudo-headers `:method`, `:path` (no scheme or authority), `:authority`, `:scheme`, `:protocol`. The request as the client sent it |
+| `%RESP(X?Y):N%`, `%RESPONSE_HEADER(...)%` | the response header (`:status` too) |
+| `%TRAILER(X?Y):N%`, `%RESPONSE_TRAILER(...)%` | the response trailer |
+| `%PROTOCOL%` | `HTTP/1.1`, `HTTP/1.0`, `HTTP/2` or `HTTP/3`: the client's |
+| `%RESPONSE_CODE%` | the status the client got; `0` for none (a reset, a refused SOCKS client, a QUIC flow) |
+| `%RESPONSE_CODE_DETAILS%` | why: see below |
+| `%RESPONSE_FLAGS%`, `%RESPONSE_FLAGS_LONG%` | the flags, as `UF,URX` or `UpstreamConnectionFailure,UpstreamRetryLimitExceeded` |
+| `%DURATION%` | milliseconds from the first byte of the request to the last of the response; for tunnels and flows, until they closed |
+| `%REQUEST_DURATION%` | until the request was sent on to the server |
+| `%RESPONSE_DURATION%` | until the first byte of the server's response |
+| `%RESPONSE_TX_DURATION%` | from the first byte of the server's response to the last byte to the client |
+| `%COMMON_DURATION(A:B:P)%` | between two points, in `ms`, `us` or `ns`: `START_TIME`, `DS_RX_BEG`, `DS_RX_END`, `US_CX_BEG`, `US_CX_END`, `US_HS_END`, `US_TX_END`, `US_RX_BEG`, `US_RX_END`, `DS_TX_END` |
+| `%DOWNSTREAM_HANDSHAKE_DURATION%` | milliseconds of the TLS handshake with the client |
+| `%BYTES_RECEIVED%`, `%BYTES_SENT%` | body bytes from and to the client; for tunnels and flows, the payload each way |
+| `%UPSTREAM_WIRE_BYTES_SENT%`, `%UPSTREAM_WIRE_BYTES_RECEIVED%` | bytes to and from the server connection, heads and framing included |
+| `%UPSTREAM_HOST%`, `%UPSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`) | the server or chained proxy connected to |
+| `%UPSTREAM_CLUSTER%` | the chained proxy's `host:port`, else the server's |
+| `%UPSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`) | the proxy's end of that connection |
+| `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | why the TLS handshake with the server failed |
+| `%UPSTREAM_TLS_VERSION%`, `%UPSTREAM_TLS_CIPHER%`, `%UPSTREAM_PEER_SUBJECT%`, `%UPSTREAM_PEER_ISSUER%` | the TLS session with the server |
+| `%DOWNSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_REMOTE_PORT%` | the client (the PROXY protocol's source, when one was accepted) |
+| `%DOWNSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_LOCAL_PORT%` | the proxy's end of the client connection |
+| `%DOWNSTREAM_TLS_VERSION%`, `%DOWNSTREAM_TLS_CIPHER%`, `%DOWNSTREAM_PEER_SUBJECT%`, `%DOWNSTREAM_PEER_ISSUER%`, `%DOWNSTREAM_PEER_FINGERPRINT_256%` | the TLS session with the client (listener or interception) and its certificate |
+| `%REQUESTED_SERVER_NAME%` | the SNI the client sent |
+| `%CONNECTION_ID%`, `%STREAM_ID%` | the client connection (as in `[conn <id>]` log lines) and the HTTP/2 or HTTP/3 stream |
+| `%UNIQUE_ID%` | a random UUID per exchange, made only when a format asks for it |
+| `%HOSTNAME%` | this host's name |
+| `%TLS_JA3_FINGERPRINT%`, `%TLS_JA4_FINGERPRINT%` | JA3 and JA4 of the client's ClientHello (JA4 starts with `q` for QUIC); `-` when the proxy read none |
+| `%MP_RESPONSE_SOURCE%` | `SERVER`, `PROXY`, `FILTER`, `CACHE` or `REPLAY` |
+| `%MP_FLOW%` | `h1`, `h2`, `h3`, `tunnel`, `socks`, `websocket`, `tcp`, `udp`, `quic` or `quic_relay` |
+| `%MP_EARLY_DATA%`, `%MP_TRANSPARENT_QUIC%` | whether the request came as 0-RTT data; whether the client came to the transparent QUIC listener |
+| `%MP_SOCKS_VERSION%`, `%MP_FORWARDED_VIA%` | the SOCKS version; the client's own proxy the request went through |
+| `%MP_USER%`, `%MP_URL%`, `%MP_UPSTREAM_STATUS%` | the authenticated user; the absolute URL; the status the server sent (before a filter changed it) |
+| `%MP_TIMING(phase)%` | `dns`, `connect`, `tls`, `client_tls`, `ttfb` or `total`, in milliseconds with three decimals |
+
+#### Response flags and details
+
+`FlowContext.failure()`, `responseFlags()` and `responseCodeDetails()` tell why an exchange ended
+as it did; trackers, filters, scripts (`ctx.failure`, `ctx.response_flags`,
+`ctx.response_code_details`) and `HttpLogger` lines see them. The proxy sets these flags (the
+`ResponseFlag` enum names Envoy's flags, and a filter can add one with `ctx.addResponseFlag`):
+
+| cause | flag | details |
+|---|---|---|
+| connection refused, unreachable or timed out (`ConnectFailed`) | `UF` | `proxy_failure:connect_failed` |
+| the server's name did not resolve (`UnresolvedHost`) | `DF` | `proxy_failure:unresolved_host` |
+| TLS with the server or a chained proxy failed (`TlsFailed`) | `UF`, and `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | `proxy_failure:tls_failed` |
+| the server did not answer in time (`ServerTimeout`) | `UT` | `proxy_failure:server_timeout` (`upstream_response_timeout` mid-response) |
+| a malformed response (`BadServerResponse`) | `UPE` | `proxy_failure:bad_server_response` |
+| the server closed before its response head was complete | `UC` | `proxy_failure:bad_server_response` |
+| the server reset or closed mid-response | `UR` | `upstream_reset_after_response_started` |
+| nowhere to send it (`NoRoute`) | `NR` | `proxy_failure:no_route` |
+| the shared pool was exhausted (`NoConnectionAvailable`) | `UO` | `proxy_failure:no_connection_available` |
+| a refused or malformed request (`BadRequest`), or one too large (`RequestTooLarge`) | `DPE` | `proxy_failure:bad_request`, `proxy_failure:request_too_large`, `downstream_protocol_error` |
+| the client left before the response was complete | `DC` | `downstream_remote_disconnect` |
+| the client reset its HTTP/2 or HTTP/3 stream | `DR` | `downstream_remote_reset` |
+| a `ConcurrencyLimiter` refused it | `RL` | `concurrency_limited` |
+| every chained proxy (with backoff between them) failed | `URX`, with the last one's flag | as the last failure |
+| an exchange, tunnel or CONNECT-UDP flow sat idle for the idle timeout | `SI` | `stream_idle_timeout` |
+| the proxy authenticator refused the client (`407`) | `UAEX` | `auth_rejected` |
+| a filter aborted the exchange (returned `null`) | `LR` | `filter_aborted` |
+| `425 Too Early` for a request in 0-RTT data | none | `too_early` |
+| served from the cache, or by a filter's short-circuit, or from a replay | none | `cache`, `filter`, `replay` |
+| the server's response, relayed | none | `via_upstream` |
+| a transparent QUIC flow | none (`UAEX` when the authenticator refused it) | `quic_relayed`, `quic_dropped`, `quic_streams` |
+
+The `ConcurrencyLimiter` answers `429` by default, as a rate limit does, so it sets `RL` rather
+than `UO` (Envoy's circuit-breaker overflow, which this proxy keeps for its exhausted pool). A
+`425 Too Early` has no flag: Envoy has none for it, and a custom one would be meaningless to its
+tools; `too_early` in the details tells it apart. A response from the cache gets no `RFCF` either,
+since the cache is no filter of Envoy's: `cache` in the details and `%MP_RESPONSE_SOURCE%` say it.
+
+#### Filters
+
+| filter | Java | compact syntax |
+|---|---|---|
+| status code | `statusCode(Comparison.GE, 500)` | `status>=500` (also `=`, `!=`, `<=`, `>`, `<`) |
+| duration | `duration(Comparison.GE, 1000)` | `duration>=1000`, `duration>=1s` |
+| not a health check | `notHealthCheck()` (`/healthz`, or Envoy's `User-Agent: Envoy/HC`), `notHealthCheckPath("/ready")`, `notHealthCheckHeader("X-Health-Check")` | `not_health_check`, `not_health_check(/ready)`, `not_health_check(header=x-health-check)` |
+| response flags | `responseFlag()` (any), `responseFlag(UPSTREAM_OVERFLOW, ...)` | `response_flag`, `response_flag(UO,UF)` |
+| request header | `header("x-debug")` (present), `header("user-agent", "curl/.*")` (whole value), `headerEquals(...)` | `header(x-debug)`, `header(user-agent~curl/.*)`, `header(x-env=prod)` |
+| sampling | `runtime(10)` (by `X-Request-ID` when there is one, else at random) | `runtime(10)`, `sample(10%)` |
+| combinators | `allOf(...)`, `anyOf(...)`, `a.and(b)`, `a.or(b)`, `a.negate()` | `&&` / `and`, `\|\|` / `or`, `!` / `not`, parentheses |
+
+#### Presets
+
+`LogFormat` names nine formats from LittleProxy, now presets of the same formatter, and Envoy's
+default: `CLF`, `ELF` (combined), `JSON`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY`,
+`JSON_EXTENDED` and `ENVOY`. `new ActivityLogger(LogFormat.CLF)` (or `--activity-log-format clf`,
+or `--access-log-format clf`) uses one; each constant's documentation shows its format string.
+`JSON_EXTENDED` adds `source`, `upstream_status`, `ttfb_ms`, `total_ms`, `dns_ms`, `connect_ms`,
+`tls_ms`, `response_flags`, `response_code_details` and `flow` to the `JSON` line.
+
+**Limitations.** Times are milliseconds: `%f` digits beyond them are zeros. `%REQUEST_DURATION%`
+ends when the request was sent on to the server, and `DS_RX_END` is that point too.
+`%BYTES_RECEIVED%` and `%BYTES_SENT%` count body bytes, not heads. Upstream wire bytes are what
+passes the proxy's connection to the server: over TLS, the decrypted bytes.
+`%DOWNSTREAM_LOCAL_ADDRESS%` is unknown for clients of the HTTP/3 listener. `%HOSTNAME%` is looked
+up once. A transparent QUIC flow that is intercepted as HTTP/3 has a line per request, none of its
+own.
 
 Three ways to keep a record of traffic:
 
-- **`ActivityLogger`:** one line per exchange, in an access-log format. Cheap enough to leave on.
+- **`ActivityLogger`:** one line per exchange or flow, in an access-log format. Cheap enough to
+  leave on.
 - **`HttpLogger`:** whole messages, with their headers, what the proxy and filters changed, and
   optionally bodies, as readable blocks or JSON lines. For debugging and audits (see
   [Request/response logging](#requestresponse-logging)).
@@ -3871,7 +4025,7 @@ byte[] encoded = Protobuf.encode(Map.of("id", 42L, "status", "SHIPPED"), schema,
   `ctx.getConnectionContext()` is the connection's. Callbacks for one connection's streams run
   concurrently, on the streams' threads. A stream that ends without a complete response (the
   client reset it, or the connection closed) is reported with `connectionExceptionCaught(streamCtx,
-  cause)`. The request's `protocolVersion()` is `HTTP/2.0`, so access log lines show it.
+  cause)`. The request's `protocolVersion()` is `HTTP/2.0`; access logs say `HTTP/2`, as Envoy does.
 - **Transparent QUIC:** each flow of the [transparent QUIC](#transparent-quic) listener is a
   client connection of its own (`clientConnected` ... `clientDisconnected`, with
   `ctx.isTransparentQuic()` true), whose made-up `CONNECT` is reported as a request.
@@ -3879,6 +4033,17 @@ byte[] encoded = Protobuf.encode(Map.of("id", 42L, "status", "SHIPPED"), schema,
   intercepted or relayed, and why; a relayed flow then reports `serverConnected`, the bytes both
   ways and `serverDisconnected`. The logger `org.microproxy.impl.TransparentQuicListener` writes
   each decision, and why a new client was dropped, at DEBUG.
+- **Why an exchange ended as it did:** `ctx.failure()` (the `ProxyFailure` the proxy answered, set
+  before filters see it), `ctx.responseFlags()` (Envoy's flags: `UF`, `DC`, `UT`, ...) and
+  `ctx.responseCodeDetails()` (`via_upstream`, `proxy_failure:connect_failed`, ...); see
+  [Response flags and details](#response-flags-and-details). Filters may add their own with
+  `ctx.addResponseFlag(flag)` and `ctx.setResponseCodeDetails(details)`.
+- **One record per exchange or flow:** `flowEnded(record)` comes once per HTTP exchange, when it
+  has ended however it ended, and once per tunnel (`CONNECT`, SOCKS, WebSocket, TCP hooks),
+  CONNECT-UDP flow and relayed or stream-intercepted QUIC flow when it closes. The `FlowRecord`
+  has the request and response heads, the bytes each way (to the client and on the server's
+  wire), the upstream and local addresses and TLS sessions, the duration, the flags and details,
+  and what kind of flow it was; the [access log](#access-logs-envoy-compatible) is made of them.
 - **In filters:** `HttpFilters.proxyToClientResponseSent(response, source)` is called once a
   response has been written in full, whoever made it, with the head as sent and its
   `ResponseSource`; `ctx.timings()` covers the whole exchange by then.

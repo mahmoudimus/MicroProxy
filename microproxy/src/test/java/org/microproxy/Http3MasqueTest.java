@@ -197,6 +197,30 @@ class Http3MasqueTest {
     }
 
     @Test
+    void aUdpFlowIsOneRecordWhenItEnds() throws Exception {
+        UdpEcho udp = echo();
+        RecordedFlows flows = new RecordedFlows();
+        proxy = forwardProxy().plusActivityTracker(flows).start();
+        H3TestClient client = client(true);
+        H3TestClient.Tunnel flow = client.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+        assertEquals(200, flow.status);
+        for (int i = 0; i < 3; i++) {
+            flow.sendDatagram(utf8("ping " + i));
+            assertEquals("ping " + i, nextDatagram(flow));
+        }
+        flow.end();
+        assertEquals(-1, flow.in().read());
+        FlowRecord r = flows.await(FlowRecord.Kind.UDP);
+        assertEquals(18, r.bytesReceived());
+        assertEquals(18, r.bytesSent());
+        assertEquals(18, r.upstreamBytesSent());
+        assertEquals(18, r.upstreamBytesReceived());
+        assertEquals(101, r.responseCode(), "the acceptance, as filters see it");
+        assertTrue(r.responseFlags().isEmpty(), r.toString());
+        assertEquals("udp HTTP/3", org.microproxy.extras.AccessLogFormat.envoy("%MP_FLOW% %PROTOCOL%").format(r));
+    }
+
+    @Test
     void udpGoesBothWaysInCapsulesWithoutQuicDatagrams() throws Exception {
         UdpEcho udp = echo();
         proxy = forwardProxy().start();

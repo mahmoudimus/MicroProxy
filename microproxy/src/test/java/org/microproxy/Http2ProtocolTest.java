@@ -40,6 +40,7 @@ class Http2ProtocolTest {
     private HttpsServer origin;
     private HttpProxyServer proxy;
     private final CountDownLatch release = new CountDownLatch(1);
+    private final CountDownLatch slowArrived = new CountDownLatch(1);
     private String target;
 
     @BeforeAll
@@ -67,6 +68,7 @@ class Http2ProtocolTest {
 
     private void handle(HttpExchange exchange) throws IOException {
         if (exchange.getRequestURI().getPath().equals("/slow")) {
+            slowArrived.countDown();
             try {
                 release.await(20, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
@@ -317,14 +319,34 @@ class Http2ProtocolTest {
     }
 
     @Test
+    void aStreamTheClientResetsIsLoggedAsDr() throws Exception {
+        RecordedFlows flows = new RecordedFlows();
+        start(Http2Options.DEFAULT, MicroProxy.bootstrap().plusActivityTracker(flows));
+        try (H2TestClient h2 = connect().handshake()) {
+            h2.get(1, "/slow");
+            assertTrue(slowArrived.await(10, TimeUnit.SECONDS), "the request reached the origin");
+            h2.rst(1, ErrorCode.CANCEL);
+            FlowRecord r = flows.await("stream 1's record", f -> f.kind() == FlowRecord.Kind.HTTP2
+                    && f.context().getStreamId() == 1);
+            assertEquals(java.util.Set.of(ResponseFlag.DOWNSTREAM_REMOTE_RESET), r.responseFlags());
+            assertEquals("downstream_remote_reset", r.responseCodeDetails());
+            assertEquals("HTTP/2", org.microproxy.extras.AccessLogFormat.envoy("%PROTOCOL%").format(r));
+        }
+    }
+
+    @Test
     void otherAuthoritiesGetMisdirectedRequest() throws IOException {
-        start(Http2Options.DEFAULT);
+        RecordedFlows flows = new RecordedFlows();
+        start(Http2Options.DEFAULT, MicroProxy.bootstrap().plusActivityTracker(flows));
         try (H2TestClient h2 = connect().handshake()) {
             List<HeaderField> fields = new ArrayList<>(h2.request("GET", "/x"));
             fields.set(2, new HeaderField(":authority", "other.example:443"));
             h2.headers(1, fields, true);
             assertEquals(421, h2.response(1).status());
         }
+        FlowRecord r = flows.await("the 421's record", f -> f.responseCode() == 421);
+        assertEquals("misdirected_request", r.responseCodeDetails());
+        assertEquals(FlowRecord.Kind.HTTP2, r.kind());
     }
 
     @Test

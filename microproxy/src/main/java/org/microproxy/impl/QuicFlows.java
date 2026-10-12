@@ -324,7 +324,10 @@ final class QuicFlows implements AutoCloseable {
         }
         if (!server.trackers.isEmpty()) {
             int n = datagram.remaining();
-            server.trackers.fire(t -> t.bytesReceivedFromClient(relay.connection.connectionFlowContext(), n));
+            ClientFlowContext flow = relay.connection.connectionFlowContext();
+            flow.addBytesReceived(n);
+            flow.addUpstreamSent(n);
+            server.trackers.fire(t -> t.bytesReceivedFromClient(flow, n));
             server.trackers.fire(t -> t.bytesSentToServer(relay.serverFlow, n));
         }
         return true;
@@ -813,6 +816,13 @@ final class QuicFlows implements AutoCloseable {
             client.endTransparentQuic(false);
             return;
         }
+        InetSocketAddress local = null;
+        try {
+            if (channel.getLocalAddress() instanceof InetSocketAddress bound) local = bound;
+        } catch (IOException e) {
+            // closed meanwhile: the relay ends at once
+        }
+        client.connectionFlowContext().upstream(remote, local, hostAndPort, null);
         server.trackers.fire(t -> t.serverConnected(flow.serverFlow, remote));
         Thread.ofVirtual().name(name + "-relay").start(() -> relayReplies(flow));
     }
@@ -872,8 +882,11 @@ final class QuicFlows implements AutoCloseable {
             }
             quic.send(buf, to);
             if (!server.trackers.isEmpty()) {
+                ClientFlowContext client = flow.connection.connectionFlowContext();
+                client.addUpstreamReceived(n);
+                client.addBytesSent(n);
                 server.trackers.fire(t -> t.bytesReceivedFromServer(flow.serverFlow, n));
-                server.trackers.fire(t -> t.bytesSentToClient(flow.connection.connectionFlowContext(), n));
+                server.trackers.fire(t -> t.bytesSentToClient(client, n));
             }
         }
     }
