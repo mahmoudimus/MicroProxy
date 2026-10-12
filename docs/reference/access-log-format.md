@@ -54,6 +54,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%MP_EARLY_DATA%`, `%MP_TRANSPARENT_QUIC%` | whether the request came as 0-RTT data; whether the client came to the transparent QUIC listener |
 | `%MP_SOCKS_VERSION%`, `%MP_FORWARDED_VIA%` | the SOCKS version; the client's own proxy the request went through |
 | `%MP_USER%`, `%MP_URL%`, `%MP_UPSTREAM_STATUS%` | the authenticated user; the absolute URL; the status the server sent (before a filter changed it) |
+| `%MP_UPSTREAM_PROTOCOL%` | the protocol spoken to `%UPSTREAM_CLUSTER%`: to a chained proxy `HTTP/1.1` or `HTTP/2` (for a tunnel, that of its `CONNECT`), `SOCKS4` or `SOCKS5`; else to the server `HTTP/1.1`, `HTTP/2` or `HTTP/3`; `-` for a tunnel straight to the server |
 | `%MP_TIMING(phase)%` | `dns`, `connect`, `tls`, `client_tls`, `ttfb` or `total`, in milliseconds with three decimals |
 | `%MP_SCRIPT_CALLS%`, `%MP_SCRIPT_TIME%` | the exchange's calls into [scripts](starlark-api.md#script-budgets), and the milliseconds they took together, with three decimals |
 | `%MP_SCRIPT_STEPS%`, `%MP_SCRIPT_ALLOC%` | the interpreter steps those calls ran, and about how many bytes of values they created (an estimate) |

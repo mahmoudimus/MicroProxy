@@ -61,7 +61,7 @@ See [Chained proxies](../guides/chained-proxies.md), [DNSSEC](../guides/dnssec.m
 
 | Flag | Meaning | Property |
 |---|---|---|
-| `--upstream-proxy <url>` | chain to http(s)://[user:pw@]host:port or socks5://... | `upstream_proxy` |
+| `--upstream-proxy <url>` | chain to http(s)://[user:pw@]host:port or socks5://...; h2://... (TLS, ALPN h2) or h2c://... (prior knowledge) speaks HTTP/2 to it, tunnels and requests as streams ([HTTP/2 to chained proxies](../guides/chained-proxies.md#http2-to-chained-proxies)) | `upstream_proxy` |
 | `--upstream-https-proxy <url>` | different upstream for HTTPS / CONNECT | `upstream_https_proxy` |
 | `--no-proxy <list>` | hosts to reach directly (NO_PROXY syntax) | `no_proxy` |
 | `--env-proxy` | take upstream proxies from http_proxy/https_proxy/no_proxy | `use_env_proxy` |

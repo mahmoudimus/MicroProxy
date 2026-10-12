@@ -85,8 +85,10 @@ is spoken to in HTTP/2; any other keeps HTTP/1.1, so turning it on is safe for s
 HTTP/2. WebSockets use extended `CONNECT` when the origin advertises
 `SETTINGS_ENABLE_CONNECT_PROTOCOL`; otherwise they use a separate HTTP/1.1 connection.
 Plain-HTTP requests (`http://`
-through the proxy, and plain HTTP chained proxies) stay HTTP/1.1; HTTP/2 inside the tunnel of an
-HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct connection.
+through the proxy, and plain HTTP chained proxies) stay HTTP/1.1, unless they go to a chained
+proxy spoken to in HTTP/2 ([HTTP/2 to chained proxies](chained-proxies.md#http2-to-chained-proxies));
+HTTP/2 inside the tunnel of an HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct
+connection.
 
 - **Multiplexing.** An HTTP/2 connection to a server carries many exchanges at once, one stream
   each: the streams of an HTTP/2 client, the requests of an intercepted HTTP/1 session, and, with
@@ -297,7 +299,8 @@ Misdirected Request`, which makes the client retry on a connection of its own; s
 request, are proxy requests, forwarded instead ([In front of an HTTP or HTTPS proxy](chained-proxies.md#in-front-of-an-http-or-https-proxy)). On a
 forward-proxy HTTP/2 connection (`h2c`, or the proxy's TLS listener), a `:scheme https` request is
 fetched over TLS the proxy opens itself ([TLS origination](forward-proxy.md#tls-origination-https-uris-without-connect)),
-as an absolute `https://` URI sent in plain HTTP is. HTTP/2 chained proxies are not supported.
+as an absolute `https://` URI sent in plain HTTP is. Towards a chained proxy, the proxy may speak
+HTTP/2 too ([HTTP/2 to chained proxies](chained-proxies.md#http2-to-chained-proxies)).
 
 ## Limits
 

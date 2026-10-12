@@ -33,7 +33,7 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `cluster.<cluster>.upstream_cx_total`, `_active` | counter, gauge | connections to servers or chained proxies |
 | `cluster.<cluster>.upstream_cx_connect_fail`, `_connect_timeout` | counter | connection attempts that failed (TCP, TLS, a chained proxy's refusal) / timed out |
 | `cluster.<cluster>.upstream_cx_connect_ms` | histogram | TCP connect time (QUIC: the handshake) |
-| `cluster.<cluster>.upstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by protocol |
+| `cluster.<cluster>.upstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by protocol (a chained proxy's HTTP/2 connections carry its tunnels and requests as streams: [HTTP/2 to chained proxies](../guides/chained-proxies.md#http2-to-chained-proxies)) |
 | `cluster.<cluster>.upstream_cx_destroy`, `_destroy_local`, `_destroy_remote`, `upstream_cx_length_ms` | counter, histogram | connections closed, by whom, and how long they were open |
 | `cluster.<cluster>.upstream_cx_pool_overflow` | counter | requests refused for want of a pooled connection (`UO`) |
 | `cluster.<cluster>.upstream_rq_total`, `_active` | counter, gauge | requests sent to the cluster (each attempt) |

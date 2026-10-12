@@ -65,7 +65,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `max_concurrent_per_client` | exchanges each client IP may run at once; more get `429` (see [Concurrency limiting](../guides/concurrency-limiting.md)) | off |
 | `pool_idle_timeout` | seconds before idle pooled connections close | none |
 | `pool_shared_mitm_connections` / `pool_per_request_in_mitm` | pool intercepted TLS connections, per session / per request | `false` |
-| `upstream_proxy` / `upstream_https_proxy` | chain to `http(s)://[user:pw@]host:port` or `socks4/5://...` (HTTPS / CONNECT may use a different upstream) | none |
+| `upstream_proxy` / `upstream_https_proxy` | chain to `http(s)://[user:pw@]host:port`, `h2://...` or `h2c://...` ([HTTP/2 to the proxy](../guides/chained-proxies.md#http2-to-chained-proxies)) or `socks4/5://...` (HTTPS / CONNECT may use a different upstream) | none |
 | `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |

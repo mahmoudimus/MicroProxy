@@ -5,8 +5,8 @@ chosen from URLs, `NO_PROXY` rules or the environment, failover and backoff betw
 happens when a client's own proxy sits behind an intercepting MicroProxy. Use this page to put
 MicroProxy in front of (or behind) a corporate proxy.
 
-Chained proxies are HTTP (with Basic credentials, optionally over TLS), SOCKS4a and SOCKS5 (with
-username/password). A `ChainedProxyManager` chooses them per request, as a list of candidates: the
+Chained proxies are HTTP (with Basic credentials, optionally over TLS, spoken to in HTTP/1.1 or
+[HTTP/2](#http2-to-chained-proxies)), SOCKS4a and SOCKS5 (with username/password). A `ChainedProxyManager` chooses them per request, as a list of candidates: the
 proxy falls back to the next proxy or a direct connection when one fails, optionally with
 exponential backoff between attempts. `UpstreamProxyManager` configures them from proxy URLs,
 `NO_PROXY` rules or the environment; a [Starlark script's `upstream` hook](../reference/starlark-api.md)
@@ -17,7 +17,8 @@ can choose them too.
 `UpstreamProxyManager` is a `ChainedProxyManager` configured the way command-line clients are:
 
 - **Upstreams:** one proxy URL for plain HTTP and optionally another for HTTPS/CONNECT:
-  `http://user:pw@proxy:3128`, `https://...` (TLS to the proxy), `socks4://`, `socks5://`.
+  `http://user:pw@proxy:3128`, `https://...` (TLS to the proxy), `h2://...` and `h2c://...`
+  ([HTTP/2 to the proxy](#http2-to-chained-proxies)), `socks4://`, `socks5://`.
 - **Bypass:** `NoProxyRules` takes curl's `NO_PROXY` syntax: `*`, domain suffixes
   (`example.com`, `.example.com`, `*.example.com`), IP literals, CIDR ranges and `:port`
   qualifiers. Addresses are only compared when the request names an IP literal, so no DNS
@@ -70,6 +71,76 @@ command line turns waiting off, overriding a properties file.
   the remaining candidates are tried without waiting.
 - The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
   only a `DEBUG` log line.
+
+## HTTP/2 to chained proxies
+
+A chained HTTP proxy is spoken to in HTTP/1.1 by default: a connection of its own for each
+tunnel, and plain-HTTP requests on (pooled) connections one at a time. A chained proxy that speaks
+HTTP/2 can carry all of them as streams of a few shared connections instead (RFC 9113 section
+8.5), as forward proxies such as MicroProxy itself (`--http2` on its TLS listener, or
+`--http2-cleartext`) do. It is chosen per proxy: the `h2://` and `h2c://` schemes in a proxy URL,
+or `ChainedProxy.http2()`, which is `false` by default.
+
+| Proxy URL | Means | Bootstrap |
+|---|---|---|
+| `h2://[user:pw@]host[:port]` | TLS to the proxy (port 443 by default), offering `h2` and `http/1.1` with ALPN | `http2()` and `requiresEncryption()` return `true` |
+| `h2c://[user:pw@]host[:port]` | HTTP/2 with prior knowledge over plain TCP (port 80 by default) | `http2()` returns `true` |
+
+Proxy URLs are taken by `--upstream-proxy` and `--upstream-https-proxy`, the `upstream_proxy` and
+`upstream_https_proxy` properties, `http_proxy`, `https_proxy` and `all_proxy` (`--env-proxy`),
+`UpstreamProxyManager.proxy(url)` and a script's `upstream()`.
+
+```bash
+java -jar microproxy.jar --upstream-proxy h2://alice:s3cret@proxy.corp:443 --mitm
+java -jar microproxy.jar --upstream-proxy h2c://127.0.0.1:3128
+```
+
+- **What takes a stream.** Every `CONNECT` the proxy sends the chained proxy is a stream: a
+  client's `CONNECT` it relays, the tunnel of an intercepted one (its TLS with the server, and
+  HTTP/2 with the server if both choose it, then run inside the stream), the tunnel it opens to
+  [originate TLS](forward-proxy.md#tls-origination-https-uris-without-connect) for an `https://`
+  request, and the tunnels to [a client's own proxy](#in-front-of-an-http-or-https-proxy) reached
+  through it. A
+  plain-HTTP request is a stream too, as a proxy request: `:scheme http`, `:authority` the
+  server's, and `:path`. A WebSocket upgrade over plain HTTP still goes over HTTP/1.1.
+- **Shared connections.** A connection to the chained proxy is keyed by the proxy alone (its
+  address, TLS, `SSLContext` instance, credentials and local address), never by the server, and
+  carries the streams of every client connection; it is never coalesced. The proxy reads the
+  chained proxy's SETTINGS first and opens no more streams than its
+  `SETTINGS_MAX_CONCURRENT_STREAMS`; when every connection is full it opens another. A burst of
+  exchanges waits for the connection one of them is making. Connections close after the idle
+  timeout without streams.
+- **Negotiation.** Over TLS, `h2` and `http/1.1` are offered with ALPN (before the proxy's
+  `configure`, which may change that); a chained proxy that chooses `http/1.1`, or no protocol,
+  is spoken to in HTTP/1.1, as without HTTP/2. An `h2c://` proxy must speak HTTP/2 with prior
+  knowledge: one that does not fails as an unreachable proxy does.
+- **Credentials.** The proxy's credentials go on every stream, as `proxy-authorization` (Basic).
+  As over HTTP/1.1, a `407` to a plain-HTTP request is relayed to the client (without its
+  challenge, which is not the client's to answer), and a `CONNECT` the chained proxy refuses is a
+  `502`.
+- **Tunnels.** A tunnel's bytes are DATA frames, flow controlled both ways: a client that stops
+  reading stops the chained proxy's stream, never the connection. One side's end is END_STREAM
+  (and the chained proxy's END_STREAM ends the client's side), and a reset of the stream fails
+  the tunnel as a reset socket does. The PROXY protocol header (`--send-proxy-protocol`) goes into
+  the tunnel, as through an HTTP/1.1 chained proxy.
+- **Failover.** Failing to reach the chained proxy (refused, timed out, TLS failed, its preface
+  not HTTP/2) or a refused `CONNECT` moves on to the route's next proxy (or a direct connection),
+  with the [backoff](#retries-and-backoff) and the `failover` and `backoff_*` stats, as over
+  HTTP/1.1. A GOAWAY or a connection failure affects only the streams of that connection; others
+  go on. A stream the chained proxy never processed (above GOAWAY's last stream id, or answered
+  `REFUSED_STREAM`) is sent again on another connection, and after two such streams an exchange
+  moves on to the next proxy. A stream that started (a tunnel that opened, a request whose
+  response was under way) is not sent again: it fails as with any server connection, with the
+  response flags that say so (`UC` when the connection went away).
+- **Stats and logs.** The chained proxy's cluster (`cluster.<host_port>.*`) counts its HTTP/2
+  connections in `upstream_cx_total` and `upstream_cx_http2_total` (not each tunnel), the
+  requests on them in `upstream_rq_*`, and their bytes, frames included, in
+  `upstream_cx_rx_bytes_total` and `_tx_bytes_total`; `http2.upstream.*` counts their streams
+  with those to servers. In the access log, `%UPSTREAM_CLUSTER%` names the chained proxy and
+  `%MP_UPSTREAM_PROTOCOL%` says `HTTP/2` (`FlowRecord.upstreamProtocol()`, and
+  `microproxy.upstream_protocol` in [OpenTelemetry](../observability/opentelemetry.md)).
+- **Needs** the `http2-codec` jar (bundled in the `-all` jar): an `h2://` or `h2c://` URL without
+  it fails at startup; a `ChainedProxy` whose `http2()` says `true` is spoken to in HTTP/1.1.
 
 ## In front of an HTTP or HTTPS proxy
 

@@ -129,6 +129,7 @@ are exchanges of their own, with the context they carry.
 | `response_flags`, `upstream_cluster`, `upstream_address`, `guid:x-request-id` | as Envoy's tracing tags | `UF,URX`; the chained proxy or server; its address; the request id |
 | `microproxy.response_source`, `microproxy.response_code_details`, `microproxy.flow` | SERVER, INTERNAL | `SERVER`, `PROXY`, ...; `via_upstream`, `proxy_failure:connect_failed`, ...; `h1`, `h2`, `tunnel`, ... |
 | `microproxy.connection_id`, `microproxy.stream_id`, `microproxy.socks_version`, `microproxy.chained_proxy` | | the client connection and stream; the SOCKS version; a CLIENT span's chained proxy |
+| `microproxy.upstream_protocol` | SERVER, INTERNAL | the protocol spoken to `upstream_cluster`, as `%MP_UPSTREAM_PROTOCOL%` (`HTTP/2` to a [chained HTTP/2 proxy](../guides/chained-proxies.md#http2-to-chained-proxies)) |
 | `network.transport`, `microproxy.bytes_received`, `microproxy.bytes_sent`, `microproxy.upstream_bytes_sent`, `microproxy.upstream_bytes_received` | INTERNAL | `tcp` or `udp`, and the payload each way |
 
 The SERVER (or INTERNAL) span's events come from the exchange's [timings](activity-tracking.md#observability):
