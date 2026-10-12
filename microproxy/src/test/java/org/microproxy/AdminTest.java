@@ -379,7 +379,7 @@ class AdminTest {
 
     /**
      * HTTP/2 to clients and servers is on by default, which the server info, the listeners and the
-     * config dump show, and turned off they say so.
+     * config dump show; turned off they say so, and an h2c-only listener lists h2c alone.
      */
     @Test
     void http2DefaultsShowInServerInfoListenersAndConfigDump() throws Exception {
@@ -390,7 +390,7 @@ class AdminTest {
         assertEquals(true, features().get("h2"));
         assertEquals(true, features().get("h2_upstream"));
         assertEquals(false, features().get("h2c"));
-        assertEquals(Map.of("downstream", true, "upstream", true, "cleartext", false),
+        assertEquals(Map.of("downstream", true, "upstream", true, "cleartext", false, "cleartext_only", false),
                 http2ConfigDump());
         proxy.abort();
 
@@ -400,7 +400,7 @@ class AdminTest {
         assertTrue(listeners.endsWith("::tcp::tls,http/1.1\n"), listeners);
         assertEquals(false, features().get("h2"));
         assertEquals(false, features().get("h2_upstream"));
-        assertEquals(Map.of("downstream", false, "upstream", false, "cleartext", false),
+        assertEquals(Map.of("downstream", false, "upstream", false, "cleartext", false, "cleartext_only", false),
                 http2ConfigDump());
         proxy.abort();
 
@@ -408,6 +408,14 @@ class AdminTest {
         proxy = withAdmin().start();
         assertEquals(false, features().get("h2"));
         assertEquals(true, features().get("h2_upstream"));
+        proxy.abort();
+
+        proxy = withAdmin().withHttp2CleartextOnly(true).start();
+        listeners = get("/listeners").body();
+        assertTrue(listeners.endsWith("::tcp::h2c\n"), listeners);
+        assertEquals(true, features().get("h2c"));
+        assertEquals(Map.of("downstream", true, "upstream", true, "cleartext", true, "cleartext_only", true),
+                http2ConfigDump());
     }
 
     @Test

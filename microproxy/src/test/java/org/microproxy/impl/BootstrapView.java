@@ -122,6 +122,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Cleartext;
     }
 
+    /** Whether the plain listener serves h2c alone ({@code withHttp2CleartextOnly}). */
+    public static boolean http2CleartextOnly(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2CleartextOnly;
+    }
+
     /** The headers removed from requests sent upstream, as configured. */
     public static List<String> strippedRequestHeaders(HttpProxyServerBootstrap bootstrap) {
         return List.copyOf(((DefaultHttpProxyServerBootstrap) bootstrap).strippedRequestHeaders.values());

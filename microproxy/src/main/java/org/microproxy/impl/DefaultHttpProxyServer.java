@@ -147,6 +147,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final boolean http2Upstream;
     /** Whether the plain listener serves HTTP/2 with prior knowledge; the codec is known to be present. */
     final boolean http2Cleartext;
+    /** Whether it serves nothing else: other connections are a connection error (see {@link #http2Cleartext}). */
+    final boolean http2CleartextOnly;
     final Http2Options http2Options;
     /** Sees every HTTP/2 frame (see {@link FrameInterceptor}); null for none, which costs nothing. */
     final FrameInterceptor frameInterceptor;
@@ -235,7 +237,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
         if (!Http2Support.available()) {
-            if (Boolean.TRUE.equals(b.http2) || Boolean.TRUE.equals(b.http2Upstream) || b.http2Cleartext) {
+            if (Boolean.TRUE.equals(b.http2) || Boolean.TRUE.equals(b.http2Upstream) || b.http2Cleartext
+                    || b.http2CleartextOnly) {
                 // Asked for explicitly: fail at startup, not on the first client that asks for h2.
                 throw new IllegalStateException(Http2Support.MISSING);
             }
@@ -250,6 +253,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         if ((b.http3 || b.http3Upstream || b.transparentQuicPort >= 0) && !Http3Support.available()) {
             throw new IllegalStateException(Http3Support.MISSING);
+        }
+        if (b.http2CleartextOnly && (b.sslContextSource != null || b.socksServer || b.socksDetection || b.transparent
+                || b.reverseProxy != null && b.reverseProxy.rawTcp())) {
+            throw new IllegalStateException("an h2c-only listener (withHttp2CleartextOnly, --http2-cleartext-only,"
+                    + " http2_cleartext_only) serves HTTP/2 with prior knowledge alone, so not with a TLS listener, SOCKS,"
+                    + " transparent mode or a tcp:// reverse proxy");
         }
         if (b.connectUdp && b.reverseProxy != null) {
             throw new IllegalStateException("CONNECT-UDP (withConnectUdp, --masque, masque) is served by a forward proxy,"
@@ -336,7 +345,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         b.activityTrackers.forEach(trackers::add);
         this.http2 = b.offersHttp2();
         this.http2Upstream = b.offersHttp2Upstream();
-        this.http2Cleartext = b.http2Cleartext;
+        this.http2Cleartext = b.http2Cleartext || b.http2CleartextOnly;
+        this.http2CleartextOnly = b.http2CleartextOnly;
         this.http2Options = b.http2Options;
         this.frameInterceptor = b.frameInterceptor;
         this.tcpInterceptor = b.tcpInterceptor;

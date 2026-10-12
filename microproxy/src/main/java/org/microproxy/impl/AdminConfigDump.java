@@ -106,7 +106,8 @@ final class AdminConfigDump {
         // In effect: on by default with the codec, off without it.
         h2.put("downstream", b.offersHttp2());
         h2.put("upstream", b.offersHttp2Upstream());
-        h2.put("cleartext", b.http2Cleartext);
+        h2.put("cleartext", b.http2Cleartext || b.http2CleartextOnly);
+        h2.put("cleartext_only", b.http2CleartextOnly);
         h2.put("options", b.http2Options.toString());
         boot.put("http2", h2);
         Map<String, Object> h3 = new LinkedHashMap<>();

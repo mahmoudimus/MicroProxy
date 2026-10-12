@@ -103,6 +103,7 @@ See [HTTP/2](../guides/http2.md).
 | `--http2-upstream` | speak HTTP/2 to servers that offer it over TLS (ALPN h2), one shared connection per server (the default); needs the http2-codec jar, as --http2 does | `http2_upstream=true` |
 | `--no-http2-upstream` | speak HTTP/1.1 only to servers | `http2_upstream=false` |
 | `--http2-cleartext` | serve HTTP/2 with prior knowledge (h2c) on the plain listener (off by default); needs the http2-codec jar | `http2_cleartext` |
+| `--http2-cleartext-only` | serve only h2c on the plain listener: a connection without the HTTP/2 preface gets GOAWAY PROTOCOL_ERROR instead of HTTP/1.x (implies --http2-cleartext; [h2c-only listener](../guides/http2.md#h2c-only-listener)) | `http2_cleartext_only` |
 | `--http2-max-streams <n>` | concurrent HTTP/2 streams per client connection (default 100) | `http2_max_concurrent_streams` |
 | `--http2-coalesce` | with HTTP/2 to servers, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address, or that it names in an ORIGIN frame (RFC 9113 9.1.1, RFC 8336) | `http2_coalesce` |
 

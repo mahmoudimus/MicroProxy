@@ -134,6 +134,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Boolean http2Upstream;
     /** Whether the plain listener serves HTTP/2 with prior knowledge. */
     boolean http2Cleartext;
+    /** Whether the plain listener serves nothing else (h2c whatever {@link #http2Cleartext} says). */
+    boolean http2CleartextOnly;
     Http2Options http2Options = Http2Options.DEFAULT;
     /** Whether a reverse proxy serves HTTP/3 on UDP. */
     boolean http3;
@@ -228,6 +230,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2 = http2;
         c.http2Upstream = http2Upstream;
         c.http2Cleartext = http2Cleartext;
+        c.http2CleartextOnly = http2CleartextOnly;
         c.http2Options = http2Options;
         c.http3 = http3;
         c.http3Upstream = http3Upstream;
@@ -383,6 +386,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("http2")) withHttp2(bool(p, "http2"));
         if (p.containsKey("http2_upstream")) withHttp2Upstream(bool(p, "http2_upstream"));
         if (p.containsKey("http2_cleartext")) withHttp2Cleartext(bool(p, "http2_cleartext"));
+        if (p.containsKey("http2_cleartext_only")) withHttp2CleartextOnly(bool(p, "http2_cleartext_only"));
         if (p.containsKey("http2_max_concurrent_streams") || p.containsKey("http2_initial_window_size")
                 || p.containsKey("http2_connection_window_size") || p.containsKey("http2_coalesce")) {
             Http2Options.Builder h2 = http2Options.toBuilder();
@@ -920,6 +924,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withHttp2Cleartext(boolean enabled) {
         this.http2Cleartext = enabled;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withHttp2CleartextOnly(boolean enabled) {
+        this.http2CleartextOnly = enabled;
         return this;
     }
 

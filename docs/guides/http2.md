@@ -35,7 +35,7 @@ intercepted TLS or the proxy's TLS listener gets it, and so does a server that t
 `h2` and that picks it. Peers that offer only HTTP/1.1, or no ALPN, keep HTTP/1.1, so the default
 changes nothing for them. Turn either off with `false` (`--no-http2`, `--no-http2-upstream`,
 `http2=false`, `http2_upstream=false`). HTTP/2 with prior knowledge on the plain listener (`h2c`,
-`withHttp2Cleartext`) stays opt-in.
+`withHttp2Cleartext`) stays opt-in, as does an [h2c-only listener](#h2c-only-listener).
 
 HTTP/2 needs the optional `http2-codec` module on the class path (see
 [Install](../getting-started/install.md#modules-and-artifacts); the `microproxy-starlark` `-all`
@@ -258,6 +258,21 @@ origination](forward-proxy.md#tls-origination-https-uris-without-connect)), and 
 `Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
 before: the request is answered in HTTP/1.1. The same limits as for intercepted HTTP/2 apply.
 
+### h2c-only listener
+
+With `withHttp2CleartextOnly(true)` (`--http2-cleartext-only`, `http2_cleartext_only=true`), the
+plain listener serves `h2c` with prior knowledge and nothing else, for a listener only HTTP/2
+clients use, such as a reverse proxy in front of gRPC servers. A connection whose first bytes are
+not the preface is a connection error of type `PROTOCOL_ERROR` (RFC 9113 section 3.4): the proxy
+sends its `SETTINGS` and a `GOAWAY` with `PROTOCOL_ERROR`, and closes it, where a shared listener
+would serve it as HTTP/1. It implies `withHttp2Cleartext`, and a proxy with it fails to start with
+a TLS listener, SOCKS, transparent mode or a `tcp://` reverse proxy, which all take connections
+that are not HTTP/2. The admin API's `/listeners` shows the listener as `h2c` alone.
+
+```bash
+java -jar microproxy-starlark-all.jar --port 8080 --mode reverse:https://grpc.example.com --http2-cleartext-only
+```
+
 ## CONNECT and WebSockets
 
 A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
@@ -367,8 +382,8 @@ the client connections are done.
 With HTTP/2 off (`--no-http2 --no-http2-upstream`, or without the codec), nothing changes from
 HTTP/1-only behaviour, with two small exceptions in the API: `FlowContext.equals` (and
 `hashCode`) now also compare the stream id, which is 0 for every HTTP/1 context, so HTTP/1 behaviour is the same; and `HttpProxyServerBootstrap` gains
-`withHttp2`, `withHttp2Upstream`, `withHttp2Cleartext`, `withHttp2Options` and `getHttp2Options`
-as default methods, so other implementations still compile. Trackers and filters keyed by
+`withHttp2`, `withHttp2Upstream`, `withHttp2Cleartext`, `withHttp2CleartextOnly`,
+`withHttp2Options` and `getHttp2Options` as default methods, so other implementations still compile. Trackers and filters keyed by
 `FlowContext` keep one entry per stream; state meant per client connection can be keyed by
 `ctx.getConnectionContext()`.
 

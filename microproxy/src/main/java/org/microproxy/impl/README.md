@@ -192,7 +192,9 @@ When an intercepted handshake or the proxy TLS listener negotiates ALPN `h2` (of
 also says whether a server left at the default falls back to HTTP/1.1), `intercept` hands the TLS socket to
 `Http2Connection.serve`, on the connection's own thread; `run` does the same on the TLS listener.
 With `withHttp2Cleartext`, `run` does the
-same for a plain connection whose first bytes are the connection preface
+same for a plain connection whose first bytes are the connection preface (and with
+`withHttp2CleartextOnly`, answers any other connection with `SETTINGS` and `GOAWAY`
+`PROTOCOL_ERROR`, written out as bytes so that the class does not need the codec)
 (`ByteReader.startsWith`, which consumes nothing; the bytes already read are handed over); that
 connection has no `CONNECT` target, so its requests are made absolute-form from `:scheme` and
 `:authority` and are never answered `421`, and its streams authenticate one by one

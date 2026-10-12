@@ -599,6 +599,27 @@ public interface HttpProxyServerBootstrap {
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
     }
 
+    /**
+     * Serves only HTTP/2 with prior knowledge on the plain listener: as {@link #withHttp2Cleartext}
+     * (which this implies), except that a connection that does not start with the HTTP/2
+     * connection preface is not served as HTTP/1.x but treated as a connection error of type
+     * {@code PROTOCOL_ERROR} (RFC 9113 section 3.4): it is sent {@code GOAWAY} and closed. For a
+     * listener only HTTP/2 clients use, such as a reverse proxy in front of gRPC servers. Off by
+     * default.
+     *
+     * <p>A server with it fails to start with a TLS listener ({@link #withSslContextSource}), SOCKS
+     * ({@link #withSocksServer}, {@link #withSocksDetection}), transparent mode or a {@code tcp://}
+     * reverse proxy, which all need connections that are not HTTP/2; and, like {@link
+     * #withHttp2Cleartext}, without the optional {@code http2-codec} module.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withHttp2CleartextOnly(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/2");
+    }
+
     /** {@return the HTTP/2 limits configured so far (never null)} */
     default Http2Options getHttp2Options() {
         return Http2Options.DEFAULT;

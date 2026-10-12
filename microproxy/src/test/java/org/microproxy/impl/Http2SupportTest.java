@@ -115,6 +115,20 @@ class Http2SupportTest {
         assertNull(b.http2Upstream);
     }
 
+    @Test
+    void anH2cOnlyListenerFromPropertiesAndWithoutTheCodec() {
+        Properties p = new Properties();
+        p.setProperty("http2_cleartext_only", "true");
+        DefaultHttpProxyServerBootstrap b = DefaultHttpProxyServerBootstrap.fromProperties(p);
+        assertTrue(b.http2CleartextOnly);
+        assertTrue(b.copy().http2CleartextOnly);
+        assertFalse(DefaultHttpProxyServerBootstrap.fromProperties(new Properties()).http2CleartextOnly);
+        Http2Support.presentForTesting = false;
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true).start());
+        assertTrue(e.getMessage().contains("http2-codec"), e.getMessage());
+    }
+
     /**
      * Without the codec, the defaults fall back to HTTP/1.1 and say so at INFO once, then at
      * DEBUG; a server that turns both off says nothing. (Http2CodecAbsentTest serves requests so.)

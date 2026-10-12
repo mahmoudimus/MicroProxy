@@ -398,6 +398,8 @@ class LauncherTest {
         assertEquals(Boolean.TRUE, BootstrapView.http2UpstreamSetting(both));
         assertTrue(BootstrapView.http2Cleartext(both));
         assertNull(BootstrapView.http2Setting(both));
+        assertFalse(BootstrapView.http2CleartextOnly(both));
+        assertTrue(BootstrapView.http2CleartextOnly(parse("--http2-cleartext-only").bootstrap()));
         HttpProxyServerBootstrap off = parse("--no-http2", "--no-http2-upstream").bootstrap();
         assertFalse(BootstrapView.http2(off));
         assertFalse(BootstrapView.http2Upstream(off));

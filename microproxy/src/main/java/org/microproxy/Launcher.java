@@ -201,6 +201,9 @@ public final class Launcher {
               --no-http2-upstream          speak HTTP/1.1 only to servers
               --http2-cleartext            serve HTTP/2 with prior knowledge (h2c) on the plain
                                            listener; needs the http2-codec jar
+              --http2-cleartext-only       serve only h2c on the plain listener: a connection
+                                           without the HTTP/2 preface gets GOAWAY PROTOCOL_ERROR
+                                           instead of HTTP/1.x (implies --http2-cleartext)
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
               --http2-coalesce             with HTTP/2 to servers, let an HTTP/2 connection to a
@@ -652,6 +655,7 @@ public final class Launcher {
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--no-http2-upstream" -> bootstrap.withHttp2Upstream(false);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
+                case "--http2-cleartext-only" -> bootstrap.withHttp2CleartextOnly(true);
                 case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
                 case "--http2-coalesce" -> http2Coalesce = true;
                 case "--http3" -> bootstrap.withHttp3(true);
