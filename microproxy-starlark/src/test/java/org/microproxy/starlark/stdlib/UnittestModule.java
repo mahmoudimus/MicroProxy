@@ -32,6 +32,15 @@ public final class UnittestModule implements StarlarkValue {
         final List<Outcome> outcomes = new ArrayList<>();
     }
 
+    /**
+     * The bounds each test runs within, as a hook call does (a thread local of the thread that
+     * runs the tests): the bytes of values it may create, and its wall-clock time.
+     *
+     * @param maxAllocBytes the allocation budget of each test
+     * @param timeout the time budget of each test
+     */
+    record PerTestBudget(long maxAllocBytes, java.time.Duration timeout) {}
+
     @StarlarkMethod(name = "TestSuite", doc = "An empty test suite.")
     public Suite testSuite() {
         return new Suite();
@@ -89,8 +98,14 @@ public final class UnittestModule implements StarlarkValue {
                 parameters = {@Param(name = "suite")}, useStarlarkThread = true)
         public void run(Suite suite, StarlarkThread thread) throws InterruptedException {
             Results results = thread.getThreadLocal(Results.class);
+            PerTestBudget budget = thread.getThreadLocal(PerTestBudget.class);
             for (TestCase test : suite.tests) {
                 String error = null;
+                if (budget != null) {
+                    // A test gets a budget of its own, from what the thread made so far.
+                    thread.setMaxAllocatedBytes(thread.getAllocatedBytes() + budget.maxAllocBytes());
+                    thread.setDeadlineNanos(System.nanoTime() + budget.timeout().toNanos());
+                }
                 try {
                     Starlark.call(thread, test.function, Tuple.empty(), Map.of());
                 } catch (EvalException e) {
