@@ -61,6 +61,9 @@ public abstract class Tuple extends AbstractList<Object>
 
   /** Returns a Tuple that wraps the specified array, which must not be subsequently modified. */
   static Tuple wrap(Object[] array) {
+    if (array.length > 0) {
+      StarlarkThread.allocateCurrentLater(Allocations.sequence(array.length)); // MicroProxy
+    }
     switch (array.length) {
       case 0:
         return RegularTuple.EMPTY;

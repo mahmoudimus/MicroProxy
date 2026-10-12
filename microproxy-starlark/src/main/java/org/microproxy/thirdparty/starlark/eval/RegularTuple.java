@@ -159,6 +159,7 @@ final class RegularTuple extends Tuple {
     if (sz > StarlarkList.MAX_ALLOC) {
       throw Starlark.errorf("excessive repeat (%d * %d elements)", elems.length, ni);
     }
+    StarlarkThread.checkAllocationCurrent(Allocations.sequence(sz)); // MicroProxy: before allocating
     Object[] res = new Object[(int) sz];
     for (int i = 0; i < ni; i++) {
       System.arraycopy(elems, 0, res, i * elems.length, elems.length);

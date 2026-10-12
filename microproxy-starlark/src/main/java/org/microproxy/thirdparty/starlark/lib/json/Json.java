@@ -30,6 +30,7 @@ import java.util.Map;
 import org.microproxy.thirdparty.starlark.annot.Param;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Allocations;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
@@ -100,12 +101,13 @@ public final class Json implements StarlarkValue {
       parameters = {@Param(name = "x")},
       useStarlarkThread = true)
   public String encode(Object x, StarlarkThread thread) throws EvalException, InterruptedException {
-    Encoder enc = new Encoder(thread.getSemantics());
+    Encoder enc = new Encoder(thread.getSemantics(), thread);
     try {
       enc.encode(x);
     } catch (StackOverflowError unused) {
       throw Starlark.errorf("nesting depth limit exceeded");
     }
+    thread.allocate(Allocations.string(enc.out.length())); // MicroProxy
     return enc.out.toString();
   }
 
@@ -113,12 +115,16 @@ public final class Json implements StarlarkValue {
 
     private final StringBuilder out = new StringBuilder();
     private final StarlarkSemantics semantics;
+    private final StarlarkThread thread;
 
-    private Encoder(StarlarkSemantics semantics) {
+    private Encoder(StarlarkSemantics semantics, StarlarkThread thread) {
       this.semantics = semantics;
+      this.thread = thread;
     }
 
     private void encode(Object x) throws EvalException, InterruptedException {
+      // MicroProxy: stops an output that grows past the allocation budget as it grows.
+      thread.checkAllocation(Allocations.string(out.length()));
       if (x instanceof StarlarkEncodable encodable) {
         x = encodable.objectForEncoding(semantics);
       }
@@ -320,13 +326,16 @@ public final class Json implements StarlarkValue {
       useStarlarkThread = true)
   public Object decode(String x, Object defaultValue, StarlarkThread thread) throws EvalException {
     try {
-      return new Decoder(
-              thread.mutability(),
-              x,
-              thread
-                  .getSemantics()
-                  .getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS))
-          .decode();
+      Object result =
+          new Decoder(
+                  thread.mutability(),
+                  x,
+                  thread
+                      .getSemantics()
+                      .getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS))
+              .decode();
+      thread.allocate(Allocations.ofResult(result)); // MicroProxy: its strings
+      return result;
     } catch (EvalException e) {
       if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
@@ -671,6 +680,7 @@ public final class Json implements StarlarkValue {
     } catch (StringIndexOutOfBoundsException unused) {
       throw Starlark.errorf("input is not valid JSON");
     }
+    StarlarkThread.allocateCurrent(Allocations.string(in.out.length())); // MicroProxy
     return in.out.toString();
   }
 

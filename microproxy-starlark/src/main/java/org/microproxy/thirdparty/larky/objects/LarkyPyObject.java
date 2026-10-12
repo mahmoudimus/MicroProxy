@@ -17,6 +17,7 @@ import org.microproxy.thirdparty.larky.parser.StarlarkUtil;
 import org.microproxy.thirdparty.starlark.annot.Param;
 import org.microproxy.thirdparty.starlark.annot.ParamType;
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Allocations;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.HasBinary;
@@ -56,6 +57,8 @@ public class LarkyPyObject implements
     this.thread = instanceThread;
     this.__dict__ = Dict.copyOf(thread.mutability(), INITIAL_DICT);
     this.__class__ = klass;
+    // MicroProxy: the object (its __dict__ counts as a dict).
+    StarlarkThread.allocateCurrentLater(Allocations.OBJECT * 3);
   }
 
   @Override

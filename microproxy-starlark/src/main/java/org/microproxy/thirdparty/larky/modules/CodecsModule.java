@@ -6,6 +6,7 @@ import org.microproxy.thirdparty.starlark.annot.Param;
 import org.microproxy.thirdparty.starlark.annot.ParamType;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Allocations;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.NoneType;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -122,14 +123,18 @@ public class CodecsModule implements StarlarkValue {
       }
   )
   public String decode(StarlarkBytes bytesToDecode, String encoding, String errors) throws EvalException {
+    String text;
     if (CodecsModule.UTF8.equals(encoding.toLowerCase())) { // TODO: fix this to be a normal decoder
-      return TextUtil.starlarkDecodeUtf8(bytesToDecode.toByteArray());
+      text = TextUtil.starlarkDecodeUtf8(bytesToDecode.toByteArray());
+    } else {
+      try {
+        text = TextUtil.PyCodecs.decode(bytesToDecode.toByteArray(), encoding, errors);
+      } catch (EvalException e) {
+        throw wrapLookupError(e, "decoding", encoding);
+      }
     }
-    try {
-      return TextUtil.PyCodecs.decode(bytesToDecode.toByteArray(), encoding, errors);
-    } catch (EvalException e) {
-      throw wrapLookupError(e, "decoding", encoding);
-    }
+    StarlarkThread.allocateCurrent(Allocations.string(text.length())); // MicroProxy
+    return text;
   }
 
   @StarlarkMethod(
@@ -151,6 +156,7 @@ public class CodecsModule implements StarlarkValue {
         data.toByteArray(),
         errors == Starlark.NONE ? TextUtil.CodecHelper.STRICT : (String) errors,
         last);
+    StarlarkThread.allocateCurrent(Allocations.string(d.text.length())); // MicroProxy
     return Tuple.pair(d.text, StarlarkInt.of(d.consumed));
   }
 }

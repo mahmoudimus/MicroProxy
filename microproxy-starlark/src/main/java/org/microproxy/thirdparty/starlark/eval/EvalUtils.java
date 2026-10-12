@@ -76,6 +76,8 @@ final class EvalUtils {
         } else if (x instanceof String) {
           if (y instanceof String) {
             // string + string
+            starlarkThread.allocate( // MicroProxy: before allocating
+                Allocations.string((long) ((String) x).length() + ((String) y).length()));
             return (String) x + (String) y;
           }
 
@@ -214,7 +216,7 @@ final class EvalUtils {
             return StarlarkInt.multiply(xi, (StarlarkInt) y);
           } else if (y instanceof String) {
             // int * string
-            return repeatString((String) y, xi);
+            return repeatString((String) y, xi, starlarkThread);
           } else if (y instanceof Tuple) {
             //  int * tuple
             return ((Tuple) y).repeat(xi);
@@ -230,7 +232,7 @@ final class EvalUtils {
         } else if (x instanceof String) {
           if (y instanceof StarlarkInt) {
             // string * int
-            return repeatString((String) x, (StarlarkInt) y);
+            return repeatString((String) x, (StarlarkInt) y, starlarkThread);
           }
 
         } else if (x instanceof Tuple) {
@@ -319,18 +321,22 @@ final class EvalUtils {
 
         } else if (x instanceof String xs) {
           // string % any
+          String formatted;
           if (semantics.getBool(PercentFormat.PYTHON_PERCENT_FORMAT)) {
-            return PercentFormat.format(starlarkThread, xs, y); // VGS: Python's str % args
-          }
-          try {
-            if (y instanceof Tuple) {
-              return Starlark.formatWithList(semantics, xs, (Tuple) y);
-            } else {
-              return Starlark.format(semantics, xs, y);
+            formatted = PercentFormat.format(starlarkThread, xs, y); // VGS: Python's str % args
+          } else {
+            try {
+              if (y instanceof Tuple) {
+                formatted = Starlark.formatWithList(semantics, xs, (Tuple) y);
+              } else {
+                formatted = Starlark.format(semantics, xs, y);
+              }
+            } catch (IllegalFormatException ex) {
+              throw new EvalException(ex);
             }
-          } catch (IllegalFormatException ex) {
-            throw new EvalException(ex);
           }
+          starlarkThread.allocate(Allocations.string(formatted.length())); // MicroProxy
+          return formatted;
 
         } else if (x instanceof StarlarkFloat) {
           double xf = ((StarlarkFloat) x).toDouble();
@@ -414,7 +420,8 @@ final class EvalUtils {
     }
   }
 
-  private static String repeatString(String s, StarlarkInt in) throws EvalException {
+  private static String repeatString(String s, StarlarkInt in, StarlarkThread thread)
+      throws EvalException {
     int n = in.toInt("repeat");
     if (n <= 0) {
       return "";
@@ -422,6 +429,8 @@ final class EvalUtils {
       // Would exceed max length of a java String.
       throw Starlark.errorf("excessive repeat (%d * %d characters)", s.length(), n);
     } else {
+      // MicroProxy: counted before allocating, so that "x" * 10**9 fails at once.
+      thread.allocate(Allocations.string((long) s.length() * n));
       // We currently do not support JDK11 (for now), so we will avoid this:
       // We can remove this once we are on JDK11.
       // return s.repeat(n);

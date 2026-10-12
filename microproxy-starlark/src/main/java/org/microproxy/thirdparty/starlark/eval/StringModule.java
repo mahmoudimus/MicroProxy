@@ -174,14 +174,18 @@ final class StringModule implements StarlarkValue {
       throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
+    long length = 0;
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
             "expected string for sequence element %d, got '%s' of type %s",
             i, Starlark.str(item, thread.getSemantics()), Starlark.type(item));
       }
+      length += ((String) item).length();
       i++;
     }
+    // MicroProxy: counted before joining.
+    thread.allocate(Allocations.string(length + (long) self.length() * Math.max(0, i - 1)));
     return Joiner.on(self).join(items);
   }
 
@@ -190,11 +194,11 @@ final class StringModule implements StarlarkValue {
       doc = "Returns the lower case version of this string.",
       parameters = {@Param(name = "self")},
       useStarlarkThread = true)
-  public String lower(String self, StarlarkThread thread) {
+  public String lower(String self, StarlarkThread thread) throws EvalException {
     if (PythonStrings.unicode(thread)) {
-      return PythonStrings.lower(self); // VGS: Python's Unicode rules
+      return counted(thread, self, PythonStrings.lower(self)); // VGS: Python's Unicode rules
     }
-    return Ascii.toLowerCase(self);
+    return counted(thread, self, Ascii.toLowerCase(self));
   }
 
   @StarlarkMethod(
@@ -202,11 +206,23 @@ final class StringModule implements StarlarkValue {
       doc = "Returns the upper case version of this string.",
       parameters = {@Param(name = "self")},
       useStarlarkThread = true)
-  public String upper(String self, StarlarkThread thread) {
+  public String upper(String self, StarlarkThread thread) throws EvalException {
     if (PythonStrings.unicode(thread)) {
-      return PythonStrings.upper(self); // VGS: Python's Unicode rules
+      return counted(thread, self, PythonStrings.upper(self)); // VGS: Python's Unicode rules
     }
-    return Ascii.toUpperCase(self);
+    return counted(thread, self, Ascii.toUpperCase(self));
+  }
+
+  /**
+   * MicroProxy: {@code result}, counted against the thread's allocation budget unless it is
+   * {@code self} unchanged.
+   */
+  private static String counted(StarlarkThread thread, String self, String result)
+      throws EvalException {
+    if (result != self) {
+      thread.allocate(Allocations.string(result.length()));
+    }
+    return result;
   }
 
   /**
@@ -279,8 +295,10 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       },
       useStarlarkThread = true)
-  public String lstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
-    return lstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  public String lstrip(String self, Object charsOrNone, StarlarkThread starlarkThread)
+      throws EvalException {
+    return counted(
+        starlarkThread, self, lstripSemantics(self, charsOrNone, starlarkThread.getSemantics()));
   }
 
   public String lstripSemantics(
@@ -309,8 +327,10 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       },
       useStarlarkThread = true)
-  public String rstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
-    return rstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  public String rstrip(String self, Object charsOrNone, StarlarkThread starlarkThread)
+      throws EvalException {
+    return counted(
+        starlarkThread, self, rstripSemantics(self, charsOrNone, starlarkThread.getSemantics()));
   }
 
   public String rstripSemantics(
@@ -340,8 +360,10 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       },
       useStarlarkThread = true)
-  public String strip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
-    return stripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  public String strip(String self, Object charsOrNone, StarlarkThread starlarkThread)
+      throws EvalException {
+    return counted(
+        starlarkThread, self, stripSemantics(self, charsOrNone, starlarkThread.getSemantics()));
   }
 
   public String stripSemantics(
@@ -406,9 +428,11 @@ final class StringModule implements StarlarkValue {
         sb.append(self, start, end).append(newString);
         start = end + oldString.length();
       }
+      // MicroProxy: stops a replacement that grows the string past the budget as it grows.
+      thread.checkAllocation(Allocations.string(sb.length()));
     }
     sb.append(self, start, self.length());
-    return sb.toString();
+    return counted(thread, self, sb.toString());
   }
 
   @StarlarkMethod(
@@ -445,8 +469,10 @@ final class StringModule implements StarlarkValue {
         break;
       }
       res.addElement(self.substring(start, end));
+      thread.allocate(Allocations.string(end - start)); // MicroProxy
       start = end + sep.length();
     }
+    thread.allocate(Allocations.string(self.length() - start)); // MicroProxy
     return res;
   }
 
@@ -482,9 +508,11 @@ final class StringModule implements StarlarkValue {
       int start = self.lastIndexOf(sep, end - 1);
       if (start < 0 || maxSplit-- == 0) {
         res.add(self.substring(0, end));
+        thread.allocate(Allocations.string(end)); // MicroProxy
         break;
       }
       res.add(self.substring(start + sep.length(), end));
+      thread.allocate(Allocations.string(end - start - sep.length())); // MicroProxy
       end = start;
     }
     Collections.reverse(res);
@@ -540,6 +568,8 @@ final class StringModule implements StarlarkValue {
       a = input.substring(0, pos);
       b = separator;
       c = input.substring(pos + separator.length());
+      // MicroProxy: the tuple counts where it is made.
+      StarlarkThread.allocateCurrent(Allocations.string(a.length()) + Allocations.string(c.length()));
     }
 
     return Tuple.triple(a, b, c);
@@ -554,13 +584,14 @@ final class StringModule implements StarlarkValue {
       useStarlarkThread = true)
   public String capitalize(String self, StarlarkThread thread) throws EvalException {
     if (PythonStrings.unicode(thread)) {
-      return PythonStrings.capitalize(self); // VGS: Python's Unicode rules
+      return counted(thread, self, PythonStrings.capitalize(self)); // VGS: Python's Unicode rules
     }
     if (self.isEmpty()) {
       return self;
     }
     // TODO(adonovan): fix: support non-ASCII characters. Requires that Bazel stop abusing Latin1.
-    return Character.toUpperCase(self.charAt(0)) + Ascii.toLowerCase(self.substring(1));
+    return counted(
+        thread, self, Character.toUpperCase(self.charAt(0)) + Ascii.toLowerCase(self.substring(1)));
   }
 
   @StarlarkMethod(
@@ -574,7 +605,7 @@ final class StringModule implements StarlarkValue {
       useStarlarkThread = true)
   public String title(String self, StarlarkThread thread) throws EvalException {
     if (PythonStrings.unicode(thread)) {
-      return PythonStrings.title(self); // VGS: Python's Unicode rules
+      return counted(thread, self, PythonStrings.title(self)); // VGS: Python's Unicode rules
     }
     char[] data = self.toCharArray();
     boolean previousWasLetter = false;
@@ -593,7 +624,7 @@ final class StringModule implements StarlarkValue {
       previousWasLetter = currentIsLetter;
     }
 
-    return new String(data);
+    return counted(thread, self, new String(data));
   }
 
   /**
@@ -798,6 +829,7 @@ final class StringModule implements StarlarkValue {
       } else {
         result.addElement(line);
       }
+      thread.allocate(Allocations.string(line.length() + lineBreak.length())); // MicroProxy
     }
     // TODO(adonovan): spec should state that result is mutable,
     // as in Python[23] and go.starlark.net.
@@ -1021,6 +1053,7 @@ final class StringModule implements StarlarkValue {
   public Sequence<String> elems(String self) {
     // TODO(adonovan): opt: return a new type that is lazily iterable.
     char[] chars = self.toCharArray();
+    StarlarkThread.allocateCurrentLater(Allocations.sequence(chars.length)); // MicroProxy
     Object[] strings = new Object[chars.length];
     for (int i = 0; i < chars.length; i++) {
       strings[i] = memoizedCharToString(chars[i]);
@@ -1113,7 +1146,7 @@ final class StringModule implements StarlarkValue {
       useStarlarkThread = true)
   public String format(String self, Tuple args, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    return new FormatParser().format(self, args, kwargs, thread.getSemantics());
+    return counted(thread, self, new FormatParser().format(self, args, kwargs, thread.getSemantics()));
   }
 
   @StarlarkMethod(
@@ -1181,8 +1214,9 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", doc = "This string."),
         @Param(name = "prefix", doc = "The prefix to remove if present."),
       })
-  public String removePrefix(String self, String prefix) {
-    if (self.startsWith(prefix)) {
+  public String removePrefix(String self, String prefix) throws EvalException {
+    if (self.startsWith(prefix) && !prefix.isEmpty()) {
+      StarlarkThread.allocateCurrent(Allocations.string(self.length() - prefix.length()));
       return self.substring(prefix.length());
     }
     return self;
@@ -1197,8 +1231,9 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", doc = "This string."),
         @Param(name = "suffix", doc = "The suffix to remove if present."),
       })
-  public String removeSuffix(String self, String suffix) {
-    if (self.endsWith(suffix)) {
+  public String removeSuffix(String self, String suffix) throws EvalException {
+    if (self.endsWith(suffix) && !suffix.isEmpty()) {
+      StarlarkThread.allocateCurrent(Allocations.string(self.length() - suffix.length()));
       return self.substring(0, self.length() - suffix.length());
     }
     return self;

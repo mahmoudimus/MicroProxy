@@ -124,6 +124,7 @@ final class SingletonTuple extends Tuple {
     if (ni > StarlarkList.MAX_ALLOC) {
       throw Starlark.errorf("excessive repeat (%d * %d elements)", 1, ni);
     }
+    StarlarkThread.checkAllocationCurrent(Allocations.sequence(ni)); // MicroProxy: before allocating
     Object[] res = new Object[ni];
     Arrays.fill(res, 0, ni, elem);
     return wrap(res);

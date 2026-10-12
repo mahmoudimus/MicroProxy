@@ -324,7 +324,7 @@ final class Eval {
     }
 
     if (++fr.thread.steps >= fr.thread.stepLimit) {
-      throw new EvalException("Starlark computation cancelled: too many steps");
+      throw fr.thread.tooManySteps();
     }
     fr.thread.checkExpired();
 
@@ -571,7 +571,7 @@ final class Eval {
   private static Object eval(StarlarkThread.Frame fr, Expression expr)
       throws EvalException, InterruptedException {
     if (++fr.thread.steps >= fr.thread.stepLimit) {
-      throw new EvalException("Starlark computation cancelled: too many steps");
+      throw fr.thread.tooManySteps();
     }
     fr.thread.checkExpired();
 
@@ -893,7 +893,12 @@ final class Eval {
     Object stop = slice.getStop() == null ? Starlark.NONE : eval(fr, slice.getStop());
     Object step = slice.getStep() == null ? Starlark.NONE : eval(fr, slice.getStep());
     try {
-      return Starlark.slice(fr.thread.mutability(), x, start, stop, step);
+      Object result = Starlark.slice(fr.thread.mutability(), x, start, stop, step);
+      if (result instanceof String s && s != x) {
+        // MicroProxy: lists, tuples and bytes count where they are made.
+        fr.thread.allocate(Allocations.string(s.length()));
+      }
+      return result;
     } catch (EvalException ex) {
       fr.setErrorLocation(slice.getLbracketLocation());
       throw ex;
@@ -966,6 +971,9 @@ final class Eval {
           }
         } else {
           list.add(eval(fr, ((Expression) comp.getBody())));
+          // MicroProxy: the growing result counts as it grows (the list made from it counts
+          // again), so that the budget stops a long comprehension before it ends.
+          fr.thread.allocate(Allocations.REFERENCE);
         }
       }
     }
