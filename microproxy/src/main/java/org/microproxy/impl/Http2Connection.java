@@ -137,6 +137,8 @@ final class Http2Connection extends Http2Endpoint {
     private int lastStreamId;
     /** Received bytes not yet credited back to the connection's receive window. */
     private int pendingConnectionCredit;
+    /** The CONNECT-UDP flows open on the connection. */
+    private int udpFlows;
     private boolean goAwaySent;
     private boolean peerGoingAway;
 
@@ -781,7 +783,8 @@ final class Http2Connection extends Http2Endpoint {
      * The HTTP/1-style request the exchange logic handles for a stream's request head: origin-form
      * on an intercepted session, absolute-form ({@code :scheme} and {@code :authority}) for a
      * forward proxy (or a proxy request in an intercepted session), as an HTTP/1 client would send
-     * it.
+     * it. An extended {@code CONNECT} for a WebSocket or CONNECT-UDP becomes the HTTP/1.1 upgrade
+     * ({@code GET} with {@code Upgrade}).
      */
     private static HttpRequest toHttp1(int id, RequestHeaders head, boolean endStream, boolean forwardProxy)
             throws Http2Exception {
@@ -799,21 +802,24 @@ final class Http2Connection extends Http2Endpoint {
             headers.add(f.name(), f.value());
         }
         boolean webSocket = "websocket".equals(head.protocol());
+        boolean connectUdp = ClientConnection.CONNECT_UDP.equals(head.protocol());
         if (!endStream && head.contentLength() < 0 && !head.isConnect()) {
             // A body of unknown length: chunked towards an HTTP/1.1 server.
             headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         }
-        String uri = head.isConnect() && !webSocket ? head.authority() : head.path();
+        String uri = head.isConnect() && !webSocket && !connectUdp ? head.authority() : head.path();
         boolean httpScheme = "http".equalsIgnoreCase(head.scheme()) || "https".equalsIgnoreCase(head.scheme());
         if (forwardProxy && (!head.isConnect() || webSocket) && httpScheme && head.authority() != null && head.path().startsWith("/")) {
             uri = head.scheme().toLowerCase(java.util.Locale.ROOT) + "://" + head.authority() + head.path();
         }
-        if (webSocket) {
+        if (webSocket || connectUdp) {
+            // The HTTP/1.1 upgrade an HTTP/1.1 client would send: CONNECT-UDP's names its target by
+            // its path (RFC 9298 section 3.2), which stays in origin-form, as over HTTP/3.
             method = HttpMethod.GET;
             headers.remove(HttpHeaderNames.CONTENT_LENGTH);
             headers.set(HttpHeaderNames.CONNECTION, "Upgrade");
-            headers.set(HttpHeaderNames.UPGRADE, "websocket");
-            headers.set("Sec-WebSocket-Key", WebSocketHandshake.key());
+            headers.set(HttpHeaderNames.UPGRADE, head.protocol());
+            if (webSocket) headers.set("Sec-WebSocket-Key", WebSocketHandshake.key());
         }
         return new DefaultHttpRequest(HttpVersion.HTTP_2_0, method, uri, headers);
     }
@@ -976,6 +982,45 @@ final class Http2Connection extends Http2Endpoint {
             stateLock.unlock();
         }
         sendWindowUpdates(s.id, streamCredit, connectionCredit);
+    }
+
+    /**
+     * Whether the connection came to the proxy's own listener (h2c, or its TLS listener), rather
+     * than being an intercepted session's, whose requests are for the intercepted server.
+     */
+    boolean ownListener() {
+        return target == null;
+    }
+
+    /**
+     * A CONNECT-UDP flow opens on stream {@code s}; false if the connection has as many flows as it
+     * may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}).
+     */
+    boolean addUdpFlow(Http2StreamChannel s) {
+        stateLock.lock();
+        try {
+            if (closed || s.reset || udpFlows >= server.http3Options.connectUdpMaxFlowsPerConnection()) return false;
+            if (!s.udpFlow) {
+                s.udpFlow = true;
+                udpFlows++;
+            }
+            return true;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /** The CONNECT-UDP flow on stream {@code s} ended. */
+    void removeUdpFlow(Http2StreamChannel s) {
+        stateLock.lock();
+        try {
+            if (s.udpFlow) {
+                s.udpFlow = false;
+                udpFlows--;
+            }
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     /** Takes the connection credit owed, once it is worth a WINDOW_UPDATE. Holds stateLock. */

@@ -502,6 +502,7 @@ final class AdminServer {
             tcp.add("http/1.1");
             if (server.sslContextSource != null && server.http2) tcp.add("h2");
             if (server.http2Cleartext) tcp.add("h2c");
+            if (server.connectUdpTemplate != null) tcp.add("masque");
             if (server.socksDetection) tcp.addAll(List.of("socks5", "socks4"));
             if (server.transparent) tcp.add("transparent_tls");
         }

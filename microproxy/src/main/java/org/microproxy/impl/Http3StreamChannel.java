@@ -2,7 +2,6 @@ package org.microproxy.impl;
 
 import io.github.mahmoudimus.http3.HeaderField;
 import io.github.mahmoudimus.http3.Http3ErrorCode;
-import io.github.mahmoudimus.http3.QuicVarInt;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -396,12 +395,7 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, Ud
     public boolean sendDatagram(byte[] content) throws IOException {
         if (connection.sendHttpDatagram(id, content)) return false;
         // No QUIC datagrams to this client (or too large for one): a DATAGRAM capsule on the stream.
-        byte[] type = QuicVarInt.encode(UdpFlow.DATAGRAM_CAPSULE);
-        byte[] length = QuicVarInt.encode(content.length);
-        byte[] capsule = new byte[type.length + length.length + content.length];
-        System.arraycopy(type, 0, capsule, 0, type.length);
-        System.arraycopy(length, 0, capsule, type.length, length.length);
-        System.arraycopy(content, 0, capsule, type.length + length.length, content.length);
+        byte[] capsule = UdpFlow.datagramCapsule(content);
         if (writer.ended()) throw new SocketException("the stream's output has ended");
         writer.data(capsule, 0, capsule.length, false);
         writer.flush();

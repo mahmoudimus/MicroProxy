@@ -764,7 +764,8 @@ public final class Http3Options {
 
         /**
          * The URI template that CONNECT-UDP requests (MASQUE, RFC 9298) name their target with, on a
-         * forward proxy's HTTP/3 listener: by default the well-known {@code
+         * forward proxy's HTTP/3 listener and, over HTTP/2 and HTTP/1.1, its TCP listener ({@link
+         * org.microproxy.HttpProxyServerBootstrap#withConnectUdp}): by default the well-known {@code
          * /.well-known/masque/udp/{target_host}/{target_port}/}. A path, optionally with a query,
          * or an absolute URI whose path and query count, with the variables {@code {target_host}}
          * and {@code {target_port}} once each.
@@ -812,8 +813,9 @@ public final class Http3Options {
         /**
          * The datagrams (default 128) and bytes (default 512 KiB) a CONNECT-UDP flow queues in
          * each direction while the other side is not ready for them (a client that does not read
-         * its stream, a target socket that does not keep up). Datagrams past either bound are
-         * dropped, as a network drops what it cannot carry.
+         * its stream, so that the capsules to it wait for flow control, a target socket that does
+         * not keep up). Datagrams past either bound are dropped, as a network drops what it cannot
+         * carry.
          *
          * @param datagrams the most datagrams queued in one direction
          * @param bytes the most bytes queued in one direction, at least 65527 (one datagram)

@@ -1655,7 +1655,7 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
 
-        if (CONNECT_UDP.equals(ex.channel.tunnelProtocol())) {
+        if (CONNECT_UDP.equals(ex.channel.tunnelProtocol()) || connectUdpUpgrade(ex)) {
             return handleConnectUdp(ex);
         }
         if (ex.channel.tunnelProtocol() != null && !"websocket".equals(ex.channel.tunnelProtocol())) {
@@ -2872,22 +2872,38 @@ final class ClientConnection implements Runnable {
     static final String CONNECT_UDP = "connect-udp";
 
     /**
-     * Serves a CONNECT-UDP request on a forward proxy's HTTP/3 listener: an extended {@code
-     * CONNECT} whose path names a UDP target by the URI template ({@link ConnectUdpTemplate}),
-     * which filters saw as the HTTP/1.1 upgrade ({@code GET} with {@code Upgrade: connect-udp})
-     * after authentication. The target is routed as a {@code CONNECT}'s would be (chained proxies
-     * carry no UDP: a route through them only is refused), {@code proxyToServerRequest} may answer
-     * it, its name is resolved by the proxy's resolver and filters, and the flow is bounded. The
-     * acceptance is a {@code 101} with {@code Upgrade: connect-udp} as filters see it (a 200 on the
-     * stream); then the flow relays datagrams ({@link UdpFlow}) on this stream's thread until it
-     * ends.
+     * Whether {@code ex} is an HTTP/1.1 CONNECT-UDP request (RFC 9298 section 3.2) for a proxy that
+     * serves CONNECT-UDP: a {@code GET} with {@code Upgrade: connect-udp} and {@code Connection:
+     * Upgrade}, outside an intercepted session. Its target may be in origin-form or absolute-form:
+     * either way the proxy is the UDP proxy, as for an extended {@code CONNECT} over HTTP/2 or
+     * HTTP/3. A proxy that does not serve CONNECT-UDP passes such a request on as any upgrade.
+     */
+    private boolean connectUdpUpgrade(Exchange ex) {
+        HttpRequest request = ex.request;
+        return server.connectUdpTemplate != null && mitmHostAndPort == null && ex.channel instanceof Http1ClientChannel
+                && HttpMethod.GET.equals(request.method()) && HttpVersion.HTTP_1_1.equals(request.protocolVersion())
+                && CONNECT_UDP.equalsIgnoreCase(request.headers().get(HttpHeaderNames.UPGRADE))
+                && request.headers().containsValue(HttpHeaderNames.CONNECTION, "upgrade", true);
+    }
+
+    /**
+     * Serves a CONNECT-UDP request on a forward proxy that serves CONNECT-UDP: over HTTP/3 or
+     * HTTP/2, an extended {@code CONNECT} whose path names a UDP target by the URI template ({@link
+     * ConnectUdpTemplate}), which filters saw as the HTTP/1.1 upgrade ({@code GET} with {@code
+     * Upgrade: connect-udp}) after authentication; over HTTP/1.1, that upgrade itself. The target
+     * is routed as a {@code CONNECT}'s would be (chained proxies carry no UDP: a route through them
+     * only is refused), {@code proxyToServerRequest} may answer it, its name is resolved by the
+     * proxy's resolver and filters, and the flow is bounded. The acceptance is a {@code 101} with
+     * {@code Upgrade: connect-udp} as filters see it (a 200 on an HTTP/2 or HTTP/3 stream); then
+     * the flow relays datagrams ({@link UdpFlow}) on this exchange's thread until it ends.
      */
     private boolean handleConnectUdp(Exchange ex) throws IOException {
         ex.kind = FlowRecord.Kind.UDP;
         UdpFlow.Client client = ex.channel.udpClient();
         if (client == null || server.connectUdpTemplate == null || mitmHostAndPort != null) {
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.valueOf(501),
-                    "Not Implemented: CONNECT-UDP is served on a forward proxy's HTTP/3 listener"), true, ResponseSource.PROXY);
+                    "Not Implemented: CONNECT-UDP is served by a forward proxy (--masque, or --http3)"), true,
+                    ResponseSource.PROXY);
         }
         HostAndPort target = server.connectUdpTemplate.match(ex.request.uri());
         if (target == null) {
@@ -2994,7 +3010,11 @@ final class ClientConnection implements Runnable {
                 completed(ex, response, source);
                 return true;
             }
-            writeToClient(() -> ex.channel.writeHead(response, false));
+            writeToClient(() -> {
+                ex.channel.writeHead(response, false);
+                // Now: the client sends its capsules once it has the answer.
+                ex.channel.flush();
+            });
             sent(ex, response, source);
             completed(ex, response, source);
             LOG.log(Level.DEBUG, ex.log + "relaying UDP to " + hostAndPort + " (" + address + ")");

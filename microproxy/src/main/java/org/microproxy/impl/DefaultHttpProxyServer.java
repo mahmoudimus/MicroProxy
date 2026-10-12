@@ -158,7 +158,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final QuicFraming quicFraming;
     /** Decides on the QUIC inside CONNECT-UDP flows; null unless {@link Http3Options#connectUdpInterceptQuic()}. */
     private volatile MasqueQuic masqueQuic;
-    /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
+    /**
+     * The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves
+     * CONNECT-UDP (with HTTP/3, or {@code withConnectUdp}).
+     */
     final ConnectUdpTemplate connectUdpTemplate;
     /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
     final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
@@ -230,6 +233,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         if ((b.http3 || b.http3Upstream || b.transparentQuicPort >= 0) && !Http3Support.available()) {
             throw new IllegalStateException(Http3Support.MISSING);
+        }
+        if (b.connectUdp && b.reverseProxy != null) {
+            throw new IllegalStateException("CONNECT-UDP (withConnectUdp, --masque, masque) is served by a forward proxy,"
+                    + " not a reverse proxy");
+        }
+        if (b.connectUdp && !Http3Support.available()) {
+            throw new IllegalStateException("CONNECT-UDP is enabled (withConnectUdp, --masque, masque) but the quic and"
+                    + " http3-codec modules (io.github.mahmoudimus:quic, io.github.mahmoudimus:http3-codec) are not both"
+                    + " on the class path; add their jars to the class path or use the microproxy-starlark -all jar,"
+                    + " which bundles them");
         }
         if (b.transparentQuicPort >= 0 && (!b.transparent || b.reverseProxy != null)) {
             throw new IllegalStateException("transparent QUIC (withTransparentQuicPort, --transparent-quic-port,"
@@ -313,7 +326,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.quicInterceptor = b.quicInterceptor;
         b.quicFraming.validate();
         this.quicFraming = b.quicFraming;
-        this.connectUdpTemplate = b.http3 && b.reverseProxy == null
+        // A forward proxy's: on its HTTP/3 listener and its TCP listener with HTTP/3, on its TCP
+        // listener alone with withConnectUdp.
+        this.connectUdpTemplate = (b.http3 || b.connectUdp) && b.reverseProxy == null
                 ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
@@ -449,9 +464,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
             }
             LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());
-            if (connectUdpTemplate != null && http3Options.connectUdpInterceptQuic()) {
-                masqueQuic = new MasqueQuic(this, transparentQuicKeys(mitmManager));
-            }
+        }
+        if (connectUdpTemplate != null && http3Options.connectUdpInterceptQuic()) {
+            // For the flows of every transport, HTTP/3's and the TCP listener's.
+            masqueQuic = new MasqueQuic(this, transparentQuicKeys(mitmManager));
         }
         if (transparentQuicPort >= 0) {
             InetSocketAddress udp = new InetSocketAddress(boundAddress.getAddress(), transparentQuicPort);

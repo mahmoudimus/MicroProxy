@@ -198,6 +198,22 @@ public final class H2StreamClient implements AutoCloseable {
         return fields;
     }
 
+    /**
+     * The fields of a CONNECT-UDP extended CONNECT (RFC 9298 section 3.4) for {@code path}, with
+     * {@code capsule-protocol: ?1}, then {@code extra} (name, value, ...).
+     */
+    public List<HeaderField> connectUdp(String path, String... extra) {
+        List<HeaderField> fields = new ArrayList<>();
+        fields.add(new HeaderField(":method", "CONNECT"));
+        fields.add(new HeaderField(":protocol", "connect-udp"));
+        fields.add(new HeaderField(":scheme", scheme));
+        fields.add(new HeaderField(":authority", authority));
+        fields.add(new HeaderField(":path", path));
+        fields.add(new HeaderField("capsule-protocol", "?1"));
+        for (int i = 0; i < extra.length; i += 2) fields.add(new HeaderField(extra[i], extra[i + 1]));
+        return fields;
+    }
+
     /** The fields of a plain CONNECT (RFC 9113 section 8.5) to {@code target}, then {@code extra}. */
     public static List<HeaderField> connect(String target, String... extra) {
         List<HeaderField> fields = new ArrayList<>();
@@ -428,6 +444,36 @@ public final class H2StreamClient implements AutoCloseable {
         /** Ends the stream's output: an empty DATA frame with END_STREAM. */
         public void end() throws IOException {
             send(new byte[0], 0, 0, true);
+        }
+
+        /** Sends a capsule (RFC 9297 section 3.2) of {@code type} with {@code value} in the stream's DATA. */
+        public void sendCapsule(long type, byte[] value) throws IOException {
+            byte[] c = H3TestClient.capsule(type, value);
+            send(c, 0, c.length, false);
+        }
+
+        /** Sends a UDP payload in a DATAGRAM capsule, with context ID 0. */
+        public void sendDatagramCapsule(byte[] payload) throws IOException {
+            sendCapsule(0, H3TestClient.contextZero(payload));
+        }
+
+        /** Reads the next capsule from the stream's DATA: its type and value, or null at the stream's end. */
+        public H3TestClient.Capsule readCapsule() throws IOException {
+            long type = io.github.mahmoudimus.http3.QuicVarInt.read(in);
+            if (type < 0) return null;
+            long length = io.github.mahmoudimus.http3.QuicVarInt.read(in);
+            if (length < 0) throw new IOException("the stream ended inside a capsule");
+            byte[] value = in.readNBytes((int) length);
+            if (value.length < length) throw new IOException("the stream ended inside a capsule");
+            return new H3TestClient.Capsule(type, value);
+        }
+
+        /** The UDP payload of the next DATAGRAM capsule, skipping capsules of other types; null at the end. */
+        public byte[] readDatagram() throws IOException {
+            for (H3TestClient.Capsule c; (c = readCapsule()) != null; ) {
+                if (c.type() == 0) return H3TestClient.udpPayload(c.value());
+            }
+            return null;
         }
 
         /** Resets the stream. */

@@ -198,9 +198,11 @@ interface ClientChannel {
     }
 
     /**
-     * The exchange's stream as the client of a CONNECT-UDP flow (MASQUE, RFC 9298): an HTTP/3
-     * stream of a forward proxy's listener with {@code :protocol connect-udp}, whose UDP payloads
-     * travel in HTTP Datagrams. Null for every other exchange.
+     * The exchange's stream as the client of a CONNECT-UDP flow (MASQUE, RFC 9298), whose UDP
+     * payloads travel in HTTP Datagrams: an HTTP/3 stream of a forward proxy's listener, or an
+     * HTTP/2 stream of a forward proxy's connection, with {@code :protocol connect-udp}; for
+     * HTTP/1.1, whose exchanges the proxy tells apart by their {@code Upgrade: connect-udp}, the
+     * connection. Null for every other exchange.
      */
     default UdpFlow.Client udpClient() {
         return null;
