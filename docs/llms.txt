@@ -1,0 +1,80 @@
+# MicroProxy
+
+> A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads, the successor to LittleProxy.
+
+MicroProxy's documentation, one page per topic. Each link below is a page of the site, with
+the first sentence of its summary. https://mahmoudimus.github.io/MicroProxy/llms-full.txt has every page in one
+Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/MicroProxy/api/.
+
+## Overview
+
+- [Home](https://mahmoudimus.github.io/MicroProxy/): MicroProxy is a dependency-free Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS interception (MITM), built on virtual threads and blocking I/O.
+
+## Getting started
+
+- [Install](https://mahmoudimus.github.io/MicroProxy/getting-started/install/): How to get MicroProxy: the Maven and Gradle coordinates of each module, the self-contained `-all` jar with every optional feature built in, and how to build the launcher from source.
+- [Quick start](https://mahmoudimus.github.io/MicroProxy/getting-started/quick-start/): Run MicroProxy from the command line in a minute, then embed it in a Java program.
+- [Your first filter](https://mahmoudimus.github.io/MicroProxy/getting-started/first-filter/): Write a Java filter that answers some requests itself and lets the rest through, then the same filter with lambdas.
+- [Your first Starlark script](https://mahmoudimus.github.io/MicroProxy/getting-started/first-script/): Drive the proxy from a Starlark script (a sandboxed Python dialect) instead of Java: answer a request, add headers, and watch the script reload when you edit it.
+
+## Guides
+
+- [Forward proxy](https://mahmoudimus.github.io/MicroProxy/guides/forward-proxy/): The default mode: clients are configured to use MicroProxy as their HTTP proxy and send it absolute-form requests and `CONNECT`s.
+- [Filters and failure responses](https://mahmoudimus.github.io/MicroProxy/guides/filters/): Filters are Java hooks that see, change, answer or drop each exchange as it passes the proxy, with LittleProxy's API.
+- [MITM, certificates and TLS](https://mahmoudimus.github.io/MicroProxy/guides/mitm/): Intercept HTTPS: the proxy terminates the client's TLS with a certificate its own CA issues, and opens its own TLS connection to the server, so filters, scripts and logs see the decrypted requests.
+- [Proxy authentication](https://mahmoudimus.github.io/MicroProxy/guides/authentication/): Make clients authenticate to the proxy with Basic credentials, Bearer tokens or any scheme of your own, per connection or per request.
+- [Concurrency limiting](https://mahmoudimus.github.io/MicroProxy/guides/concurrency-limiting/): Cap how many exchanges run at once per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics.
+- [Chained proxies](https://mahmoudimus.github.io/MicroProxy/guides/chained-proxies/): How MicroProxy forwards traffic through other proxies: upstream HTTP, HTTPS and SOCKS proxies chosen from URLs, `NO_PROXY` rules or the environment, failover and backoff between them, and what happens when a client's own proxy sits behind an intercepting MicroProxy.
+- [Transparent mode](https://mahmoudimus.github.io/MicroProxy/guides/transparent-mode/): Proxy traffic that a firewall or gateway redirects to MicroProxy instead of sending it there: TLS routed by its SNI, plain HTTP by its `Host`, and QUIC on a UDP port of its own, intercepted or relayed.
+- [Reverse proxy](https://mahmoudimus.github.io/MicroProxy/guides/reverse-proxy/): Serve one upstream server, over HTTP, HTTPS, HTTP/2, HTTP/3 or raw TCP, so that clients talk to MicroProxy as if it were that server.
+- [SOCKS](https://mahmoudimus.github.io/MicroProxy/guides/socks/): Serve SOCKS5, SOCKS4 and SOCKS4a clients, on a listener of their own or next to HTTP clients on the regular one; their connections go through the same filters, routing and interception as a `CONNECT`.
+- [HTTP/2](https://mahmoudimus.github.io/MicroProxy/guides/http2/): Speak HTTP/2 to clients (inside intercepted TLS, on the proxy's TLS listener, and with prior knowledge on the plain listener) and to servers, with connection sharing and coalescing, trailers and gRPC, CONNECT and WebSockets over HTTP/2, and hardened limits.
+- [HTTP/3 and QUIC](https://mahmoudimus.github.io/MicroProxy/guides/http3/): Serve HTTP/3 over the proxy's own QUIC transport to the clients of a reverse proxy and of a forward proxy's TLS listener, and speak HTTP/3 to servers that offer it, with session resumption, 0-RTT, `Alt-Svc` handling and hardened limits.
+- [CONNECT-UDP (MASQUE)](https://mahmoudimus.github.io/MicroProxy/guides/masque/): Proxy UDP for MASQUE clients with CONNECT-UDP (RFC 9298) over HTTP/3, HTTP/2 and HTTP/1.1, see and rewrite each datagram with UDP hooks, and optionally intercept the QUIC carried inside the flows.
+- [QUIC stream hooks](https://mahmoudimus.github.io/MicroProxy/guides/quic-hooks/): Intercept QUIC that does not carry HTTP/3 (DNS over QUIC, `hq-interop`, protocols of your own) and see, rewrite, drop and add its stream bytes, whole framed messages and datagrams.
+- [Frame interception](https://mahmoudimus.github.io/MicroProxy/guides/frame-interception/): See, edit, drop and add HTTP/2 and HTTP/3 frames on live connections, on both sides of the proxy, while the proxy keeps every connection protocol-correct.
+- [WebSockets](https://mahmoudimus.github.io/MicroProxy/guides/websockets/): Watch, rewrite, drop and add WebSocket frames and whole messages in both directions, over HTTP/1 upgrades and HTTP/2 and HTTP/3 extended `CONNECT`, inside intercepted TLS and through permessage-deflate.
+- [Raw TCP and TLS hooks](https://mahmoudimus.github.io/MicroProxy/guides/tcp-hooks/): See, rewrite, drop and add the bytes of raw TCP tunnels, including TLS sessions the proxy decrypts that do not carry HTTP (SMTPS, IMAPS, MQTT over TLS), with mitmproxy's TCP hooks.
+- [Rewriting bodies](https://mahmoudimus.github.io/MicroProxy/guides/rewriting-bodies/): Decode, edit and re-encode message bodies safely (compression, charsets, lengths), buffer one message at a time from a filter, and rewrite headers and text bodies declaratively with `RewriteRules`.
+- [Addons, HAR and replay](https://mahmoudimus.github.io/MicroProxy/guides/addons/): Ready-made filters ported from mitmproxy (map local and remote, modify bodies and headers, block lists, anti-cache, sticky cookies) with mitmproxy's option syntax and flow filter expressions, plus HAR recording and server and client replay.
+- [HTTP cache](https://mahmoudimus.github.io/MicroProxy/guides/caching/): Cache responses in memory or on disk as an RFC 9111 shared cache, with revalidation, `Vary`, stale answers when servers are unreachable and an offline mode.
+- [WARC recording](https://mahmoudimus.github.io/MicroProxy/guides/warc/): Record the traffic between the proxy and servers as WARC 1.1 files, the format web archives use, and read them back for replay.
+- [Content views, gRPC and protobuf](https://mahmoudimus.github.io/MicroProxy/guides/content-views/): Render message bodies readably: protobuf without a schema, gRPC message by message with its status details, JSON, GraphQL, msgpack, forms, Socket.IO and DNS, with field names from a `protoc` descriptor set.
+- [Scripting with Starlark](https://mahmoudimus.github.io/MicroProxy/guides/scripting/): Drive the proxy from a sandboxed Starlark script: answer, rewrite and route requests, decide what to intercept, authenticate clients, and see WebSocket, HTTP/2 and HTTP/3 frames, raw TCP, UDP and QUIC traffic.
+- [DNSSEC](https://mahmoudimus.github.io/MicroProxy/guides/dnssec/): Resolve server names with a validating DNSSEC resolver written for this project, over UDP/TCP or DNS over HTTPS, with no dependencies.
+- [Performance options](https://mahmoudimus.github.io/MicroProxy/guides/performance/): Two optional JVM-level switches: SIMD byte loops through the JDK's incubating Vector API, and an experimental build with Project Valhalla value classes.
+
+## Observability
+
+- [Access logs](https://mahmoudimus.github.io/MicroProxy/observability/access-logs/): Write one access-log line per exchange, tunnel or flow, in Envoy's format strings or JSON, filtered, to a file, standard output or the `System.Logger`.
+- [Metrics, Prometheus and statsd](https://mahmoudimus.github.io/MicroProxy/observability/metrics/): Keep counters, gauges and histograms under Envoy's stat names and tags, and read them as Prometheus text, Envoy's `/stats` dump or JSON, or push them to statsd and DogStatsD.
+- [Admin, readiness and draining](https://mahmoudimus.github.io/MicroProxy/observability/admin/): Serve Envoy's admin API on a listener of its own (stats, readiness, configuration, log levels, draining), and stop the proxy gracefully with server states, drains and a drain time.
+- [OpenTelemetry](https://mahmoudimus.github.io/MicroProxy/observability/opentelemetry/): Trace the proxy with OpenTelemetry and export traces, metrics and access logs over OTLP/HTTP to a collector, with W3C Trace Context, B3 or Jaeger propagation, using only the JDK.
+- [Request/response logging](https://mahmoudimus.github.io/MicroProxy/observability/request-logging/): Log whole requests and responses (heads, what the proxy and filters changed, and optionally bodies) as readable blocks or JSON lines, with redaction and content views.
+- [Activity tracking and timings](https://mahmoudimus.github.io/MicroProxy/observability/activity-tracking/): Follow connections, exchanges, tunnels and flows from Java with `ActivityTracker` callbacks: where each response came from, per-exchange timings, failures, TLS handshakes and one record per exchange or flow.
+- [qlog](https://mahmoudimus.github.io/MicroProxy/observability/qlog/): Write a qlog trace of every QUIC connection the proxy makes or accepts, to read in qvis or with `jq`.
+
+## Reference
+
+- [Command-line flags](https://mahmoudimus.github.io/MicroProxy/reference/cli/): Every option of the `org.microproxy.Launcher` command line (`java -jar microproxy.jar`, or the `-all` jar), grouped by topic, with the configuration property that sets the same thing in a `--config` file and a link to the guide that explains it.
+- [Configuration properties](https://mahmoudimus.github.io/MicroProxy/reference/properties/): Every key a MicroProxy properties file accepts, with its meaning and default.
+- [Stats and metrics names](https://mahmoudimus.github.io/MicroProxy/reference/stats/): Every stat MicroProxy keeps with metrics on, by name, type and meaning, under Envoy's names where Envoy has them.
+- [Access-log format](https://mahmoudimus.github.io/MicroProxy/reference/access-log-format/): The access log's format strings: how operators render as text and JSON, every operator, the filter syntax, and the presets.
+- [Response flags](https://mahmoudimus.github.io/MicroProxy/reference/response-flags/): Why an exchange ended as it did: the Envoy response flag and the response code details the proxy sets for each cause.
+- [Admin endpoints](https://mahmoudimus.github.io/MicroProxy/reference/admin-api/): Every path of the admin API, with its method and answer, and the flags and properties that configure the admin listener, draining and health checks.
+- [Starlark API](https://mahmoudimus.github.io/MicroProxy/reference/starlark-api/): Every hook a MicroProxy Starlark script can define, the objects they receive, the built-in functions and modules, the standard library that `load()` reaches, and the budgets each call runs under.
+
+## More
+
+- [Security](https://mahmoudimus.github.io/MicroProxy/security/): What MicroProxy does to stay safe with untrusted clients and servers, and what an operator has to decide: who may reach the proxy, which servers clients may reach through it, what it trusts, and what it logs.
+- [Migrating from LittleProxy](https://mahmoudimus.github.io/MicroProxy/migrating-from-littleproxy/): How to move a LittleProxy deployment or embedding to MicroProxy: the command line, the configuration file, embedding, filters, MITM and activity logging, mapped topic by topic to their MicroProxy equivalents, then the API renames and the behaviour that differs.
+- [Architecture](https://mahmoudimus.github.io/MicroProxy/architecture/): How MicroProxy is built: why it uses virtual threads and blocking I/O instead of Netty, what that costs and saves, how the modules fit together, and where to read the internals.
+- [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/java-api/): Where to find the Javadoc of MicroProxy's published modules: the aggregated API on this site, and each release's Javadoc on javadoc.io.
+
+## Optional
+
+- [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/api/): the aggregated Javadoc of the published modules
+- [Building and testing](https://mahmoudimus.github.io/MicroProxy/project/building-and-testing/): Build MicroProxy from source, run its test suites (unit, interop, conformance, DNSSEC), and cut releases.
+- [Writing documentation](https://mahmoudimus.github.io/MicroProxy/CONTRIBUTING-DOCS/): Where new documentation goes, the conventions every page follows, and how the site, `llms.txt` and the checks are built.
+- [Publishing to Maven Central](https://mahmoudimus.github.io/MicroProxy/PUBLISHING/): MicroProxy publishes under the verified `io.github.mahmoudimus` namespace.
+- [Acknowledgements and license](https://mahmoudimus.github.io/MicroProxy/project/acknowledgements/): The code MicroProxy vendors or ports, the projects that contributed ideas, and its license.

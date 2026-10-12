@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
@@ -45,7 +45,7 @@ import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
- * {@code on_quic_message} and the {@code dns} module: the README's DNS over QUIC script, which
+ * {@code on_quic_message} and the {@code dns} module: the documented DNS over QUIC script, which
  * logs queries and rewrites the address of a blocked name, between Java DoQ peers through the
  * transparent QUIC listener; a typed script that drops, adds and answers messages; a framer of the
  * script's own ({@code quic_message_length}); and the module on its own.
@@ -181,7 +181,7 @@ class ScriptedQuicMessageTest {
 
     @Test
     void readmeDnsOverQuicExample() throws Exception {
-        QuicConnection c = connect(inReadme(DOQ), "", "doq");
+        QuicConnection c = connect(inDocs(DOQ), "", "doq");
         DnsMessage www = DoqOrigin.query(c, DnsMessage.query(0, "www.example", DnsMessage.A));
         assertEquals("192.0.2.10", www.answers().getFirst().data().text());
         assertEquals(300, www.answers().getFirst().ttl());
@@ -208,7 +208,7 @@ class ScriptedQuicMessageTest {
 
     @Test
     void aFramerOfTheScriptsOwn() throws Exception {
-        QuicConnection c = connect(inReadme(FRAMER), ECHO + "=script", ECHO);
+        QuicConnection c = connect(inDocs(FRAMER), ECHO + "=script", ECHO);
         QuicStream s = c.openBidirectionalStream();
         OutputStream out = s.getOutputStream();
         out.write(new byte[] {3, 'a', 'b'});

@@ -119,7 +119,7 @@ class ScriptedClientHelloTest {
 
     @Test
     void theReadmeExampleRunsAsWritten() throws Exception {
-        start(ScriptedReadmeTest.inReadme(README_EXAMPLE));
+        start(ScriptedReadmeTest.inDocs(README_EXAMPLE));
         assertEquals(issuerName(originCa), visit("www.bank.example", originCa.clientContext(), "http/1.1")[0]);
         String[] intercepted = visit("localhost", proxyCa.clientContext(), "http/1.1");
         assertEquals(issuerName(proxyCa), intercepted[0]);

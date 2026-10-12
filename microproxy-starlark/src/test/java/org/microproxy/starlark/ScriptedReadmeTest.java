@@ -38,8 +38,9 @@ import org.microproxy.MicroProxy;
 import org.microproxy.TestSupport;
 
 /**
- * The README's examples for {@code on_failure}, {@code authenticate}, constants and timings, run
- * as written: each script is checked to appear verbatim in the README.
+ * The documented examples for {@code on_failure}, {@code authenticate}, constants and timings, run
+ * as written: each script is checked to appear verbatim in the docs (the Starlark guide and
+ * reference under docs/).
  */
 public class ScriptedReadmeTest {
 
@@ -102,13 +103,22 @@ public class ScriptedReadmeTest {
         return s.getLocalPort();
     }
 
-    /** Fails unless the README shows {@code example} as it is. */
-    public static String inReadme(String example) throws IOException {
-        Path readme = Path.of("README.md");
-        if (!Files.exists(readme)) readme = Path.of("..", "README.md");
-        String text = Files.readString(readme, StandardCharsets.UTF_8);
-        assertTrue(text.contains(example), "README.md does not show this example as tested:\n" + example);
+    /** Fails unless the documentation (README.md or a page under docs/) shows {@code example} as it is. */
+    public static String inDocs(String example) throws IOException {
+        assertTrue(docsText().contains(example), "the docs do not show this example as tested:\n" + example);
         return example;
+    }
+
+    /** README.md and every Markdown page under docs/, concatenated. */
+    public static String docsText() throws IOException {
+        Path root = Files.exists(Path.of("README.md")) ? Path.of("") : Path.of("..");
+        StringBuilder text = new StringBuilder(Files.readString(root.resolve("README.md"), StandardCharsets.UTF_8));
+        try (var pages = Files.walk(root.resolve("docs"))) {
+            for (Path page : pages.filter(f -> f.toString().endsWith(".md")).sorted().toList()) {
+                text.append('\n').append(Files.readString(page, StandardCharsets.UTF_8));
+            }
+        }
+        return text.toString();
     }
 
     public static String sha256(String s) throws Exception {
@@ -146,7 +156,7 @@ public class ScriptedReadmeTest {
                 echo().handle(exchange);
             });
             proxy = MicroProxy.bootstrap().withPort(0)
-                    .withFiltersSource(ScriptedProxy.builder(inReadme(TIMINGS), "timings.star").build()).start();
+                    .withFiltersSource(ScriptedProxy.builder(inDocs(TIMINGS), "timings.star").build()).start();
             HttpResponse<String> fast = get(client(proxy), url(origin, "/fast"));
             assertTrue(fast.headers().firstValue("server-timing").orElseThrow().matches("upstream;dur=\\d+"),
                     fast.headers().toString());
@@ -162,7 +172,7 @@ public class ScriptedReadmeTest {
     }
 
     private void startFailures(HttpProxyServerBootstrap bootstrap) throws Exception {
-        ScriptedProxy script = ScriptedProxy.builder(inReadme(FAILURES), "failures.star").build();
+        ScriptedProxy script = ScriptedProxy.builder(inDocs(FAILURES), "failures.star").build();
         proxy = bootstrap.withPort(0).withFiltersSource(script).withChainProxyManager(script).start();
     }
 
@@ -209,8 +219,8 @@ public class ScriptedReadmeTest {
     void bearerTokenExample() throws Exception {
         origin = origin(echo());
         String tokens = "alice:" + sha256("alice-token") + ",bob:" + sha256("bob-token");
-        // As in the README's Java snippet: constants, then the script as authenticator too.
-        ScriptedProxy script = ScriptedProxy.builder(inReadme(BEARER), "auth.star")
+        // As in the documented Java snippet: constants, then the script as authenticator too.
+        ScriptedProxy script = ScriptedProxy.builder(inDocs(BEARER), "auth.star")
                 .constants(Map.of("TOKENS", tokens, "MAX_BODY", 1 << 20, "ALLOWED", List.of("example.com", "example.org")))
                 .build();
         List<String> users = new CopyOnWriteArrayList<>();

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.eventually;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -23,7 +23,7 @@ import org.microproxy.MicroProxy;
 import org.microproxy.WebSocketPeer;
 import org.microproxy.http.WebSocketFrame;
 
-/** {@code on_websocket_message}: whole, inflated messages for scripts, and the README's examples. */
+/** {@code on_websocket_message}: whole, inflated messages for scripts, and the documented examples. */
 @Timeout(30)
 class ScriptedWebSocketMessageTest {
 
@@ -102,7 +102,7 @@ class ScriptedWebSocketMessageTest {
 
     @Test
     void readmeJsonFieldExample() throws Exception {
-        start(inReadme(JSON_FIELD));
+        start(inDocs(JSON_FIELD));
         try (WebSocketPeer.Server server = new WebSocketPeer.Server(null);
                 WebSocketPeer client = WebSocketPeer.connect(proxy, server.port(), null)) {
             // Split mid-string: only the joined message is JSON.
@@ -120,7 +120,7 @@ class ScriptedWebSocketMessageTest {
 
     @Test
     void readmeDropLargeBinaryExample() throws Exception {
-        start(inReadme(DROP_LARGE));
+        start(inDocs(DROP_LARGE));
         try (ScriptLog log = new ScriptLog();
                 WebSocketPeer.Server server = new WebSocketPeer.Server(null);
                 WebSocketPeer client = WebSocketPeer.connect(proxy, server.port(), null)) {
@@ -136,7 +136,7 @@ class ScriptedWebSocketMessageTest {
 
     @Test
     void readmeCompressedChatLogExample() throws Exception {
-        start(inReadme(CHAT_LOG));
+        start(inDocs(CHAT_LOG));
         try (ScriptLog log = new ScriptLog();
                 WebSocketPeer.Server server = new WebSocketPeer.Server("permessage-deflate");
                 WebSocketPeer client = WebSocketPeer.connect(proxy, server.port(), "permessage-deflate")) {

@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.microproxy.ClientDetails;
@@ -58,11 +56,9 @@ class ScriptedEarlyDataTest {
                         return response(425, "too early\\n")
                 """;
         StarlarkScript.compile(example, "readme.star", StarlarkScript.Limits.DEFAULT);
-        Path readme = Path.of("README.md");
-        if (!Files.exists(readme)) readme = Path.of("..", "README.md");
-        String text = Files.readString(readme);
+        String text = ScriptedReadmeTest.docsText();
         String indented = example.lines().map(l -> "  " + l).collect(Collectors.joining("\n"));
-        assertTrue(text.contains(indented), "README.md does not show:\n" + indented);
+        assertTrue(text.contains(indented), "the docs do not show:\n" + indented);
     }
 
     private static Object toJava(Object starlark) {

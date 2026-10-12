@@ -368,7 +368,7 @@ public final class Stdlib {
         }
     }
 
-    /** The modules meant for scripts (the README's list), for error messages. */
+    /** The modules meant for scripts (the list in docs/reference/starlark-api.md), for error messages. */
     static final class Modules {
         static final List<String> STDLIB = List.of(
                 "base64", "binascii", "builtins", "bz2", "codecs", "collections", "csv", "dicts", "enum",
