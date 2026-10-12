@@ -141,10 +141,16 @@ java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-a
     --http2 --http3 --http3-upstream
 
 # A forward proxy on TLS (8443) that also serves HTTP/3 on UDP 8443: CONNECT, WebSockets and
-# CONNECT-UDP (MASQUE) for HTTP/3 clients, the QUIC inside their UDP flows intercepted too:
+# CONNECT-UDP (MASQUE) for HTTP/3 clients and, over TCP, for HTTP/2 clients, the QUIC inside their
+# UDP flows intercepted too:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
     --listener-keystore proxy.p12 --listener-keystore-password secret --http2 --http3 \
     --mitm --masque-intercept-quic
+
+# A plain forward proxy (8080) that tunnels UDP too, without HTTP/3: CONNECT-UDP over h2c and as
+# an HTTP/1.1 upgrade:
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 \
+    --http2-cleartext --masque
 
 # A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too, and
 # other QUIC stream by stream through a script's on_quic_*() hooks:
@@ -272,6 +278,7 @@ Command-line flags override values from the file.
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
 | `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
+| `masque` | serve CONNECT-UDP on a forward proxy's TCP listener, also without `http3`: over HTTP/2 (`http2`, `http2_cleartext`) and as an HTTP/1.1 upgrade (needs the `quic` and `http3-codec` jars; see [CONNECT-UDP](#connect-udp-masque)); a forward proxy with `http3` serves it there anyway | `false` |
 | `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](#connect-udp-masque)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
 | `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
@@ -310,7 +317,7 @@ Command-line flags override values from the file.
 | | |
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
-| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
+| HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener. A forward proxy with `--masque` or `--http3` takes CONNECT-UDP (RFC 9298) over extended `CONNECT`, its datagrams in capsules |
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
 | HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
@@ -1146,7 +1153,9 @@ The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client 
 with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
 and `:path`. A successful response is `200`, without END_STREAM; WebSocket frames travel in DATA,
 independently of DATA frame boundaries. HTTP/1 `Connection` and `Upgrade` fields remain forbidden
-on the HTTP/2 wire. Other extended protocols get `501`.
+on the HTTP/2 wire. On a forward proxy that serves CONNECT-UDP (`--masque`, or `--http3`),
+`:protocol connect-udp` opens a UDP flow whose datagrams travel in capsules in the stream's DATA
+([CONNECT-UDP](#connect-udp-masque)); elsewhere it gets `501`, and so do other extended protocols.
 
 WebSockets can use HTTP/1 or HTTP/2 independently on either side. With HTTP/2 to origins enabled,
 a TLS origin that advertises extended CONNECT gets a WebSocket stream on the existing shared
@@ -1584,36 +1593,61 @@ http.send_headers(stream_id, [(b":method", b"CONNECT"), (b":protocol", b"websock
 
 #### CONNECT-UDP (MASQUE)
 
-On the forward-proxy listener, CONNECT-UDP (RFC 9298) proxies UDP: an extended `CONNECT` with
-`:protocol connect-udp` whose `:path` names the target by the URI template, by default the
-well-known `/.well-known/masque/udp/{target_host}/{target_port}/` (`--masque-udp-template`,
-`Http3Options.connectUdpTemplate`, `masque_udp_template`: a path with an optional query, or an
-absolute URI, whose authority is the proxy's own, with each variable once; values are
-percent-decoded, so an IPv6 address's colons may be encoded).
+A forward proxy proxies UDP with CONNECT-UDP (RFC 9298) on its HTTP/3 listener (`--http3`) and,
+with `--http3` or `--masque` (`withConnectUdp(true)`, `masque=true`), on its TCP listener too:
+
+| Transport | Request | UDP payloads |
+|---|---|---|
+| HTTP/3 (`--http3`) | extended `CONNECT`, `:protocol connect-udp` (section 3.5) | QUIC DATAGRAM frames, or DATAGRAM capsules on the stream |
+| HTTP/2: `h2` on the TLS listener (`--http2`), or `h2c` (`--http2-cleartext`) | extended `CONNECT`, `:protocol connect-udp` (section 3.4); the proxy sends `SETTINGS_ENABLE_CONNECT_PROTOCOL` | DATAGRAM capsules in the stream's DATA |
+| HTTP/1.1, plain or on the TLS listener | `GET` with `Connection: Upgrade` and `Upgrade: connect-udp` (section 3.2), in origin-form or absolute-form; the answer is a `101` | DATAGRAM capsules on the connection, which closes with the flow |
+
+`--masque` serves the TCP listener without an HTTP/3 listener (so no certificate or UDP port is
+needed, and h2c works), and needs the `quic` and `http3-codec` jars as `--http3` does; a reverse
+proxy fails to start with it. The request's path names the target by the URI template, by
+default the well-known `/.well-known/masque/udp/{target_host}/{target_port}/`
+(`--masque-udp-template`, `Http3Options.connectUdpTemplate`, `masque_udp_template`: a path with
+an optional query, or an absolute URI, whose authority is the proxy's own, with each variable
+once; values are percent-decoded, so an IPv6 address's colons may be encoded). Everything below
+is the same whichever transport carries the flow.
 
 - **Policy.** The request is an exchange like any other: authentication applies (`407`), filters
   see it as the HTTP/1.1 upgrade an HTTP/1.1 client would send (`GET` of the path with `Upgrade:
-  connect-udp`) and may answer it, the target is routed as `CONNECT host:port` would be (chained
-  proxies carry no UDP, so a route through them only gets `502`), `proxyToServerRequest` may
-  answer, and the target's name is resolved by the proxy's resolver and the filters' resolution
-  hooks (`502` when it does not resolve). A path that does not match the template gets `400`. The
-  acceptance is a `101` with `Upgrade: connect-udp` for filters and trackers, and a `200` with
-  `capsule-protocol: ?1` for the client. CONNECT-UDP elsewhere (a reverse proxy, an intercepted
-  session) gets `501`.
-- **HTTP Datagrams** (RFC 9297). UDP payloads travel as HTTP Datagrams with context ID 0: in QUIC
-  DATAGRAM frames, whose payload starts with the stream's quarter stream ID, or in DATAGRAM
-  capsules on the request stream (the capsule protocol, RFC 9297 section 3), which the proxy reads
-  whatever the client negotiated, skipping capsules of unknown types. Towards the client the
-  proxy uses DATAGRAM frames when the client's SETTINGS_H3_DATAGRAM and QUIC transport parameters
-  allow them and the payload fits, else capsules. Payloads with other context IDs are dropped.
+  connect-udp`, version `HTTP/3.0`, `HTTP/2.0` or `HTTP/1.1`) and may answer it, the target is
+  routed as `CONNECT host:port` would be (chained proxies carry no UDP, so a route through them
+  only gets `502`), `proxyToServerRequest` may answer, and the target's name is resolved by the
+  proxy's resolver and the filters' resolution hooks (`502` when it does not resolve). A path
+  that does not match the template gets `400`. The acceptance is a `101` with `Upgrade:
+  connect-udp` for filters and trackers, and a `200` (HTTP/2, HTTP/3) or that `101` (HTTP/1.1)
+  with `capsule-protocol: ?1` for the client. CONNECT-UDP elsewhere (a reverse proxy, an
+  intercepted session, a proxy without `--masque` or `--http3`) gets `501` over HTTP/2 and
+  HTTP/3; over HTTP/1.1 such a request is passed on as any upgrade.
+- **HTTP Datagrams** (RFC 9297). UDP payloads travel as HTTP Datagrams with context ID 0: over
+  HTTP/3 in QUIC DATAGRAM frames, whose payload starts with the stream's quarter stream ID, or in
+  DATAGRAM capsules on the request stream (the capsule protocol, RFC 9297 section 3), which the
+  proxy reads whatever the client negotiated; HTTP/2 and HTTP/1.1 have no datagrams, so there
+  every payload is a capsule (section 3.5), both ways. Capsules of unknown types are skipped,
+  however large, and payloads with other context IDs dropped; a stream that ends inside a capsule,
+  or a DATAGRAM capsule larger than any UDP payload, resets the flow (HTTP/2 `CANCEL`). Towards
+  an HTTP/3 client the proxy uses DATAGRAM frames when the client's SETTINGS_H3_DATAGRAM and QUIC
+  transport parameters allow them and the payload fits, else capsules.
 - **Relaying.** Each flow has a UDP socket of its own, connected to the target; datagrams go both
-  ways, one for one, until the client ends or resets its stream, or the flow is idle for
-  `--masque-udp-idle-timeout` (60 s), after which the proxy ends the stream.
+  ways, one for one, until the client ends or resets its stream (half-closes its connection, for
+  HTTP/1.1), or the flow is idle for `--masque-udp-idle-timeout` (60 s), after which the proxy
+  ends the stream.
 - **Bounds** (`Http3Options`). Flows at once, in total (4096) and per client connection (64;
-  `--masque-max-udp-flows`, `--masque-max-udp-flows-per-connection`): a request past either gets
-  `503`. Each direction of a flow queues at most 128 datagrams and 512 KiB
-  (`connectUdpQueue`); past that datagrams are dropped, as a network drops what it cannot carry,
-  so a client that does not read its stream, or a slow target, holds up nothing else.
+  `--masque-max-udp-flows`, `--masque-max-udp-flows-per-connection`; an HTTP/1.1 connection
+  carries one): a request past either gets `503`. Each direction of a flow queues at most 128
+  datagrams and 512 KiB (`connectUdpQueue`); past that datagrams are dropped, as a network drops
+  what it cannot carry, so a client that does not read its stream, or a slow target, holds up
+  nothing else.
+- **Flow control.** A capsule to the client is stream data: over HTTP/2 it waits for the
+  stream's and the connection's send window (over HTTP/3 for QUIC's, over HTTP/1.1 for TCP's),
+  as any DATA does. While it waits, the target's later datagrams queue up to the bounds above
+  and those past them are dropped, counted in `masque.datagrams_dropped`: UDP is lossy, and stale
+  datagrams are worth less than the window they would take. A client that opens no window for the
+  idle timeout (`--idle-timeout`) has its flow reset, as a stalled tunnel would. The client's own
+  capsules are read as they come, crediting the windows back at once, whatever the target does.
 - **Hooks.** `withUdpInterceptor(UdpInterceptor)` sees every datagram, both ways: `udpStart`,
   `udpMessage` (return the payload to send, changed or not, or `null` to drop it), `udpEnd`, and
   `UdpContext.send` to add datagrams; scripts get [`on_udp_message`](#udp-hooks). A flow whose
@@ -1639,6 +1673,18 @@ http.send_headers(stream_id, [(b":method", b"CONNECT"), (b":protocol", b"connect
                               (b"capsule-protocol", b"?1")])
 # once the 200 arrives: context ID 0, then the UDP payload
 http.send_datagram(stream_id, b"\x00" + dns_query)
+```
+
+Over TCP the same query goes in a DATAGRAM capsule: its type (0), its length, then the context ID
+(0) and the payload, as stream DATA on HTTP/2, or on the connection once an HTTP/1.1 client has
+the `101`:
+
+```python
+# HTTP/1.1, to a proxy started with --masque (any HTTP/2 client sends the same capsule in DATA)
+sock.sendall(b"GET /.well-known/masque/udp/192.0.2.53/53/ HTTP/1.1\r\nHost: proxy.example:8080\r\n"
+             b"Connection: Upgrade\r\nUpgrade: connect-udp\r\nCapsule-Protocol: ?1\r\n\r\n")
+# once "HTTP/1.1 101 Switching Protocols" has arrived (a payload under 63 bytes keeps the length to one byte)
+sock.sendall(bytes([0x00, 1 + len(dns_query), 0x00]) + dns_query)
 ```
 
 #### Session resumption and 0-RTT
@@ -2039,7 +2085,8 @@ target as the server, instead of being relayed as any UDP:
   at the target's address): filters, scripts (`on_request`, `on_frame`, ...) and trackers see
   them, with `FlowContext.isTransparentQuic()` true. Other QUIC goes through the
   [QUIC stream hooks](#quic-stream-hooks), with `QuicContext.masque()` true. The proxy's
-  replies travel back in the flow, as HTTP Datagrams or capsules.
+  replies travel back in the flow, as HTTP Datagrams or capsules; over HTTP/2 and HTTP/1.1 (with
+  `--masque`, which needs no `--http3`), every packet of the inner QUIC is a capsule.
 - **Relayed.** An ignored or declined host, or QUIC that is not intercepted, goes to the target
   from the flow's own socket, the held datagrams first, as without the option.
 - **How.** A virtual listener: the transparent listener's per-flow logic (`QuicFlows`) over a
@@ -2154,7 +2201,7 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
   goes to the proxy's QUIC server, which validates the path through the new flow), and closes when
   the flow it is on ends, not one it left; relayed QUIC that moves between flows is not followed.
   CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
-  chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are not done.
+  chained proxies) and CONNECT-IP are not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
 - The proxy's own QUIC connections to servers (stream by stream, HTTP/3 to origins) never move to
   a new local address, having no reason to; they move to a server's preferred address as any
@@ -3935,8 +3982,8 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 | `quic_transparent.dropped_initials.<reason>` | counter | datagrams of client flows dropped (`microproxy_drop_reason`): `cap` (a bound on pending or relayed flows, or held bytes), `malformed` (no readable ClientHello, too small), `timeout` (still pending), `refused` (no SNI, a `DROP` decision, a server that cannot be reached) |
 | `quic_transparent.relay_rx_bytes_total`, `relay_tx_bytes_total` | counter | bytes relayed from clients / from servers, counted when relays end |
 | `masque.udp_flows_active`, `udp_flows_total` | gauge, counter | CONNECT-UDP flows open / accepted |
-| `masque.datagrams_rx`, `datagrams_tx`, `capsules_rx`, `capsules_tx` | counter | UDP payloads from / to clients, and those of them in DATAGRAM capsules, counted when flows end |
-| `masque.rx_bytes_total`, `tx_bytes_total`, `datagrams_dropped` | counter | payload bytes from / to clients, datagrams dropped by a full queue, counted when flows end |
+| `masque.datagrams_rx`, `datagrams_tx`, `capsules_rx`, `capsules_tx` | counter | UDP payloads from / to clients, and those of them in DATAGRAM capsules (all of them over HTTP/2 and HTTP/1.1), counted when flows end |
+| `masque.rx_bytes_total`, `tx_bytes_total`, `datagrams_dropped` | counter | payload bytes from / to clients, datagrams dropped by a full queue (either way, a client's flow-control window that stays closed among the causes), counted when flows end |
 | `masque.flow_rejected.<reason>` | counter | CONNECT-UDP requests refused (`microproxy_reject_reason`): `limit` (too many flows) or `policy` (no direct route, a filter's answer) |
 | `masque.quic.*` | | as `quic_transparent.*`, for the QUIC inside CONNECT-UDP flows (`masque.quic.intercepted_total`, ...) |
 | `quic.messages_rx`, `messages_tx` | counter | whole messages cut from the streams of QUIC intercepted stream by stream for the message hook (`streamMessage`, `on_quic_message`), and the messages it returned that the proxy framed and sent |
