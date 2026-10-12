@@ -1009,6 +1009,88 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
 
     /**
+     * How long exchanges in progress may take to finish when the proxy {@linkplain
+     * HttpProxyServer#stop() stops}, and how long a drain lasts when the admin's {@code
+     * /drain_listeners?graceful} starts one (default 10 seconds, Envoy's {@code --drain-time-s}).
+     *
+     * @param drainTime the drain time, not negative
+     * @return this bootstrap
+     * @throws IllegalArgumentException if it is negative
+     */
+    default HttpProxyServerBootstrap withDrainTime(Duration drainTime) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support a drain time");
+    }
+
+    /**
+     * How a draining proxy tells clients to go elsewhere (default {@link DrainStrategy#GRADUAL},
+     * as Envoy's {@code --drain-strategy}); see {@link HttpProxyServer#drain}.
+     *
+     * @param strategy the strategy
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withDrainStrategy(DrainStrategy strategy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support drain strategies");
+    }
+
+    /**
+     * Answers health checks on the proxy's own listener, as Envoy's health check filter does: a
+     * request for {@code path} (its path without the query, exactly) gets {@code 200 OK} from the
+     * proxy, or {@code 503} with {@code x-envoy-immediate-health-check-fail: true} while the health
+     * check {@linkplain HttpProxyServer#setHealthCheckFailed fails} or the proxy is draining. With
+     * {@code passThrough}, a healthy proxy forwards the request to its server instead (in reverse
+     * mode, the upstream's own health); only the failures are answered by the proxy. Null turns
+     * it off (the default).
+     *
+     * @param path the path, starting with {@code /}, or null for none
+     * @param passThrough whether a healthy proxy forwards the request
+     * @return this bootstrap
+     * @throws IllegalArgumentException if the path does not start with {@code /}
+     */
+    default HttpProxyServerBootstrap withHealthCheckPath(String path, boolean passThrough) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support health checks");
+    }
+
+    /**
+     * Serves Envoy's admin API on its own HTTP listener at {@code address}, apart from the proxy's
+     * listeners: {@code /stats}, {@code /stats/prometheus}, {@code /ready}, {@code /server_info},
+     * {@code /listeners}, {@code /clusters}, {@code /config_dump}, {@code /logging}, and, with
+     * {@code POST}, {@code /healthcheck/fail}, {@code /healthcheck/ok}, {@code /drain_listeners}
+     * and {@code /quitquitquit}; {@code /} lists them. Bind it to a loopback address (as {@code
+     * --admin-port} does) unless {@link #withAdminToken a token} guards it: it can stop the proxy.
+     * It turns {@linkplain #withMetrics metrics} on. Null (the default) means no admin listener.
+     *
+     * @param address the address to listen on (port 0 for any free port), or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withAdmin(InetSocketAddress address) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support an admin listener");
+    }
+
+    /**
+     * Requires {@code token} on every admin request but {@code /ready}: as a bearer token
+     * ({@code Authorization: Bearer <token>}), or as the password of basic authentication with any
+     * user name (or as {@code user:password} itself, when the token has a colon). Null (the
+     * default) requires nothing.
+     *
+     * @param token the token, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withAdminToken(String token) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support an admin listener");
+    }
+
+    /**
+     * The command line the proxy was started with, which the admin's {@code /server_info} shows
+     * (secret values redacted) as Envoy shows its own; the launcher passes its arguments.
+     *
+     * @param options the arguments
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withCommandLineOptions(java.util.List<String> options) {
+        return this;
+    }
+
+    /**
      * Starts the proxy with this configuration.
      *
      * @return the running proxy server

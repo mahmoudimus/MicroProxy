@@ -122,6 +122,29 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).stripsAltSvcH3();
     }
 
+    /** The drain time and strategy as configured ({@code withDrainTime}, {@code withDrainStrategy}). */
+    public static Object[] drain(HttpProxyServerBootstrap bootstrap) {
+        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
+        return new Object[] {b.drainTime, b.drainStrategy};
+    }
+
+    /** The health-check path, and whether it passes through, as configured ({@code withHealthCheckPath}). */
+    public static Object[] healthCheck(HttpProxyServerBootstrap bootstrap) {
+        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
+        return new Object[] {b.healthCheckPath, b.healthCheckPassThrough};
+    }
+
+    /** The admin listener's address and token as configured ({@code withAdmin}, {@code withAdminToken}). */
+    public static Object[] admin(HttpProxyServerBootstrap bootstrap) {
+        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
+        return new Object[] {b.adminAddress, b.adminToken};
+    }
+
+    /** The command line passed for the admin's {@code /server_info} ({@code withCommandLineOptions}). */
+    public static List<String> commandLineOptions(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).commandLineOptions;
+    }
+
     /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServerBootstrap bootstrap) {
         DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;

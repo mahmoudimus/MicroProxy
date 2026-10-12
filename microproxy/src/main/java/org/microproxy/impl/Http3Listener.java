@@ -149,7 +149,7 @@ final class Http3Listener implements AutoCloseable {
                 if (!server.isStopping()) LOG.log(Level.DEBUG, server.name + " HTTP/3 listener stopped: " + e);
                 return;
             }
-            if (server.isStopping()) {
+            if (server.refusesNewConnections()) {
                 connection.close(0x0100, "the proxy is stopping");
                 continue;
             }
