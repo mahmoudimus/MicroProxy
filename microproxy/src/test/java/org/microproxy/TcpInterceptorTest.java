@@ -172,8 +172,11 @@ class TcpInterceptorTest {
         List<String> events = recorder.events;
         assertEquals("start", events.getFirst());
         assertEquals("end", events.getLast());
-        assertTrue(events.contains("> hello secret\n"), events.toString());
-        assertTrue(events.contains("> drop me\n"), events.toString());
+        // TCP keeps no message boundaries: lines sent back to back may reach the hook as one message.
+        String fromClient = events.stream().filter(e -> e.startsWith("> ")).map(e -> e.substring(2))
+                .collect(java.util.stream.Collectors.joining());
+        assertTrue(fromClient.startsWith("hello secret\n"), events.toString());
+        assertTrue(fromClient.contains("drop me\nnothing\nafter\n"), events.toString());
         assertTrue(events.indexOf("client done") < events.indexOf("end"), events.toString());
         assertTrue(events.contains("server done"), events.toString());
         assertNull(recorder.error);
