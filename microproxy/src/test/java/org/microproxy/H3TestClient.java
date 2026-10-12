@@ -12,6 +12,7 @@ import io.github.mahmoudimus.http3.QpackEncoder;
 import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
 import io.github.mahmoudimus.quic.QuicStream;
+import io.github.mahmoudimus.quic.QuicStreamException;
 import io.github.mahmoudimus.quic.connection.ClientConfig;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
@@ -385,8 +386,12 @@ public final class H3TestClient implements AutoCloseable {
     QuicStream send(List<HeaderField> fields, boolean end) throws IOException {
         QuicStream s = quic.openBidirectionalStream();
         OutputStream out = s.getOutputStream();
-        new Http3FrameWriter(out).writeHeaders(encode(s.id(), fields));
-        if (end) out.close();
+        try {
+            new Http3FrameWriter(out).writeHeaders(encode(s.id(), fields));
+            if (end) out.close();
+        } catch (QuicStreamException e) {
+            stoppedSending(e);
+        }
         return s;
     }
 
@@ -396,15 +401,28 @@ public final class H3TestClient implements AutoCloseable {
         QuicStream s = quic.openBidirectionalStream();
         OutputStream out = s.getOutputStream();
         Http3FrameWriter w = new Http3FrameWriter(out);
-        w.writeHeaders(encode(s.id(), head(method, path, fields)));
-        if (body != null) {
-            for (int off = 0; off < body.length; off += 32 * 1024) {
-                w.writeData(body, off, Math.min(32 * 1024, body.length - off));
+        try {
+            w.writeHeaders(encode(s.id(), head(method, path, fields)));
+            if (body != null) {
+                for (int off = 0; off < body.length; off += 32 * 1024) {
+                    w.writeData(body, off, Math.min(32 * 1024, body.length - off));
+                }
             }
+            if (!trailers.isEmpty()) w.writeHeaders(encode(s.id(), trailers));
+            out.close();
+        } catch (QuicStreamException e) {
+            stoppedSending(e);
         }
-        if (!trailers.isEmpty()) w.writeHeaders(encode(s.id(), trailers));
-        out.close();
         return readResponse(s);
+    }
+
+    /**
+     * A server may stop reading a request it has answered or refused (STOP_SENDING, RFC 9114
+     * section 4.1.2) before the client has sent all of it: the client stops sending, and the
+     * response, or the stream's reset, tells it the rest.
+     */
+    private static void stoppedSending(QuicStreamException e) throws QuicStreamException {
+        if (e.kind() != QuicStreamException.Kind.STOPPED) throw e;
     }
 
     /** Reads a response from a request stream: interim responses are skipped. */
