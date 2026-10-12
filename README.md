@@ -311,7 +311,7 @@ Command-line flags override values from the file.
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
-| HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
+| HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy ([tested with grpcio](#grpc-interop-grpcio)) |
 | HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
@@ -1108,6 +1108,38 @@ works through the intercepting proxy with `--mitm --http2 --http2-upstream`. To 
 log them with [content views](#content-views) (`--log-http-view auto`), which decode each
 message and the status trailers; scripts can decode and rewrite messages with the
 [`protobuf` and `grpc` modules](#scripting-with-starlark).
+
+#### gRPC interop (grpcio)
+
+`GrpcInteropTest` runs real gRPC peers on either side of the proxy: grpcio's client and server
+(the scripts in `microproxy/src/test/resources/interop/`, with generic handlers on raw bytes, so
+no generated code). The client reaches the server through the proxy as a forward proxy, with
+`CONNECT` (grpcio's `grpc.http_proxy`), and trusts the proxy's MITM CA; the proxy speaks HTTP/2 on
+both sides, as with `--mitm --http2 --http2-upstream`, and trusts the server's CA. The calls:
+
+- unary, with text and binary metadata both ways;
+- server, client and bidirectional streaming, each bidirectional message answered while the
+  request stream stays open;
+- an error: `INVALID_ARGUMENT` with its message and a `google.rpc.Status` in
+  `grpc-status-details-bin`, decoded on arrival;
+- a deadline: `grpc-timeout` reaches the server, which sees it and ends the call;
+- a cancellation: the client's `RST_STREAM` `CANCEL` reaches the server, whose handler sees the
+  call end;
+- large messages, far across the flow-control windows of both hops: 8 MiB each way, 4 x 2 MiB
+  streamed from the server, and 6 MiB and 1 MiB streamed to it.
+
+They run as they are, through a Java `FrameInterceptor` that passes every frame on unchanged
+(and checks that the deadline, the cancellations and the trailers crossed both hops), and, in
+`microproxy-starlark`'s `ScriptedGrpcInteropTest`, through an `on_frame` script that does the
+same. CI runs them on every push and pull request (the `grpc-interop` job of
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml), with `grpcio==1.84.0`). Elsewhere they
+are skipped unless Python has grpcio:
+
+```bash
+python3 -m pip install grpcio==1.84.0
+mvn -pl microproxy,microproxy-starlark -am verify -Dtest=GrpcInteropTest,ScriptedGrpcInteropTest \
+    -Dsurefire.failIfNoSpecifiedTests=false -Dgrpc.interop.python=python3
+```
 
 #### h2c with prior knowledge
 
@@ -4925,7 +4957,7 @@ CONNECT, MITM, chaining (HTTP, TLS, SOCKS4/5, fallback), timeouts, PROXY protoco
 lifecycle, the codec, certificate generation, the shared pool, WebSocket frames, access logs,
 HTTP/2 (with the JDK's HTTP/2 client, frame-by-frame protocol tests, a codec-based HTTP/2 origin
 for the server side and gRPC-style streaming, and, when installed, `curl --http2`; CI also runs
-[h2spec](#conformance-h2spec)),
+[h2spec](#conformance-h2spec) and [grpcio's client and server](#grpc-interop-grpcio)),
 content codings (Brotli against the upstream test vectors) and the scripting hooks, sandbox
 limits and reloading.
 
