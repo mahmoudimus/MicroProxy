@@ -190,16 +190,20 @@ public final class Launcher {
               --quic-max-message-size <n>  the largest QUIC message framed, in bytes (default
                                            1048576); a larger one resets its stream
               --quic-message-error-code <n>  the error code of that reset (default 2)
-              --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
-                                           needs the http2-codec jar on the class path
+              --http2                      serve HTTP/2 to clients that offer it (ALPN h2) on
+                                           intercepted TLS and the proxy TLS listener (the
+                                           default); needs the http2-codec jar: without it the
+                                           default falls back to HTTP/1.1, the flag fails
+              --no-http2                   serve clients HTTP/1.1 only
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
-                                           h2), one shared connection per server; needs the
-                                           http2-codec jar
+                                           h2), one shared connection per server (the default);
+                                           needs the http2-codec jar, as --http2 does
+              --no-http2-upstream          speak HTTP/1.1 only to servers
               --http2-cleartext            serve HTTP/2 with prior knowledge (h2c) on the plain
                                            listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
-              --http2-coalesce             with --http2-upstream, let an HTTP/2 connection to a
+              --http2-coalesce             with HTTP/2 to servers, let an HTTP/2 connection to a
                                            server carry requests for other names its certificate
                                            covers that resolve to its address, or that it names
                                            in an ORIGIN frame (RFC 9113 9.1.1, RFC 8336)
@@ -221,7 +225,7 @@ public final class Launcher {
               --http3-retry                validate QUIC clients' addresses with a Retry first
                                            (--http3 and --transparent-quic-port)
               --masque                     serve CONNECT-UDP (MASQUE) on the TCP listener, also
-                                           without --http3: over HTTP/2 (--http2, --http2-cleartext)
+                                           without --http3: over HTTP/2 (h2, --http2-cleartext)
                                            and as HTTP/1.1 Upgrade: connect-udp, in DATAGRAM
                                            capsules; a forward proxy with --http3 serves it there
                                            anyway; needs the quic and http3-codec jars
@@ -250,8 +254,8 @@ public final class Launcher {
               --qlog-max-files <n>         qlog files the directory keeps, the oldest deleted past
                                            it (default 1000)
               --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
-                                           store's first key entry (HTTPS, HTTP/2 with --http2, and
-                                           the certificate --http3 presents)
+                                           store's first key entry (HTTPS, HTTP/2, and the
+                                           certificate --http3 presents)
               --listener-keystore-password <pw>  the key store's password (default empty)
 
               Addons, as in mitmproxy (repeatable; a spec starts with its separator, here |):
@@ -644,7 +648,9 @@ public final class Launcher {
                 case "--quic-message-error-code" ->
                         bootstrap.withQuicFraming(bootstrap.getQuicFraming().withErrorCode(Long.decode(value(queue, arg))));
                 case "--http2" -> bootstrap.withHttp2(true);
+                case "--no-http2" -> bootstrap.withHttp2(false);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
+                case "--no-http2-upstream" -> bootstrap.withHttp2Upstream(false);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
                 case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
                 case "--http2-coalesce" -> http2Coalesce = true;

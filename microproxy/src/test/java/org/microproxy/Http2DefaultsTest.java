@@ -3,12 +3,16 @@ package org.microproxy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.sun.net.httpserver.HttpsServer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +20,7 @@ import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.microproxy.http.DefaultFullHttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
@@ -172,5 +177,54 @@ class Http2DefaultsTest {
             s.startHandshake();
             return s.getApplicationProtocol();
         }
+    }
+
+    // --- the launcher and properties ----------------------------------------------------------------
+
+    private HttpProxyServer launch(String... args) throws IOException {
+        HttpProxyServer proxy = Launcher.start(args, new PrintStream(new ByteArrayOutputStream(), true,
+                StandardCharsets.UTF_8));
+        closeables.add(proxy::abort);
+        return proxy;
+    }
+
+    /** What the h2 client and the origin got through a launched proxy: "client version / origin protocol". */
+    private String through(HttpProxyServer proxy, Path ca, H2TestOrigin origin) throws IOException {
+        CertificateAuthority launcherCa = CertificateAuthority.load(ca, "microproxy".toCharArray());
+        HttpResponse<String> response = get(Http2ProxyTest.h2Client(proxy, launcherCa.clientContext()), origin.url("/"));
+        assertEquals(200, response.statusCode());
+        return response.version() + " / " + response.body();
+    }
+
+    @Test
+    void theLauncherSpeaksHttp2BothWaysUnlessToldNotTo(@TempDir Path dir) throws IOException {
+        H2TestOrigin origin = dualOrigin();
+        Path ca = dir.resolve("ca.p12");
+        String[] mitm = {"--port", "0", "--mitm", "--mitm-ca", ca.toString(), "--mitm-trust-all"};
+        assertEquals("HTTP_2 / h2", through(launch(mitm), ca, origin), "no flag");
+        assertEquals("HTTP_1_1 / h2", through(launch(with(mitm, "--no-http2")), ca, origin));
+        assertEquals("HTTP_2 / http/1.1", through(launch(with(mitm, "--no-http2-upstream")), ca, origin));
+        assertEquals("HTTP_1_1 / http/1.1", through(launch(with(mitm, "--no-http2", "--no-http2-upstream")), ca, origin));
+        assertEquals("HTTP_2 / h2", through(launch(with(mitm, "--http2", "--http2-upstream")), ca, origin));
+    }
+
+    @Test
+    void propertiesTurnHttp2OffAndFlagsTurnItBackOn(@TempDir Path dir) throws IOException {
+        H2TestOrigin origin = dualOrigin();
+        Path ca = dir.resolve("ca.p12");
+        Path props = dir.resolve("proxy.properties");
+        Files.writeString(props, "port=0\nhttp2=false\nhttp2_upstream=false\n");
+        String[] mitm = {"--config", props.toString(), "--mitm", "--mitm-ca", ca.toString(), "--mitm-trust-all"};
+        assertEquals("HTTP_1_1 / http/1.1", through(launch(mitm), ca, origin));
+        assertEquals("HTTP_2 / h2", through(launch(with(mitm, "--http2", "--http2-upstream")), ca, origin),
+                "flags override the file");
+        Files.writeString(props, "port=0\nhttp2=true\nhttp2_upstream=true\n");
+        assertEquals("HTTP_2 / h2", through(launch(mitm), ca, origin));
+    }
+
+    private static String[] with(String[] args, String... more) {
+        List<String> all = new ArrayList<>(List.of(args));
+        all.addAll(List.of(more));
+        return all.toArray(String[]::new);
     }
 }

@@ -398,8 +398,21 @@ class LauncherTest {
         assertEquals(Boolean.TRUE, BootstrapView.http2UpstreamSetting(both));
         assertTrue(BootstrapView.http2Cleartext(both));
         assertNull(BootstrapView.http2Setting(both));
+        HttpProxyServerBootstrap off = parse("--no-http2", "--no-http2-upstream").bootstrap();
+        assertFalse(BootstrapView.http2(off));
+        assertFalse(BootstrapView.http2Upstream(off));
+        assertFalse(BootstrapView.http2Cleartext(off));
+        HttpProxyServerBootstrap clientsOnly = parse("--no-http2-upstream").bootstrap();
+        assertTrue(BootstrapView.http2(clientsOnly));
+        assertFalse(BootstrapView.http2Upstream(clientsOnly));
+        HttpProxyServerBootstrap serversOnly = parse("--no-http2").bootstrap();
+        assertFalse(BootstrapView.http2(serversOnly));
+        assertTrue(BootstrapView.http2Upstream(serversOnly));
+        // The last of --http2 and --no-http2 wins, as with the other --no- flags.
+        assertTrue(BootstrapView.http2(parse("--no-http2", "--http2").bootstrap()));
+        assertFalse(BootstrapView.http2Upstream(parse("--http2-upstream", "--no-http2-upstream").bootstrap()));
         // Connection coalescing is off unless asked for, and keeps the other options.
-        assertFalse(defaults.getHttp2Options().coalesceConnections());
+        assertFalse(off.getHttp2Options().coalesceConnections());
         assertFalse(on.getHttp2Options().coalesceConnections());
         HttpProxyServerBootstrap coalesce = parse("--http2-upstream", "--http2-coalesce", "--http2-max-streams", "50")
                 .bootstrap();
