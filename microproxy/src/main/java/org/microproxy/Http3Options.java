@@ -80,6 +80,12 @@ public final class Http3Options {
     private final int transparentMaxRelayFlows;
     private final int transparentMaxRelayFlowsPerSource;
     private final long transparentMaxBufferedBytes;
+    private final String connectUdpTemplate;
+    private final Duration connectUdpIdleTimeout;
+    private final int connectUdpMaxFlows;
+    private final int connectUdpMaxFlowsPerConnection;
+    private final int connectUdpMaxQueued;
+    private final long connectUdpMaxQueuedBytes;
     private final QuicCongestionControl quicCongestionControl;
 
     private Http3Options(Builder b) {
@@ -107,6 +113,12 @@ public final class Http3Options {
         transparentMaxRelayFlows = b.transparentMaxRelayFlows;
         transparentMaxRelayFlowsPerSource = b.transparentMaxRelayFlowsPerSource;
         transparentMaxBufferedBytes = b.transparentMaxBufferedBytes;
+        connectUdpTemplate = b.connectUdpTemplate;
+        connectUdpIdleTimeout = b.connectUdpIdleTimeout;
+        connectUdpMaxFlows = b.connectUdpMaxFlows;
+        connectUdpMaxFlowsPerConnection = b.connectUdpMaxFlowsPerConnection;
+        connectUdpMaxQueued = b.connectUdpMaxQueued;
+        connectUdpMaxQueuedBytes = b.connectUdpMaxQueuedBytes;
         quicCongestionControl = b.quicCongestionControl;
     }
 
@@ -150,6 +162,12 @@ public final class Http3Options {
         b.transparentMaxRelayFlows = transparentMaxRelayFlows;
         b.transparentMaxRelayFlowsPerSource = transparentMaxRelayFlowsPerSource;
         b.transparentMaxBufferedBytes = transparentMaxBufferedBytes;
+        b.connectUdpTemplate = connectUdpTemplate;
+        b.connectUdpIdleTimeout = connectUdpIdleTimeout;
+        b.connectUdpMaxFlows = connectUdpMaxFlows;
+        b.connectUdpMaxFlowsPerConnection = connectUdpMaxFlowsPerConnection;
+        b.connectUdpMaxQueued = connectUdpMaxQueued;
+        b.connectUdpMaxQueuedBytes = connectUdpMaxQueuedBytes;
         b.quicCongestionControl = quicCongestionControl;
         return b;
     }
@@ -289,6 +307,36 @@ public final class Http3Options {
         return transparentMaxBufferedBytes;
     }
 
+    /** {@return the URI template CONNECT-UDP requests name their target with (RFC 9298)} */
+    public String connectUdpTemplate() {
+        return connectUdpTemplate;
+    }
+
+    /** {@return how long a CONNECT-UDP flow lives without a datagram in either direction} */
+    public Duration connectUdpIdleTimeout() {
+        return connectUdpIdleTimeout;
+    }
+
+    /** {@return the CONNECT-UDP flows the proxy relays at once} */
+    public int connectUdpMaxFlows() {
+        return connectUdpMaxFlows;
+    }
+
+    /** {@return the CONNECT-UDP flows one client connection may have open at once} */
+    public int connectUdpMaxFlowsPerConnection() {
+        return connectUdpMaxFlowsPerConnection;
+    }
+
+    /** {@return the datagrams a CONNECT-UDP flow queues in each direction, beyond which it drops them} */
+    public int connectUdpMaxQueued() {
+        return connectUdpMaxQueued;
+    }
+
+    /** {@return the bytes of datagrams a CONNECT-UDP flow queues in each direction, beyond which it drops them} */
+    public long connectUdpMaxQueuedBytes() {
+        return connectUdpMaxQueuedBytes;
+    }
+
     /** {@return the congestion controller of the proxy's QUIC connections, to clients and to servers} */
     public QuicCongestionControl quicCongestionControl() {
         return quicCongestionControl;
@@ -309,6 +357,10 @@ public final class Http3Options {
                 + transparentMaxPending + ", transparentMaxPendingPerSource=" + transparentMaxPendingPerSource
                 + ", transparentMaxRelayFlows=" + transparentMaxRelayFlows + ", transparentMaxRelayFlowsPerSource="
                 + transparentMaxRelayFlowsPerSource + ", transparentMaxBufferedBytes=" + transparentMaxBufferedBytes
+                + ", connectUdpTemplate=" + connectUdpTemplate + ", connectUdpIdleTimeout=" + connectUdpIdleTimeout
+                + ", connectUdpMaxFlows=" + connectUdpMaxFlows + ", connectUdpMaxFlowsPerConnection="
+                + connectUdpMaxFlowsPerConnection + ", connectUdpMaxQueued=" + connectUdpMaxQueued
+                + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes
                 + ", quicCongestionControl=" + quicCongestionControl + "]";
     }
 
@@ -338,6 +390,12 @@ public final class Http3Options {
         private int transparentMaxRelayFlows = 4096;
         private int transparentMaxRelayFlowsPerSource = 256;
         private long transparentMaxBufferedBytes = 8L * 1024 * 1024;
+        private String connectUdpTemplate = "/.well-known/masque/udp/{target_host}/{target_port}/";
+        private Duration connectUdpIdleTimeout = Duration.ofSeconds(60);
+        private int connectUdpMaxFlows = 4096;
+        private int connectUdpMaxFlowsPerConnection = 64;
+        private int connectUdpMaxQueued = 128;
+        private long connectUdpMaxQueuedBytes = 512 * 1024;
         private QuicCongestionControl quicCongestionControl = QuicCongestionControl.CUBIC;
 
         private Builder() {}
@@ -651,6 +709,70 @@ public final class Http3Options {
         public Builder transparentMaxBufferedBytes(long bytes) {
             if (bytes < 65_536) throw new IllegalArgumentException("transparentMaxBufferedBytes below 65536: " + bytes);
             transparentMaxBufferedBytes = bytes;
+            return this;
+        }
+
+        /**
+         * The URI template that CONNECT-UDP requests (MASQUE, RFC 9298) name their target with, on a
+         * forward proxy's HTTP/3 listener: by default the well-known {@code
+         * /.well-known/masque/udp/{target_host}/{target_port}/}. A path, optionally with a query,
+         * or an absolute URI whose path and query count, with the variables {@code {target_host}}
+         * and {@code {target_port}} once each.
+         *
+         * @param template the template
+         * @return this builder
+         * @throws IllegalArgumentException if it lacks one of the variables
+         */
+        public Builder connectUdpTemplate(String template) {
+            Objects.requireNonNull(template, "connectUdpTemplate");
+            if (!template.contains("{target_host}") || !template.contains("{target_port}")) {
+                throw new IllegalArgumentException("a CONNECT-UDP template needs {target_host} and {target_port}: " + template);
+            }
+            connectUdpTemplate = template;
+            return this;
+        }
+
+        /**
+         * How long a CONNECT-UDP flow lives without a datagram in either direction (default 60
+         * s), after which the proxy closes its socket and ends the client's stream.
+         *
+         * @param timeout the idle timeout of a CONNECT-UDP flow
+         * @return this builder
+         */
+        public Builder connectUdpIdleTimeout(Duration timeout) {
+            connectUdpIdleTimeout = positive(timeout, "connectUdpIdleTimeout");
+            return this;
+        }
+
+        /**
+         * The CONNECT-UDP flows the proxy relays at once (default 4096), and that one client
+         * connection may have open (default 64); each has a UDP socket of its own. A request past
+         * either limit is answered {@code 503}.
+         *
+         * @param total the most flows at once
+         * @param perConnection the most flows of one client connection at once
+         * @return this builder
+         */
+        public Builder connectUdpMaxFlows(int total, int perConnection) {
+            connectUdpMaxFlows = positive(total, "connectUdpMaxFlows");
+            connectUdpMaxFlowsPerConnection = positive(perConnection, "connectUdpMaxFlowsPerConnection");
+            return this;
+        }
+
+        /**
+         * The datagrams (default 128) and bytes (default 512 KiB) a CONNECT-UDP flow queues in
+         * each direction while the other side is not ready for them (a client that does not read
+         * its stream, a target socket that does not keep up). Datagrams past either bound are
+         * dropped, as a network drops what it cannot carry.
+         *
+         * @param datagrams the most datagrams queued in one direction
+         * @param bytes the most bytes queued in one direction, at least 65527 (one datagram)
+         * @return this builder
+         */
+        public Builder connectUdpQueue(int datagrams, long bytes) {
+            connectUdpMaxQueued = positive(datagrams, "connectUdpMaxQueued");
+            if (bytes < 65_527) throw new IllegalArgumentException("connectUdpMaxQueuedBytes below 65527: " + bytes);
+            connectUdpMaxQueuedBytes = bytes;
             return this;
         }
 

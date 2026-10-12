@@ -5,6 +5,7 @@ import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -557,24 +558,30 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
-     * Serves HTTP/3 (RFC 9114, over QUIC) in reverse proxy mode ({@link #withReverseProxy}): a UDP
-     * listener on the TCP listener's port number takes QUIC connections with ALPN {@code h3}, and
-     * each request stream is an exchange of its own, concurrently, with the same filters, cache,
-     * authentication, failure answers, logging and trackers as HTTP/1 and HTTP/2 requests. Requests
-     * reach the upstream as HTTP/1.1, HTTP/2 ({@link #withHttp2Upstream}) or HTTP/3 ({@link
-     * #withHttp3Upstream}), as it speaks. Responses sent over TCP advertise the listener with
-     * {@code Alt-Svc: h3=":<port>"} (see {@link Http3Options.Builder#altSvc}). Off by default;
-     * limits are set with {@link #withHttp3Options}.
+     * Serves HTTP/3 (RFC 9114, over QUIC): a UDP listener on the TCP listener's port number takes
+     * QUIC connections with ALPN {@code h3}, and each request stream is an exchange of its own,
+     * concurrently, with the same filters, cache, authentication, failure answers, logging and
+     * trackers as HTTP/1 and HTTP/2 requests. Off by default; limits are set with {@link
+     * #withHttp3Options}.
      *
-     * <p>The listener presents the certificate of the proxy's TLS listener ({@link
-     * #withSslContextSource}), which must provide it as {@link KeyMaterial} ({@link
-     * SslContextSource#getKeyMaterial}), or, without a TLS listener, one that a {@link
-     * org.microproxy.tls.CertificateAuthorityMitmManager} issues for the name the client asks for.
-     * {@code CONNECT} and extended {@code CONNECT} are answered {@code 501}.
+     * <p>A reverse proxy ({@link #withReverseProxy}) serves its upstream this way: requests reach it
+     * as HTTP/1.1, HTTP/2 ({@link #withHttp2Upstream}) or HTTP/3 ({@link #withHttp3Upstream}), as it
+     * speaks, and responses sent over TCP advertise the listener with {@code Alt-Svc:
+     * h3=":<port>"} (see {@link Http3Options.Builder#altSvc}).
      *
-     * <p>Only reverse proxies serve HTTP/3: clients of an explicit proxy never speak HTTP/3 to it
-     * (that would be MASQUE's CONNECT-UDP), and so their HTTP/3 is steered to TCP instead ({@link
-     * #withAltSvcH3Stripping}). Starting any other proxy with HTTP/3 enabled fails.
+     * <p>A forward proxy serves HTTP/3 next to its own TLS listener ({@link #withSslContextSource}),
+     * to clients that know it does, such as MASQUE clients: requests name their targets with
+     * {@code :scheme} and {@code :authority}, {@code CONNECT} (RFC 9114 section 4.4) opens a tunnel
+     * as an HTTP/1 or HTTP/2 one does, and CONNECT-UDP (RFC 9298) proxies UDP in HTTP Datagrams
+     * (see {@link Http3Options.Builder#connectUdpTemplate}). Every HTTP/3 connection to clients
+     * takes WebSockets over extended {@code CONNECT} (RFC 9220).
+     *
+     * <p>The listener presents the certificate of the proxy's TLS listener, which must provide it
+     * as {@link KeyMaterial} ({@link SslContextSource#getKeyMaterial}), or, for a reverse proxy
+     * without a TLS listener, one that a {@link org.microproxy.tls.CertificateAuthorityMitmManager}
+     * issues for the name the client asks for. A forward proxy without a TLS listener, a
+     * transparent proxy (its clients' QUIC goes to {@link #withTransparentQuicPort}) and a {@code
+     * reverse:tcp://} proxy fail to start with HTTP/3 enabled.
      *
      * <p>Needs the optional {@code quic} and {@code http3-codec} modules on the class path:
      * starting a server with HTTP/3 enabled without them fails with {@link IllegalStateException}.
@@ -686,6 +693,23 @@ public interface HttpProxyServerBootstrap {
 
     /** {@return the TCP interceptor configured so far, or null} */
     default TcpInterceptor getTcpInterceptor() {
+        return null;
+    }
+
+    /**
+     * Shows the datagrams of every UDP flow the proxy relays (CONNECT-UDP, MASQUE, on a forward
+     * proxy's HTTP/3 listener) to {@code interceptor}, which may rewrite, drop and add them; see
+     * {@link UdpInterceptor}. One per proxy: a later call replaces it, and null removes it.
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withUdpInterceptor(UdpInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support UDP interception");
+    }
+
+    /** {@return the UDP interceptor configured so far, or null} */
+    default UdpInterceptor getUdpInterceptor() {
         return null;
     }
 

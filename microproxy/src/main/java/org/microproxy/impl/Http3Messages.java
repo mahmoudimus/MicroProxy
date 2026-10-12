@@ -108,13 +108,16 @@ final class Http3Messages {
 
     /**
      * The HTTP/1-style request the exchange logic handles for a request stream's head: origin-form
-     * with {@code Host} from {@code :authority}, version HTTP/3, and, for a body of unknown length,
-     * chunked towards an HTTP/1.1 server.
+     * with {@code Host} from {@code :authority} (or, for a proxy, absolute-form from {@code :scheme}
+     * and {@code :authority}, as an HTTP/1 client sends a proxy), version HTTP/3, and, for a body of
+     * unknown length, chunked towards an HTTP/1.1 server.
      *
      * @param bodyFollows whether the stream goes on after its head
+     * @param absolute whether the request is a proxy's: in absolute-form when its scheme is {@code
+     *     http} or {@code https}
      * @throws IllegalArgumentException for a method the proxy does not know
      */
-    static HttpRequest toHttp1(RequestHeaders head, boolean bodyFollows) {
+    static HttpRequest toHttp1(RequestHeaders head, boolean bodyFollows, boolean absolute) {
         HttpMethod method = HttpMethod.valueOf(head.method());
         HttpHeaders headers = new HttpHeaders();
         if (head.authority() != null && head.get("host") == null) {
@@ -124,7 +127,45 @@ final class Http3Messages {
         if (bodyFollows && head.contentLength() < 0) {
             headers.set(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         }
-        return new DefaultHttpRequest(HttpVersion.HTTP_3_0, method, head.path(), headers);
+        String uri = head.path();
+        boolean httpScheme = "http".equalsIgnoreCase(head.scheme()) || "https".equalsIgnoreCase(head.scheme());
+        if (absolute && httpScheme && head.authority() != null && uri != null && uri.startsWith("/")) {
+            uri = head.scheme().toLowerCase(Locale.ROOT) + "://" + head.authority() + uri;
+        }
+        return new DefaultHttpRequest(HttpVersion.HTTP_3_0, method, uri, headers);
+    }
+
+    /**
+     * The HTTP/1-style request for a {@code CONNECT} stream's head. A plain {@code CONNECT} is an
+     * HTTP/1.1 client's: its target is {@code :authority}. An extended {@code CONNECT} (RFC 9220) is
+     * the upgrade an HTTP/1.1 client sends for its {@code :protocol}: a {@code GET} with {@code
+     * Connection: Upgrade} and {@code Upgrade}, for {@code websocket} with a generated {@code
+     * Sec-WebSocket-Key}; in absolute-form for a forward proxy's WebSocket (CONNECT-UDP's
+     * authority is the proxy's own, so its path stays origin-form).
+     *
+     * @param absolute whether the request is a forward proxy's
+     */
+    static HttpRequest toHttp1Connect(RequestHeaders head, boolean absolute) {
+        HttpHeaders headers = new HttpHeaders();
+        if (head.authority() != null && head.get("host") == null) {
+            headers.add(HttpHeaderNames.HOST, head.authority());
+        }
+        for (HeaderField f : head.fields()) headers.add(f.name(), f.value());
+        String protocol = head.protocol();
+        if (protocol == null) {
+            return new DefaultHttpRequest(HttpVersion.HTTP_3_0, HttpMethod.CONNECT, head.authority(), headers);
+        }
+        headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+        headers.set(HttpHeaderNames.CONNECTION, "Upgrade");
+        headers.set(HttpHeaderNames.UPGRADE, protocol);
+        String uri = head.path();
+        if ("websocket".equals(protocol)) {
+            headers.set("Sec-WebSocket-Key", WebSocketHandshake.key());
+            if (absolute && uri.startsWith("/")) {
+                uri = head.scheme().toLowerCase(Locale.ROOT) + "://" + head.authority() + uri;
+            }
+        }
+        return new DefaultHttpRequest(HttpVersion.HTTP_3_0, HttpMethod.GET, uri, headers);
     }
 
     /**

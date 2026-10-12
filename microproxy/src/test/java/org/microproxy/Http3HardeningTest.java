@@ -276,16 +276,20 @@ class Http3HardeningTest {
     }
 
     @Test
-    void connectIsNotImplementedYet() throws Exception {
+    void aReverseProxyRefusesConnectAndUnknownExtendedConnects() throws Exception {
         start(b -> {});
         try (H3TestClient client = client()) {
             QuicStream s = client.send(List.of(new HeaderField(":method", "CONNECT"),
                     new HeaderField(":authority", "example.com:443")), false);
-            assertEquals(501, client.readResponse(s).status());
-            QuicStream ws = client.send(List.of(new HeaderField(":method", "CONNECT"), new HeaderField(":protocol", "websocket"),
+            assertEquals(400, client.readResponse(s).status(), "a reverse proxy opens no tunnels");
+            QuicStream wt = client.send(List.of(new HeaderField(":method", "CONNECT"), new HeaderField(":protocol", "webtransport"),
                     new HeaderField(":scheme", "https"), new HeaderField(":authority", "localhost"),
                     new HeaderField(":path", "/chat")), false);
-            assertEquals(501, client.readResponse(ws).status());
+            assertEquals(501, client.readResponse(wt).status());
+            QuicStream udp = client.send(List.of(new HeaderField(":method", "CONNECT"), new HeaderField(":protocol", "connect-udp"),
+                    new HeaderField(":scheme", "https"), new HeaderField(":authority", "localhost"),
+                    new HeaderField(":path", "/.well-known/masque/udp/127.0.0.1/53/")), false);
+            assertEquals(501, client.readResponse(udp).status(), "a reverse proxy proxies no UDP");
         }
     }
 

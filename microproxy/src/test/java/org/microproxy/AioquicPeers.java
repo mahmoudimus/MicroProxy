@@ -159,6 +159,44 @@ public final class AioquicPeers {
         return (List<Map<String, Object>>) json.get("responses");
     }
 
+    /**
+     * Runs aioquic's MASQUE client ({@code interop/h3_masque.py}) against a forward proxy's HTTP/3
+     * listener on loopback {@code port}, trusting {@code ca}: a CONNECT to {@code tcpTarget}, a
+     * WebSocket to {@code wsTarget} and CONNECT-UDP to {@code udpTarget}, each skipped when null.
+     * Returns what each scenario saw: {@code connect_status}, {@code connect_echo}, {@code
+     * ws_status}, {@code ws_echo}, {@code udp_status}, {@code udp_datagram_echoes}, {@code
+     * udp_capsule_echo} and {@code udp_ended}.
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> masque(Path dir, int port, Path ca, String tcpTarget, String wsTarget,
+            String udpTarget) throws Exception {
+        assumeAvailable();
+        List<String> cmd = new ArrayList<>(List.of(python, script(dir, "h3_masque.py").toString(), "127.0.0.1",
+                Integer.toString(port), "--ca", ca.toString(), "--server-name", "localhost"));
+        if (tcpTarget != null) cmd.addAll(List.of("--tcp-target", tcpTarget));
+        if (wsTarget != null) cmd.addAll(List.of("--ws-target", wsTarget));
+        if (udpTarget != null) cmd.addAll(List.of("--udp-target", udpTarget));
+        Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+        StringBuilder output = new StringBuilder();
+        Thread reader = Thread.ofVirtual().start(() -> {
+            try (InputStream in = p.getInputStream()) {
+                output.append(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                // ended
+            }
+        });
+        if (!p.waitFor(150, TimeUnit.SECONDS)) {
+            p.destroyForcibly();
+            throw new AssertionError("the aioquic MASQUE client hung");
+        }
+        reader.join();
+        String result = output.toString().lines().filter(l -> l.startsWith("RESULT ")).findFirst()
+                .orElseThrow(() -> new AssertionError("no result from the aioquic MASQUE client:\n" + output));
+        Map<String, Object> json = (Map<String, Object>) parseJson(result.substring("RESULT ".length()));
+        assertTrue(Boolean.TRUE.equals(json.get("ok")), "aioquic MASQUE client failed: " + json.get("error") + "\n" + output);
+        return (Map<String, Object>) json.get("results");
+    }
+
     /** The value of the first field named {@code name} in a response's [name, value] list, or null. */
     @SuppressWarnings("unchecked")
     public static String field(Map<String, Object> response, String list, String name) {

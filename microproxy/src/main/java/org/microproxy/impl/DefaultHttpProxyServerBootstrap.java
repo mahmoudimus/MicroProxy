@@ -43,6 +43,7 @@ import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -129,6 +130,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     FrameInterceptor frameInterceptor;
     /** Sees the bytes of raw TCP tunnels; null for none. */
     TcpInterceptor tcpInterceptor;
+    UdpInterceptor udpInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -196,6 +198,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http3Options = http3Options;
         c.frameInterceptor = frameInterceptor;
         c.tcpInterceptor = tcpInterceptor;
+        c.udpInterceptor = udpInterceptor;
         return c;
     }
 
@@ -342,8 +345,20 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
                 || p.containsKey("http3_0rtt") || p.containsKey("http3_upstream_0rtt")
-                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")) {
+                || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
+                || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
+                || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("masque_udp_template")) h3.connectUdpTemplate(p.getProperty("masque_udp_template").strip());
+            if (p.containsKey("masque_udp_idle_timeout")) {
+                h3.connectUdpIdleTimeout(Duration.ofSeconds(Long.parseLong(p.getProperty("masque_udp_idle_timeout").strip())));
+            }
+            if (p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection")) {
+                h3.connectUdpMaxFlows(
+                        Integer.parseInt(p.getProperty("masque_max_udp_flows", Integer.toString(http3Options.connectUdpMaxFlows())).strip()),
+                        Integer.parseInt(p.getProperty("masque_max_udp_flows_per_connection",
+                                Integer.toString(http3Options.connectUdpMaxFlowsPerConnection())).strip()));
+            }
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
             }
@@ -792,6 +807,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public TcpInterceptor getTcpInterceptor() {
         return tcpInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withUdpInterceptor(UdpInterceptor interceptor) {
+        this.udpInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public UdpInterceptor getUdpInterceptor() {
+        return udpInterceptor;
     }
 
     @Override

@@ -159,6 +159,25 @@ final class ScriptType extends StarlarkType {
             .put("error", TEXT)
             .buildOrThrow(), false);
 
+    /** One datagram of a UDP flow ({@code on_udp_message}); named {@code UdpMessage}. */
+    static final ScriptType UDP_MESSAGE = new ScriptType("UdpMessage", ScriptUdpMessage.class, ImmutableMap.of(
+            "data", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT),
+            "text", TEXT,
+            "from_client", Types.BOOL,
+            "timestamp", Types.FLOAT), true);
+
+    /** A UDP flow ({@code on_udp_start}, {@code on_udp_message}, {@code on_udp_end}); named {@code UdpContext}. */
+    static final ScriptType UDP_CONTEXT = new ScriptType("UdpContext", ScriptUdpContext.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("connection_id", Types.INT)
+            .put("client_ip", Types.STR)
+            .put("client_port", Types.INT)
+            .put("host", Types.STR)
+            .put("port", Types.INT)
+            .put("server", Types.STR)
+            .put("address", Types.STR)
+            .put("vars", Types.dict(Types.ANY, Types.ANY))
+            .buildOrThrow(), false);
+
     static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
             "kind", Types.STR,
             "status", Types.INT,
@@ -189,6 +208,8 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor CLIENT_HELLO_CONSTRUCTOR = Types.wrapType("ClientHello", CLIENT_HELLO);
     static final TypeConstructor TCP_MESSAGE_CONSTRUCTOR = Types.wrapType("TcpMessage", TCP_MESSAGE);
     static final TypeConstructor TCP_CONTEXT_CONSTRUCTOR = Types.wrapType("TcpContext", TCP_CONTEXT);
+    static final TypeConstructor UDP_MESSAGE_CONSTRUCTOR = Types.wrapType("UdpMessage", UDP_MESSAGE);
+    static final TypeConstructor UDP_CONTEXT_CONSTRUCTOR = Types.wrapType("UdpContext", UDP_CONTEXT);
 
     private final String name;
     private final Class<?> javaClass;

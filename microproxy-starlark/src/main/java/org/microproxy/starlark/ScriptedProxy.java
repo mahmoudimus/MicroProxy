@@ -55,6 +55,9 @@ import org.microproxy.http.WebSocketMessage;
 import org.microproxy.tcp.TcpContext;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.tcp.TcpMessage;
+import org.microproxy.udp.UdpContext;
+import org.microproxy.udp.UdpInterceptor;
+import org.microproxy.udp.UdpMessage;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -136,6 +139,12 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *       for the tunnel, {@code error} in {@code on_tcp_end} after a failure, and {@code
  *       send(from_client, data)} to add bytes. A failing {@code on_tcp_message} passes the bytes
  *       on unchanged.
+ *   <li>{@code on_udp_start(ctx)}, {@code on_udp_message(msg, ctx)} and {@code on_udp_end(ctx)}:
+ *       for the datagrams of CONNECT-UDP flows (see {@link UdpInterceptor}), when this object's
+ *       {@link #udpInterceptor()} is installed ({@code withUdpInterceptor}). {@code msg} is a
+ *       {@code UdpMessage}, one datagram, with the fields and results of a {@code TcpMessage};
+ *       {@code ctx} is a {@code UdpContext}: the target, its resolved {@code address}, {@code
+ *       vars} for the flow, and {@code send(from_client, data)} to add a datagram.
  * </ul>
  *
  * <p>A failing hook is logged and answered with {@code 500}; a failing {@code allow_mitm} or
@@ -680,6 +689,112 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return frame;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // UdpInterceptor
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether the script in use defines {@code on_udp_start}, {@code on_udp_message} or {@code
+     * on_udp_end}, so {@link #udpInterceptor()} is worth installing.
+     *
+     * @return whether the current script provides a UDP hook
+     */
+    public boolean definesUdpHooks() {
+        StarlarkScript s = script();
+        return s.defines("on_udp_start") || s.defines("on_udp_message") || s.defines("on_udp_end");
+    }
+
+    /**
+     * An interceptor that calls the script's {@code on_udp_start(ctx)}, {@code on_udp_message(msg,
+     * ctx)} and {@code on_udp_end(ctx)}, for {@link
+     * org.microproxy.HttpProxyServerBootstrap#withUdpInterceptor}: the datagrams of CONNECT-UDP
+     * flows. The calls of one flow, which come from a thread per direction, run one at a time, so
+     * they can share {@code ctx.vars}. {@code on_udp_message} returns what to send on: {@code None}
+     * or {@code True} for the message (as changed), {@code False} to drop it, or bytes, a string
+     * or a message to send instead. A datagram passes on unchanged when the script in use has no
+     * {@code on_udp_message}, and when the call fails, which is logged.
+     *
+     * @return the interceptor
+     */
+    public UdpInterceptor udpInterceptor() {
+        return new ScriptUdpInterceptor();
+    }
+
+    /** One flow's script state: its context, and the lock its calls take turns with. */
+    private static final class UdpFlowState {
+        final Mutability mu = Mutability.create("udp");
+        final ScriptUdpContext ctx;
+        final ReentrantLock lock = new ReentrantLock();
+
+        UdpFlowState(UdpContext context) {
+            this.ctx = new ScriptUdpContext(context, mu);
+        }
+    }
+
+    private final class ScriptUdpInterceptor implements UdpInterceptor {
+        private final Map<UdpContext, UdpFlowState> flows = new ConcurrentHashMap<>();
+
+        private UdpFlowState flow(UdpContext context) {
+            return flows.computeIfAbsent(context, UdpFlowState::new);
+        }
+
+        @Override
+        public void udpStart(UdpContext context) {
+            UdpFlowState f = flow(context);
+            StarlarkScript s = script();
+            if (s.defines("on_udp_start")) call(s, f, "on_udp_start", f.ctx);
+        }
+
+        @Override
+        public byte[] udpMessage(UdpMessage message, UdpContext context) {
+            StarlarkScript s = script();
+            if (!s.defines("on_udp_message")) return message.data();
+            UdpFlowState f = flow(context);
+            ScriptUdpMessage m = new ScriptUdpMessage(message.data(), message.fromClient(), message.timestamp());
+            f.lock.lock();
+            try {
+                Object r = s.call("on_udp_message", f.mu, m, f.ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
+                if (r == Boolean.FALSE) return null;
+                if (r instanceof ScriptUdpMessage other) return other.data();
+                if (r instanceof String || r instanceof StarlarkBytes) return Builtins.bytes(r, "the result");
+                throw Starlark.errorf("on_udp_message must return None, True, False, bytes, a string or a message,"
+                        + " not %s", Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_udp_message failed; passing the datagram on: "
+                        + e.getMessageWithStack());
+                return message.data();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return message.data();
+            } finally {
+                f.lock.unlock();
+            }
+        }
+
+        @Override
+        public void udpEnd(UdpContext context) {
+            UdpFlowState f = flows.remove(context);
+            if (f == null) f = new UdpFlowState(context);
+            StarlarkScript s = script();
+            if (s.defines("on_udp_end")) call(s, f, "on_udp_end", f.ctx);
+        }
+
+        /** Calls a hook whose result does not matter; a failure is logged. */
+        private void call(StarlarkScript s, UdpFlowState f, String hook, Object... args) {
+            f.lock.lock();
+            try {
+                s.call(hook, f.mu, args);
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                f.lock.unlock();
+            }
         }
     }
 

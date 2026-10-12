@@ -2,8 +2,12 @@ package org.microproxy.impl;
 
 import io.github.mahmoudimus.http3.HeaderField;
 import io.github.mahmoudimus.http3.Http3ErrorCode;
+import io.github.mahmoudimus.http3.QuicVarInt;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.microproxy.http.FullHttpMessage;
@@ -31,12 +35,17 @@ import org.microproxy.http.LastHttpContent;
  * <p>What has no meaning in HTTP/3: there is no connection to keep alive or close ({@link
  * #clientKeepAlive} is always true, {@link #setKeepAlive} does nothing, and {@link #close} resets
  * the stream), framing is the protocol's ({@link #adaptFraming} only drops {@code
- * Transfer-Encoding}). {@code CONNECT} and extended {@code CONNECT} are answered {@code 501}
- * before an exchange starts ({@link Http3Connection}), so the channel carries no tunnels. A {@code
- * 100 Continue} is sent only to a client that asked for it; other interim responses are forwarded
- * as interim HEADERS.
+ * Transfer-Encoding}). A {@code 100 Continue} is sent only to a client that asked for it; other
+ * interim responses are forwarded as interim HEADERS.
+ *
+ * <p>Tunnels (RFC 9114 section 4.4, RFC 9220): a {@code CONNECT}'s 2xx, or the {@code 101} that
+ * accepts an extended {@code CONNECT} (a WebSocket), goes out as HEADERS {@code 200} and leaves the
+ * stream open; from then on its DATA carry the tunnel's bytes both ways, through the shared {@link
+ * Tunnel} relay, and the stream's FIN half-closes one direction. {@link #tunnelSocket} shows the
+ * stream as a socket, for an intercepted {@code CONNECT}'s TLS. A reset ends the tunnel; the proxy
+ * resets the stream with H3_CONNECT_ERROR when its connection to the server fails.
  */
-final class Http3StreamChannel implements ClientChannel {
+final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, UdpFlow.Client {
 
     private static final Object CANCELLED = new Object();
 
@@ -50,6 +59,15 @@ final class Http3StreamChannel implements ClientChannel {
     volatile HttpRequest request;
     private boolean expectsContinue;
     private final AtomicReference<Object> server = new AtomicReference<>();
+    /** An extended {@code CONNECT}'s {@code :protocol} ({@code websocket}), or null. */
+    private volatile String protocol;
+    /** The {@code :scheme} of an extended {@code CONNECT}. */
+    private volatile String scheme;
+    /**
+     * The response that opens a tunnel has been sent: a reset from now on is how a client ends
+     * the tunnel, not a request it gave up on.
+     */
+    volatile boolean tunnelOpen;
 
     // The stream thread's own.
     private boolean headersSent;
@@ -69,7 +87,14 @@ final class Http3StreamChannel implements ClientChannel {
     }
 
     void requestRead(HttpRequest request) {
+        requestRead(request, null, null);
+    }
+
+    /** The request's head has been read; {@code protocol} and {@code scheme} are an extended {@code CONNECT}'s. */
+    void requestRead(HttpRequest request, String protocol, String scheme) {
         this.request = request;
+        this.protocol = protocol;
+        this.scheme = scheme;
         this.expectsContinue = HttpUtil.is100ContinueExpected(request);
     }
 
@@ -109,7 +134,17 @@ final class Http3StreamChannel implements ClientChannel {
 
     @Override
     public boolean supportsTunnels() {
-        return false;
+        return true;
+    }
+
+    @Override
+    public String tunnelProtocol() {
+        return protocol;
+    }
+
+    @Override
+    public boolean secureWebSocket() {
+        return "websocket".equals(protocol) && "https".equalsIgnoreCase(scheme);
     }
 
     @Override
@@ -174,11 +209,33 @@ final class Http3StreamChannel implements ClientChannel {
 
     @Override
     public void setUpgrade(HttpResponse response, String upgrade) {
-        // HTTP/3 has no protocol switch, and its channel carries no tunnels.
+        // HTTP/3 has no protocol switch: writeHead turns the 101 of an extended CONNECT into a 200.
+        // Until then, filters see the 101 as an HTTP/1.1 client's upgrade would show it.
+        if (protocol != null) {
+            if (upgrade != null) response.headers().set(HttpHeaderNames.UPGRADE, upgrade);
+            response.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
+        }
     }
 
     @Override
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
+        int code = response.status().code();
+        HttpRequest req = request;
+        if (protocol != null ? code == 101 : code / 100 == 2 && req != null && ProxyUtils.isCONNECT(req)) {
+            // The response opens a tunnel: HEADERS :status 200, and the stream stays open. DATA are
+            // tunnel bytes, not a message body. The 101 itself stays as filters and trackers saw it.
+            HttpHeaders headers = response.headers().copy();
+            headers.remove("Sec-WebSocket-Accept");
+            headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+            headers.remove(HttpHeaderNames.TRANSFER_ENCODING);
+            this.bodyAllowed = true;
+            headersSent = true;
+            // Before the HEADERS go out: the client may reset the stream as soon as it reads them.
+            tunnelOpen = true;
+            writer.headers(Http3Messages.responseFields(code == 101 ? 200 : code, headers), false);
+            writer.flush();
+            return;
+        }
         if (response instanceof FullHttpMessage full) {
             writeFull(response, full, bodyAllowed);
             return;
@@ -252,9 +309,136 @@ final class Http3StreamChannel implements ClientChannel {
 
     @Override
     public void relay(ServerConnection conn, WebSocketRelay webSocket, TcpSession tcp, String name) {
-        // Never reached: the channel supports no tunnels, so no exchange opens one on it.
-        conn.close();
-        close();
+        Tunnel.relay(reader.body().asInputStream(), new TunnelOutput(), this::endTunnelOutput,
+                conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
+                () -> { closeTunnelStream(); conn.close(); }, connection.server.getIdleConnectionTimeout(), name,
+                logPrefix, webSocket, tcp, connection.server.ioBuffers);
+    }
+
+    /**
+     * The tunnel ended: a stream whose both directions finished is complete; otherwise the server
+     * side failed (or the client reset it), and what is left of the stream is reset: with
+     * H3_CONNECT_ERROR for a {@code CONNECT} (RFC 9114 section 4.4), with H3_REQUEST_CANCELLED for
+     * a WebSocket (RFC 9220 section 3, as RFC 8441's CANCEL).
+     */
+    private void closeTunnelStream() {
+        if (writer.finished() && reader.ended()) return;
+        resetStream(protocol == null ? Http3ErrorCode.H3_CONNECT_ERROR : Http3ErrorCode.H3_REQUEST_CANCELLED);
+    }
+
+    /**
+     * The stream as a connected socket, for a TLS session layered over it (an intercepted {@code
+     * CONNECT}): its streams are the tunnel's bytes, {@code shutdownOutput} sends the FIN, and
+     * {@code close} ends the output and fails reads, as closing a TCP socket does. Null until the
+     * tunnel is open.
+     */
+    @Override
+    public StreamSocket tunnelSocket() {
+        if (!tunnelOpen) return null;
+        return new StreamSocket(this, reader.body().asInputStream(), new TunnelOutput(), flow.getClientAddress(),
+                connection.quic.localAddress());
+    }
+
+    @Override
+    public void setReadTimeout(int millis) {
+        reader.setReadTimeout(millis);
+    }
+
+    @Override
+    public int readTimeout() {
+        return reader.readTimeout();
+    }
+
+    @Override
+    public void endTunnelOutput() throws IOException {
+        writer.end();
+    }
+
+    /**
+     * Closes the stream as a socket is closed: reads fail from now on, and the output ends with
+     * the FIN, or, if a write is in progress on another thread, the stream is reset.
+     */
+    @Override
+    public void closeTunnel() {
+        reader.closeInput();
+        writer.endOrReset(Http3ErrorCode.H3_CONNECT_ERROR);
+        // The client need not send what nobody reads.
+        if (!reader.ended()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT-UDP (RFC 9298): the stream's capsules, and the connection's HTTP Datagrams
+    // ---------------------------------------------------------------------------------------
+
+    /** The stream as a CONNECT-UDP flow's client: on a forward proxy's listener, for {@code :protocol connect-udp}. */
+    @Override
+    public UdpFlow.Client udpClient() {
+        return "connect-udp".equals(protocol) && connection.role == Http3Connection.Role.FORWARD ? this : null;
+    }
+
+    @Override
+    public boolean attach(UdpFlow flow) {
+        return connection.addUdpFlow(id, flow);
+    }
+
+    @Override
+    public void detach(UdpFlow flow) {
+        connection.removeUdpFlow(id, flow);
+    }
+
+    @Override
+    public InputStream capsules() {
+        return reader.body().asInputStream();
+    }
+
+    @Override
+    public void sendDatagram(byte[] content) throws IOException {
+        if (connection.sendHttpDatagram(id, content)) return;
+        // No QUIC datagrams to this client (or too large for one): a DATAGRAM capsule on the stream.
+        byte[] type = QuicVarInt.encode(UdpFlow.DATAGRAM_CAPSULE);
+        byte[] length = QuicVarInt.encode(content.length);
+        byte[] capsule = new byte[type.length + length.length + content.length];
+        System.arraycopy(type, 0, capsule, 0, type.length);
+        System.arraycopy(length, 0, capsule, type.length, length.length);
+        System.arraycopy(content, 0, capsule, type.length + length.length, content.length);
+        if (writer.ended()) throw new SocketException("the stream's output has ended");
+        writer.data(capsule, 0, capsule.length, false);
+        writer.flush();
+    }
+
+    @Override
+    public void endFlow(boolean clean) {
+        if (clean) {
+            writer.endOrReset(Http3ErrorCode.H3_CONNECT_ERROR);
+            if (!reader.ended()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
+        } else {
+            resetStream(Http3ErrorCode.H3_CONNECT_ERROR);
+        }
+    }
+
+    /** The tunnel's bytes to the client, in DATA frames that wait for QUIC's flow control. */
+    private final class TunnelOutput extends OutputStream {
+        @Override
+        public void write(int b) throws IOException {
+            write(new byte[] {(byte) b}, 0, 1);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (len == 0) return;
+            if (writer.ended()) throw new SocketException("the stream's output has ended");
+            writer.data(b, off, len, false);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            writer.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            endTunnelOutput();
+        }
     }
 
     @Override

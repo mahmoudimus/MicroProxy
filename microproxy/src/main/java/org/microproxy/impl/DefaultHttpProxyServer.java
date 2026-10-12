@@ -42,6 +42,7 @@ import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.udp.UdpInterceptor;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
 /**
@@ -132,6 +133,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final FrameInterceptor frameInterceptor;
     /** Sees the bytes of raw tunnels (see {@link TcpInterceptor}); null for none, which costs nothing. */
     final TcpInterceptor tcpInterceptor;
+    /** The UDP hooks of CONNECT-UDP flows, or null. */
+    final UdpInterceptor udpInterceptor;
+    /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
+    final ConnectUdpTemplate connectUdpTemplate;
+    /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
+    final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
     /** Whether the reverse proxy serves HTTP/3 on UDP; the modules are known to be present. */
@@ -172,12 +179,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             throw new IllegalStateException("transparent QUIC (withTransparentQuicPort, --transparent-quic-port,"
                     + " transparent_quic_port) needs transparent mode (withTransparent, --transparent), and no reverse proxy");
         }
-        if (b.http3 && (b.reverseProxy == null || b.reverseProxy.rawTcp())) {
-            // Clients of an explicit (or transparent, or SOCKS) proxy never speak HTTP/3 to it:
-            // that would be CONNECT-UDP (MASQUE). Their HTTP/3 is steered to TCP instead.
-            throw new IllegalStateException("HTTP/3 (withHttp3, --http3, http3) is served only by a reverse proxy for an"
-                    + " http:// or https:// upstream (withReverseProxy, --mode reverse:https://host): clients of an"
-                    + " explicit proxy do not speak HTTP/3 to it");
+        if (b.http3 && b.reverseProxy != null && b.reverseProxy.rawTcp()) {
+            throw new IllegalStateException("HTTP/3 (withHttp3, --http3, http3) is served by a reverse proxy only for an"
+                    + " http:// or https:// upstream (--mode reverse:https://host), not a tcp:// one");
+        }
+        if (b.http3 && b.reverseProxy == null && (b.sslContextSource == null || b.transparent)) {
+            // A forward proxy serves HTTP/3 next to its own TLS listener, to clients that know the
+            // proxy speaks it (MASQUE clients): browsers never send HTTP/3 to a proxy otherwise.
+            throw new IllegalStateException("HTTP/3 (withHttp3, --http3, http3) is served by a forward proxy only next"
+                    + " to its TLS listener (withSslContextSource, --listener-keystore), and not in transparent mode,"
+                    + " whose clients' QUIC goes to --transparent-quic-port");
         }
         this.config = b;
         this.name = b.name;
@@ -236,6 +247,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.http2Options = b.http2Options;
         this.frameInterceptor = b.frameInterceptor;
         this.tcpInterceptor = b.tcpInterceptor;
+        this.udpInterceptor = b.udpInterceptor;
+        this.connectUdpTemplate = b.http3 && b.reverseProxy == null
+                ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
         this.http3 = b.http3;
@@ -255,7 +269,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      * the name the client asks for (the upstream's host when it asks for none).
      */
     private static Function<String, KeyMaterial> http3Keys(DefaultHttpProxyServerBootstrap b) {
-        String upstreamHost = b.reverseProxy.host();
+        String upstreamHost = b.reverseProxy != null ? b.reverseProxy.host() : null;
         if (b.sslContextSource != null) {
             SslContextSource source = b.sslContextSource;
             if (source.getKeyMaterial(upstreamHost) == null && source.getKeyMaterial(null) == null) {
@@ -269,7 +283,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             };
         }
         if (b.mitmManager instanceof CertificateAuthorityMitmManager ca) {
-            return sni -> ca.keyMaterialFor(sni != null && !sni.isEmpty() ? sni : upstreamHost);
+            return sni -> sni != null && !sni.isEmpty() ? ca.keyMaterialFor(sni)
+                    : upstreamHost != null ? ca.keyMaterialFor(upstreamHost) : null;
         }
         throw new IllegalStateException("HTTP/3 needs a certificate: a TLS listener (withSslContextSource, or"
                 + " --listener-keystore) whose SslContextSource provides its key material, or a"
@@ -337,7 +352,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 throw new UncheckedIOException("unable to bind the HTTP/3 listener on UDP " + boundAddress,
                         e instanceof IOException io ? io : new IOException(e));
             }
-            if (http3Options.altSvc()) {
+            if (http3Options.altSvc() && reverseProxy != null) {
+                // (A forward proxy's responses are its servers': their Alt-Svc is theirs to give.)
                 http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
             }
             LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());

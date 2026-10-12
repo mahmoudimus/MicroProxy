@@ -438,23 +438,39 @@ same rules to HTTP/3 stream bytes relayed by other means.
 
 ## HTTP/3: `Http3Connection` and `Http3StreamChannel`
 
-With `withHttp3` in reverse mode (when the optional `quic` and `http3-codec` modules are both
-present: `Http3Support`), `DefaultHttpProxyServer.start` binds an `Http3Listener`, a `QuicServer`
-on the UDP port with the TCP listener's number, offering ALPN `h3` with the certificate the TLS
-listener's `SslContextSource.getKeyMaterial` gives (or a `CertificateAuthorityMitmManager` issues
-for the SNI). Each established QUIC connection becomes a `ClientConnection` of its own (a
-constructor without a socket: its `Http1ClientChannel` is never attached), served by `serveHttp3`
-on the server's connection executor, so a graceful stop waits for it as for TCP clients.
+With `withHttp3` (when the optional `quic` and `http3-codec` modules are both present:
+`Http3Support`), `DefaultHttpProxyServer.start` binds an `Http3Listener`, a `QuicServer` on the
+UDP port with the TCP listener's number, offering ALPN `h3` with the certificate the TLS
+listener's `SslContextSource.getKeyMaterial` gives (or, for a reverse proxy, a
+`CertificateAuthorityMitmManager` issues for the SNI). Each established QUIC connection becomes a
+`ClientConnection` of its own (a constructor without a socket: its `Http1ClientChannel` is never
+attached), served by `serveHttp3` on the server's connection executor, so a graceful stop waits
+for it as for TCP clients.
 
-The proxy serves HTTP/3 to a reverse proxy's clients, and to transparent QUIC clients (below):
-clients of an explicit proxy never speak HTTP/3 to it (that would be MASQUE's CONNECT-UDP), so
-their HTTP/3 is steered to TCP by stripping `h3` from `Alt-Svc` instead.
+`Http3Connection.Role` says who the client takes the proxy for:
+
+- `REVERSE`: a reverse proxy's listener; requests are origin-form, for the upstream.
+- `FORWARD`: a forward proxy's listener, next to its TLS listener (a forward proxy without one,
+  and a transparent proxy, refuse to start with HTTP/3). Requests are made absolute-form from
+  `:scheme` and `:authority` (`Http3Messages.toHttp1(head, bodyFollows, true)`), as an HTTP/1
+  client sends a proxy, and each stream authenticates on its own (`authenticateStream`, a `407`
+  on the stream), as `h2c` streams do. Only this listener sends SETTINGS_H3_DATAGRAM and accepts
+  QUIC DATAGRAM frames (`Http3Listener.serverConfig(..., datagrams)`: the `max_datagram_frame_size`
+  transport parameter), for CONNECT-UDP; the others refuse them, since nothing would read them.
+  It advertises no `Alt-Svc`: its responses are its servers'.
+- `INTERCEPTED`: a transparent QUIC flow (below), whose `target` is the SNI's host. A request
+  for another host gets `421` before any exchange (`misdirected`, by host only: the port is the
+  one a firewall redirected), as on an intercepted HTTP/2 connection; a plain `CONNECT` and a
+  `:scheme http` request are proxy requests for that server, which the client takes for its
+  proxy, and go there (`forwardConnect`, proxy requests), as over HTTP/2.
 
 `Http3Endpoint` is what both ends of an HTTP/3 connection share, as `Http2Endpoint` is for HTTP/2:
 
 - **Streams.** `start` opens the proxy's control stream (SETTINGS: QPACK_MAX_TABLE_CAPACITY,
-  MAX_FIELD_SECTION_SIZE and QPACK_BLOCKED_STREAMS; no ENABLE_CONNECT_PROTOCOL, since `CONNECT` is
-  not served yet, and no H3_DATAGRAM) and its QPACK encoder and decoder streams. `acceptStreams`
+  MAX_FIELD_SECTION_SIZE and QPACK_BLOCKED_STREAMS, then `extensionSettings`: a client's
+  connection adds ENABLE_CONNECT_PROTOCOL, and a forward proxy's H3_DATAGRAM) and its QPACK
+  encoder and decoder streams. `awaitPeerSettings` waits, briefly, for the peer's SETTINGS where
+  they decide something (an upstream's extended CONNECT, a client's HTTP Datagrams). `acceptStreams`
   takes the peer's streams on the connection's thread: each unidirectional one is read on a
   virtual thread of its own (control: SETTINGS, GOAWAY; QPACK encoder and decoder instructions;
   unknown and reserved types abandoned with `STOP_SENDING H3_STREAM_CREATION_ERROR`, within a
@@ -485,14 +501,23 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 
 - **Threads.** The connection's thread accepts streams. Each request stream starts its reader and
   a virtual thread that waits for the request head, turns it into an HTTP/1-style request
-  (`Http3Messages.toHttp1`: origin-form, `Host` from `:authority`, version `HTTP/3.0`, chunked
-  towards HTTP/1.1 servers when the length is unknown) and runs `ClientConnection.handleStream`
-  through the stream's `Http3StreamChannel`. HTTP/3 has no END_STREAM flag on HEADERS, so the
-  thread waits up to 20 ms for the stream's end before deciding that a request without
-  `content-length` has a body.
+  (`Http3Messages.toHttp1`: origin-form or, by the role, absolute-form, `Host` from `:authority`,
+  version `HTTP/3.0`, chunked towards HTTP/1.1 servers when the length is unknown) and runs
+  `ClientConnection.handleStream` through the stream's `Http3StreamChannel`. HTTP/3 has no
+  END_STREAM flag on HEADERS, so the thread waits up to 20 ms for the stream's end before deciding
+  that a request without `content-length` has a body (not for a `CONNECT`, whose stream stays open).
+- **CONNECT** (`Http3Messages.toHttp1Connect`). A plain `CONNECT` is an HTTP/1.1 client's, its
+  target `:authority`. An extended `CONNECT` becomes the HTTP/1.1 upgrade an HTTP/1.1 client
+  sends for its `:protocol`: a `GET` with `Connection: Upgrade` and `Upgrade` (`websocket`, with a
+  generated `Sec-WebSocket-Key`, absolute-form on a forward proxy; `connect-udp`, origin-form,
+  since its authority is the proxy's own). The stream remembers `:protocol` and `:scheme`
+  (`requestRead`). The reader marks a `CONNECT`'s stream: HEADERS after the request's are a
+  connection error H3_FRAME_UNEXPECTED (RFC 9114 section 4.4), and an extended one's DATA are no
+  message body (`hasBody` is false).
 - **Answered before any exchange.** A head over MAX_FIELD_SECTION_SIZE gets `431` (the decoder
   still processed the section, so the connection goes on), a malformed one a stream error
-  H3_MESSAGE_ERROR, and `CONNECT` and extended `CONNECT` get `501`.
+  H3_MESSAGE_ERROR (a WebSocket's `:scheme` must be `http` or `https`, its `:path` absolute), and
+  an intercepted connection's request for another host `421`.
 - **Limits** (`org.microproxy.Http3Options`): the request streams a client may have open are
   QUIC's limit (`maxConcurrentBidiStreams`), which the transport enforces; MAX_FIELD_SECTION_SIZE
   defaults to the HTTP/1 parser limits; rate limits for unknown and empty frames, unknown streams
@@ -501,7 +526,8 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 - **Ending streams.** A stream whose response is complete while the request still arrives gets
   `STOP_SENDING H3_NO_ERROR`; one the exchange abandons is reset both ways with
   H3_REQUEST_CANCELLED, one that failed with H3_INTERNAL_ERROR. A client's reset closes the
-  exchange's server connection, as an HTTP/2 RST_STREAM does.
+  exchange's server connection, as an HTTP/2 RST_STREAM does; a reset that ends an open tunnel
+  (`tunnelOpen`) is no rapid reset.
 - **Graceful stop.** GOAWAY names the first stream not processed; later streams are refused with
   H3_REQUEST_REJECTED, and the connection closes once its streams are done and the client has
   closed it, or after two seconds.
@@ -515,10 +541,68 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
   (`GET`, `HEAD` or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any
   filter runs. Requests are not held for the handshake.
 
-`Http3StreamChannel` is `Http2StreamChannel` without tunnels: `supportsTunnels` is false,
-`clientKeepAlive` true, `adaptFraming` drops `Transfer-Encoding`, `setKeepAlive` and `setUpgrade`
-do nothing, `writeContinue` answers only `Expect: 100-continue`, `close` resets the stream. Its
-`ClientFlowContext` has the QUIC stream id and `HttpVersion.HTTP_3_0`.
+`Http3StreamChannel` is `Http2StreamChannel` over QUIC: `clientKeepAlive` true, `adaptFraming`
+drops `Transfer-Encoding`, `setKeepAlive` does nothing, `writeContinue` answers only `Expect:
+100-continue`, `close` resets the stream. Its `ClientFlowContext` has the QUIC stream id and
+`HttpVersion.HTTP_3_0`. Tunnels work as HTTP/2's:
+
+- **Opening.** `writeHead` turns the response that opens a tunnel (a `CONNECT`'s 2xx, or the `101`
+  of an extended `CONNECT`, which `setUpgrade` gave `Upgrade` and `Connection` for filters) into
+  HEADERS `:status 200` without the FIN, minus `Sec-WebSocket-Accept`, `content-length` and
+  `transfer-encoding`, and sets `tunnelOpen` before writing it.
+- **Relaying.** `relay` runs the shared `Tunnel` between the reader's body (as an input stream,
+  with a read timeout of its own: `Http3StreamReader.setReadTimeout`) and a `TunnelOutput` of
+  DATA frames, with the WebSocket relay or the TCP hooks; the stream's FIN half-closes one
+  direction (`endTunnelOutput` is the writer's `end`). When the tunnel ends with either side
+  unfinished, `closeTunnelStream` resets what is left: H3_CONNECT_ERROR for a `CONNECT` (RFC 9114
+  section 4.4), H3_REQUEST_CANCELLED for a WebSocket (RFC 9220).
+- **As a socket.** `tunnelSocket` gives a `StreamSocket` over the same streams, so
+  `interceptStream` serves an intercepted `CONNECT`'s TLS with a `ClientConnection` of its own
+  inside the stream, and `interceptOrTunnel` reads its first bytes: the ClientHello peek, the host
+  rules, ALPN mirroring, plain HTTP, `--tcp-hosts`, the TCP hooks and forwarded hops, as for
+  HTTP/1 and HTTP/2. `closeTunnel` fails reads (`closeInput`) and ends the output, or resets it
+  when a write is in progress.
+
+### CONNECT-UDP: `UdpFlow`
+
+On a forward proxy's listener, an extended `CONNECT` with `:protocol connect-udp` reaches
+`handleFilteredRequest` as `GET <path>` with `Upgrade: connect-udp`, after authentication and
+`clientToProxyRequest`, and goes to `handleConnectUdp` (anywhere else it gets `501`, through the
+`ClientChannel.udpClient()` being null):
+
+- **The target.** `ConnectUdpTemplate` matches the request's path (and query) against the URI
+  template (`Http3Options.connectUdpTemplate`, by default
+  `/.well-known/masque/udp/{target_host}/{target_port}/`), percent-decoding the variables; no match
+  is a `400`. The route is looked up as for `CONNECT host:port` (`lookupRoute(connectRequest(..))`):
+  chained proxies carry no UDP, so a route without the direct fallback is refused (`502`).
+  `proxyToServerRequest` may answer; the bounds (`connectUdpMaxFlows`, in total in
+  `DefaultHttpProxyServer.udpFlows`, and per connection in `Http3Connection.addUdpFlow`) give
+  `503`; `resolveServer` resolves the name with the filters' resolution hooks and the server's
+  `HostResolver`; a `DatagramChannel` is connected to the address.
+- **Accepting.** The flow is attached to the connection (its datagrams are routed from then on),
+  then the proxy's `101` with `Upgrade: connect-udp` and `Capsule-Protocol: ?1` goes through
+  `serverToProxyResponse` and `proxyToClientResponse` (a filter may refuse with another answer),
+  and `writeHead` sends it as `200`. `UdpFlow.run` then relays on the stream's thread.
+- **HTTP Datagrams.** `Http3Connection.receiveDatagrams`, a virtual thread started with the first
+  flow, reads the connection's QUIC DATAGRAM frames: a quarter stream ID (one over 2^60 - 1, or
+  none, is H3_DATAGRAM_ERROR) and content for that stream's flow; other streams' are dropped.
+  `sendHttpDatagram` sends one when the client's SETTINGS (waited for) have H3_DATAGRAM and it fits
+  `maxDatagramSize`; otherwise `Http3StreamChannel.sendDatagram` writes a DATAGRAM capsule on the
+  stream. Content is a context ID, then for ID 0 a UDP payload; other IDs are dropped.
+- **Capsules.** The stream's DATA are capsules (RFC 9297 section 3.2), which `UdpFlow` reads with
+  the reader's read timeout set to a fraction of the idle timeout (`IdleChecking`): DATAGRAM
+  capsules go the way QUIC datagrams do, unknown ones are skipped without being buffered, one too
+  large for a UDP payload ends the flow.
+- **Queues and threads.** Each direction has a bounded `Queue` (`connectUdpQueue`: datagrams and
+  bytes) that drops what does not fit, and a virtual thread that sends from it (to the target's
+  socket; to the client, as QUIC datagrams or capsules, which wait for flow control); a third
+  thread receives from the target. The `UdpInterceptor` runs on the sending threads, not the
+  connection's datagram thread. ICMP errors (`PortUnreachableException`) are ignored, as UDP
+  does.
+- **Ending.** The client's FIN ends the flow and is answered with the proxy's FIN (or a reset, when
+  a capsule write is blocked); so does the idle timeout (`connectUdpIdleTimeout`). A socket
+  failure resets the stream with H3_CONNECT_ERROR. `end` closes the queues and the socket, once,
+  calls `udpEnd`, and the flow is detached from the connection.
 
 ## Transparent QUIC: `TransparentQuicListener`
 
@@ -575,9 +659,13 @@ filter, which keeps flows by client address.
 
 With `withHttp3Upstream`, `proxyRequest` asks `Http3Origins.stream` for a stream before any TCP
 connection, when the server is known to speak HTTP/3 (`http3Port`) and the request goes there
-directly (`directRoute`: no chained proxy, no hop, no PROXY header, not a proxy request or a
-WebSocket); even a TCP connection at hand (the one an intercepted `CONNECT` made) waits for later.
-Requests from any client, HTTP/1, HTTP/2 or HTTP/3, take this way.
+directly (`directRoute`: no chained proxy, no hop, no PROXY header, not a proxy request); even a
+TCP connection at hand (the one an intercepted `CONNECT` made) waits for later. Requests from any
+client, HTTP/1, HTTP/2 or HTTP/3, take this way. A WebSocket does when the server's SETTINGS
+(waited for up to the handshake timeout) enable extended CONNECT: `Http3UpstreamStream` sends it
+as `CONNECT` with `:protocol websocket` and shows its 2xx as an HTTP/1.1 server's `101`, and its
+DATA are the tunnel's (`tunnelInput`, `tunnelOutput`); otherwise the WebSocket takes an HTTP/1.1
+connection of its own, as without HTTP/2's RFC 8441.
 
 - **Learning.** `relayResponse` hands every response from a TLS server to `Http3Origins.learn`
   before filters or the h3 stripping see it: an `h3` alternative on the server's own host
@@ -644,12 +732,17 @@ flow control counts what is on the wire, whatever the interceptor makes of it.
   intercepted one gets a `ClientConnection` of its own over the stream (above), which runs the same
   `interceptOrTunnel`. The `h2c`
   preface is recognized only as the first bytes of a plain connection.
-- **`101 Switching Protocols`.** HTTP/2 has no upgrade. Its WebSockets use extended `CONNECT`
-  (RFC 8441). The bridge translates handshake fields/status and uses the same relay and frame hooks.
+- **`101 Switching Protocols`.** HTTP/2 and HTTP/3 have no upgrade. Their WebSockets use extended
+  `CONNECT` (RFC 8441, RFC 9220), and so does CONNECT-UDP (RFC 9298). The bridge translates
+  handshake fields/status and uses the same relay and frame hooks.
 - **The PROXY protocol header**, which is read when the connection starts.
 
 ## Notes for later
 
+- CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies), CONNECT-UDP over HTTP/2 and
+  HTTP/1.1 (capsules only), and intercepting the QUIC inside a CONNECT-UDP flow with the
+  transparent QUIC machinery: the flow's socket would go to an internal `TransparentQuicListener`
+  that knows the target, instead of the target itself.
 - `ALTSVC` frames (RFC 7838 section 4) from HTTP/2 servers are dropped by the frame reader, as a
   frame type the codec does not deliver; forwarding them would need the h3 filtering `Alt-Svc`
   headers get (`AltSvc`).

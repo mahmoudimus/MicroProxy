@@ -22,6 +22,7 @@ import org.microproxy.http.HttpResponseStatus;
  *       another and so serves them all through one channel.
  *   <li>{@link Http2StreamChannel}: one HTTP/2 stream, one of many running at once on a
  *       connection, each on its own thread.
+ *   <li>{@link Http3StreamChannel}: one HTTP/3 request stream, likewise.
  * </ul>
  *
  * <p>The methods are called in exchange order: {@link #requestBody} once the request head has been
@@ -49,11 +50,11 @@ interface ClientChannel {
 
     /**
      * Whether {@link #relay} can turn the exchange into a byte tunnel ({@code CONNECT}, {@code
-     * 101 Switching Protocols}). HTTP/2 carries the tunnel inside one stream.
+     * 101 Switching Protocols}). HTTP/2 and HTTP/3 carry the tunnel inside one stream.
      */
     boolean supportsTunnels();
 
-    /** RFC 8441's requested protocol, or null for an ordinary request / CONNECT. */
+    /** The extended CONNECT's {@code :protocol} (RFC 8441, RFC 9220), or null for an ordinary request / CONNECT. */
     default String tunnelProtocol() {
         return null;
     }
@@ -187,10 +188,20 @@ interface ClientChannel {
 
     /**
      * The exchange's tunnel as a connected socket, once the response that opened it has been
-     * written, so that TLS can be layered over it (an intercepted {@code CONNECT}): an HTTP/2
-     * {@code CONNECT} stream's DATA frames. Null for HTTP/1, whose connection itself turns into TLS.
+     * written, so that TLS can be layered over it (an intercepted {@code CONNECT}): an HTTP/2 or
+     * HTTP/3 {@code CONNECT} stream's DATA frames. Null for HTTP/1, whose connection itself turns
+     * into TLS.
      */
     default Socket tunnelSocket() {
+        return null;
+    }
+
+    /**
+     * The exchange's stream as the client of a CONNECT-UDP flow (MASQUE, RFC 9298): an HTTP/3
+     * stream of a forward proxy's listener with {@code :protocol connect-udp}, whose UDP payloads
+     * travel in HTTP Datagrams. Null for every other exchange.
+     */
+    default UdpFlow.Client udpClient() {
         return null;
     }
 

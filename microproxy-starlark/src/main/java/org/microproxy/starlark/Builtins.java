@@ -86,6 +86,8 @@ final class Builtins {
         env.put("ClientHello", TypeConstructorValue.of(ScriptType.CLIENT_HELLO_CONSTRUCTOR));
         env.put("TcpMessage", TypeConstructorValue.of(ScriptType.TCP_MESSAGE_CONSTRUCTOR));
         env.put("TcpContext", TypeConstructorValue.of(ScriptType.TCP_CONTEXT_CONSTRUCTOR));
+        env.put("UdpMessage", TypeConstructorValue.of(ScriptType.UDP_MESSAGE_CONSTRUCTOR));
+        env.put("UdpContext", TypeConstructorValue.of(ScriptType.UDP_CONTEXT_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 

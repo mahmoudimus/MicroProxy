@@ -142,10 +142,13 @@ public final class Launcher {
                                            listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
-              --http3                      in reverse mode, also serve HTTP/3 (QUIC) on the UDP port
-                                           with the listener's number, advertised with Alt-Svc on
-                                           TCP responses; needs the quic and http3-codec jars, and a
-                                           certificate (--listener-keystore, or --mitm's CA)
+              --http3                      also serve HTTP/3 (QUIC) on the UDP port with the
+                                           listener's number: in reverse mode, advertised with
+                                           Alt-Svc on TCP responses; in forward mode next to the TLS
+                                           listener (--listener-keystore), with CONNECT, WebSockets
+                                           and CONNECT-UDP (MASQUE); needs the quic and http3-codec
+                                           jars, and a certificate (--listener-keystore, or --mitm's
+                                           CA in reverse mode)
               --http3-upstream             speak HTTP/3 to servers that advertise it (Alt-Svc h3),
                                            one shared QUIC connection per server, falling back to
                                            TCP; needs the quic and http3-codec jars
@@ -156,6 +159,13 @@ public final class Launcher {
               --no-http3-alt-svc           with --http3, do not advertise it with Alt-Svc
               --http3-retry                validate QUIC clients' addresses with a Retry first
                                            (--http3 and --transparent-quic-port)
+              --masque-udp-template <t>    the URI template of CONNECT-UDP requests (default
+                                           /.well-known/masque/udp/{target_host}/{target_port}/)
+              --masque-udp-idle-timeout <seconds>  close a CONNECT-UDP flow after this long without
+                                           a datagram either way (default 60)
+              --masque-max-udp-flows <n>   CONNECT-UDP flows at once (default 4096)
+              --masque-max-udp-flows-per-connection <n>  CONNECT-UDP flows of one client connection
+                                           (default 64)
               --http3-0rtt                 accept 0-RTT early data from resuming HTTP/3 clients
                                            (--http3 and --transparent-quic-port): replayable, so
                                            unsafe methods get 425 and the rest go on with
@@ -302,6 +312,10 @@ public final class Launcher {
         boolean http3ZeroRtt = false;
         boolean noHttp3UpstreamZeroRtt = false;
         long quicRelayIdleSeconds = 0;
+        String masqueTemplate = null;
+        long masqueIdleSeconds = 0;
+        int masqueMaxFlows = 0;
+        int masqueMaxFlowsPerConnection = 0;
         Http3Options.QuicCongestionControl quicCongestion = null;
         List<String> http3UpstreamHosts = new ArrayList<>();
         Path listenerKeystore = null;
@@ -488,6 +502,10 @@ public final class Launcher {
                 case "--http3-max-streams" -> http3MaxStreams = intValue(queue, arg);
                 case "--no-http3-alt-svc" -> noHttp3AltSvc = true;
                 case "--http3-retry" -> http3Retry = true;
+                case "--masque-udp-template" -> masqueTemplate = value(queue, arg);
+                case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
+                case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
+                case "--masque-max-udp-flows-per-connection" -> masqueMaxFlowsPerConnection = intValue(queue, arg);
                 case "--http3-0rtt" -> http3ZeroRtt = true;
                 case "--no-http3-upstream-0rtt" -> noHttp3UpstreamZeroRtt = true;
                 case "--quic-congestion" -> quicCongestion = Http3Options.QuicCongestionControl.parse(value(queue, arg));
@@ -527,7 +545,8 @@ public final class Launcher {
             bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
         }
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
-                || quicRelayIdleSeconds > 0 || quicCongestion != null) {
+                || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null
+                || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
             if (noHttp3AltSvc) h3.altSvc(false);
@@ -535,6 +554,13 @@ public final class Launcher {
             if (http3ZeroRtt) h3.zeroRtt(true);
             if (noHttp3UpstreamZeroRtt) h3.upstreamZeroRtt(false);
             if (quicRelayIdleSeconds > 0) h3.transparentRelayIdleTimeout(Duration.ofSeconds(quicRelayIdleSeconds));
+            if (masqueTemplate != null) h3.connectUdpTemplate(masqueTemplate);
+            if (masqueIdleSeconds > 0) h3.connectUdpIdleTimeout(Duration.ofSeconds(masqueIdleSeconds));
+            if (masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0) {
+                Http3Options current = bootstrap.getHttp3Options();
+                h3.connectUdpMaxFlows(masqueMaxFlows > 0 ? masqueMaxFlows : current.connectUdpMaxFlows(),
+                        masqueMaxFlowsPerConnection > 0 ? masqueMaxFlowsPerConnection : current.connectUdpMaxFlowsPerConnection());
+            }
             if (quicCongestion != null) h3.quicCongestionControl(quicCongestion);
             bootstrap.withHttp3Options(h3.build());
         }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
+import io.github.mahmoudimus.http3.HeaderField;
 import io.github.mahmoudimus.quic.connection.SessionCache;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -35,7 +36,8 @@ import org.microproxy.tls.SelfSignedSslContextSource;
  * handshake, and sends again after the handshake a request the server answers {@code 425 Too
  * Early}. As a reverse proxy serving HTTP/3 with 0-RTT on, it resumes its clients' sessions, sends a
  * request that arrived as early data on with {@code Early-Data: 1}, answers {@code 425} to an
- * unsafe one, and lets a filter answer {@code 425} to others. A relay delays every answer so that
+ * unsafe one, and lets a filter answer {@code 425} to others; a forward proxy answers {@code 425}
+ * to a {@code CONNECT} or extended {@code CONNECT} in early data. A relay delays every answer so that
  * the 0-RTT data surely goes before the handshake completes.
  */
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
@@ -241,6 +243,52 @@ class Http3ZeroRttTest {
             assertTrue(early.quic.earlyDataAccepted());
         }
         assertTrue(origin.errors().isEmpty(), origin.errors().toString());
+    }
+
+    @Test
+    void aForwardProxyAnswersTunnelsInEarlyDataWithTooEarly() throws Exception {
+        TestSupport.RawServer echo = TestSupport.rawServer(s -> s.getInputStream().transferTo(s.getOutputStream()));
+        closeables.add(echo);
+        String target = "127.0.0.1:" + echo.port();
+        SelfSignedSslContextSource tls = new SelfSignedSslContextSource();
+        proxy = MicroProxy.bootstrap()
+                .withPort(0)
+                .withSslContextSource(tls)
+                .withHttp3(true)
+                .withHttp3Options(Http3Options.builder().zeroRtt(true).build())
+                .start();
+        UdpDelayRelay relay = relay(new InetSocketAddress(TestSupport.LOOPBACK, proxy.getListenAddress().getPort()));
+        SessionCache sessions = SessionCache.memory();
+
+        try (H3TestClient first = H3TestClient.connect(relay.address(), "localhost", tls.getCertificate(),
+                options(sessions, false))) {
+            H3TestClient.Tunnel tunnel = first.open(H3TestClient.connect(target));
+            assertEquals(200, tunnel.status);
+            tunnel.end();
+        }
+
+        // A tunnel is not safe to replay: each connection resumes with a ticket of the one before
+        try (H3TestClient early = H3TestClient.connect(relay.address(), "localhost", tls.getCertificate(),
+                options(sessions, true))) {
+            assertTrue(early.quic.isZeroRtt(), "connected without waiting for the handshake");
+            assertEquals(425, early.open(H3TestClient.connect(target)).status, "a CONNECT in 0-RTT data is too early");
+            assertTrue(early.quic.earlyDataAccepted());
+            assertTrue(early.quic.awaitHandshake(java.time.Duration.ofSeconds(10)));
+            H3TestClient.Tunnel again = early.open(H3TestClient.connect(target));
+            assertEquals(200, again.status, "sent again after the handshake");
+            again.out().write("ping".getBytes(StandardCharsets.US_ASCII));
+            again.out().flush();
+            assertEquals("ping", new String(again.in().readNBytes(4), StandardCharsets.US_ASCII));
+            again.end();
+        }
+        try (H3TestClient early = H3TestClient.connect(relay.address(), "localhost", tls.getCertificate(),
+                options(sessions, true))) {
+            assertTrue(early.quic.isZeroRtt(), "connected without waiting for the handshake");
+            H3TestClient.Tunnel webSocket = early.open(H3TestClient.extendedConnect("websocket", "http", target, "/",
+                    new HeaderField("sec-websocket-version", "13")));
+            assertEquals(425, webSocket.status, "an extended CONNECT in 0-RTT data is too early");
+            assertTrue(early.quic.earlyDataAccepted());
+        }
     }
 
     private static H3TestClient.Options options(SessionCache sessions, boolean earlyData) {

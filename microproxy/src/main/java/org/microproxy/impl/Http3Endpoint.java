@@ -176,11 +176,12 @@ abstract class Http3Endpoint {
         QuicStream c = quic.openUnidirectionalStream();
         Http3FrameWriter w = new Http3FrameWriter(c.getOutputStream());
         w.writeStreamType(Http3StreamType.CONTROL);
-        Http3Settings ours = Http3Settings.builder()
+        Http3Settings.Builder local = Http3Settings.builder()
                 .qpackMaxTableCapacity(options.qpackMaxTableCapacity())
                 .maxFieldSectionSize(maxFieldSectionSize)
-                .qpackBlockedStreams(options.qpackBlockedStreams())
-                .build();
+                .qpackBlockedStreams(options.qpackBlockedStreams());
+        extensionSettings(local);
+        Http3Settings ours = local.build();
         controlLock.lock();
         try {
             control = w;
@@ -211,6 +212,12 @@ abstract class Http3Endpoint {
             decoderLock.unlock();
         }
     }
+
+    /**
+     * Adds the settings of the extensions this end supports to its SETTINGS: none by default; a
+     * client's connection adds extended CONNECT (RFC 9220) and HTTP Datagrams (RFC 9297).
+     */
+    void extensionSettings(Http3Settings.Builder settings) {}
 
     /** Writes one frame of the control stream; holds controlLock. */
     private void writeControlFrame(Http3Frame f) throws IOException {
@@ -376,6 +383,26 @@ abstract class Http3Endpoint {
         stateLock.lock();
         try {
             return peerSettings;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * The peer's settings, waiting up to {@code nanos} for its SETTINGS to arrive; the defaults if
+     * they do not in time, or the connection ends.
+     */
+    Http3Settings awaitPeerSettings(long nanos) throws InterruptedIOException {
+        stateLock.lock();
+        try {
+            long remaining = nanos;
+            while (!settingsReceived && !closed && remaining > 0) {
+                remaining = stateChanged.awaitNanos(remaining);
+            }
+            return peerSettings;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("interrupted waiting for SETTINGS");
         } finally {
             stateLock.unlock();
         }

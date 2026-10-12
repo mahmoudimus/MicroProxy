@@ -14,9 +14,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.lang.System.Logger.Level;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.IntConsumer;
@@ -45,6 +48,11 @@ import org.microproxy.http.LastHttpContent;
  * <p>A stream error (a malformed message) resets the stream both ways with its HTTP/3 code; a
  * connection error closes the connection. Either, and a reset by the peer, fail the exchange's
  * waits and reads with the cause.
+ *
+ * <p>A client's {@code CONNECT} (plain or extended) makes the stream a tunnel once answered: its
+ * DATA are the tunnel's bytes ({@link #body()}, read with a timeout of their own, {@link
+ * #setReadTimeout}), and a HEADERS frame after the request's is a connection error
+ * H3_FRAME_UNEXPECTED (RFC 9114 section 4.4).
  */
 final class Http3StreamReader {
 
@@ -87,6 +95,8 @@ final class Http3StreamReader {
     private boolean ended;
     private boolean aborted;
     private boolean resetByPeer;
+    /** The tunnel's reader closed it, as a socket is closed: reads fail. */
+    private boolean inputClosed;
 
     // The reading thread's.
     private final Http3StreamValidator rules;
@@ -95,6 +105,12 @@ final class Http3StreamReader {
     private long declaredLength = -1;
     private long received;
     private boolean noContent;
+    /** The request is a {@code CONNECT}: only DATA may follow its head. */
+    private boolean connect;
+    /** The request is an extended {@code CONNECT} ({@code :protocol}): its DATA are no message body. */
+    private volatile boolean extendedConnect;
+    /** How long reads of the body wait, in ms; 0 for ever, negative for the connection's idle timeout. */
+    private volatile int readTimeoutMillis = -1;
 
     /** The exchange the stream carries, for the interceptor; null until it exists. */
     volatile FlowContext flow;
@@ -247,12 +263,21 @@ final class Http3StreamReader {
     }
 
     private void onHeaders(List<HeaderField> fields) throws IOException {
+        if (finalHead && connect) {
+            throw Http3Exception.connectionError(Http3ErrorCode.H3_FRAME_UNEXPECTED, "HEADERS after CONNECT on stream " + id);
+        }
         if (finalHead) {
             if (!noContent) Http3Headers.checkContentLength(id, declaredLength, received, true);
             queue(new Trailers(fields), 0);
             return;
         }
         boolean interimHead = response && interim(fields);
+        if (!response) {
+            for (HeaderField f : fields) {
+                if (f.name().equals(":method")) connect = f.value().equals("CONNECT");
+                if (f.name().equals(":protocol")) extendedConnect = true;
+            }
+        }
         if (!interimHead) {
             finalHead = true;
             declaredLength = contentLength(fields);
@@ -485,6 +510,31 @@ final class Http3StreamReader {
         }
     }
 
+    /**
+     * Sets how long reads of the body wait for the peer (a tunnel's, shown as a socket's read
+     * timeout), in ms: 0 for ever; by default the connection's idle timeout.
+     */
+    void setReadTimeout(int millis) {
+        readTimeoutMillis = Math.max(0, millis);
+    }
+
+    /** How long reads of the body wait, in ms, 0 for ever. */
+    int readTimeout() {
+        int millis = readTimeoutMillis;
+        return millis >= 0 ? millis : Math.max(0, endpoint.server.idleTimeoutMillis());
+    }
+
+    /** Closes the body as a socket's input is closed: reads in progress and to come fail. */
+    void closeInput() {
+        lock.lock();
+        try {
+            inputClosed = true;
+            changed.signalAll();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Fails the waits and reads with {@code cause}: the connection ended, or its GOAWAY left the stream unprocessed. */
     void failWith(IOException cause) {
         lock.lock();
@@ -509,6 +559,7 @@ final class Http3StreamReader {
 
         @Override
         public boolean hasBody() {
+            if (extendedConnect) return false;
             lock.lock();
             try {
                 return !(events.peekFirst() instanceof End) && declaredLength != 0;
@@ -569,10 +620,13 @@ final class Http3StreamReader {
 
         /** The next body event: a chunk, or the end (after which {@link #trailers} are known). */
         private Object take() throws IOException {
-            long remaining = endpoint.readTimeoutNanos();
+            int timeout = readTimeoutMillis;
+            long remaining = timeout < 0 ? endpoint.readTimeoutNanos()
+                    : timeout == 0 ? Long.MAX_VALUE : TimeUnit.MILLISECONDS.toNanos(timeout);
             lock.lock();
             try {
                 while (true) {
+                    if (inputClosed) throw new SocketException("stream " + id + " was closed");
                     Object first = events.peekFirst();
                     if (first instanceof Chunk c) {
                         events.pollFirst();
@@ -592,7 +646,10 @@ final class Http3StreamReader {
                     if (failure != null) throw failure;
                     if (aborted) throw new IOException("stream " + id + " was closed");
                     if (endpoint.closed) throw new IOException("the HTTP/3 connection closed");
-                    if (remaining <= 0) throw endpoint.timedOut("data on stream " + id);
+                    if (remaining <= 0) {
+                        throw timeout < 0 ? endpoint.timedOut("data on stream " + id)
+                                : new SocketTimeoutException("no data on stream " + id + " for " + timeout + " ms");
+                    }
                     remaining = changed.awaitNanos(remaining);
                 }
             } catch (InterruptedException e) {
