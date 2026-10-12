@@ -43,6 +43,8 @@ final class ProtocolStats {
         final Counter settingsTimeout;
         final Counter streamFlowControlBlocked;
         final Counter connectionFlowControlBlocked;
+        final Counter coalescedStreams;
+        final Counter misdirectedRetry;
 
         Http2Stats(StatsRegistry registry, String direction) {
             String p = "http2." + direction + ".";
@@ -71,6 +73,15 @@ final class ProtocolStats {
                     "Times DATA waited for a stream's send window");
             connectionFlowControlBlocked = registry.counter(p + "connection_flow_control_blocked",
                     "Times DATA waited for the connection's send window");
+            if (direction.equals("upstream")) {
+                coalescedStreams = registry.counter(p + "coalesced_streams",
+                        "Streams opened on a connection made for another server name (connection coalescing)");
+                misdirectedRetry = registry.counter(p + "misdirected_421_retry",
+                        "Requests answered 421 Misdirected Request on a coalesced connection and sent again on one of their own");
+            } else {
+                coalescedStreams = StatsRegistry.NOOP.counter("none");
+                misdirectedRetry = StatsRegistry.NOOP.counter("none");
+            }
         }
     }
 

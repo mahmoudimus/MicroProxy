@@ -33,6 +33,11 @@ import org.microproxy.http.LastHttpContent;
  * <p>A {@code CONNECT} (RFC 9113 section 8.5) opens a tunnel through the server, an HTTPS proxy:
  * its stream stays open for the tunnel's bytes, which {@link #tunnelSocket} shows as a socket for
  * TLS to the final server.
+ *
+ * <p>A stream may be coalesced: on a connection made for another authority than its exchange's
+ * ({@link Http2Coalescing}). It is its exchange's server's all the same ({@link #hostAndPort},
+ * the cluster its requests count in), and a {@code 421} answer to it says the connection does not
+ * serve that authority after all ({@link #misdirected()}).
  */
 final class Http2UpstreamStream extends ServerConnection implements StreamSocket.Stream {
 
@@ -41,16 +46,25 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
     private final String logPrefix;
     /** Serializes the tunnel's writes with ending its output from another thread. */
     private final ReentrantLock tunnelOutput = new ReentrantLock();
+    /** On a connection made for another authority than {@link #hostAndPort}. */
+    private final boolean coalesced;
     private String webSocketKey;
     private boolean webSocket;
     private int tunnelStatus;
 
+    /**
+     * @param hostAndPort the exchange's server
+     * @param coalesced whether the connection was made for another authority
+     */
     Http2UpstreamStream(Http2UpstreamConnection connection, Http2UpstreamConnection.StreamState state,
-            FullFlowContext flowContext, Trackers trackers) {
-        super(connection.carrier.hostAndPort, connection.carrier.chainedProxy, connection.carrier.socket,
+            FullFlowContext flowContext, Trackers trackers, String hostAndPort, boolean coalesced) {
+        super(hostAndPort, connection.carrier.chainedProxy, connection.carrier.socket,
                 connection.carrier.remoteAddress, flowContext, trackers);
         this.connection = connection;
-        this.cluster = connection.carrier.cluster;
+        this.coalesced = coalesced;
+        // A coalesced stream's requests count in its own server's cluster, its connection in the other's.
+        this.cluster = coalesced ? connection.server.stats.cluster(connection.carrier.chainedProxy, hostAndPort)
+                : connection.carrier.cluster;
         this.state = state;
         this.logPrefix = state.logPrefix;
         // A stream is a reused connection as far as retries go: one the server never processed
@@ -272,6 +286,17 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
         return e instanceof Http2UpstreamConnection.Unprocessed;
     }
 
+    /**
+     * A coalesced stream answered {@code 421}: the connection stops serving this authority, and
+     * the request may go again on a connection of its own.
+     */
+    @Override
+    boolean misdirected() {
+        if (!coalesced) return false;
+        connection.misdirected(hostAndPort);
+        return true;
+    }
+
     @Override
     boolean isOpen() {
         return !connection.isClosed() && !state.rstWritten;
@@ -285,7 +310,7 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
 
     @Override
     public String toString() {
-        return "Http2UpstreamStream[" + hostAndPort + " stream " + state.id + "]";
+        return "Http2UpstreamStream[" + hostAndPort + " stream " + state.id + (coalesced ? ", coalesced" : "") + "]";
     }
 
     /** The log prefix of the exchange the stream carries. */

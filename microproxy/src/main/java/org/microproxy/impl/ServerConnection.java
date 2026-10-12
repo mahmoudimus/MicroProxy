@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyType;
@@ -81,10 +82,17 @@ class ServerConnection {
      * allows.
      */
     volatile boolean tunnelThroughProxy;
+    /**
+     * The context the TLS handshake with the server was made with (the MITM manager's for the
+     * server's name, or the JVM's default), or null without TLS with the server: an HTTP/2
+     * connection serves another name only if that name would get the same ({@link Http2Coalescing}).
+     */
+    volatile SSLContext tlsContext;
 
     /**
-     * The cluster whose stats count this connection's requests (a stream's is its connection's);
-     * no-ops until it is known, and without metrics.
+     * The cluster whose stats count this connection's requests (a stream's is its connection's,
+     * or its own server's when coalesced onto a connection made for another); no-ops until it is
+     * known, and without metrics.
      */
     ProxyStats.ClusterStats cluster = ProxyStats.ClusterStats.NOOP;
     /**
@@ -266,6 +274,17 @@ class ServerConnection {
      */
     boolean retryable(IOException e) {
         return true;
+    }
+
+    /**
+     * The server answered the request {@code 421 Misdirected Request}: whether that says the
+     * request reached a connection that does not serve its server, so it may be sent again on one
+     * of its own. Only a stream coalesced onto a connection made for another server name does
+     * ({@link Http2UpstreamStream}), and the connection stops serving that name; any other
+     * connection's 421 is the server's answer, relayed to the client.
+     */
+    boolean misdirected() {
+        return false;
     }
 
     /**
