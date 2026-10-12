@@ -214,7 +214,9 @@ class Http2WebSocketTest {
                     .filter(m -> m.opcode() == WebSocketFrame.OPCODE_TEXT).toList();
             assertEquals(2, texts.size());
             assertTrue(texts.stream().allMatch(m -> m.compressed() && m.frames().size() == 1));
-            assertEquals(2, server.received.stream().filter(m -> m.opcode() == WebSocketFrame.OPCODE_PING).count());
+            // The second PING went after the message the client has the echo of: it may still be on its way.
+            TestSupport.eventually("both PINGs at the server",
+                    () -> server.received.stream().filter(m -> m.opcode() == WebSocketFrame.OPCODE_PING).count() == 2);
             ws.reset(ErrorCode.CANCEL);
         }
     }
