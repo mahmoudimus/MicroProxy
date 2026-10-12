@@ -2933,8 +2933,9 @@ final class ClientConnection implements Runnable {
         }
         if (ex.socks != 0) {
             // The SOCKS client's request succeeded: the server is connected (or will be, by the session).
-            writeToClient(() -> http1.writeRaw(SocksHandshake.reply(ex.socks, Socks.REPLY_SUCCEEDED)));
+            // Counted first, so that a client that has its reply finds it counted.
             server.stats.socks.reply(Socks.REPLY_SUCCEEDED);
+            writeToClient(() -> http1.writeRaw(SocksHandshake.reply(ex.socks, Socks.REPLY_SUCCEEDED)));
             sent(ex, response, source);
         } else if (!ex.implicit) {
             writeToClient(() -> ex.channel.writeHead(response, response.status().code() / 100 != 2));
@@ -5198,8 +5199,8 @@ final class ClientConnection implements Runnable {
         LOG.log(Level.DEBUG, ex.log + "refusing SOCKS CONNECT " + ex.request.uri() + " with reply code " + code
                 + " (" + response.status() + ")");
         try {
-            http1.writeRaw(SocksHandshake.reply(ex.socks, code));
             server.stats.socks.reply(code);
+            http1.writeRaw(SocksHandshake.reply(ex.socks, code));
             sent(ex, response, source);
             completed(ex, response, source);
         } catch (IOException e) {

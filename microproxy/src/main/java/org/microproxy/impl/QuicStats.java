@@ -157,7 +157,7 @@ final class QuicStats implements QuicConnection.Observer {
         connectionsActive.dec();
         if (!handshakeCompleted) handshakeFailure(reason).inc();
         if (reason != null && reason.kind() == ConnectionError.Kind.RESET) statelessResetReceived.inc();
-        if (s.minRtt().isPositive()) rttMs.recordNanos(s.rtt().toNanos());
+        if (handshakeCompleted) rttMs.recordNanos(s.rtt().toNanos());
         packetsSent.add(s.sentPackets());
         packetsReceived.add(s.receivedPackets());
         packetsLost.add(s.lostPackets());
