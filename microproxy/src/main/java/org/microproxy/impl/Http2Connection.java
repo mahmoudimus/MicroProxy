@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.SequenceInputStream;
 import java.lang.System.Logger.Level;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
@@ -159,6 +160,11 @@ final class Http2Connection extends Http2Endpoint {
     @Override
     String peer() {
         return "client";
+    }
+
+    /** The address the client connected to, or null if it is unknown. */
+    InetSocketAddress localAddress() {
+        return socket.getLocalSocketAddress() instanceof InetSocketAddress a ? a : null;
     }
 
     @Override
@@ -532,7 +538,8 @@ final class Http2Connection extends Http2Endpoint {
             s = streams.get(id);
             recentlyClosed.putIfAbsent(id, s == null || !s.reset ? RESET_BY_CLIENT : CLOSED_HERE);
             if (s != null && !s.reset) {
-                early = !s.responseEnded;
+                // Resetting an open tunnel is how a client ends it: not a rapid reset.
+                early = !s.responseEnded && !s.tunnelOpen;
                 s.markReset(new IOException("stream " + id + " reset by the client (" + rst.error() + ")"));
                 s.rstWritten = true;
                 serverConnection = s.cancelServer();

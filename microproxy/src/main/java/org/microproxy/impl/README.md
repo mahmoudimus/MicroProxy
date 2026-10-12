@@ -129,8 +129,9 @@ Writing frames, send flow control, SETTINGS and PING are `Http2Endpoint`'s, whic
 
 `Http2StreamChannel` defines what the HTTP/1-only `ClientChannel` operations mean for a stream:
 `clientKeepAlive` is always true; `adaptFraming` only drops `Transfer-Encoding`; `setKeepAlive`
-does nothing; `setUpgrade` translates a WebSocket 101 to the extended CONNECT 200; `writeContinue` sends `:status 100` only to a client that sent
-`expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
+does nothing; `setUpgrade` adds the upgrade fields to a WebSocket's 101, which filters see as
+for HTTP/1, and `writeHead` sends it as the extended CONNECT's `:status 200`; `writeContinue`
+sends `:status 100` only to a client that sent `expect: 100-continue`, and `writeInformational` forwards other 1xx as interim HEADERS; `writeData`
 copies into DATA frames; `close` resets only the stream; `reject` answers and ends it.
 `relay` runs the shared `Tunnel` parser on the stream's `MessageBody` input and flow-controlled
 DATA output. Successful CONNECT HEADERS leave the stream open even for a FullHttpResponse with
@@ -141,8 +142,16 @@ intercepted session, including CONNECT, gets `421` before reaching the exchange.
 RFC 8441 `:protocol websocket` is represented internally as a GET upgrade request, with a generated
 HTTP/1 key, so existing exchange and frame filters work unchanged. `tunnelProtocol` and
 `secureWebSocket` retain the stream's tunnel intent independently of rewritten request headers.
-Unknown extended protocols get 501 without dialing a TCP tunnel. Normal CONNECT is a raw tunnel;
-per-stream TLS interception is not implemented.
+Unknown extended protocols get 501 without dialing a TCP tunnel.
+
+A CONNECT stream is intercepted when an HTTP/1 CONNECT would be (`interceptStream`): the stream
+is shown as a socket (`tunnelSocket`, a `StreamSocket`: its streams are the tunnel's DATA,
+`setSoTimeout` is the read timeout, `shutdownOutput` sends END_STREAM, `close` ends the output and
+fails reads), the JDK's `SSLSocket` is layered over it, and a `ClientConnection` of its own serves
+it with `serveTunnel` → `intercept`, on the stream's thread: HTTP/1, or HTTP/2 inside HTTP/2. It
+takes the outer connection's client details, PROXY header and MITM manager; its HTTP/2 connections
+to servers are keyed and owned by the outer connection (`owner`). `mitmManager()` chooses under
+`mitmLock`, since CONNECT streams may ask at once. A reset of an open tunnel is not a rapid reset.
 
 ### The concurrency audit
 
@@ -216,7 +225,8 @@ HTTP/1 connection while keeping the shared HTTP/2 connection for ordinary reques
   heads. An HTTP/2 connection reads frames and starts a thread per stream instead.
 - **Connection-wide CONNECT interception** (`intercept`). An HTTP/1 `CONNECT` that is intercepted
   turns the whole connection into TLS and serves the decrypted requests with the same loop, or
-  with `Http2Connection` when the client negotiates `h2`. Under HTTP/2, `CONNECT` is a raw tunnel per stream. The `h2c`
+  with `Http2Connection` when the client negotiates `h2`. Under HTTP/2, `CONNECT` is per stream,
+  and an intercepted one gets a `ClientConnection` of its own over the stream (above). The `h2c`
   preface is recognized only as the first bytes of a plain connection.
 - **`101 Switching Protocols`.** HTTP/2 has no upgrade. Its WebSockets use extended `CONNECT`
   (RFC 8441). The bridge translates handshake fields/status and uses the same relay and frame hooks.

@@ -98,6 +98,8 @@ class Http2ProtocolTest {
         start(Http2Options.builder().maxConcurrentStreams(7).initialWindowSize(100_000).build());
         try (H2TestClient h2 = connect().handshake()) {
             assertEquals(0L, h2.setting(Http2Settings.ENABLE_PUSH));
+            // Extended CONNECT (RFC 8441), for WebSockets over HTTP/2, inside intercepted sessions too.
+            assertEquals(1L, h2.setting(Http2Settings.ENABLE_CONNECT_PROTOCOL));
             assertEquals(7L, h2.setting(Http2Settings.MAX_CONCURRENT_STREAMS));
             assertEquals(100_000L, h2.setting(Http2Settings.INITIAL_WINDOW_SIZE));
             // max_header_size + max_initial_line_length
