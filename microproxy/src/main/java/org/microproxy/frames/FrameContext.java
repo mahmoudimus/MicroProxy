@@ -49,8 +49,9 @@ public interface FrameContext {
 
     /**
      * The exchange the frame belongs to, or null for connection frames and for frames that come
-     * before their exchange exists (the HEADERS that open a stream from a client, any HTTP/3
-     * frame).
+     * before their exchange exists: the HEADERS that open an HTTP/2 stream from a client, and
+     * frames an {@link Http3FramePipeline} runs. A live HTTP/3 request stream has its exchange's
+     * context from its first frame on.
      *
      * @return the exchange's flow context, or null
      */

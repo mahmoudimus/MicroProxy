@@ -9,6 +9,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLSession;
+import org.microproxy.http.HttpVersion;
 
 /** Information about the client side of a proxied flow. */
 public class FlowContext {
@@ -21,8 +22,10 @@ public class FlowContext {
     private final Instant acceptedAt;
     /** The client connection's own context, which knows the exchange in progress. */
     private final FlowContext root;
-    /** The HTTP/2 stream this flow is, or 0 for an HTTP/1 connection's exchanges. */
+    /** The HTTP/2 or HTTP/3 stream this flow is, or 0 for an HTTP/1 connection's exchanges. */
     private final int streamId;
+    /** {@link HttpVersion#HTTP_2_0} or {@link HttpVersion#HTTP_3_0} for a stream's context; null otherwise. */
+    private final HttpVersion streamVersion;
     /** The context of the client connection: this one, or the connection's for a stream's context. */
     private final FlowContext connection;
 
@@ -40,7 +43,7 @@ public class FlowContext {
             Supplier<SSLSession> clientSslSession,
             ClientDetails clientDetails) {
         this(connectionId, clientAddress, clientSslSession, clientDetails, new ConcurrentHashMap<>(), Instant.now(),
-                null, 0, null);
+                null, 0, null, null);
     }
 
     /**
@@ -58,6 +61,7 @@ public class FlowContext {
                 parent.acceptedAt,
                 parent.root,
                 parent.streamId,
+                parent.streamVersion,
                 parent.connection);
     }
 
@@ -72,6 +76,19 @@ public class FlowContext {
      * @param connection the parent client connection context
      */
     protected FlowContext(FlowContext connection, int streamId) {
+        this(connection, streamId, HttpVersion.HTTP_2_0);
+    }
+
+    /**
+     * Creates the context of one stream of the client connection {@code connection}, as {@link
+     * #FlowContext(FlowContext, int)} does, for an HTTP/2 or an HTTP/3 connection. HTTP/3 streams
+     * are QUIC streams, whose ids start at 0.
+     *
+     * @param connection the parent client connection context
+     * @param streamId the stream's identifier: positive for HTTP/2, 0 or more for HTTP/3
+     * @param version {@link HttpVersion#HTTP_2_0} or {@link HttpVersion#HTTP_3_0}
+     */
+    protected FlowContext(FlowContext connection, int streamId, HttpVersion version) {
         this(
                 connection.connectionId,
                 connection.clientAddress,
@@ -80,12 +97,18 @@ public class FlowContext {
                 new ConcurrentHashMap<>(),
                 connection.acceptedAt,
                 null,
-                checkStreamId(streamId),
+                checkStreamId(streamId, version),
+                version,
                 connection.connection);
     }
 
-    private static int checkStreamId(int streamId) {
-        if (streamId <= 0) throw new IllegalArgumentException("stream id must be positive: " + streamId);
+    private static int checkStreamId(int streamId, HttpVersion version) {
+        if (!HttpVersion.HTTP_2_0.equals(version) && !HttpVersion.HTTP_3_0.equals(version)) {
+            throw new IllegalArgumentException("streams are HTTP/2's or HTTP/3's, not " + version);
+        }
+        if (streamId < 0 || (streamId == 0 && version.majorVersion() == 2)) {
+            throw new IllegalArgumentException("bad " + version + " stream id: " + streamId);
+        }
         return streamId;
     }
 
@@ -98,6 +121,7 @@ public class FlowContext {
             Instant acceptedAt,
             FlowContext root,
             int streamId,
+            HttpVersion streamVersion,
             FlowContext connection) {
         this.connectionId = connectionId;
         this.clientAddress = Objects.requireNonNull(clientAddress);
@@ -107,6 +131,7 @@ public class FlowContext {
         this.acceptedAt = acceptedAt;
         this.root = root == null ? this : root;
         this.streamId = streamId;
+        this.streamVersion = streamVersion;
         this.connection = connection == null ? this : connection;
     }
 
@@ -121,14 +146,28 @@ public class FlowContext {
     }
 
     /**
-     * The HTTP/2 stream that carries this flow's exchange, or 0 when the client connection is
-     * HTTP/1 (whose exchanges run one after another). Streams of one connection run concurrently;
-     * the proxy's log lines about a stream start with {@code [conn <id> stream <streamId>]}.
+     * The HTTP/2 or HTTP/3 stream that carries this flow's exchange, or 0 when the client
+     * connection is HTTP/1 (whose exchanges run one after another). An HTTP/3 stream's id is its
+     * QUIC stream id, and the first one is 0 too: {@link #getHttpVersion()} tells them apart.
+     * Streams of one connection run concurrently; the proxy's log lines about a stream start with
+     * {@code [conn <id> stream <streamId>]}.
      *
-     * @return the HTTP/2 stream that carries this flow's exchange, or 0 when the client connection is HTTP/1 (whose exchanges run one after another)
+     * @return the stream that carries this flow's exchange, or 0 for an HTTP/1 connection
      */
     public int getStreamId() {
         return streamId;
+    }
+
+    /**
+     * The HTTP version of the client connection that carries this flow: {@link
+     * HttpVersion#HTTP_2_0} or {@link HttpVersion#HTTP_3_0} for a stream's flow, {@link
+     * HttpVersion#HTTP_1_1} for an HTTP/1.x connection (whose request lines tell 1.0 from 1.1) and
+     * for the context of a connection itself.
+     *
+     * @return the client connection's HTTP version
+     */
+    public HttpVersion getHttpVersion() {
+        return streamVersion != null ? streamVersion : HttpVersion.HTTP_1_1;
     }
 
     /**
@@ -270,16 +309,18 @@ public class FlowContext {
     }
 
     /**
-     * Contexts are equal when they belong to the same client connection and the same HTTP/2
-     * stream (0 for HTTP/1), so maps keyed by context keep one entry per exchange in progress.
+     * Contexts are equal when they belong to the same client connection and the same HTTP/2 or
+     * HTTP/3 stream (none for HTTP/1), so maps keyed by context keep one entry per exchange in
+     * progress.
      */
     @Override
     public boolean equals(Object o) {
-        return o instanceof FlowContext that && that.connectionId == connectionId && that.streamId == streamId;
+        return o instanceof FlowContext that && that.connectionId == connectionId && that.streamId == streamId
+                && Objects.equals(that.streamVersion, streamVersion);
     }
 
     @Override
     public int hashCode() {
-        return Long.hashCode(connectionId) * 31 + streamId;
+        return (Long.hashCode(connectionId) * 31 + streamId) * 31 + (streamVersion == null ? 0 : streamVersion.majorVersion());
     }
 }

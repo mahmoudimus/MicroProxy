@@ -175,11 +175,11 @@ public class ActivityLogger extends ActivityTrackerAdapter {
     }
 
     /**
-     * An HTTP/2 stream's exchange is over: its server address is not needed again (an HTTP/1
-     * connection keeps its own until it closes, since the next exchange may reuse it).
+     * An HTTP/2 or HTTP/3 stream's exchange is over: its server address is not needed again (an
+     * HTTP/1 connection keeps its own until it closes, since the next exchange may reuse it).
      */
     private void forgetStream(FlowContext flowContext) {
-        if (flowContext.getStreamId() != 0) {
+        if (flowContext.getHttpVersion().majorVersion() >= 2) {
             servers.remove(flowContext);
         }
     }

@@ -15,8 +15,9 @@ import java.util.Objects;
  * stream id or flags: the QUIC stream they travel on says which stream, and its end ends the
  * message; {@link FrameContext#streamId()} names the stream.
  *
- * <p>The proxy does not terminate QUIC, so it never sees live HTTP/3 traffic: these frames come
- * from an {@link Http3FramePipeline}, which runs an interceptor over the bytes of HTTP/3 streams.
+ * <p>The proxy shows these frames to a {@link FrameInterceptor} live where it speaks HTTP/3 (a
+ * reverse proxy's HTTP/3 listener, and connections to HTTP/3 servers), and an {@link
+ * Http3FramePipeline} runs an interceptor over the bytes of HTTP/3 streams relayed by other means.
  * Records are immutable apart from their byte arrays, which are not copied; edit a frame with its
  * {@code with...} methods.
  */

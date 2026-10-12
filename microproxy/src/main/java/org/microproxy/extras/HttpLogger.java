@@ -370,6 +370,7 @@ public final class HttpLogger implements HttpFiltersSource {
         private final long connectionId;
         private final long seq;
         /** The HTTP/2 stream, or 0. */
+        /** The stream that carries the exchange, or -1 for an HTTP/1 connection's. */
         private final int streamId;
         private final RequestHead clientRequest;
         private final String url;
@@ -387,8 +388,8 @@ public final class HttpLogger implements HttpFiltersSource {
             this.ctx = ctx;
             this.connectionId = ctx == null ? 0 : ctx.getConnectionId();
             this.seq = seq;
-            this.streamId = ctx == null ? 0 : ctx.getStreamId();
-            this.prefix = "[conn " + connectionId + " #" + seq + (streamId != 0 ? " stream " + streamId : "") + "] ";
+            this.streamId = ctx == null || ctx.getHttpVersion().majorVersion() < 2 ? -1 : ctx.getStreamId();
+            this.prefix = "[conn " + connectionId + " #" + seq + (streamId >= 0 ? " stream " + streamId : "") + "] ";
             this.clientRequest = RequestHead.of(original);
             this.url = fullUrl(original, ctx);
         }
@@ -694,7 +695,7 @@ public final class HttpLogger implements HttpFiltersSource {
 
         private Json start(String type) {
             Json j = new Json().field("type", type).field("conn", connectionId).field("seq", seq);
-            if (streamId != 0) j.field("stream", streamId);
+            if (streamId >= 0) j.field("stream", streamId);
             Optional<java.time.Instant> start = ctx == null ? Optional.empty() : ctx.timings().start();
             start.ifPresent(s -> j.field("time", s.toString()));
             return j;

@@ -11,9 +11,10 @@ import java.util.Objects;
  * frames from a request stream or a control stream, shows each to the interceptor as an {@link
  * Http3Frame} (HEADERS decoded through QPACK), and writes what comes back to an output stream.
  *
- * <p>The proxy does not terminate QUIC, so it never sees live HTTP/3: it steers HTTP/3 clients to
- * HTTP/2 by removing {@code h3} from {@code Alt-Svc} instead. This pipeline is where a QUIC layer
- * will plug in, and today it processes HTTP/3 streams captured or relayed by other means. It needs
+ * <p>Where the proxy speaks HTTP/3 itself (a reverse proxy's HTTP/3 listener, connections to
+ * HTTP/3 servers), the interceptor configured with {@link
+ * org.microproxy.HttpProxyServerBootstrap#withFrameInterceptor} sees those frames live, under the
+ * same rules; this pipeline processes HTTP/3 streams captured or relayed by other means. It needs
  * the optional {@code http3-codec} module on the class path ({@link #available()}).
  *
  * <pre>{@code
@@ -32,7 +33,10 @@ import java.util.Objects;
  * several threads at once, one stream each.
  *
  * <p>The rules are {@link FrameInterceptor}'s, adapted to HTTP/3, whose frames carry no stream id
- * and no END_STREAM (a message ends with its stream):
+ * and no END_STREAM (a message ends with its stream). Live, received SETTINGS may only become
+ * stricter and sent SETTINGS may change only in extension settings, as for HTTP/2; DATA may be
+ * edited to any size, and QUIC's flow control counts what is on the wire; field sections are
+ * encoded through the connection's QPACK encoder:
  *
  * <table>
  *   <caption>Allowed results per HTTP/3 frame type</caption>

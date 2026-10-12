@@ -441,5 +441,6 @@ turns a missing aioquic into a failure, as the `quic-interop` CI job does.
 0-RTT and session resumption (and so NEW_TOKEN, which is ignored), connection migration and path
 validation (datagrams from another address are dropped; PATH_CHALLENGE is answered on the current
 path), the preferred address, BBR, sending ACK_FREQUENCY, ECN marking (the JDK cannot set or read
-ECN bits), GSO, and an HTTP/3 layer in the main sources (the interop test's HTTP/3 server is test
-code).
+ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
+`http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see
+the main README's HTTP/3 section), and the interop test's HTTP/3 server is test code.

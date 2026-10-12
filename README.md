@@ -14,7 +14,8 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 - **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
   decode `zstd` bodies, the `http2-codec` jar for [HTTP/2](#http2) to clients and servers, and
-  the `http3-codec` jar to run [frame interceptors over HTTP/3 streams](#http3-frames).
+  the `quic` and `http3-codec` jars for [HTTP/3](#http3-and-quic) to clients of a reverse proxy
+  and to servers (`http3-codec` alone runs [frame interceptors over HTTP/3 streams](#http3-frames)).
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
   Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
@@ -24,9 +25,9 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 |---|---|---|
 | `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](zstd-decoder/README.md)) |
 | `http2-codec/` | `io.github.mahmoudimus:http2-codec` | a standalone HTTP/2 frame codec and HPACK implementation ([README](http2-codec/README.md)) |
-| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, used by the HTTP/3 frame pipeline ([README](http3-codec/README.md)) |
-| `quic/` | `io.github.mahmoudimus:quic` | a standalone QUIC transport with its own TLS 1.3 handshake, ported from quinn and rustls; in progress ([README](quic/README.md)) |
-| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder`, `http2-codec` and `http3-codec` are optional) |
+| `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, used by HTTP/3 and the HTTP/3 frame pipeline ([README](http3-codec/README.md)) |
+| `quic/` | `io.github.mahmoudimus:quic` | a standalone QUIC transport with its own TLS 1.3 handshake, ported from quinn and rustls, used by HTTP/3 ([README](quic/README.md)) |
+| `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder`, `http2-codec`, `http3-codec` and `quic` are optional) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
 
 ```java
@@ -123,9 +124,14 @@ zstd-decoder/target/zstd-decoder-${MICROPROXY_VERSION}.jar org.microproxy.Launch
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar:\
 http2-codec/target/http2-codec-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
 
-# The same launcher with scripting, zstd, HTTP/2 and the HTTP/3 codec built in (one self-contained jar):
+# The same launcher with scripting, zstd, HTTP/2, QUIC and HTTP/3 built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --script proxy.star
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --http2
+
+# A reverse proxy serving HTTPS, HTTP/2 and HTTP/3 (on UDP 8443), speaking HTTP/3 to servers that offer it:
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
+    --mode reverse:https://example.com --listener-keystore site.p12 --listener-keystore-password secret \
+    --http2 --http3 --http3-upstream
 ```
 <!-- x-release-please-end -->
 
@@ -237,6 +243,12 @@ Command-line flags override values from the file.
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
 | `http2_initial_window_size` / `http2_connection_window_size` | request bytes buffered per HTTP/2 stream / per connection | `262144` / `1048576` |
+| `http3` | in reverse mode, serve HTTP/3 on the UDP port with the listener's number (needs the `quic` and `http3-codec` jars and a certificate; see [HTTP/3 and QUIC](#http3-and-quic)) | `false` |
+| `http3_upstream` | speak HTTP/3 to servers known to support it, from `Alt-Svc` or `http3_upstream_hosts` (see [HTTP/3 to servers](#http3-to-servers)) | `false` |
+| `http3_upstream_hosts` | comma-separated regular expressions for `host:port` names reached over HTTP/3 without waiting for `Alt-Svc` | none |
+| `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
+| `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
+| `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY` | off |
@@ -256,6 +268,7 @@ Command-line flags override values from the file.
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
+| HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; servers that advertise `h3` get their exchanges over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
@@ -282,7 +295,7 @@ Command-line flags override values from the file.
 | Throttling | global token bucket for server reads and writes, adjustable at runtime |
 | Concurrency limiting | `ConcurrencyLimiter` caps the exchanges in progress per client, user, target host or any key, with a bounded wait queue, `429` answers, a shadow mode and metrics (see below) |
 | Activity tracking | `ActivityTracker` for connections, requests, responses (with their source), bytes, per-exchange timings and server failures (see below) |
-| HTTP/3 bypass | removes `h3` alternatives from `Alt-Svc` by default when intercepting or transparent, so clients stay on TCP through the proxy rather than move to QUIC (see below) |
+| HTTP/3 bypass | removes `h3` alternatives from `Alt-Svc` by default when intercepting or transparent, so clients of an explicit or transparent proxy stay on TCP through it rather than move to QUIC (see below) |
 | Privacy | optionally removes distributed tracing headers (W3C Trace Context and Baggage, B3 and other common trace headers) and any other named headers from requests sent upstream, after all filters (see below) |
 | Hardening | rejects `Transfer-Encoding` + `Content-Length`, conflicting lengths, obs-fold in requests, and oversized lines and headers; header values are validated against CR/LF injection; Host is replaced by the absolute-form authority |
 
@@ -774,8 +787,11 @@ scheme `https` by default, the port 443 for `https` and 80 for `http`.
   when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise; with
   `--http2-upstream`, over HTTP/2 when the upstream offers it. `http://` upstreams get plain HTTP.
 - `tcp://host:port` relays each client connection to the upstream as raw bytes.
-- With a TLS listener (`withSslContextSource`), the proxy terminates TLS, and with `--http2`
-  serves HTTP/2 to clients that offer it.
+- With a TLS listener (`withSslContextSource`, `--listener-keystore`), the proxy terminates TLS,
+  and with `--http2` serves HTTP/2 to clients that offer it. With `--http3`, it serves HTTP/3 on
+  the UDP port with the same number, and advertises it with `Alt-Svc` (see
+  [HTTP/3 and QUIC](#http3-and-quic)); with `--http3-upstream`, it speaks HTTP/3 to an upstream
+  that offers it.
 - Filters, scripts, the cache, logging and failure answers work as for any request.
 
 ### SOCKS5 mode
@@ -1247,9 +1263,7 @@ except one, which CI leaves out:
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
 `.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
 
-**What is next** ([issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2)): HTTP/3
-transport integration (QUIC termination), which [frame interception](#frame-interception) is
-ready for.
+HTTP/3 has its own section: [HTTP/3 and QUIC](#http3-and-quic).
 
 #### Frame interception
 
@@ -1288,6 +1302,8 @@ MicroProxy.bootstrap()
 - **Coverage.** Clients on intercepted TLS, `h2c` and the TLS listener; connections to servers
   with all their multiplexed streams; full-duplex gRPC; `CONNECT` tunnels and WebSockets over
   HTTP/2, whose bytes are DATA frames. DATA the proxy sends is shown in pieces of at most 16 KiB.
+  And live HTTP/3, on both sides, under the same rules adapted to HTTP/3 (see
+  [HTTP/3 frames](#http3-frame-interception)).
 - **Cost.** Without an interceptor nothing changes: no conversion, no allocation, no call.
 
 The proxy stays protocol-correct whatever the interceptor returns. What it accepts:
@@ -1331,38 +1347,133 @@ Scripts get the same with [`on_frame`](#frames).
 
 ### HTTP/3 and QUIC
 
-MicroProxy speaks HTTP/1.x, and [HTTP/2](#http2) on intercepted TLS, the proxy TLS listener and
-optional h2c; HTTP/3 transport is planned
-in [issue #2](https://github.com/mahmoudimus/MicroProxy/issues/2). HTTP/3 runs over QUIC, on UDP,
-and that matters even now. Browsers never send QUIC through an HTTP proxy, and a transparent
-setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
-switch to it and bypass the proxy, and with it interception, filters and logging.
-
-The [`http3-codec`](http3-codec/README.md) module is a first step: it encodes and decodes HTTP/3
-frames and QPACK field sections over a QUIC stream's bytes. **Live HTTP/3 interception needs QUIC
-termination, which is not implemented**: the proxy has no QUIC transport to supply those bytes,
-and steers HTTP/3 clients to HTTP/2 by removing `h3` from `Alt-Svc` (below).
-
-<a id="http3-frames"></a>**HTTP/3 frames.** `Http3FramePipeline` runs a
-[frame interceptor](#frame-interception) over HTTP/3 traffic given as stream bytes, captured or
-relayed by other means today, and the seam a QUIC layer will plug into. It reads a request stream
-or a control stream with `http3-codec`, decodes HEADERS through QPACK, shows each frame to the
-interceptor as an `Http3Frame`, checks the result against the same rules as HTTP/2 (HTTP/3 has no
-END_STREAM or stream ids in frames; GOAWAY, MAX_PUSH_ID, CANCEL_PUSH and PUSH_PROMISE are
-read-only; frames keep the message's order), and writes it back with static-only QPACK, so no
-encoder stream is needed. Unknown and grease frames pass through. It needs the optional
-`http3-codec` jar (`Http3FramePipeline.available()`; the starlark `-all` jar bundles it).
+MicroProxy speaks HTTP/3 ([RFC 9114](https://datatracker.ietf.org/doc/html/rfc9114)) over its own
+QUIC transport, the [`quic`](quic/README.md) module (ported from quinn and rustls), with
+[`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in two places: to the
+clients of a reverse proxy, and to origin servers known to support it. Both need the optional
+`quic` and `http3-codec` jars on the class path (the `microproxy-starlark` `-all` jar bundles
+them); a proxy started with HTTP/3 enabled without them fails at startup with an
+`IllegalStateException` that says so, and without HTTP/3 nothing loads them.
 
 ```java
-Http3FramePipeline pipeline = Http3FramePipeline.builder(interceptor)
-        .direction(FrameDirection.FROM_CLIENT)            // whose frames these are
-        .build();
-pipeline.controlStream(2, clientControlStream, out);      // stream type, SETTINGS, ...
-pipeline.encoderStream(clientQpackEncoderStream);         // only when the client's QPACK uses its dynamic table
-pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trailers
+MicroProxy.bootstrap()
+        .withReverseProxy("https://backend.internal")                     // --mode reverse:https://backend.internal
+        .withSslContextSource(new KeyStoreSslContextSource(Path.of("site.p12"), password))  // --listener-keystore site.p12
+        .withHttp3(true)                                                   // to clients: --http3, http3=true
+        .withHttp3Upstream(true)                                           // to servers: --http3-upstream, http3_upstream=true
+        .withHttp3UpstreamHosts("\\.internal:")                            // --http3-upstream-hosts, http3_upstream_hosts
+        .withHttp3Options(Http3Options.builder().maxConcurrentStreams(200).build())   // optional
+        .start();
 ```
 
-Clients learn about HTTP/3 in two ways:
+```bash
+java -jar microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 --mode reverse:https://backend.internal \
+    --listener-keystore site.p12 --listener-keystore-password secret --http3 --http3-upstream
+```
+
+#### Serving HTTP/3 in reverse mode
+
+With `--http3` (`withHttp3(true)`, `http3=true`) and `--mode reverse:...`, the proxy opens a UDP
+listener on the TCP listener's port number and serves HTTP/3 there (ALPN `h3`).
+
+- **Certificate.** The HTTP/3 listener presents the TLS listener's certificate: its
+  `SslContextSource` gives it as `KeyMaterial` (`getKeyMaterial`), which
+  `KeyStoreSslContextSource` (`--listener-keystore`, `listener_keystore`) and
+  `SelfSignedSslContextSource` do; QUIC runs its own TLS 1.3 handshake and needs the key itself,
+  not an `SSLContext`. Without a TLS listener, a `CertificateAuthorityMitmManager` (`--mitm`)
+  issues one for the name the client asks for. With neither, the proxy fails at startup.
+- **Exchanges.** Each request stream is an exchange like any HTTP/1 or HTTP/2 request, on a
+  virtual thread of its own: filters, the cache, authentication (per stream, as on `h2c`),
+  logging, WARC and HAR recording, timings and trackers all apply. The request is an
+  `HttpRequest` with version `HTTP/3.0` (`HttpVersion.HTTP_3_0`), `FlowContext.getHttpVersion()`
+  says `HTTP/3.0` and `getStreamId()` gives the QUIC stream id, and scripts see
+  `req.http_version == "HTTP/3"`. The upstream gets it as HTTP/1.1, HTTP/2 (`--http2-upstream`)
+  or HTTP/3 (`--http3-upstream`), whichever it speaks: a body without `content-length` goes chunked
+  to an HTTP/1.1 server, trailers go through end to end where both sides carry them, and
+  `100-continue` and `103 Early Hints` reach the client as interim responses.
+- **Advertising.** Responses sent over TCP get `Alt-Svc: h3=":<port>"; ma=86400`, so that clients
+  find the HTTP/3 listener, unless the server's own `Alt-Svc` field is left after the `h3`
+  stripping (below), which then goes to the client as it is; a `proxyToClientResponse` filter may
+  remove the field. `Http3Options.altSvc(false)` (`--no-http3-alt-svc`, `http3_alt_svc=false`)
+  turns it off, and `altSvcMaxAge` sets `ma`. Browsers act on `Alt-Svc` only over HTTPS, so pair
+  HTTP/3 with a TLS listener.
+- **Not yet.** `CONNECT` and extended `CONNECT` (RFC 9220, WebSockets over HTTP/3) are answered
+  `501`, and the proxy does not advertise SETTINGS_ENABLE_CONNECT_PROTOCOL; there is no server push
+  and no HTTP datagrams (SETTINGS_H3_DATAGRAM is not sent).
+
+**Why only reverse mode.** Clients of an explicit proxy (and of the proxy's TLS listener as a
+forward proxy) never speak HTTP/3 to it: browsers send HTTP/3 only to origins, and tunnelling it
+through a proxy would be MASQUE's CONNECT-UDP (RFC 9298), which is out of scope. So `withHttp3`
+on any other proxy fails at startup, and such clients are steered to TCP instead (below).
+
+**Limits.** Much of HTTP/2's defence is QUIC's in HTTP/3: the stream limit and flow control are
+the transport's, which a peer cannot exceed without a QUIC error. The proxy's own limits are set
+with `Http3Options` (or `http3_*` properties and `--http3-max-streams`); rate limits count per
+window of 10 seconds (`rateWindow`).
+
+| Limit | Default | When exceeded | Setting |
+|---|---|---|---|
+| Request streams open per connection | 100 | QUIC holds new streams back until one ends | `maxConcurrentStreams` |
+| Bytes a peer sends ahead of the proxy, per stream / per connection | 256 KiB / 1 MiB (QUIC flow control) plus 64 KiB read ahead per stream | QUIC `FLOW_CONTROL_ERROR` | `streamReceiveWindow` / `connectionReceiveWindow` |
+| Field section (names and values plus 32 per field), SETTINGS_MAX_FIELD_SECTION_SIZE | `max_header_size` + `max_initial_line_length` (24 KiB) | `431` for a request (the connection goes on), `502` for a response | `maxFieldSectionSize` |
+| QPACK dynamic table, each way | 4096 bytes | `QPACK_ENCODER_STREAM_ERROR` | `qpackMaxTableCapacity` |
+| Streams blocked on the peer's QPACK encoder stream | 16, each for at most `idle_connection_timeout` | `QPACK_DECOMPRESSION_FAILED` / the stream is rejected | `qpackBlockedStreams` |
+| Frames of unknown and reserved types, and empty DATA frames | 1000 per window | `H3_EXCESSIVE_LOAD` | `maxUnknownFrames` |
+| Unidirectional streams of unknown and reserved types | 100 per window (each abandoned with `STOP_SENDING`) | `H3_EXCESSIVE_LOAD` | `maxUnknownStreams` |
+| Requests reset by the client before their response completed (Rapid Reset) | 100 per window | `H3_EXCESSIVE_LOAD` | `maxRapidResets` |
+| A connection with nothing to do | `idle_connection_timeout` (70 s) | QUIC's idle timeout closes it | `withIdleConnectionTimeout` |
+| Client address validation (QUIC Retry) | off | | `retry` |
+
+Protocol violations close the connection with the code RFC 9114 or RFC 9204 names: a second
+control or QPACK stream or a push stream from a client (`H3_STREAM_CREATION_ERROR`), frames out of
+place (`H3_FRAME_UNEXPECTED`, `H3_MISSING_SETTINGS`), a critical stream that ends
+(`H3_CLOSED_CRITICAL_STREAM`), bad settings (`H3_SETTINGS_ERROR`), bad QPACK. Malformed requests
+(missing or repeated pseudo-headers, upper-case or connection-specific fields, a
+`content-length` the DATA does not match) only reset their stream, with `H3_MESSAGE_ERROR`.
+
+**Shutting down.** A graceful stop (`stop()`) sends `GOAWAY` naming the first stream the proxy
+will not process; streams opened after it are refused with `H3_REQUEST_REJECTED`, which clients
+retry elsewhere, the streams in progress finish (for up to the graceful stop timeout), and the
+connection closes once the client has closed it, or after two seconds.
+
+#### HTTP/3 to servers
+
+With `--http3-upstream` (`withHttp3Upstream(true)`, `http3_upstream=true`), the proxy speaks
+HTTP/3 to servers known to support it, whatever protocol the client spoke (HTTP/1, HTTP/2 or
+HTTP/3), in any mode.
+
+- **Knowing.** A server is known to speak HTTP/3 once one of its responses over TLS advertised
+  `h3` on its own host (`Alt-Svc: h3=":443"`), remembered for the advertisement's `ma` (24 hours
+  without one) and forgotten on `Alt-Svc: clear` or `ma=0`. The proxy learns before it strips
+  `h3` for the client, so stripping stays on. Alternatives on other hosts, and draft versions
+  (`h3-29`), are never used. `--http3-upstream-hosts <regex>` (`withHttp3UpstreamHosts`,
+  `http3_upstream_hosts`) names servers to reach over HTTP/3 at once, on their URI's port.
+- **Sharing.** One QUIC connection per server, shared by every exchange for it, of every client,
+  as streams, within the server's stream limit. Nothing about a QUIC connection is particular to
+  one client.
+- **Trust.** Servers are validated as TLS connections to them are: with the MITM manager's
+  server trust (`MitmManager.serverTrustManager`, which `CertificateAuthorityMitmManager` and
+  every context from `SslContexts` provide, so `--mitm-trust-all` works too), or the JDK's default
+  trust store without a manager, checking the host name as HTTPS does. A manager whose trust the
+  proxy cannot reproduce keeps its servers on TCP.
+- **Falling back** (happy eyeballs, lite). A QUIC handshake that fails, or does not complete
+  within `upstreamHandshakeTimeout` (1 second), sends the exchange over TCP, and the server stays
+  on TCP for `upstreamFailureTimeout` (5 minutes). Exchanges for the same server wait for a
+  handshake in progress rather than start their own.
+- **Failures.** A `GOAWAY` from the server, or a stream it refuses with `H3_REQUEST_REJECTED`,
+  makes the request safe to send again, on a new connection. QUIC's idle timeout answers `504`
+  (`ProxyFailure.ServerTimeout`); other resets and connection errors `502`
+  (`ProxyFailure.BadServerResponse`), or reset the client's stream once the response has started.
+- **Only direct connections.** Requests through chained proxies (UDP does not go through them),
+  through a tunnel a session's server opened, with a PROXY protocol header, proxy requests and
+  WebSockets keep using TCP.
+
+#### Clients of an explicit or transparent proxy: Alt-Svc
+
+HTTP/3 runs over QUIC, on UDP. Browsers never send QUIC through an HTTP proxy, and a transparent
+setup usually redirects only TCP. So a client that learns that an origin speaks HTTP/3 can
+switch to it and bypass the proxy, and with it interception, filters and logging, until
+transparent UDP interception exists (the next step). Clients learn about HTTP/3 in two ways:
 
 - **From `Alt-Svc` response headers** such as `Alt-Svc: h3=":443"; ma=86400, h2=":443"`. The
   proxy removes the `h3` alternatives, including the draft versions (`h3-29`, `h3-Q050`, ...)
@@ -1374,7 +1485,7 @@ Clients learn about HTTP/3 in two ways:
   `withAltSvcH3Stripping(false)` or `strip_alt_svc_h3=false` turn it off. Filters see server
   responses unchanged in `serverToProxyResponse` and already stripped in
   `proxyToClientResponse`. Short-circuit responses (including cache answers) are stripped as
-  they are sent.
+  they are sent. With `--http3-upstream`, the proxy itself learns from the advertisement first.
 - **From DNS `HTTPS` records**, which the proxy never sees. In transparent deployments,
   **block UDP port 443** (for example `iptables -A FORWARD -p udp --dport 443 -j REJECT`).
   Clients then fall back to TCP, which the proxy does see.
@@ -1382,6 +1493,47 @@ Clients learn about HTTP/3 in two ways:
 HTTP/2 can also announce alternatives in `ALTSVC` frames. The proxy never sends them, and drops
 any that HTTP/2 servers send (as frames of a type it does not handle), so alternatives reach
 HTTP/2 clients only as `Alt-Svc` headers, which are stripped the same way.
+
+#### HTTP/3 frame interception
+
+The [frame interceptor](#frame-interception) sees HTTP/3 frames live wherever the proxy speaks
+HTTP/3: `FROM_CLIENT` and `TO_CLIENT` on the reverse proxy's HTTP/3 listener, `TO_SERVER` and
+`FROM_SERVER` on connections to HTTP/3 servers, with the stream's QUIC id and, from a stream's
+first frame on, its exchange's `FlowContext`. `Http3Frame` has `Data`, `Headers`, `Settings`,
+`GoAway`, `CancelPush`, `MaxPushId`, `PushPromise` and `Unknown`. The rules are HTTP/2's,
+adapted: HTTP/3 frames carry no stream id or END_STREAM (a message ends with its stream), so
+results must keep the message's order (HEADERS, DATA, trailers; interim responses first); DATA
+may be edited to any size, and QUIC's flow control counts what is actually sent; field sections
+are decoded through QPACK before the interceptor sees them and encoded through the connection's
+QPACK encoder after it, so QPACK state never depends on it; SETTINGS received may only make the
+proxy stricter (a smaller QPACK table, field section or blocked-streams limit, no
+ENABLE_CONNECT_PROTOCOL or H3_DATAGRAM turned on), SETTINGS sent may change only in extension
+settings; GOAWAY, MAX_PUSH_ID and CANCEL_PUSH are read-only; extension and grease frames may be
+edited, dropped and added. Scripts get the same with [`on_frame`](#frames).
+
+<a id="http3-frames"></a>For HTTP/3 traffic relayed by other means, `Http3FramePipeline` runs a
+frame interceptor over a request stream's or a control stream's bytes, under the same rules, and
+writes them back with static-only QPACK, so no encoder stream is needed. It needs only the
+`http3-codec` jar (`Http3FramePipeline.available()`).
+
+```java
+Http3FramePipeline pipeline = Http3FramePipeline.builder(interceptor)
+        .direction(FrameDirection.FROM_CLIENT)            // whose frames these are
+        .build();
+pipeline.controlStream(2, clientControlStream, out);      // stream type, SETTINGS, ...
+pipeline.encoderStream(clientQpackEncoderStream);         // only when the client's QPACK uses its dynamic table
+pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trailers
+```
+
+#### Limitations and what is next
+
+- **Transparent UDP interception** of QUIC that clients send straight to origins is the next
+  step; until then, explicit and transparent clients are steered to TCP (above).
+- `CONNECT`, extended `CONNECT` and WebSockets over HTTP/3, HTTP datagrams and MASQUE.
+- Server push (never requested: the proxy sends no MAX_PUSH_ID).
+- From the QUIC module: 0-RTT and session resumption, connection migration (see its
+  [README](quic/README.md)).
+- HTTP/3 to servers only over direct connections, and without client certificates.
 
 ### Rewriting bodies
 
@@ -1748,7 +1900,7 @@ bootstrap.start();
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
 | `on_websocket_message(msg, ctx)` | for each whole text or binary message of an upgraded WebSocket, in both directions, joined from its frames and inflated (after `on_websocket_frame`, if defined, has seen the frames) | `None` (or `msg`) to send the message with any changes, `False` to drop it, another message to replace it, or a list of messages to send instead (`[]` drops it) |
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
-| `on_frame(frame, ctx)` | for each HTTP/2 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
+| `on_frame(frame, ctx)` | for each HTTP/2 and HTTP/3 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
@@ -1756,8 +1908,8 @@ bootstrap.start();
 
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`, plus `http_version`: the version the client used, `"HTTP/1.1"`,
-  `"HTTP/1.0"` or `"HTTP/2"` (requests reach servers as HTTP/1.1, or as HTTP/2 to servers that
-  negotiate it with `http2_upstream`).
+  `"HTTP/1.0"`, `"HTTP/2"` or `"HTTP/3"` (requests reach servers as HTTP/1.1, or as HTTP/2 or
+  HTTP/3 to servers that speak it with `http2_upstream` or `http3_upstream`).
 - `res`: `status`, `reason` (assignable), and `headers`, `body`, `text`, plus `source` and
   `upstream_status` (below).
 - `body` and `text`: the decoded body as bytes or as a string. Both are `None` when the body was
@@ -2084,9 +2236,10 @@ Messages larger than `withMaxWebSocketMessageSize` (16 MiB by default), joined o
 the connection with close code 1009; see [WebSocket frames and
 messages](#websocket-frames-and-messages) for the rest of the rules.
 
-<a id="frames"></a>**Frames.** A script that defines `on_frame(frame, ctx)` sees HTTP/2 frames on
-live connections ([Frame interception](#frame-interception) describes where, and which changes
-the proxy accepts) and HTTP/3 frames run through an `Http3FramePipeline`. `--script` installs it
+<a id="frames"></a>**Frames.** A script that defines `on_frame(frame, ctx)` sees HTTP/2 and
+HTTP/3 frames on live connections ([Frame interception](#frame-interception) and
+[HTTP/3 frames](#http3-frame-interception) describe where, and which changes the proxy accepts) and HTTP/3
+frames run through an `Http3FramePipeline`. `--script` installs it
 as the proxy's frame interceptor only when the script defines `on_frame` when it loads, so other
 scripts cost nothing per frame (a reload that removes the hook passes frames on unchanged; one
 that adds it takes effect after a restart). From Java: `bootstrap.withFrameInterceptor(script.frameInterceptor())`
@@ -2163,7 +2316,23 @@ def on_frame(frame, ctx):
         return [frame, hint, h2.headers(frame.stream_id, {"x-proxied-by": "MicroProxy"})]
 ```
 
-The same hook over HTTP/3, through the pipeline:
+Live HTTP/3, on a reverse proxy serving it (`--http3`): the client's requests get a field, and
+the responses' bodies are redacted, so their `content-length` goes:
+
+```python
+def on_frame(frame, ctx):
+    if frame.protocol != "h3":
+        return None
+    if frame.type == "HEADERS" and frame.direction == "from_client" and ":method" in frame.headers:
+        frame.headers["x-from-frame"] = "stream %d" % ctx.stream_id
+    elif frame.type == "HEADERS" and frame.direction == "to_client" and ":status" in frame.headers:
+        frame.headers.remove("content-length")  # the DATA below changes the body's length
+        frame.headers["x-h3-frame"] = "edited"
+    elif frame.type == "DATA" and frame.direction == "to_client" and frame.text != None:
+        frame.text = frame.text.replace("secret", "[redacted]")
+```
+
+The same kind of hook over HTTP/3 relayed by other means, through the pipeline:
 
 ```python
 def on_frame(frame, ctx):

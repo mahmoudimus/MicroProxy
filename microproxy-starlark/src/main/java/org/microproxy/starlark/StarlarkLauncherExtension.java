@@ -109,7 +109,7 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
         }
         console.println("Scripting with " + script.toAbsolutePath() + (reload ? " (reloads on change)" : "")
                 + (authenticates ? "; clients authenticate with its authenticate()" : "")
-                + (frames ? "; HTTP/2 frames go through its on_frame()" : "")
+                + (frames ? "; HTTP/2 and HTTP/3 frames go through its on_frame()" : "")
                 + (tcp ? "; raw TCP tunnels go through its on_tcp_*() hooks" : ""));
     }
 

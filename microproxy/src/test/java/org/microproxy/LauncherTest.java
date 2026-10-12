@@ -118,7 +118,8 @@ class LauncherTest {
                 "--dnssec", "--dnssec-resolver", "--activity-log-format", "--log-http", "--log-http-json",
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
-                "--http2-max-streams", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port", "--mode", "--socks",
+                "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
+                "--no-http3-alt-svc", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port", "--mode", "--socks",
                 "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
             assertTrue(usage.contains(flag + " "), "usage lacks " + flag);
@@ -199,6 +200,37 @@ class LauncherTest {
         assertTrue(BootstrapView.http2Upstream(both));
         assertTrue(BootstrapView.http2Cleartext(both));
         assertFalse(BootstrapView.http2(both));
+    }
+
+    @Test
+    void http3Flags() throws IOException {
+        HttpProxyServerBootstrap off = parse().bootstrap();
+        assertFalse(BootstrapView.http3(off));
+        assertFalse(BootstrapView.http3Upstream(off));
+        assertTrue(off.getHttp3Options().altSvc());
+        HttpProxyServerBootstrap on = parse("--mode", "reverse:https://example.com", "--http3", "--http3-max-streams", "250",
+                "--no-http3-alt-svc", "--http3-upstream", "--http3-upstream-hosts", "\\.example\\.com:",
+                "--http3-upstream-hosts", "^api\\.").bootstrap();
+        assertTrue(BootstrapView.http3(on));
+        assertTrue(BootstrapView.http3Upstream(on));
+        assertEquals(250, on.getHttp3Options().maxConcurrentStreams());
+        assertFalse(on.getHttp3Options().altSvc());
+        assertEquals(List.of("\\.example\\.com:", "^api\\."), BootstrapView.http3UpstreamHosts(on));
+    }
+
+    @Test
+    void listenerKeyStoreFlagsServeTlsWithItsCertificate(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        org.microproxy.tls.CertificateAuthority ca = org.microproxy.tls.CertificateAuthority.generate("Listener CA");
+        java.nio.file.Path store = dir.resolve("listener.p12");
+        ca.save(store, "pw".toCharArray());
+        HttpProxyServerBootstrap b = parse("--listener-keystore", store.toString(), "--listener-keystore-password", "pw")
+                .bootstrap();
+        SslContextSource source = BootstrapView.sslContextSource(b);
+        assertTrue(source instanceof org.microproxy.tls.KeyStoreSslContextSource, String.valueOf(source));
+        assertEquals(ca.getCertificate(), source.getKeyMaterial("anything").chain().getFirst());
+        assertThrows(java.io.IOException.class,
+                () -> parse("--listener-keystore", dir.resolve("missing.p12").toString()));
     }
 
     @Test

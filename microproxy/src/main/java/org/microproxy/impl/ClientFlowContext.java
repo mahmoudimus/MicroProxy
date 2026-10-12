@@ -60,7 +60,12 @@ final class ClientFlowContext extends FlowContext {
 
     /** The context of HTTP/2 stream {@code streamId} of {@code connection}'s client connection. */
     ClientFlowContext(ClientFlowContext connection, int streamId) {
-        super(connection, streamId);
+        this(connection, streamId, org.microproxy.http.HttpVersion.HTTP_2_0);
+    }
+
+    /** The context of stream {@code streamId} of {@code connection}'s HTTP/2 or HTTP/3 client connection. */
+    ClientFlowContext(ClientFlowContext connection, int streamId, org.microproxy.http.HttpVersion version) {
+        super(connection, streamId, version);
         this.connectionFlow = connection;
         // The client handshake that the stream's connection began with.
         clientTlsStart = connection.clientTlsStart;
