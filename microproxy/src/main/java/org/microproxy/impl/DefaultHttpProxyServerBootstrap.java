@@ -28,6 +28,7 @@ import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ReverseProxyMode;
+import org.microproxy.ScriptCallObserver;
 import org.microproxy.NoProxyRules;
 import org.microproxy.ServerConnectionPoolType;
 import org.microproxy.UpstreamProxyManager;
@@ -135,6 +136,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Http3Options http3Options = Http3Options.DEFAULT;
     /** Sees every HTTP/2 and HTTP/3 frame; null for none. */
     FrameInterceptor frameInterceptor;
+    ScriptCallObserver scriptCallObserver;
     /** Sees the bytes of raw TCP tunnels; null for none. */
     TcpInterceptor tcpInterceptor;
     UdpInterceptor udpInterceptor;
@@ -220,6 +222,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http3UpstreamHosts = http3UpstreamHosts;
         c.http3Options = http3Options;
         c.frameInterceptor = frameInterceptor;
+        c.scriptCallObserver = scriptCallObserver;
         c.tcpInterceptor = tcpInterceptor;
         c.udpInterceptor = udpInterceptor;
         c.quicInterceptor = quicInterceptor;
@@ -928,6 +931,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public FrameInterceptor getFrameInterceptor() {
         return frameInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withScriptCallObserver(ScriptCallObserver observer) {
+        this.scriptCallObserver = observer;
+        return this;
+    }
+
+    @Override
+    public ScriptCallObserver getScriptCallObserver() {
+        return scriptCallObserver;
     }
 
     @Override
