@@ -1767,7 +1767,21 @@ final class ClientConnection implements Runnable {
         if (hostAndPort == null) {
             return respondFailure(ex, new ProxyFailure.NoRoute(null), false);
         }
+        if (!pinned && !server.tlsOrigination && originatesTls(ex)) {
+            return respondFailure(ex, new ProxyFailure.BadRequest("https:// URIs need CONNECT (TLS origination is off)"),
+                    true);
+        }
         return proxyRequest(ex, hostAndPort, pinned ? !plainSession : isSecureUri(ex.request.uri()));
+    }
+
+    /**
+     * Whether a forward-proxy request outside any session asks the proxy to open TLS to its server
+     * on the client's behalf: an {@code https://} or {@code wss://} URI the client sent (not one a
+     * filter gave it, {@link #redirected}), or a secure WebSocket's extended {@code CONNECT}.
+     * {@link org.microproxy.HttpProxyServerBootstrap#withTlsOrigination} decides whether the proxy does.
+     */
+    private static boolean originatesTls(Exchange ex) {
+        return !redirected(ex) && (isSecureUri(ex.request.uri()) || ex.channel.secureWebSocket());
     }
 
     /**

@@ -102,6 +102,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     int maxHeaderSize = 16384;
     int maxChunkSize = 16384;
     boolean allowRequestToOriginServer;
+    /** Fetch clients' own {@code https://} requests over TLS (forward proxy). */
+    boolean tlsOrigination = true;
     String proxyAlias;
     boolean acceptProxyProtocol;
     boolean sendProxyProtocol;
@@ -202,6 +204,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.maxHeaderSize = maxHeaderSize;
         c.maxChunkSize = maxChunkSize;
         c.allowRequestToOriginServer = allowRequestToOriginServer;
+        c.tlsOrigination = tlsOrigination;
         c.proxyAlias = proxyAlias;
         c.acceptProxyProtocol = acceptProxyProtocol;
         c.sendProxyProtocol = sendProxyProtocol;
@@ -327,6 +330,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("allow_requests_to_origin_server")) {
             withAllowRequestToOriginServer(bool(p, "allow_requests_to_origin_server"));
         }
+        if (p.containsKey("originate_tls")) withTlsOrigination(bool(p, "originate_tls"));
         if (p.containsKey("allow_proxy_protocol")) withAcceptProxyProtocol(bool(p, "allow_proxy_protocol"));
         if (p.containsKey("send_proxy_protocol")) withSendProxyProtocol(bool(p, "send_proxy_protocol"));
         if (p.containsKey("use_shared_server_connection_pool")) {
@@ -1071,6 +1075,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withAllowRequestToOriginServer(boolean allowRequestToOriginServer) {
         this.allowRequestToOriginServer = allowRequestToOriginServer;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsOrigination(boolean enabled) {
+        this.tlsOrigination = enabled;
         return this;
     }
 
