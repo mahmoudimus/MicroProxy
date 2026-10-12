@@ -10,6 +10,7 @@ import io.github.mahmoudimus.http3.HeaderField;
 import io.github.mahmoudimus.http3.Http3FrameWriter;
 import io.github.mahmoudimus.http3.Http3StreamType;
 import io.github.mahmoudimus.http3.QpackEncoder;
+import io.github.mahmoudimus.quic.QuicConnectionException;
 import io.github.mahmoudimus.quic.QuicStream;
 import io.github.mahmoudimus.quic.QuicStreamException;
 import io.github.mahmoudimus.quic.connection.ConnectionError;
@@ -96,6 +97,25 @@ class Http3HardeningTest {
         return e.code();
     }
 
+    /** Sending that goes on until it is done, or the proxy closes the connection. */
+    @FunctionalInterface
+    private interface Sending {
+        void run() throws IOException;
+    }
+
+    /**
+     * Runs {@code sending}, which breaks a limit: the proxy closes the connection as soon as it
+     * sees the limit broken, and what the client sends after that fails. {@link #closeCode} tells
+     * why the connection closed.
+     */
+    private static void untilClosed(Sending sending) throws IOException {
+        try {
+            sending.run();
+        } catch (QuicConnectionException e) {
+            // closed meanwhile
+        }
+    }
+
     @Test
     void theStreamLimitIsQuics() throws Exception {
         start(b -> b.withHttp3Options(Http3Options.builder().maxConcurrentStreams(2).build()));
@@ -151,13 +171,15 @@ class Http3HardeningTest {
             // Sections that reference entries whose instructions never arrive block their streams.
             QpackEncoder withheld = new QpackEncoder(4096);
             withheld.setPeerSettings(4096, 100);
-            for (int i = 0; i < 3; i++) {
-                QuicStream s = client.quic.openBidirectionalStream();
-                OutputStream out = s.getOutputStream();
-                new Http3FrameWriter(out).writeHeaders(withheld.encode(s.id(),
-                        client.head("GET", "/blocked/" + i, List.of(new HeaderField("x-unique", "value-" + i)))));
-                out.close();
-            }
+            untilClosed(() -> {
+                for (int i = 0; i < 3; i++) {
+                    QuicStream s = client.quic.openBidirectionalStream();
+                    OutputStream out = s.getOutputStream();
+                    new Http3FrameWriter(out).writeHeaders(withheld.encode(s.id(),
+                            client.head("GET", "/blocked/" + i, List.of(new HeaderField("x-unique", "value-" + i)))));
+                    out.close();
+                }
+            });
             assertEquals(0x0200, closeCode(client), "QPACK_DECOMPRESSION_FAILED");
         }
     }
@@ -191,9 +213,11 @@ class Http3HardeningTest {
             QuicStream flood = client.quic.openBidirectionalStream();
             OutputStream fo = flood.getOutputStream();
             Http3FrameWriter fw = new Http3FrameWriter(fo);
-            fw.writeHeaders(client.encode(flood.id(), client.head("POST", "/flood", List.of())));
-            for (int i = 0; i < 100; i++) fw.writeFrame(new io.github.mahmoudimus.http3.Http3Frame.Unknown(0x21, new byte[0]));
-            fo.flush();
+            untilClosed(() -> {
+                fw.writeHeaders(client.encode(flood.id(), client.head("POST", "/flood", List.of())));
+                for (int i = 0; i < 100; i++) fw.writeFrame(new io.github.mahmoudimus.http3.Http3Frame.Unknown(0x21, new byte[0]));
+                fo.flush();
+            });
             assertEquals(0x0107, closeCode(client), "H3_EXCESSIVE_LOAD");
         }
     }
@@ -203,13 +227,21 @@ class Http3HardeningTest {
         start(b -> b.withHttp3Options(Http3Options.builder().maxUnknownStreams(5).build()));
         try (H3TestClient client = client()) {
             client.serverSettings();
-            for (int i = 0; i < 10 && client.quic.isOpen(); i++) {
-                QuicStream s = client.quic.openUnidirectionalStream();
-                OutputStream out = s.getOutputStream();
-                out.write(Http3StreamType.encode(0x21 + 0x1fL * i)); // reserved (grease) stream types
-                out.write("ignored".getBytes(StandardCharsets.US_ASCII));
-                out.close();
-            }
+            untilClosed(() -> {
+                for (int i = 0; i < 10; i++) {
+                    QuicStream s = client.quic.openUnidirectionalStream();
+                    OutputStream out = s.getOutputStream();
+                    try {
+                        out.write(Http3StreamType.encode(0x21 + 0x1fL * i)); // reserved (grease) stream types
+                        out.write("ignored".getBytes(StandardCharsets.US_ASCII));
+                        out.close();
+                    } catch (QuicStreamException e) {
+                        // The proxy abandons the stream once it has read its type, maybe before the rest is sent.
+                        assertEquals(QuicStreamException.Kind.STOPPED, e.kind(), e.toString());
+                        assertEquals(0x0103, e.errorCode(), "H3_STREAM_CREATION_ERROR");
+                    }
+                }
+            });
             assertEquals(0x0107, closeCode(client), "H3_EXCESSIVE_LOAD");
         }
     }
@@ -218,11 +250,16 @@ class Http3HardeningTest {
     void rapidResetsCloseTheConnection() throws Exception {
         start(b -> b.withHttp3Options(Http3Options.builder().maxRapidResets(3).build()));
         try (H3TestClient client = client()) {
-            for (int i = 0; i < 6 && client.quic.isOpen(); i++) {
-                QuicStream s = client.send(client.head("GET", "/slow", List.of()), true);
-                s.reset(0x010c);
-                s.stopSending(0x010c);
-            }
+            untilClosed(() -> {
+                // One more than the limit: every reset counts.
+                for (int i = 0; i < 4; i++) {
+                    // The request stays open: once the proxy has read a request's end, a reset
+                    // of it is ignored (RFC 9000 section 3.2), or, acknowledged, cannot be sent.
+                    QuicStream s = client.send(client.head("GET", "/slow", List.of()), false);
+                    s.reset(0x010c);
+                    s.stopSending(0x010c);
+                }
+            });
             assertEquals(0x0107, closeCode(client), "H3_EXCESSIVE_LOAD");
         }
     }
