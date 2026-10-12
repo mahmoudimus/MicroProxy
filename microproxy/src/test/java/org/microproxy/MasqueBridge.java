@@ -7,6 +7,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A UDP socket on loopback whose datagrams go through a CONNECT-UDP tunnel, as a MASQUE client's
@@ -26,6 +29,8 @@ public final class MasqueBridge implements AutoCloseable {
     private volatile H3TestClient.Tunnel tunnel;
     private final DatagramSocket socket;
     private volatile SocketAddress peer;
+    /** The datagrams for the client that came back through each flow. */
+    private final Map<H3TestClient.Tunnel, AtomicLong> received = new ConcurrentHashMap<>();
 
     public MasqueBridge(H3TestClient client, H3TestClient.Tunnel tunnel) throws IOException {
         this.client = client;
@@ -52,6 +57,12 @@ public final class MasqueBridge implements AutoCloseable {
         client = next;
         tunnel = nextTunnel;
         return old;
+    }
+
+    /** How many datagrams for the client came back through {@code t}. */
+    public long receivedThrough(H3TestClient.Tunnel t) {
+        AtomicLong n = received.get(t);
+        return n == null ? 0 : n.get();
     }
 
     public InetSocketAddress address() {
@@ -82,7 +93,7 @@ public final class MasqueBridge implements AutoCloseable {
         try {
             while (!socket.isClosed()) {
                 byte[] content = t.receiveDatagram(Duration.ofMillis(200));
-                if (content != null) back(H3TestClient.udpPayload(content));
+                if (content != null) back(t, H3TestClient.udpPayload(content));
             }
         } catch (IOException e) {
             // closed
@@ -92,16 +103,17 @@ public final class MasqueBridge implements AutoCloseable {
     private void capsules(H3TestClient.Tunnel t) {
         try {
             for (H3TestClient.Capsule c; (c = t.readCapsule()) != null; ) {
-                if (c.type() == 0) back(H3TestClient.udpPayload(c.value()));
+                if (c.type() == 0) back(t, H3TestClient.udpPayload(c.value()));
             }
         } catch (IOException e) {
             // the stream ended
         }
     }
 
-    private void back(byte[] payload) throws IOException {
+    private void back(H3TestClient.Tunnel t, byte[] payload) throws IOException {
         SocketAddress to = peer;
         if (payload == null || to == null) return;
+        received.computeIfAbsent(t, k -> new AtomicLong()).incrementAndGet();
         socket.send(new DatagramPacket(payload, payload.length, to));
     }
 

@@ -235,6 +235,11 @@ class MasqueQuicTest {
      * middle of a transfer, and ends the old flow: the proxy's connection to the client follows it
      * there (validating the path through the new flow) and stays open; the inner client then moves
      * to a new local port as well.
+     *
+     * <p>The proxy's connection is on the new flow once a packet the client sent through it arrived
+     * (and closes with the flow it is on): the old flow ends only after a stream echoed through the
+     * new one, since the transfer may be over before the move, the client then having nothing more
+     * to send.
      */
     @Test
     void anInterceptedConnectionFollowsItsClientToAnotherFlow() throws Exception {
@@ -242,6 +247,7 @@ class MasqueQuicTest {
         closeables.add(origin);
         proxy = forwardProxy().withQuicInterceptor((message, stream) -> message.data()).start();
         MasqueBridge bridge = flowTo(HOST, origin.port());
+        Flow next = connectUdp(HOST, origin.port()); // ready before the transfer, to move in its middle
         ClientConfig config = ClientConfig.builder(TlsConfig.builder()
                 .alpnProtocols(QuicStreamHooksTest.ALPN)
                 .serverName(HOST)
@@ -253,11 +259,13 @@ class MasqueQuicTest {
             java.util.concurrent.atomic.AtomicLong received = new java.util.concurrent.atomic.AtomicLong();
             java.util.concurrent.CompletableFuture<byte[]> echoed = QuicMigrationProxyTest.echo(c, data, received);
             eventually("a quarter echoed", () -> received.get() > data.length / 4);
-            Flow next = connectUdp(HOST, origin.port());
             H3TestClient.Tunnel old = bridge.moveTo(next.masque(), next.tunnel());
             assertArrayEquals(QuicMigrationProxyTest.sha256(data), echoed.get(60, TimeUnit.SECONDS));
-            old.end(); // the flow the connection left ends: the connection stays
             byte[] more = QuicMigrationProxyTest.data(12, 200_000);
+            assertArrayEquals(QuicMigrationProxyTest.sha256(more),
+                    QuicMigrationProxyTest.echo(c, more, new java.util.concurrent.atomic.AtomicLong()).get(30, TimeUnit.SECONDS));
+            assertTrue(bridge.receivedThrough(next.tunnel()) > 0, "the proxy answers through the new flow");
+            old.end(); // the flow the connection left ends: the connection stays
             assertArrayEquals(QuicMigrationProxyTest.sha256(more),
                     QuicMigrationProxyTest.echo(c, more, new java.util.concurrent.atomic.AtomicLong()).get(30, TimeUnit.SECONDS));
             c.migrate(new InetSocketAddress(TestSupport.LOOPBACK, 0));
