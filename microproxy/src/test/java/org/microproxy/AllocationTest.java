@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -93,23 +94,63 @@ class AllocationTest {
         void run() throws Exception;
     }
 
+    /** Rounds through each proxy before any is measured. */
+    private static final int WARM_UP_ROUNDS = 4;
+
+    /** Pairs of measured rounds, one through each proxy. */
+    private static final int MEASURED_PAIRS = 7;
+
     /**
-     * The bytes per request of rounds through a proxy without metrics and one with, taken in turn
-     * (so that drift over the run, from the JIT and the heap, weighs on both alike), the best of
-     * five each: {without, with}.
+     * The bytes per request through a proxy without metrics and one with: {without, with}, and
+     * every measured round's, for a failure's message.
+     *
+     * <p>The count is every thread's (the request path runs on virtual threads, whose own counts
+     * the JVM does not keep), and a round's moves by a tenth and more for reasons that have nothing
+     * to do with metrics: the JIT still compiling the path thousands of requests in (rounds
+     * allocate less and less as it does), and the timing of a busy machine, which decides how many
+     * packets carry a request and its acknowledgments, and so how many are sealed, sent and
+     * parsed. Comparing the best round of each proxy compares two such accidents. So both proxies
+     * are warmed up first, in turn, and then measured in pairs of adjacent rounds, one through
+     * each, the order alternating from pair to pair so that drift weighs on both alike: what
+     * metrics cost is the median of the pairs' differences, over the median round without them.
      */
-    private static long[] compare(Round without, Round with, int requestsPerRound) throws Exception {
+    private static Comparison compare(Round without, Round with, int requestsPerRound) throws Exception {
         com.sun.management.ThreadMXBean threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        without.run(); // warm-up: the path compiled before either is measured
-        with.run();
-        long[] best = {Long.MAX_VALUE, Long.MAX_VALUE};
-        Round[] rounds = {without, with};
-        for (int i = 0; i < 10; i++) {
-            long before = threads.getTotalThreadAllocatedBytes();
-            rounds[i % 2].run();
-            best[i % 2] = Math.min(best[i % 2], (threads.getTotalThreadAllocatedBytes() - before) / requestsPerRound);
+        for (int i = 0; i < WARM_UP_ROUNDS; i++) {
+            without.run();
+            with.run();
         }
-        return best;
+        long[] plain = new long[MEASURED_PAIRS];
+        long[] metrics = new long[MEASURED_PAIRS];
+        long[] differences = new long[MEASURED_PAIRS];
+        for (int pair = 0; pair < MEASURED_PAIRS; pair++) {
+            boolean withFirst = pair % 2 == 1;
+            long first = bytesPerRequest(threads, withFirst ? with : without, requestsPerRound);
+            long second = bytesPerRequest(threads, withFirst ? without : with, requestsPerRound);
+            plain[pair] = withFirst ? second : first;
+            metrics[pair] = withFirst ? first : second;
+            differences[pair] = metrics[pair] - plain[pair];
+        }
+        long base = median(plain);
+        return new Comparison(base, base + median(differences),
+                "rounds without " + Arrays.toString(plain) + ", with " + Arrays.toString(metrics));
+    }
+
+    /** What {@link #compare} measured. */
+    private record Comparison(long without, long with, String rounds) {}
+
+    private static long bytesPerRequest(com.sun.management.ThreadMXBean threads, Round round, int requests)
+            throws Exception {
+        long before = threads.getTotalThreadAllocatedBytes();
+        round.run();
+        return (threads.getTotalThreadAllocatedBytes() - before) / requests;
+    }
+
+    private static long median(long[] values) {
+        long[] sorted = values.clone();
+        Arrays.sort(sorted);
+        int mid = sorted.length / 2;
+        return sorted.length % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
     }
 
     /**
@@ -124,10 +165,12 @@ class AllocationTest {
         String authority = "127.0.0.1:" + origin.getLocalPort();
         try (H2TestClient a = H2TestClient.cleartext(plain.getListenAddress(), authority).handshake();
                 H2TestClient b = H2TestClient.cleartext(proxy.getListenAddress(), authority).handshake()) {
-            long[] bytes = compare(http2Round(a), http2Round(b), 2_000);
-            System.out.println("AllocationTest: HTTP/2 " + bytes[0] + " bytes per request, " + bytes[1] + " with metrics");
-            assertTrue(bytes[1] <= bytes[0] + bytes[0] / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
-                    bytes[1] + " bytes per HTTP/2 request with metrics, " + bytes[0] + " without");
+            Comparison bytes = compare(http2Round(a), http2Round(b), 2_000);
+            System.out.println("AllocationTest: HTTP/2 " + bytes.without() + " bytes per request, " + bytes.with()
+                    + " with metrics");
+            assertTrue(bytes.with() <= bytes.without() + bytes.without() / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
+                    bytes.with() + " bytes per HTTP/2 request with metrics, " + bytes.without() + " without ("
+                            + bytes.rounds() + ")");
         } finally {
             plain.abort();
         }
@@ -163,10 +206,12 @@ class AllocationTest {
         proxy = MicroProxy.bootstrap().withPort(0).withName("alloc3").withMetrics(true).withReverseProxy(upstream)
                 .withSslContextSource(tls).withHttp3(true).start();
         try (H3TestClient a = h3(plain, tls); H3TestClient b = h3(proxy, tls)) {
-            long[] bytes = compare(http3Round(a), http3Round(b), 500);
-            System.out.println("AllocationTest: HTTP/3 " + bytes[0] + " bytes per request, " + bytes[1] + " with metrics");
-            assertTrue(bytes[1] <= bytes[0] + bytes[0] / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
-                    bytes[1] + " bytes per HTTP/3 request with metrics, " + bytes[0] + " without");
+            Comparison bytes = compare(http3Round(a), http3Round(b), 500);
+            System.out.println("AllocationTest: HTTP/3 " + bytes.without() + " bytes per request, " + bytes.with()
+                    + " with metrics");
+            assertTrue(bytes.with() <= bytes.without() + bytes.without() / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
+                    bytes.with() + " bytes per HTTP/3 request with metrics, " + bytes.without() + " without ("
+                            + bytes.rounds() + ")");
         } finally {
             plain.abort();
         }

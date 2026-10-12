@@ -226,13 +226,17 @@ class OtlpExportTest {
     @Test
     void aBatchIsDroppedAfterItsRetries() {
         collector.failNext(100, 400, null);
-        Telemetry telemetry = telemetry().metrics(false).logs(false).build();
+        // The request's two spans (server and client) are queued one after the other, but a stall
+        // between the two (a GC pause, a busy CPU) longer than a batch's delay would send them in
+        // two batches: here a batch is sent when it holds both, and only then.
+        Telemetry telemetry = telemetry().metrics(false).logs(false).spanQueue(2048, 2, Duration.ofHours(1)).build();
         start(telemetry, MicroProxy.bootstrap().withMetrics(true));
         TestSupport.get(TestSupport.client(proxy), TestSupport.url(origin, "/rejected"));
         StatsRegistry stats = proxy.getStats();
         TestSupport.eventually("the failure counted", () -> ((Counter) stats.get("otel.spans_failed")).value() == 2);
         // A 400 is not retried.
         assertEquals(1, collector.requests.size());
+        assertEquals(0, ((Counter) stats.get("otel.spans_export_retries")).value());
     }
 
     @Test
