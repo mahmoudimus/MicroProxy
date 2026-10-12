@@ -53,6 +53,16 @@ public interface HttpProxyServer extends AutoCloseable {
     InetSocketAddress getListenAddress();
 
     /**
+     * The UDP address of the transparent QUIC listener ({@link
+     * HttpProxyServerBootstrap#withTransparentQuicPort}), with the port it bound.
+     *
+     * @return the address, or {@code null} without the listener
+     */
+    default InetSocketAddress getTransparentQuicAddress() {
+        return null;
+    }
+
+    /**
      * Changes global bandwidth limits for server traffic; 0 means unlimited.
      *
      * @param readThrottleBytesPerSecond the inbound bandwidth limit in bytes per second, or zero for unlimited

@@ -160,6 +160,21 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentTlsPort;
     }
 
+    /** The transparent QUIC listener's UDP port, -1 for none. */
+    public static int transparentQuicPort(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentQuicPort;
+    }
+
+    /** The HTTP/3 options as configured. */
+    public static org.microproxy.Http3Options http3Options(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http3Options;
+    }
+
+    /** Whether HTTP/3 alternatives would be removed for clients redirected to the proxy, defaults applied. */
+    public static boolean stripsAltSvcH3ForTransparent(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).stripsAltSvcH3ForTransparent();
+    }
+
     /** Parses a properties text as a properties file would be read. */
     public static HttpProxyServerBootstrap fromProperties(java.util.Properties properties) {
         return DefaultHttpProxyServerBootstrap.fromProperties(properties);

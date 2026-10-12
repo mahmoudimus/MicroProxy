@@ -87,8 +87,10 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *   <li>{@code allow_mitm(req, ctx)}: for a {@code CONNECT}, whether to intercept it (when a MITM
  *       manager is configured).
  *   <li>{@code on_client_hello(hello, ctx)}: once the client of a {@code CONNECT} that may be
- *       intercepted (or of a transparent TLS connection) has sent its TLS ClientHello, whether to
- *       intercept it: {@code False} tunnels it untouched, {@code True} or {@code None} intercepts.
+ *       intercepted (or of a transparent TLS connection, or a transparent QUIC flow, whose
+ *       ClientHello the proxy reads from its Initial packets) has sent its TLS ClientHello, whether
+ *       to intercept it: {@code False} tunnels (or relays) it untouched, {@code True} or {@code
+ *       None} intercepts.
  *       {@code hello} has {@code sni}, {@code alpn}, {@code versions} and {@code cipher_suites};
  *       later hooks of the session see it as {@code ctx.client_hello}.
  *   <li>{@code buffer_request(req, ctx)}: whether to buffer this request's body so {@code

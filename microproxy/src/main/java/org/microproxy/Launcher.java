@@ -55,7 +55,13 @@ public final class Launcher {
               --name <name>                server name for logs and threads
               --transparent                do not add Via / strip hop-by-hop headers, and route TLS
                                            that arrives without CONNECT by its SNI
-              --transparent-tls-port <port>  port SNI-routed TLS goes to (default 443)
+              --transparent-tls-port <port>  port SNI-routed TLS and QUIC go to (default 443)
+              --transparent-quic-port <port>  with --transparent, also take QUIC (UDP) redirected to
+                                           this UDP port: route it by the SNI of its ClientHello,
+                                           intercept HTTP/3 (with --mitm) or relay it untouched;
+                                           needs the quic and http3-codec jars
+              --transparent-quic-relay-idle-timeout <seconds>  close a relayed QUIC flow after this
+                                           long without a datagram (default 60)
               --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
                                            transparent HTTP)
               --mode <mode>                regular, transparent, socks5 or
@@ -148,6 +154,8 @@ public final class Launcher {
               --http3-max-streams <n>      concurrent HTTP/3 requests per client connection
                                            (default 100)
               --no-http3-alt-svc           with --http3, do not advertise it with Alt-Svc
+              --http3-retry                validate QUIC clients' addresses with a Retry first
+                                           (--http3 and --transparent-quic-port)
               --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
                                            store's first key entry (HTTPS, HTTP/2 with --http2, and
                                            the certificate --http3 presents)
@@ -282,6 +290,8 @@ public final class Launcher {
         int http2MaxStreams = 0;
         int http3MaxStreams = 0;
         boolean noHttp3AltSvc = false;
+        boolean http3Retry = false;
+        long quicRelayIdleSeconds = 0;
         List<String> http3UpstreamHosts = new ArrayList<>();
         Path listenerKeystore = null;
         String listenerKeystorePassword = "";
@@ -334,6 +344,8 @@ public final class Launcher {
                 case "--name" -> bootstrap.withName(value(queue, arg));
                 case "--transparent" -> bootstrap.withTransparent(true);
                 case "--transparent-tls-port" -> bootstrap.withTransparentTlsPort(intValue(queue, arg));
+                case "--transparent-quic-port" -> bootstrap.withTransparentQuicPort(intValue(queue, arg));
+                case "--transparent-quic-relay-idle-timeout" -> quicRelayIdleSeconds = longValue(queue, arg);
                 case "--allow-requests-to-origin-server" -> bootstrap.withAllowRequestToOriginServer(true);
                 case "--mode" -> {
                     String mode = value(queue, arg);
@@ -464,6 +476,7 @@ public final class Launcher {
                 case "--http3-upstream-hosts" -> http3UpstreamHosts.add(value(queue, arg));
                 case "--http3-max-streams" -> http3MaxStreams = intValue(queue, arg);
                 case "--no-http3-alt-svc" -> noHttp3AltSvc = true;
+                case "--http3-retry" -> http3Retry = true;
                 case "--listener-keystore" -> listenerKeystore = Path.of(value(queue, arg));
                 case "--listener-keystore-password" -> listenerKeystorePassword = value(queue, arg);
                 default -> {
@@ -499,10 +512,12 @@ public final class Launcher {
         if (http2MaxStreams > 0) {
             bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
         }
-        if (http3MaxStreams > 0 || noHttp3AltSvc) {
+        if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || quicRelayIdleSeconds > 0) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
             if (noHttp3AltSvc) h3.altSvc(false);
+            if (http3Retry) h3.retry(true);
+            if (quicRelayIdleSeconds > 0) h3.transparentRelayIdleTimeout(Duration.ofSeconds(quicRelayIdleSeconds));
             bootstrap.withHttp3Options(h3.build());
         }
         if (!http3UpstreamHosts.isEmpty()) bootstrap.withHttp3UpstreamHosts(http3UpstreamHosts.toArray(String[]::new));

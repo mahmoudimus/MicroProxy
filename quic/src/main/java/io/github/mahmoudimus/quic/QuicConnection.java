@@ -381,6 +381,16 @@ public final class QuicConnection implements AutoCloseable {
     }
 
     /**
+     * The Destination Connection ID of the client's first Initial packet (after a Retry, of its
+     * first Initial with the Retry's token): on a server, the ID the connection was created for.
+     *
+     * @return the ID
+     */
+    public ConnectionId initialDestinationId() {
+        return conn.initialDcid();
+    }
+
+    /**
      * The QUIC version in use.
      *
      * @return the version

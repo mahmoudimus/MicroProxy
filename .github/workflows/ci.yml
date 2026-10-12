@@ -46,7 +46,8 @@ jobs:
 
   quic-interop:
     # QUIC and HTTP/3 interoperability with aioquic (pinned): as client and as server of the Java
-    # QUIC stack, and on either side of the proxy's HTTP/3 (reverse mode, upstream, scripts).
+    # QUIC stack, and on either side of the proxy's HTTP/3 (reverse mode, upstream, scripts, and
+    # transparent QUIC, intercepted and relayed).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
@@ -64,7 +65,8 @@ jobs:
       - name: Run the interop tests
         run: >-
           mvn --batch-mode -pl quic,microproxy,microproxy-starlark -am verify
-          -Dtest=AioquicInteropTest,AioquicHttp3Test,ScriptedHttp3Test -Dsurefire.failIfNoSpecifiedTests=false
+          -Dtest=AioquicInteropTest,AioquicHttp3Test,AioquicTransparentQuicTest,ScriptedHttp3Test
+          -Dsurefire.failIfNoSpecifiedTests=false
           -Dquic.interop.python=python -Dquic.interop.required=true
 
   central-artifacts:

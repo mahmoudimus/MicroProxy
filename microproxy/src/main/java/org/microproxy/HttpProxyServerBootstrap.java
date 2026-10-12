@@ -163,6 +163,36 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Opens a transparent QUIC listener on UDP {@code port} (0 for any): the UDP counterpart of
+     * {@linkplain #withTransparent transparent} TLS, for QUIC (HTTP/3, UDP 443) that a firewall
+     * redirects to the proxy, such as {@code iptables -t nat -A PREROUTING -p udp --dport 443 -j
+     * REDIRECT --to-ports <port>}. Needs transparent mode and the optional {@code quic} and {@code
+     * http3-codec} modules.
+     *
+     * <p>Java cannot read a redirected datagram's original destination either, so each new client
+     * flow (a client address and the Destination Connection ID of its Initial packets) is routed by
+     * the SNI of the ClientHello in its Initial packets, which the proxy decrypts, to that host's
+     * {@linkplain #withTransparentTlsPort transparent TLS port}. The rules and hooks that decide on
+     * TLS decide on it too: {@linkplain #withIgnoreHosts ignored} and {@linkplain #withAllowHosts
+     * allowed} hosts, {@link HttpFilters#proxyToServerAllowMitm()} and {@link
+     * HttpFilters#proxyToServerAllowMitm(ClientHello)} on a {@code CONNECT} the proxy makes up, and
+     * {@link MitmManager#shouldIntercept}. An intercepted client offering ALPN {@code h3} gets a
+     * certificate the {@link org.microproxy.tls.CertificateAuthorityMitmManager} issues for its SNI
+     * and is served HTTP/3 like any client, with its requests going to that host (over HTTP/3 with
+     * {@link #withHttp3Upstream}, else over TCP). Everything else (no MITM manager, a declined or
+     * ignored host, other ALPN protocols) is relayed untouched to the server as UDP, from a socket
+     * per flow, until the flow is idle for {@link Http3Options#transparentRelayIdleTimeout()}.
+     *
+     * @param port the UDP port, 0 for any
+     * @return this bootstrap
+     * @throws IllegalArgumentException if the port is out of range
+     * @see HttpProxyServer#getTransparentQuicAddress()
+     */
+    default HttpProxyServerBootstrap withTransparentQuicPort(int port) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support transparent QUIC");
+    }
+
+    /**
      * Hosts whose TLS connections are never intercepted, but tunnelled untouched, so their clients
      * see the real server's certificate (mitmproxy's {@code ignore_hosts}). Each pattern is a
      * regular expression searched for, ignoring case, in {@code host:port} names of the
@@ -408,11 +438,13 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>A client that learns an origin speaks HTTP/3 may move to QUIC over UDP, which bypasses
      * the proxy: browsers never send QUIC through an HTTP proxy, and a transparent deployment
-     * only redirects TCP. Where the proxy is meant to see the traffic, that is a hole, so this is
-     * on by default when {@link #withManInTheMiddle interception} or {@link #withTransparent
-     * transparent mode} is configured, and off otherwise. Clients can still learn about HTTP/3
-     * from DNS {@code HTTPS} records, so transparent deployments should also block UDP port 443,
-     * which makes clients fall back to TCP.
+     * often redirects only TCP. Where the proxy is meant to see the traffic, that is a hole, so this
+     * is on by default when {@link #withManInTheMiddle interception} or {@link #withTransparent
+     * transparent mode} is configured, and off otherwise; except, with a {@linkplain
+     * #withTransparentQuicPort transparent QUIC listener}, for clients whose traffic was redirected
+     * to the proxy, whose QUIC reaches it too. Clients can still learn about HTTP/3 from DNS {@code
+     * HTTPS} records, so transparent deployments without a QUIC listener should also block UDP
+     * port 443, which makes clients fall back to TCP. Setting this applies to every client.
      *
      * <p>Responses from servers are rewritten before {@link HttpFilters#proxyToClientResponse}
      * sees them; short-circuit responses from filters (and the cache) after it.

@@ -26,6 +26,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * The I/O side of an {@link Endpoint}: one {@link DatagramChannel}, a virtual thread that receives
  * datagrams and routes them, and one {@link ConnectionDriver} per connection. The sans-I/O endpoint
  * is guarded by a lock that is only held while routing; lock order is connection, then endpoint.
+ * A server may have a {@link QuicServer.DatagramFilter}, which sees the datagrams no connection
+ * claims before the endpoint does, and hands back those it wants routed ({@link #inject}).
  */
 final class EndpointDriver implements AutoCloseable {
 
@@ -43,13 +45,21 @@ final class EndpointDriver implements AutoCloseable {
     private final InetSocketAddress localAddress;
     private final Thread receiver;
     private final String name;
+    /** Sees datagrams for no known connection first; null for none. */
+    private final QuicServer.DatagramFilter filter;
     private volatile boolean closed;
 
     private static final Object CLOSED = new Object();
 
     EndpointDriver(InetSocketAddress bind, EndpointConfig config, ServerConfig serverConfig, String name)
             throws IOException {
+        this(bind, config, serverConfig, name, null);
+    }
+
+    EndpointDriver(InetSocketAddress bind, EndpointConfig config, ServerConfig serverConfig, String name,
+            QuicServer.DatagramFilter filter) throws IOException {
         this.name = name;
+        this.filter = filter;
         DatagramChannel ch = bind.getAddress() != null && bind.getAddress() instanceof java.net.Inet6Address
                 ? DatagramChannel.open(StandardProtocolFamily.INET6)
                 : DatagramChannel.open(StandardProtocolFamily.INET);
@@ -114,6 +124,39 @@ final class EndpointDriver implements AutoCloseable {
             buf.flip();
             // Each datagram gets its own buffer: connections keep views of received data
             ByteBuffer datagram = ByteBuffer.allocate(buf.remaining()).put(buf).flip();
+            if (filter != null && !knows(from, datagram) && filtered(from, datagram)) {
+                continue;
+            }
+            route(from, datagram);
+        }
+    }
+
+    /** Whether the endpoint routes {@code datagram} to one of its connections. */
+    private boolean knows(InetSocketAddress from, ByteBuffer datagram) {
+        endpointLock.lock();
+        try {
+            return endpoint.knows(from, datagram.duplicate());
+        } finally {
+            endpointLock.unlock();
+        }
+    }
+
+    /** Offers a datagram to the filter; true if the filter took it. */
+    private boolean filtered(InetSocketAddress from, ByteBuffer datagram) {
+        try {
+            return filter.filter(from, datagram);
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "the datagram filter failed; routing the datagram", e);
+            return false;
+        }
+    }
+
+    /**
+     * Routes a datagram as if it had just been received, past the filter: for datagrams the filter
+     * held back. Any thread may call it.
+     */
+    void inject(InetSocketAddress from, ByteBuffer datagram) {
+        if (!closed) {
             route(from, datagram);
         }
     }

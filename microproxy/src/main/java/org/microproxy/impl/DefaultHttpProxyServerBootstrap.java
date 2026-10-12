@@ -64,6 +64,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     boolean transparent;
     /** The port transparent TLS connections are routed to, on the host their SNI names. */
     int transparentTlsPort = 443;
+    /** The UDP port of the transparent QUIC listener (0 for any); -1 for none. */
+    int transparentQuicPort = -1;
     /** Host patterns whose TLS is tunnelled untouched / the only ones intercepted. */
     List<String> ignoreHosts = List.of();
     /** Hosts relayed as raw TCP even when they look like HTTP (mitmproxy's tcp_hosts). */
@@ -146,6 +148,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.failureResponder = failureResponder;
         c.transparent = transparent;
         c.transparentTlsPort = transparentTlsPort;
+        c.transparentQuicPort = transparentQuicPort;
         c.ignoreHosts = ignoreHosts;
         c.tcpHosts = tcpHosts;
         c.allowHosts = allowHosts;
@@ -219,6 +222,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("transparent")) withTransparent(bool(p, "transparent"));
         if (p.containsKey("transparent_tls_port")) {
             withTransparentTlsPort(Integer.parseInt(p.getProperty("transparent_tls_port").strip()));
+        }
+        if (p.containsKey("transparent_quic_port")) {
+            withTransparentQuicPort(Integer.parseInt(p.getProperty("transparent_quic_port").strip()));
         }
         if (p.containsKey("ignore_hosts")) {
             withIgnoreHosts(HostRules.split(p.getProperty("ignore_hosts")).toArray(String[]::new));
@@ -334,12 +340,18 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("http3_upstream_hosts")) {
             withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
         }
-        if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc")) {
+        if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
+                || p.containsKey("transparent_quic_relay_idle_timeout")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
             }
             if (p.containsKey("http3_alt_svc")) h3.altSvc(bool(p, "http3_alt_svc"));
+            if (p.containsKey("http3_retry")) h3.retry(bool(p, "http3_retry"));
+            if (p.containsKey("transparent_quic_relay_idle_timeout")) {
+                h3.transparentRelayIdleTimeout(Duration.ofSeconds(
+                        Long.parseLong(p.getProperty("transparent_quic_relay_idle_timeout").strip())));
+            }
             withHttp3Options(h3.build());
         }
         if (p.containsKey("listener_keystore")) {
@@ -547,6 +559,13 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withTransparentQuicPort(int port) {
+        if (port < 0 || port > 65535) throw new IllegalArgumentException("invalid port: " + port);
+        this.transparentQuicPort = port;
+        return this;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withIgnoreHosts(String... patterns) {
         List<String> rules = List.of(patterns);
         HostRules.compile(rules);
@@ -669,11 +688,22 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     /**
-     * Whether HTTP/3 alternatives are removed from Alt-Svc: as configured, else whenever traffic is
-     * intercepted or the proxy is transparent, where a client moving to QUIC would bypass it.
+     * Whether HTTP/3 alternatives are removed from Alt-Svc for clients of the explicit proxy: as
+     * configured, else whenever traffic is intercepted or the proxy is transparent, where a client
+     * moving to QUIC would bypass it.
      */
     boolean stripsAltSvcH3() {
         return altSvcH3Stripping != null ? altSvcH3Stripping : mitmManager != null || transparent;
+    }
+
+    /**
+     * Whether HTTP/3 alternatives are removed from Alt-Svc for clients whose traffic was redirected
+     * to the proxy (transparent TLS, HTTP routed by Host, transparent QUIC): as for the explicit
+     * proxy's, except that by default, with a transparent QUIC listener, the QUIC such clients move
+     * to reaches the proxy too.
+     */
+    boolean stripsAltSvcH3ForTransparent() {
+        return altSvcH3Stripping != null ? altSvcH3Stripping : stripsAltSvcH3() && transparentQuicPort < 0;
     }
 
     @Override

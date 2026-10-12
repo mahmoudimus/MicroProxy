@@ -123,14 +123,20 @@ public final class AioquicPeers {
      * length}, {@code sha256}, {@code sent_sha256}, {@code text} for short text bodies, and {@code
      * reset} (an error code, or null).
      */
-    @SuppressWarnings("unchecked")
     public static List<Map<String, Object>> requests(Path dir, int port, Path ca, List<Map<String, Object>> requests,
             boolean concurrent) throws Exception {
+        return requests(dir, port, ca, "localhost", requests, concurrent);
+    }
+
+    /** {@link #requests(Path, int, Path, List, boolean)} asking for {@code serverName} (SNI and {@code :authority}). */
+    @SuppressWarnings("unchecked")
+    public static List<Map<String, Object>> requests(Path dir, int port, Path ca, String serverName,
+            List<Map<String, Object>> requests, boolean concurrent) throws Exception {
         assumeAvailable();
         Path file = Files.createTempFile(dir, "requests", ".json");
         Files.writeString(file, toJson(requests));
         List<String> cmd = new ArrayList<>(List.of(python, script(dir, "h3_requests.py").toString(), "127.0.0.1",
-                Integer.toString(port), "--ca", ca.toString(), "--requests", file.toString()));
+                Integer.toString(port), "--ca", ca.toString(), "--server-name", serverName, "--requests", file.toString()));
         if (concurrent) cmd.add("--concurrent");
         Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
         StringBuilder output = new StringBuilder();

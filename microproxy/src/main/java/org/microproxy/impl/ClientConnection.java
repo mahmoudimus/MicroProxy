@@ -603,6 +603,17 @@ final class ClientConnection implements Runnable {
     private boolean plainSession;
     /** The next exchange is a CONNECT the proxy made up ({@link Exchange#implicit}). */
     private boolean implicitConnect;
+    /**
+     * The client's traffic was redirected to the proxy rather than sent to it: a TLS connection
+     * routed by its SNI on a transparent listener, or a flow of the transparent QUIC listener.
+     * Written before the session's requests start.
+     */
+    private volatile boolean transparentSession;
+    /**
+     * The filters of the {@code CONNECT} made up for a transparent QUIC flow, told when the flow
+     * ends ({@link #endTransparentQuic}); null for other clients.
+     */
+    private volatile HttpFilters quicFilters;
     /** That CONNECT is a SOCKS client's request ({@link Exchange#socks}): its SOCKS version, 0 for none. */
     private int socksConnect;
     /**
@@ -874,6 +885,7 @@ final class ClientConnection implements Runnable {
         }
         // Known before the made-up CONNECT, whose filters may already look at it.
         flowContext.clientHello(hello);
+        transparentSession = true;
         serveImplicitConnect(new HostAndPort(hello.sni(), server.transparentTlsPort).toString());
     }
 
@@ -1224,7 +1236,7 @@ final class ClientConnection implements Runnable {
      * upstream.
      */
     private boolean sessionAllowsHttp2Upstream() {
-        ClientHello hello = flowContext.getClientHello();
+        ClientHello hello = sessionHello();
         return hello == null || hello.alpnProtocols().isEmpty() || hello.offersAlpn(ClientHello.H2);
     }
 
@@ -1244,9 +1256,15 @@ final class ClientConnection implements Runnable {
         return mirrored.isEmpty() ? null : mirrored;
     }
 
-    /** The ClientHello of the intercepted TLS session whose requests are being served, if any. */
+    /**
+     * The ClientHello of the intercepted TLS session whose requests are being served, if any, for
+     * what it says about the protocols the client wants from the server. A transparent QUIC
+     * client's offers HTTP/3, which the proxy translates to whatever the server speaks over TCP: as
+     * a client that offered nothing, it gets HTTP/2 or HTTP/1.1.
+     */
     private ClientHello sessionHello() {
-        return mitmHostAndPort != null && !plainSession ? flowContext.getClientHello() : null;
+        return mitmHostAndPort != null && !plainSession && !flowContext.isTransparentQuic()
+                ? flowContext.getClientHello() : null;
     }
 
     /**
@@ -1841,7 +1859,7 @@ final class ClientConnection implements Runnable {
         if (!server.transparent) {
             modifyResponseHeadersToReflectProxying(res, ex.forwarding != null || ex.proxyForm);
         }
-        if (server.stripAltSvcH3) {
+        if (stripsAltSvcH3(ex)) {
             AltSvc.stripHttp3(res.headers());
         }
         String ownAltSvc = server.http3AltSvc;
@@ -3276,8 +3294,17 @@ final class ClientConnection implements Runnable {
      * of its request streams runs its exchange ({@link #handleStream}) on a thread of its own.
      */
     void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic) {
+        serveHttp3(quic, true);
+    }
+
+    /**
+     * Serves HTTP/3 to a QUIC connection, as {@link #serveHttp3(io.github.mahmoudimus.quic.QuicConnection)}
+     * does; {@code connected} is false when trackers were told of the client before (a transparent
+     * QUIC flow, decided on before its handshake).
+     */
+    private void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic, boolean connected) {
         try {
-            server.trackers.fire(t -> t.clientConnected(flowContext));
+            if (connected) server.trackers.fire(t -> t.clientConnected(flowContext));
             if (server.mitmManager != null) mitmManager();
             streamConnections = new StreamServerConnections(server.http3Options.maxConcurrentStreams());
             Http3Connection h3 = new Http3Connection(server, this, quic, flowContext, logPrefix);
@@ -3289,9 +3316,149 @@ final class ClientConnection implements Runnable {
         } finally {
             close();
             quic.close();
+            endQuicFilters(true);
             server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
             server.unregister(this);
         }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Transparent QUIC: a client flow of the transparent QUIC listener
+    // ---------------------------------------------------------------------------------------
+
+    /** What the transparent QUIC listener does with a client flow. */
+    enum QuicVerdict {
+        /** Serve it HTTP/3 with a certificate the proxy issues. */
+        INTERCEPT,
+        /** Relay its datagrams to the server untouched. */
+        RELAY,
+        /** Drop its datagrams: refused. */
+        DROP
+    }
+
+    /** A decision on a transparent QUIC flow, and why (null when it is intercepted). */
+    record QuicDecision(QuicVerdict verdict, String reason) {}
+
+    /**
+     * Decides on a new client flow of the transparent QUIC listener ({@link TransparentQuicListener})
+     * from the ClientHello of its Initial packets, by the rules and hooks that decide on a
+     * transparent TLS connection: a {@code CONNECT} to {@code hostAndPort} is made up for it (and
+     * reported to trackers), the authenticator is asked about a client without credentials, filters
+     * are made for it ({@code clientToProxyRequest} may refuse it, {@code proxyToServerAllowMitm()}
+     * decline interception), then the host rules, the client's ALPN (only {@code h3} is
+     * intercepted), {@link MitmManager#shouldIntercept} and {@code proxyToServerAllowMitm(hello)}.
+     * Runs on a thread of the listener's, before any of the flow's datagrams go anywhere.
+     *
+     * @param canIntercept whether the listener can present a certificate (a CA to issue one)
+     */
+    QuicDecision decideTransparentQuic(ClientHello hello, String hostAndPort, boolean canIntercept) {
+        idle = false;
+        flowContext.transparentQuic();
+        flowContext.clientHello(hello);
+        flowContext.startExchange();
+        transparentSession = true;
+        server.trackers.fire(t -> t.clientConnected(flowContext));
+        HttpRequest connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
+        connect.headers().set(HttpHeaderNames.HOST, hostAndPort);
+        QuicDecision decision;
+        try {
+            decision = decideQuic(connect, hello, hostAndPort, canIntercept);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "deciding on a transparent QUIC flow threw; relaying it", e);
+            decision = new QuicDecision(QuicVerdict.RELAY, "the decision failed");
+        }
+        if (decision.verdict() == QuicVerdict.INTERCEPT) {
+            // The session's requests go to the server the SNI names, as an intercepted CONNECT's do.
+            mitmHostAndPort = hostAndPort;
+            if (server.http3Origins != null) server.http3Origins.spoke(hostAndPort);
+        }
+        QuicDecision decided = decision;
+        server.trackers.fire(t -> t.transparentQuicFlowDecided(flowContext, hello,
+                decided.verdict() == QuicVerdict.INTERCEPT, decided.reason()));
+        return decision;
+    }
+
+    private QuicDecision decideQuic(HttpRequest connect, ClientHello hello, String hostAndPort, boolean canIntercept) {
+        if (!server.trackers.isEmpty()) {
+            HttpRequest snapshot = copy(connect);
+            server.trackers.fire(t -> t.requestReceivedFromClient(flowContext, snapshot));
+        }
+        if (server.proxyAuthenticator != null
+                && !recordAuthentication(server.proxyAuthenticator.authenticate(connect, flowContext))) {
+            // A redirected client cannot send credentials (as over transparent TLS).
+            return new QuicDecision(QuicVerdict.DROP, "the authenticator refused a client without credentials");
+        }
+        HttpFilters filters = NOOP;
+        if (server.filtersSource.getClass() != HttpFiltersSourceAdapter.class) {
+            HttpRequest original = copy(connect);
+            filters = server.filtersSource.filterRequest(original, flowContext);
+            if (filters instanceof HttpFiltersBuilder.Built built) filters = built.filterRequest(original, flowContext);
+            if (filters == null) filters = NOOP;
+        }
+        quicFilters = filters;
+        if (filters.clientToProxyRequest(connect) != null) {
+            return new QuicDecision(QuicVerdict.DROP, "a filter answered its CONNECT");
+        }
+        if (server.mitmManager == null) return new QuicDecision(QuicVerdict.RELAY, "no MITM manager");
+        if (!filters.proxyToServerAllowMitm()) return new QuicDecision(QuicVerdict.RELAY, "a filter declined (CONNECT)");
+        if (mitmManager() == null) return new QuicDecision(QuicVerdict.RELAY, "no MITM manager for the connection");
+        if (server.hostRules != null && server.hostRules.ignored(hostAndPort)) {
+            return new QuicDecision(QuicVerdict.RELAY, "an ignored host (SNI " + hello.sni() + ")");
+        }
+        if (!hello.offersAlpn(TransparentQuicListener.H3)) {
+            return new QuicDecision(QuicVerdict.RELAY, "the client offers no HTTP/3 (ALPN " + hello.alpnProtocols() + ")");
+        }
+        if (!canIntercept) {
+            return new QuicDecision(QuicVerdict.RELAY, "no CertificateAuthorityMitmManager to issue a certificate for QUIC");
+        }
+        if (!connectionMitm.shouldIntercept(hello, flowContext)) {
+            return new QuicDecision(QuicVerdict.RELAY, "the MITM manager declined");
+        }
+        if (!filters.proxyToServerAllowMitm(hello)) return new QuicDecision(QuicVerdict.RELAY, "a filter declined");
+        return new QuicDecision(QuicVerdict.INTERCEPT, null);
+    }
+
+    /**
+     * Serves an intercepted transparent QUIC flow, once its handshake with the proxy completed:
+     * HTTP/3, whose requests go to the server its SNI named ({@link #decideTransparentQuic}).
+     */
+    void serveTransparentQuic(io.github.mahmoudimus.quic.QuicConnection quic) {
+        serveHttp3(quic, false);
+    }
+
+    /**
+     * A transparent QUIC flow that is not served ({@link #serveTransparentQuic}) has ended: relayed
+     * until idle, dropped, or intercepted but never connected. Tells the filters and trackers.
+     */
+    void endTransparentQuic(boolean completed) {
+        closed = true;
+        endQuicFilters(completed);
+        server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
+    }
+
+    /** Tells the made-up CONNECT's filters, once, that the flow is over. */
+    private void endQuicFilters(boolean completed) {
+        HttpFilters filters = quicFilters;
+        quicFilters = null;
+        if (filters == null) return;
+        try {
+            filters.exchangeEnded(completed);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "exchangeEnded threw", e);
+        }
+    }
+
+    /**
+     * Whether {@code Alt-Svc} loses its HTTP/3 alternatives on the way to this exchange's client:
+     * for a client whose traffic was redirected to the proxy (transparent TLS or QUIC, or HTTP
+     * routed by {@code Host}), by the transparent default, which keeps them when a transparent QUIC
+     * listener sees that client's QUIC too; for a client of the explicit proxy, by the usual one.
+     */
+    private boolean stripsAltSvcH3(Exchange ex) {
+        boolean redirected = transparentSession || (server.transparent && server.reverseProxy == null
+                && mitmHostAndPort == null && !ProxyUtils.isCONNECT(ex.request)
+                && !ProxyUtils.isAbsoluteUri(ex.originalUri));
+        return redirected ? server.stripAltSvcH3Transparent : server.stripAltSvcH3;
     }
 
     /**
@@ -4126,7 +4293,7 @@ final class ClientConnection implements Runnable {
         if (rewriteHeaders && !server.transparent) {
             modifyResponseHeadersToReflectProxying(res, false);
         }
-        if (rewriteHeaders && server.stripAltSvcH3) {
+        if (rewriteHeaders && stripsAltSvcH3(ex)) {
             AltSvc.stripHttp3(res.headers());
         }
         ex.channel.setKeepAlive(res, keepAlive);

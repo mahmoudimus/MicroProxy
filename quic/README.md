@@ -313,15 +313,24 @@ try (QuicClient client = QuicClient.create(clientConfig);
 
 | Type | Role |
 | --- | --- |
-| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig])`, `accept()` (blocks until a handshake completes), `localAddress()`, `close()` |
+| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `accept()` (blocks until a handshake completes), `inject(from, datagram)`, `send(datagram, to)`, `localAddress()`, `close()` |
 | `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout])`, `close()` |
-| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `remoteAddress()`, `localAddress()`, `stats()` |
+| `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()` |
 | `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread) |
 | `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
 | `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
-| `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `connect(...)`; `handleEvent(connection, event)` |
+| `...connection.Endpoint` | sans-I/O: `handle(now, remote, ecn, bytes)` returns `Deliver`, `NewConnection` or `Response`; `knows(remote, bytes)`; `connect(...)`; `handleEvent(connection, event)` |
 | `...connection.ConnectionEvent` | `HandshakeDataReady` (ALPN and SNI known), `Connected`, `HandshakeConfirmed`, `Stream(StreamEvent)`, `DatagramReceived`, `ConnectionLost(ConnectionError)` |
 | `...connection.TransportConfig`, `ServerConfig`, `ClientConfig`, `EndpointConfig` | Immutable builders: idle timeout, windows, stream limits, congestion controller, MTU discovery, DATAGRAM buffers, keep-alive, key log, qlog; certificates (per SNI), ALPN, Retry, connection cap; trust, server name, version; CID length and lifetime, reset key, versions |
+
+A server's `DatagramFilter` sees the datagrams none of its connections claims (by Destination
+Connection ID: a client's first Initial, unknown versions, unknown connections) before its endpoint
+does, on the receiving thread. It may take a datagram, and later hand it back with `inject`, which
+routes it as if it had just arrived (a client's first Initial then starts a connection), or answer
+it from the server's socket with `send`. Once a connection exists, its datagrams go straight to it.
+MicroProxy's transparent QUIC listener is built this way: it reads each new client's ClientHello
+from its Initials, then injects them to intercept the connection, or relays the client's datagrams
+elsewhere.
 
 ### What a connection does
 

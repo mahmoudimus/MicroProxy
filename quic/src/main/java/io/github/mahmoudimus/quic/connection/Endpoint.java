@@ -166,6 +166,23 @@ public final class Endpoint {
         return reset != null ? new DatagramEvent.Response(reset) : null;
     }
 
+    /**
+     * Whether a datagram belongs to one of the endpoint's connections, by its first packet's
+     * Destination Connection ID (or the sender's address, for zero-length IDs): what {@link #handle}
+     * would {@linkplain DatagramEvent.Deliver deliver}, short of stateless resets. Nothing changes.
+     *
+     * @param remote the sender
+     * @param datagram the datagram, between its position and limit; not modified
+     * @return whether a connection would get it
+     */
+    public boolean knows(InetSocketAddress remote, ByteBuffer datagram) {
+        try {
+            return route(remote, ProtectedPacket.parse(datagram.duplicate(), config.cidLength())) != null;
+        } catch (PacketDecodeException e) {
+            return false;
+        }
+    }
+
     private Connection route(InetSocketAddress remote, ProtectedPacket p) {
         ConnectionId dcid = p.destinationId();
         if (p.type() == PacketType.INITIAL || p.type() == PacketType.ZERO_RTT) {

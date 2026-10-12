@@ -41,7 +41,7 @@ import org.microproxy.tls.CertificateAuthority;
 
 /**
  * A small HTTP/3 origin server for tests, on the QUIC module and http3-codec, with a certificate
- * for {@code localhost} and {@code 127.0.0.1} issued by a test CA. Its QPACK decoder takes the
+ * for {@code localhost}, {@code 127.0.0.1} and {@code origin.test} issued by a test CA. Its QPACK decoder takes the
  * proxy's dynamic table; it encodes with the static table only. Resources:
  *
  * <ul>
@@ -78,7 +78,7 @@ final class H3TestOrigin implements AutoCloseable {
         } catch (java.security.GeneralSecurityException e) {
             throw new IllegalStateException(e);
         }
-        X509Certificate leaf = ca.issue(keys.getPublic(), List.of("localhost", "127.0.0.1"));
+        X509Certificate leaf = ca.issue(keys.getPublic(), List.of("localhost", "127.0.0.1", "origin.test"));
         CertifiedKey certified = new CertifiedKey(List.of(leaf, ca.getCertificate()), keys.getPrivate());
         ServerConfig config = ServerConfig.builder(TlsConfig.builder().certificate(certified).alpnProtocols("h3").build())
                 .build();

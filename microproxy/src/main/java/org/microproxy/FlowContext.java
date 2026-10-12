@@ -251,6 +251,18 @@ public class FlowContext {
     }
 
     /**
+     * Whether the client's QUIC came to the transparent QUIC listener ({@link
+     * HttpProxyServerBootstrap#withTransparentQuicPort}): redirected there, routed by the SNI of
+     * its ClientHello, and intercepted (its HTTP/3 requests) or relayed. False for every other
+     * client, and for contexts made outside the proxy.
+     *
+     * @return whether the flow is a transparent QUIC client's
+     */
+    public boolean isTransparentQuic() {
+        return root != this && root.isTransparentQuic();
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside
