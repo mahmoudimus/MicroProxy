@@ -29,6 +29,7 @@ import org.microproxy.http.WebSocketMessage;
 import org.microproxy.thirdparty.starlark.annot.Param;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.annot.StarlarkMethod;
+import org.microproxy.thirdparty.starlark.eval.Allocations;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -99,6 +100,16 @@ final class Builtins {
 
     private Builtins() {}
 
+    /**
+     * {@code value}, which a builtin has just made, counted against the allocation budget of the
+     * calling thread: its strings and objects ({@link Allocations#ofResult}; its lists, dicts,
+     * tuples and bytes count themselves).
+     */
+    static <T> T created(T value) throws EvalException {
+        StarlarkThread.allocateCurrent(Allocations.ofResult(value));
+        return value;
+    }
+
     static byte[] bytes(Object data, String what) throws EvalException {
         if (data instanceof String s) return s.getBytes(StandardCharsets.UTF_8);
         if (data instanceof StarlarkBytes b) return b.toByteArray();
@@ -143,7 +154,8 @@ final class Builtins {
                 throw Starlark.errorf("headers must be a dict, not %s", Starlark.type(headers));
             }
             HttpUtil.setContentLength(response, content.length);
-            return result;
+            StarlarkThread.allocateCurrent(Allocations.bytes(content.length)); // the body's copy
+            return created(result);
         }
 
         @StarlarkMethod(
@@ -266,7 +278,7 @@ final class Builtins {
                         out.add(Tuple.of(g));
                     }
                 }
-                return StarlarkList.immutableCopyOf(out);
+                return created(StarlarkList.immutableCopyOf(out));
             });
         }
 
@@ -303,9 +315,11 @@ final class Builtins {
                     }
                     last = m.end();
                     n++;
+                    // A replacement that grows the string past the budget stops as it grows.
+                    thread.checkAllocation(Allocations.string(out.length()));
                 }
                 out.append(string, last, string.length());
-                return out.toString();
+                return created(out.toString());
             });
         }
 
@@ -332,20 +346,20 @@ final class Builtins {
                     n++;
                 }
                 out.add(string.substring(last));
-                return StarlarkList.immutableCopyOf(out);
+                return created(StarlarkList.immutableCopyOf(out));
             });
         }
 
         @StarlarkMethod(name = "escape", doc = "Escapes regular expression metacharacters in s.",
                 parameters = {@Param(name = "s")})
-        public String escape(String s) {
+        public String escape(String s) throws EvalException {
             StringBuilder out = new StringBuilder(s.length());
             for (int i = 0; i < s.length(); i++) {
                 char c = s.charAt(i);
                 if ("\\^$.|?*+()[]{}-#&~ \t\n".indexOf(c) >= 0) out.append('\\');
                 out.append(c);
             }
-            return out.toString();
+            return created(out.toString());
         }
 
         private static String orEmpty(String s) {
@@ -429,27 +443,27 @@ final class Builtins {
                 allowReturnNones = true, parameters = {@Param(name = "g", defaultValue = "0")})
         public Object group(Object g) throws EvalException {
             String s = m.group(index(g));
-            return s == null ? Starlark.NONE : s;
+            return s == null ? Starlark.NONE : created(s);
         }
 
         @StarlarkMethod(name = "groups", doc = "All groups as a tuple; None for groups that did not match.")
-        public Tuple groups() {
+        public Tuple groups() throws EvalException {
             Object[] out = new Object[m.groupCount()];
             for (int i = 0; i < out.length; i++) {
                 String s = m.group(i + 1);
                 out[i] = s == null ? Starlark.NONE : s;
             }
-            return Tuple.of(out);
+            return created(Tuple.of(out));
         }
 
         @StarlarkMethod(name = "groupdict", doc = "Named groups as a dict.", useStarlarkThread = true)
-        public Dict<String, Object> groupdict(StarlarkThread thread) {
+        public Dict<String, Object> groupdict(StarlarkThread thread) throws EvalException {
             Map<String, Object> out = new LinkedHashMap<>();
             for (Map.Entry<String, Integer> e : pattern.namedGroups().entrySet()) {
                 String s = m.group(e.getValue());
                 out.put(e.getKey(), s == null ? Starlark.NONE : s);
             }
-            return Dict.copyOf(thread.mutability(), out);
+            return created(Dict.copyOf(thread.mutability(), out));
         }
 
         @StarlarkMethod(name = "start", doc = "Start offset of a group, or -1.", parameters = {@Param(name = "g", defaultValue = "0")})
@@ -518,7 +532,10 @@ final class Builtins {
         @StarlarkMethod(name = "encode", doc = "Encodes bytes (or a string's UTF-8) as base64 text.",
                 parameters = {@Param(name = "data"), @Param(name = "urlsafe", named = true, defaultValue = "False")})
         public String encode(Object data, Boolean urlsafe) throws EvalException {
-            return (urlsafe ? Base64.getUrlEncoder() : Base64.getEncoder()).encodeToString(bytes(data, "data"));
+            byte[] in = bytes(data, "data");
+            // Counted before encoding: four characters for every three bytes.
+            StarlarkThread.allocateCurrent(Allocations.string((in.length + 2L) / 3 * 4));
+            return (urlsafe ? Base64.getUrlEncoder() : Base64.getEncoder()).encodeToString(in);
         }
 
         @StarlarkMethod(name = "decode", doc = "Decodes base64 text (padding optional) to bytes.",
@@ -542,7 +559,7 @@ final class Builtins {
 
         private static String hash(String algorithm, Object data) throws EvalException {
             try {
-                return HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(bytes(data, "data")));
+                return created(HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(bytes(data, "data"))));
             } catch (GeneralSecurityException e) {
                 throw Starlark.errorf("%s unavailable: %s", algorithm, e.getMessage());
             }
@@ -585,7 +602,7 @@ final class Builtins {
                 Mac mac = Mac.getInstance("HmacSHA256");
                 byte[] k = bytes(key, "key");
                 mac.init(new SecretKeySpec(k.length == 0 ? new byte[1] : k, "HmacSHA256"));
-                return HexFormat.of().formatHex(mac.doFinal(bytes(data, "data")));
+                return created(HexFormat.of().formatHex(mac.doFinal(bytes(data, "data"))));
             } catch (GeneralSecurityException e) {
                 throw Starlark.errorf("HMAC failed: %s", e.getMessage());
             }
@@ -606,7 +623,7 @@ final class Builtins {
         @StarlarkMethod(name = "decode", doc = "Decodes bytes to a string (invalid sequences become U+FFFD).",
                 parameters = {@Param(name = "data"), @Param(name = "encoding", defaultValue = "'utf-8'")})
         public String decode(StarlarkBytes data, String encoding) throws EvalException {
-            return new String(data.toByteArray(), charset(encoding));
+            return created(new String(data.toByteArray(), charset(encoding)));
         }
 
         @StarlarkMethod(name = "encode", doc = "Encodes a string to bytes.",
@@ -629,7 +646,11 @@ final class Builtins {
 
         @StarlarkMethod(name = "quote", doc = "Percent-encodes s (UTF-8), leaving unreserved characters and safe alone.",
                 parameters = {@Param(name = "s"), @Param(name = "safe", named = true, defaultValue = "'/'")})
-        public String quote(String s, String safe) {
+        public String quote(String s, String safe) throws EvalException {
+            return created(percentEncode(s, safe));
+        }
+
+        private static String percentEncode(String s, String safe) {
             StringBuilder out = new StringBuilder();
             for (byte b : s.getBytes(StandardCharsets.UTF_8)) {
                 char c = (char) (b & 0xff);
@@ -645,6 +666,10 @@ final class Builtins {
         @StarlarkMethod(name = "unquote", doc = "Decodes %XX escapes (UTF-8); '+' is left alone.",
                 parameters = {@Param(name = "s")})
         public String unquote(String s) throws EvalException {
+            return created(percentDecode(s));
+        }
+
+        private static String percentDecode(String s) throws EvalException {
             try {
                 return URLDecoder.decode(s.replace("+", "%2B"), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException e) {
@@ -665,7 +690,7 @@ final class Builtins {
             }
             Map<String, Object> out = new LinkedHashMap<>();
             values.forEach((k, v) -> out.put(k, StarlarkList.copyOf(thread.mutability(), v)));
-            return Dict.copyOf(thread.mutability(), out);
+            return created(Dict.copyOf(thread.mutability(), out));
         }
 
         @StarlarkMethod(name = "encode_query", doc = "Builds a query string from a dict of name to value or list of values.",
@@ -678,14 +703,15 @@ final class Builtins {
                         ? List.of(e.getValue()) : Starlark.toIterable(e.getValue());
                 for (Object v : values) {
                     if (!out.isEmpty()) out.append('&');
-                    out.append(quote(name, "")).append('=').append(quote(Starlark.str(v, StarlarkSemantics.DEFAULT), ""));
+                    out.append(percentEncode(name, "")).append('=')
+                            .append(percentEncode(Starlark.str(v, StarlarkSemantics.DEFAULT), ""));
                 }
             }
-            return out.toString();
+            return created(out.toString());
         }
 
-        private String form(String s) throws EvalException {
-            return unquote(s.replace('+', ' '));
+        private static String form(String s) throws EvalException {
+            return percentDecode(s.replace('+', ' '));
         }
     }
 
@@ -782,8 +808,9 @@ final class Builtins {
         return new org.microproxy.frames.Field(n.toLowerCase(java.util.Locale.ROOT), v);
     }
 
-    private static ScriptHttpFrame made(org.microproxy.frames.HttpFrame frame, StarlarkThread thread) {
-        return new ScriptHttpFrame(frame, null, -1, thread.mutability());
+    private static ScriptHttpFrame made(org.microproxy.frames.HttpFrame frame, StarlarkThread thread)
+            throws EvalException {
+        return created(new ScriptHttpFrame(frame, null, -1, thread.mutability()));
     }
 
     /** Makes HTTP/2 frames to return from, or add in, {@code on_frame}. */

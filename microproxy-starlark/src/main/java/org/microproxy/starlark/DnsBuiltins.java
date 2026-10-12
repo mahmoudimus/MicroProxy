@@ -58,7 +58,7 @@ final class DnsBuiltins {
             } catch (IllegalArgumentException e) {
                 throw Starlark.errorf("dns.decode: %s", e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             }
-            return (Dict<?, ?>) ProtoBuiltins.toStarlark(toPlain(m), thread.mutability());
+            return Builtins.created((Dict<?, ?>) ProtoBuiltins.toStarlark(toPlain(m), thread.mutability()));
         }
 
         @StarlarkMethod(name = "encode",
@@ -78,7 +78,7 @@ final class DnsBuiltins {
                 parameters = {@Param(name = "data", doc = "the message's bytes")})
         public String render(Object data) throws EvalException {
             try {
-                return DnsMessage.decode(Builtins.bytes(data, "data")).render();
+                return Builtins.created(DnsMessage.decode(Builtins.bytes(data, "data")).render());
             } catch (IllegalArgumentException e) {
                 throw Starlark.errorf("dns.render: %s", e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             }

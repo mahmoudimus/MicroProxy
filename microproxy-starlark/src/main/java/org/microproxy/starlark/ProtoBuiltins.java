@@ -166,7 +166,7 @@ final class ProtoBuiltins {
                             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
                 })
         public Object decode(Object data, Object type, StarlarkThread thread) throws EvalException {
-            return ProtoBuiltins.decode(bytes(data, "data"), type, thread);
+            return Builtins.created(ProtoBuiltins.decode(bytes(data, "data"), type, thread));
         }
 
         @StarlarkMethod(name = "encode", useStarlarkThread = true,
@@ -190,7 +190,7 @@ final class ProtoBuiltins {
                 })
         public String render(Object data, Object type, StarlarkThread thread) throws EvalException {
             try {
-                return Protobuf.decode(bytes(data, "data"), schema(thread), type(type)).render();
+                return Builtins.created(Protobuf.decode(bytes(data, "data"), schema(thread), type(type)).render());
             } catch (DecodeException | IllegalArgumentException e) {
                 throw Starlark.errorf("protobuf.render: %s", e.getMessage());
             }
@@ -340,7 +340,7 @@ final class ProtoBuiltins {
                 throws EvalException {
             List<Object> out = new ArrayList<>();
             for (StarlarkBytes m : messages(body, encoding, thread)) out.add(ProtoBuiltins.decode(m.toByteArray(), type, thread));
-            return StarlarkList.copyOf(thread.mutability(), out);
+            return Builtins.created(StarlarkList.copyOf(thread.mutability(), out));
         }
 
         @StarlarkMethod(name = "encode", useStarlarkThread = true,
@@ -386,7 +386,7 @@ final class ProtoBuiltins {
             out.put("name", status.codeName() == null ? Starlark.NONE : status.codeName());
             out.put("message", status.message());
             out.put("details", StarlarkList.copyOf(thread.mutability(), list));
-            return Dict.copyOf(thread.mutability(), out);
+            return Builtins.created(Dict.copyOf(thread.mutability(), out));
         }
 
         @StarlarkMethod(name = "status_details",
