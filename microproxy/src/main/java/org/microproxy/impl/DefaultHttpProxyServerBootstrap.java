@@ -137,6 +137,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Servers reached over HTTP/3 without an Alt-Svc advertisement. */
     List<String> http3UpstreamHosts = List.of();
     Http3Options http3Options = Http3Options.DEFAULT;
+    /** Whether a forward proxy serves CONNECT-UDP on its TCP listener without HTTP/3 too. */
+    boolean connectUdp;
     /** Sees every HTTP/2 and HTTP/3 frame; null for none. */
     FrameInterceptor frameInterceptor;
     ScriptCallObserver scriptCallObserver;
@@ -225,6 +227,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http3Upstream = http3Upstream;
         c.http3UpstreamHosts = http3UpstreamHosts;
         c.http3Options = http3Options;
+        c.connectUdp = connectUdp;
         c.frameInterceptor = frameInterceptor;
         c.scriptCallObserver = scriptCallObserver;
         c.tcpInterceptor = tcpInterceptor;
@@ -389,6 +392,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withHttp2Options(h2.build());
         }
         if (p.containsKey("http3")) withHttp3(bool(p, "http3"));
+        if (p.containsKey("masque")) withConnectUdp(bool(p, "masque"));
         if (p.containsKey("http3_upstream")) withHttp3Upstream(bool(p, "http3_upstream"));
         if (p.containsKey("http3_upstream_hosts")) {
             withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
@@ -910,6 +914,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withHttp3(boolean enabled) {
         this.http3 = enabled;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withConnectUdp(boolean enabled) {
+        this.connectUdp = enabled;
         return this;
     }
 

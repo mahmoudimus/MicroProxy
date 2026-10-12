@@ -82,6 +82,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http3;
     }
 
+    /** Whether CONNECT-UDP is served on the TCP listener without HTTP/3 too ({@code withConnectUdp}). */
+    public static boolean connectUdp(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).connectUdp;
+    }
+
     /** Whether HTTP/3 to servers is enabled ({@code withHttp3Upstream}). */
     public static boolean http3Upstream(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http3Upstream;

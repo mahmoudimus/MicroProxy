@@ -124,7 +124,7 @@ class LauncherTest {
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
                 "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion",
-                "--qlog-dir", "--qlog-max-files", "--masque-udp-template", "--masque-udp-idle-timeout",
+                "--qlog-dir", "--qlog-max-files", "--masque", "--masque-udp-template", "--masque-udp-idle-timeout",
                 "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
                 "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
                 "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
@@ -240,8 +240,13 @@ class LauncherTest {
         assertEquals(10, defaults.connectUdpMaxFlows());
         assertEquals(64, defaults.connectUdpMaxFlowsPerConnection());
         assertThrows(IllegalArgumentException.class, () -> parse("--masque-udp-template", "/udp/{target_host}/"));
+        assertFalse(BootstrapView.connectUdp(b), "CONNECT-UDP on the TCP listener is off by default");
+        assertTrue(BootstrapView.connectUdp(parse("--masque").bootstrap()));
 
         java.util.Properties p = new java.util.Properties();
+        p.setProperty("masque", "true");
+        assertTrue(BootstrapView.connectUdp(BootstrapView.fromProperties(p)));
+        p.remove("masque");
         p.setProperty("masque_udp_template", "/m/{target_host}/{target_port}");
         p.setProperty("masque_udp_idle_timeout", "5");
         p.setProperty("masque_max_udp_flows_per_connection", "8");

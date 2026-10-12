@@ -21,8 +21,9 @@ import org.microproxy.TestSupport;
  * The proxy without the optional {@code quic} module, for real, as {@code Http2CodecAbsentTest}
  * runs it without the HTTP/2 codec: its classes are loaded by a class loader that sees them (and,
  * in one case, {@code http3-codec}) and nothing of QUIC. A reverse proxy and a forward proxy serve
- * requests as before, which they would not if a class on their path needed QUIC, and enabling
- * HTTP/3 either way fails at startup with a message that names the missing modules.
+ * requests as before, which they would not if a class on their path needed QUIC, so do an h2c
+ * proxy's streams, and enabling HTTP/3 either way, or CONNECT-UDP, fails at startup with a message
+ * that names the missing modules.
  */
 class Http3CodecAbsentTest {
 
@@ -113,6 +114,31 @@ class Http3CodecAbsentTest {
         }
     }
 
+    /**
+     * HTTP/2 streams can be CONNECT-UDP flows, but an h2c proxy that does not serve CONNECT-UDP
+     * needs no QUIC for its streams, nor to answer CONNECT-UDP with {@code 501}.
+     */
+    @Test
+    void anH2cForwardProxyServesWithoutQuic() throws Exception {
+        isolate(location(io.github.mahmoudimus.http2.FrameReader.class));
+        Class<?> serverType = load("org.microproxy.HttpProxyServer");
+        Object b = bootstrap();
+        call(b, "withHttp2Cleartext", boolean.class, true);
+        Object server = start(b);
+        try {
+            InetSocketAddress f = (InetSocketAddress) serverType.getMethod("getListenAddress").invoke(server);
+            try (org.microproxy.H2StreamClient c = org.microproxy.H2StreamClient.cleartext(f,
+                    "127.0.0.1:" + origin.getAddress().getPort())) {
+                org.microproxy.H2StreamClient.Stream get = c.open(c.request("GET", "/"), true);
+                assertEquals(200, get.status());
+                assertEquals("plain", get.text());
+                assertEquals(501, c.open(c.connectUdp("/.well-known/masque/udp/127.0.0.1/53/"), false).status());
+            }
+        } finally {
+            serverType.getMethod("abort").invoke(server);
+        }
+    }
+
     @Test
     void enablingHttp3EitherWayFailsAtStartup() throws Exception {
         isolate(location(io.github.mahmoudimus.http3.QpackEncoder.class));
@@ -121,7 +147,9 @@ class Http3CodecAbsentTest {
         call(served, "withHttp3", boolean.class, true);
         Object upstream = bootstrap();
         call(upstream, "withHttp3Upstream", boolean.class, true);
-        for (Object b : new Object[] {served, upstream}) {
+        Object connectUdp = bootstrap();
+        call(connectUdp, "withConnectUdp", boolean.class, true);
+        for (Object b : new Object[] {served, upstream, connectUdp}) {
             InvocationTargetException e = assertThrows(InvocationTargetException.class, () -> start(b));
             assertTrue(e.getCause() instanceof IllegalStateException, String.valueOf(e.getCause()));
             assertTrue(e.getCause().getMessage().contains("io.github.mahmoudimus:quic"), e.getCause().getMessage());

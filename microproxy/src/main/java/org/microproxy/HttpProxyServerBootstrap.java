@@ -625,8 +625,9 @@ public interface HttpProxyServerBootstrap {
      * to clients that know it does, such as MASQUE clients: requests name their targets with
      * {@code :scheme} and {@code :authority}, {@code CONNECT} (RFC 9114 section 4.4) opens a tunnel
      * as an HTTP/1 or HTTP/2 one does, and CONNECT-UDP (RFC 9298) proxies UDP in HTTP Datagrams
-     * (see {@link Http3Options.Builder#connectUdpTemplate}). Every HTTP/3 connection to clients
-     * takes WebSockets over extended {@code CONNECT} (RFC 9220).
+     * (see {@link Http3Options.Builder#connectUdpTemplate}), here and, as {@link #withConnectUdp}
+     * describes, on the TCP listener. Every HTTP/3 connection to clients takes WebSockets over
+     * extended {@code CONNECT} (RFC 9220).
      *
      * <p>The listener presents the certificate of the proxy's TLS listener, which must provide it
      * as {@link KeyMaterial} ({@link SslContextSource#getKeyMaterial}), or, for a reverse proxy
@@ -697,6 +698,28 @@ public interface HttpProxyServerBootstrap {
      */
     default HttpProxyServerBootstrap withHttp3Options(Http3Options options) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support HTTP/3");
+    }
+
+    /**
+     * Serves CONNECT-UDP (MASQUE, RFC 9298) on a forward proxy's TCP listener, with or without
+     * HTTP/3: an extended {@code CONNECT} with {@code :protocol connect-udp} on an HTTP/2 connection
+     * (h2 on the TLS listener with {@link #withHttp2}, or {@link #withHttp2Cleartext h2c}), and the
+     * HTTP/1.1 form, a {@code GET} with {@code Upgrade: connect-udp}. UDP payloads travel both ways
+     * in DATAGRAM capsules on the stream (RFC 9297 section 3.5). A forward proxy with {@link
+     * #withHttp3} serves CONNECT-UDP on its HTTP/3 listener and on its TCP listener whether or not
+     * this is set. The template, bounds and QUIC inspection are {@link Http3Options}'s ({@link
+     * Http3Options.Builder#connectUdpTemplate} and the rest). Off by default.
+     *
+     * <p>A reverse proxy fails to start with it. Needs the optional {@code quic} and {@code
+     * http3-codec} modules on the class path: starting a server with it enabled without them fails
+     * with {@link IllegalStateException}.
+     *
+     * @param enabled whether the feature is enabled
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withConnectUdp(boolean enabled) {
+        if (!enabled) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support CONNECT-UDP");
     }
 
     /**

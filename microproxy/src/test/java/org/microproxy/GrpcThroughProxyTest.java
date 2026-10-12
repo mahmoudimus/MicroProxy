@@ -26,7 +26,7 @@ import org.microproxy.extras.HttpLogger;
  * gRPC through the intercepting proxy, with HTTP/2 on both sides: {@code application/grpc}
  * requests with {@code te: trailers}, length-prefixed messages streamed both ways at once, and
  * {@code grpc-status} in the response trailers. The origin is the codec-based test server; no
- * gRPC library is involved, only its wire format.
+ * gRPC library is involved, only its wire format ({@link GrpcInteropTest} has real gRPC peers).
  */
 class GrpcThroughProxyTest {
 

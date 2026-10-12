@@ -245,7 +245,10 @@ which the exchange forwards (below).
 RFC 8441 `:protocol websocket` is represented internally as a GET upgrade request, with a generated
 HTTP/1 key, so existing exchange and frame filters work unchanged. `tunnelProtocol` and
 `secureWebSocket` retain the stream's tunnel intent independently of rewritten request headers.
-Unknown extended protocols get 501 without dialing a TCP tunnel.
+`:protocol connect-udp` becomes the same kind of GET upgrade (origin-form, its path naming the
+UDP target) and, on a connection to the proxy's own listener, the stream is the `UdpFlow.Client`
+of a CONNECT-UDP flow ([below](#connect-udp-udpflow)). Unknown extended protocols get 501 without
+dialing a TCP tunnel.
 
 A CONNECT stream is intercepted when an HTTP/1 CONNECT would be (`interceptStream`): the stream
 is shown as a socket (`tunnelSocket`, a `StreamSocket`: its streams are the tunnel's DATA,
@@ -586,10 +589,14 @@ drops `Transfer-Encoding`, `setKeepAlive` does nothing, `writeContinue` answers 
 
 ### CONNECT-UDP: `UdpFlow`
 
-On a forward proxy's listener, an extended `CONNECT` with `:protocol connect-udp` reaches
-`handleFilteredRequest` as `GET <path>` with `Upgrade: connect-udp`, after authentication and
-`clientToProxyRequest`, and goes to `handleConnectUdp` (anywhere else it gets `501`, through the
-`ClientChannel.udpClient()` being null):
+On a forward proxy that serves CONNECT-UDP (`DefaultHttpProxyServer.connectUdpTemplate` set: with
+HTTP/3, or `withConnectUdp`), an extended `CONNECT` with `:protocol connect-udp` on its HTTP/3
+listener or an HTTP/2 connection to its own listener reaches `handleFilteredRequest` as `GET
+<path>` with `Upgrade: connect-udp`, after authentication and `clientToProxyRequest`, and goes to
+`handleConnectUdp`; so does an HTTP/1.1 request that is that upgrade itself (`connectUdpUpgrade`).
+Anywhere else the extended `CONNECT` gets `501`, through the `ClientChannel.udpClient()` being null
+or the template. The flow's client (`UdpFlow.Client`) is the transport's: `Http3StreamChannel`,
+`Http2StreamChannel`, or `Http1ClientChannel.UdpClient` over the connection.
 
 - **The target.** `ConnectUdpTemplate` matches the request's path (and query) against the URI
   template (`Http3Options.connectUdpTemplate`, by default
@@ -597,23 +604,28 @@ On a forward proxy's listener, an extended `CONNECT` with `:protocol connect-udp
   is a `400`. The route is looked up as for `CONNECT host:port` (`lookupRoute(connectRequest(..))`):
   chained proxies carry no UDP, so a route without the direct fallback is refused (`502`).
   `proxyToServerRequest` may answer; the bounds (`connectUdpMaxFlows`, in total in
-  `DefaultHttpProxyServer.udpFlows`, and per connection in `Http3Connection.addUdpFlow`) give
-  `503`; `resolveServer` resolves the name with the filters' resolution hooks and the server's
-  `HostResolver`; a `DatagramChannel` is connected to the address.
+  `DefaultHttpProxyServer.udpFlows`, and per connection in `Http3Connection.addUdpFlow` and
+  `Http2Connection.addUdpFlow`; an HTTP/1.1 connection has one) give `503`; `resolveServer`
+  resolves the name with the filters' resolution hooks and the server's `HostResolver`; a
+  `DatagramChannel` is connected to the address.
 - **Accepting.** The flow is attached to the connection (its datagrams are routed from then on),
   then the proxy's `101` with `Upgrade: connect-udp` and `Capsule-Protocol: ?1` goes through
   `serverToProxyResponse` and `proxyToClientResponse` (a filter may refuse with another answer),
-  and `writeHead` sends it as `200`. `UdpFlow.run` then relays on the stream's thread.
+  and `writeHead` sends it as `200` on an HTTP/2 or HTTP/3 stream, as it is to an HTTP/1.1
+  client. `UdpFlow.run` then relays on the exchange's thread.
 - **HTTP Datagrams.** `Http3Connection.receiveDatagrams`, a virtual thread started with the first
   flow, reads the connection's QUIC DATAGRAM frames: a quarter stream ID (one over 2^60 - 1, or
   none, is H3_DATAGRAM_ERROR) and content for that stream's flow; other streams' are dropped.
   `sendHttpDatagram` sends one when the client's SETTINGS (waited for) have H3_DATAGRAM and it fits
   `maxDatagramSize`; otherwise `Http3StreamChannel.sendDatagram` writes a DATAGRAM capsule on the
   stream. Content is a context ID, then for ID 0 a UDP payload; other IDs are dropped.
-- **Capsules.** The stream's DATA are capsules (RFC 9297 section 3.2), which `UdpFlow` reads with
-  the reader's read timeout set to a fraction of the idle timeout (`IdleChecking`): DATAGRAM
-  capsules go the way QUIC datagrams do, unknown ones are skipped without being buffered, one too
-  large for a UDP payload ends the flow.
+- **Capsules.** The stream's DATA (for HTTP/1.1, the connection's bytes after the `101`) are
+  capsules (RFC 9297 section 3.2), which `UdpFlow` reads with the stream's read timeout set to a
+  fraction of the idle timeout (`IdleChecking`): DATAGRAM capsules go the way QUIC datagrams do,
+  unknown ones are skipped without being buffered, one too large for a UDP payload ends the flow.
+  HTTP/2 and HTTP/1.1 have no datagrams: every payload goes to the client as a capsule
+  (`UdpFlow.datagramCapsule`), in `Http2StreamChannel.sendDatagram`'s DATA, which wait for send
+  window under the stream's `tunnelOutput` lock, or on the connection under the client's own.
 - **Queues and threads.** Each direction has a bounded `Queue` (`connectUdpQueue`: datagrams and
   bytes) that drops what does not fit, and a virtual thread that sends from it (to the target's
   socket; to the client, as QUIC datagrams or capsules, which wait for flow control); a third
@@ -621,9 +633,11 @@ On a forward proxy's listener, an extended `CONNECT` with `:protocol connect-udp
   connection's datagram thread. ICMP errors (`PortUnreachableException`) are ignored, as UDP
   does.
 - **Ending.** The client's FIN ends the flow and is answered with the proxy's FIN (or a reset, when
-  a capsule write is blocked); so does the idle timeout (`connectUdpIdleTimeout`). A socket
-  failure resets the stream with H3_CONNECT_ERROR. `end` closes the queues and the socket, once,
-  calls `udpEnd`, and the flow is detached from the connection.
+  a capsule write is blocked: over HTTP/2 and HTTP/1.1 after waiting briefly for the capsule
+  being written, which the client may have read before it ended its side); so does the idle
+  timeout (`connectUdpIdleTimeout`). A socket failure resets the stream with H3_CONNECT_ERROR
+  (HTTP/2: `CANCEL`; HTTP/1.1: the connection closes). `end` closes the queues and the socket,
+  once, calls `udpEnd`, and the flow is detached from the connection.
 
 ## Transparent QUIC: `TransparentQuicListener` and `QuicFlows`
 
@@ -759,7 +773,8 @@ to the server, and implements `QuicContext` for the `QuicInterceptor` (when ther
 
 ### QUIC inside CONNECT-UDP flows: `MasqueQuic`
 
-With `Http3Options.connectUdpInterceptQuic`, a forward proxy serving HTTP/3 makes one `MasqueQuic`:
+With `Http3Options.connectUdpInterceptQuic`, a forward proxy serving CONNECT-UDP (over any
+transport, with or without its HTTP/3 listener) makes one `MasqueQuic`:
 a `QuicFlows` over `QuicServer.unbound`, a QUIC server without a socket. `serveUdpFlow` attaches
 each flow to a port of `connectUdpQuicPorts` (`MasqueQuic.attach`), giving it an address of its
 own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Origin`:
@@ -914,8 +929,7 @@ comparison. The `microproxy-otel` module implements the hook.
 
 ## Notes for later
 
-- CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies), and CONNECT-UDP over HTTP/2
-  and HTTP/1.1 (capsules only).
+- CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies).
 - QUIC stream hooks that open streams of their own, which `QuicSession` would pair as it pairs the
   peers' streams.
 - `ALTSVC` frames (RFC 7838 section 4) from HTTP/2 servers are dropped by the frame reader, as a
