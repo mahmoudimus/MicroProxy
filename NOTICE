@@ -36,3 +36,8 @@ This product includes third-party software:
   2022, Fabio Valentini and Maximilian Hils. Licensed under the MIT License; see
   META-INF/LICENSE-mitmproxy.txt and META-INF/LICENSE-mitmproxy_rs.txt. Ported files say so in
   their header comments.
+
+- The QUIC transport (quic/), ported from quinn (https://github.com/quinn-rs/quinn), Copyright (c)
+  2018 The quinn Developers, and its TLS 1.3 handshake from rustls (https://github.com/rustls/rustls),
+  Copyright (c) 2016 Joseph Birr-Pixton. Both are used under the Apache License, Version 2.0, one of
+  the licenses each is offered under. Ported files say so in their header comments.
