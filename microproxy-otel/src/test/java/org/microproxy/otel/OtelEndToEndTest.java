@@ -386,6 +386,31 @@ class OtelEndToEndTest {
     }
 
     @Test
+    void aSocksClientIsAnInternalSpan() throws Exception {
+        start(telemetry().build(), MicroProxy.bootstrap().withSocksServer(true));
+        try (TestSupport.RawServer echo = TestSupport.rawServer(s -> {
+            s.getOutputStream().write(s.getInputStream().readNBytes(4));
+            s.getOutputStream().flush();
+        })) {
+            try (org.microproxy.SocksClient c = new org.microproxy.SocksClient(proxy)) {
+                assertEquals(0, c.open("127.0.0.1", echo.port()));
+                c.out.write("ping".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                c.out.flush();
+                assertEquals("ping", new String(c.in.readNBytes(4), java.nio.charset.StandardCharsets.US_ASCII));
+            }
+            TestCollector.Span socks = collector.awaitSpan("the SOCKS span", s -> s.kind() == 1);
+            assertEquals("socks 127.0.0.1:" + echo.port(), socks.name());
+            assertEquals("socks", socks.attr("microproxy.flow"));
+            assertEquals(5L, socks.attr("microproxy.socks_version"));
+            assertEquals(4L, socks.attr("microproxy.bytes_received"));
+            assertNull(socks.parentSpanId());
+            TestCollector.Span connection = collector.awaitSpan("its connection", s -> s.kind() == 3);
+            assertEquals(socks.spanId(), connection.parentSpanId());
+            assertEquals("127.0.0.1", connection.attr("server.address"));
+        }
+    }
+
+    @Test
     void anHttp2StreamIsAServerSpanOfItsOwn() throws Exception {
         CertificateAuthority originCa = CertificateAuthority.generate("Otel H2 Origin CA");
         CertificateAuthority proxyCa = CertificateAuthority.generate("Otel H2 Proxy CA");
