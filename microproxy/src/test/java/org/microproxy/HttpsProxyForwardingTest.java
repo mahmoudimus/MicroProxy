@@ -561,6 +561,107 @@ class HttpsProxyForwardingTest {
     }
 
     // -------------------------------------------------------------------------------------------
+    // Plain-HTTP proxy requests inside the session
+    // -------------------------------------------------------------------------------------------
+
+    private com.sun.net.httpserver.HttpServer plainOrigin() {
+        com.sun.net.httpserver.HttpServer origin = TestSupport.origin(TestSupport.echo());
+        closeables.add(() -> origin.stop(0));
+        return origin;
+    }
+
+    private static String authority(com.sun.net.httpserver.HttpServer server) {
+        return "127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    /** Sends an absolute-form GET for {@code http://authority/path} inside {@code session}; returns the head. */
+    private static String absoluteGet(Socket session, String authority, String path, String... headers)
+            throws IOException {
+        StringBuilder request = new StringBuilder("GET http://" + authority + path + " HTTP/1.1\r\nHost: " + authority
+                + "\r\n");
+        for (String h : headers) request.append(h).append("\r\n");
+        write(session.getOutputStream(), request.append("\r\n").toString());
+        return readUntil(session.getInputStream(), "\r\n\r\n");
+    }
+
+    @Test
+    void anAbsoluteFormRequestInsideTheSessionGoesToTheCorporateProxy() throws Exception {
+        com.sun.net.httpserver.HttpServer origin = plainOrigin();
+        startCorp(false, null);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = microProxy().withFiltersSource(recording(seen)).start();
+        SSLSocket session = h1Session();
+        String head = absoluteGet(session, authority(origin), "/plain?q=1", "Proxy-Authorization: " + CORP_CREDENTIALS);
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        String body = body(session, head);
+        assertEquals("/plain?q=1", echoedUri(body));
+        assertEquals(List.of("1.1 mp", "1.1 corp"), echoedHeader(body, "via"));
+        // The session's own requests still reach the corporate proxy as they are (origin-form).
+        write(session.getOutputStream(), "GET /status HTTP/1.1\r\nHost: " + corpTarget() + "\r\n\r\n");
+        String own = readUntil(session.getInputStream(), "\r\n\r\n");
+        body(session, own);
+        assertEquals(List.of("GET http://" + authority(origin) + "/plain?q=1 HTTP/1.1 " + CORP_CREDENTIALS,
+                "GET /status HTTP/1.1 null"), corpSaw);
+        // On the connection made for the session.
+        assertEquals(1, corpConnections.get());
+        assertTrue(seen.contains("GET http://" + authority(origin) + "/plain?q=1 via=" + corpTarget()), seen.toString());
+        assertTrue(seen.contains("GET /status via=-"), seen.toString());
+    }
+
+    @Test
+    void anAbsoluteFormRequestGoesToTheCorporateProxyOverHttp2() throws Exception {
+        com.sun.net.httpserver.HttpServer origin = plainOrigin();
+        startCorp(true, null);
+        proxy = microProxy().start();
+        // Without ALPN, the client speaks HTTP/1.1 and the proxy offers the server h2.
+        SSLSocket session = h1SessionOffering(null);
+        String head = absoluteGet(session, authority(origin), "/over-h2", "Proxy-Authorization: " + CORP_CREDENTIALS);
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        assertEquals("/over-h2", echoedUri(body(session, head)));
+        // :scheme http, :authority the origin's: the HTTP/2 form of an absolute-form request.
+        assertEquals(List.of("GET http://" + authority(origin) + "/over-h2 HTTP/2.0 " + CORP_CREDENTIALS), corpSaw);
+    }
+
+    @Test
+    void anHttp2ClientsPlainHttpRequestGoesToTheCorporateProxy() throws Exception {
+        com.sun.net.httpserver.HttpServer origin = plainOrigin();
+        startCorp(true, basic("corp-user", "corp-secret", "corp"));
+        proxy = microProxy().start();
+        try (H2StreamClient c = h2Session()) {
+            List<HeaderField> fields = new ArrayList<>(c.request("GET", "/h2-plain"));
+            fields.set(1, new HeaderField(":scheme", "http"));
+            fields.set(2, new HeaderField(":authority", authority(origin)));
+            H2StreamClient.Stream refused = c.open(fields, true);
+            assertEquals(407, refused.status());
+            assertEquals("Basic realm=\"corp\"", refused.header("proxy-authenticate"));
+            refused.text();
+            fields.add(new HeaderField("proxy-authorization", CORP_CREDENTIALS));
+            H2StreamClient.Stream allowed = c.open(fields, true);
+            assertEquals(200, allowed.status());
+            assertEquals("/h2-plain", echoedUri(allowed.text()));
+        }
+        assertEquals(List.of("GET http://" + authority(origin) + "/h2-plain HTTP/2.0 null",
+                "GET http://" + authority(origin) + "/h2-plain HTTP/2.0 " + CORP_CREDENTIALS), corpSaw);
+    }
+
+    @Test
+    void theCorporateProxysChallengeToAnAbsoluteFormRequestReachesTheClient() throws Exception {
+        com.sun.net.httpserver.HttpServer origin = plainOrigin();
+        startCorp(false, basic("corp-user", "corp-secret", "corp"));
+        proxy = microProxy().withProxyAuthenticator(basic("mp-user", "mp-secret", "mp")).start();
+        SSLSocket session = h1Session("Proxy-Authorization: " + PROXY_CREDENTIALS);
+        String refused = absoluteGet(session, authority(origin), "/private");
+        assertTrue(refused.startsWith("HTTP/1.1 407"), refused);
+        assertEquals("Basic realm=\"corp\"", WebSocketTestSupport.header(refused, "Proxy-Authenticate"));
+        assertEquals("Proxy Authentication Required\n", body(session, refused));
+        String allowed = absoluteGet(session, authority(origin), "/private", "Proxy-Authorization: " + CORP_CREDENTIALS);
+        assertTrue(allowed.startsWith("HTTP/1.1 200"), allowed);
+        assertEquals("/private", echoedUri(body(session, allowed)));
+        assertEquals(List.of("GET http://" + authority(origin) + "/private HTTP/1.1 null",
+                "GET http://" + authority(origin) + "/private HTTP/1.1 " + CORP_CREDENTIALS), corpSaw);
+    }
+
+    // -------------------------------------------------------------------------------------------
     // What still gets 421
     // -------------------------------------------------------------------------------------------
 

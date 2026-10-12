@@ -29,7 +29,11 @@ class ServerConnection {
     volatile String key;
     final String hostAndPort;
     final ChainedProxy chainedProxy;
-    final boolean tlsToOrigin;
+    /**
+     * The connection reaches the server itself (TLS with it, or a tunnel), even through an HTTP
+     * chained proxy, rather than handing that proxy requests in absolute-form.
+     */
+    final boolean reachesOrigin;
     // Not final: a connection made before its client's ClientHello was read gets TLS layered over
     // it afterwards (layerTls), before anything else uses it.
     Socket socket;
@@ -83,7 +87,7 @@ class ServerConnection {
             String key,
             String hostAndPort,
             ChainedProxy chainedProxy,
-            boolean tlsToOrigin,
+            boolean reachesOrigin,
             Socket socket,
             ByteReader in,
             OutputStream out,
@@ -93,7 +97,7 @@ class ServerConnection {
         this.key = key;
         this.hostAndPort = hostAndPort;
         this.chainedProxy = chainedProxy;
-        this.tlsToOrigin = tlsToOrigin;
+        this.reachesOrigin = reachesOrigin;
         this.socket = socket;
         this.in = in;
         this.out = out;
@@ -109,7 +113,7 @@ class ServerConnection {
         this.key = null;
         this.hostAndPort = hostAndPort;
         this.chainedProxy = chainedProxy;
-        this.tlsToOrigin = true;
+        this.reachesOrigin = true;
         this.socket = socket;
         this.in = null;
         this.out = null;
@@ -245,7 +249,7 @@ class ServerConnection {
      * to an HTTP proxy (absolute-form URIs). SOCKS proxies and CONNECT tunnels are transparent.
      */
     boolean nextHopIsOrigin() {
-        return chainedProxy == null || tlsToOrigin || chainedProxy.getChainedProxyType() != ChainedProxyType.HTTP;
+        return chainedProxy == null || reachesOrigin || chainedProxy.getChainedProxyType() != ChainedProxyType.HTTP;
     }
 
     boolean isOpen() {
