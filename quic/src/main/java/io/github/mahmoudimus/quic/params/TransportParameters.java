@@ -1,6 +1,7 @@
 /*
  * Ported from quinn-proto src/transport_parameters.rs (TransportParameters, TransportParameterId,
- * write, read and the semantic validation) (Apache-2.0), with version_information from RFC 9368.
+ * write, read, validate_resumption_from and the semantic validation) and the parameters
+ * src/connection/mod.rs remembers for 0-RTT (Apache-2.0), with version_information from RFC 9368.
  */
 package io.github.mahmoudimus.quic.params;
 
@@ -193,6 +194,61 @@ public record TransportParameters(
      */
     public Builder toBuilder() {
         return new Builder(this);
+    }
+
+    /**
+     * The parameters a client remembers from a session for 0-RTT (RFC 9000 section 7.4.1), as quinn
+     * keeps them: the flow control and stream limits, the idle timeout, the payload size, the
+     * connection ID limit and DATAGRAM support, but not the connection IDs, the reset token, the
+     * preferred address or the ACK delay parameters, which belong to one connection.
+     *
+     * @return the parameters to use until the server's new ones arrive
+     */
+    public TransportParameters forZeroRtt() {
+        return toBuilder()
+                .originalDestinationConnectionId(null)
+                .initialSourceConnectionId(null)
+                .retrySourceConnectionId(null)
+                .statelessResetToken(null)
+                .preferredAddress(null)
+                .minAckDelay(-1)
+                .ackDelayExponent(DEFAULT_ACK_DELAY_EXPONENT)
+                .maxAckDelay(DEFAULT_MAX_ACK_DELAY)
+                .build();
+    }
+
+    /**
+     * Whether a server whose parameters these are may accept 0-RTT from a client that remembers
+     * {@code remembered} (RFC 9000 section 7.4.1): none of the limits the client may use in 0-RTT
+     * is smaller now than then.
+     *
+     * @param remembered the parameters the server had when it issued the ticket
+     * @return true if 0-RTT data within the remembered limits is within these
+     */
+    public boolean allowsResumptionFrom(TransportParameters remembered) {
+        return remembered.activeConnectionIdLimit <= activeConnectionIdLimit
+                && remembered.initialMaxData <= initialMaxData
+                && remembered.initialMaxStreamDataBidiLocal <= initialMaxStreamDataBidiLocal
+                && remembered.initialMaxStreamDataBidiRemote <= initialMaxStreamDataBidiRemote
+                && remembered.initialMaxStreamDataUni <= initialMaxStreamDataUni
+                && remembered.initialMaxStreamsBidi <= initialMaxStreamsBidi
+                && remembered.initialMaxStreamsUni <= initialMaxStreamsUni
+                && remembered.maxDatagramFrameSize <= maxDatagramFrameSize
+                && (!remembered.greaseQuicBit || greaseQuicBit);
+    }
+
+    /**
+     * Checks, on a client whose 0-RTT data the server accepted, that the server's new parameters
+     * allow all it may have sent under the remembered ones (quinn's {@code validate_resumption_from}).
+     *
+     * @param remembered the parameters the client used for 0-RTT
+     * @throws QuicException {@code PROTOCOL_VIOLATION} if the server lowered a limit
+     */
+    public void validateResumptionFrom(TransportParameters remembered) throws QuicException {
+        if (!allowsResumptionFrom(remembered)) {
+            throw new QuicException(QuicException.PROTOCOL_VIOLATION,
+                    "0-RTT accepted with incompatible transport parameters");
+        }
     }
 
     /**

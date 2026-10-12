@@ -22,6 +22,11 @@ import java.util.Objects;
  * <p>Connections come from {@link QuicServer#accept()} and {@link QuicClient#connect}. Each one is
  * driven by a virtual thread of its endpoint; any number of threads may use a connection and its
  * streams at once.
+ *
+ * <p><b>0-RTT.</b> A connection from {@link QuicClient#connectEarly} may still be handshaking: its
+ * streams can be opened and written at once, and what is written goes out as 0-RTT data. A server
+ * that accepted 0-RTT hands the connection out before its handshake completes; data that arrived
+ * as early data ({@link QuicStream#receivedEarlyData()}) may have been replayed by an attacker.
  */
 public final class QuicConnection implements AutoCloseable {
 
@@ -65,6 +70,77 @@ public final class QuicConnection implements AutoCloseable {
         } finally {
             driver.lock.unlock();
         }
+    }
+
+    /**
+     * Waits for the handshake to complete: for a connection from {@link QuicClient#connectEarly} or
+     * one a server accepted with 0-RTT data. Returns at once for other connections.
+     *
+     * @param timeout how long to wait, or null for no limit
+     * @return true if the handshake completed, false on timeout
+     * @throws QuicConnectionException if the connection ended first
+     * @throws InterruptedIOException if interrupted while waiting
+     */
+    public boolean awaitHandshake(Duration timeout) throws IOException {
+        driver.lock.lock();
+        try {
+            long deadline = timeout == null ? Long.MAX_VALUE : driver.now() + timeout.toNanos();
+            while (!driver.isConnected()) {
+                checkOpen();
+                if (timeout == null) {
+                    await();
+                } else {
+                    long wait = deadline - driver.now();
+                    if (wait <= 0) {
+                        return false;
+                    }
+                    driver.changed.awaitNanos(wait);
+                }
+            }
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("interrupted");
+        } finally {
+            driver.lock.unlock();
+        }
+    }
+
+    /**
+     * Whether the handshake has completed.
+     *
+     * @return true once complete
+     */
+    public boolean isHandshakeComplete() {
+        return withLock(driver::isConnected);
+    }
+
+    /**
+     * Whether the TLS handshake resumed an earlier session from a ticket.
+     *
+     * @return true if resumed (a client knows once the server answered)
+     */
+    public boolean isResumed() {
+        return withLock(conn::isResumed);
+    }
+
+    /**
+     * Whether the server accepted 0-RTT data: on a client, known once the handshake completes; on a
+     * server, from the start.
+     *
+     * @return true if accepted
+     */
+    public boolean earlyDataAccepted() {
+        return withLock(conn::earlyDataAccepted);
+    }
+
+    /**
+     * Client: whether data written now goes out as 0-RTT data, before the handshake completes.
+     *
+     * @return true while sending 0-RTT data
+     */
+    public boolean isZeroRtt() {
+        return withLock(conn::isZeroRtt);
     }
 
     /** Throws if the connection is gone. Called with the lock held. */

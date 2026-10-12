@@ -2,6 +2,7 @@ package io.github.mahmoudimus.quic;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,7 +12,9 @@ import io.github.mahmoudimus.quic.connection.ServerConfig;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.CertifiedKey;
 import io.github.mahmoudimus.quic.tls.NamedGroup;
+import io.github.mahmoudimus.quic.tls.ClientSessionMemoryCache;
 import io.github.mahmoudimus.quic.tls.TestCerts;
+import io.github.mahmoudimus.quic.tls.Ticketer;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -49,8 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Interoperability with aioquic, an independent QUIC implementation, used only as an external peer:
  * its echo client against the Java server and its echo server against the Java client, over every
  * cipher suite and key exchange group, with large transfers, many streams, datagrams, key updates,
- * Retry, QUIC version 2 and closes from either side, and aioquic's HTTP/3 connection against an
- * HTTP/3 server on http3-codec. The peer scripts are test resources.
+ * Retry, QUIC version 2, closes from either side, and session resumption with 0-RTT data each way,
+ * and aioquic's HTTP/3 connection against an HTTP/3 server on http3-codec. The peer scripts are
+ * test resources.
  *
  * <p>Skipped unless Python 3 with aioquic is available: the interpreter is {@code
  * -Dquic.interop.python}, else {@code $QUIC_INTEROP_PYTHON}, else {@code python3}. To run:
@@ -336,8 +340,91 @@ class AioquicInteropTest {
         }
     }
 
+    @Test
+    void aioquicClientResumesWithZeroRttAgainstJavaServer() throws Exception {
+        TlsConfig tls = TlsConfig.builder().certificate(certified).alpnProtocols("microproxy-test")
+                .sessionTickets(Ticketer.create()).earlyData(true).build();
+        try (QuicServer server = QuicServer.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                ServerConfig.builder(tls).transport(transport()).build())) {
+            LinkedBlockingQueue<QuicConnection> accepted = new LinkedBlockingQueue<>();
+            Thread.ofVirtual().start(() -> serveTagged(server, accepted));
+            List<String> cmd = List.of(python, script.resolve("resume_client.py").toString(), "127.0.0.1",
+                    Integer.toString(server.localAddress().getPort()), "--ca", caFile.toString());
+            String result = run(cmd);
+            assertEquals("late:hello", field(result, "first"));
+            assertEquals("false", field(result, "first_resumed"));
+            assertEquals("true", field(result, "ticket_allows_early_data"));
+            assertEquals("true", field(result, "resumed"));
+            assertEquals("true", field(result, "early_data_accepted"));
+            assertEquals("early:GET /", field(result, "second"), "served from 0-RTT data");
+            accepted.poll(10, TimeUnit.SECONDS);
+            QuicConnection resumed = accepted.poll(10, TimeUnit.SECONDS);
+            assertNotNull(resumed);
+            assertTrue(resumed.isResumed());
+            assertTrue(resumed.earlyDataAccepted());
+        }
+    }
+
+    /** Answers each stream with "early:" or "late:" (whether it carried 0-RTT data) and its data. */
+    private static void serveTagged(QuicServer server, LinkedBlockingQueue<QuicConnection> accepted) {
+        while (true) {
+            QuicConnection c;
+            try {
+                c = server.accept();
+            } catch (IOException e) {
+                return;
+            }
+            accepted.add(c);
+            Thread.ofVirtual().start(() -> {
+                try {
+                    while (true) {
+                        QuicStream s = c.acceptStream();
+                        Thread.ofVirtual().start(() -> {
+                            try (InputStream in = s.getInputStream(); OutputStream out = s.getOutputStream()) {
+                                byte[] request = in.readAllBytes();
+                                out.write((s.receivedEarlyData() ? "early:" : "late:").getBytes(StandardCharsets.US_ASCII));
+                                out.write(request);
+                            } catch (IOException e) {
+                                // reset
+                            }
+                        });
+                    }
+                } catch (IOException e) {
+                    // the connection ended
+                }
+            });
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // aioquic server, Java client
+
+    @Test
+    void javaClientResumesWithZeroRttAgainstAioquicServer() throws Exception {
+        TlsConfig tls = TlsConfig.builder().serverName("localhost").trustManager(TestCerts.CA.trustManager())
+                .alpnProtocols("microproxy-test").earlyData(true).build();
+        try (PythonServer py = new PythonServer("--tickets");
+                QuicClient client = QuicClient.create(ClientConfig.builder(tls).transport(transport()).build())) {
+            QuicConnection first = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
+            assertFalse(first.isResumed());
+            assertArrayEquals(EchoServer.sha256().digest("hello".getBytes(StandardCharsets.US_ASCII)),
+                    LoopbackTest.echo(first, "hello".getBytes(StandardCharsets.US_ASCII)));
+            assertEquals("RESUMED False False", py.await("RESUMED "));
+            ClientSessionMemoryCache tickets = (ClientSessionMemoryCache) client.sessionCache().tickets();
+            LoopbackTest.pollUntil(() -> tickets.size("localhost") > 0, Duration.ofSeconds(10));
+            first.close();
+
+            // Returns at once: the aioquic ticket allows 0-RTT
+            QuicConnection c = client.connectEarly(py.address(), "localhost", Duration.ofSeconds(20));
+            byte[] d = LoopbackTest.data(9, 5_000);
+            assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
+            assertTrue(c.awaitHandshake(Duration.ofSeconds(20)));
+            assertTrue(c.isResumed());
+            assertTrue(c.earlyDataAccepted());
+            assertEquals("RESUMED True True", py.await("RESUMED "));
+            c.close();
+        }
+    }
 
     @ParameterizedTest(name = "{0} {1}")
     @MethodSource("suitesAndGroups")

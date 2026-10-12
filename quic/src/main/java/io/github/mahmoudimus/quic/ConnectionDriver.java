@@ -53,6 +53,8 @@ final class ConnectionDriver implements Runnable {
 
     // Guarded by lock
     private boolean connected;
+    /** Whether a server handed the connection out before its handshake, for its 0-RTT data. */
+    private boolean acceptedEarly;
     private ConnectionError lost;
     private boolean terminated;
 
@@ -196,9 +198,16 @@ final class ConnectionDriver implements Runnable {
         for (ConnectionEvent e; (e = conn.pollEvent()) != null; ) {
             any = true;
             switch (e) {
+                case ConnectionEvent.HandshakeDataReady r -> {
+                    if (server && conn.earlyDataAccepted() && !acceptedEarly) {
+                        // 0-RTT data is coming: hand the connection out now
+                        acceptedEarly = true;
+                        endpoint.accepted(facade);
+                    }
+                }
                 case ConnectionEvent.Connected c -> {
                     connected = true;
-                    if (server) {
+                    if (server && !acceptedEarly) {
                         endpoint.accepted(facade);
                     }
                 }

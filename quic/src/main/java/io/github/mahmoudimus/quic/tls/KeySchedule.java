@@ -1,5 +1,6 @@
 // Ported from rustls src/tls13/key_schedule.rs (KeySchedule, SecretKind, the Finished
-// computation, the exporter and the QUIC key update of quic.rs) and src/tls13/mod.rs (Apache-2.0).
+// computation, the PSK binder, the early traffic secret, the resumption PSK, the exporter and the
+// QUIC key update of quic.rs) and src/tls13/mod.rs (Apache-2.0).
 package io.github.mahmoudimus.quic.tls;
 
 import io.github.mahmoudimus.quic.CipherSuite;
@@ -10,9 +11,10 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * The TLS 1.3 key schedule (RFC 8446 section 7.1) without PSKs: early secret from zeros,
- * handshake secret from the (EC)DHE shared secret, master secret from zeros, with each traffic
- * secret derived from the current secret and a transcript hash.
+ * The TLS 1.3 key schedule (RFC 8446 section 7.1): the early secret from a resumption PSK (or
+ * zeros), the handshake secret from the (EC)DHE shared secret, the master secret from zeros, with
+ * each traffic secret derived from the current secret and a transcript hash. Only {@code
+ * psk_dhe_ke} is used, so a PSK is always followed by a fresh (EC)DHE shared secret.
  */
 final class KeySchedule {
 
@@ -22,6 +24,9 @@ final class KeySchedule {
     static final String SERVER_APPLICATION_TRAFFIC = "s ap traffic";
     static final String EXPORTER_MASTER = "exp master";
     static final String RESUMPTION_MASTER = "res master";
+    static final String RESUMPTION_PSK_BINDER = "res binder";
+    static final String CLIENT_EARLY_TRAFFIC = "c e traffic";
+    static final String EARLY_EXPORTER_MASTER = "e exp master";
     /** The QUIC key update label (RFC 9001 section 6.1). */
     static final String QUIC_KEY_UPDATE = "quic ku";
 
@@ -30,12 +35,40 @@ final class KeySchedule {
     private final byte[] emptyHash;
     private byte[] current;
 
-    /** Starts at the early secret, {@code HKDF-Extract(0, 0)}, since no PSK is used. */
+    /** Starts at the early secret without a PSK, {@code HKDF-Extract(0, 0)}. */
     KeySchedule(CipherSuite suite) {
+        this(suite, null);
+    }
+
+    /**
+     * Starts at the early secret, {@code HKDF-Extract(0, PSK)}.
+     *
+     * @param psk the resumption PSK, or null for none
+     */
+    KeySchedule(CipherSuite suite, byte[] psk) {
         this.suite = suite;
         this.hkdf = suite.hkdf();
         this.emptyHash = Transcript.newDigest(suite).digest();
-        this.current = hkdf.extract(new byte[0], new byte[hkdf.hashLength()]);
+        this.current = hkdf.extract(new byte[0], psk != null ? psk : new byte[hkdf.hashLength()]);
+    }
+
+    /**
+     * A PSK binder (RFC 8446 section 4.2.11.2): the Finished computation keyed with {@code
+     * Derive-Secret(early, "res binder", "")}, over the transcript hash up to the truncated
+     * ClientHello. Call before moving past the early secret.
+     */
+    byte[] binder(byte[] truncatedTranscriptHash) {
+        byte[] binderKey = deriveSecret(RESUMPTION_PSK_BINDER, emptyHash);
+        return finishedVerifyData(binderKey, truncatedTranscriptHash);
+    }
+
+    /**
+     * The PSK of a ticket (RFC 8446 section 4.6.1): {@code HKDF-Expand-Label(resumption_master_secret,
+     * "resumption", ticket_nonce, Hash.length)}.
+     */
+    static byte[] resumptionPsk(CipherSuite suite, byte[] resumptionMaster, byte[] nonce) {
+        Hkdf hkdf = suite.hkdf();
+        return hkdf.expandLabel(resumptionMaster, "resumption", nonce, hkdf.hashLength());
     }
 
     CipherSuite suite() {

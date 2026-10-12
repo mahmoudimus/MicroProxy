@@ -15,7 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.QuicVersion;
+import io.github.mahmoudimus.quic.packet.PacketDecodeException;
 import io.github.mahmoudimus.quic.packet.PacketHeader;
+import io.github.mahmoudimus.quic.packet.PacketType;
+import io.github.mahmoudimus.quic.packet.ProtectedPacket;
 import io.github.mahmoudimus.quic.tls.TestCerts;
 import io.github.mahmoudimus.quic.tls.TlsAlert;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
@@ -56,6 +59,26 @@ class ConnectionTest {
             out.write(buf.array(), 0, n);
         }
         return out.toByteArray();
+    }
+
+    /** Whether a datagram holds a 1-RTT packet. */
+    private static boolean hasOneRtt(ByteBuffer datagram) {
+        ByteBuffer in = datagram.duplicate();
+        while (in.hasRemaining()) {
+            try {
+                if (ProtectedPacket.parse(in, 8).type() == PacketType.ONE_RTT) {
+                    return true;
+                }
+            } catch (PacketDecodeException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a client's handshake is confirmed: it discards its Handshake keys then. */
+    private static boolean confirmed(Connection client) {
+        return client.isEstablished() && client.recovery().space(SpaceId.HANDSHAKE).keys() == null;
     }
 
     private static Connection[] connected(Pair pair) {
@@ -879,6 +902,40 @@ class ConnectionTest {
         assertEquals(0, client.recovery().lostPackets());
         assertEquals(s, server.acceptStream(Dir.UNI));
         assertArrayEquals(MSG, readAvailable(server, s));
+    }
+
+    @Test
+    void dataSentBeforeTheHandshakeIsConfirmedIsSentAgainWhenLost() throws Exception {
+        // A client sends 1-RTT data as soon as its handshake completes, before HANDSHAKE_DONE
+        // confirms it, when the probe timeout still ignores the application data space. Once
+        // confirmed, loss detection must cover that data, or a lost packet of it is never sent
+        // again and its stream stalls until the idle timeout.
+        Pair pair = new Pair();
+        Connection client = pair.beginConnect(Pair.clientConfig());
+        pair.driveClient();
+        pair.driveServer();
+        pair.client.drive(pair.time);
+        assertTrue(client.isEstablished(), "the client's handshake is complete");
+        StreamId s = client.openStream(Dir.BI);
+        client.write(s, ByteBuffer.wrap(MSG));
+        client.finish(s);
+        // Every 1-RTT packet the client sends until the handshake is confirmed is lost: the
+        // request, and the connection IDs it issues
+        int[] dropped = {0};
+        pair.dropFromClient = d -> {
+            if (!confirmed(client) && hasOneRtt(d)) {
+                dropped[0]++;
+                return true;
+            }
+            return false;
+        };
+        pair.drive();
+        assertTrue(dropped[0] > 0);
+        assertTrue(confirmed(client));
+        Connection server = pair.serverConnection();
+        assertEquals(s, server.acceptStream(Dir.BI));
+        assertArrayEquals(MSG, readAvailable(server, s));
+        assertTrue(client.recovery().lostPackets() > 0, "found lost, and sent again");
     }
 
     @Test

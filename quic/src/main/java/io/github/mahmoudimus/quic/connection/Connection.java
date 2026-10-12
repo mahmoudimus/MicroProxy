@@ -2,8 +2,9 @@
  * Ported from quinn-proto src/connection/mod.rs (Connection: poll_transmit, handle_event,
  * handle_timeout, close, the handshake state machine in process_decrypted_packet,
  * process_early_payload and process_payload, read_crypto, write_crypto, populate_packet, key
- * update, spin bit, connection ID handling), src/connection/packet_builder.rs and
- * src/connection/packet_crypto.rs (Apache-2.0).
+ * update, spin bit, connection ID handling, 0-RTT: init_0rtt, zero_rtt_crypto, accepted_0rtt and
+ * the rejection of 0-RTT data, NEW_TOKEN issuance and storage), src/connection/packet_builder.rs
+ * and src/connection/packet_crypto.rs (Apache-2.0).
  */
 package io.github.mahmoudimus.quic.connection;
 
@@ -14,6 +15,7 @@ import io.github.mahmoudimus.quic.QuicVersion;
 import io.github.mahmoudimus.quic.Secrets;
 import io.github.mahmoudimus.quic.StatelessResetToken;
 import io.github.mahmoudimus.quic.congestion.RttEstimator;
+import io.github.mahmoudimus.quic.crypto.DirectionalKeys;
 import io.github.mahmoudimus.quic.crypto.Keys;
 import io.github.mahmoudimus.quic.crypto.PacketKey;
 import io.github.mahmoudimus.quic.frame.Frame;
@@ -26,7 +28,9 @@ import io.github.mahmoudimus.quic.packet.PacketNumber;
 import io.github.mahmoudimus.quic.packet.PacketType;
 import io.github.mahmoudimus.quic.packet.ProtectedPacket;
 import io.github.mahmoudimus.quic.params.TransportParameters;
+import io.github.mahmoudimus.quic.tls.SessionTicket;
 import io.github.mahmoudimus.quic.tls.TlsSession;
+import io.github.mahmoudimus.quic.token.TokenValidator;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.security.cert.X509Certificate;
@@ -35,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.random.RandomGenerator;
 
@@ -60,9 +65,20 @@ import java.util.random.RandomGenerator;
  * <p><b>Threads.</b> Not thread-safe and takes no locks: the I/O layer owns each connection and
  * serializes every call, the application's stream operations included.
  *
- * <p>Not supported: 0-RTT and session resumption, connection migration and path validation (packets
- * from another address are dropped; PATH_CHALLENGE is answered on the current path), NEW_TOKEN
- * tokens (received ones are ignored), and sending ACK_FREQUENCY.
+ * <p><b>Resumption and 0-RTT.</b> A client with a {@link SessionCache} keeps the session tickets
+ * and NEW_TOKEN tokens it receives, and starts its next connection to the same server with one of
+ * each: the token in its Initial packets lets the server skip Retry, and the ticket resumes the
+ * TLS session. If the ticket allows 0-RTT and the TLS configuration enables it, the client sends
+ * stream data and datagrams in 0-RTT packets at once, within the transport parameters the ticket
+ * remembers (RFC 9000 section 7.4.1). If the server rejects the early data, everything the
+ * streams sent is sent again in 1-RTT packets, provided it fits the server's new limits (the local
+ * streams are forgotten otherwise). A server with tickets and 0-RTT enabled in its TLS
+ * configuration decrypts 0-RTT packets with the client early traffic secret and processes their
+ * frames during the handshake; {@link #receivedEarlyData(StreamId)} tells which streams carried
+ * early data, which the application must treat as replayable.
+ *
+ * <p>Not supported: connection migration and path validation (packets from another address are
+ * dropped; PATH_CHALLENGE is answered on the current path), and sending ACK_FREQUENCY.
  */
 public final class Connection {
 
@@ -91,6 +107,8 @@ public final class Connection {
         boolean track = true;
         long largestAcked = -1;
         int payloadStart;
+        /** A client's 0-RTT packet: no ACK, CRYPTO, HANDSHAKE_DONE or connection ID frames. */
+        boolean zeroRtt;
         Retransmits sent = new Retransmits();
         List<StreamMeta> streamFrames = List.of();
     }
@@ -175,6 +193,24 @@ public final class Connection {
     private long pathResponse;
     private boolean pathResponsePending;
 
+    /** A client's cache of tickets and tokens, and its key there; null on a server or without one. */
+    private SessionCache sessionCache;
+    private String cacheKey;
+    /** 0-RTT packet keys: a client's for sending, a server's for receiving; null without (or after) 0-RTT. */
+    private DirectionalKeys zeroRttKeys;
+    /** Whether 0-RTT was attempted (client) or accepted (server). */
+    private boolean zeroRttEnabled;
+    /** Whether the server accepted the client's 0-RTT data. */
+    private boolean zeroRttAccepted;
+    /** The transport parameters a client remembered from its ticket and used for 0-RTT. */
+    private TransportParameters rememberedParams;
+    /** Remote streams that carried data in 0-RTT packets (server). */
+    private final Set<StreamId> earlyStreams = new HashSet<>();
+    /** A server's token issuer, for NEW_TOKEN frames; null on a client. */
+    private TokenValidator tokenValidator;
+    /** How many NEW_TOKEN frames a server sends once the handshake completes. */
+    private int newTokens;
+
     private Connection(Side side, long now, TransportConfig config, EndpointConfig endpointConfig,
             QuicVersion version, TlsSession tls, InetSocketAddress remote, ConnectionId initialDcid,
             ConnectionId localCid, ConnectionId remoteCid, boolean addressValidated, byte[] token,
@@ -251,15 +287,47 @@ public final class Connection {
     static Connection client(long now, ClientConfig config, EndpointConfig endpointConfig, InetSocketAddress remote,
             String serverName, ConnectionId initialDcid, ConnectionId localCid, boolean allowMtud,
             RandomGenerator random) {
+        return client(now, config, endpointConfig, remote, serverName, initialDcid, localCid, allowMtud, random,
+                config.sessionCache);
+    }
+
+    /**
+     * Starts a client connection with a cache of session tickets and tokens.
+     *
+     * @param cache the cache, or null for none
+     * @see #client(long, ClientConfig, EndpointConfig, InetSocketAddress, String, ConnectionId,
+     *     ConnectionId, boolean, RandomGenerator)
+     */
+    static Connection client(long now, ClientConfig config, EndpointConfig endpointConfig, InetSocketAddress remote,
+            String serverName, ConnectionId initialDcid, ConnectionId localCid, boolean allowMtud,
+            RandomGenerator random, SessionCache cache) {
         TransportConfig transport = config.transport;
         byte[] params = localParams(transport, endpointConfig.cidLength(), localCid).build().encode();
-        TlsSession tls = serverName != null ? TlsSession.client(config.tls, serverName, params)
-                : TlsSession.client(config.tls, params);
+        String name = serverName != null ? serverName : config.tls.serverName();
+        String key = cacheKey(name, remote);
+        SessionTicket ticket = cache != null ? cache.tickets().take(key) : null;
+        byte[] token = cache != null ? cache.tokens().take(key) : null;
+        TlsSession tls = TlsSession.client(config.tls, name, params, ticket);
         Connection c = new Connection(Side.CLIENT, now, transport, endpointConfig, config.version, tls, remote,
-                initialDcid, localCid, initialDcid, true, EMPTY, allowMtud, random);
+                initialDcid, localCid, initialDcid, true, token != null ? token : EMPTY, allowMtud, random);
+        c.sessionCache = cache;
+        c.cacheKey = key;
+        c.ticket = ticket;
         c.writeCrypto();
         return c;
     }
+
+    /** The cache key for a server: its name without a trailing dot, or its address. */
+    static String cacheKey(String serverName, InetSocketAddress remote) {
+        if (serverName == null) {
+            return remote.getHostString() + ":" + remote.getPort();
+        }
+        String name = serverName.toLowerCase(Locale.ROOT);
+        return name.endsWith(".") ? name.substring(0, name.length() - 1) : name;
+    }
+
+    /** The ticket a client offered, whose transport parameters 0-RTT uses. */
+    private SessionTicket ticket;
 
     /**
      * Accepts a server connection for a client's first Initial, which the endpoint checked.
@@ -285,6 +353,22 @@ public final class Connection {
             QuicVersion version, ConnectionId dcid, ConnectionId clientScid, ConnectionId localCid,
             ConnectionId originalDcid, ConnectionId retrySrcCid, boolean addressValidated, byte[] token,
             boolean allowMtud, RandomGenerator random) {
+        return server(now, config, endpointConfig, remote, version, dcid, clientScid, localCid, originalDcid,
+                retrySrcCid, addressValidated, token, allowMtud, random, null);
+    }
+
+    /**
+     * Accepts a server connection, with a token issuer for the NEW_TOKEN frames it sends.
+     *
+     * @param tokens the endpoint's token validator, or null to send no NEW_TOKEN frames
+     * @see #server(long, ServerConfig, EndpointConfig, InetSocketAddress, QuicVersion, ConnectionId,
+     *     ConnectionId, ConnectionId, ConnectionId, ConnectionId, boolean, byte[], boolean,
+     *     RandomGenerator)
+     */
+    static Connection server(long now, ServerConfig config, EndpointConfig endpointConfig, InetSocketAddress remote,
+            QuicVersion version, ConnectionId dcid, ConnectionId clientScid, ConnectionId localCid,
+            ConnectionId originalDcid, ConnectionId retrySrcCid, boolean addressValidated, byte[] token,
+            boolean allowMtud, RandomGenerator random, TokenValidator tokens) {
         TransportParameters.Builder params = localParams(config.transport, endpointConfig.cidLength(), localCid)
                 .originalDestinationConnectionId(originalDcid)
                 .statelessResetToken(StatelessResetToken.derive(endpointConfig.resetKey, localCid))
@@ -292,10 +376,20 @@ public final class Connection {
         if (retrySrcCid != null) {
             params.retrySourceConnectionId(retrySrcCid);
         }
-        TlsSession tls = TlsSession.server(config.tls, params.build().encode());
+        TransportParameters local = params.build();
+        // RFC 9000 section 7.4.1: no 0-RTT if a limit the client may use in it is smaller now
+        TlsSession tls = TlsSession.server(config.tls, local.encode(), remembered -> {
+            try {
+                return local.allowsResumptionFrom(TransportParameters.decode(remembered, true));
+            } catch (QuicException e) {
+                return false;
+            }
+        });
         Connection c = new Connection(Side.SERVER, now, config.transport, endpointConfig, version, tls, remote, dcid,
                 localCid, clientScid, addressValidated, token, allowMtud, random);
         c.retrySrcCid = retrySrcCid;
+        c.tokenValidator = tokens;
+        c.newTokens = tokens != null ? config.newTokens : 0;
         return c;
     }
 
@@ -369,7 +463,10 @@ public final class Connection {
                 return;
             }
             case ZERO_RTT -> {
-                return; // no 0-RTT
+                if (side.isServer() && zeroRttKeys != null) {
+                    handleZeroRtt(now, p, ecn);
+                }
+                return;
             }
             default -> {}
         }
@@ -465,6 +562,30 @@ public final class Connection {
         }
     }
 
+    /** A server's 0-RTT packet: decrypted with the client early traffic keys, in the data space. */
+    private void handleZeroRtt(long now, ProtectedPacket p, int ecn) {
+        PacketSpace space = recovery.space(SpaceId.DATA);
+        PacketHeader.Numbered header = p.removeHeaderProtection(zeroRttKeys.header(), space.rxPacket());
+        Packet packet;
+        try {
+            packet = p.decrypt(zeroRttKeys.packet());
+        } catch (QuicException e) {
+            finishPacket(now, ConnectionError.transport(e));
+            return;
+        }
+        if (packet == null) {
+            authenticationFailures++;
+            if (authenticationFailures > zeroRttKeys.packet().integrityLimit()) {
+                finishPacket(now, ConnectionError.transport(new QuicException(QuicException.AEAD_LIMIT_REACHED,
+                        "integrity limit violated")));
+            }
+            return;
+        }
+        boolean wasClosed = isClosed();
+        ConnectionError result = processAuthenticated(now, SpaceId.DATA, header.packetNumber(), packet, header, ecn);
+        finishPacket(now, result, wasClosed);
+    }
+
     private ConnectionError processAuthenticated(long now, SpaceId spaceId, long number, Packet packet,
             PacketHeader.Numbered header, int ecn) {
         try {
@@ -531,6 +652,11 @@ public final class Connection {
         if (number >= prevRx && header instanceof PacketHeader.Short s) {
             spin = side.isClient() ^ s.spin();
         }
+        if (side.isServer() && zeroRttKeys != null && header instanceof PacketHeader.Short
+                && !timers.isSet(Timer.KEY_DISCARD)) {
+            // Discard 0-RTT keys soon after the first 1-RTT packet, as quinn does
+            recovery.setKeyDiscardTimer(now, SpaceId.DATA);
+        }
     }
 
     private void processDecrypted(long now, SpaceId spaceId, long number, PacketHeader.Numbered header,
@@ -570,18 +696,36 @@ public final class Connection {
                     return;
                 }
                 if (side.isClient()) {
-                    handlePeerParams(peerTransportParameters());
+                    TransportParameters params = peerTransportParameters();
+                    if (zeroRttEnabled) {
+                        if (tls.isEarlyDataAccepted()) {
+                            zeroRttAccepted = true;
+                            if (rememberedParams != null) {
+                                params.validateResumptionFrom(rememberedParams);
+                            }
+                        } else {
+                            zeroRttRejected(now, params);
+                        }
+                    }
+                    handlePeerParams(params);
                     issueFirstCids(now);
                 } else {
-                    recovery.space(SpaceId.DATA).pending().handshakeDone = true;
+                    Retransmits pending = recovery.space(SpaceId.DATA).pending();
+                    pending.handshakeDone = true;
+                    for (int i = 0; i < newTokens; i++) {
+                        pending.newTokens.add(remote);
+                    }
+                    // Confirmed first: discarding the Handshake space rearms loss detection, which
+                    // must then cover the application data already in flight
+                    confirmHandshake(now);
                     recovery.discardSpace(now, SpaceId.HANDSHAKE);
-                    confirmHandshake();
                 }
                 events.add(new ConnectionEvent.Connected());
                 state = State.ESTABLISHED;
                 resetKeepAlive(now);
                 qlog(now, "connectivity:connection_state_updated", "{\"new\":\"handshake_complete\"}");
             }
+            case PacketHeader.ZeroRtt z -> processPayload(now, number, header, frames, payloadLength);
             case PacketHeader.Initial i -> {
                 if (!remoteCidSet) {
                     remoteCids.updateInitialCid(i.sourceId());
@@ -610,10 +754,18 @@ public final class Connection {
         return TransportParameters.decode(encoded, side.isClient());
     }
 
-    private void confirmHandshake() {
+    /**
+     * The handshake is confirmed (RFC 9001 section 4.1.2). Until now the probe timeout ignored the
+     * application data space (RFC 9002 section 6.2.1), so loss detection is armed again: 1-RTT
+     * packets sent before confirmation, such as 0-RTT data sent again after a rejection or a
+     * request sent as soon as the handshake completed, would otherwise never be probed for, and a
+     * lost one would stall its stream until the idle timeout.
+     */
+    private void confirmHandshake(long now) {
         if (!handshakeConfirmed) {
             handshakeConfirmed = true;
             recovery.setHandshakeConfirmed(true);
+            recovery.setLossDetectionTimer(now);
             events.add(new ConnectionEvent.HandshakeConfirmed());
         }
     }
@@ -657,6 +809,9 @@ public final class Connection {
                 case Frame.Stream s -> {
                     if (streams.received(s, payloadLength)) {
                         pending.maxData = true;
+                    }
+                    if (header instanceof PacketHeader.ZeroRtt) {
+                        earlyStreams.add(new StreamId(s.streamId()));
                     }
                 }
                 case Frame.Ack a -> recovery.onAckReceived(now, SpaceId.DATA, a, listener);
@@ -708,7 +863,12 @@ public final class Connection {
                     if (!t.token().hasRemaining()) {
                         throw new QuicException(QuicException.FRAME_ENCODING_ERROR, "empty NEW_TOKEN");
                     }
-                    // Tokens would only help 0-RTT and resumption, which are not supported
+                    if (sessionCache != null) {
+                        ByteBuffer token = t.token();
+                        byte[] copy = new byte[token.remaining()];
+                        token.get(copy);
+                        sessionCache.tokens().put(cacheKey, copy);
+                    }
                 }
                 case Frame.Datagram d -> {
                     if (datagrams.received(d.data(), config.datagramReceiveBufferSize)) {
@@ -728,10 +888,10 @@ public final class Connection {
                     if (side.isServer()) {
                         throw new QuicException(QuicException.PROTOCOL_VIOLATION, "client sent HANDSHAKE_DONE");
                     }
+                    confirmHandshake(now);
                     if (recovery.space(SpaceId.HANDSHAKE).keys() != null) {
                         recovery.discardSpace(now, SpaceId.HANDSHAKE);
                     }
-                    confirmHandshake();
                 }
             }
         }
@@ -766,6 +926,11 @@ public final class Connection {
         for (Chunk chunk; (chunk = stream.read(Integer.MAX_VALUE, true)) != null; ) {
             tls.readHandshake(level, chunk.bytes().duplicate());
         }
+        for (SessionTicket t; (t = tls.pollNewTicket()) != null; ) {
+            if (sessionCache != null) {
+                sessionCache.tickets().put(cacheKey, t);
+            }
+        }
         if (!handshakeDataReady && tls.negotiatedAlpn() != null) {
             handshakeDataReady = true;
             events.add(new ConnectionEvent.HandshakeDataReady());
@@ -795,7 +960,8 @@ public final class Connection {
 
     private void installSecrets(Secrets s) {
         boolean isServer = side.isServer();
-        Keys keys = Keys.fromSecrets(s, isServer, version);
+        // 0-RTT secrets have the client's direction only
+        Keys keys = s.level() == EncryptionLevel.ZERO_RTT ? null : Keys.fromSecrets(s, isServer, version);
         KeyLog keyLog = config.keyLog;
         byte[] clientRandom = tls.clientRandom();
         switch (s.level()) {
@@ -810,6 +976,9 @@ public final class Connection {
             case ONE_RTT -> {
                 recovery.space(SpaceId.DATA).setKeys(keys);
                 highestSpace = SpaceId.DATA;
+                if (isClient()) {
+                    zeroRttKeys = null; // 1-RTT keys replace them
+                }
                 // Derive the next generation now, so a spoofed key update costs no key derivation
                 nextKeys = keys.update(tls.nextOneRttSecrets(), isServer, version);
                 if (keyLog != null && clientRandom != null) {
@@ -817,8 +986,67 @@ public final class Connection {
                     keyLog.log("SERVER_TRAFFIC_SECRET_0", clientRandom, s.server());
                 }
             }
-            default -> {} // no 0-RTT
+            case ZERO_RTT -> {
+                zeroRttKeys = DirectionalKeys.fromSecret(s.suite(), s.client(), version);
+                zeroRttEnabled = true;
+                if (keyLog != null && clientRandom != null) {
+                    keyLog.log("CLIENT_EARLY_TRAFFIC_SECRET", clientRandom, s.client());
+                }
+                if (isClient()) {
+                    initZeroRtt();
+                } else {
+                    zeroRttAccepted = true;
+                }
+            }
+            default -> {}
         }
+    }
+
+    private boolean isClient() {
+        return side.isClient();
+    }
+
+    /**
+     * A client about to send 0-RTT data: until the server's own parameters arrive, it keeps within
+     * the ones its ticket remembers (RFC 9000 section 7.4.1).
+     */
+    private void initZeroRtt() {
+        byte[] encoded = ticket != null ? ticket.transportParameters() : null;
+        TransportParameters remembered = null;
+        try {
+            remembered = encoded != null ? TransportParameters.decode(encoded, true).forZeroRtt() : null;
+        } catch (QuicException e) {
+            remembered = null;
+        }
+        if (remembered == null) {
+            zeroRttKeys = null; // no limits to keep within: send nothing early
+            return;
+        }
+        rememberedParams = remembered;
+        streams.setParams(remembered);
+        recovery.setPeerParams(remembered);
+        peerParams = remembered;
+    }
+
+    /**
+     * The server rejected 0-RTT: forget the 0-RTT packets without counting them lost, queue their
+     * control frames again, and send the stream data again in 1-RTT if it fits the server's limits.
+     */
+    private void zeroRttRejected(long now, TransportParameters params) {
+        Retransmits pending = recovery.space(SpaceId.DATA).pending();
+        for (SentPacket p : recovery.discardZeroRttPackets(now)) {
+            if (p.retransmits() != null) {
+                pending.merge(p.retransmits());
+            }
+        }
+        if (!streams.retransmitAfterZeroRttRejected(params)) {
+            // The local streams are gone: their frames must not go out
+            pending.resetStream.clear();
+            pending.stopSending.clear();
+            pending.maxStreamData.clear();
+            pending.streamDataBlocked.clear();
+        }
+        zeroRttKeys = null;
     }
 
     private void handleRetry(long now, ProtectedPacket p) {
@@ -841,6 +1069,17 @@ public final class Connection {
         initial.setKeys(Keys.initial(version, newCid, false));
         initial.pending().crypto.clear();
         initial.pending().crypto.addLast(new Frame.Crypto(0, ByteBuffer.wrap(clientHello)));
+        if (zeroRttKeys != null) {
+            // The server dropped the 0-RTT packets with the first Initial: send it all again, still
+            // as 0-RTT data, since the ClientHello and so the early keys stay the same
+            Retransmits pending = recovery.space(SpaceId.DATA).pending();
+            for (SentPacket sent : recovery.discardZeroRttPackets(now)) {
+                if (sent.retransmits() != null) {
+                    pending.merge(sent.retransmits());
+                }
+            }
+            streams.retransmitAllForZeroRtt();
+        }
         remoteCidSet = false;
         qlog(now, "transport:packet_received", "{\"header\":{\"packet_type\":\"retry\"}}");
     }
@@ -1001,7 +1240,12 @@ public final class Connection {
                         qlog(now, "recovery:packet_lost", "{\"count\":" + (recovery.lostPackets() - lostBefore) + "}");
                     }
                 }
-                case KEY_DISCARD -> prevKeys = null;
+                case KEY_DISCARD -> {
+                    prevKeys = null;
+                    if (side.isServer() && state != State.HANDSHAKE) {
+                        zeroRttKeys = null;
+                    }
+                }
                 case PATH_VALIDATION, PACING -> {}
                 case PUSH_NEW_CID -> {
                     boolean push = localCids.onCidTimeout();
@@ -1133,7 +1377,8 @@ public final class Connection {
         long lastNumber = -1;
         for (SpaceId id : SPACES) {
             PacketSpace space = recovery.space(id);
-            Keys keys = space.keys();
+            DirectionalKeys keys = space.keys() != null ? space.keys().local()
+                    : id == SpaceId.DATA && side.isClient() && !close ? zeroRttKeys : null;
             if (keys == null) {
                 continue;
             }
@@ -1207,7 +1452,7 @@ public final class Connection {
             if (id == SpaceId.DATA) {
                 if (handshakeConfirmed && space.sentWithKeys >= keyPhaseSize && prevKeys == null) {
                     forceKeyUpdate(); // routine key update before the key wears out
-                    keys = space.keys();
+                    keys = space.keys().local();
                 }
                 prevUpdateUnacked = false;
             }
@@ -1245,21 +1490,24 @@ public final class Connection {
     /** The frames buffer of the packet {@link #begin} started. */
     private ByteBuffer currentFrames;
 
-    private OpenPacket begin(long now, SpaceId id, PacketBuilder builder, Keys keys, int start) {
+    private OpenPacket begin(long now, SpaceId id, PacketBuilder builder, DirectionalKeys keys, int start) {
         PacketSpace space = recovery.space(id);
         long pn = recovery.nextPacketNumber(id);
         int pnLength = PacketNumber.encodedLength(pn, space.largestAckedPacket());
         ConnectionId dcid = remoteCids.active();
+        boolean zeroRtt = id == SpaceId.DATA && space.keys() == null;
         PacketHeader.Numbered header = switch (id) {
             case INITIAL -> new PacketHeader.Initial(version, dcid, handshakeCid,
                     side.isClient() ? token : EMPTY, pn, pnLength);
             case HANDSHAKE -> new PacketHeader.Handshake(version, dcid, handshakeCid, pn, pnLength);
-            case DATA -> new PacketHeader.Short(spinEnabled ? spin : random.nextBoolean(), keyPhase, dcid, pn, pnLength);
+            case DATA -> zeroRtt ? new PacketHeader.ZeroRtt(version, dcid, handshakeCid, pn, pnLength)
+                    : new PacketHeader.Short(spinEnabled ? spin : random.nextBoolean(), keyPhase, dcid, pn, pnLength);
         };
         OpenPacket p = new OpenPacket();
         p.space = id;
         p.number = pn;
-        currentFrames = builder.begin(header, keys.local());
+        p.zeroRtt = zeroRtt;
+        currentFrames = builder.begin(header, keys);
         p.start = start;
         p.payloadStart = currentFrames.position();
         return p;
@@ -1327,7 +1575,7 @@ public final class Connection {
         Retransmits pending = space.pending();
         space.pendingAcks().maybeAckNonEliciting();
         if (dataAllowed) {
-            if (p.space == SpaceId.DATA && pending.handshakeDone) {
+            if (p.space == SpaceId.DATA && pending.handshakeDone && !p.zeroRtt) {
                 out.put((byte) 0x1e);
                 pending.handshakeDone = false;
                 p.sent.handshakeDone = true;
@@ -1344,14 +1592,14 @@ public final class Connection {
                 p.ackEliciting = true;
             }
         }
-        if (space.pendingAcks().canSend()) {
+        if (space.pendingAcks().canSend() && !p.zeroRtt) {
             writeAck(now, p, space, out, limit);
         }
         if (!dataAllowed) {
             return;
         }
         // CRYPTO
-        while (out.position() + CRYPTO_SIZE_BOUND < limit) {
+        while (out.position() + CRYPTO_SIZE_BOUND < limit && !p.zeroRtt) {
             Frame.Crypto frame = pending.crypto.pollFirst();
             if (frame == null) {
                 break;
@@ -1375,7 +1623,7 @@ public final class Connection {
         streams.writeControlFrames(out, pending, p.sent, limit);
         p.ackEliciting |= out.position() > before;
         // NEW_CONNECTION_ID
-        while (!pending.newCids.isEmpty()) {
+        while (!pending.newCids.isEmpty() && !p.zeroRtt) {
             IssuedCid c = pending.newCids.get(0);
             long retirePriorTo = localCids.retirePriorTo();
             if (c.sequence() < retirePriorTo || !localCids.activeCids().containsKey(c.sequence())) {
@@ -1392,7 +1640,7 @@ public final class Connection {
             p.ackEliciting = true;
         }
         // RETIRE_CONNECTION_ID
-        while (!pending.retireCids.isEmpty()) {
+        while (!pending.retireCids.isEmpty() && !p.zeroRtt) {
             Frame.RetireConnectionId f = new Frame.RetireConnectionId(pending.retireCids.get(0));
             if (out.position() + f.encodedLength() > limit) {
                 break;
@@ -1401,8 +1649,23 @@ public final class Connection {
             p.sent.retireCids.add(pending.retireCids.remove(0));
             p.ackEliciting = true;
         }
+        // NEW_TOKEN: a fresh token each time, for the path it was meant for (RFC 9000 section 8.1.3)
+        while (!pending.newTokens.isEmpty() && !p.zeroRtt) {
+            InetSocketAddress path = pending.newTokens.get(0);
+            if (tokenValidator == null || !path.equals(remote)) {
+                pending.newTokens.remove(0);
+                continue;
+            }
+            Frame.NewToken f = new Frame.NewToken(ByteBuffer.wrap(tokenValidator.validationToken(path.getAddress())));
+            if (out.position() + f.encodedLength() > limit) {
+                break;
+            }
+            f.encode(out);
+            p.sent.newTokens.add(pending.newTokens.remove(0));
+            p.ackEliciting = true;
+        }
         // PATH_RESPONSE
-        if (pathResponsePending && out.position() + 9 <= limit) {
+        if (pathResponsePending && out.position() + 9 <= limit && !p.zeroRtt) {
             new Frame.PathResponse(pathResponse).encode(out);
             pathResponsePending = false;
             p.ackEliciting = true;
@@ -1415,7 +1678,7 @@ public final class Connection {
         p.streamFrames = streams.writeStreamFrames(out, limit, config.sendFairness);
         p.ackEliciting |= !p.streamFrames.isEmpty();
         // An ACK rides along with other frames once in a while
-        if (out.position() > payloadStart && p.largestAcked < 0 && nextBundledAckTime != NanoClock.NONE
+        if (out.position() > payloadStart && p.largestAcked < 0 && !p.zeroRtt && nextBundledAckTime != NanoClock.NONE
                 && nextBundledAckTime <= now && space.pendingAcks().canSendWithOtherFrames()) {
             writeAck(now, p, space, out, limit);
         }
@@ -1447,7 +1710,7 @@ public final class Connection {
         }
         ByteBuffer buf = ByteBuffer.allocate(size);
         PacketBuilder builder = new PacketBuilder(buf, size);
-        OpenPacket p = begin(now, SpaceId.DATA, builder, space.keys(), 0);
+        OpenPacket p = begin(now, SpaceId.DATA, builder, space.keys().local(), 0);
         currentFrames.put((byte) 0x01); // a PING padded to the probe size
         p.ackEliciting = true;
         int end = finish(now, builder, p, size);
@@ -1793,6 +2056,66 @@ public final class Connection {
      */
     public boolean isHandshaking() {
         return state == State.HANDSHAKE;
+    }
+
+    /**
+     * Whether the TLS handshake resumed a session from a ticket.
+     *
+     * @return true once known to be resumed: on a client after the ServerHello, on a server after
+     *     the ClientHello
+     */
+    public boolean isResumed() {
+        return tls.isResumed();
+    }
+
+    /**
+     * Whether a client may send 0-RTT data now: it offered a ticket that allows it, and the
+     * handshake has not completed. Stream data written now goes out in 0-RTT packets.
+     *
+     * @return true while 0-RTT keys are in use on a client
+     */
+    public boolean isZeroRtt() {
+        return side.isClient() && zeroRttKeys != null && state == State.HANDSHAKE;
+    }
+
+    /**
+     * Whether 0-RTT was attempted: offered by this client, or accepted by this server.
+     *
+     * @return true if 0-RTT keys were installed
+     */
+    public boolean zeroRttAttempted() {
+        return zeroRttEnabled;
+    }
+
+    /**
+     * Whether the server accepted 0-RTT data. A client knows once its handshake completes (false
+     * before); a server knows from the ClientHello.
+     *
+     * @return true if accepted
+     */
+    public boolean earlyDataAccepted() {
+        return zeroRttAccepted;
+    }
+
+    /**
+     * Server: whether a stream the client opened carried data in 0-RTT packets, which an attacker
+     * may have replayed. Data that arrives after the handshake completes is not replayable.
+     *
+     * @param id the stream
+     * @return true if any of its data arrived as early data
+     */
+    public boolean receivedEarlyData(StreamId id) {
+        return earlyStreams.contains(id);
+    }
+
+    /**
+     * Whether the TLS handshake is complete: for a server, once it has verified the client's
+     * Finished, which proves the client is live and so its early data was not replayed by others.
+     *
+     * @return true when complete
+     */
+    public boolean isHandshakeComplete() {
+        return tls.isHandshakeComplete();
     }
 
     /**

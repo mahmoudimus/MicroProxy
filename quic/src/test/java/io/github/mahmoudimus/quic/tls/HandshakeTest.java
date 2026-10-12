@@ -494,11 +494,14 @@ class HandshakeTest {
     // --- after the handshake ---
 
     @Test
-    void clientIgnoresNewSessionTickets() throws Exception {
+    void clientKeepsNewSessionTickets() throws Exception {
         Handshakes h = run(client(), server());
         byte[] ticket = new NewSessionTicket(7200, 1, new byte[] {0}, new byte[] {1, 2, 3}, List.of()).encode();
         Handshakes.feed(h.client, EncryptionLevel.ONE_RTT, Handshakes.join(List.of(ticket, ticket)), new Random(1));
         assertTrue(h.client.isHandshakeComplete());
+        assertEquals(java.time.Duration.ofHours(2), h.client.pollNewTicket().lifetime());
+        assertEquals(HOST, h.client.pollNewTicket().serverName());
+        assertNull(h.client.pollNewTicket());
     }
 
     @Test

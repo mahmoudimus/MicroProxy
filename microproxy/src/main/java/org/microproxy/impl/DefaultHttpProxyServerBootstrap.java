@@ -341,6 +341,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withHttp3UpstreamHosts(HostRules.split(p.getProperty("http3_upstream_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("http3_max_concurrent_streams") || p.containsKey("http3_alt_svc") || p.containsKey("http3_retry")
+                || p.containsKey("http3_0rtt") || p.containsKey("http3_upstream_0rtt")
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("http3_max_concurrent_streams")) {
@@ -348,6 +349,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             }
             if (p.containsKey("http3_alt_svc")) h3.altSvc(bool(p, "http3_alt_svc"));
             if (p.containsKey("http3_retry")) h3.retry(bool(p, "http3_retry"));
+            if (p.containsKey("http3_0rtt")) h3.zeroRtt(bool(p, "http3_0rtt"));
+            if (p.containsKey("http3_upstream_0rtt")) h3.upstreamZeroRtt(bool(p, "http3_upstream_0rtt"));
             if (p.containsKey("transparent_quic_relay_idle_timeout")) {
                 h3.transparentRelayIdleTimeout(Duration.ofSeconds(
                         Long.parseLong(p.getProperty("transparent_quic_relay_idle_timeout").strip())));

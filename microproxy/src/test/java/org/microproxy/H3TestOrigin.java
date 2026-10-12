@@ -15,6 +15,7 @@ import io.github.mahmoudimus.quic.QuicServer;
 import io.github.mahmoudimus.quic.QuicStream;
 import io.github.mahmoudimus.quic.connection.ServerConfig;
 import io.github.mahmoudimus.quic.tls.CertifiedKey;
+import io.github.mahmoudimus.quic.tls.Ticketer;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,8 +51,13 @@ import org.microproxy.tls.CertificateAuthority;
  *       body), with the request's trailers sent back as trailers;
  *   <li>{@code /bytes/<n>}: {@code n} bytes;
  *   <li>{@code /trailers}: a body and the trailer {@code x-checksum: 42};
- *   <li>{@code /goaway}: {@code ok}, then GOAWAY on the connection.
+ *   <li>{@code /goaway}: {@code ok}, then GOAWAY on the connection;
+ *   <li>{@code /too-early}: {@code 425} to a request that arrived as 0-RTT data, else {@code
+ *       after the handshake}.
  * </ul>
+ *
+ * <p>It issues session tickets; with {@code zeroRtt} it also accepts 0-RTT data, and records which
+ * requests arrived as early data ({@link #earlyRequestLines()}) and how many connections resumed.
  */
 final class H3TestOrigin implements AutoCloseable {
 
@@ -60,6 +66,8 @@ final class H3TestOrigin implements AutoCloseable {
     final QuicServer server;
     final AtomicInteger connections = new AtomicInteger();
     final AtomicInteger requests = new AtomicInteger();
+    final AtomicInteger resumed = new AtomicInteger();
+    private final List<String> earlyRequestLines = new ArrayList<>();
     private final ReentrantLock lock = new ReentrantLock();
     private final List<Throwable> errors = new ArrayList<>();
     private final List<String> requestLines = new ArrayList<>();
@@ -70,6 +78,11 @@ final class H3TestOrigin implements AutoCloseable {
 
     /** An origin on UDP {@code port} (0 for any), as an HTTPS server on the same TCP port would be reached. */
     H3TestOrigin(CertificateAuthority ca, int port) throws IOException {
+        this(ca, port, false);
+    }
+
+    /** An origin on UDP {@code port} (0 for any) that accepts 0-RTT data when {@code zeroRtt}. */
+    H3TestOrigin(CertificateAuthority ca, int port, boolean zeroRtt) throws IOException {
         KeyPair keys;
         try {
             KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
@@ -80,8 +93,8 @@ final class H3TestOrigin implements AutoCloseable {
         }
         X509Certificate leaf = ca.issue(keys.getPublic(), List.of("localhost", "127.0.0.1", "origin.test"));
         CertifiedKey certified = new CertifiedKey(List.of(leaf, ca.getCertificate()), keys.getPrivate());
-        ServerConfig config = ServerConfig.builder(TlsConfig.builder().certificate(certified).alpnProtocols("h3").build())
-                .build();
+        ServerConfig config = ServerConfig.builder(TlsConfig.builder().certificate(certified).alpnProtocols("h3")
+                .sessionTickets(Ticketer.create()).earlyData(zeroRtt).build()).build();
         server = QuicServer.bind(new InetSocketAddress(TestSupport.LOOPBACK, port), config);
         Thread.ofVirtual().name("h3-origin-accept").start(this::acceptLoop);
     }
@@ -109,6 +122,16 @@ final class H3TestOrigin implements AutoCloseable {
         }
     }
 
+    /** "METHOD path" of each request that arrived (at least in part) as 0-RTT data, in arrival order. */
+    List<String> earlyRequestLines() {
+        lock.lock();
+        try {
+            return List.copyOf(earlyRequestLines);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     private void fail(Throwable t) {
         lock.lock();
         try {
@@ -127,6 +150,7 @@ final class H3TestOrigin implements AutoCloseable {
                 return;
             }
             connections.incrementAndGet();
+            if (c.isResumed()) resumed.incrementAndGet();
             Thread.ofVirtual().start(() -> new Connection(c).serve());
         }
     }
@@ -255,9 +279,11 @@ final class H3TestOrigin implements AutoCloseable {
             }
             if (request == null) throw new IOException("no request on stream " + id);
             requests.incrementAndGet();
+            boolean early = s.receivedEarlyData();
             lock.lock();
             try {
                 requestLines.add(request.method() + " " + request.path());
+                if (early) earlyRequestLines.add(request.method() + " " + request.path());
             } finally {
                 lock.unlock();
             }
@@ -281,6 +307,12 @@ final class H3TestOrigin implements AutoCloseable {
                 int n = Integer.parseInt(path.substring("/bytes/".length()));
                 out = new byte[n];
                 for (int i = 0; i < n; i++) out[i] = (byte) i;
+            } else if (path.equals("/too-early")) {
+                if (early) {
+                    respond(s, "425", new byte[0], List.of());
+                    return;
+                }
+                out = "after the handshake".getBytes(StandardCharsets.US_ASCII);
             } else if (path.equals("/trailers")) {
                 out = "with trailers".getBytes(StandardCharsets.US_ASCII);
                 responseTrailers = List.of(new HeaderField("x-checksum", "42"));

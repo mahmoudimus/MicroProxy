@@ -7,6 +7,7 @@ import io.github.mahmoudimus.quic.connection.EndpointConfig;
 import io.github.mahmoudimus.quic.connection.EndpointEvent;
 import io.github.mahmoudimus.quic.connection.NanoClock;
 import io.github.mahmoudimus.quic.connection.ServerConfig;
+import io.github.mahmoudimus.quic.connection.SessionCache;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketOption;
@@ -171,6 +172,10 @@ final class EndpointDriver implements AutoCloseable {
             if (event instanceof Endpoint.DatagramEvent.NewConnection n) {
                 created = new ConnectionDriver(this, n.connection(), true);
                 drivers.put(n.connection(), created);
+                // Queued before the lock goes: once it does, another thread (the socket's, or one
+                // injecting) may route the client's next datagrams to the connection, and 0-RTT
+                // packets that reach it before the Initial with their keys are dropped.
+                created.deliver(from, datagram);
             }
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "dropping a datagram that broke routing", e);
@@ -185,10 +190,7 @@ final class EndpointDriver implements AutoCloseable {
                     driver.deliver(from, datagram);
                 }
             }
-            case Endpoint.DatagramEvent.NewConnection n -> {
-                created.start();
-                created.deliver(from, datagram);
-            }
+            case Endpoint.DatagramEvent.NewConnection n -> created.start();
             case Endpoint.DatagramEvent.Response r -> send(r.datagram(), from);
             case null -> {}
         }
@@ -270,14 +272,15 @@ final class EndpointDriver implements AutoCloseable {
         }
     }
 
-    ConnectionDriver connect(ClientConfig config, InetSocketAddress remote, String serverName) throws IOException {
+    ConnectionDriver connect(ClientConfig config, InetSocketAddress remote, String serverName,
+            SessionCache cache) throws IOException {
         if (closed) {
             throw new ClosedChannelException();
         }
         ConnectionDriver driver;
         endpointLock.lock();
         try {
-            Connection conn = endpoint.connect(clock.nanoTime(), config, remote, serverName);
+            Connection conn = endpoint.connect(clock.nanoTime(), config, remote, serverName, cache);
             driver = new ConnectionDriver(this, conn, false);
             drivers.put(conn, driver);
         } finally {

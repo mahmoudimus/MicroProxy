@@ -906,6 +906,26 @@ public final class Recovery {
     }
 
     /**
+     * Forgets the packets sent in the application data space without counting them lost, after the
+     * server rejected 0-RTT: it never processed them (quinn's handling of rejected 0-RTT).
+     *
+     * @param now the current time
+     * @return the packets, whose control frames may be queued again
+     */
+    public List<SentPacket> discardZeroRttPackets(long now) {
+        PacketSpace space = space(SpaceId.DATA);
+        List<SentPacket> out = new ArrayList<>(space.sentPackets.clear());
+        for (SentPacket p : out) {
+            removeInFlight(p);
+        }
+        space.timeOfLastAckElicitingPacket = NanoClock.NONE;
+        space.lossTime = NanoClock.NONE;
+        space.unackedNonAckElicitingTail = 0;
+        setLossDetectionTimer(now);
+        return out;
+    }
+
+    /**
      * Restarts {@link Timer#IDLE}: the idle timeout, but at least three PTOs (RFC 9000 section
      * 10.1).
      *

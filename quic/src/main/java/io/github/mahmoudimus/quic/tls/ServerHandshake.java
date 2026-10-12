@@ -1,13 +1,17 @@
 // Ported from rustls src/server/hs.rs (ClientHello validation, certificate, suite and group
-// selection, ALPN) and src/server/tls13.rs (HelloRetryRequest, the server's flight, client
-// authentication, Finished), with the QUIC rules of src/quic.rs: the quic_transport_parameters
-// extension, strict ALPN, no middlebox compatibility mode and no tickets (Apache-2.0).
+// selection, ALPN) and src/server/tls13.rs (HelloRetryRequest, PSK acceptance with binder and
+// freshness checks, the early data decision, the server's flight, client authentication, Finished
+// and ticket issuance), with the QUIC rules of src/quic.rs: the quic_transport_parameters
+// extension, strict ALPN, no middlebox compatibility mode, a max_early_data_size of 0xffffffff
+// and 0-RTT keys from the client early traffic secret (Apache-2.0).
 package io.github.mahmoudimus.quic.tls;
 
 import io.github.mahmoudimus.quic.CipherSuite;
 import io.github.mahmoudimus.quic.EncryptionLevel;
 import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.tls.Extensions.KeyShare;
+import io.github.mahmoudimus.quic.tls.Extensions.PskIdentity;
+import io.github.mahmoudimus.quic.tls.Extensions.PskOffer;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.CertificateEntry;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.CertificateMessage;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.CertificateRequest;
@@ -16,13 +20,17 @@ import io.github.mahmoudimus.quic.tls.HandshakeMessage.ClientHello;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.EncryptedExtensions;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.Extension;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.Finished;
+import io.github.mahmoudimus.quic.tls.HandshakeMessage.NewSessionTicket;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.ServerHello;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -47,16 +55,26 @@ final class ServerHandshake implements Handshake {
     /** What the second ClientHello must agree with. */
     private record Retry(String serverName, CipherSuite suite, NamedGroup group) {}
 
+    /** An accepted PSK: the identity's index, the ticket's state and the two ticket ages. */
+    private record Resumption(int index, ServerTicket ticket, long clientAgeMillis, long serverAgeMillis) {}
+
     private final TlsSession session;
     private final TlsConfig config;
     private final Transcript transcript = new Transcript();
     private KeySchedule keySchedule;
     private byte[] clientHandshakeSecret;
     private State state = new ExpectClientHello(null);
+    /** Whether the client offered psk_dhe_ke, so it can use tickets. */
+    private boolean ticketsWanted;
 
     ServerHandshake(TlsSession session) {
         this.session = session;
         this.config = session.config;
+    }
+
+    /** Whether this server resumes sessions and sends tickets. */
+    private boolean resumption() {
+        return config.ticketer != null && config.clientAuth == ClientAuth.NONE;
     }
 
     @Override
@@ -106,8 +124,20 @@ final class ServerHandshake implements Handshake {
         }
         byte[] pskModes = Extension.find(extensions, ExtensionType.PSK_KEY_EXCHANGE_MODES);
         if (psk != null && pskModes == null) throw missing(ExtensionType.PSK_KEY_EXCHANGE_MODES);
-        if (pskModes != null) Extensions.decodePskKeyExchangeModes(pskModes);
-        if (st.retry() != null && Extension.find(extensions, ExtensionType.EARLY_DATA) != null) {
+        PskOffer pskOffer = psk != null ? Extensions.decodePskOffer(psk) : null;
+        if (pskOffer != null && pskOffer.binders().size() != pskOffer.identities().size()) {
+            throw TlsAlert.illegalParameter("pre_shared_key has " + pskOffer.identities().size()
+                    + " identities and " + pskOffer.binders().size() + " binders");
+        }
+        boolean pskDhe = false;
+        if (pskModes != null) {
+            for (byte mode : Extensions.decodePskKeyExchangeModes(pskModes)) pskDhe |= mode == Extensions.PSK_DHE_KE;
+        }
+        // Only psk_dhe_ke is used: a client that offers psk_ke alone gets a full handshake and no tickets
+        ticketsWanted = pskDhe;
+        byte[] earlyDataRequest = Extension.find(extensions, ExtensionType.EARLY_DATA);
+        if (earlyDataRequest != null) Extensions.expectEmpty(earlyDataRequest, ExtensionType.EARLY_DATA);
+        if (st.retry() != null && earlyDataRequest != null) {
             throw TlsAlert.illegalParameter("second ClientHello offers early data");
         }
 
@@ -175,8 +205,8 @@ final class ServerHandshake implements Handshake {
             throw TlsAlert.illegalParameter("second ClientHello has no key share for the requested group");
         }
         transcript.start(suite);
-        transcript.add(raw);
         if (share == null) {
+            transcript.add(raw);
             NamedGroup retryGroup = null;
             for (NamedGroup candidate : config.groups) {
                 if (contains(groupCodes, candidate.code())) {
@@ -189,18 +219,25 @@ final class ServerHandshake implements Handshake {
             return new ExpectClientHello(new Retry(serverName, suite, retryGroup));
         }
 
+        Resumption resuming = pskOffer != null && pskDhe && resumption()
+                ? acceptPsk(pskOffer, raw, suite, serverName) : null;
+        transcript.add(raw);
+
         ClientHelloInfo info = clientHelloInfo(serverName, offeredAlpn, schemeCodes, hello.cipherSuites(), groupCodes);
         String alpn = selectAlpn(info, offeredAlpn);
-        CertifiedKey certified = selectCertificate(info);
+        CertifiedKey certified = null;
         SignatureScheme scheme = null;
-        for (SignatureScheme candidate : info.signatureSchemes()) {
-            if (config.signatureSchemes.contains(candidate) && candidate.compatibleWith(certified.privateKey())) {
-                scheme = candidate;
-                break;
+        if (resuming == null) {
+            certified = selectCertificate(info);
+            for (SignatureScheme candidate : info.signatureSchemes()) {
+                if (config.signatureSchemes.contains(candidate) && candidate.compatibleWith(certified.privateKey())) {
+                    scheme = candidate;
+                    break;
+                }
             }
-        }
-        if (scheme == null) {
-            throw TlsAlert.error(TlsAlert.HANDSHAKE_FAILURE, "no signature scheme in common for the certificate");
+            if (scheme == null) {
+                throw TlsAlert.error(TlsAlert.HANDSHAKE_FAILURE, "no signature scheme in common for the certificate");
+            }
         }
 
         session.serverName(serverName);
@@ -208,10 +245,18 @@ final class ServerHandshake implements Handshake {
         session.peerTransportParameters(parameters);
         session.negotiated(suite, group);
 
+        keySchedule = resuming != null ? new KeySchedule(suite, resuming.ticket().psk()) : new KeySchedule(suite);
+        boolean earlyData = earlyDataRequest != null && st.retry() == null
+                && acceptEarlyData(resuming, suite, serverName, alpn);
+        if (resuming != null) session.resumed();
+        if (earlyData) {
+            session.earlyDataAccepted();
+            session.earlySecrets(suite, keySchedule.deriveSecret(KeySchedule.CLIENT_EARLY_TRAFFIC, transcript.hash()));
+        }
+
         KeyExchange ours = KeyExchange.generate(group, config.random);
         byte[] shared = ours.agree(share.keyExchange());
-        sendServerHello(hello, suite, ours);
-        keySchedule = new KeySchedule(suite);
+        sendServerHello(hello, suite, ours, resuming != null ? resuming.index() : -1);
         keySchedule.inputSharedSecret(shared);
         byte[] hash = transcript.hash();
         clientHandshakeSecret = keySchedule.deriveSecret(KeySchedule.CLIENT_HANDSHAKE_TRAFFIC, hash);
@@ -219,10 +264,12 @@ final class ServerHandshake implements Handshake {
         keySchedule.inputEmpty();
         session.handshakeSecrets(clientHandshakeSecret, serverHandshakeSecret);
 
-        sendEncryptedExtensions(serverName, alpn);
-        if (config.clientAuth != ClientAuth.NONE) sendCertificateRequest();
-        sendCertificate(certified);
-        sendCertificateVerify(scheme, certified);
+        sendEncryptedExtensions(serverName, alpn, earlyData);
+        if (resuming == null) {
+            if (config.clientAuth != ClientAuth.NONE) sendCertificateRequest();
+            sendCertificate(certified);
+            sendCertificateVerify(scheme, certified);
+        }
         byte[] verifyData = keySchedule.finishedVerifyData(serverHandshakeSecret, transcript.hash());
         sendHandshake(new Finished(verifyData).encode());
 
@@ -232,7 +279,67 @@ final class ServerHandshake implements Handshake {
                 keySchedule.deriveSecret(KeySchedule.SERVER_APPLICATION_TRAFFIC, hash),
                 keySchedule.deriveSecret(KeySchedule.EXPORTER_MASTER, hash));
         session.readLevel(EncryptionLevel.HANDSHAKE);
-        return config.clientAuth != ClientAuth.NONE ? new ExpectCertificate() : new ExpectFinished();
+        return config.clientAuth != ClientAuth.NONE && resuming == null ? new ExpectCertificate() : new ExpectFinished();
+    }
+
+    /**
+     * Looks for an offered ticket this server can resume (RFC 8446 section 4.2.11): one it sealed,
+     * unexpired, for the same server name and a suite of the same hash. The first such identity's
+     * binder must be correct; tickets that do not open are passed over, as another server's or an
+     * old key's may be.
+     */
+    private Resumption acceptPsk(PskOffer offer, byte[] raw, CipherSuite suite, String serverName)
+            throws QuicException {
+        Instant now = config.clock.instant();
+        byte[] prefix = null;
+        for (int i = 0; i < offer.identities().size(); i++) {
+            PskIdentity identity = offer.identities().get(i);
+            byte[] plain = config.ticketer.decrypt(identity.identity());
+            ServerTicket ticket = plain != null ? ServerTicket.decode(plain) : null;
+            if (ticket == null || ticket.suite().hkdf() != suite.hkdf()
+                    || !Objects.equals(ticket.serverName(), serverName)) {
+                continue;
+            }
+            long serverAge = Duration.between(ticket.issued(), now).toMillis();
+            if (serverAge < 0 || serverAge > ticket.lifetimeSeconds() * 1000) {
+                continue; // expired
+            }
+            if (prefix == null) {
+                prefix = Arrays.copyOf(raw, raw.length - offer.bindersLength());
+            }
+            byte[] expected = new KeySchedule(suite, ticket.psk()).binder(transcript.hashWith(prefix));
+            if (!MessageDigest.isEqual(expected, offer.binders().get(i))) {
+                throw TlsAlert.error(TlsAlert.DECRYPT_ERROR, "PSK binder is incorrect");
+            }
+            long clientAge = (identity.obfuscatedTicketAge() - ticket.ageAdd()) & 0xffffffffL;
+            return new Resumption(i, ticket, clientAge, serverAge);
+        }
+        return null;
+    }
+
+    /**
+     * Whether to accept 0-RTT (RFC 8446 section 4.2.10, RFC 9001 section 4.6): only with the first
+     * PSK, a ticket that allows it, the same suite, ALPN protocol and server name, transport
+     * parameters no smaller than those the ticket remembers, and the policy's consent.
+     */
+    private boolean acceptEarlyData(Resumption resuming, CipherSuite suite, String serverName, String alpn) {
+        if (resuming == null || resuming.index() != 0 || !config.earlyData) {
+            return false;
+        }
+        ServerTicket ticket = resuming.ticket();
+        if (ticket.maxEarlyDataSize() != SessionTicket.QUIC_MAX_EARLY_DATA || ticket.suite() != suite
+                || !ticket.alpn().equals(alpn) || !Objects.equals(ticket.serverName(), serverName)) {
+            return false;
+        }
+        try {
+            if (session.earlyDataParameters != null && !session.earlyDataParameters.test(ticket.transportParameters())) {
+                return false;
+            }
+            return config.earlyDataPolicy.accept(new EarlyDataAttempt(serverName, alpn, ticket.id(), ticket.issued(),
+                    Duration.ofMillis(resuming.clientAgeMillis()), Duration.ofMillis(resuming.serverAgeMillis())));
+        } catch (RuntimeException e) {
+            return false; // a failing policy rejects early data; the handshake goes on
+        }
     }
 
     private static boolean contains(int[] values, int value) {
@@ -328,15 +435,18 @@ final class ServerHandshake implements Handshake {
         session.helloRetried();
     }
 
-    private void sendServerHello(ClientHello hello, CipherSuite suite, KeyExchange share) {
+    private void sendServerHello(ClientHello hello, CipherSuite suite, KeyExchange share, int pskIdentity) {
         session.clientRandom(hello.random());
         byte[] random = new byte[32];
         config.random.nextBytes(random);
-        List<Extension> extensions = List.of(
-                new Extension(ExtensionType.SUPPORTED_VERSIONS,
-                        Extensions.encodeSupportedVersionServer(HandshakeMessage.TLS13)),
-                new Extension(ExtensionType.KEY_SHARE,
-                        Extensions.encodeKeyShareServer(new KeyShare(share.group().code(), share.publicKey()))));
+        List<Extension> extensions = new ArrayList<>();
+        extensions.add(new Extension(ExtensionType.SUPPORTED_VERSIONS,
+                Extensions.encodeSupportedVersionServer(HandshakeMessage.TLS13)));
+        extensions.add(new Extension(ExtensionType.KEY_SHARE,
+                Extensions.encodeKeyShareServer(new KeyShare(share.group().code(), share.publicKey()))));
+        if (pskIdentity >= 0) {
+            extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY, Extensions.encodePskSelected(pskIdentity)));
+        }
         byte[] serverHello = new ServerHello(HandshakeMessage.LEGACY_VERSION, random, hello.sessionId(),
                 suite.code(), 0, extensions).encode();
         transcript.add(serverHello);
@@ -348,9 +458,10 @@ final class ServerHandshake implements Handshake {
         session.send(EncryptionLevel.HANDSHAKE, message);
     }
 
-    private void sendEncryptedExtensions(String serverName, String alpn) {
+    private void sendEncryptedExtensions(String serverName, String alpn, boolean earlyData) {
         List<Extension> extensions = new ArrayList<>();
         if (serverName != null) extensions.add(new Extension(ExtensionType.SERVER_NAME, new byte[0]));
+        if (earlyData) extensions.add(new Extension(ExtensionType.EARLY_DATA, new byte[0]));
         extensions.add(new Extension(ExtensionType.ALPN,
                 Extensions.encodeAlpn(List.of(alpn.getBytes(StandardCharsets.ISO_8859_1)))));
         extensions.add(new Extension(ExtensionType.QUIC_TRANSPORT_PARAMETERS, session.localTransportParameters));
@@ -444,6 +555,30 @@ final class ServerHandshake implements Handshake {
         transcript.add(raw);
         session.readLevel(EncryptionLevel.ONE_RTT);
         session.completed();
+        if (resumption() && ticketsWanted && config.ticketsPerConnection > 0) {
+            byte[] resumptionMaster = keySchedule.deriveSecret(KeySchedule.RESUMPTION_MASTER, transcript.hash());
+            for (int i = 0; i < config.ticketsPerConnection; i++) {
+                sendTicket(resumptionMaster, new byte[] {(byte) i});
+            }
+        }
         return new Traffic();
+    }
+
+    /** Sends a NewSessionTicket (RFC 8446 section 4.6.1) sealing the session with the ticketer. */
+    private void sendTicket(byte[] resumptionMaster, byte[] nonce) {
+        CipherSuite suite = session.cipherSuite();
+        long ageAdd = config.random.nextInt() & 0xffffffffL;
+        byte[] id = new byte[ServerTicket.ID_LENGTH];
+        config.random.nextBytes(id);
+        long lifetime = config.ticketer.lifetime().toSeconds();
+        long maxEarlyData = config.earlyData ? SessionTicket.QUIC_MAX_EARLY_DATA : 0;
+        ServerTicket state = new ServerTicket(suite, KeySchedule.resumptionPsk(suite, resumptionMaster, nonce), ageAdd,
+                config.clock.instant(), lifetime, maxEarlyData, session.serverName(), session.negotiatedAlpn(),
+                session.localTransportParameters, id);
+        byte[] ticket = config.ticketer.encrypt(state.encode());
+        List<Extension> extensions = config.earlyData
+                ? List.of(new Extension(ExtensionType.EARLY_DATA, Extensions.encodeMaxEarlyDataSize(maxEarlyData)))
+                : List.of();
+        session.send(EncryptionLevel.ONE_RTT, new NewSessionTicket(lifetime, ageAdd, nonce, ticket, extensions).encode());
     }
 }

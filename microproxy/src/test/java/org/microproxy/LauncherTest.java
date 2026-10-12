@@ -119,7 +119,7 @@ class LauncherTest {
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
-                "--no-http3-alt-svc", "--http3-retry", "--quic-congestion", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
+                "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
                 "--keep-host-header", "--allow-requests-to-origin-server", "--help")) {
@@ -184,10 +184,14 @@ class LauncherTest {
         p.setProperty("transparent_quic_port", "0");
         p.setProperty("transparent_quic_relay_idle_timeout", "30");
         p.setProperty("http3_retry", "true");
+        p.setProperty("http3_0rtt", "true");
+        p.setProperty("http3_upstream_0rtt", "false");
         HttpProxyServerBootstrap fromFile = BootstrapView.fromProperties(p);
         assertEquals(0, BootstrapView.transparentQuicPort(fromFile));
         assertEquals(java.time.Duration.ofSeconds(30), BootstrapView.http3Options(fromFile).transparentRelayIdleTimeout());
         assertTrue(BootstrapView.http3Options(fromFile).retry());
+        assertTrue(BootstrapView.http3Options(fromFile).zeroRtt());
+        assertFalse(BootstrapView.http3Options(fromFile).upstreamZeroRtt());
     }
 
     @Test
@@ -239,9 +243,13 @@ class LauncherTest {
         assertFalse(BootstrapView.http3(off));
         assertFalse(BootstrapView.http3Upstream(off));
         assertTrue(off.getHttp3Options().altSvc());
+        assertFalse(off.getHttp3Options().zeroRtt(), "0-RTT to the proxy is off by default");
+        assertTrue(off.getHttp3Options().upstreamZeroRtt(), "0-RTT to servers is on by default");
         HttpProxyServerBootstrap on = parse("--mode", "reverse:https://example.com", "--http3", "--http3-max-streams", "250",
                 "--no-http3-alt-svc", "--http3-upstream", "--http3-upstream-hosts", "\\.example\\.com:",
-                "--http3-upstream-hosts", "^api\\.").bootstrap();
+                "--http3-upstream-hosts", "^api\\.", "--http3-0rtt", "--no-http3-upstream-0rtt").bootstrap();
+        assertTrue(on.getHttp3Options().zeroRtt());
+        assertFalse(on.getHttp3Options().upstreamZeroRtt());
         assertTrue(BootstrapView.http3(on));
         assertTrue(BootstrapView.http3Upstream(on));
         assertEquals(250, on.getHttp3Options().maxConcurrentStreams());

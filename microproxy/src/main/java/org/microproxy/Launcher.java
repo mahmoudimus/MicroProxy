@@ -156,6 +156,12 @@ public final class Launcher {
               --no-http3-alt-svc           with --http3, do not advertise it with Alt-Svc
               --http3-retry                validate QUIC clients' addresses with a Retry first
                                            (--http3 and --transparent-quic-port)
+              --http3-0rtt                 accept 0-RTT early data from resuming HTTP/3 clients
+                                           (--http3 and --transparent-quic-port): replayable, so
+                                           unsafe methods get 425 and the rest go on with
+                                           Early-Data: 1
+              --no-http3-upstream-0rtt     never send requests to HTTP/3 servers as 0-RTT data (by
+                                           default GET, HEAD and OPTIONS without a body may go)
               --quic-congestion <name>     congestion control of the proxy's QUIC connections:
                                            cubic (default), newreno or bbr (experimental)
               --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
@@ -293,6 +299,8 @@ public final class Launcher {
         int http3MaxStreams = 0;
         boolean noHttp3AltSvc = false;
         boolean http3Retry = false;
+        boolean http3ZeroRtt = false;
+        boolean noHttp3UpstreamZeroRtt = false;
         long quicRelayIdleSeconds = 0;
         Http3Options.QuicCongestionControl quicCongestion = null;
         List<String> http3UpstreamHosts = new ArrayList<>();
@@ -480,6 +488,8 @@ public final class Launcher {
                 case "--http3-max-streams" -> http3MaxStreams = intValue(queue, arg);
                 case "--no-http3-alt-svc" -> noHttp3AltSvc = true;
                 case "--http3-retry" -> http3Retry = true;
+                case "--http3-0rtt" -> http3ZeroRtt = true;
+                case "--no-http3-upstream-0rtt" -> noHttp3UpstreamZeroRtt = true;
                 case "--quic-congestion" -> quicCongestion = Http3Options.QuicCongestionControl.parse(value(queue, arg));
                 case "--listener-keystore" -> listenerKeystore = Path.of(value(queue, arg));
                 case "--listener-keystore-password" -> listenerKeystorePassword = value(queue, arg);
@@ -516,11 +526,14 @@ public final class Launcher {
         if (http2MaxStreams > 0) {
             bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
         }
-        if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || quicRelayIdleSeconds > 0 || quicCongestion != null) {
+        if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
+                || quicRelayIdleSeconds > 0 || quicCongestion != null) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
             if (noHttp3AltSvc) h3.altSvc(false);
             if (http3Retry) h3.retry(true);
+            if (http3ZeroRtt) h3.zeroRtt(true);
+            if (noHttp3UpstreamZeroRtt) h3.upstreamZeroRtt(false);
             if (quicRelayIdleSeconds > 0) h3.transparentRelayIdleTimeout(Duration.ofSeconds(quicRelayIdleSeconds));
             if (quicCongestion != null) h3.quicCongestionControl(quicCongestion);
             bootstrap.withHttp3Options(h3.build());

@@ -3,6 +3,8 @@
  * {@code bloom_token_log.rs}: Retry and NEW_TOKEN tokens sealed with AES-256-GCM under a key the
  * server holds ({@link io.github.mahmoudimus.quic.token.TokenKey}), their validation with expiry
  * and address binding ({@link io.github.mahmoudimus.quic.token.TokenValidator}), and a bounded
- * replay log ({@link io.github.mahmoudimus.quic.token.BloomTokenLog}).
+ * replay log ({@link io.github.mahmoudimus.quic.token.BloomTokenLog}); on the client, where
+ * NEW_TOKEN tokens wait for the next connection ({@link io.github.mahmoudimus.quic.token.TokenStore},
+ * {@link io.github.mahmoudimus.quic.token.TokenMemoryCache}).
  */
 package io.github.mahmoudimus.quic.token;
