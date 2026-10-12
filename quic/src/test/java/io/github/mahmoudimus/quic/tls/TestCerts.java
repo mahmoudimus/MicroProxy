@@ -35,10 +35,10 @@ import javax.net.ssl.X509TrustManager;
  * depend on. Authorities have P-256 keys and sign with ECDSA; leaves can have P-256, P-384, RSA
  * or Ed25519 keys.
  */
-final class TestCerts {
+public final class TestCerts {
 
     /** The key types a leaf can have. */
-    enum KeyType {
+    public enum KeyType {
         P256, P384, RSA, ED25519
     }
 
@@ -46,14 +46,14 @@ final class TestCerts {
     private static final Map<KeyType, KeyPair> KEYS = new ConcurrentHashMap<>();
 
     /** The authority the tests trust. */
-    static final Authority CA = new Authority("Test CA");
+    public static final Authority CA = new Authority("Test CA");
     /** An authority nobody trusts. */
-    static final Authority OTHER_CA = new Authority("Untrusted CA");
+    public static final Authority OTHER_CA = new Authority("Untrusted CA");
 
     private TestCerts() {}
 
     /** A key pair of each type, made once: RSA key generation is slow. */
-    static KeyPair keyPair(KeyType type) {
+    public static KeyPair keyPair(KeyType type) {
         return KEYS.computeIfAbsent(type, TestCerts::generate);
     }
 
@@ -80,7 +80,7 @@ final class TestCerts {
         return gen.generateKeyPair();
     }
 
-    static X509TrustManager trustManager(X509Certificate... anchors) {
+    public static X509TrustManager trustManager(X509Certificate... anchors) {
         try {
             KeyStore store = KeyStore.getInstance("PKCS12");
             store.load(null, null);
@@ -97,21 +97,21 @@ final class TestCerts {
     }
 
     /** A certificate authority with a P-256 key. */
-    static final class Authority {
-        final KeyPair key;
-        final X509Certificate certificate;
+    public static final class Authority {
+        public final KeyPair key;
+        public final X509Certificate certificate;
 
         Authority(String name) {
             key = generate(KeyType.P256);
             certificate = sign(name, key.getPublic(), key.getPrivate(), null, true, List.of());
         }
 
-        X509TrustManager trustManager() {
+        public X509TrustManager trustManager() {
             return TestCerts.trustManager(certificate);
         }
 
         /** A leaf for {@code names} (DNS names or IP literals) with the shared key of {@code type}. */
-        CertifiedKey issue(KeyType type, String... names) {
+        public CertifiedKey issue(KeyType type, String... names) {
             KeyPair pair = keyPair(type);
             X509Certificate leaf = sign(names.length > 0 ? names[0] : "leaf", pair.getPublic(), key.getPrivate(),
                     certificate, false, List.of(names));

@@ -87,6 +87,7 @@ public final class TlsSession {
     private byte[] clientApplicationSecret;
     private byte[] serverApplicationSecret;
     private byte[] exporterMasterSecret;
+    private byte[] clientRandom;
 
     private TlsSession(boolean client, TlsConfig config, byte[] transportParameters) {
         this.client = client;
@@ -370,6 +371,16 @@ public final class TlsSession {
     }
 
     /**
+     * The ClientHello's random value, which names the secrets of this handshake in the {@code
+     * SSLKEYLOGFILE} format that packet analyzers read.
+     *
+     * @return a copy of the 32 bytes, or null until known (a server learns it from the ClientHello)
+     */
+    public byte[] clientRandom() {
+        return clientRandom != null ? clientRandom.clone() : null;
+    }
+
+    /**
      * Keying material from the TLS exporter (RFC 8446 section 7.5).
      *
      * @param label the exporter label, ASCII
@@ -407,6 +418,10 @@ public final class TlsSession {
         this.serverApplicationSecret = serverSecret.clone();
         this.exporterMasterSecret = exporterMaster.clone();
         secrets.add(new Secrets(EncryptionLevel.ONE_RTT, suite, clientSecret.clone(), serverSecret.clone()));
+    }
+
+    void clientRandom(byte[] random) {
+        this.clientRandom = random.clone();
     }
 
     void readLevel(EncryptionLevel level) {

@@ -329,6 +329,7 @@ final class ServerHandshake implements Handshake {
     }
 
     private void sendServerHello(ClientHello hello, CipherSuite suite, KeyExchange share) {
+        session.clientRandom(hello.random());
         byte[] random = new byte[32];
         config.random.nextBytes(random);
         List<Extension> extensions = List.of(
