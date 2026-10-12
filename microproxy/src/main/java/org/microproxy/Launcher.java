@@ -93,7 +93,9 @@ public final class Launcher {
                                            0 = no waiting, the default)
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
-              --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...
+              --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
+                                           h2://... (TLS, ALPN h2) or h2c://... (prior knowledge)
+                                           speaks HTTP/2 to it, tunnels and requests as streams
               --upstream-https-proxy <url> different upstream for HTTPS / CONNECT
               --no-proxy <list>            hosts to reach directly (NO_PROXY syntax)
               --env-proxy                  take upstream proxies from http_proxy/https_proxy/no_proxy
