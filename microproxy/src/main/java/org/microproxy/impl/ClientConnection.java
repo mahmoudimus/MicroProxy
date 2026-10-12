@@ -50,6 +50,8 @@ import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FlowRecord;
 import org.microproxy.FlowTimings;
+import org.microproxy.FlowTrace;
+import org.microproxy.FlowTracer;
 import org.microproxy.FullFlowContext;
 import org.microproxy.Http3Options;
 import org.microproxy.HttpFilters;
@@ -551,6 +553,10 @@ final class ClientConnection implements Runnable {
         boolean recorded;
         /** The stats count it as a request in progress ({@code downstream_rq_active}). */
         boolean counted;
+        /** The exchange's distributed trace ({@link FlowTracer}); {@link FlowTrace#NONE} without a tracer. */
+        FlowTrace trace = FlowTrace.NONE;
+        /** The trace has been told of an attempt to reach the server that has not ended yet. */
+        boolean attemptTraced;
 
         Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
             this.channel = channel;
@@ -1302,6 +1308,8 @@ final class ClientConnection implements Runnable {
         Hop hop = via;
         channel.flowContext().forwardedVia(mitmHostAndPort != null && isProxyRequest(request) ? mitmHostAndPort
                 : hop != null ? hop.proxy : null);
+        // First, so that what the tracer adds (an X-Request-Id) is seen by everything after it.
+        FlowTrace trace = server.tracer == FlowTracer.NOOP ? FlowTrace.NONE : startTrace(channel.flowContext(), request);
         HttpRequest snapshot = null;
         if (!server.trackers.isEmpty()) {
             // Trackers get a snapshot: the request itself is rewritten while it is proxied.
@@ -1328,6 +1336,7 @@ final class ClientConnection implements Runnable {
             markDrained();
         }
         Exchange ex = new Exchange(channel, request, body, keepAlive);
+        ex.trace = trace;
         ex.logRequest = snapshot;
         ex.kind = kind(channel);
         ex.implicit = implicitConnect;
@@ -1465,7 +1474,7 @@ final class ClientConnection implements Runnable {
             flow.defaultResponseCodeDetails("downstream_remote_disconnect");
         }
         countExchange(ex);
-        if (server.trackers.isEmpty()) return;
+        if (server.trackers.isEmpty() && server.tracer == FlowTracer.NOOP) return;
         FlowRecord.Kind kind = ex.kind;
         boolean http = kind.isHttp() && ex.sentResponse != null && ex.sentResponse.status().code() != 101;
         FlowTimings timings = flow.timings();
@@ -1485,8 +1494,35 @@ final class ClientConnection implements Runnable {
                 .upstreamTransportFailureReason(flow.transportFailure())
                 .downstreamLocalAddress(flow.localAddress())
                 .outcome(flow.responseFlags(), flow.failure().orElse(null), flow.responseCodeDetails().orElse(null))
+                .trace(ex.trace)
                 .build();
+        flowEnded(record);
+    }
+
+    /** Hands a finished exchange's or flow's record to the tracer, then to the trackers. */
+    private void flowEnded(FlowRecord record) {
+        if (server.tracer != FlowTracer.NOOP) {
+            try {
+                server.tracer.flowEnded(record);
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, "the tracer failed on " + record, e);
+            }
+        }
         server.trackers.fire(t -> t.flowEnded(record));
+    }
+
+    /** Asks the tracer for the trace of a request that just arrived; a failing tracer traces nothing. */
+    private FlowTrace startTrace(ClientFlowContext flow, HttpRequest request) {
+        FlowTrace trace;
+        try {
+            trace = server.tracer.startExchange(flow, request);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "[conn " + flow.getConnectionId() + "] the tracer failed", e);
+            return FlowTrace.NONE;
+        }
+        if (trace == null) trace = FlowTrace.NONE;
+        flow.trace(trace);
+        return trace;
     }
 
     /**
@@ -1540,7 +1576,7 @@ final class ClientConnection implements Runnable {
                     flow.responseFlagBits());
             if (status == 413) server.stats.http.rqTooLarge.inc();
         }
-        if (server.trackers.isEmpty()) return;
+        if (server.trackers.isEmpty() && server.tracer == FlowTracer.NOOP) return;
         flow.responseSource(ResponseSource.PROXY);
         FlowRecord record = FlowRecord.builder(flow, kind)
                 .request(request == null ? null : copy(request))
@@ -1551,7 +1587,7 @@ final class ClientConnection implements Runnable {
                 .downstreamLocalAddress(flow.localAddress())
                 .outcome(flow.responseFlags(), null, flow.responseCodeDetails().orElse(null))
                 .build();
-        server.trackers.fire(t -> t.flowEnded(record));
+        flowEnded(record);
     }
 
     /**
@@ -1559,7 +1595,7 @@ final class ClientConnection implements Runnable {
      * stream, once it has ended.
      */
     private void recordQuicFlow(FlowRecord.Kind kind, FullFlowContext serverFlow) {
-        if (server.trackers.isEmpty()) return;
+        if (server.trackers.isEmpty() && server.tracer == FlowTracer.NOOP) return;
         ClientFlowContext flow = flowContext;
         HttpRequest connect = quicConnect;
         long start = flow.startNanos();
@@ -1576,7 +1612,7 @@ final class ClientConnection implements Runnable {
                 .downstreamLocalAddress(flow.localAddress())
                 .outcome(flow.responseFlags(), flow.failure().orElse(null), flow.responseCodeDetails().orElse(null))
                 .build();
-        server.trackers.fire(t -> t.flowEnded(record));
+        flowEnded(record);
     }
 
     /**
@@ -2020,8 +2056,55 @@ final class ClientConnection implements Runnable {
         }
     }
 
-    /** Sends the request on {@code conn} and relays the response. */
+    /** Ends the trace's attempt in progress on a failed connection, if it has one. */
+    private static void traceAttemptEnded(Exchange ex, String errorType) {
+        if (!ex.attemptTraced) return;
+        ex.attemptTraced = false;
+        ex.trace.attemptEnded(0, errorType);
+    }
+
+    /**
+     * Sends the request on {@code conn} and relays the response, as an attempt of the exchange's
+     * trace: one that began with the connection, or one on a connection at hand.
+     */
     private boolean exchange(Exchange ex, ServerConnection conn, boolean retryAllowed) throws IOException {
+        FlowTrace trace = ex.trace;
+        if (trace == FlowTrace.NONE) return send(ex, conn, retryAllowed);
+        if (!ex.attemptTraced) trace.attemptStarted(conn.hostAndPort, conn.chainedProxy);
+        ex.attemptTraced = false;
+        String error = null;
+        try {
+            return send(ex, conn, retryAllowed);
+        } catch (StaleConnection e) {
+            error = "stale_connection";
+            throw e;
+        } catch (ClientFailure e) {
+            error = "downstream_disconnect";
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            error = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            trace.attemptEnded(ex.flow.upstreamStatusCode(), error != null ? error : attemptError(ex.flow));
+        }
+    }
+
+    /** Why the attempt that answered (or abandoned) the exchange failed, or null. */
+    private static String attemptError(ClientFlowContext flow) {
+        ProxyFailure failure = flow.failureOrNull();
+        if (failure != null) return ClientFlowContext.failureKind(failure);
+        if (flow.hasResponseFlag(ResponseFlag.UPSTREAM_REMOTE_RESET)) return "upstream_reset";
+        if (flow.hasResponseFlag(ResponseFlag.UPSTREAM_REQUEST_TIMEOUT)) return "server_timeout";
+        return null;
+    }
+
+    /** Puts the exchange's trace context on a request head about to be written upstream. */
+    private void traceUpstream(Exchange ex, HttpHeaders headers) {
+        if (ex.trace != FlowTrace.NONE) ex.trace.injectUpstream(headers, server.stripsTracingHeaders);
+    }
+
+    /** Sends the request on {@code conn} and relays the response. */
+    private boolean send(Exchange ex, ServerConnection conn, boolean retryAllowed) throws IOException {
         HttpRequest request = ex.request;
         HttpFilters filters = ex.filters;
         ChainedProxy chainedProxy = conn.chainedProxy;
@@ -2045,6 +2128,7 @@ final class ClientConnection implements Runnable {
             ex.channel.serverConnectionInUse(conn);
             filters.proxyToServerRequestSending();
             stripRequestHeaders(request.headers());
+            traceUpstream(ex, request.headers());
             try {
                 conn.writeRequestHead(request, streamingBody, ex.trailersAccepted);
             } catch (IOException e) {
@@ -3743,6 +3827,7 @@ final class ClientConnection implements Runnable {
         try {
             HttpRequest connect = hop.connectTo(hostAndPort);
             stripRequestHeaders(connect.headers());
+            traceUpstream(ex, connect.headers());
             tunnel.writeRequestHead(connect, false, false);
             do {
                 if (!tunnel.awaitResponseHead()) throw new EOFException(hop.proxy + " closed the connection");
@@ -4547,6 +4632,10 @@ final class ClientConnection implements Runnable {
                 backoffBudget -= backOff(ex, failures, backoffBudget, hostAndPort, proxy);
             }
             ex.attempt = null;
+            if (ex.trace != FlowTrace.NONE) {
+                ex.trace.attemptStarted(hostAndPort, proxy);
+                ex.attemptTraced = true;
+            }
             try {
                 ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode);
                 if (proxy != null) {
@@ -4556,6 +4645,7 @@ final class ClientConnection implements Runnable {
                 return conn;
             } catch (NotTlsServer e) {
                 // The route works; the server just is not a TLS server. The caller retries as a tunnel.
+                traceAttemptEnded(ex, "not_tls_server");
                 throw e;
             } catch (IOException e) {
                 IOException cause = unwrap(e);
@@ -4575,6 +4665,7 @@ final class ClientConnection implements Runnable {
                 FullFlowContext failed = ex.attempt != null ? ex.attempt
                         : new FullFlowContext(ex.flow, hostAndPort, proxy, proxy == null ? null : proxy.getChainedProxyAddress());
                 reportServerFailure(failed, cause);
+                traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
             }
         }
         if (connecting) {
@@ -4788,6 +4879,7 @@ final class ClientConnection implements Runnable {
                 HttpRequest connectRequest = upstreamConnectRequest(ex.request, hostAndPort, proxy);
                 proxy.filterRequest(connectRequest);
                 stripRequestHeaders(connectRequest.headers());
+                traceUpstream(ex, connectRequest.headers());
                 new HttpCodec.HttpWriter(output).writeHead(connectRequest, false);
                 HttpResponse reply = HttpCodec.readResponse(reader, server.limits);
                 if (reply == null || reply.status().code() / 100 != 2) {

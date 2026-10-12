@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.microproxy.ActivityTracker;
+import org.microproxy.FlowTracer;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.stats.StatsRegistry;
@@ -145,6 +146,7 @@ final class AdminConfigDump {
         List<String> trackers = new ArrayList<>();
         for (ActivityTracker t : b.activityTrackers) trackers.add(t.getClass().getName());
         boot.put("activity_trackers", trackers);
+        boot.put("tracer", b.tracer == FlowTracer.NOOP ? null : b.tracer.getClass().getName());
         boot.put("cache", b.httpCache == null ? null : b.httpCache.getClass().getName());
         boot.put("server_resolver", b.serverResolver.getClass().getName());
         Map<String, Object> hooks = new LinkedHashMap<>();

@@ -3598,7 +3598,8 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%DOWNSTREAM_TLS_VERSION%`, `%DOWNSTREAM_TLS_CIPHER%`, `%DOWNSTREAM_PEER_SUBJECT%`, `%DOWNSTREAM_PEER_ISSUER%`, `%DOWNSTREAM_PEER_FINGERPRINT_256%` | the TLS session with the client (listener or interception) and its certificate |
 | `%REQUESTED_SERVER_NAME%` | the SNI the client sent |
 | `%CONNECTION_ID%`, `%STREAM_ID%` | the client connection (as in `[conn <id>]` log lines) and the HTTP/2 or HTTP/3 stream |
-| `%UNIQUE_ID%` | a random UUID per exchange, made only when a format asks for it |
+| `%UNIQUE_ID%` | a random UUID per exchange, made only when a format asks for it; with [OpenTelemetry](#opentelemetry), the exchange's `X-Request-Id` |
+| `%TRACE_ID%`, `%SPAN_ID%` | the exchange's trace id and the id of the proxy's span for it, with a tracer ([OpenTelemetry](#opentelemetry)) |
 | `%HOSTNAME%` | this host's name |
 | `%TLS_JA3_FINGERPRINT%`, `%TLS_JA4_FINGERPRINT%` | JA3 and JA4 of the client's ClientHello (JA4 starts with `q` for QUIC); `-` when the proxy read none |
 | `%MP_RESPONSE_SOURCE%` | `SERVER`, `PROXY`, `FILTER`, `CACHE` or `REPLAY` |
@@ -3982,10 +3983,10 @@ proxy.stop();                           // STOPPED
 | `/stats` | GET | the stats as `name: value` lines, histograms as their quantiles (Envoy's text dump); `?filter=<regex>` keeps the names it finds, `?usedonly` the stats with a value, `?format=json` or `?format=prometheus` changes the form |
 | `/stats/prometheus` | GET | Prometheus's text exposition format 0.0.4 (`text/plain; version=0.0.4; charset=utf-8`), with `?filter=` and `?usedonly` too |
 | `/ready` | GET | `200 LIVE`, or `503` and the state: `DRAINING`, `INITIALIZING`, `PRE_INITIALIZING`, or `HEALTH_CHECK_FAILED` after `/healthcheck/fail`; needs no token |
-| `/server_info` | GET | JSON: the version, state, uptime (`uptime_current_epoch`), listeners, the features in use (`h2`, `h2c`, `h3`, `quic`, `socks`, `masque`, `mitm`, `transparent`, `reverse_proxy`, `cache`, `replay`, `scripting`, ...), the drain settings, the JVM, and the command line, secrets redacted |
+| `/server_info` | GET | JSON: the version, state, uptime (`uptime_current_epoch`), listeners, the features in use (`h2`, `h2c`, `h3`, `quic`, `socks`, `masque`, `mitm`, `transparent`, `reverse_proxy`, `cache`, `replay`, `scripting`, `tracing`, ...), the drain settings, the JVM, and the command line, secrets redacted |
 | `/listeners` | GET | a line per listener, `name::address::transport::protocols` (`edge::127.0.0.1:8080::tcp::http/1.1,h2c`); `?format=json` |
 | `/clusters` | GET | a line per cluster stat, `cluster::stat::value`, for `direct`, the chained proxies, `cache`, `replay` and, with `--stats-per-host`, each server; with the shared pool's state on `direct`; `?format=json` (histograms as count, p50 and p99) |
-| `/config_dump` | GET | JSON: the configuration in effect (listener, modes, timeouts, limits, pool, chained proxies, HTTP/2 and HTTP/3 options, TLS, interception, filters, trackers, stats, drain, health check, admin, command line), every secret `[redacted]` |
+| `/config_dump` | GET | JSON: the configuration in effect (listener, modes, timeouts, limits, pool, chained proxies, HTTP/2 and HTTP/3 options, TLS, interception, filters, trackers, tracer, stats, drain, health check, admin, command line), every secret `[redacted]` |
 | `/logging` | GET, POST | GET lists the proxy's loggers and their levels; `POST /logging?level=<level>` sets them all, `POST /logging?<logger>=<level>` one (and its children) |
 | `/healthcheck/fail` | POST | fails the health check: `/ready` and the [health-check path](#lifecycle-draining-and-shutdown) answer `503`, and connections drain as their next request comes |
 | `/healthcheck/ok` | POST | restores it |

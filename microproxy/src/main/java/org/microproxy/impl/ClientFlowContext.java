@@ -13,6 +13,7 @@ import org.microproxy.ClientDetails;
 import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FlowTimings;
+import org.microproxy.FlowTrace;
 import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
@@ -102,6 +103,7 @@ final class ClientFlowContext extends FlowContext {
     private volatile SSLSession upstreamSslSession;
     /** The proxy's end of the client connection, or null. */
     private volatile InetSocketAddress localAddress;
+    private volatile FlowTrace trace = FlowTrace.NONE;
 
     ClientFlowContext(
             long connectionId,
@@ -144,6 +146,7 @@ final class ClientFlowContext extends FlowContext {
         upstreamLocalAddress = null;
         upstreamCluster = null;
         upstreamSslSession = null;
+        trace = FlowTrace.NONE;
         startMillis = System.currentTimeMillis();
         startNanos = now();
     }
@@ -397,6 +400,15 @@ final class ClientFlowContext extends FlowContext {
     }
 
     /** Records the server connection the exchange uses. */
+    void trace(FlowTrace trace) {
+        this.trace = trace;
+    }
+
+    @Override
+    public FlowTrace trace() {
+        return trace;
+    }
+
     void upstream(InetSocketAddress address, InetSocketAddress local, String cluster, SSLSession session) {
         upstreamAddress = address;
         upstreamLocalAddress = local;
