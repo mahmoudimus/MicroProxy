@@ -497,6 +497,11 @@ class Http2WebSocketTest {
             assertEquals("echo:ping wss", readFrame(ws.in()).payloadAsText());
             sendFromClient(ws.out(), WebSocketFrame.close(1000, ""));
             assertTrue(readFrame(ws.in()).isClose());
+            // The server closed its connection after its close frame: END_STREAM. The client waits
+            // for it before it ends the stream (RFC 6455 section 7.1.1): a TLS connection cannot be
+            // half-closed, so an end the proxy saw first would close the server's connection, and
+            // a close the proxy had not read yet would end the stream with a reset instead.
+            assertEquals(-1, ws.in().read());
             ws.end();
             assertNull(ws.awaitEnd());
             assertTrue(server.upgradeRequest.startsWith("GET /secure HTTP/1.1\r\n"), server.upgradeRequest);
