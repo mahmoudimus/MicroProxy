@@ -130,8 +130,9 @@ public final class RegexPattern implements StarlarkValue {
   }
 
   private static long deadline(StarlarkThread thread) {
-    long deadline = thread.getExpirationMs();
-    return deadline == Long.MAX_VALUE ? System.currentTimeMillis() + DEFAULT_BUDGET_MILLIS : deadline;
+    return thread.hasDeadline()
+        ? thread.getDeadlineNanos()
+        : System.nanoTime() + DEFAULT_BUDGET_MILLIS * 1_000_000;
   }
 
   private Object pyRun(Object input, StarlarkInt pos, Object endpos, int kind, boolean mustAdvance,

@@ -94,7 +94,7 @@ final class PyRegex {
 
   /**
    * Runs the pattern on {@code text} (already cut at endpos) from {@code pos}, giving up after
-   * {@code deadline} (epoch millis). Returns the group spans {start0, end0, start1, end1, ...} (-1
+   * {@code deadline} (a {@link System#nanoTime()} value). Returns the group spans {start0, end0, start1, end1, ...} (-1
    * for groups that did not participate), or null.
    *
    * <p>{@code mustAdvance} (for searches that continue after an empty match at {@code pos}) rejects
@@ -330,7 +330,7 @@ final class PyRegex {
     }
 
     private final CharSequence s;
-    private final long deadline;
+    private final long deadline; // a System.nanoTime() value
     private int reads;
 
     Deadline(CharSequence s, long deadline) {
@@ -340,7 +340,7 @@ final class PyRegex {
 
     @Override
     public char charAt(int index) {
-      if ((++reads & 0xFFF) == 0 && System.currentTimeMillis() > deadline) {
+      if ((++reads & 0xFFF) == 0 && System.nanoTime() - deadline > 0) {
         throw new Expired();
       }
       return s.charAt(index);

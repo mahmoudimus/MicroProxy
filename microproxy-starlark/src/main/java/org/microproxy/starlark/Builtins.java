@@ -199,8 +199,8 @@ final class Builtins {
         }
 
         private static Matcher matcher(String pattern, String input, StarlarkThread thread) throws EvalException {
-            long deadline = thread.getExpirationMs();
-            if (deadline == Long.MAX_VALUE) deadline = System.currentTimeMillis() + DEFAULT_BUDGET_MILLIS;
+            long deadline = thread.hasDeadline() ? thread.getDeadlineNanos()
+                    : System.nanoTime() + DEFAULT_BUDGET_MILLIS * 1_000_000;
             return compile(pattern).matcher(new Deadline(input, deadline));
         }
 
@@ -475,6 +475,7 @@ final class Builtins {
         }
 
         private final CharSequence s;
+        /** A {@link System#nanoTime()} value. */
         private final long deadline;
         private int reads;
 
@@ -485,7 +486,7 @@ final class Builtins {
 
         @Override
         public char charAt(int index) {
-            if ((++reads & 0xFFF) == 0 && System.currentTimeMillis() > deadline) {
+            if ((++reads & 0xFFF) == 0 && System.nanoTime() - deadline > 0) {
                 throw new Expired();
             }
             return s.charAt(index);
