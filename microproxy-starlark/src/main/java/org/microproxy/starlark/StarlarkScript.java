@@ -90,12 +90,17 @@ public final class StarlarkScript {
     public record Limits(long maxSteps, Duration timeout, long maxAllocBytes) {
 
         /**
-         * The default allocation budget, 64 MiB a call: a buffered body of the default 10 MiB counts
-         * about 20 MiB as a string (two bytes a character), so a call can still copy it a few times.
+         * The default allocation budget, 256 MiB a call. It counts what a call creates, most of it
+         * garbage soon, not what it keeps, so it is not a heap size: it stops runaway allocation (a
+         * string repeated a billion times, a list or string doubling in a loop) long before that
+         * fills a heap, and leaves room for heavy but ordinary calls. A buffered body of the default
+         * 10 MiB counts about 20 MiB as a string (two bytes a character), so a call can copy it
+         * many times, and the heaviest tests of the ported standard library create up to 150 MB in
+         * one call (tables of thousands of formatting cases).
          */
-        public static final long DEFAULT_MAX_ALLOC_BYTES = 64L << 20;
+        public static final long DEFAULT_MAX_ALLOC_BYTES = 256L << 20;
 
-        /** Ten million steps, five seconds and 64 MiB per call. */
+        /** Ten million steps, five seconds and 256 MiB per call. */
         public static final Limits DEFAULT = new Limits(10_000_000, Duration.ofSeconds(5));
 
         /**
