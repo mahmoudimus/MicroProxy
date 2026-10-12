@@ -1,5 +1,6 @@
 package org.microproxy;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
@@ -23,5 +24,17 @@ public final class RecordedFlows implements ActivityTracker {
     /** The first record of {@code kind}, once there is one. */
     public FlowRecord await(FlowRecord.Kind kind) {
         return await("a " + kind.label() + " record", r -> r.kind() == kind);
+    }
+
+    /** The first record of {@code kind}, once there is one, waiting up to {@code timeout} for it. */
+    public FlowRecord await(FlowRecord.Kind kind, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (records.stream().noneMatch(r -> r.kind() == kind)) {
+            if (System.nanoTime() - deadline > 0) {
+                throw new AssertionError("timed out waiting for a " + kind.label() + " record in " + records);
+            }
+            Thread.sleep(10);
+        }
+        return records.stream().filter(r -> r.kind() == kind).findFirst().orElseThrow();
     }
 }
