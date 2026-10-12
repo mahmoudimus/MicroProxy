@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import io.github.mahmoudimus.http3.HeaderField;
 import java.io.IOException;
@@ -30,7 +30,7 @@ import org.microproxy.tls.SelfSignedSslContextSource;
 
 /**
  * {@code on_udp_start}, {@code on_udp_message} and {@code on_udp_end} on live CONNECT-UDP flows of
- * a forward proxy's HTTP/3 listener: the README's example, {@code ctx.send}, {@code ctx.vars} and
+ * a forward proxy's HTTP/3 listener: the documented example, {@code ctx.send}, {@code ctx.vars} and
  * typed scripts.
  */
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
@@ -149,7 +149,7 @@ class ScriptedUdpTest {
     void readmeExample() throws Exception {
         List<String> received = new CopyOnWriteArrayList<>();
         DatagramSocket udp = echo(received);
-        H3TestClient.Tunnel tunnel = flow(inReadme(TAG), udp.getLocalPort());
+        H3TestClient.Tunnel tunnel = flow(inDocs(TAG), udp.getLocalPort());
         tunnel.sendDatagram(utf8("blocked.example?"));
         tunnel.sendDatagram(utf8("allowed.example?"));
         assertEquals("allowed.example? (via MicroProxy)", next(tunnel));

@@ -208,8 +208,8 @@ class LauncherScriptTest {
     @Test
     void readmeBearerExampleFromTheCommandLine(@TempDir Path dir) throws Exception {
         Path script = dir.resolve("auth.star");
-        Files.writeString(script, ScriptedReadmeTest.inReadme(ScriptedReadmeTest.BEARER));
-        // What the README's shell line writes.
+        Files.writeString(script, ScriptedReadmeTest.inDocs(ScriptedReadmeTest.BEARER));
+        // What the documented shell line writes.
         Path tokens = dir.resolve("tokens.properties");
         Files.writeString(tokens, "TOKENS=alice:" + ScriptedReadmeTest.sha256("alice's token") + "\n");
         HttpServer origin = origin(echo());

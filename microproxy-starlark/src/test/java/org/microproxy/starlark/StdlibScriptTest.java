@@ -25,7 +25,7 @@ import org.microproxy.thirdparty.starlark.eval.Mutability;
 /** Scripts that {@code load()} the standard library ported from starlarky. */
 class StdlibScriptTest {
 
-    /** The README's example. */
+    /** The documented example. */
     static final String SIGNED_LINKS = """
             load("@stdlib//hmac", "hmac")
             load("@stdlib//urllib/parse", "parse")
@@ -91,7 +91,7 @@ class StdlibScriptTest {
         HttpServer origin = origin(echo());
         HttpProxyServer proxy = null;
         try {
-            ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inReadme(SIGNED_LINKS), "links.star")
+            ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inDocs(SIGNED_LINKS), "links.star")
                     .constants(java.util.Map.of("SECRET", "s3cret"))
                     .build();
             proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(script).start();
