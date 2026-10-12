@@ -72,7 +72,10 @@ final class Http3StreamReader {
     /** The frames are a server's response rather than a client's request. */
     private final boolean response;
     private final IntConsumer onBytes;
-    /** Told when the peer resets the stream (a client cancelling its request). */
+    /**
+     * Told when the peer resets the stream (a client cancelling its request), before readers
+     * waiting on the stream are.
+     */
     private final Runnable onReset;
 
     private final ReentrantLock lock = new ReentrantLock();
@@ -158,8 +161,10 @@ final class Http3StreamReader {
             } finally {
                 lock.unlock();
             }
-            fail(e);
+            // Before the stream's exchange learns of the reset: it may then finish, and its stream
+            // be forgotten, before the reset is seen as the client's.
             if (onReset != null) onReset.run();
+            fail(e);
         } catch (QuicConnectionException e) {
             fail(e);
         } catch (IOException e) {
