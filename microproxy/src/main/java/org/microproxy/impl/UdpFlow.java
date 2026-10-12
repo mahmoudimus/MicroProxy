@@ -352,7 +352,8 @@ final class UdpFlow implements UdpContext {
         if (context != 0) return;
         lastActivity.set(System.nanoTime());
         fromClient.incrementAndGet();
-        byte[] payload = Arrays.copyOfRange(content, 1, content.length);
+        // After the context ID, in whichever length the client encoded it (RFC 9000 section 16).
+        byte[] payload = Arrays.copyOfRange(content, QuicVarInt.lengthOf(content[0]), content.length);
         flow.addBytesReceived(payload.length);
         bytesFromClient.addAndGet(payload.length);
         if (payload.length > MAX_PAYLOAD) return;
