@@ -92,14 +92,14 @@ class SocksStatsTest {
             assertEquals(91, c.socks4(SocksClient.CONNECT, "127.0.0.1", echo.port(), "alice"));
         }
         awaitValue(r, "socks.replies.not_allowed", 1);
-        assertEquals(4, value(r, "socks.v5.connections_total"));
-        assertEquals(1, value(r, "socks.v4.connections_total"));
-        assertEquals(3, value(r, "socks.auth_failures"));
-        assertEquals(1, value(r, "socks.command_not_supported"));
-        assertEquals(1, value(r, "socks.replies.command_not_supported"));
-        assertEquals(1, value(r, "socks.replies.connection_refused"));
-        assertEquals(0, value(r, "socks.replies.succeeded"));
-        assertEquals(1, value(r, "cluster.direct.upstream_cx_connect_fail"));
+        awaitValue(r, "socks.v5.connections_total", 4);
+        awaitValue(r, "socks.v4.connections_total", 1);
+        awaitValue(r, "socks.auth_failures", 3);
+        awaitValue(r, "socks.command_not_supported", 1);
+        awaitValue(r, "socks.replies.command_not_supported", 1);
+        awaitValue(r, "socks.replies.connection_refused", 1);
+        awaitValue(r, "socks.replies.succeeded", 0);
+        awaitValue(r, "cluster.direct.upstream_cx_connect_fail", 1);
         assertTrue(r.get("socks.replies.ttl_expired") != null, "every reply code is registered");
     }
 }
