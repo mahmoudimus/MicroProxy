@@ -1,7 +1,8 @@
 // Ported from mitmproxy (MIT License, see META-INF/LICENSE-mitmproxy.txt):
 // - mitmproxy/proxy/mode_specs.py: ReverseMode, the "reverse:" mode specification;
 // - mitmproxy/net/server_spec.py: parse, the syntax of the upstream server.
-// Changes: only the http, https and tcp schemes, and the "regular" and "transparent" mode names.
+// Changes: only the http, https and tcp schemes, and the "regular", "transparent" and "socks5"
+// mode names, without a listen address.
 package org.microproxy;
 
 import java.util.Locale;
@@ -93,19 +94,21 @@ public record ReverseProxyMode(String scheme, String host, int port) {
     }
 
     /**
-     * Parses a mitmproxy-style mode: {@code reverse:<spec>} (see {@link #parse}); {@code regular}
-     * and {@code transparent}, the modes without a fixed upstream, give {@code null}.
+     * Parses a mitmproxy-style mode: {@code reverse:<spec>} (see {@link #parse}); {@code regular},
+     * {@code transparent} and {@code socks5} (see {@link HttpProxyServerBootstrap#withSocksServer}),
+     * the modes without a fixed upstream, give {@code null}.
      *
      * @param mode the mode, such as {@code reverse:https://example.com}
-     * @return the reverse proxy mode, or {@code null} for {@code regular} and {@code transparent}
+     * @return the reverse proxy mode, or {@code null} for {@code regular}, {@code transparent} and
+     *     {@code socks5}
      * @throws IllegalArgumentException for other modes
      */
     public static ReverseProxyMode parseMode(String mode) {
         String m = mode.strip();
-        if (m.equals("regular") || m.equals("transparent")) return null;
+        if (m.equals("regular") || m.equals("transparent") || m.equals("socks5")) return null;
         if (m.startsWith("reverse:")) return parse(m.substring("reverse:".length()));
         throw new IllegalArgumentException("unsupported mode: " + mode
-                + " (expected regular, transparent or reverse:<scheme>://<host>[:<port>])");
+                + " (expected regular, transparent, socks5 or reverse:<scheme>://<host>[:<port>])");
     }
 
     /** {@return whether the upstream is reached over TLS ({@code https})} */

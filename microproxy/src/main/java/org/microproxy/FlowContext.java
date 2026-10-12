@@ -200,6 +200,18 @@ public class FlowContext {
     }
 
     /**
+     * The SOCKS version the client reached the proxy with: 5, or 4 for SOCKS4 and 4a. The
+     * requests of a SOCKS client arrive as a {@code CONNECT} the proxy made up from its SOCKS
+     * request (see {@link HttpProxyServerBootstrap#withSocksServer}), and as the requests inside
+     * the session that follows. Empty for HTTP clients, and for contexts made outside the proxy.
+     *
+     * @return the client's SOCKS version, or empty
+     */
+    public OptionalInt socksVersion() {
+        return root == this ? OptionalInt.empty() : root.socksVersion();
+    }
+
+    /**
      * When the phases of the exchange in progress on this connection (or the last one) happened:
      * DNS lookup, connect, TLS handshakes, time to first byte, total. A snapshot; take it in
      * {@link ActivityTracker#responseCompleted} to see the whole exchange. Contexts made outside

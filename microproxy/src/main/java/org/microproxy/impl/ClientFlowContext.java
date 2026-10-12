@@ -46,6 +46,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile ClientHello clientHello;
     /** The session's server (the client's proxy) the current exchange is forwarded through, or null. */
     private volatile String forwardedVia;
+    /** The SOCKS version the client connection began with, or 0. */
+    private volatile int socksVersion;
 
     ClientFlowContext(
             long connectionId,
@@ -127,6 +129,18 @@ final class ClientFlowContext extends FlowContext {
     @Override
     public Optional<String> forwardedVia() {
         return Optional.ofNullable(forwardedVia);
+    }
+
+    /** Records that the client connection began with a SOCKS handshake of {@code version}. */
+    void socksVersion(int version) {
+        socksVersion = version;
+    }
+
+    @Override
+    public OptionalInt socksVersion() {
+        int version = socksVersion;
+        if (version == 0 && connectionFlow != null) return connectionFlow.socksVersion();
+        return version == 0 ? OptionalInt.empty() : OptionalInt.of(version);
     }
 
     @Override

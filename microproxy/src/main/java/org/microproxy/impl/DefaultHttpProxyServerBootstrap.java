@@ -68,6 +68,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     ReverseProxyMode reverseProxy;
     boolean keepHostHeader;
+    /** The listener serves SOCKS clients only ({@code socks5} mode) / besides HTTP ones. */
+    boolean socksServer;
+    boolean socksDetection;
     Duration idleConnectionTimeout = Duration.ofSeconds(70);
     int connectTimeoutMs = 40_000;
     Duration tlsHandshakeTimeout = Duration.ofSeconds(10);
@@ -134,6 +137,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.allowHosts = allowHosts;
         c.reverseProxy = reverseProxy;
         c.keepHostHeader = keepHostHeader;
+        c.socksServer = socksServer;
+        c.socksDetection = socksDetection;
         c.idleConnectionTimeout = idleConnectionTimeout;
         c.connectTimeoutMs = connectTimeoutMs;
         c.tlsHandshakeTimeout = tlsHandshakeTimeout;
@@ -206,7 +211,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             String mode = p.getProperty("mode").strip();
             withReverseProxy(ReverseProxyMode.parseMode(mode));
             if (mode.equals("transparent")) withTransparent(true);
+            withSocksServer(mode.equals("socks5"));
         }
+        if (p.containsKey("socks")) withSocksDetection(bool(p, "socks"));
         if (p.containsKey("keep_host_header")) withKeepHostHeader(bool(p, "keep_host_header"));
         if (p.containsKey("idle_connection_timeout")) {
             withIdleConnectionTimeout(Integer.parseInt(p.getProperty("idle_connection_timeout").strip()));
@@ -514,6 +521,18 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public HttpProxyServerBootstrap withReverseProxy(ReverseProxyMode mode) {
         this.reverseProxy = mode;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withSocksServer(boolean socks) {
+        this.socksServer = socks;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withSocksDetection(boolean detect) {
+        this.socksDetection = detect;
         return this;
     }
 

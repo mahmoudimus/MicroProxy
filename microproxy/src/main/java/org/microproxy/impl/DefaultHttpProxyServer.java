@@ -58,6 +58,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     final ReverseProxyMode reverseProxy;
     final boolean keepHostHeader;
+    /** Whether the listener serves SOCKS clients only / SOCKS clients besides HTTP ones. */
+    final boolean socksServer;
+    final boolean socksDetection;
     final SslContextSource sslContextSource;
     final boolean authenticateSslClients;
     final ProxyAuthenticator proxyAuthenticator;
@@ -136,6 +139,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.hostRules = HostRules.of(b.ignoreHosts, b.allowHosts);
         this.reverseProxy = b.reverseProxy;
         this.keepHostHeader = b.keepHostHeader;
+        if ((b.socksServer || b.socksDetection) && (b.reverseProxy != null || b.sslContextSource != null)) {
+            throw new IllegalStateException("SOCKS clients are served neither by a reverse proxy nor on a TLS listener");
+        }
+        this.socksServer = b.socksServer;
+        this.socksDetection = b.socksDetection;
         this.sslContextSource = b.sslContextSource;
         this.authenticateSslClients = b.authenticateSslClients;
         this.proxyAuthenticator = b.proxyAuthenticator;

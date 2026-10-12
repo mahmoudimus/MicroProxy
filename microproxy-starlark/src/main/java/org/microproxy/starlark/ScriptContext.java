@@ -21,16 +21,17 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * so {@code on_request} can leave notes for {@code on_response}, {@code timings}, a snapshot of the
  * exchange's timings taken when it is read, {@code client_hello}, the TLS ClientHello that
  * started the client's intercepted session ({@code None} before it is read, and for plain HTTP),
- * and {@code forwarded_via}, the session's server that the request is forwarded through as the
+ * {@code forwarded_via}, the session's server that the request is forwarded through as the
  * client's proxy ({@code host:port}: an intercepted HTTPS proxy, or an HTTP proxy whose session is
- * plain HTTP), or {@code None}.
+ * plain HTTP), or {@code None}, and {@code socks_version}, the SOCKS version the client reached the
+ * proxy with ({@code 5}, or {@code 4} for SOCKS4 and 4a), or {@code None} for an HTTP client.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
-                    "client_hello", "forwarded_via");
+                    "client_hello", "forwarded_via", "socks_version");
 
     private final InetSocketAddress client;
     private final String user;
@@ -91,6 +92,8 @@ public final class ScriptContext implements Structure {
             }
             case "forwarded_via" -> flow == null ? Starlark.NONE
                     : flow.forwardedVia().<Object>map(via -> via).orElse(Starlark.NONE);
+            case "socks_version" -> flow == null || flow.socksVersion().isEmpty() ? Starlark.NONE
+                    : StarlarkInt.of(flow.socksVersion().getAsInt());
             default -> null;
         };
     }
