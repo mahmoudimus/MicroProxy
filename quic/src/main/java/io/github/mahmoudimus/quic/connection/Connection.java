@@ -252,10 +252,16 @@ public final class Connection {
     private final boolean spinEnabled;
     private boolean spin;
     private long totalAuthedPackets;
-    /** Datagrams that came from an address other than the peer's, and were dropped. */
-    private long peerAddressChanges;
+    /** Datagrams that came from an address the connection does not take packets from, and were dropped. */
+    private long strayDatagrams;
     /** PATH_CHALLENGE frames answered. */
     private long pathChallenges;
+    /** Moves to a new path: a server following its client, a client switching to a path. */
+    private long migrations;
+    /** Of {@link #migrations}, a server's that followed its client to a new port of the same address. */
+    private long natRebindings;
+    /** Path validations that got no PATH_RESPONSE in time: a server's of its client's new path, a client's probe. */
+    private long pathValidationFailures;
     /** Whether 0-RTT was attempted and not accepted: a client's rejected by the server, or a server's refused. */
     private boolean zeroRttRefused;
     private boolean receivingEcn;
@@ -517,7 +523,7 @@ public final class Connection {
             boolean allowed = side.isServer() ? remoteMayMigrate && state != State.HANDSHAKE
                     : probe != null && from.equals(probe.remote);
             if (!allowed) {
-                peerAddressChanges++;
+                strayDatagrams++;
                 return;
             }
         }
@@ -985,6 +991,7 @@ public final class Connection {
             return;
         }
         pathChanged(now, next);
+        migrations++;
         spin = false;
         ping();
         recovery.setLossDetectionTimer(now);
@@ -1202,6 +1209,7 @@ public final class Connection {
         pathCounter++;
         PathData next = cur.sameHosts(to, local) ? PathData.fromPrevious(to, local, cur, pathCounter, now)
                 : PathData.create(recoveryConfig, to, local, peerMaxUdpPayloadSize(), pathCounter, now);
+        migrations++;
         if (to.equals(cur.remote())) {
             // Only the local address changed: the client moved to our preferred address, from an
             // address already validated
@@ -1209,6 +1217,9 @@ public final class Connection {
             recovery.setPath(next, true);
             pathChanged(now, next);
             return;
+        }
+        if (cur.sameHosts(to, local)) {
+            natRebindings++; // the same address and local address, another port
         }
         next.challenge = random.nextLong();
         next.hasChallenge = true;
@@ -1292,6 +1303,7 @@ public final class Connection {
             setResetToken(peerResetToken); // the same token, from the new address
         }
         pathChanged(now, next);
+        migrations++;
         spin = false;
         recovery.setLossDetectionTimer(now);
     }
@@ -1645,6 +1657,7 @@ public final class Connection {
                 }
                 case PATH_VALIDATION -> {
                     // The client did not answer on its new path: back to the previous one
+                    pathValidationFailures++;
                     PathData prev = recovery.prevPath();
                     if (prev != null) {
                         recovery.setPath(prev, false);
@@ -1663,6 +1676,7 @@ public final class Connection {
                     }
                     if (now - pr.deadline >= 0) {
                         probe = null;
+                        pathValidationFailures++;
                         events.add(new ConnectionEvent.PathProbeFailed(pr.remote, pr.local));
                         qlog(now, "connectivity:path_probe_failed", "{\"remote\":\"" + pr.remote + "\"}");
                     } else {
@@ -2781,13 +2795,47 @@ public final class Connection {
     }
 
     /**
-     * Datagrams that came from an address other than the peer's: a NAT rebinding or a migration
-     * attempt, which this connection does not follow, so they were dropped.
+     * Datagrams that came from an address the connection does not take packets from, and were
+     * dropped: on a server, from a new address during the handshake or when migration is disabled;
+     * on a client, from anywhere but the server's address and the path it probes.
      *
      * @return the count
      */
-    public long peerAddressChanges() {
-        return peerAddressChanges;
+    public long strayDatagrams() {
+        return strayDatagrams;
+    }
+
+    /**
+     * Moves to a new path: on a server, each time it followed its client to a new address (a NAT
+     * rebinding, a migration, the preferred address), not counting a return to the previous path
+     * after a failed validation; on a client, each switch to a path it probed and each {@link
+     * #rebind}.
+     *
+     * @return the count
+     */
+    public long migrations() {
+        return migrations;
+    }
+
+    /**
+     * The server's {@link #migrations()} to a new port of the client's address, with the same local
+     * address: what a NAT rebinding looks like, and what keeps the congestion and RTT state.
+     *
+     * @return the count
+     */
+    public long natRebindings() {
+        return natRebindings;
+    }
+
+    /**
+     * Path validations that failed: on a server, a client's new path that sent no PATH_RESPONSE
+     * in time (the server went back to the previous path, when it had one); on a client, a probe
+     * of a path that got no answer ({@link ConnectionEvent.PathProbeFailed}).
+     *
+     * @return the count
+     */
+    public long pathValidationFailures() {
+        return pathValidationFailures;
     }
 
     /**

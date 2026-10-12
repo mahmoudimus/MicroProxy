@@ -109,6 +109,30 @@ class Http3StatsTest {
         assertTrue(scrape.contains("envoy_http3_rx_reset{microproxy_direction=\"downstream\"} 1"), scrape);
     }
 
+    /**
+     * A client that moves to a new port in the middle of its connection: the proxy answers its
+     * probe, follows it, validates the new path, and counts one migration, which is a NAT
+     * rebinding (the same address, another port).
+     */
+    @Test
+    void aClientThatMovesCountsAsAMigration() throws Exception {
+        start(true, null);
+        StatsRegistry r = proxy.getStats();
+        try (H3TestClient client = client()) {
+            assertEquals(200, client.get("/before").status());
+            InetSocketAddress before = client.quic.localAddress();
+            InetSocketAddress after = client.quic.migrate(new InetSocketAddress(TestSupport.LOOPBACK, 0));
+            assertFalse(after.equals(before), after + " after " + before);
+            assertEquals(200, client.get("/after").status());
+        }
+        awaitValue(r, "quic.downstream.connections_active", 0);
+        assertEquals(1, value(r, "quic.downstream.migrations"));
+        assertEquals(1, value(r, "quic.downstream.nat_rebindings"));
+        assertEquals(0, value(r, "quic.downstream.path_validation_failures"));
+        assertTrue(value(r, "quic.downstream.path_validations") >= 1, "the client's probe was a PATH_CHALLENGE");
+        assertEquals(0, value(r, "quic.downstream.stray_datagrams"));
+    }
+
     @Test
     void qlogFilesAreJsonSeqTraces() throws Exception {
         start(false, qlogDir);

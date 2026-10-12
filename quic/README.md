@@ -671,9 +671,12 @@ received and lost, key updates, state changes) as JSON lines. Both are off by de
 
 `QuicConnection.stats()` is a snapshot of the connection's counts: smoothed, minimum and
 variation of the RTT, congestion window, bytes in flight, MTU, packets and bytes sent, received
-and lost, probe timeouts, congestion events, key updates, PATH_CHALLENGEs answered, datagrams
-from another address (dropped, since connections do not migrate), whether 0-RTT was accepted or
-rejected, and the congestion controller. The connection's thread keeps them as plain fields, so
+and lost (on every path), probe timeouts, congestion events, key updates, migrations (a server
+following its client to a new address, a client switching to a path it probed or rebound to) and
+of those the NAT rebindings (a server's to a new port of the client's address), PATH_CHALLENGEs
+answered, path validations that failed (a server's of its client's new address, a client's
+probes), datagrams from an address the connection takes no packets from (dropped), whether 0-RTT
+was accepted or rejected, and the congestion controller. The connection's thread keeps them as plain fields, so
 counting costs nothing more; a snapshot takes the connection's lock. `Stats.of(connection)` reads
 a sans-I/O `Connection` the same way. `observe(QuicConnection.Observer)` on a server or client
 hears of each connection as it opens, completes its handshake (with how long it took) and closes

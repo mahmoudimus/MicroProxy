@@ -63,6 +63,8 @@ final class QuicStats implements QuicConnection.Observer {
     final Counter migrations;
     final Counter natRebindings;
     final Counter pathValidations;
+    final Counter pathValidationFailures;
+    final Counter strayDatagrams;
     final Counter statelessResetReceived;
     final Counter droppedDatagrams;
     private final ConcurrentHashMap<String, Counter> controllers = new ConcurrentHashMap<>();
@@ -98,10 +100,14 @@ final class QuicStats implements QuicConnection.Observer {
         keyUpdates = registry.counter(p + "key_updates_total", "Key updates, counted when connections close");
         zeroRttAccepted = registry.counter(p + "zero_rtt_accepted", "Connections whose 0-RTT data was accepted");
         zeroRttRejected = registry.counter(p + "zero_rtt_rejected", "Connections whose 0-RTT data was rejected");
-        migrations = registry.counter(p + "migrations", "Connection migrations followed (none: connections do not migrate)");
-        natRebindings = registry.counter(p + "nat_rebindings",
-                "Datagrams from a peer's new address (a NAT rebinding or a migration attempt), dropped");
+        migrations = registry.counter(p + "migrations",
+                "Moves to a new path: a client followed to its new address, or the proxy's own switches");
+        natRebindings = registry.counter(p + "nat_rebindings", "Migrations to a new port of the client's address");
         pathValidations = registry.counter(p + "path_validations", "PATH_CHALLENGE frames from peers, each answered");
+        pathValidationFailures = registry.counter(p + "path_validation_failures",
+                "Validations of a new path that got no PATH_RESPONSE in time");
+        strayDatagrams = registry.counter(p + "stray_datagrams",
+                "Datagrams from an address a connection takes no packets from, dropped");
         statelessResetReceived = registry.counter(p + "stateless_reset_received", "Connections ended by a peer's stateless reset");
         droppedDatagrams = registry.counter(p + "dropped_datagrams",
                 "Datagrams dropped because a connection fell behind, counted when connections close");
@@ -167,8 +173,10 @@ final class QuicStats implements QuicConnection.Observer {
         congestionEvents.add(s.congestionEvents());
         keyUpdates.add(s.keyUpdates());
         migrations.add(s.migrations());
-        natRebindings.add(s.peerAddressChanges());
+        natRebindings.add(s.natRebindings());
         pathValidations.add(s.pathValidations());
+        pathValidationFailures.add(s.pathValidationFailures());
+        strayDatagrams.add(s.strayDatagrams());
         droppedDatagrams.add(s.droppedDatagrams());
         if (s.zeroRttAccepted()) zeroRttAccepted.inc();
         if (s.zeroRttRejected()) zeroRttRejected.inc();

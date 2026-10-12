@@ -3825,7 +3825,9 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 | `quic.<scope>.bytes_sent_total`, `bytes_received_total`, `bytes_lost_total` | counter | UDP payload bytes, counted at close |
 | `quic.<scope>.pto_total`, `congestion_events_total`, `key_updates_total` | counter | probe timeouts, congestion events, key updates, counted at close |
 | `quic.<scope>.zero_rtt_accepted`, `zero_rtt_rejected` | counter | connections whose 0-RTT data was accepted / rejected |
-| `quic.<scope>.migrations`, `nat_rebindings`, `path_validations` | counter | migrations followed (none: connections do not migrate), datagrams from a peer's new address (dropped), PATH_CHALLENGEs answered |
+| `quic.<scope>.migrations`, `nat_rebindings` | counter | moves to a new path, counted at close: the proxy following a client to its new address (a NAT rebinding, a migration, the preferred address; not a return to the old path after a failed validation), or the proxy's own connection switching to a path it probed / of those, the proxy following a client to a new port of the same address |
+| `quic.<scope>.path_validations`, `path_validation_failures` | counter | PATH_CHALLENGEs answered / validations that got no PATH_RESPONSE in time: a client's new path the proxy then left for the old one, or a path the proxy probed |
+| `quic.<scope>.stray_datagrams` | counter | datagrams from an address a connection takes no packets from, dropped: a client's new address during the handshake, or a server's that is not the one it connected to |
 | `quic.<scope>.stateless_reset_received`, `dropped_datagrams` | counter | connections ended by a stateless reset; datagrams dropped because a connection fell behind |
 | `quic.<scope>.congestion_controller.<name>` | counter | connections by congestion controller (`microproxy_congestion_controller`: `cubic`, `new_reno`, `bbr`) |
 | `quic.<scope>.version_negotiation_sent`, `retry_sent`, `stateless_reset_sent`, `connections_refused` | counter | what the scope's server endpoints answered without a connection |
@@ -3933,9 +3935,10 @@ that would read a clock (the hooks', for one) check first; `AllocationTest` (HTT
 and HTTP/3 with metrics against without) and `StatsFastPathTest` guard both.
 
 **Limitations.** QUIC connections are counted when they close, so `quic.*` counters lag a
-long-lived connection (`connections_active` and `QuicConnection.stats()` are live). Connections do
-not migrate, so `quic.*.migrations` stays 0, and there are no path validations of the proxy's own to
-fail. `http2.*.outbound_flood` and `requests_rejected_with_underscores_in_headers` have no
+long-lived connection (`connections_active` and `QuicConnection.stats()` are live). The proxy's own
+connections to servers do not move, so `quic.upstream.migrations` counts only moves to a server's
+preferred address, and a relayed transparent flow whose client moves is no QUIC connection of the
+proxy's: it counts in none of these. `http2.*.outbound_flood` and `requests_rejected_with_underscores_in_headers` have no
 equivalent: writes block rather than queue, and underscores in header names are not refused.
 Envoy's `upstream_cx_destroy_*` and
 `downstream_cx_destroy_*` tell who closed first only where the proxy saw it (an end of stream

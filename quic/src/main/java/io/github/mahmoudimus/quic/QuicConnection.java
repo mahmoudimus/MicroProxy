@@ -608,9 +608,10 @@ public final class QuicConnection implements AutoCloseable {
         return new Stats(Duration.ofNanos(rtt.get()), Duration.ofNanos(rtt.hasSample() ? rtt.min() : 0),
                 Duration.ofNanos(rtt.hasSample() ? rtt.variance() : 0), conn.congestionWindow(), r.bytesInFlight(),
                 conn.currentMtu(), r.sentPackets(), r.sentBytes(), conn.receivedPackets(), r.receivedBytes(),
-                r.lostPackets(), r.lostBytes(), r.probeTimeouts(), r.congestionEvents(), conn.keyUpdates(), 0,
-                conn.peerAddressChanges(), conn.pathChallengesReceived(), conn.earlyDataAccepted(),
-                conn.zeroRttRejected(), controllerName(r), droppedDatagrams);
+                r.lostPackets(), r.lostBytes(), r.probeTimeouts(), r.congestionEvents(), conn.keyUpdates(),
+                conn.migrations(), conn.natRebindings(), conn.strayDatagrams(), conn.pathChallengesReceived(),
+                conn.pathValidationFailures(), conn.earlyDataAccepted(), conn.zeroRttRejected(), controllerName(r),
+                droppedDatagrams);
     }
 
     private static String controllerName(io.github.mahmoudimus.quic.connection.Recovery r) {
@@ -640,11 +641,16 @@ public final class QuicConnection implements AutoCloseable {
      * @param probeTimeouts probe timeouts (PTO) that fired
      * @param congestionEvents congestion events, from loss or ECN
      * @param keyUpdates key updates, by either side
-     * @param migrations connection migrations followed: always 0, since this implementation
-     *     neither migrates nor follows a peer that does
-     * @param peerAddressChanges datagrams from an address other than the peer's (a NAT rebinding,
-     *     or a migration attempt), which were dropped
+     * @param migrations moves to a new path: a server's that followed its client to a new address,
+     *     a client's switches to a path it probed or rebound to
+     * @param natRebindings of the migrations, a server's to a new port of the client's address
+     * @param strayDatagrams datagrams from an address the connection takes no packets from (a
+     *     server's before its handshake ends or with migration disabled, a client's from anywhere
+     *     but its server and the path it probes), which were dropped
      * @param pathValidations PATH_CHALLENGE frames from the peer, each answered
+     * @param pathValidationFailures validations of a new path that got no PATH_RESPONSE in time: a
+     *     server's of its client's new address (it went back to the previous path), a client's
+     *     probes
      * @param zeroRttAccepted whether the server accepted 0-RTT data
      * @param zeroRttRejected whether 0-RTT was attempted and not accepted
      * @param congestionController the congestion controller: {@code cubic}, {@code new_reno},
@@ -654,8 +660,8 @@ public final class QuicConnection implements AutoCloseable {
     public record Stats(Duration rtt, Duration minRtt, Duration rttVariance, long congestionWindow, long bytesInFlight,
             int mtu, long sentPackets, long sentBytes, long receivedPackets, long receivedBytes, long lostPackets,
             long lostBytes, long probeTimeouts, long congestionEvents, long keyUpdates, long migrations,
-            long peerAddressChanges, long pathValidations, boolean zeroRttAccepted, boolean zeroRttRejected,
-            String congestionController, long droppedDatagrams) {
+            long natRebindings, long strayDatagrams, long pathValidations, long pathValidationFailures,
+            boolean zeroRttAccepted, boolean zeroRttRejected, String congestionController, long droppedDatagrams) {
 
         /**
          * The statistics of a sans-I/O connection that the caller drives itself, and which no other
