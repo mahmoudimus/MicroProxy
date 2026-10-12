@@ -1073,12 +1073,15 @@ public final class Connection {
      */
     public List<ByteBuffer> pollTransmit(long now, int maxDatagrams) {
         List<ByteBuffer> out = new ArrayList<>();
-        boolean congestionLimited = false;
+        boolean appLimited = false;
         while (out.size() < maxDatagrams) {
             boolean[] limited = new boolean[1];
             ByteBuffer d = buildDatagram(now, limited);
-            congestionLimited |= limited[0];
             if (d == null) {
+                // Each round is one of quinn's poll_transmit calls, which its caller repeats until
+                // one builds nothing: that last call, unless the congestion window or the pacer
+                // stopped it, leaves the connection application limited
+                appLimited = !limited[0];
                 break;
             }
             out.add(d);
@@ -1089,7 +1092,7 @@ public final class Connection {
                 out.add(probe);
             }
         }
-        recovery.setAppLimited(out.isEmpty() && !congestionLimited);
+        recovery.setAppLimited(appLimited);
         return out;
     }
 

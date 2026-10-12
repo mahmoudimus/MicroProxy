@@ -49,10 +49,19 @@ final class Http3Listener implements AutoCloseable {
         return new Http3Listener(server, QuicServer.bind(address, serverConfig(server, keys)));
     }
 
+    /** The QUIC congestion controller the options choose, for connections to clients and to servers. */
+    static TransportConfig.CongestionControl congestionControl(Http3Options options) {
+        return switch (options.quicCongestionControl()) {
+            case CUBIC -> TransportConfig.CongestionControl.CUBIC;
+            case NEW_RENO -> TransportConfig.CongestionControl.NEW_RENO;
+            case BBR -> TransportConfig.CongestionControl.BBR;
+        };
+    }
+
     /**
      * How the proxy's QUIC servers accept clients: ALPN {@code h3}, the certificate {@code keys}
-     * gives for the client's SNI, the HTTP/3 options' stream limits and windows, the proxy's idle
-     * timeout, and Retry if the options ask for it.
+     * gives for the client's SNI, the HTTP/3 options' stream limits, windows and congestion
+     * controller, the proxy's idle timeout, and Retry if the options ask for it.
      */
     static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
         Http3Options options = server.http3Options;
@@ -70,6 +79,7 @@ final class Http3Listener implements AutoCloseable {
                 .maxConcurrentUniStreams(MAX_UNI_STREAMS)
                 .streamReceiveWindow(options.streamReceiveWindow())
                 .receiveWindow(options.connectionReceiveWindow())
+                .congestionControl(congestionControl(options))
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }

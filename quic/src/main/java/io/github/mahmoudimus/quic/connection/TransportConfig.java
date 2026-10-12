@@ -3,6 +3,7 @@
  */
 package io.github.mahmoudimus.quic.connection;
 
+import io.github.mahmoudimus.quic.congestion.BbrConfig;
 import io.github.mahmoudimus.quic.congestion.ControllerFactory;
 import io.github.mahmoudimus.quic.congestion.CubicConfig;
 import io.github.mahmoudimus.quic.congestion.NewRenoConfig;
@@ -27,7 +28,9 @@ public final class TransportConfig {
         /** CUBIC (RFC 9438), the default. */
         CUBIC,
         /** NewReno (RFC 9002). */
-        NEW_RENO
+        NEW_RENO,
+        /** BBR, quinn's experimental BBRv1-style controller. */
+        BBR
     }
 
     private static final TransportConfig DEFAULTS = builder().build();
@@ -516,6 +519,7 @@ public final class TransportConfig {
             this.congestionControllerFactory = switch (control) {
                 case CUBIC -> CubicConfig.DEFAULT;
                 case NEW_RENO -> NewRenoConfig.DEFAULT;
+                case BBR -> BbrConfig.DEFAULT;
             };
             return this;
         }

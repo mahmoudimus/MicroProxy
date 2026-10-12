@@ -561,6 +561,59 @@ class RecoveryTest {
         assertFalse(timers.isSet(Timer.PACING));
     }
 
+    /** A controller with a fixed 1 MB window and, optionally, a pacing rate of its own. */
+    private record FixedController(long pacingRate) implements io.github.mahmoudimus.quic.congestion.Controller {
+        @Override
+        public void onCongestionEvent(long now, long sent, boolean persistentCongestion, boolean ecn, long lostBytes) {}
+
+        @Override
+        public void onMtuUpdate(int newMtu) {}
+
+        @Override
+        public long window() {
+            return 1_000_000;
+        }
+
+        @Override
+        public io.github.mahmoudimus.quic.congestion.Controller copy() {
+            return this;
+        }
+
+        @Override
+        public long initialWindow() {
+            return 1_000_000;
+        }
+    }
+
+    /** Datagrams the pacer lets out in one second, waking up at each pacing timer. */
+    private long pacedInOneSecond(long pacingRate) throws Exception {
+        Recovery r = withRttSample(RecoveryConfig.builder()
+                .congestionControllerFactory((now, mtu) -> new FixedController(pacingRate))
+                .build());
+        long end = clock.now + 1_000 * MS;
+        long sent = 0;
+        while (clock.now < end) {
+            long next = r.pacingDelay(clock.now, MTU);
+            if (next == NanoClock.NONE) {
+                send(r, SpaceId.DATA);
+                sent++;
+            } else {
+                clock.now = next;
+            }
+        }
+        return sent;
+    }
+
+    @Test
+    void controllerPacingRateLimitsThePacer() throws Exception {
+        // 1 MB per 100 ms RTT, paced by the window: 1.25 windows per RTT
+        long byWindow = pacedInOneSecond(-1);
+        assertTrue(byWindow > 10_000, "paced by the window: " + byWindow);
+        // 120 kB/s: 100 datagrams a second, plus the first burst
+        long byRate = pacedInOneSecond(120_000);
+        assertTrue(byRate >= 100 && byRate <= 115, "paced at the controller's rate: " + byRate);
+    }
+
     @Test
     void congestionWindowLimitsSending() {
         Recovery r = server();
