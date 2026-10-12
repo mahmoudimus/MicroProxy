@@ -21,7 +21,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
@@ -295,7 +297,10 @@ class SocksServerTest {
 
     @Test
     void failuresAreReportedWithTheirReplyCodes() throws Exception {
-        List<String> answered = new CopyOnWriteArrayList<>();
+        // A tracker hears of a reply once it has been sent, so after the client has it: each
+        // connection's answer is taken before the next connection is made, or the next one's could
+        // come first.
+        BlockingQueue<String> answered = new LinkedBlockingQueue<>();
         HttpProxyServer proxy = proxies.start(socks()
                 .withServerResolver((host, port) -> {
                     if (host.endsWith(".invalid")) throw new UnknownHostException(host);
@@ -318,14 +323,16 @@ class SocksServerTest {
             assertEquals(0x05, c.open("127.0.0.1", refusing.getLocalPort()), "connection refused");
             assertTrue(c.closedByServer());
         }
+        assertEquals("502 5", answered.poll(10, TimeUnit.SECONDS), "connection refused's answer");
         try (SocksClient c = new SocksClient(proxy)) {
             assertEquals(0x04, c.open("nowhere.invalid", 80), "host unreachable");
         }
+        assertEquals("502 5", answered.poll(10, TimeUnit.SECONDS), "host unreachable's answer");
         try (SocksClient c = new SocksClient(proxy)) {
             assertEquals(0x02, c.open("blocked.test", 443), "connection not allowed by ruleset");
         }
-        TestSupport.eventually("three answers", () -> answered.size() == 3);
-        assertEquals(List.of("502 5", "502 5", "403 5"), answered);
+        assertEquals("403 5", answered.poll(10, TimeUnit.SECONDS), "connection not allowed's answer");
+        assertEquals(List.of(), List.copyOf(answered), "one answer for each request");
     }
 
     @Test
