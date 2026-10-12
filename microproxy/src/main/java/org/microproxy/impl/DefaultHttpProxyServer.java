@@ -169,6 +169,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
+    /**
+     * The HTTP/2 connections to chained proxies ({@link org.microproxy.ChainedProxy#http2()}); null
+     * without the http2-codec module, which leaves such proxies to HTTP/1.1.
+     */
+    final Http2Origins http2Proxies;
     /** Whether the reverse proxy serves HTTP/3 on UDP; the modules are known to be present. */
     final boolean http3;
     final Http3Options http3Options;
@@ -232,6 +237,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
             // Fail at startup, not on the first client that asks for h2.
             throw new IllegalStateException(Http2Support.MISSING);
+        }
+        if (b.chainProxyManager instanceof org.microproxy.UpstreamProxyManager upstream && upstream.usesHttp2()
+                && !Http2Support.available()) {
+            throw new IllegalStateException("an h2:// or h2c:// upstream proxy needs the http2-codec module"
+                    + " (io.github.mahmoudimus:http2-codec) on the class path; add its jar to the class path or"
+                    + " use the microproxy-starlark -all jar, which bundles it");
         }
         if ((b.http3 || b.http3Upstream || b.transparentQuicPort >= 0) && !Http3Support.available()) {
             throw new IllegalStateException(Http3Support.MISSING);
@@ -335,6 +346,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
         this.http2Origins = http2Upstream ? new Http2Origins(this) : null;
+        this.http2Proxies = Http2Support.available() ? Http2Origins.forChainedProxies(this) : null;
         this.http3 = b.http3;
         this.http3Options = b.http3Options;
         this.http3Keys = b.http3 ? http3Keys(b) : null;
@@ -834,6 +846,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             MasqueQuic masque = masqueQuic;
             if (masque != null) masque.close();
             if (http2Origins != null) http2Origins.closeAll();
+            if (http2Proxies != null) http2Proxies.closeAll();
             if (http3Origins != null) http3Origins.closeAll();
             if (pool != null) pool.closeAll();
             executor.shutdownNow();

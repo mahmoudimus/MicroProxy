@@ -595,6 +595,7 @@ public final class AccessLogFormat {
                 case "MP_USER" -> text(r -> r.context().getClientDetails().getUserName());
                 case "MP_URL" -> text(Operators::url);
                 case "MP_UPSTREAM_STATUS" -> number(r -> r.context().upstreamStatus().orElse(-1));
+                case "MP_UPSTREAM_PROTOCOL" -> text(FlowRecord::upstreamProtocol);
                 case "MP_TIMING" -> timing(arg);
                 case "MP_SCRIPT_TIME" -> millisWithDecimals(r -> r.context().scriptStats().nanos());
                 case "MP_SCRIPT_STEPS" -> number(r -> r.context().scriptStats().steps());

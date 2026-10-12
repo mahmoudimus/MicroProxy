@@ -72,8 +72,8 @@ class ServerConnection {
     volatile boolean tlsPending;
     /**
      * The tunnel this connection runs through, to a session's server that the client takes for
-     * its HTTPS or HTTP proxy (a connection to it, or a stream on one), or null: it closes with
-     * this one.
+     * its HTTPS or HTTP proxy (a connection to it, or a stream on one), or a stream on an HTTP/2
+     * connection to a chained proxy; or null: it closes with this one.
      */
     volatile ServerConnection through;
     /**
@@ -158,6 +158,15 @@ class ServerConnection {
         this.writer = new HttpCodec.HttpWriter(tlsOut);
         this.tlsPending = false;
         this.tunnelThroughProxy = false;
+    }
+
+    /**
+     * Whether this connection is a tunnel on a stream of an HTTP/2 connection (to a chained proxy,
+     * or to a session's server the client takes for its proxy), which throttles its bytes and
+     * counts them in the cluster: what is layered on it adds neither again.
+     */
+    boolean overHttp2Stream() {
+        return through instanceof Http2UpstreamStream;
     }
 
     // ---------------------------------------------------------------------------------------

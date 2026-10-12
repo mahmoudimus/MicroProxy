@@ -37,6 +37,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
+import javax.net.ssl.SSLSocket;
 import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
 import org.microproxy.frames.FrameDirection;
@@ -94,6 +95,12 @@ import org.microproxy.http.LastHttpContent;
  * <p>With connection coalescing on, the connection may carry the streams of other authorities
  * than the one it was made for ({@link #coalescing}); the server's ORIGIN frames (RFC 8336) are
  * read for it, and other extension frames still skipped.
+ *
+ * <p>The peer may be a chained proxy rather than an origin server ({@link #toProxy}): over TLS
+ * that negotiated {@code h2}, or with prior knowledge over plain TCP. Its streams are then the
+ * {@code CONNECT} tunnels and plain-HTTP proxy requests of exchanges with any server, and it is
+ * never coalesced. A tunnel stream's bytes are counted by the connection layered on it ({@link
+ * StreamState#countedAbove}), not here.
  */
 final class Http2UpstreamConnection extends Http2Endpoint {
 
@@ -120,6 +127,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
      * null when it serves only that one: coalescing is off, or its TLS rules it out.
      */
     final Http2Coalescing.Peer coalescing;
+    /** The peer is a chained proxy ({@link Http2Origins#forChainedProxies}), not an origin server. */
+    final boolean toProxy;
     private final Http2Origins origins;
     private final int maxHeaderListSize;
     private final AtomicBoolean closing = new AtomicBoolean();
@@ -186,6 +195,12 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         HttpHeaders trailers;
         /** Counted in {@link #reserved} until the stream closes or is given up. */
         boolean holdsSlot = true;
+        /**
+         * A tunnel whose bytes the connection layered on it counts for the trackers, as it would
+         * on a connection of its own (it may be handed from one exchange to another): this
+         * connection does not count them again.
+         */
+        volatile boolean countedAbove;
 
         StreamState(boolean headRequest, String logPrefix, FullFlowContext flowContext) {
             this.headRequest = headRequest;
@@ -222,16 +237,18 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         this.carrier = carrier;
         this.key = key;
         this.owner = owner;
-        this.coalescing = server.http2Options.coalesceConnections() ? Http2Coalescing.Peer.of(carrier, key.authority())
-                : null;
-        carrier.cluster.cxHttp2.inc();
+        this.toProxy = origins.chainedProxies;
+        this.coalescing = !toProxy && server.http2Options.coalesceConnections()
+                ? Http2Coalescing.Peer.of(carrier, key.authority()) : null;
+        // (A tunnel on another HTTP/2 connection's stream is no connection of the cluster's: that one is.)
+        if (!carrier.overHttp2Stream()) carrier.cluster.cxHttp2.inc();
         this.maxHeaderListSize = options.maxHeaderListSize() > 0 ? options.maxHeaderListSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
     }
 
     @Override
     String peer() {
-        return "server";
+        return toProxy ? "chained proxy" : "server";
     }
 
     @Override
@@ -292,11 +309,18 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     void start() throws IOException {
         Socket socket = carrier.socket;
         // Raw socket streams, throttled like the carrier's; the carrier's own reader and writer,
-        // which nothing has used yet, are left alone. Bytes are counted per stream, by frame.
-        InputStream raw = server.readLimiter.wrap(socket.getInputStream());
-        OutputStream rawOut = server.writeLimiter.wrap(socket.getOutputStream());
+        // which nothing has used yet, are left alone. Bytes are counted per stream, by frame. A
+        // carrier that is a tunnel on a stream of another HTTP/2 connection (to a chained proxy)
+        // is throttled and counted in its cluster by that connection.
+        boolean overStream = carrier.overHttp2Stream();
+        InputStream raw = socket.getInputStream();
+        OutputStream rawOut = socket.getOutputStream();
+        if (!overStream) {
+            raw = server.readLimiter.wrap(raw);
+            rawOut = server.writeLimiter.wrap(rawOut);
+        }
         ProxyStats.ClusterStats cluster = carrier.cluster;
-        if (cluster.enabled) {
+        if (cluster.enabled && !overStream) {
             raw = CountingStreams.counting(raw, cluster.cxRxBytes::add);
             rawOut = CountingStreams.counting(rawOut, cluster.cxTxBytes::add);
         }
@@ -342,11 +366,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             close(e instanceof IOException io ? io : new IOException(e));
             throw e;
         }
-        LOG.log(Level.DEBUG, logPrefix + "HTTP/2 to the server (ALPN h2), at most "
+        LOG.log(Level.DEBUG, logPrefix + "HTTP/2 to the " + peer()
+                + (socket instanceof SSLSocket ? " (ALPN h2)" : " (prior knowledge)") + ", at most "
                 + describe(peerSettings.maxConcurrentStreams()) + " streams");
         long tick = tickMillis();
         watchdog = TIMERS.scheduleWithFixedDelay(this::tick, tick, tick, TimeUnit.MILLISECONDS);
-        Thread.ofVirtual().name(server.name + "-h2-upstream-" + carrier.hostAndPort).start(this::run);
+        Thread.ofVirtual().name(server.name + (toProxy ? "-h2-proxy-" : "-h2-upstream-") + carrier.hostAndPort)
+                .start(this::run);
     }
 
     private static String describe(long limit) {
@@ -1228,6 +1254,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             stateLock.lock();
             try {
                 StreamState s = streams.get(frame.streamId());
+                if (s != null && s.countedAbove) return;
                 if (s != null) ctx = s.flowContext;
             } finally {
                 stateLock.unlock();
@@ -1243,7 +1270,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         long total = countedOut.count;
         long n = total - countedOutReported;
         countedOutReported = total;
-        if (n <= 0 || server.trackers.isEmpty()) return;
+        if (n <= 0 || server.trackers.isEmpty() || s instanceof StreamState state && state.countedAbove) return;
         FullFlowContext ctx = s instanceof StreamState state ? state.flowContext : carrier.flowContext;
         if (ctx.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamSent(n);
         server.trackers.fire(t -> t.bytesSentToServer(ctx, (int) n));

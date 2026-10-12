@@ -82,6 +82,7 @@ public final class FlowRecord {
     private final InetSocketAddress upstreamLocalAddress;
     private final InetSocketAddress downstreamLocalAddress;
     private final String upstreamCluster;
+    private final String upstreamProtocol;
     private final SSLSession upstreamSslSession;
     private final String upstreamTransportFailureReason;
     private final EnumSet<ResponseFlag> responseFlags;
@@ -108,6 +109,7 @@ public final class FlowRecord {
         this.upstreamLocalAddress = b.upstreamLocalAddress;
         this.downstreamLocalAddress = b.downstreamLocalAddress;
         this.upstreamCluster = b.upstreamCluster;
+        this.upstreamProtocol = b.upstreamProtocol;
         this.upstreamSslSession = b.upstreamSslSession;
         this.upstreamTransportFailureReason = b.upstreamTransportFailureReason;
         this.responseFlags = EnumSet.noneOf(ResponseFlag.class);
@@ -251,6 +253,19 @@ public final class FlowRecord {
         return upstreamCluster;
     }
 
+    /**
+     * The protocol the proxy spoke to {@link #upstreamCluster()}: to the chained proxy the exchange
+     * went through, {@code HTTP/1.1} or {@code HTTP/2} (for a tunnel, the protocol its {@code
+     * CONNECT} went in), {@code SOCKS4} or {@code SOCKS5}; else to the server, {@code HTTP/1.1},
+     * {@code HTTP/2} or {@code HTTP/3}.
+     *
+     * @return the protocol, or {@code null} when the exchange reached no upstream, or was a tunnel
+     *     straight to the server
+     */
+    public String upstreamProtocol() {
+        return upstreamProtocol;
+    }
+
     /** {@return the TLS session with the server (or a TLS chained proxy), or {@code null}} */
     public SSLSession upstreamSslSession() {
         return upstreamSslSession;
@@ -328,6 +343,7 @@ public final class FlowRecord {
         private InetSocketAddress upstreamLocalAddress;
         private InetSocketAddress downstreamLocalAddress;
         private String upstreamCluster;
+        private String upstreamProtocol;
         private SSLSession upstreamSslSession;
         private String upstreamTransportFailureReason;
         private Set<ResponseFlag> responseFlags = Set.of();
@@ -441,6 +457,18 @@ public final class FlowRecord {
             this.upstreamLocalAddress = localAddress;
             this.upstreamCluster = cluster;
             this.upstreamSslSession = session;
+            return this;
+        }
+
+        /**
+         * Sets the protocol spoken to the upstream ({@link FlowRecord#upstreamProtocol()}).
+         *
+         * @param protocol {@code HTTP/1.1}, {@code HTTP/2}, {@code HTTP/3}, {@code SOCKS4} or
+         *     {@code SOCKS5}, or {@code null}
+         * @return this builder
+         */
+        public Builder upstreamProtocol(String protocol) {
+            this.upstreamProtocol = protocol;
             return this;
         }
 

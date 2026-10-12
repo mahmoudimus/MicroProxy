@@ -49,6 +49,11 @@ import org.microproxy.FullFlowContext;
  * for {@link #CLIENT_HELLO_GRACE_NANOS} from when that wait began: a client that is slow to send
  * its ClientHello, or never sends one, does not hold up other clients for longer.
  *
+ * <p>The proxy keeps a second instance for its HTTP/2 connections to chained proxies ({@link
+ * #forChainedProxies}), which carry its {@code CONNECT} tunnels and plain-HTTP proxy requests to
+ * any server: there a key's authority is the chained proxy's, its isolation the proxy itself (its
+ * TLS, credentials and local address), and connections are never coalesced.
+ *
  * <p>All state is guarded by {@link #lock}, which may be held while taking a connection's state
  * lock (or its {@link Http2Coalescing.Peer}'s), never the other way round.
  */
@@ -87,6 +92,8 @@ final class Http2Origins {
     }
 
     private final DefaultHttpProxyServer server;
+    /** Whether the connections go to chained proxies ({@link #forChainedProxies}), not to origin servers. */
+    final boolean chainedProxies;
     private final ReentrantLock lock = new ReentrantLock();
     /** Signalled when a connection is made, or making one ended. */
     private final Condition changed = lock.newCondition();
@@ -111,7 +118,21 @@ final class Http2Origins {
     private boolean closed;
 
     Http2Origins(DefaultHttpProxyServer server) {
+        this(server, false);
+    }
+
+    private Http2Origins(DefaultHttpProxyServer server, boolean chainedProxies) {
         this.server = server;
+        this.chainedProxies = chainedProxies;
+    }
+
+    /**
+     * The HTTP/2 connections to chained proxies ({@link org.microproxy.ChainedProxy#http2()}),
+     * whose streams are the {@code CONNECT} tunnels and proxy requests of exchanges with any
+     * server; never coalesced.
+     */
+    static Http2Origins forChainedProxies(DefaultHttpProxyServer server) {
+        return new Http2Origins(server, true);
     }
 
     /**
