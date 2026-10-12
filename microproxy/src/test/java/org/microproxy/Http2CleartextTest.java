@@ -1,6 +1,7 @@
 package org.microproxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.echoedBody;
@@ -8,6 +9,7 @@ import static org.microproxy.TestSupport.echoedHeader;
 import static org.microproxy.TestSupport.echoedUri;
 
 import com.sun.net.httpserver.HttpServer;
+import io.github.mahmoudimus.http2.ErrorCode;
 import io.github.mahmoudimus.http2.Frame;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Settings;
@@ -185,6 +187,32 @@ class Http2CleartextTest {
             assertNull(r.reset());
         }
         assertEquals(List.of("GET http://" + authority(origin) + "/canned HTTP/2.0 1"), uris);
+    }
+
+    @Test
+    void headersOnAClosedStreamAreAConnectionError() throws Exception {
+        proxy = h2c().withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
+            @Override
+            public org.microproxy.http.HttpResponse clientToProxyRequest(org.microproxy.http.HttpObject o) {
+                return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
+                        "canned".getBytes(StandardCharsets.UTF_8));
+            }
+        }).start();
+        // RFC 9113 section 5.1: once the response's END_STREAM has arrived, the stream is closed,
+        // even if the proxy's stream thread has yet to finish. HEADERS sent at once, racing it,
+        // must still be a connection error, not a stream error. Repeated, so the race shows.
+        for (int i = 0; i < 500; i++) {
+            try (H2TestClient c = client(origin)) {
+                // No Nagle delays: each round is quick, and the HEADERS follow the response at once.
+                c.raw.setTcpNoDelay(true);
+                c.get(1, "/canned");
+                assertEquals("canned", c.response(1).text());
+                c.get(1, "/again");
+                Frame f = c.awaitFrame(x -> x instanceof Frame.GoAway || x instanceof Frame.RstStream);
+                Frame.GoAway goAway = assertInstanceOf(Frame.GoAway.class, f, "attempt " + i);
+                assertEquals(ErrorCode.STREAM_CLOSED, goAway.error());
+            }
+        }
     }
 
     @Test

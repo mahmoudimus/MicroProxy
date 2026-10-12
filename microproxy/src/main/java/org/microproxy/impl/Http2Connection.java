@@ -183,6 +183,17 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     @Override
+    void endingStream(Stream s) {
+        // Before the frame goes out: the client may send more on the stream as soon as it reads it.
+        stateLock.lock();
+        try {
+            ((Http2StreamChannel) s).localClosed = true;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    @Override
     FrameDirection receivedDirection() {
         return FrameDirection.FROM_CLIENT;
     }
@@ -454,6 +465,11 @@ final class Http2Connection extends Http2Endpoint {
         return Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, frame + " on idle stream " + id);
     }
 
+    /** A frame on a stream both sides ended (RFC 9113 section 5.1): a connection error. */
+    private static Http2Exception closedStream(String frame, int id) {
+        return Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, frame + " on closed stream " + id);
+    }
+
     // ---------------------------------------------------------------------------------------
     // Frames
     // ---------------------------------------------------------------------------------------
@@ -517,7 +533,7 @@ final class Http2Connection extends Http2Endpoint {
         if (id <= last) {
             stats.headersCbNoStream.inc();
             if (recent) return;
-            throw Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, "HEADERS on closed stream " + id);
+            throw closedStream("HEADERS", id);
         }
         if (tooLarge != null) {
             LOG.log(Level.DEBUG, logPrefix + "refusing stream " + id + ": " + tooLarge.getMessage());
@@ -582,6 +598,8 @@ final class Http2Connection extends Http2Endpoint {
         stateLock.lock();
         try {
             if (s.remoteClosed && !s.reset) {
+                // Closed both ways, though the stream's thread may not have finished it yet.
+                if (s.localClosed) throw closedStream("HEADERS", id);
                 throw Http2Exception.streamError(id, ErrorCode.STREAM_CLOSED, "HEADERS after END_STREAM");
             }
         } finally {
@@ -634,11 +652,10 @@ final class Http2Connection extends Http2Endpoint {
             if (s == null || s.reset || s.remoteClosed) {
                 pendingConnectionCredit += length;
                 if (s != null && s.remoteClosed && !s.reset) {
+                    if (s.localClosed) throw closedStream("DATA", id);
                     throw Http2Exception.streamError(id, ErrorCode.STREAM_CLOSED, "DATA after END_STREAM");
                 }
-                if (s == null && !recentlyClosed.containsKey(id)) {
-                    throw Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, "DATA on closed stream " + id);
-                }
+                if (s == null && !recentlyClosed.containsKey(id)) throw closedStream("DATA", id);
                 afterReset = answerAfterReset(id);
             } else {
                 try {
