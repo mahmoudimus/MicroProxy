@@ -1,7 +1,6 @@
 package org.microproxy.starlark;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,7 +59,8 @@ class ScriptedWebSocketTest {
             List<String> texts = server.received.stream()
                     .map(f -> f.isClose() ? "<close>" : f.payloadAsText()).toList();
             assertEquals(List.of("HELLO", "PING", "<close>"), texts);
-            assertFalse(server.upgradeRequest.toLowerCase().contains("sec-websocket-extensions"));
+            // Compression stays on offer (this server declines it): the script would see inflated text.
+            assertTrue(server.upgradeRequest.toLowerCase().contains("sec-websocket-extensions: permessage-deflate"));
         }
     }
 

@@ -341,12 +341,11 @@ final class Http1ClientChannel implements ClientChannel {
     }
 
     @Override
-    public void relay(ServerConnection conn, Tunnel.FrameHandler frames, String name) {
+    public void relay(ServerConnection conn, WebSocketRelay webSocket, String name) {
         Tunnel.relay(in.asInputStream(), out, () -> Tunnel.halfClose(socket),
                 conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
                 () -> { close(); conn.close(); },
-                server.getIdleConnectionTimeout(), name, logPrefix, frames, server.maxWebSocketFrameBufferSize,
-                server.ioBuffers);
+                server.getIdleConnectionTimeout(), name, logPrefix, webSocket, server.ioBuffers);
     }
 
     @Override

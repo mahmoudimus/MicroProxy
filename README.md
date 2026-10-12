@@ -268,7 +268,7 @@ Command-line flags override values from the file.
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | TLS protocol pinning | every TLS connection (listener, both sides of interception, TLS chained proxies) allows only TLS 1.3 and 1.2 by default; `withTlsProtocols(...)` changes it (see below) |
 | PROXY protocol | accept v1 and v2 (read before TLS on a TLS listener), send v1 to the final server: first on a direct connection, through the tunnel after an HTTP chained proxy accepts the CONNECT; not sent through SOCKS chained proxies or with plain requests to an HTTP chained proxy |
-| WebSockets | HTTP/1 `Upgrade` and HTTP/2 extended `CONNECT` (RFC 8441), with the same frame observation and rewriting hooks in both directions (see below) |
+| WebSockets | HTTP/1 `Upgrade` and HTTP/2 extended `CONNECT` (RFC 8441), with the same frame and whole-message hooks in both directions, reading through permessage-deflate (see below) |
 | Shared connection pool | optional server connection reuse across clients, with limits and idle eviction (see below) |
 | DNSSEC | optional validating resolver, with no dependencies (see below) |
 | Access logs | `ActivityLogger` in nine formats, one with per-phase timings |
@@ -297,8 +297,8 @@ HttpFilters filters = HttpFilters.builder()
 MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
 ```
 
-Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `resolveWith`,
-`allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
+Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `onWebSocketMessage`,
+`resolveWith`, `allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
 `log(httpLogger)` logs each exchange around the lambdas (see [Request/response
 logging](#requestresponse-logging)), whether a lambda source returns the built filters, as above,
 or they are the source themselves: they are also an `HttpFiltersSource` that returns them for every
@@ -972,9 +972,10 @@ Request filters see an extended WebSocket CONNECT as a GET upgrade request, with
 see the handshake's answer as a `101` with `Upgrade: websocket` and `Connection: Upgrade`, as for an
 HTTP/1.1 client, whichever protocol the origin speaks; the proxy sends it to an HTTP/2 client as
 `200`, and `upstreamStatus` retains the origin's actual status.
-`webSocketFrameReceived` and `filterWebSocketFrame` use the same parser and relay as HTTP/1,
-including masking, rewriting, dropping, fragmentation and the large-frame buffer limit. Filters
-that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.
+`webSocketFrameReceived`, `filterWebSocketFrame` and `filterWebSocketMessage` use the same parser
+and relay as HTTP/1, including masking, rewriting, dropping, fragmentation, message joining,
+permessage-deflate and the buffer and message limits (see [WebSocket frames and
+messages](#websocket-frames-and-messages)).
 A filter that rejects the handshake finishes the exchange without starting the relay.
 
 **Remaining limits.** A request for an authority other than the intercepted one gets `421
@@ -1628,6 +1629,7 @@ bootstrap.start();
 | `buffer_request(req, ctx)` | before `on_request`, for requests with a body | whether to buffer it so `req.body` is available (default: no) |
 | `buffer_response(req, res, ctx)` | before `on_response` | whether to buffer it (default: text in a decodable coding, except `text/event-stream`) |
 | `on_websocket_frame(req, frame, ctx)` | for each frame of an upgraded WebSocket, in both directions | `None` to forward the frame (with any changes), `False` to drop it |
+| `on_websocket_message(msg, ctx)` | for each whole text or binary message of an upgraded WebSocket, in both directions, joined from its frames and inflated (after `on_websocket_frame`, if defined, has seen the frames) | `None` (or `msg`) to send the message with any changes, `False` to drop it, another message to replace it, or a list of messages to send instead (`[]` drops it) |
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
 | `on_frame(frame, ctx)` | for each HTTP/2 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
@@ -1665,11 +1667,16 @@ bootstrap.start();
   `opcode`, `fin`, `from_client`, `length`, `truncated`, and `text` and `payload`, which can be
   assigned. `text` is `None` for a payload that is not UTF-8; both are `None` for a truncated
   frame. (In `on_frame`, `frame` is an HTTP/2 or HTTP/3 frame: see [Frames](#frames).)
+- `msg`: `type` (`"text"` or `"binary"`), `from_client`, `length`, and `text` and `payload`, which
+  can be assigned. `text` is `None` for a payload that is not UTF-8. Its type is `WebSocketMessage`.
 
 **Built-ins.**
 
 - From Starlark: everything in the language spec, including `json.encode`/`json.decode`.
 - `response(status=200, body="", headers=None, content_type=None)`.
+- `websocket_message(content, from_client=...)`: a message for `on_websocket_message` to return,
+  text from a string or binary from bytes; `from_client=True` sends it towards the server,
+  `False` towards the client.
 - `re`: `match`, `search`, `fullmatch`, `findall`, `sub` (template or function), `split`,
   `escape`. Patterns use java.util.regex syntax plus Python's `(?P<name>...)`, and are
   abandoned at the call's deadline.
@@ -1904,6 +1911,60 @@ Binary protocols work on `frame.payload` (bytes): for example, replace a magic p
 they can be forwarded or dropped but not rewritten. A failing hook is logged and the frame is
 forwarded unchanged.
 
+**WebSocket message examples.** `on_websocket_message(msg, ctx)` sees whole messages: a message
+split into continuation frames arrives joined, and one compressed with permessage-deflate arrives
+inflated, so a hook never has to reassemble or decompress anything. It follows `on_frame`'s
+convention: change `msg.text` or `msg.payload` in place and return `None` (or `msg`) to send it,
+`False` to drop it, another message to replace it, or a list of messages to send in its place.
+Each message in a list goes the way its `from_client` says, so a script can answer a peer itself
+with `websocket_message(..., from_client=not msg.from_client)`. `ctx.vars` is shared with
+`on_request` and `on_websocket_frame` for the life of the connection; the hook does not get the
+request, so keep what you need from it in `ctx.vars`. When a script defines both hooks, each frame
+goes through `on_websocket_frame` first and `on_websocket_message` sees the message joined from
+what that returned. A failing hook is logged and the message is sent unchanged.
+
+Rewrite a field in JSON text messages from the client:
+
+```python
+def on_websocket_message(msg, ctx):
+    if msg.type != "text" or not msg.from_client or not msg.text.startswith("{"):
+        return None
+    data = json.decode(msg.text)
+    if data.get("room") == "staging":
+        data["room"] = "production"
+        msg.text = json.encode(data)
+```
+
+Drop binary messages over 64 KiB, and tell the client why:
+
+```python
+MAX_UPLOAD = 64 * 1024
+
+def on_websocket_message(msg, ctx):
+    if msg.type == "binary" and msg.length > MAX_UPLOAD:
+        log.warn("dropped a %d-byte upload from %s" % (msg.length, ctx.client_ip))
+        return [websocket_message('{"error": "upload too large"}', from_client=False)]
+    return None
+```
+
+Log a compressed chat as plain text, with types:
+
+```python
+def on_request(req: Request, ctx: Context) -> Response | None:
+    ctx.vars["chat"] = req.path
+    return None
+
+def on_websocket_message(msg: WebSocketMessage, ctx: Context) -> None:
+    if msg.type == "text":
+        sender = "client" if msg.from_client else "server"
+        log.info("%s %s: %s" % (ctx.vars["chat"], sender, cast(str, msg.text)))
+    return None
+```
+
+Messages larger than `withMaxWebSocketMessageSize` (16 MiB by default), joined or inflated, fail
+the connection with close code 1009; see [WebSocket frames and
+messages](#websocket-frames-and-messages) for the rest of the rules.
+
 <a id="frames"></a>**Frames.** A script that defines `on_frame(frame, ctx)` sees HTTP/2 frames on
 live connections ([Frame interception](#frame-interception) describes where, and which changes
 the proxy accepts) and HTTP/3 frames run through an `Http3FramePipeline`. `--script` installs it
@@ -2019,7 +2080,7 @@ def on_frame(frame: Frame, ctx: FrameContext) -> list[Frame] | bool | None:
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
-`Context`, `WebSocketFrame`, `Failure`, `Timings`, `Frame` and `FrameContext`:
+`Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame` and `FrameContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
@@ -2170,26 +2231,47 @@ By default, as in LittleProxy, server connections are kept per client connection
 LittleProxy used dnssec4j, which checked signatures where present but never anchored them to the
 root key or compared DS digests. It fell back to plain DNS on network errors.
 
-### WebSocket frames
+### WebSocket frames and messages
 
-After a `101` upgrade or HTTP/2 WebSocket extended CONNECT, filters can watch and rewrite every frame, in both
-directions and inside intercepted TLS:
+After a `101` upgrade or HTTP/2 WebSocket extended CONNECT, filters can watch and rewrite every
+frame, or every whole message, in both directions and inside intercepted TLS:
 
 - **Watching:** `webSocketFrameReceived(WebSocketFrame frame, boolean fromClient)` sees the
   opcode, FIN, masking and the unmasked payload. LittleProxy's
   `webSocketFrameReceived(Supplier<byte[]>, boolean)` still works and receives each frame's raw
   bytes (LittleProxy delivered raw TCP reads rather than frames).
-- **Rewriting:** `filterWebSocketFrame(WebSocketFrame frame, boolean fromClient)` returns the
-  frame to forward: `frame` itself, a replacement (`frame.withText(...)`,
+- **Rewriting frames:** `filterWebSocketFrame(WebSocketFrame frame, boolean fromClient)` returns
+  the frame to forward: `frame` itself, a replacement (`frame.withText(...)`,
   `WebSocketFrame.text(...)`, `binary(...)`, `close(code, reason)`), or `null` to drop it. The
-  proxy masks frames it sends towards the server, as RFC 6455 requires. When a filter rewrites
-  frames, the proxy removes `Sec-WebSocket-Extensions` from the upgrade request so that payloads
-  are not compressed (permessage-deflate). Messages split into continuation frames are seen one
-  frame at a time.
-- **Large frames:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) arrive
-  truncated, without a payload: returning them streams them through, `null` discards them.
+  proxy masks frames it sends towards the server, as RFC 6455 requires. Messages split into
+  continuation frames are seen one frame at a time.
+- **Rewriting messages:** `filterWebSocketMessage(WebSocketMessage message, boolean fromClient)`
+  sees a whole text or binary message, its frames joined. `WebSocketMessage` is a record (`type`
+  `TEXT` or `BINARY`, `payload`, `fromClient`) with `text()`, `withText(...)`,
+  `withPayload(...)`, `withFromClient(...)` and the factories `WebSocketMessage.text(...)` and
+  `binary(...)`. Return the message, a replacement, or `null` to drop it. Override
+  `filterWebSocketMessages` instead to return a list: each message goes towards the server when
+  its `fromClient()` is true and towards the client otherwise, so a filter can answer a message
+  itself or add messages in either direction. `HttpFilters.builder().onWebSocketMessage(...)`
+  takes a lambda.
+- **Order:** with both hooks, each frame goes through `filterWebSocketFrame` first, and
+  `filterWebSocketMessage` sees the message joined from what it returned (a dropped frame adds
+  nothing). Control frames (ping, pong, close) that arrive between a message's frames reach the
+  frame hook and are forwarded at once; they never wait for the message.
+- **Fragmentation:** a message returned unchanged goes out split as it arrived; an edited one
+  goes out as a single frame.
+- **Limits:** frames larger than `withMaxWebSocketFrameBufferSize` (default 1 MiB) arrive at the
+  frame hook truncated, without a payload: returning them streams them through, `null` discards
+  them. Frames of a message being joined, and compressed frames, are buffered whole instead, up
+  to `withMaxWebSocketMessageSize` (default 16 MiB). A message larger than that, joined or
+  inflated (a decompression bomb), fails the connection: both peers get a close frame with status
+  1009 (message too big), as mitmproxy does. Frames out of order (a continuation outside a
+  message, a new message before the last one ended) and invalid compressed data fail it with
+  1002.
 - **No listener:** if no filter overrides any of these methods, the connection is relayed as raw
-  bytes.
+  bytes. Frames are only joined into messages for filters that override a message hook, so frame
+  filters keep relaying frame by frame, and filters that only watch frames leave compressed
+  frames as they are (RSV1 set).
 
 ```java
 @Override
@@ -2199,7 +2281,39 @@ public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromCli
     if (fromClient && text.contains("\"password\"")) return null;        // drop it
     return frame.withText(text.replace("staging.example", "prod.example")); // or rewrite it
 }
+
+@Override
+public WebSocketMessage filterWebSocketMessage(WebSocketMessage message, boolean fromClient) {
+    if (message.isBinary() && message.length() > 1 << 20) return null;    // drop big uploads
+    return message.isText() ? message.withText(message.text().strip()) : message;
+}
 ```
+
+**permessage-deflate (RFC 7692).** Filters that rewrite frames or messages read compressed
+traffic as plain text: the proxy inflates what each peer sends and compresses what it forwards
+again. Each direction has two compression contexts, one per hop (client to proxy, proxy to
+server), because a hook may change payloads, so the proxy cannot pass compressed bytes on and keep
+the receiver's history in step with the sender's. The proxy keeps only the permessage-deflate
+offers in the upgrade request's `Sec-WebSocket-Extensions` (it could not read frames of other
+extensions) and otherwise leaves the negotiation to the client and server; it then applies what
+the server's answer says to the server's hop and what the client received to the client's hop.
+
+- `client_no_context_takeover` and `server_no_context_takeover` are honoured per direction: the
+  proxy resets its compressor after each message when it is the sender that agreed to it, and its
+  decompressor when the peer is.
+- `server_max_window_bits` and `client_max_window_bits`: the JDK's `Inflater` always uses a 32
+  KiB window, which reads anything a peer sends whatever window it agreed to. The JDK's `Deflater`
+  cannot use a smaller window, and a peer that agreed to a smaller one may keep only that much
+  history, so a back-reference further back would corrupt what it reads. Resetting the compressor
+  after each message would not help, since one message longer than the window can refer back
+  across it. Towards a peer whose window is under 15 bits the proxy therefore compresses with
+  Huffman coding only (`Deflater.HUFFMAN_ONLY`): no back-references at all, which any window
+  decodes. The parameters stay as the peers agreed them; only the proxy's own output compresses
+  less.
+- A message goes out compressed when its sender compressed it and the hop agreed to compression;
+  a message a filter sends back to a peer is compressed whenever that hop agreed to it.
+- `java.net.http.WebSocket` never offers extensions, so the tests use peers built on `Deflater`
+  and `Inflater`.
 
 ### Access logs
 

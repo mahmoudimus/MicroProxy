@@ -24,9 +24,11 @@ import org.microproxy.ClientDetails;
 import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.HttpFilters;
+import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
+import org.microproxy.SelectiveFilters;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.contentviews.ProtoSchema;
@@ -48,6 +50,7 @@ import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
 import org.microproxy.thirdparty.starlark.eval.Starlark;
@@ -90,6 +93,13 @@ import org.microproxy.thirdparty.starlark.eval.Tuple;
  *   <li>{@code on_websocket_frame(req, frame, ctx)}: for each frame of an upgraded WebSocket
  *       connection, in both directions. Assign {@code frame.text} or {@code frame.payload} to
  *       change it; return {@code False} to drop it, or {@code None} to forward it.
+ *   <li>{@code on_websocket_message(msg, ctx)}: for each whole message (text or binary) of an
+ *       upgraded WebSocket connection, joined from its frames and inflated, in both directions,
+ *       after {@code on_websocket_frame} has seen its frames. As with {@code on_frame}: change
+ *       {@code msg.text} or {@code msg.payload} in place and return {@code None} (or the message)
+ *       to send it, {@code False} to drop it, another message to replace it, or a list of
+ *       messages ({@code websocket_message(content, from_client=...)}) to send instead, each in
+ *       the direction its {@code from_client} names (an empty list drops it).
  *   <li>{@code authenticate(req, ctx)}: decides whether a client may use the proxy, when this
  *       object is also installed as the {@link ProxyAuthenticator} ({@code
  *       withProxyAuthenticator(script)}). Return the user name (a non-empty string) or {@code
@@ -314,8 +324,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     @Override
     public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext flowContext) {
         StarlarkScript s = script();
-        if (s.defines("on_websocket_frame")) {
-            return new FrameScriptFilters(s, originalRequest, flowContext);
+        if (s.defines("on_websocket_frame") || s.defines("on_websocket_message")) {
+            return new WebSocketScriptFilters(s, originalRequest, flowContext);
         }
         if (!s.defines("on_request") && !s.defines("on_response") && !s.defines("allow_mitm")
                 && !s.defines("on_client_hello") && !s.defines("buffer_request") && !s.defines("on_failure")
@@ -326,19 +336,35 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     }
 
     /**
-     * Adds {@code on_websocket_frame}. A separate class, because the proxy parses frames (and
-     * keeps compression off) only for filters classes that override the frame hook.
+     * Adds {@code on_websocket_frame} and {@code on_websocket_message}. Selective, because the
+     * proxy parses frames, and joins messages, only for the hooks the script defines.
      */
-    private final class FrameScriptFilters extends ScriptFilters {
-        /** Frames from both directions arrive concurrently but share ctx.vars. */
+    private final class WebSocketScriptFilters extends ScriptFilters implements SelectiveFilters {
+        /** Frames and messages from both directions arrive concurrently but share ctx.vars. */
         private final ReentrantLock frameLock = new ReentrantLock();
+        private final boolean frames;
+        private final boolean messages;
 
-        FrameScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
+        WebSocketScriptFilters(StarlarkScript s, HttpRequest original, FlowContext flow) {
             super(s, original, flow);
+            frames = s.defines("on_websocket_frame");
+            messages = s.defines("on_websocket_message");
+        }
+
+        @Override
+        public boolean sees(Body stream) {
+            return switch (stream) {
+                // As for any class that overrides the head hooks (see SelectiveFilters).
+                case REQUEST, RESPONSE -> true;
+                case WEBSOCKET_FRAMES -> frames;
+                case WEBSOCKET_MESSAGES -> messages;
+                case OBSERVED_WEBSOCKET_FRAMES -> false;
+            };
         }
 
         @Override
         public WebSocketFrame filterWebSocketFrame(WebSocketFrame frame, boolean fromClient) {
+            if (!frames) return frame;
             ScriptFrame f = new ScriptFrame(frame, fromClient);
             frameLock.lock();
             try {
@@ -355,6 +381,40 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return frame;
+            } finally {
+                frameLock.unlock();
+            }
+        }
+
+        @Override
+        public List<WebSocketMessage> filterWebSocketMessages(WebSocketMessage message, boolean fromClient) {
+            if (!messages) return List.of(message);
+            ScriptWebSocketMessage m = new ScriptWebSocketMessage(message);
+            frameLock.lock();
+            try {
+                Object r = s.call("on_websocket_message", mu, m, ctx);
+                if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return List.of(m.message());
+                if (r == Boolean.FALSE) return List.of();
+                if (r instanceof ScriptWebSocketMessage other) return List.of(other.message());
+                if (r instanceof StarlarkList<?> || r instanceof Tuple) {
+                    List<WebSocketMessage> out = new ArrayList<>();
+                    for (Object item : (Iterable<?>) r) {
+                        if (!(item instanceof ScriptWebSocketMessage x)) {
+                            throw Starlark.errorf("on_websocket_message lists hold messages, not %s", Starlark.type(item));
+                        }
+                        out.add(x.message());
+                    }
+                    return out;
+                }
+                throw Starlark.errorf("on_websocket_message must return None, True, False, a message or a list of"
+                        + " messages, not %s", Starlark.type(r));
+            } catch (EvalException e) {
+                LOG.log(Level.WARNING, s.name() + ": on_websocket_message failed; forwarding the message: "
+                        + e.getMessageWithStack());
+                return List.of(message);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return List.of(message);
             } finally {
                 frameLock.unlock();
             }

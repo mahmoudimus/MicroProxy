@@ -72,6 +72,7 @@ import org.microproxy.http.HttpUtil;
 import org.microproxy.http.HttpVersion;
 import org.microproxy.http.LastHttpContent;
 import org.microproxy.http.WebSocketFrame;
+import org.microproxy.http.WebSocketMessage;
 
 /**
  * Serves one client connection on its own virtual thread.
@@ -120,6 +121,21 @@ final class ClientConnection implements Runnable {
             try {
                 return type.getMethod("filterWebSocketFrame", WebSocketFrame.class, boolean.class)
                         .getDeclaringClass() != HttpFilters.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }
+    };
+
+    /** Whether a filters class rewrites whole WebSocket messages. */
+    private static final ClassValue<Boolean> REWRITES_MESSAGES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("filterWebSocketMessage", WebSocketMessage.class, boolean.class)
+                                .getDeclaringClass() != HttpFilters.class
+                        || type.getMethod("filterWebSocketMessages", WebSocketMessage.class, boolean.class)
+                                .getDeclaringClass() != HttpFilters.class;
             } catch (NoSuchMethodException e) {
                 return false;
             }
@@ -202,13 +218,67 @@ final class ClientConnection implements Runnable {
         return REWRITES_FRAMES.get(filters.getClass());
     }
 
+    private static boolean rewritesMessages(HttpFilters filters) {
+        if (filters instanceof HttpFiltersChain.Chained chain) {
+            return chain.members().stream().anyMatch(ClientConnection::rewritesMessages);
+        }
+        if (filters instanceof SelectiveFilters selective) {
+            return selective.sees(HttpFiltersBuilder.Body.WEBSOCKET_MESSAGES);
+        }
+        return REWRITES_MESSAGES.get(filters.getClass());
+    }
+
     /**
      * Which streams the proxy parses piece by piece for {@code filters}, as {request bodies,
      * response bodies, WebSocket frames}; the others take the fast path. For tests.
      */
     static boolean[] inspectedStreams(HttpFilters filters) {
         return new boolean[] {observes(filters, OBSERVES_REQUEST_CONTENT), observes(filters, OBSERVES_RESPONSE_CONTENT),
-            observesFrames(filters) || rewritesFrames(filters)};
+            observesFrames(filters) || rewritesFrames(filters) || rewritesMessages(filters)};
+    }
+
+    /** Whether the proxy joins WebSocket frames into messages for {@code filters}. For tests. */
+    static boolean joinsWebSocketMessages(HttpFilters filters) {
+        return rewritesMessages(filters);
+    }
+
+    /**
+     * The relay for a connection upgraded to a WebSocket, or null to relay its bytes untouched
+     * when no filter looks at frames or messages. Filters that rewrite read payloads through
+     * permessage-deflate as each hop agreed it: {@code serverExtensions} are the server's answer,
+     * {@code response} is what the client got.
+     */
+    private WebSocketRelay webSocketRelay(HttpFilters filters, List<String> serverExtensions, HttpResponse response,
+            String log) {
+        boolean observe = observesFrames(filters);
+        boolean rewrite = rewritesFrames(filters);
+        boolean messages = rewritesMessages(filters);
+        if (!observe && !rewrite && !messages) return null;
+        PerMessageDeflate.Params clientHop = null;
+        PerMessageDeflate.Params serverHop = null;
+        if (rewrite || messages) {
+            try {
+                serverHop = PerMessageDeflate.agreed(serverExtensions);
+                clientHop = PerMessageDeflate.agreed(
+                        response.headers().getAllElements(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS));
+            } catch (PerMessageDeflate.UnsupportedException e) {
+                // The offer only had what the relay reads; a server that answers otherwise gets its
+                // frames relayed as they are.
+                LOG.log(Level.WARNING, log + "WebSocket extensions the proxy cannot read (" + e.getMessage()
+                        + "); frames are only watched");
+                rewrite = false;
+                messages = false;
+                if (!observe) return null;
+            }
+        }
+        boolean watch = observe;
+        boolean change = rewrite;
+        WebSocketRelay.FrameHandler frames = !watch && !change ? null : (frame, fromClient) -> {
+            if (watch) filters.webSocketFrameReceived(frame, fromClient);
+            return change ? filters.filterWebSocketFrame(frame, fromClient) : frame;
+        };
+        return new WebSocketRelay(frames, messages ? filters::filterWebSocketMessages : null,
+                server.maxWebSocketFrameBufferSize, server.maxWebSocketMessageSize, clientHop, serverHop);
     }
 
     /** How a server connection is used. */
@@ -1096,9 +1166,15 @@ final class ClientConnection implements Runnable {
             // An HTTP/2 stream's request reaches the server as HTTP/1.1 (its Via says 2).
             ex.request.setProtocolVersion(HttpVersion.HTTP_1_1);
         }
-        if (webSocket && rewritesFrames(ex.filters)) {
-            // Compressed (permessage-deflate) payloads could not be rewritten.
-            ex.request.headers().remove(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS);
+        if (webSocket && (rewritesFrames(ex.filters) || rewritesMessages(ex.filters))) {
+            // Filters read payloads through permessage-deflate, but not through other extensions.
+            String offers = PerMessageDeflate.supportedOffers(
+                    ex.request.headers().getAllElements(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS));
+            if (offers == null) {
+                ex.request.headers().remove(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS);
+            } else {
+                ex.request.headers().set(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS, offers);
+            }
         }
 
         if (server.littleProxyCompatibility && conn == null && via == null
@@ -1497,6 +1573,9 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = ex.filters;
         HttpRequest request = ex.request;
         filters.serverToProxyResponseReceiving();
+        // The extensions the server agreed to, before filters see (and might change) the answer.
+        List<String> serverExtensions = response.status().code() == 101
+                ? response.headers().getAllElements(HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS) : List.of();
         int upstreamStatus = conn.responseStatus(response);
         ex.flow.upstreamStatus(upstreamStatus);
         server.trackers.fire(t -> t.responseReceivedFromServer(conn.flowContext, response));
@@ -1638,13 +1717,9 @@ final class ClientConnection implements Runnable {
             boolean webSocket = upgrade != null && HttpHeaders.splitList(upgrade).stream()
                     .anyMatch(token -> token.equalsIgnoreCase("websocket"));
             // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
-            boolean observe = webSocket && observesFrames(filters);
-            boolean rewrite = webSocket && rewritesFrames(filters);
-            Tunnel.FrameHandler handler = !observe && !rewrite ? null : (frame, fromClient) -> {
-                if (observe) filters.webSocketFrameReceived(frame, fromClient);
-                return rewrite ? filters.filterWebSocketFrame(frame, fromClient) : frame;
-            };
-            ex.channel.relay(conn, handler, server.name + "-upgrade-" + id);
+            WebSocketRelay relay = webSocket ? webSocketRelay(filters, serverExtensions, finalResponse, ex.channel.logPrefix())
+                    : null;
+            ex.channel.relay(conn, relay, server.name + "-upgrade-" + id);
             conn.close();
             return false;
         }

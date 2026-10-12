@@ -39,7 +39,7 @@ class TunnelTest {
         Thread relay = Thread.ofVirtual().start(() -> Tunnel.relay(
                 new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream(), () -> {},
                 blocked, destination, () -> { throw new IOException("half-close failed"); },
-                closed::countDown, null, "failed-half-close", "", null, 0, new BufferPool(16, 2)));
+                closed::countDown, null, "failed-half-close", "", null, new BufferPool(16, 2)));
         try {
             assertTrue(closed.await(2, TimeUnit.SECONDS), "failure must close the blocked peer");
             relay.join(2000);

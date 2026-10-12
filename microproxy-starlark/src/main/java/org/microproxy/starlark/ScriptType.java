@@ -94,6 +94,16 @@ final class ScriptType extends StarlarkType {
             .put("payload", BODY)
             .buildOrThrow(), true);
 
+    /** A whole WebSocket message ({@code on_websocket_message}); named {@code WebSocketMessage}. */
+    static final ScriptType WEBSOCKET_MESSAGE = new ScriptType("WebSocketMessage", ScriptWebSocketMessage.class,
+            ImmutableMap.of(
+                    "type", Types.STR,
+                    "from_client", Types.BOOL,
+                    "length", Types.INT,
+                    "text", TEXT,
+                    "payload", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT)),
+            true);
+
     private static final StarlarkType INT_OR_NONE = Types.union(Types.INT, Types.NONE);
 
     /** An HTTP/2 or HTTP/3 frame ({@code on_frame}); named {@code Frame}. */
@@ -143,6 +153,7 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor HEADERS_CONSTRUCTOR = Types.wrapType("Headers", HEADERS);
     static final TypeConstructor CONTEXT_CONSTRUCTOR = Types.wrapType("Context", CONTEXT);
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
+    static final TypeConstructor WEBSOCKET_MESSAGE_CONSTRUCTOR = Types.wrapType("WebSocketMessage", WEBSOCKET_MESSAGE);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
     static final TypeConstructor PROTO_FIXED_CONSTRUCTOR = Types.wrapType("ProtoFixed", PROTO_FIXED);

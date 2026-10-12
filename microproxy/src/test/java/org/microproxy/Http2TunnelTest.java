@@ -169,7 +169,8 @@ class Http2TunnelTest {
                 assertEquals("ping:edited", origin.received.getFirst().payloadAsText());
                 assertTrue(origin.received.getFirst().isMasked());
                 assertFalse(origin.upgradeRequest.toLowerCase().contains("transfer-encoding"));
-                assertFalse(origin.upgradeRequest.toLowerCase().contains("sec-websocket-extensions"));
+                assertTrue(origin.upgradeRequest.toLowerCase().contains("sec-websocket-extensions: permessage-deflate"),
+                        origin.upgradeRequest);
                 assertTrue(origin.upgradeRequest.startsWith("GET /chat HTTP/1.1"), origin.upgradeRequest);
                 assertEquals(List.of("true:1", "false:1"), frames);
                 c.data(1, WebSocketFrame.close(1000, "bye").toWire(true), true);

@@ -176,12 +176,48 @@ class Http2WebSocketTest {
             assertEquals(List.of("HELLO", "PING", "<close>"), texts);
             // Rewritten frames are masked again towards the server.
             assertTrue(server.received.stream().allMatch(WebSocketFrame::isMasked));
-            // Compression is negotiated away, so payloads can be rewritten.
-            assertNull(header(server.upgradeRequest, "Sec-WebSocket-Extensions"), server.upgradeRequest);
+            // Compression stays on offer: payloads would be inflated for the filter.
+            assertEquals("permessage-deflate; client_max_window_bits",
+                    header(server.upgradeRequest, "Sec-WebSocket-Extensions"), server.upgradeRequest);
             String target = "http://127.0.0.1:" + server.raw().port() + "/chat";
             assertEquals(List.of("GET " + target + " HTTP/2.0 upgrade=websocket stream=1"), requests);
             assertEquals(List.of("101 websocket"), responses);
             assertEquals(List.of("> hello (masked)", "> my secret (masked)", "> ping (masked)", "< echo:PING"), seen);
+        }
+    }
+
+    @Test
+    void messagesAreJoinedAndInflatedAsForHttp1Upgrades() throws Exception {
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = h2c().withFiltersSource(HttpFilters.builder().onWebSocketMessage((m, fromClient) -> {
+            seen.add((fromClient ? "> " : "< ") + m.text());
+            return fromClient ? m.withText(m.text().toUpperCase(Locale.ROOT)) : m;
+        }).build()).start();
+        try (WebSocketPeer.Server server = new WebSocketPeer.Server("permessage-deflate; client_no_context_takeover");
+                H2StreamClient c = client(server.raw())) {
+            H2StreamClient.Stream ws = c.open(c.webSocket("/chat", "sec-websocket-extensions",
+                    "permessage-deflate; client_max_window_bits"), false);
+            assertEquals(200, ws.status());
+            String agreed = ws.header("sec-websocket-extensions");
+            assertEquals("permessage-deflate; client_no_context_takeover", agreed);
+            WebSocketPeer peer = WebSocketPeer.client(ws.in(), ws.out(), WebSocketPeer.Agreement.parse(agreed));
+            for (int i = 0; i < 2; i++) {
+                peer.sendMessage(WebSocketFrame.OPCODE_TEXT, "ping over h2, ping over h2".getBytes(), true, 3);
+                peer.send(WebSocketFrame.of(true, 0, WebSocketFrame.OPCODE_PING, new byte[0]));
+                WebSocketPeer.Message echo = peer.readMessage();
+                assertTrue(echo.compressed());
+                assertEquals("echo:PING OVER H2, PING OVER H2", echo.text());
+            }
+            assertEquals(List.of("> ping over h2, ping over h2", "< echo:PING OVER H2, PING OVER H2",
+                    "> ping over h2, ping over h2", "< echo:PING OVER H2, PING OVER H2"), seen);
+            List<WebSocketPeer.Message> texts = server.received.stream()
+                    .filter(m -> m.opcode() == WebSocketFrame.OPCODE_TEXT).toList();
+            assertEquals(2, texts.size());
+            assertTrue(texts.stream().allMatch(m -> m.compressed() && m.frames().size() == 1));
+            // Nothing answers a ping: the second may reach the server after the echo before it.
+            eventually("both pings to reach the server",
+                    () -> server.received.stream().filter(m -> m.opcode() == WebSocketFrame.OPCODE_PING).count() == 2);
+            ws.reset(ErrorCode.CANCEL);
         }
     }
 
@@ -410,6 +446,36 @@ class Http2WebSocketTest {
         // The CONNECT's HTTP/2 connection carried the WebSocket: one connection to the server.
         assertEquals(1, origin.accepts.get());
         assertEquals(List.of("CONNECT " + target + " null", "GET /chat websocket"), requests);
+    }
+
+    @Test
+    void messagesToAnHttp2ServerAreJoinedToo() throws Exception {
+        H2TestOrigin origin = extendedConnectOrigin(true);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        proxy = mitm().withFiltersSource(HttpFilters.builder()
+                .onWebSocketFrame((f, fromClient) -> {
+                    if (fromClient && f.opcode() <= WebSocketFrame.OPCODE_BINARY) seen.add("frame " + f.payloadAsText());
+                    return f;
+                })
+                .onWebSocketMessage((m, fromClient) -> {
+                    seen.add("message " + m.text());
+                    return fromClient ? m.withText(m.text() + "!") : m;
+                }).build()).start();
+        try (H2StreamClient c = H2StreamClient.intercepted(proxy.getListenAddress(), "localhost:" + origin.port(),
+                proxyCa.clientContext())) {
+            H2StreamClient.Stream ws = c.open(c.webSocket("/chat"), false);
+            assertEquals(200, ws.status());
+            sendFromClient(ws.out(), WebSocketFrame.of(false, 0, WebSocketFrame.OPCODE_TEXT, "ping ".getBytes()));
+            sendFromClient(ws.out(), WebSocketFrame.of(true, 0, WebSocketFrame.OPCODE_CONTINUATION, "h2".getBytes()));
+            assertEquals("echo:ping h2!", readFrame(ws.in()).payloadAsText());
+            sendFromClient(ws.out(), WebSocketFrame.close(1000, ""));
+            assertTrue(readFrame(ws.in()).isClose());
+            ws.end();
+            assertNull(ws.awaitEnd());
+        }
+        assertEquals("ping h2!", originFrames.getFirst().payloadAsText());
+        assertTrue(originFrames.getFirst().isFinal() && originFrames.getFirst().isMasked());
+        assertEquals(List.of("frame ping ", "frame h2", "message ping h2", "message echo:ping h2!"), seen);
     }
 
     @Test
