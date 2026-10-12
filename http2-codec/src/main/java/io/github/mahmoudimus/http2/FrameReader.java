@@ -42,7 +42,8 @@ import java.util.Objects;
  *       longer than {@link #setMaxHeaderBlockSize(int)} or split into more than
  *       {@link #setMaxContinuationFrames(int)} CONTINUATION frames is a connection error
  *       ENHANCE_YOUR_CALM (the CONTINUATION flood).
- *   <li>Frames of unknown types are skipped (§5.5), without allocating their payload.
+ *   <li>Frames of unknown types are skipped (§5.5), without allocating their payload, unless the
+ *       caller asks for them, or for ORIGIN frames ({@link #setDeliverOriginFrames(boolean)}).
  * </ul>
  *
  * <p>Stream states, stream-id ordering and parity, SETTINGS acknowledgement and flow control are the
@@ -68,6 +69,7 @@ public final class FrameReader {
     private int maxHeaderBlockSize = DEFAULT_MAX_HEADER_BLOCK_SIZE;
     private int maxContinuationFrames = DEFAULT_MAX_CONTINUATION_FRAMES;
     private boolean deliverUnknownFrames;
+    private boolean deliverOriginFrames;
 
     // The frame header just read.
     private int length;
@@ -142,6 +144,18 @@ public final class FrameReader {
      */
     public void setDeliverUnknownFrames(boolean deliverUnknownFrames) {
         this.deliverUnknownFrames = deliverUnknownFrames;
+    }
+
+    /**
+     * Return ORIGIN frames (RFC 8336) as {@link Frame.Unknown}, for {@link OriginFrame} to read,
+     * even when other frames of unknown types are skipped. A client that coalesces connections
+     * needs them; nothing else does.
+     *
+     * @param deliverOriginFrames true to return ORIGIN frames, false to treat them as any other
+     *     extension frame
+     */
+    public void setDeliverOriginFrames(boolean deliverOriginFrames) {
+        this.deliverOriginFrames = deliverOriginFrames;
     }
 
     /**
@@ -304,7 +318,7 @@ public final class FrameReader {
     }
 
     private Frame readUnknown() throws IOException {
-        if (deliverUnknownFrames) {
+        if (deliverUnknownFrames || (deliverOriginFrames && type == FrameType.ORIGIN)) {
             return new Frame.Unknown(type, flags, streamId, readFully(length));
         }
         in.skipNBytes(length);

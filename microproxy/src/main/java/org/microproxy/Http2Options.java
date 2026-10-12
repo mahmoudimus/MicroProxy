@@ -6,7 +6,9 @@ import java.util.Objects;
 /**
  * Limits for HTTP/2 client connections ({@link HttpProxyServerBootstrap#withHttp2(boolean)}). Every
  * value has a default meant for browsers and API clients; a peer that goes past a limit gets its
- * stream refused or reset, or the connection closed with {@code GOAWAY}.
+ * stream refused or reset, or the connection closed with {@code GOAWAY}. The window sizes apply to
+ * the proxy's connections to servers too ({@link HttpProxyServerBootstrap#withHttp2Upstream}), and
+ * {@link Builder#coalesceConnections(boolean)} lets those serve more than one server name.
  *
  * <p>The rate limits count frames received within {@link Builder#rateWindow(Duration) one window}
  * (10 seconds by default); the count starts again with each window.
@@ -36,6 +38,7 @@ public final class Http2Options {
     private final int maxResets;
     private final int maxWindowUpdates;
     private final int maxEmptyFrames;
+    private final boolean coalesceConnections;
 
     private Http2Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -50,6 +53,7 @@ public final class Http2Options {
         maxResets = b.maxResets;
         maxWindowUpdates = b.maxWindowUpdates;
         maxEmptyFrames = b.maxEmptyFrames;
+        coalesceConnections = b.coalesceConnections;
     }
 
     /**
@@ -80,6 +84,7 @@ public final class Http2Options {
         b.maxResets = maxResets;
         b.maxWindowUpdates = maxWindowUpdates;
         b.maxEmptyFrames = maxEmptyFrames;
+        b.coalesceConnections = coalesceConnections;
         return b;
     }
 
@@ -176,6 +181,17 @@ public final class Http2Options {
         return maxEmptyFrames;
     }
 
+    /**
+     * Whether an HTTP/2 connection to a server may carry requests for other server names than the
+     * one it was made for (connection coalescing, RFC 9113 section 9.1.1).
+     *
+     * @return true if connections to servers are coalesced
+     * @see Builder#coalesceConnections(boolean)
+     */
+    public boolean coalesceConnections() {
+        return coalesceConnections;
+    }
+
     @Override
     public String toString() {
         return "Http2Options[maxConcurrentStreams=" + maxConcurrentStreams + ", initialWindowSize=" + initialWindowSize
@@ -183,7 +199,7 @@ public final class Http2Options {
                 + ", settingsAckTimeout=" + settingsAckTimeout + ", rateWindow=" + rateWindow
                 + ", maxRapidResets=" + maxRapidResets + ", maxPings=" + maxPings + ", maxSettings=" + maxSettings
                 + ", maxResets=" + maxResets + ", maxWindowUpdates=" + maxWindowUpdates
-                + ", maxEmptyFrames=" + maxEmptyFrames + "]";
+                + ", maxEmptyFrames=" + maxEmptyFrames + ", coalesceConnections=" + coalesceConnections + "]";
     }
 
     /** Builds {@link Http2Options}. */
@@ -200,6 +216,7 @@ public final class Http2Options {
         private int maxResets = 1000;
         private int maxWindowUpdates = 10_000;
         private int maxEmptyFrames = 1000;
+        private boolean coalesceConnections;
 
         private Builder() {}
 
@@ -344,6 +361,33 @@ public final class Http2Options {
          */
         public Builder maxEmptyFrames(int n) {
             maxEmptyFrames = positive(n, "maxEmptyFrames");
+            return this;
+        }
+
+        /**
+         * Lets the proxy's HTTP/2 connections to servers ({@link
+         * HttpProxyServerBootstrap#withHttp2Upstream}) carry requests for other server names than
+         * the one each was made for, as RFC 9113 section 9.1.1 allows (default off). A request for
+         * {@code b.example.com} may then take a stream on the connection made for {@code
+         * a.example.com} when the certificate that server presented is valid for {@code
+         * b.example.com}, and either {@code b.example.com} resolves (with the proxy's own resolver)
+         * to the address the connection went to, or the server named it in an ORIGIN frame (RFC
+         * 8336).
+         *
+         * <p>Connections are never coalesced across routes (direct, or through which chained
+         * proxy), MITM managers, client connections whose connections are private, or TLS settings:
+         * the context the MITM manager gives each name must be the same, a manager that configures
+         * server sockets itself keeps every connection to its own name, and a connection on which
+         * the proxy presented a client certificate serves no other name. A request that a server
+         * answers {@code 421 Misdirected Request} on a coalesced connection is sent again on a
+         * connection of its own when it can be (no body, a buffered one, or one not read yet), and
+         * that name is not coalesced onto that connection again.
+         *
+         * @param coalesce true to coalesce connections to servers
+         * @return this builder
+         */
+        public Builder coalesceConnections(boolean coalesce) {
+            coalesceConnections = coalesce;
             return this;
         }
 

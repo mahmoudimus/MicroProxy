@@ -43,6 +43,12 @@ public final class FrameType {
      * The frame type for a continued field block.
      */
     public static final int CONTINUATION = 0x9;
+    /**
+     * The extension frame type by which a server names the origins it serves on a connection (RFC
+     * 8336). It is not one of RFC 9113's types: {@link FrameReader} returns it as a {@link
+     * Frame.Unknown}, which {@link OriginFrame} reads.
+     */
+    public static final int ORIGIN = 0xc;
 
     /** DATA, HEADERS: the last frame the sender will send on the stream. */
     public static final int FLAG_END_STREAM = 0x1;
@@ -78,6 +84,7 @@ public final class FrameType {
             case GOAWAY -> "GOAWAY";
             case WINDOW_UPDATE -> "WINDOW_UPDATE";
             case CONTINUATION -> "CONTINUATION";
+            case ORIGIN -> "ORIGIN";
             default -> "UNKNOWN(0x" + Integer.toHexString(type) + ")";
         };
     }

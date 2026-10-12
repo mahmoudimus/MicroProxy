@@ -446,6 +446,17 @@ final class ClientConnection implements Runnable {
     }
 
     /**
+     * The server answered {@code 421 Misdirected Request} on a connection coalesced for another
+     * server name ({@link ServerConnection#misdirected()}): the cause of a {@link StaleConnection}
+     * whose request goes again on a connection of its own.
+     */
+    private static final class Misdirected extends IOException {
+        Misdirected(String hostAndPort) {
+            super("421 Misdirected Request for " + hostAndPort + " on a coalesced HTTP/2 connection");
+        }
+    }
+
+    /**
      * The server behind a CONNECT answered the proxy's TLS handshake with something other than
      * TLS (e.g. a plain HTTP or WebSocket server), so it cannot be intercepted.
      */
@@ -466,6 +477,24 @@ final class ClientConnection implements Runnable {
             super("client connection failed", cause);
         }
     }
+
+    /**
+     * Whether a MITM manager may configure its server sockets per name ({@link
+     * MitmManager#configureServerSocket}: versions, ciphers, SNI): its HTTP/2 connections to
+     * servers are never coalesced, since one name's settings may not be another's.
+     */
+    private static final ClassValue<Boolean> CONFIGURES_SERVER_SOCKETS = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("configureServerSocket", SSLSocket.class).getDeclaringClass() != MitmManager.class
+                        || type.getMethod("configureServerSocket", SSLSocket.class, FlowContext.class)
+                                .getDeclaringClass() != MitmManager.class;
+            } catch (NoSuchMethodException e) {
+                return true;
+            }
+        }
+    };
 
     /** State of the request/response exchange in progress. */
     private static final class Exchange {
@@ -520,7 +549,12 @@ final class ClientConnection implements Runnable {
          * The HTTP/2 key whose connection this exchange claimed to make ({@link Http2Origins}) and
          * reports on only once its deferred server TLS has told what the server speaks.
          */
-        String http2Claim;
+        Http2Origins.Key http2Claim;
+        /**
+         * The context of the exchange's latest TLS handshake with a server ({@link #serverTls}),
+         * for the connection it made ({@link ServerConnection#tlsContext}).
+         */
+        SSLContext serverTlsContext;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -572,20 +606,45 @@ final class ClientConnection implements Runnable {
             return !(request instanceof FullHttpRequest) && body.hasBody() && !body.isDone();
         }
 
-        /** The server address resolved ahead of connecting (LittleProxy compatibility). */
+        /**
+         * The server address resolved ahead of connecting (LittleProxy compatibility, or to check
+         * whether an HTTP/2 connection may be coalesced), or why resolving it failed.
+         */
         private String preResolvedFor;
         private InetSocketAddress preResolved;
+        private UnknownHostException preResolveFailure;
 
         void preResolve(String hostAndPort, InetSocketAddress address) {
             preResolvedFor = hostAndPort;
             preResolved = address;
+            preResolveFailure = null;
         }
 
-        /** The address resolved ahead for {@code hostAndPort}, once; null if none. */
-        InetSocketAddress takePreResolved(String hostAndPort) {
-            InetSocketAddress address = hostAndPort.equals(preResolvedFor) ? preResolved : null;
+        /** Resolving {@code hostAndPort} ahead failed: connecting fails the same way, without resolving it again. */
+        void preResolveFailed(String hostAndPort, UnknownHostException failure) {
+            preResolvedFor = hostAndPort;
+            preResolved = null;
+            preResolveFailure = failure;
+        }
+
+        /** The address resolved ahead for {@code hostAndPort}, left for connecting; null if none. */
+        InetSocketAddress peekPreResolved(String hostAndPort) {
+            return hostAndPort.equals(preResolvedFor) ? preResolved : null;
+        }
+
+        /**
+         * The address resolved ahead for {@code hostAndPort}, once; null if none.
+         *
+         * @throws UnknownHostException if resolving it ahead failed
+         */
+        InetSocketAddress takePreResolved(String hostAndPort) throws UnknownHostException {
+            boolean match = hostAndPort.equals(preResolvedFor);
+            InetSocketAddress address = match ? preResolved : null;
+            UnknownHostException failure = match ? preResolveFailure : null;
             preResolved = null;
             preResolvedFor = null;
+            preResolveFailure = null;
+            if (failure != null) throw failure;
             return address;
         }
     }
@@ -1912,8 +1971,10 @@ final class ClientConnection implements Runnable {
         }
 
         boolean replayable = ex.request instanceof FullHttpRequest || !ex.body.hasBody();
+        // A request a coalesced HTTP/2 connection answered 421 goes again on one of its own.
+        boolean coalesce = true;
         for (int attempt = 0; ; attempt++) {
-            String http2Key = null;
+            Http2Origins.Key http2Key = null;
             if (conn == null) {
                 if (route == null) {
                     route = routeFor(ex, hostAndPort);
@@ -1929,7 +1990,9 @@ final class ClientConnection implements Runnable {
                 http2Key = http2 && conn == null ? http2Key(mode, hostAndPort, route.getFirst()) : null;
                 if (http2Key != null) {
                     try {
-                        conn = server.http2Origins.stream(http2Key, ex.flow, hostAndPort, ex.log,
+                        Http2Coalescing.Request coalescing =
+                                coalesce ? coalescing(ex, mode, hostAndPort, route.getFirst()) : null;
+                        conn = server.http2Origins.stream(http2Key, coalescing, ex.flow, hostAndPort, ex.log,
                                 ProxyUtils.isHEAD(ex.request), Math.max(1000, connectTimeoutMillis(ex)));
                     } catch (IOException e) {
                         LOG.log(Level.DEBUG, ex.log + "no HTTP/2 stream to " + hostAndPort + ": " + e.getMessage());
@@ -2009,9 +2072,15 @@ final class ClientConnection implements Runnable {
                 // (a few times, since a pool can hold several stale ones).
                 return exchange(ex, conn, attempt < 3 && conn.used && replayable);
             } catch (StaleConnection e) {
-                LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
                 conn.cluster.rqRetry.inc();
-                conn.closedByServer = true;
+                if (e.getCause() instanceof Misdirected) {
+                    LOG.log(Level.DEBUG, ex.log + "retrying on a connection of its own after 421 on " + conn);
+                    server.stats.http2Upstream.misdirectedRetry.inc();
+                    coalesce = false;
+                } else {
+                    LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
+                    conn.closedByServer = true;
+                }
                 conn.close();
                 conn = null;
                 route = null;
@@ -2076,7 +2145,7 @@ final class ClientConnection implements Runnable {
         try {
             return send(ex, conn, retryAllowed);
         } catch (StaleConnection e) {
-            error = "stale_connection";
+            error = e.getCause() instanceof Misdirected ? "misdirected_request" : "stale_connection";
             throw e;
         } catch (ClientFailure e) {
             error = "downstream_disconnect";
@@ -2170,7 +2239,9 @@ final class ClientConnection implements Runnable {
                     // Let the server decide whether it wants the body before reading it from the
                     // client, which is waiting for a 100 (Continue). Servers that ignore Expect
                     // never answer, so after a short wait the proxy continues on their behalf.
-                    early = awaitServerData(conn, CONTINUE_TIMEOUT_MS) ? readResponseHead(ex, conn, true, false) : null;
+                    // (No body has been read yet: a 421 on a coalesced stream may go again.)
+                    early = awaitServerData(conn, CONTINUE_TIMEOUT_MS) ? readResponseHead(ex, conn, true, false, true)
+                            : null;
                     if (early == null || early.status().code() == 100) {
                         writeToClient(ex.channel::writeContinue);
                         early = null;
@@ -2183,7 +2254,7 @@ final class ClientConnection implements Runnable {
                     } catch (ServerWriteFailure e) {
                         // The server may have answered early (e.g. 413) and stopped reading.
                         LOG.log(Level.DEBUG, ex.log + "server stopped reading the request body", e);
-                        early = readResponseHead(ex, conn, false, false);
+                        early = readResponseHead(ex, conn, false, false, false);
                     }
                 }
                 if (early != null) {
@@ -2200,7 +2271,7 @@ final class ClientConnection implements Runnable {
             }
             if (response == null) {
                 filters.proxyToServerRequestSent();
-                response = readResponseHead(ex, conn, false, retryAllowed);
+                response = readResponseHead(ex, conn, false, retryAllowed, retryAllowed);
             }
             return relayResponse(ex, conn, response);
         } catch (ServerTimeout e) {
@@ -2379,9 +2450,13 @@ final class ClientConnection implements Runnable {
      * Reads the next final response head, forwarding interim (1xx) responses to the client.
      *
      * @param stopAtContinue return a 100 (Continue) instead of forwarding it
+     * @param retryAllowed the request may be sent again if the connection turns out stale
+     * @param misdirectedRetry the request may be sent again on a connection of its own if a
+     *     coalesced HTTP/2 connection answers it {@code 421} (no body has been sent, or the body
+     *     can be sent again); otherwise the 421 is relayed
      */
     private HttpResponse readResponseHead(
-            Exchange ex, ServerConnection conn, boolean stopAtContinue, boolean retryAllowed)
+            Exchange ex, ServerConnection conn, boolean stopAtContinue, boolean retryAllowed, boolean misdirectedRetry)
             throws IOException {
         while (true) {
             HttpResponse response;
@@ -2404,6 +2479,9 @@ final class ClientConnection implements Runnable {
                 throw new ServerFailure("server closed connection", eof);
             }
             int code = response.status().code();
+            if (code == 421 && conn.misdirected() && misdirectedRetry) {
+                throw new StaleConnection(new Misdirected(conn.hostAndPort));
+            }
             if (code == 100 && stopAtContinue) {
                 return response;
             }
@@ -2783,11 +2861,13 @@ final class ClientConnection implements Runnable {
 
         // An HTTP/2 connection to the server that the session's requests can share makes connecting
         // now unnecessary, as a pooled connection would.
-        String http2Key = mitm && server.http2Origins != null ? http2Key(mode, hostAndPort, route.getFirst()) : null;
+        Http2Origins.Key http2Key = mitm && server.http2Origins != null ? http2Key(mode, hostAndPort, route.getFirst())
+                : null;
         SSLSession serverSession = null;
         if (http2Key != null) {
             try {
-                serverSession = server.http2Origins.session(http2Key, Math.max(1000, connectTimeoutMillis(ex)));
+                serverSession = server.http2Origins.session(http2Key,
+                        coalescing(ex, mode, hostAndPort, route.getFirst()), Math.max(1000, connectTimeoutMillis(ex)));
             } catch (IOException e) {
                 server.stats.cluster(route.getFirst(), hostAndPort).cxPoolOverflow.inc();
                 return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
@@ -3060,7 +3140,7 @@ final class ClientConnection implements Runnable {
      */
     private boolean answerConnect(Exchange ex, ServerConnection conn, boolean mitm, boolean inspect, Mode mode,
             SSLSession serverSession, String serverAlpn, HostAndPort target, String hostAndPort,
-            List<ChainedProxy> route, String http2Key) throws IOException {
+            List<ChainedProxy> route, Http2Origins.Key http2Key) throws IOException {
         if (conn != null) {
             conn.key = mode + "|" + hostAndPort;
             recordUpstream(ex, conn);
@@ -3148,8 +3228,8 @@ final class ClientConnection implements Runnable {
      *     the usual routes
      */
     private boolean serveEstablished(Exchange ex, ServerConnection conn, boolean inspect, SSLSession serverSession,
-            String serverAlpn, HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key,
-            Hop hop) throws IOException {
+            String serverAlpn, HostAndPort target, String hostAndPort, List<ChainedProxy> route,
+            Http2Origins.Key http2Key, Hop hop) throws IOException {
         if (hop != null && !ex.channel.multiplexed()) {
             // An HTTP/1 connection turns into the tunnel: it is done with the session's server, and
             // its connections from now on reach the target through that server. The session's
@@ -3181,10 +3261,11 @@ final class ClientConnection implements Runnable {
      * Hands {@code carrier}, whose handshake negotiated HTTP/2, to {@link Http2Origins} for the
      * requests of the session being intercepted (and of others that may share it).
      */
-    private void adoptForSession(Exchange ex, ServerConnection carrier, Mode mode, String hostAndPort, String http2Key) {
+    private void adoptForSession(Exchange ex, ServerConnection carrier, Mode mode, String hostAndPort,
+            Http2Origins.Key http2Key) {
         serverConnections.remove(carrier.key, carrier);
         try {
-            String key = http2Key(mode, hostAndPort, carrier.chainedProxy == null
+            Http2Origins.Key key = http2Key(mode, hostAndPort, carrier.chainedProxy == null
                     ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : carrier.chainedProxy);
             server.http2Origins.adopt(carrier, http2Key, key, http2Owner(mode, via), null, hostAndPort, ex.log, false);
         } catch (IOException e) {
@@ -3385,7 +3466,8 @@ final class ClientConnection implements Runnable {
      * @param serverAlpn the protocol the server chose on an established connection, or null
      */
     private boolean interceptOrTunnel(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
-            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key) throws IOException {
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, Http2Origins.Key http2Key)
+            throws IOException {
         ClientStart start = peekClient(conn != null && conn.tlsPending ? conn : null);
         if (ex.http2Claim != null) server.http2Origins.clientHelloArrived(ex.http2Claim);
         switch (start.kind()) {
@@ -3526,6 +3608,7 @@ final class ClientConnection implements Runnable {
     private void layerServerTls(Exchange ex, ServerConnection conn, HostAndPort target, String sniHost,
             String hostAndPort, List<String> alpn) throws IOException {
         SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
+        conn.tlsContext = ex.serverTlsContext;
         Supplier<FullFlowContext> context = () -> conn.flowContext;
         conn.layerTls(tls, new ByteReader(serverInput(tls, context, conn.cluster), server.ioBuffers),
                 new PooledOutputStream(serverOutput(tls, context, conn.cluster), server.ioBuffers));
@@ -3821,10 +3904,11 @@ final class ClientConnection implements Runnable {
             conn.key = key;
             return conn;
         }
-        String http2Key = server.http2Origins == null ? null
+        Http2Origins.Key http2Key = server.http2Origins == null ? null
                 : http2Key(Mode.TLS, hop.proxy, route.getFirst(), hop.parent);
         if (http2Key != null) {
-            ServerConnection stream = server.http2Origins.stream(http2Key, ex.flow, hop.proxy, ex.log, false,
+            // (A proxy's connections are its own: never coalesced with another's.)
+            ServerConnection stream = server.http2Origins.stream(http2Key, null, ex.flow, hop.proxy, ex.log, false,
                     Math.max(1000, connectTimeoutMillis(ex)));
             if (stream != null) return stream;
         }
@@ -4036,7 +4120,7 @@ final class ClientConnection implements Runnable {
      *     forwarded {@code CONNECT}), or null for a tunnel this proxy opened
      */
     private boolean interceptStream(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
-            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key, Hop via) {
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, Http2Origins.Key http2Key, Hop via) {
         Socket tunnel = ex.channel.tunnelSocket();
         if (tunnel == null) {
             completeConnect(ex);
@@ -4094,7 +4178,7 @@ final class ClientConnection implements Runnable {
      * @param ex the stream's {@code CONNECT} exchange
      */
     private void serveTunnel(Exchange ex, ServerConnection conn, SSLSession serverSession, String serverAlpn,
-            HostAndPort target, String hostAndPort, List<ChainedProxy> route, String http2Key) {
+            HostAndPort target, String hostAndPort, List<ChainedProxy> route, Http2Origins.Key http2Key) {
         boolean connectedFired = false;
         try {
             rawSocket.setSoTimeout(server.idleTimeoutMillis());
@@ -4554,10 +4638,11 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * The key HTTP/2 connections to servers are shared under ({@link Http2Origins}): the target, the
-     * route, the MITM manager, and the client connection unless it may be shared with every client.
+     * The key HTTP/2 connections to servers are shared under ({@link Http2Origins}): the target, and
+     * its isolation: the route, the MITM manager, and the client connection unless it may be shared
+     * with every client.
      */
-    private String http2Key(Mode mode, String hostAndPort, ChainedProxy route) {
+    private Http2Origins.Key http2Key(Mode mode, String hostAndPort, ChainedProxy route) {
         return http2Key(mode, hostAndPort, route, via);
     }
 
@@ -4565,10 +4650,54 @@ final class ClientConnection implements Runnable {
      * The key of HTTP/2 connections reached through {@code via} (an intercepted proxy's tunnels,
      * private to the hop whatever the route), or by the usual routes when it is null.
      */
-    private String http2Key(Mode mode, String hostAndPort, ChainedProxy route, Hop via) {
-        if (via != null) return mode + "|" + hostAndPort + "|via" + via.id + mitmPoolKey(mode);
-        return mode + "|" + hostAndPort + "|" + routeKey(route) + mitmPoolKey(mode)
-                + (http2Owner(mode, null) == null ? "" : "|conn" + owner.id);
+    private Http2Origins.Key http2Key(Mode mode, String hostAndPort, ChainedProxy route, Hop via) {
+        String isolation = via != null ? mode + "|via" + via.id + mitmPoolKey(mode)
+                : mode + "|" + routeKey(route) + mitmPoolKey(mode)
+                        + (http2Owner(mode, null) == null ? "" : "|conn" + owner.id);
+        return new Http2Origins.Key(isolation, hostAndPort);
+    }
+
+    /**
+     * What lets {@code ex}'s request for {@code hostAndPort} take a stream on an HTTP/2 connection
+     * made for another server name ({@link Http2Coalescing}), or null when it may not: coalescing
+     * is off, the server is not reached over TLS, its host is no name a certificate and SNI can
+     * carry, or the MITM manager configures its server sockets (whose settings may differ by
+     * name). The server's address is checked only on direct routes, resolved as connecting would
+     * resolve it, and kept for connecting; through a chained proxy (or an intercepted proxy's
+     * tunnels) only an ORIGIN frame lets a connection serve another name.
+     */
+    private Http2Coalescing.Request coalescing(Exchange ex, Mode mode, String hostAndPort, ChainedProxy route) {
+        if (!server.http2Options.coalesceConnections() || mode != Mode.TLS) return null;
+        MitmManager manager = connectionMitm;
+        if (manager != null && CONFIGURES_SERVER_SOCKETS.get(manager.getClass())) return null;
+        HostAndPort target;
+        try {
+            target = HostAndPort.parse(hostAndPort, 443);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        boolean direct = via == null && route == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION;
+        FullFlowContext context = new FullFlowContext(ex.flow, hostAndPort, null, null);
+        return Http2Coalescing.Request.of(target, () -> serverTlsContext(manager, target, context),
+                direct ? () -> coalescingAddress(ex, hostAndPort) : null);
+    }
+
+    /**
+     * {@code hostAndPort}'s address for a coalescing check: the one resolved ahead for connecting,
+     * else resolved now as connecting would (filters, the proxy's resolver) and kept for it, so a
+     * request that goes on to connect resolves once.
+     */
+    private InetSocketAddress coalescingAddress(Exchange ex, String hostAndPort) throws UnknownHostException {
+        InetSocketAddress ahead = ex.peekPreResolved(hostAndPort);
+        if (ahead != null) return ahead;
+        try {
+            InetSocketAddress address = resolveServer(hostAndPort, ex);
+            ex.preResolve(hostAndPort, address);
+            return address;
+        } catch (UnknownHostException e) {
+            ex.preResolveFailed(hostAndPort, e);
+            throw e;
+        }
     }
 
     /**
@@ -4590,8 +4719,8 @@ final class ClientConnection implements Runnable {
      * Hands {@code carrier}, whose handshake negotiated HTTP/2, to {@link Http2Origins}, and returns
      * a stream on it for {@code ex}.
      */
-    private ServerConnection adoptHttp2(ServerConnection carrier, String lookupKey, Mode mode, String hostAndPort,
-            Exchange ex) throws IOException {
+    private ServerConnection adoptHttp2(ServerConnection carrier, Http2Origins.Key lookupKey, Mode mode,
+            String hostAndPort, Exchange ex) throws IOException {
         ChainedProxy actual = carrier.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
                 : carrier.chainedProxy;
         LOG.log(Level.DEBUG, ex.log + "HTTP/2 to " + hostAndPort + " (ALPN h2)");
@@ -4941,6 +5070,7 @@ final class ClientConnection implements Runnable {
                     active, reader, output, remote, serverContext, server.trackers);
             ServerConnection created = holder[0];
             created.tlsPending = deferTls;
+            if (mode == Mode.TLS && !deferTls) created.tlsContext = ex.serverTlsContext;
             created.http2 = mode == Mode.TLS && active instanceof SSLSocket tls && "h2".equals(tls.getApplicationProtocol());
             created.onDetach = () -> detach(created);
             created.cluster = cluster;
@@ -4974,13 +5104,8 @@ final class ClientConnection implements Runnable {
             FullFlowContext serverContext, List<String> alpn) throws IOException {
         ex.filters.proxyToServerConnectionSSLHandshakeStarted();
         MitmManager manager = connectionMitm;
-        SSLContext context;
-        try {
-            context = manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
-                    : SSLContext.getDefault();
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new IOException("default TLS context unavailable", e);
-        }
+        SSLContext context = serverTlsContext(manager, target, serverContext);
+        ex.serverTlsContext = context;
         ProxyStats.ClusterStats cluster = server.stats.cluster(serverContext.getChainedProxy(), hostAndPort);
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
@@ -5001,6 +5126,20 @@ final class ClientConnection implements Runnable {
             ex.flow.transportFailure(e);
             server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             throw new TlsHandshakeFailed(e);
+        }
+    }
+
+    /**
+     * The TLS context for the proxy's handshake with {@code target}: {@code manager}'s, or the
+     * JVM's default without one.
+     */
+    private static SSLContext serverTlsContext(MitmManager manager, HostAndPort target, FullFlowContext serverContext)
+            throws IOException {
+        try {
+            return manager != null ? manager.serverSslContext(target.host(), target.port(), serverContext)
+                    : SSLContext.getDefault();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException("default TLS context unavailable", e);
         }
     }
 

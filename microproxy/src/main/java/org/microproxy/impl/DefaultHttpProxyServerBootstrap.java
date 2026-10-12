@@ -377,7 +377,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("http2_upstream")) withHttp2Upstream(bool(p, "http2_upstream"));
         if (p.containsKey("http2_cleartext")) withHttp2Cleartext(bool(p, "http2_cleartext"));
         if (p.containsKey("http2_max_concurrent_streams") || p.containsKey("http2_initial_window_size")
-                || p.containsKey("http2_connection_window_size")) {
+                || p.containsKey("http2_connection_window_size") || p.containsKey("http2_coalesce")) {
             Http2Options.Builder h2 = http2Options.toBuilder();
             if (p.containsKey("http2_max_concurrent_streams")) {
                 h2.maxConcurrentStreams(Integer.parseInt(p.getProperty("http2_max_concurrent_streams").strip()));
@@ -388,6 +388,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             if (p.containsKey("http2_connection_window_size")) {
                 h2.connectionWindowSize(Integer.parseInt(p.getProperty("http2_connection_window_size").strip()));
             }
+            if (p.containsKey("http2_coalesce")) h2.coalesceConnections(bool(p, "http2_coalesce"));
             withHttp2Options(h2.build());
         }
         if (p.containsKey("http3")) withHttp3(bool(p, "http3"));

@@ -269,6 +269,7 @@ Command-line flags override values from the file.
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [Alt-Svc](#alt-svc-which-clients-may-move-to-http3)) | `true` with interception or `transparent`, except for redirected clients with `transparent_quic_port`; else `false` |
 | `http2` | serve HTTP/2 to clients on intercepted TLS and the proxy TLS listener (needs the `http2-codec` jar; see [HTTP/2](#http2)) | `false` |
 | `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges (see [HTTP/2 to servers](#http2-to-servers)) | `false` |
+| `http2_coalesce` | with `http2_upstream`, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address or that it names in an ORIGIN frame (see [Connection coalescing](#connection-coalescing)) | `false` |
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](#h2c-with-prior-knowledge)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
 | `http2_initial_window_size` / `http2_connection_window_size` | request bytes buffered per HTTP/2 stream / per connection | `262144` / `1048576` |
@@ -318,7 +319,7 @@ Command-line flags override values from the file.
 |---|---|
 | HTTP/1.0 and 1.1 proxying | keep-alive on both sides, pipelining, chunked bodies and trailers, `Expect: 100-continue` (a `100` is sent for servers that ignore it), 1xx pass-through, re-chunking of close-delimited responses, de-chunking for HTTP/1.0 clients, stale keep-alive retry |
 | HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener. A forward proxy with `--masque` or `--http3` takes CONNECT-UDP (RFC 9298) over extended `CONNECT`, its datagrams in capsules |
-| HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy ([tested with grpcio](#grpc-interop-grpcio)) |
+| HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy ([tested with grpcio](#grpc-interop-grpcio)); connection coalescing across names a server's certificate covers (`--http2-coalesce`, RFC 9113 and RFC 8336's ORIGIN frame) |
 | HTTP/3 | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception (see below) |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
 | CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
@@ -1075,7 +1076,9 @@ HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct connection.
   to one client. A connection that carries a PROXY protocol header, or whose TLS a MITM manager set
   up for one client (one that overrides `serverSslContext` or `configureServerSocket` with a
   `FlowContext`), serves only its own client connection. Private connections close with their
-  client; shared ones after the idle timeout without streams.
+  client; shared ones after the idle timeout without streams. With
+  [connection coalescing](#connection-coalescing) on, exchanges for other targets may share a
+  connection too, but never across the rest.
 - **Translation.** The request line and `Host` become `:method`, `:scheme https`, `:authority`
   and `:path`; connection-specific fields (`Connection` and what it names, `Keep-Alive`,
   `Proxy-Connection`, `Transfer-Encoding`, `Upgrade`) are dropped, `cookie` is split into crumbs,
@@ -1100,6 +1103,54 @@ HTTP `CONNECT` chained proxy (or through SOCKS) works like a direct connection.
   connection fires the connection hooks for the exchange that made it; exchanges that take a stream
   on an existing one look like exchanges on a reused pooled connection. Bytes sent and received are
   counted per stream (each frame to its stream's exchange).
+
+#### Connection coalescing
+
+A connection made for `a.example.com` normally carries only `a.example.com`'s exchanges. With
+coalescing on, an exchange for `b.example.com` that finds no connection of its own with room may
+take a stream on it instead, as RFC 9113 section 9.1.1 allows, when:
+
+- the certificate the server presented on it is valid for `b.example.com`: a DNS subject
+  alternative name matches it, as the JDK's HTTPS hostname verification matches them (one
+  wildcard, in the left-most label only; no fallback to the common name); and
+- `b.example.com` resolves, with the proxy's own resolver (`withServerResolver`, DNSSEC, and the
+  `proxyToServerResolution*` filter hooks, as for connecting), to the address the connection went
+  to; or the server named `https://b.example.com` in an ORIGIN frame (RFC 8336). Once a server has
+  sent an ORIGIN frame, its origin set (its own name and those it named) says which names the
+  connection serves, and DNS is no longer asked. Through a chained proxy, which resolves names
+  itself, only an ORIGIN frame lets a connection serve another name.
+
+| Flag | Property | Bootstrap |
+|---|---|---|
+| `--http2-coalesce` | `http2_coalesce=true` | `withHttp2Options(Http2Options.builder().coalesceConnections(true).build())` |
+
+It is off by default, and needs HTTP/2 to servers (`--http2-upstream`). It applies to intercepted
+`CONNECT`s too: a `CONNECT` for a name an existing connection serves makes no connection of its
+own, and the certificate the client gets is made from that server's. What the client sees does
+not change.
+
+- **Never across isolation.** Connections are coalesced only among those that could be shared
+  anyway (same route, MITM manager, and client connection for private ones), and only when TLS
+  would be set up the same way: the MITM manager gives both names the same `SSLContext` (trust,
+  client certificate, pinned versions and ciphers), the connection sent its own name as SNI (as a
+  connection for the other name would send that one), the proxy presented no client certificate
+  on it (an identity given to one name), and the manager does not configure server sockets itself
+  (`configureServerSocket`, whose settings may differ by name). An IP address target is never
+  coalesced.
+- **Resolving once.** The address check resolves the name the way connecting would, and a request
+  that goes on to make its own connection connects to that address, without resolving it again.
+  Names a connection was found to serve are remembered for its lifetime, so later requests take a
+  stream at once. With coalescing off, nothing more is resolved than before.
+- **`421 Misdirected Request`.** A server that answers `421` to a request on a coalesced
+  connection is not sent that name on that connection again. The request goes again on a
+  connection of its own when it can be: no body, a buffered one, or one the server refused before
+  it was read (`Expect: 100-continue`). A request whose body was already streamed gets the `421`,
+  as a client would from the server. A `421` on a connection made for the request's own name is
+  relayed as always.
+- **Stats.** `http2.upstream.coalesced_streams` counts the streams opened on a connection made for
+  another name, and `http2.upstream.misdirected_421_retry` the requests sent again after a `421`
+  (also counted in their cluster's `upstream_rq_retry`). A coalesced stream's requests count in
+  its own name's cluster (with `--stats-per-host`), its connection in the other's.
 
 #### Trailers and gRPC
 
@@ -3937,7 +3988,7 @@ milliseconds, with Envoy's buckets (0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 
 | `cluster.<cluster>.upstream_cx_pool_overflow` | counter | requests refused for want of a pooled connection (`UO`) |
 | `cluster.<cluster>.upstream_rq_total`, `_active` | counter, gauge | requests sent to the cluster (each attempt) |
 | `cluster.<cluster>.upstream_rq_1xx` ... `_5xx`, `upstream_rq_time` | counter, histogram | the server's responses by class, and request time |
-| `cluster.<cluster>.upstream_rq_retry`, `_timeout`, `_rx_reset` | counter | requests sent again after a stale keep-alive connection; that timed out (`UT`); that the server reset or cut off (`UR`, `UC`) |
+| `cluster.<cluster>.upstream_rq_retry`, `_timeout`, `_rx_reset` | counter | requests sent again after a stale keep-alive connection (or a `421` on a coalesced HTTP/2 connection); that timed out (`UT`); that the server reset or cut off (`UR`, `UC`) |
 | `cluster.<cluster>.ssl.handshake`, `ssl.connection_error` | counter | TLS handshakes with servers and TLS chained proxies |
 | `cluster.<cluster>.upstream_cx_rx_bytes_total`, `_tx_bytes_total` | counter | bytes read from / written to the cluster (decrypted over TLS, as the downstream ones; tunnels included; over QUIC, the datagrams' bytes, added when the connection closes) |
 | `cluster.<cluster>.failover` | counter | connection attempts through the cluster that failed and moved on to the route's next choice |
@@ -3973,6 +4024,8 @@ each of which ends the connection.
 | `http2.<dir>.trailers` | counter | trailers received |
 | `http2.<dir>.tx_flush_timeout` | counter | connections closed because writes made no progress for the idle timeout (a peer that stopped reading) |
 | `http2.<dir>.stream_flow_control_blocked`, `connection_flow_control_blocked` | counter | MicroProxy's: times DATA waited for a stream's, or the connection's, send window |
+| `http2.upstream.coalesced_streams` | counter | MicroProxy's: streams opened on a connection made for another server name ([connection coalescing](#connection-coalescing)) |
+| `http2.upstream.misdirected_421_retry` | counter | MicroProxy's: requests a coalesced connection answered `421 Misdirected Request`, sent again on a connection of their own |
 | `http3.<dir>.rx_reset`, `tx_reset` | counter | request streams the peer reset / the proxy reset |
 | `http3.<dir>.goaway_sent`, `goaway_received`, `streams_active` | counter, gauge | GOAWAY, and request streams open |
 | `http3.<dir>.qpack_blocked_streams`, `qpack_decoder_errors` | counter | field sections that waited for the QPACK encoder stream / that QPACK could not decode |

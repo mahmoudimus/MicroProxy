@@ -193,6 +193,10 @@ public final class Launcher {
                                            listener; needs the http2-codec jar
               --http2-max-streams <n>      concurrent HTTP/2 streams per client connection
                                            (default 100)
+              --http2-coalesce             with --http2-upstream, let an HTTP/2 connection to a
+                                           server carry requests for other names its certificate
+                                           covers that resolve to its address, or that it names
+                                           in an ORIGIN frame (RFC 9113 9.1.1, RFC 8336)
               --http3                      also serve HTTP/3 (QUIC) on the UDP port with the
                                            listener's number: in reverse mode, advertised with
                                            Alt-Svc on TCP responses; in forward mode next to the TLS
@@ -405,6 +409,7 @@ public final class Launcher {
         Path protoDescriptors = null;
         int maxConcurrentPerClient = 0;
         int http2MaxStreams = 0;
+        boolean http2Coalesce = false;
         int http3MaxStreams = 0;
         boolean noHttp3AltSvc = false;
         boolean http3Retry = false;
@@ -634,6 +639,7 @@ public final class Launcher {
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
                 case "--http2-max-streams" -> http2MaxStreams = intValue(queue, arg);
+                case "--http2-coalesce" -> http2Coalesce = true;
                 case "--http3" -> bootstrap.withHttp3(true);
                 case "--http3-upstream" -> bootstrap.withHttp3Upstream(true);
                 case "--http3-upstream-hosts" -> http3UpstreamHosts.add(value(queue, arg));
@@ -690,8 +696,11 @@ public final class Launcher {
                     ? new CertificateAuthorityMitmManager(ca, SslContexts.trustAll())
                     : new CertificateAuthorityMitmManager(ca));
         }
-        if (http2MaxStreams > 0) {
-            bootstrap.withHttp2Options(bootstrap.getHttp2Options().toBuilder().maxConcurrentStreams(http2MaxStreams).build());
+        if (http2MaxStreams > 0 || http2Coalesce) {
+            Http2Options.Builder h2 = bootstrap.getHttp2Options().toBuilder();
+            if (http2MaxStreams > 0) h2.maxConcurrentStreams(http2MaxStreams);
+            if (http2Coalesce) h2.coalesceConnections(true);
+            bootstrap.withHttp2Options(h2.build());
         }
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
                 || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null

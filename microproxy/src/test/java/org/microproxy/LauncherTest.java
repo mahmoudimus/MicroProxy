@@ -385,6 +385,13 @@ class LauncherTest {
         assertTrue(BootstrapView.http2Upstream(both));
         assertTrue(BootstrapView.http2Cleartext(both));
         assertFalse(BootstrapView.http2(both));
+        // Connection coalescing is off unless asked for, and keeps the other options.
+        assertFalse(off.getHttp2Options().coalesceConnections());
+        assertFalse(on.getHttp2Options().coalesceConnections());
+        HttpProxyServerBootstrap coalesce = parse("--http2-upstream", "--http2-coalesce", "--http2-max-streams", "50")
+                .bootstrap();
+        assertTrue(coalesce.getHttp2Options().coalesceConnections());
+        assertEquals(50, coalesce.getHttp2Options().maxConcurrentStreams());
     }
 
     @Test

@@ -4,12 +4,14 @@ import io.github.mahmoudimus.http2.ErrorCode;
 import io.github.mahmoudimus.http2.FlowController;
 import io.github.mahmoudimus.http2.Frame;
 import io.github.mahmoudimus.http2.FrameReader;
+import io.github.mahmoudimus.http2.FrameType;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.HeaderListSizeException;
 import io.github.mahmoudimus.http2.HpackDecoder;
 import io.github.mahmoudimus.http2.Http2Exception;
 import io.github.mahmoudimus.http2.Http2Headers;
 import io.github.mahmoudimus.http2.Http2Settings;
+import io.github.mahmoudimus.http2.OriginFrame;
 import io.github.mahmoudimus.http2.ResponseHeaders;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -88,6 +90,10 @@ import org.microproxy.http.LastHttpContent;
  * what it returns is acted on in its place, DATA counting against the windows at its size on the
  * wire; the HEADERS that open a stream are shown to it under {@link #writeLock}, once the stream
  * has its id.
+ *
+ * <p>With connection coalescing on, the connection may carry the streams of other authorities
+ * than the one it was made for ({@link #coalescing}); the server's ORIGIN frames (RFC 8336) are
+ * read for it, and other extension frames still skipped.
  */
 final class Http2UpstreamConnection extends Http2Endpoint {
 
@@ -105,10 +111,15 @@ final class Http2UpstreamConnection extends Http2Endpoint {
 
     /** The server connection the HTTP/2 connection runs over: its socket, pool slot and trackers. */
     final ServerConnection carrier;
-    /** The key {@link Http2Origins} keeps the connection under. */
-    final String key;
+    /** The key {@link Http2Origins} keeps the connection under: the authority it was made for, and its isolation. */
+    final Http2Origins.Key key;
     /** The client connection the connection is private to, or null if it is shared. */
     final Object owner;
+    /**
+     * What the connection may serve besides {@link #key}'s authority ({@link Http2Coalescing}), or
+     * null when it serves only that one: coalescing is off, or its TLS rules it out.
+     */
+    final Http2Coalescing.Peer coalescing;
     private final Http2Origins origins;
     private final int maxHeaderListSize;
     private final AtomicBoolean closing = new AtomicBoolean();
@@ -201,8 +212,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         }
     }
 
-    Http2UpstreamConnection(DefaultHttpProxyServer server, Http2Origins origins, ServerConnection carrier, String key,
-            Object owner) {
+    Http2UpstreamConnection(DefaultHttpProxyServer server, Http2Origins origins, ServerConnection carrier,
+            Http2Origins.Key key, Object owner) {
         // The larger receive window applies at once: it only lets the server send more sooner.
         super(server, "[h2 " + carrier.hostAndPort + "] ",
                 new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
@@ -211,6 +222,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         this.carrier = carrier;
         this.key = key;
         this.owner = owner;
+        this.coalescing = server.http2Options.coalesceConnections() ? Http2Coalescing.Peer.of(carrier, key.authority())
+                : null;
         carrier.cluster.cxHttp2.inc();
         this.maxHeaderListSize = options.maxHeaderListSize() > 0 ? options.maxHeaderListSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
@@ -291,8 +304,10 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         countedIn = new CountingInput(is);
         countedOut = new CountingOutput(new BufferedOutputStream(rawOut, 16_384));
         reader = new FrameReader(countedIn);
-        // Extension frames are skipped unread unless an interceptor is to see them.
+        // Extension frames are skipped unread unless an interceptor is to see them, or, with
+        // coalescing, they are ORIGIN frames.
         reader.setDeliverUnknownFrames(frames != null);
+        reader.setDeliverOriginFrames(coalescing != null);
         int maxBlock = Math.max(FrameReader.DEFAULT_MAX_HEADER_BLOCK_SIZE, maxHeaderListSize + 4096);
         reader.setMaxHeaderBlockSize(maxBlock);
         decoder = new HpackDecoder();
@@ -402,7 +417,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                     throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "PUSH_PROMISE with push disabled");
             case Frame.Continuation c -> throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "stray CONTINUATION");
             case Frame.Unknown u -> {
-                // Extension frames are ignored (RFC 9113 section 5.5).
+                // Extension frames are ignored (RFC 9113 section 5.5), but for ORIGIN with coalescing.
+                if (OriginFrame.isOrigin(u)) onOrigin(u.payload());
             }
         }
     }
@@ -446,7 +462,14 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 onWindowUpdate(w);
             }
             case Frame.Priority p -> received(Http2Frames.toPublic(p)); // then ignored, edited or not
-            case Frame.Unknown u -> received(Http2Frames.toPublic(u)); // then ignored, edited or not
+            case Frame.Unknown u -> {
+                // Then ignored, edited or not, but for what the interceptor leaves of ORIGIN frames.
+                for (Http2Frame f : received(Http2Frames.toPublic(u))) {
+                    if (f instanceof Http2Frame.Unknown x && x.type() == FrameType.ORIGIN && x.streamId() == 0) {
+                        onOrigin(x.payload());
+                    }
+                }
+            }
             case Frame.PushPromise p ->
                     throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "PUSH_PROMISE with push disabled");
             case Frame.Continuation c -> throw Http2Exception.connectionError(ErrorCode.PROTOCOL_ERROR, "stray CONTINUATION");
@@ -662,6 +685,31 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             stateLock.unlock();
         }
         LOG.log(Level.DEBUG, s.logPrefix + "server reset stream " + id + " (" + rst.error() + ")");
+    }
+
+    /**
+     * An ORIGIN frame (RFC 8336): with coalescing, the origins it names are those the connection
+     * serves from now on. A malformed one is ignored, as an extension frame may be.
+     */
+    private void onOrigin(byte[] payload) {
+        if (coalescing == null) return;
+        List<String> named;
+        try {
+            named = OriginFrame.decode(payload);
+        } catch (IllegalArgumentException e) {
+            LOG.log(Level.DEBUG, logPrefix + "ignoring a malformed ORIGIN frame: " + e.getMessage());
+            return;
+        }
+        LOG.log(Level.DEBUG, logPrefix + "server's ORIGIN frame names " + named);
+        origins.origins(this, named);
+    }
+
+    /**
+     * The server answered {@code 421 Misdirected Request} to a request for {@code hostAndPort},
+     * an authority coalesced onto this connection: it is not coalesced here again.
+     */
+    void misdirected(String hostAndPort) {
+        origins.misdirected(this, hostAndPort);
     }
 
     private void onGoAway(Frame.GoAway goAway) {
