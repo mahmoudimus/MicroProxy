@@ -90,6 +90,24 @@ class StatsRegistryTest {
     }
 
     @Test
+    void scriptHookStatsAreTaggedWithTheScriptTheHookAndTheBudget() {
+        StatsRegistry r = StatsRegistry.create();
+        Metric calls = r.counter("hooks.starlark.rules.on_request.invocations");
+        assertEquals("hooks.invocations", calls.tagExtractedName());
+        assertEquals(List.of(new Tag("microproxy_script", "rules"), new Tag("microproxy_script_hook", "on_request"),
+                new Tag("microproxy_hook", "starlark")), calls.tags());
+        Metric budget = r.counter("hooks.starlark.rules-v2.on_tcp_message.budget_exceeded.memory");
+        assertEquals("hooks.budget_exceeded", budget.tagExtractedName());
+        assertEquals(List.of(new Tag("microproxy_budget", "memory"), new Tag("microproxy_script", "rules-v2"),
+                new Tag("microproxy_script_hook", "on_tcp_message"), new Tag("microproxy_hook", "starlark")),
+                budget.tags());
+        // Other hook families keep their one tag.
+        Metric tcp = r.counter("hooks.tcp.invocations");
+        assertEquals("hooks.invocations", tcp.tagExtractedName());
+        assertEquals(List.of(new Tag("microproxy_hook", "tcp")), tcp.tags());
+    }
+
+    @Test
     void customRulesRunAfterTheDefaults() {
         TagExtractor extractor = TagExtractor.envoyDefaults().with("script_area", "^script\\.(([a-z]+)\\.)");
         StatsRegistry r = StatsRegistry.builder().tagExtractor(extractor).build();
