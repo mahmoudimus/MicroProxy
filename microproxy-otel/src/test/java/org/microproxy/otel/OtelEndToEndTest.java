@@ -414,6 +414,52 @@ class OtelEndToEndTest {
     }
 
     @Test
+    void anHttpsUriAForwardProxyFetchesOverTlsIsHttpsOnBothSpans() throws Exception {
+        CertificateAuthority originCa = CertificateAuthority.generate("Otel Origination Origin CA");
+        HttpsServer tls = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), TestSupport.echo());
+        try {
+            int port = tls.getAddress().getPort();
+            start(telemetry().build(), MicroProxy.bootstrap().withManInTheMiddle(new CertificateAuthorityMitmManager(
+                    CertificateAuthority.generate("Otel Origination Proxy CA"), originCa.clientContext())));
+            // Absolute-form over plain HTTP, as curl --proxy-insecure or a plain-HTTP client sends it.
+            String url = "https://127.0.0.1:" + port + "/originated?q=1";
+            String raw = TestSupport.rawExchange(proxy.getListenAddress(), "GET " + url
+                    + " HTTP/1.1\r\nHost: 127.0.0.1:" + port + "\r\nConnection: close\r\n\r\n");
+            assertTrue(raw.startsWith("HTTP/1.1 200"), raw);
+            TestCollector.Span server = collector.awaitSpan("the server span", s -> s.kind() == 2);
+            TestCollector.Span client = collector.awaitSpan("the client span", s -> s.kind() == 3);
+            assertEquals("https", server.attr("url.scheme"));
+            assertEquals(url, server.attr("url.full"));
+            assertEquals((long) port, server.attr("server.port"));
+            assertEquals(url, client.attr("url.full"));
+            assertEquals("1.1", client.attr("network.protocol.version"));
+        } finally {
+            tls.stop(0);
+        }
+    }
+
+    @Test
+    void anOriginatedTlsFailureIsAnErrorWithItsResponseFlag() throws Exception {
+        HttpsServer tls = TestSupport.httpsOrigin(CertificateAuthority.generate("Otel Stranger CA")
+                .serverContext("localhost", "127.0.0.1"), TestSupport.echo());
+        try {
+            int port = tls.getAddress().getPort();
+            start(telemetry().build(), MicroProxy.bootstrap());
+            String raw = TestSupport.rawExchange(proxy.getListenAddress(), "GET https://127.0.0.1:" + port
+                    + "/x HTTP/1.1\r\nHost: 127.0.0.1:" + port + "\r\nConnection: close\r\n\r\n");
+            assertTrue(raw.startsWith("HTTP/1.1 502"), raw);
+            TestCollector.Span server = collector.awaitSpan("the server span", s -> s.kind() == 2);
+            TestCollector.Span client = collector.awaitSpan("the client span", s -> s.kind() == 3);
+            assertEquals("proxy_failure:tls_failed", server.statusMessage());
+            assertEquals("UF", server.attr("response_flags"));
+            assertEquals("https://127.0.0.1:" + port + "/x", client.attr("url.full"));
+            assertEquals("tls_failed", client.attr("error.type"));
+        } finally {
+            tls.stop(0);
+        }
+    }
+
+    @Test
     void aPlainUpstreamOnPort443IsStillHttp() throws Exception {
         // Nothing listens there: the attempt fails, and its URL says what the proxy tried.
         try (Socket refusing = TestSupport.refusingPort()) {
