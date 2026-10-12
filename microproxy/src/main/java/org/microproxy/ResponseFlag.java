@@ -9,7 +9,9 @@ import java.util.Set;
  * flags of the exchange in progress (or the last one); access logs render them with {@code
  * %RESPONSE_FLAGS%} and {@code %RESPONSE_FLAGS_LONG%}.
  *
- * <p>The proxy sets the flags that apply to it (see the README's response-flags table); the
+ * <p>The proxy sets the flags that apply to it (see the <a
+ * href="https://mahmoudimus.github.io/MicroProxy/reference/response-flags/">response flags
+ * reference</a>); the
  * others exist so filters and configurations can name every Envoy flag, and so a filter can set
  * one with {@link FlowContext#addResponseFlag}. The constants are in Envoy's order, which is the
  * order flags are rendered in.

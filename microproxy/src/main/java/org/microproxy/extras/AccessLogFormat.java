@@ -45,7 +45,8 @@ import org.microproxy.http.HttpResponse;
  * operator keeps the operator's type: numbers for codes, sizes and durations, {@code true} or
  * {@code false} for flags, {@code null} when unavailable; other values are strings.
  *
- * <p>See the README's "Access logs (Envoy-compatible)" section for the operators.
+ * <p>See the <a href="https://mahmoudimus.github.io/MicroProxy/reference/access-log-format/">access-log format reference</a>
+ * ({@code docs/reference/access-log-format.md}) for the operators.
  */
 public final class AccessLogFormat {
 

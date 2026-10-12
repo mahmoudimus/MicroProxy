@@ -247,7 +247,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         return c;
     }
 
-    /** Reads the keys documented in the README from a properties file. */
+    /** Reads the keys documented in docs/reference/properties.md from a properties file. */
     static DefaultHttpProxyServerBootstrap fromProperties(Path path) throws IOException {
         Properties props = new Properties();
         try (Reader r = Files.newBufferedReader(path)) {

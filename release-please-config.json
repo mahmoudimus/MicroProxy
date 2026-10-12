@@ -6,7 +6,15 @@
   "packages": {
     ".": {
       "package-name": "microproxy",
-      "extra-files": ["README.md"]
+      "extra-files": [
+        "README.md",
+        "docs/getting-started/install.md",
+        "docs/getting-started/quick-start.md",
+        "docs/getting-started/first-filter.md",
+        "docs/getting-started/first-script.md",
+        "docs/guides/performance.md",
+        "docs/guides/scripting.md"
+      ]
     }
   }
 }
