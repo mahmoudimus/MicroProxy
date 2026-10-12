@@ -66,6 +66,7 @@ final class ProxyStats {
     final ProtocolStats.MasqueStats masque;
     final ProtocolStats.TunnelStats tunnel;
     final ProtocolStats.WebSocketStats webSocket;
+    final ProtocolStats.QuicMessageStats quicMessages;
     final ProtocolStats.Hooks hooks;
     /**
      * The {@link QuicStats} of each QUIC scope, made on first use by code that runs QUIC: plain
@@ -93,6 +94,7 @@ final class ProxyStats {
         this.masque = new ProtocolStats.MasqueStats(registry);
         this.tunnel = new ProtocolStats.TunnelStats(registry);
         this.webSocket = new ProtocolStats.WebSocketStats(registry);
+        this.quicMessages = new ProtocolStats.QuicMessageStats(registry);
         this.hooks = new ProtocolStats.Hooks(registry);
     }
 

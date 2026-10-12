@@ -298,6 +298,27 @@ final class ProtocolStats {
     }
 
     // ---------------------------------------------------------------------------------------
+    // quic.messages_rx, quic.messages_tx, quic.framing_errors
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * {@code quic.*} of the streams of QUIC intercepted stream by stream whose hooks see whole
+     * messages ({@code QuicInterceptor.streamMessage}, cut by a {@code MessageFramer}).
+     */
+    static final class QuicMessageStats {
+        final Counter messagesRx;
+        final Counter messagesTx;
+        final Counter framingErrors;
+
+        QuicMessageStats(StatsRegistry registry) {
+            messagesRx = registry.counter("quic.messages_rx", "Whole messages cut from QUIC streams for the message hook");
+            messagesTx = registry.counter("quic.messages_tx", "Messages the message hook returned and the proxy sent, framed");
+            framingErrors = registry.counter("quic.framing_errors",
+                    "QUIC streams reset because a peer sent a message over the limit, or bytes its framer cannot read");
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
     // hooks.<family>.*
     // ---------------------------------------------------------------------------------------
 
@@ -376,6 +397,7 @@ final class ProtocolStats {
         final HookStats udp;
         final HookStats quicStream;
         final HookStats quicDatagram;
+        final HookStats quicMessage;
         final HookStats webSocketFrame;
         final HookStats webSocketMessage;
 
@@ -386,6 +408,7 @@ final class ProtocolStats {
             udp = new HookStats(registry, "udp");
             quicStream = new HookStats(registry, "quic_stream");
             quicDatagram = new HookStats(registry, "quic_datagram");
+            quicMessage = new HookStats(registry, "quic_message");
             webSocketFrame = new HookStats(registry, "websocket_frame");
             webSocketMessage = new HookStats(registry, "websocket_message");
         }

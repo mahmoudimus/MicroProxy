@@ -3,6 +3,8 @@ package org.microproxy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.microproxy.MetricsAssertions.awaitValue;
+import static org.microproxy.MetricsAssertions.value;
 import static org.microproxy.TestSupport.eventually;
 
 import io.github.mahmoudimus.quic.QuicClient;
@@ -38,6 +40,7 @@ import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.quic.QuicMessage;
 import org.microproxy.quic.QuicStreamContext;
 import org.microproxy.quic.QuicStreamMessage;
+import org.microproxy.stats.StatsRegistry;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -47,7 +50,8 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
  * each built-in framer with messages split across reads and joined in one; the size limit and a
  * framer that cannot read the bytes, which reset the stream; a custom framer; answering a side
  * from the hook; connections without a framer, whose streams still go through {@code
- * streamData}; and the {@link FlowRecord} of a framed connection, whose bytes are counted as read.
+ * streamData}; the {@link FlowRecord} of a framed connection, whose bytes are counted as read; and
+ * the stats of the messages, the message hook's calls and the streams reset for their framing.
  */
 @Timeout(value = 90, unit = TimeUnit.SECONDS)
 class QuicMessageHooksTest {
@@ -82,6 +86,12 @@ class QuicMessageHooksTest {
 
     /** Starts the proxy, with {@code tracker} when it is not null. */
     private void start(QuicInterceptor hooks, QuicFraming framing, ActivityTracker tracker) throws Exception {
+        start(hooks, framing, tracker, false);
+    }
+
+    /** Starts the proxy, with {@code tracker} when it is not null, and with metrics or without. */
+    private void start(QuicInterceptor hooks, QuicFraming framing, ActivityTracker tracker, boolean metrics)
+            throws Exception {
         origin = new DoqOrigin(originCa, Map.of("allowed.test", "192.0.2.10", "blocked.test", "192.0.2.66"), "doq", ECHO);
         closeables.add(origin);
         HttpProxyServerBootstrap bootstrap = MicroProxy.bootstrap()
@@ -92,7 +102,8 @@ class QuicMessageHooksTest {
                 .withServerResolver(TransparentQuicTest.TEST_HOSTS)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
                 .withQuicInterceptor(hooks)
-                .withQuicFraming(framing);
+                .withQuicFraming(framing)
+                .withMetrics(metrics);
         if (tracker != null) bootstrap.plusActivityTracker(tracker);
         proxy = bootstrap.start();
     }
@@ -395,5 +406,51 @@ class QuicMessageHooksTest {
         assertTrue(lines.remove("answered by the proxy"), lines.toString());
         assertEquals(List.of("one", "twice", "again", "last", "unfinished"), lines,
                 "dropped, answered, doubled, and the bytes left at the end passed on as they were");
+    }
+
+    /**
+     * {@code quic.messages_rx} and {@code messages_tx}, the message hook's calls, drops, rewrites
+     * and errors under {@code hooks.quic_message}, and a stream reset for a message over the limit
+     * under {@code quic.framing_errors}.
+     */
+    @Test
+    void messagesTheHookAndFramingErrorsAreCounted() throws Exception {
+        start(new Recording() {
+            @Override
+            public List<QuicMessage> streamMessage(QuicMessage message, QuicStreamContext stream) {
+                if (!message.fromClient()) return List.of(message);
+                return switch (message.text()) {
+                    case "drop" -> null;
+                    case "twice" -> List.of(message, message.withText("again"));
+                    case "boom" -> throw new IllegalStateException("a hook that fails");
+                    default -> List.of(message);
+                };
+            }
+        }, QuicFraming.defaults().withRule(ECHO, "lf").withMaxMessageSize(32), null, true);
+        StatsRegistry r = proxy.getStats();
+        QuicConnection c = connect(ECHO);
+        QuicStream s = c.openBidirectionalStream();
+        try (OutputStream out = s.getOutputStream()) {
+            out.write(utf8("one\ndrop\ntwice\nboom\n"));
+        }
+        assertEquals("one\ntwice\nagain\nboom\n", new String(s.getInputStream().readAllBytes(), StandardCharsets.UTF_8),
+                "dropped, doubled, and passed on when the hook threw");
+        // Four messages from the client, and the four the server echoed
+        assertEquals(8, value(r, "quic.messages_rx"));
+        assertEquals(8, value(r, "quic.messages_tx"));
+        assertEquals(8, value(r, "hooks.quic_message.invocations"));
+        assertEquals(1, value(r, "hooks.quic_message.drops"));
+        assertEquals(1, value(r, "hooks.quic_message.rewrites"));
+        assertEquals(1, value(r, "hooks.quic_message.errors"));
+        assertEquals(0, value(r, "hooks.quic_stream.invocations"), "framed streams do not go through streamData");
+        assertEquals(0, value(r, "quic.framing_errors"));
+
+        QuicStream big = c.openBidirectionalStream();
+        OutputStream out = big.getOutputStream();
+        out.write(utf8("y".repeat(40)));
+        out.flush();
+        assertThrows(QuicStreamException.class, () -> big.getInputStream().readAllBytes());
+        awaitValue(r, "quic.framing_errors", 1);
+        assertEquals(8, value(r, "quic.messages_rx"), "the hook never saw it");
     }
 }

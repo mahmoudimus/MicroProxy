@@ -3845,6 +3845,8 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 | `masque.rx_bytes_total`, `tx_bytes_total`, `datagrams_dropped` | counter | payload bytes from / to clients, datagrams dropped by a full queue, counted when flows end |
 | `masque.flow_rejected.<reason>` | counter | CONNECT-UDP requests refused (`microproxy_reject_reason`): `limit` (too many flows) or `policy` (no direct route, a filter's answer) |
 | `masque.quic.*` | | as `quic_transparent.*`, for the QUIC inside CONNECT-UDP flows (`masque.quic.intercepted_total`, ...) |
+| `quic.messages_rx`, `messages_tx` | counter | whole messages cut from the streams of QUIC intercepted stream by stream for the message hook (`streamMessage`, `on_quic_message`), and the messages it returned that the proxy framed and sent |
+| `quic.framing_errors` | counter | such streams reset because a peer sent a message over the framing's limit, or bytes its framer cannot read |
 
 **SOCKS, tunnels and WebSockets.**
 
@@ -3864,8 +3866,8 @@ its packets in plain fields of its own (`QuicConnection.stats()`, see the
 **Hooks.** `hooks.<family>.*` for each family of hooks (`microproxy_hook`): `http_filters` (the
 head hooks `clientToProxyRequest`, `proxyToServerRequest`, `serverToProxyResponse` and
 `proxyToClientResponse`), `frame_interceptor`, `tcp` (`tcpMessage`), `udp` (`udpMessage`),
-`quic_stream` (`streamData`), `quic_datagram` (`datagram`), `websocket_frame`,
-`websocket_message`, and `starlark` (every call into a script).
+`quic_stream` (`streamData`), `quic_message` (`streamMessage`), `quic_datagram` (`datagram`),
+`websocket_frame`, `websocket_message`, and `starlark` (every call into a script).
 
 | stat | type | meaning |
 |---|---|---|

@@ -4244,7 +4244,7 @@ final class ClientConnection implements Runnable {
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
             QuicSession session = new QuicSession(server.quicInterceptor, server.quicFraming, quic,
                     upstream.connection(), flowContext, target, serverFlow.getRemoteAddress(), masque, logPrefix,
-                    server.stats.hooks);
+                    server.stats);
             quicSession = session;
             if (!closed) session.run();
             completed = true;
