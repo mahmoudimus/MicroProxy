@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import org.microproxy.FlowTracer;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.PoolMetrics;
@@ -469,6 +470,7 @@ final class AdminServer {
         f.put("scripting", hasFilter(server.filtersSource, "org.microproxy.starlark."));
         f.put("dnssec", server.serverResolver instanceof DnssecHostResolver);
         f.put("metrics", registry().enabled());
+        f.put("tracing", server.tracer != FlowTracer.NOOP);
         f.put("health_check_path", server.healthCheckPath != null);
         return f;
     }

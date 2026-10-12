@@ -579,6 +579,8 @@ public final class AccessLogFormat {
                 case "CONNECTION_ID" -> number(r -> r.context().getConnectionId());
                 case "STREAM_ID" -> number(r -> r.context().getStreamId());
                 case "UNIQUE_ID" -> text(FlowRecord::uniqueId);
+                case "TRACE_ID" -> text(r -> r.trace().traceId());
+                case "SPAN_ID" -> text(r -> r.trace().spanId());
                 case "HOSTNAME" -> text(r -> Hostname.NAME);
                 case "TLS_JA3_FINGERPRINT" -> text(r -> r.context().getClientHello() == null ? null
                         : TlsFingerprints.ja3(r.context().getClientHello()));

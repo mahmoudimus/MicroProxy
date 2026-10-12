@@ -94,6 +94,8 @@ final class ScriptType extends StarlarkType {
             .put("failure", Types.union(FAILURE, Types.NONE))
             .put("response_flags", Types.list(Types.STR))
             .put("response_code_details", Types.union(Types.STR, Types.NONE))
+            .put("trace_id", Types.union(Types.STR, Types.NONE))
+            .put("span_id", Types.union(Types.STR, Types.NONE))
             .buildOrThrow(), false);
 
     static final ScriptType FRAME = new ScriptType("WebSocketFrame", ScriptFrame.class, ImmutableMap.<String, StarlarkType>builder()
