@@ -537,6 +537,11 @@ final class ClientConnection implements Runnable {
         this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
+    /** The connection's own flow context (not one of its streams'). */
+    ClientFlowContext connectionFlowContext() {
+        return flowContext;
+    }
+
     boolean isIdle() {
         Http2Connection h2 = http2;
         return h2 != null ? h2.isIdle() : idle;
