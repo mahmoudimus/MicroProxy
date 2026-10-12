@@ -48,7 +48,7 @@ import org.microproxy.http.LastHttpContent;
  * sent only to a client that asked for it; other interim responses are forwarded as interim
  * HEADERS.
  */
-final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientChannel {
+final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientChannel, StreamSocket.Stream {
 
     private static final Object CANCELLED = new Object();
 
@@ -371,17 +371,18 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
                 connection.localAddress());
     }
 
-    /** Sets how long reads of the tunnel's bytes wait (a socket's read timeout); 0 for ever. */
-    void setReadTimeout(int millis) {
+    @Override
+    public void setReadTimeout(int millis) {
         readTimeoutMillis = Math.max(0, millis);
     }
 
-    int readTimeout() {
+    @Override
+    public int readTimeout() {
         return readTimeoutMillis;
     }
 
-    /** Ends the tunnel's output with END_STREAM, unless it has ended. */
-    void endTunnelOutput() throws IOException {
+    @Override
+    public void endTunnelOutput() throws IOException {
         tunnelOutput.lock();
         try {
             if (!responseEnded) sendData(Http2Endpoint.EMPTY, 0, 0, true, true);
@@ -394,7 +395,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
      * Closes the stream as a socket is closed: reads fail from now on, and the output ends with
      * END_STREAM, or, if a write is in progress on another thread, the stream is reset.
      */
-    void closeTunnel() {
+    @Override
+    public void closeTunnel() {
         connection.stateLock.lock();
         try {
             inputClosed = true;

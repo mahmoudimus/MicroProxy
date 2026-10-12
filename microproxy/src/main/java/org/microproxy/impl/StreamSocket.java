@@ -11,9 +11,11 @@ import java.net.SocketException;
 
 /**
  * An HTTP/2 {@code CONNECT} stream shown as a connected socket, so that a TLS session can be
- * layered over it ({@link javax.net.ssl.SSLSocketFactory#createSocket(Socket, InputStream,
- * boolean)}) and the decrypted connection served like any other client connection: an intercepted
- * {@code CONNECT} inside an HTTP/2 connection.
+ * layered over it. The stream is a client's ({@link Http2StreamChannel}): an intercepted {@code
+ * CONNECT} inside an HTTP/2 connection, whose decrypted connection is served like any other client
+ * connection ({@link javax.net.ssl.SSLSocketFactory#createSocket(Socket, InputStream, boolean)}).
+ * Or the proxy opened it on an HTTP/2 connection to a server ({@link Http2UpstreamStream}): a
+ * tunnel through an intercepted HTTPS proxy, with the proxy's own TLS to the server inside it.
  *
  * <p>The streams are the tunnel's bytes in DATA frames, which wait for flow-control window both
  * ways. The read timeout applies to reads as a socket's does; {@link #shutdownOutput} sends
@@ -23,7 +25,25 @@ import java.net.SocketException;
  */
 final class StreamSocket extends Socket {
 
-    private final Http2StreamChannel stream;
+    /** What the socket needs from the stream that carries it. */
+    interface Stream {
+        /** Sets how long reads of the tunnel's bytes wait (a socket's read timeout), in ms; 0 for ever. */
+        void setReadTimeout(int millis);
+
+        /** How long reads of the tunnel's bytes wait, in ms; 0 for ever. */
+        int readTimeout();
+
+        /** Ends the tunnel's output with END_STREAM, unless it has ended. */
+        void endTunnelOutput() throws IOException;
+
+        /** Closes the stream as a socket is closed: reads fail, and the output ends (or the stream is reset). */
+        void closeTunnel();
+
+        /** Names the stream in log lines. */
+        String logPrefix();
+    }
+
+    private final Stream stream;
     private final InputStream in;
     private final OutputStream out;
     private final InetSocketAddress remote;
@@ -32,7 +52,7 @@ final class StreamSocket extends Socket {
     private volatile boolean outputShutdown;
     private volatile boolean inputShutdown;
 
-    StreamSocket(Http2StreamChannel stream, InputStream in, OutputStream out, InetSocketAddress remote,
+    StreamSocket(Stream stream, InputStream in, OutputStream out, InetSocketAddress remote,
             InetSocketAddress local) {
         this.stream = stream;
         this.in = in;

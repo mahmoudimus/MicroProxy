@@ -5,11 +5,13 @@ import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.microproxy.FullFlowContext;
 import org.microproxy.http.FullHttpRequest;
 import org.microproxy.http.HttpContent;
@@ -27,12 +29,18 @@ import org.microproxy.http.LastHttpContent;
  * trailers a final HEADERS frame; responses arrive as HTTP/1-style messages ({@link
  * Http2UpstreamConnection}). It is never pooled or kept: {@link #close()} ends the stream (with
  * {@code RST_STREAM CANCEL} if it is still open) and leaves the connection to other streams.
+ *
+ * <p>A {@code CONNECT} (RFC 9113 section 8.5) opens a tunnel through the server, an HTTPS proxy:
+ * its stream stays open for the tunnel's bytes, which {@link #tunnelSocket} shows as a socket for
+ * TLS to the final server.
  */
-final class Http2UpstreamStream extends ServerConnection {
+final class Http2UpstreamStream extends ServerConnection implements StreamSocket.Stream {
 
     private final Http2UpstreamConnection connection;
     private final Http2UpstreamConnection.StreamState state;
     private final String logPrefix;
+    /** Serializes the tunnel's writes with ending its output from another thread. */
+    private final ReentrantLock tunnelOutput = new ReentrantLock();
     private String webSocketKey;
     private boolean webSocket;
     private int tunnelStatus;
@@ -67,6 +75,11 @@ final class Http2UpstreamStream extends ServerConnection {
     @Override
     void writeRequestHead(HttpRequest request, boolean bodyFollows, boolean trailersAccepted) throws IOException {
         List<HeaderField> fields = requestFields(request, hostAndPort, trailersAccepted);
+        if (ProxyUtils.isCONNECT(request)) {
+            // A tunnel through the server: the stream stays open for the tunnel's bytes.
+            connection.open(state, fields, false);
+            return;
+        }
         webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(request);
         if (webSocket) {
             if (!supportsWebSockets()) throw new IOException("origin has not enabled extended CONNECT");
@@ -184,19 +197,73 @@ final class Http2UpstreamStream extends ServerConnection {
 
             @Override
             public void write(byte[] bytes, int off, int len) throws IOException {
-                writeData(bytes, off, len);
+                if (len == 0) return;
+                tunnelOutput.lock();
+                try {
+                    if (!connection.sending(state)) throw new SocketException("the stream's output has ended");
+                    writeData(bytes, off, len);
+                } finally {
+                    tunnelOutput.unlock();
+                }
             }
 
             @Override
             public void flush() throws IOException {
                 Http2UpstreamStream.this.flush();
             }
+
+            @Override
+            public void close() throws IOException {
+                endTunnelOutput();
+            }
         };
     }
 
+    /** Ends the tunnel's output with END_STREAM, unless it has ended. */
     @Override
-    void endTunnelOutput() throws IOException {
-        writeEnd(new HttpHeaders());
+    public void endTunnelOutput() throws IOException {
+        tunnelOutput.lock();
+        try {
+            if (connection.sending(state)) writeEnd(new HttpHeaders());
+        } finally {
+            tunnelOutput.unlock();
+        }
+    }
+
+    /**
+     * The tunnel a {@code CONNECT} opened, as a socket for TLS to the server behind the proxy
+     * ({@link StreamSocket}).
+     */
+    StreamSocket tunnelSocket() {
+        return new StreamSocket(this, tunnelInput(), tunnelOutput(), remoteAddress, null);
+    }
+
+    @Override
+    public void setReadTimeout(int millis) {
+        state.readTimeoutMillis = Math.max(0, millis);
+    }
+
+    @Override
+    public int readTimeout() {
+        return state.readTimeoutMillis;
+    }
+
+    /**
+     * Closes the tunnel as a socket is closed: the output ends with END_STREAM (unless a write is
+     * in progress on another thread), and a stream still open the other way is reset.
+     */
+    @Override
+    public void closeTunnel() {
+        if (tunnelOutput.tryLock()) {
+            try {
+                if (connection.sending(state)) writeEnd(new HttpHeaders());
+            } catch (IOException e) {
+                // reset below
+            } finally {
+                tunnelOutput.unlock();
+            }
+        }
+        close();
     }
 
     @Override
@@ -221,7 +288,8 @@ final class Http2UpstreamStream extends ServerConnection {
     }
 
     /** The log prefix of the exchange the stream carries. */
-    String logPrefix() {
+    @Override
+    public String logPrefix() {
         return logPrefix;
     }
 
@@ -231,16 +299,17 @@ final class Http2UpstreamStream extends ServerConnection {
 
     /**
      * The header list for {@code request}: pseudo-headers ({@code :authority} from {@code Host},
-     * else the target), then the fields with lower-case names, without connection-specific ones
-     * or {@code host}, with {@code cookie} split into crumbs and {@code te} only as {@code
-     * trailers} (added when the client accepts trailers: the proxy relays them). Fields HTTP/2
-     * cannot carry are dropped.
+     * else the target; a {@code CONNECT}'s is its target, without {@code :scheme} and {@code
+     * :path}), then the fields with lower-case names, without connection-specific ones or {@code
+     * host}, with {@code cookie} split into crumbs and {@code te} only as {@code trailers} (added
+     * when the client accepts trailers: the proxy relays them). Fields HTTP/2 cannot carry are
+     * dropped.
      */
     static List<HeaderField> requestFields(HttpRequest request, String hostAndPort, boolean trailersAccepted) {
         String uri = request.uri();
         String path = ProxyUtils.isAbsoluteUri(uri) ? ProxyUtils.stripHost(uri) : uri;
         if (path.isEmpty()) path = "/";
-        String authority = request.headers().get(HttpHeaderNames.HOST);
+        String authority = ProxyUtils.isCONNECT(request) ? uri : request.headers().get(HttpHeaderNames.HOST);
         if (authority == null || authority.isBlank()) authority = defaultPortless(hostAndPort);
         authority = authority.strip();
         String method = request.method().name();

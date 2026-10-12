@@ -740,7 +740,8 @@ HTTP/1 `CONNECT` is: the client's TLS session runs over the stream's DATA frames
 requests (HTTP/1.1, or HTTP/2 inside the stream when the client negotiates `h2`) are exchanges of a
 client connection of their own, with the same filters, hooks and server connections; the
 `CONNECT`'s credentials cover them. A server that does not speak TLS gets a plain tunnel instead. A
-`CONNECT` inside an intercepted session is a plain tunnel to that session's authority.
+`CONNECT` inside an intercepted session, for any authority, goes to the intercepted server, which
+the client takes for its HTTPS proxy ([below](#in-front-of-an-https-proxy)).
 
 The proxy advertises `SETTINGS_ENABLE_CONNECT_PROTOCOL = 1`. A WebSocket client can open a stream
 with `:method CONNECT`, `:protocol websocket`, `:scheme http` (ws) or `https` (wss), `:authority`
@@ -765,11 +766,69 @@ including masking, rewriting, dropping, fragmentation and the large-frame buffer
 that rewrite frames remove `Sec-WebSocket-Extensions` before the request reaches the origin.
 A filter that rejects the handshake finishes the exchange without starting the relay.
 
-**Remaining limits.** A request for an authority other than the intercepted one (including
-CONNECT) gets `421 Misdirected Request`, which makes the client retry on a connection of its own.
-The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
+**Remaining limits.** A request for an authority other than the intercepted one gets `421
+Misdirected Request`, which makes the client retry on a connection of its own; so does an extended
+`CONNECT` (`:protocol websocket`) for another authority. A plain `CONNECT` is forwarded instead
+([below](#in-front-of-an-https-proxy)). The proxy does not originate TLS for ordinary absolute `https://` URLs sent in plain HTTP (or
 ordinary `:scheme https` requests on a forward-proxy HTTP/2 connection); secure WebSocket extended
 CONNECT is the exception described above. HTTP/2 chained proxies are not supported.
+
+#### In front of an HTTPS proxy
+
+A client may be set up to use an HTTPS proxy, such as a corporate egress proxy `corp.example:443`
+that speaks TLS (and often HTTP/2) on its listener, with MicroProxy in front of it intercepting
+the client's `CONNECT corp.example:443`. Inside that session the client asks what it takes for its
+proxy for a tunnel per site: a `CONNECT` stream over HTTP/2 (`:authority github.com:443`, no
+`:protocol`), or `CONNECT github.com:443 HTTP/1.1` over HTTP/1.1. MicroProxy forwards it to the
+intercepted server, as the client intended, rather than tunnelling to `github.com` itself, which
+would bypass the proxy the client chose.
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp2(true)
+        .withHttp2Upstream(true)              // CONNECT streams on the HTTP/2 connection to the proxy
+        .withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
+            @Override
+            public boolean proxyToServerAllowMitm() {
+                // Intercept the session with the proxy, but not the tunnels through it.
+                return ctx.forwardedVia().isEmpty();
+            }
+        })
+        .start();
+```
+
+- **Upstream.** The intercepted server is a chained HTTPS proxy for the tunnel. When MicroProxy's
+  connection to it negotiated HTTP/2 (`withHttp2Upstream`), the `CONNECT` is a stream on that
+  connection, multiplexed with the session's requests. Otherwise it goes on an HTTP/1.1 TLS
+  connection to it: an idle one of the session's, or one made as the session's are (the same
+  routes, the MITM manager's trust and `configureServerSocket`, the same isolation). Connections
+  that carry a client's credentials for the proxy are never pooled or shared with other clients.
+- **Fields, both ways.** The client's fields go with the `CONNECT`, `Proxy-Authorization` included
+  (those credentials are for the proxy; MicroProxy's own authentication covered the outer
+  `CONNECT`), without hop-by-hop fields and with `Via`. The proxy's answer reaches the client as it
+  was sent: a `407` with its `Proxy-Authenticate` challenge, a `403`, or the `2xx` that opens the
+  tunnel. An HTTP/1.1 client can retry on the same session after a refusal.
+- **Filters.** The `CONNECT` is a request of the intercepted session: `clientToProxyRequest`,
+  `proxyToServerRequest` (which may rewrite its target), then `serverToProxyResponse` and
+  `proxyToClientResponse` for the proxy's answer; a short-circuit response (a `403`, say) rejects
+  it. `FlowContext.forwardedVia()` names the proxy (`host:port`) for it and for the requests
+  inside the tunnel it opens; scripts see `ctx.forwarded_via`.
+- **The tunnel.** Without interception for the target (`proxyToServerAllowMitm`, `allow_mitm` in
+  scripts, or a MITM manager that declines), its bytes are relayed as they are, under flow control
+  both ways; END_STREAM and half-closes go through (over an HTTP/1.1 connection to the proxy, where
+  TLS 1.3 allows one). With interception, the tunnel's TLS is intercepted as a `CONNECT` to
+  MicroProxy would be, MicroProxy's own TLS to the target runs inside the forwarded tunnel, and the
+  requests inside go through filters like any intercepted request. Their server connections are
+  tunnels through the same proxy, opened with the same `CONNECT` fields;
+  `FullFlowContext.getChainedProxy()` names the proxy. A target that does not speak TLS gets a
+  plain tunnel.
+- **Resets.** A client's reset of the stream resets the stream to the proxy (or closes the
+  connection to it), and once the tunnel is open it is not a rapid reset. A reset from the proxy,
+  or its connection closing, resets the client's stream.
+
+Requests other than a plain `CONNECT` for another authority still get `421` (connection
+coalescing, above), and so does a WebSocket's extended `CONNECT`, which is not forwarded.
 
 **Limits.** Input is untrusted; every limit has a default, and the configurable ones are set with
 `Http2Options` (or the `http2_*` properties and `--http2-max-streams`). Rate limits count frames
@@ -1069,8 +1128,11 @@ bootstrap.start();
 - `headers`: case-insensitive. `h["name"]` (first value), `h["name"] = v`, `"name" in h`,
   `get`, `get_all`, `set`, `add`, `remove`, `keys`, `items`.
 - `ctx`: `client_ip`, `client_port`, `user` (from proxy authentication), `connection_id`, `tls`,
-  `timings` (below), and `vars`, a dict that lives for one request so `on_request` can pass
-  values to `on_response`. For a WebSocket it lives as long as the connection.
+  `timings` (below), `forwarded_via` (the intercepted HTTPS proxy, `host:port`, that a `CONNECT`
+  inside its session, or a request inside the tunnel one opened, goes through, else `None`; see
+  [In front of an HTTPS proxy](#in-front-of-an-https-proxy)), and `vars`, a dict that lives for
+  one request so `on_request` can pass values to `on_response`. For a WebSocket it lives as long
+  as the connection.
 - `failure`: `kind` (`"unresolved_host"`, `"connect_failed"`, `"tls_failed"`,
   `"server_timeout"`, `"bad_server_response"`, `"no_route"`, `"no_connection_available"`,
   `"bad_request"`, `"request_too_large"`), `status` (of the default answer), `host` (the server's

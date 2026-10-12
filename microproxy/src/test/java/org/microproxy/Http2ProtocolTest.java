@@ -296,13 +296,24 @@ class Http2ProtocolTest {
     }
 
     @Test
-    void connectCannotEscapeTheInterceptedAuthority() throws IOException {
-        start(Http2Options.DEFAULT);
+    void connectCannotEscapeTheInterceptedServer() throws IOException {
+        List<String> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+        start(Http2Options.DEFAULT, MicroProxy.bootstrap().plusActivityTracker(new ActivityTrackerAdapter() {
+            @Override
+            public void requestSentToServer(FullFlowContext ctx, org.microproxy.http.HttpRequest request) {
+                sent.add(request.method() + " " + request.uri() + " to " + ctx.getServerHostAndPort());
+            }
+        }));
         try (H2TestClient h2 = connect().handshake()) {
             h2.headers(1, List.of(new HeaderField(":method", "CONNECT"), new HeaderField(":authority", "example.com:443")), false);
             H2TestClient.Response r = h2.response(1);
-            assertEquals(421, r.status());
+            // The client takes the intercepted server for its proxy: the CONNECT goes there (and this
+            // origin is no proxy), never straight to example.com.
+            assertTrue(r.status() != 421 && r.status() != 200, String.valueOf(r.status()));
         }
+        // (Sent again on a new connection when the one the session had idle closed instead of answering.)
+        assertTrue(!sent.isEmpty() && sent.stream().allMatch(("CONNECT example.com:443 to " + target)::equals),
+                sent.toString());
     }
 
     @Test
