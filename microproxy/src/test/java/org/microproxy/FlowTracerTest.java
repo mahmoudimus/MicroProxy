@@ -56,8 +56,8 @@ class FlowTracerTest {
         Trace trace = tracer.traces.getFirst();
         assertSame(trace, record.trace());
         assertEquals("req-1", record.uniqueId());
-        assertEquals(List.of("start 127.0.0.1:" + origin.getAddress().getPort() + " direct", "inject stripped=false",
-                "end 200 null"), trace.events);
+        assertEquals(List.of("start 127.0.0.1:" + origin.getAddress().getPort() + " direct tls=false",
+                "request tls=false HTTP/1.1", "inject stripped=false", "end 200 null"), trace.events);
         TestSupport.eventually("the tracer's record", () -> tracer.ended.contains(record));
         assertEquals("0af7651916cd43dd8448eb211c80319c 00f067aa0ba902b7 req-1",
                 AccessLogFormat.envoy("%TRACE_ID% %SPAN_ID% %UNIQUE_ID%").format(record));
@@ -74,7 +74,7 @@ class FlowTracerTest {
                 java.net.URI.create(TestSupport.url(origin, "/stripped")))
                 .header("traceparent", "00-11111111111111111111111111111111-2222222222222222-01").build()).body();
         assertEquals(List.of(), TestSupport.echoedHeader(body, "traceparent"));
-        assertEquals("inject stripped=true", tracer.traces.getFirst().events.get(1));
+        assertEquals("inject stripped=true", tracer.traces.getFirst().events.get(2));
     }
 
     @Test
@@ -87,8 +87,9 @@ class FlowTracerTest {
             assertEquals(200, get(client(proxy), TestSupport.url(origin, "/failover")).statusCode());
             TestSupport.eventually("the record", () -> tracer.ended.size() == 1);
             String server = "127.0.0.1:" + origin.getAddress().getPort();
-            assertEquals(List.of("start " + server + " " + dead.getChainedProxyAddress(), "end 0 connect_failed",
-                    "start " + server + " direct", "inject stripped=false", "end 200 null"),
+            assertEquals(List.of("start " + server + " " + dead.getChainedProxyAddress() + " tls=false",
+                    "end 0 connect_failed", "start " + server + " direct tls=false", "request tls=false HTTP/1.1",
+                    "inject stripped=false", "end 200 null"),
                     tracer.traces.getFirst().events);
         }
     }
@@ -169,8 +170,14 @@ class FlowTracerTest {
         }
 
         @Override
-        public void attemptStarted(String hostAndPort, ChainedProxy chainedProxy) {
-            events.add("start " + hostAndPort + " " + (chainedProxy == null ? "direct" : chainedProxy.getChainedProxyAddress()));
+        public void attemptStarted(String hostAndPort, ChainedProxy chainedProxy, boolean tls) {
+            events.add("start " + hostAndPort + " " + (chainedProxy == null ? "direct" : chainedProxy.getChainedProxyAddress())
+                    + " tls=" + tls);
+        }
+
+        @Override
+        public void upstreamRequest(boolean tls, org.microproxy.http.HttpVersion version) {
+            events.add("request tls=" + tls + " " + version);
         }
 
         @Override

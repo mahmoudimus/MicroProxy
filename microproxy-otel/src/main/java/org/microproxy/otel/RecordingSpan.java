@@ -8,6 +8,7 @@ import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyAdapter;
 import org.microproxy.FlowRecord;
 import org.microproxy.http.HttpHeaders;
+import org.microproxy.http.HttpVersion;
 
 /**
  * The trace of a sampled exchange: the proxy's SERVER span for it (INTERNAL for a tunnel or a
@@ -42,15 +43,19 @@ final class RecordingSpan extends PropagatedTrace {
         final String hostAndPort;
         final String chainedProxy;
         final int index;
+        /** Whether the proxy speaks TLS to the server, and the connection's protocol once known. */
+        boolean tls;
+        String version;
         long endNanoTime;
         int status;
         String errorType;
         boolean ended;
 
-        Attempt(String hostAndPort, String chainedProxy, int index) {
+        Attempt(String hostAndPort, String chainedProxy, int index, boolean tls) {
             this.hostAndPort = hostAndPort;
             this.chainedProxy = chainedProxy;
             this.index = index;
+            this.tls = tls;
         }
     }
 
@@ -98,7 +103,7 @@ final class RecordingSpan extends PropagatedTrace {
     }
 
     @Override
-    public void attemptStarted(String hostAndPort, ChainedProxy chainedProxy) {
+    public void attemptStarted(String hostAndPort, ChainedProxy chainedProxy, boolean tls) {
         String via = chainedProxy == null || chainedProxy == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
                 || chainedProxy.getChainedProxyAddress() == null ? null
                 : Semconv.address(chainedProxy.getChainedProxyAddress());
@@ -111,8 +116,23 @@ final class RecordingSpan extends PropagatedTrace {
                 current = null;
                 return;
             }
-            current = new Attempt(hostAndPort, via, attempts.size() + droppedAttempts);
+            current = new Attempt(hostAndPort, via, attempts.size() + droppedAttempts, tls);
             attempts.add(current);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void upstreamRequest(boolean tls, HttpVersion version) {
+        String v = version.majorVersion() >= 2 ? Integer.toString(version.majorVersion())
+                : version.majorVersion() + "." + version.minorVersion();
+        lock.lock();
+        try {
+            if (current != null) {
+                current.tls = tls;
+                current.version = v;
+            }
         } finally {
             lock.unlock();
         }
@@ -224,8 +244,12 @@ final class RecordingSpan extends PropagatedTrace {
         if (open && errorType == null && Semconv.isError(record)) errorType = Semconv.errorType(record);
         Attrs a = new Attrs(limits.maxAttributes(), limits.maxAttributeValueLength());
         a.put("http.request.method", Semconv.method(request.method()));
-        String url = Semconv.upstreamUrl(request, attempt.hostAndPort);
+        String url = Semconv.upstreamUrl(request, attempt.hostAndPort, attempt.tls);
         if (url != null) a.put("url.full", url);
+        if (attempt.version != null) {
+            a.put("network.protocol.name", "http");
+            a.put("network.protocol.version", attempt.version);
+        }
         a.put("server.address", Semconv.hostOf(attempt.hostAndPort));
         long port = Semconv.portOf(attempt.hostAndPort, -1);
         if (port > 0) a.put("server.port", port);

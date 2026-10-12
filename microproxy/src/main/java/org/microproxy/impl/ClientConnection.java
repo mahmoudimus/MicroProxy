@@ -2070,7 +2070,7 @@ final class ClientConnection implements Runnable {
     private boolean exchange(Exchange ex, ServerConnection conn, boolean retryAllowed) throws IOException {
         FlowTrace trace = ex.trace;
         if (trace == FlowTrace.NONE) return send(ex, conn, retryAllowed);
-        if (!ex.attemptTraced) trace.attemptStarted(conn.hostAndPort, conn.chainedProxy);
+        if (!ex.attemptTraced) trace.attemptStarted(conn.hostAndPort, conn.chainedProxy, upstreamTls(ex, conn));
         ex.attemptTraced = false;
         String error = null;
         try {
@@ -2096,6 +2096,22 @@ final class ClientConnection implements Runnable {
         if (flow.hasResponseFlag(ResponseFlag.UPSTREAM_REMOTE_RESET)) return "upstream_reset";
         if (flow.hasResponseFlag(ResponseFlag.UPSTREAM_REQUEST_TIMEOUT)) return "server_timeout";
         return null;
+    }
+
+    /**
+     * Whether the proxy speaks TLS to the server of {@code ex} on {@code conn}: a stream of an HTTP/2
+     * or HTTP/3 connection always does, and an HTTP/1.1 connection when the exchange's mode is TLS
+     * (an {@code https} origin, an intercepted session, a reverse proxy's {@code https://} upstream),
+     * whether or not it goes through a chained proxy.
+     */
+    private static boolean upstreamTls(Exchange ex, ServerConnection conn) {
+        return ex.upstreamTls || conn instanceof Http2UpstreamStream || conn instanceof Http3UpstreamStream;
+    }
+
+    /** The protocol {@code conn} speaks to the server. */
+    private static HttpVersion upstreamVersion(ServerConnection conn) {
+        return conn instanceof Http2UpstreamStream ? HttpVersion.HTTP_2_0
+                : conn instanceof Http3UpstreamStream ? HttpVersion.HTTP_3_0 : HttpVersion.HTTP_1_1;
     }
 
     /** Puts the exchange's trace context on a request head about to be written upstream. */
@@ -2128,6 +2144,7 @@ final class ClientConnection implements Runnable {
             ex.channel.serverConnectionInUse(conn);
             filters.proxyToServerRequestSending();
             stripRequestHeaders(request.headers());
+            if (ex.trace != FlowTrace.NONE) ex.trace.upstreamRequest(upstreamTls(ex, conn), upstreamVersion(conn));
             traceUpstream(ex, request.headers());
             try {
                 conn.writeRequestHead(request, streamingBody, ex.trailersAccepted);
@@ -4633,7 +4650,7 @@ final class ClientConnection implements Runnable {
             }
             ex.attempt = null;
             if (ex.trace != FlowTrace.NONE) {
-                ex.trace.attemptStarted(hostAndPort, proxy);
+                ex.trace.attemptStarted(hostAndPort, proxy, mode == Mode.TLS);
                 ex.attemptTraced = true;
             }
             try {

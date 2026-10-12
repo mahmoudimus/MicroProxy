@@ -886,7 +886,10 @@ request id it adds is seen by all of them; the trace is kept on the `Exchange` a
 of each attempt to reach the server: `connect` starts one per candidate of the route and ends it
 when the candidate fails; `exchange` starts one when the connection was at hand (a pooled or
 reused connection, a stream on a shared HTTP/2 or HTTP/3 connection), and ends it however `send`
-ended (a `StaleConnection` ends it before the retry starts the next). `traceUpstream` runs right
+ended (a `StaleConnection` ends it before the retry starts the next). Each attempt says whether
+the proxy speaks TLS to the server (the exchange's `Mode.TLS`, or a stream of an HTTP/2 or HTTP/3
+connection), and `send` reports the connection's real protocol (`upstreamRequest`) before the
+request goes out, so a tracer never guesses the scheme from a port. `traceUpstream` runs right
 after `stripRequestHeaders` on every request head written upstream, the `CONNECT`s to chained
 proxies and through hops included, so a tracer's headers survive the stripping and say whether it
 happened. Every record that reaches `flowEnded` goes to the tracer first (`flowEnded(FlowRecord)`),

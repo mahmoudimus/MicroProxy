@@ -2,6 +2,7 @@ package org.microproxy;
 
 import java.util.Map;
 import org.microproxy.http.HttpHeaders;
+import org.microproxy.http.HttpVersion;
 
 /**
  * The distributed trace of one exchange, made by a {@link FlowTracer} when the request head
@@ -12,7 +13,8 @@ import org.microproxy.http.HttpHeaders;
  *
  * <p>The proxy calls the attempt methods on the exchange's thread, in this order for each attempt:
  * {@link #attemptStarted} when it begins to connect to the server or a chained proxy (or to send
- * the request on a connection at hand), {@link #injectUpstream} right before a request head (the
+ * the request on a connection at hand), {@link #upstreamRequest} once the exchange's request is
+ * about to go on the connection, {@link #injectUpstream} right before a request head (the
  * exchange's, or a {@code CONNECT} to a chained proxy) is written, and {@link #attemptEnded}. A
  * failed connection to one chained proxy, the next one tried, and a request sent again after a
  * stale keep-alive connection are attempts of their own. Every method has a no-op default; {@link
@@ -77,8 +79,22 @@ public interface FlowTrace {
      * @param hostAndPort the server's {@code host:port}
      * @param chainedProxy the chained proxy the attempt goes through, or {@code null} for a direct
      *     connection
+     * @param tls whether the proxy speaks TLS to the server itself (to an {@code https} origin, an
+     *     intercepted session's server or a reverse proxy's {@code https://} upstream), whatever
+     *     the connection to a chained proxy is
      */
-    default void attemptStarted(String hostAndPort, ChainedProxy chainedProxy) {}
+    default void attemptStarted(String hostAndPort, ChainedProxy chainedProxy, boolean tls) {}
+
+    /**
+     * The exchange's request is about to go to the server on the current attempt's connection, as
+     * that connection really is.
+     *
+     * @param tls whether the proxy speaks TLS to the server on it (HTTP/2 and HTTP/3 always do)
+     * @param version the protocol of the connection: {@link HttpVersion#HTTP_1_1}, {@link
+     *     HttpVersion#HTTP_2_0} (a stream of a shared HTTP/2 connection) or {@link
+     *     HttpVersion#HTTP_3_0}
+     */
+    default void upstreamRequest(boolean tls, HttpVersion version) {}
 
     /**
      * A request head is about to be written upstream for the current attempt, after the proxy

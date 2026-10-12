@@ -4084,12 +4084,12 @@ are exchanges of their own, with the context they carry.
 | attribute | on | value |
 |---|---|---|
 | `http.request.method` (`_OTHER` and `http.request.method_original` for others) | all | the method |
-| `url.full` | CLIENT; SERVER for absolute-form (proxy) requests | the URL |
+| `url.full` | CLIENT; SERVER for absolute-form (proxy) requests | the URL; a CLIENT span's scheme is `https` when the proxy speaks TLS to the server itself (an `https` origin, an intercepted session's server, a reverse proxy's `https://` upstream, HTTP/2 and HTTP/3), on any port, and `http` otherwise |
 | `url.scheme`, `url.path`, `url.query` | SERVER | the request target |
 | `server.address`, `server.port` | all | the target (CLIENT: the server the attempt was for) |
 | `client.address`, `client.port` | SERVER, INTERNAL | the client (the PROXY protocol's source, when there was one) |
 | `user_agent.original` | SERVER | `User-Agent` |
-| `network.protocol.name`, `network.protocol.version` | SERVER | `http`, `1.1`, `2`, `3` |
+| `network.protocol.name`, `network.protocol.version` | SERVER; CLIENT once its request went out | `http`, `1.1`, `2`, `3`: the client's; a CLIENT span's, the connection's to the server |
 | `http.response.status_code` | all | the status the client got (CLIENT: the server's) |
 | `http.request.body.size`, `http.response.body.size` | SERVER | body bytes from and to the client |
 | `error.type` | all | the status for a 5xx (CLIENT: 4xx too), else the failure (`connect_failed`, `server_timeout`, `unresolved_host`, `tls_failed`, `stale_connection`, ...) |

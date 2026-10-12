@@ -386,6 +386,47 @@ class OtelEndToEndTest {
     }
 
     @Test
+    void aReverseProxysHttpsUpstreamIsHttpsOnTheClientSpanWhateverItsPort() throws Exception {
+        CertificateAuthority originCa = CertificateAuthority.generate("Otel Reverse Origin CA");
+        HttpsServer tls = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), TestSupport.echo());
+        try {
+            int port = tls.getAddress().getPort();
+            assertNotEquals(443, port);
+            start(telemetry().build(), MicroProxy.bootstrap().withReverseProxy("https://localhost:" + port)
+                    .withManInTheMiddle(new CertificateAuthorityMitmManager(
+                            CertificateAuthority.generate("Otel Reverse Proxy CA"), originCa.clientContext())));
+            HttpResponse<String> response = get(HttpClient.newHttpClient(),
+                    "http://127.0.0.1:" + proxy.getListenAddress().getPort() + "/reverse?q=1");
+            assertEquals(200, response.statusCode());
+            TestCollector.Span server = collector.awaitSpan("the server span", s -> s.kind() == 2);
+            TestCollector.Span client = collector.awaitSpan("the client span", s -> s.kind() == 3);
+            // The client spoke plain HTTP to the proxy; the proxy spoke TLS to the server.
+            assertEquals("http", server.attr("url.scheme"));
+            assertEquals("https://localhost:" + port + "/reverse?q=1", client.attr("url.full"));
+            assertEquals("http", client.attr("network.protocol.name"));
+            assertEquals("1.1", client.attr("network.protocol.version"));
+            assertEquals((long) port, client.attr("server.port"));
+            assertEquals(List.of("00-" + server.traceId() + "-" + client.spanId() + "-01"),
+                    TestSupport.echoedHeader(response.body(), "traceparent"));
+        } finally {
+            tls.stop(0);
+        }
+    }
+
+    @Test
+    void aPlainUpstreamOnPort443IsStillHttp() throws Exception {
+        // Nothing listens there: the attempt fails, and its URL says what the proxy tried.
+        try (Socket refusing = TestSupport.refusingPort()) {
+            start(telemetry().build(), MicroProxy.bootstrap().withServerResolver((host, port) ->
+                    new InetSocketAddress(TestSupport.LOOPBACK, refusing.getLocalPort())));
+            assertEquals(502, get(TestSupport.client(proxy), "http://plain.test:443/x").statusCode());
+            TestCollector.Span client = collector.awaitSpan("the client span", s -> s.kind() == 3);
+            assertEquals("http://plain.test:443/x", client.attr("url.full"));
+            assertNull(client.attr("network.protocol.version"), "no request went out");
+        }
+    }
+
+    @Test
     void aSocksClientIsAnInternalSpan() throws Exception {
         start(telemetry().build(), MicroProxy.bootstrap().withSocksServer(true));
         try (TestSupport.RawServer echo = TestSupport.rawServer(s -> {

@@ -141,13 +141,14 @@ final class Semconv {
         return KNOWN_METHODS.contains(method) ? method : "_OTHER";
     }
 
-    /** {@code url.full} of a request to {@code hostAndPort}, with the path and query of {@code info}. */
-    static String upstreamUrl(RequestInfo info, String hostAndPort) {
+    /**
+     * {@code url.full} of a request to {@code hostAndPort}, with the path and query of {@code info}:
+     * {@code https} when the proxy speaks TLS to the server, {@code http} otherwise.
+     */
+    static String upstreamUrl(RequestInfo info, String hostAndPort, boolean tls) {
         if (info.isConnect()) return null;
-        String scheme = info.scheme();
-        if (scheme.equals("http") && portOf(hostAndPort, 80) == 443) scheme = "https";
         String path = info.pathAndQuery();
-        return scheme + "://" + hostAndPort + (path == null || path.equals("*") ? "/" : path);
+        return (tls ? "https://" : "http://") + hostAndPort + (path == null || path.equals("*") ? "/" : path);
     }
 
     /** The request attributes of a SERVER span (and of the access log's record). */
