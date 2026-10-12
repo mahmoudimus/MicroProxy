@@ -120,6 +120,11 @@ public record BootstrapView(
         return List.of(b.ignoreHosts, b.allowHosts);
     }
 
+    /** The {@code tcp_hosts} patterns, as configured. */
+    public static List<String> tcpHosts(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).tcpHosts;
+    }
+
     /** The reverse proxy upstream as configured, or null. */
     public static ReverseProxyMode reverseProxy(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).reverseProxy;

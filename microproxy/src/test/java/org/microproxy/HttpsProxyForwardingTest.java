@@ -19,7 +19,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
@@ -32,6 +35,9 @@ import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.http.HttpVersion;
+import org.microproxy.tcp.TcpContext;
+import org.microproxy.tcp.TcpInterceptor;
+import org.microproxy.tcp.TcpMessage;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -501,6 +507,39 @@ class HttpsProxyForwardingTest {
         // The first tunnel ended with the failed handshake; the client got a second, plain one.
         assertEquals(List.of("CONNECT " + target(echo) + " HTTP/2.0 null", "CONNECT " + target(echo) + " HTTP/2.0 null"),
                 corpSaw);
+    }
+
+    @Test
+    void tcpHooksSeeAForwardedTunnelOnHttp2StreamsOnBothSides() throws Exception {
+        TestSupport.RawServer echo = echoServer();
+        startCorp(true, null);
+        List<String> seen = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(1);
+        proxy = microProxy().withFiltersSource(interceptOnlyTheCorporateProxy())
+                .withTcpInterceptor(new TcpInterceptor() {
+                    @Override
+                    public byte[] tcpMessage(TcpMessage m, TcpContext ctx) {
+                        seen.add((m.fromClient() ? "> " : "< ") + m.text());
+                        return m.fromClient() ? m.text().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8) : m.data();
+                    }
+
+                    @Override
+                    public void tcpEnd(TcpContext ctx) {
+                        seen.add("end " + ctx.host() + ":" + ctx.port());
+                        ended.countDown();
+                    }
+                }).start();
+        try (H2StreamClient c = h2Session()) {
+            // A CONNECT stream inside the intercepted session, forwarded on a stream of the
+            // session's HTTP/2 connection to the corporate proxy.
+            H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target(echo)), false);
+            assertEquals(200, tunnel.status());
+            assertEquals("SHOUTED THROUGH BOTH", roundTrip(tunnel, "shouted through both"));
+        }
+        assertTrue(ended.await(10, TimeUnit.SECONDS), seen.toString());
+        assertEquals(List.of("CONNECT " + target(echo) + " HTTP/2.0 null"), corpSaw);
+        assertEquals("> shouted through both", seen.getFirst());
+        assertEquals("end " + target(echo), seen.getLast());
     }
 
     // -------------------------------------------------------------------------------------------

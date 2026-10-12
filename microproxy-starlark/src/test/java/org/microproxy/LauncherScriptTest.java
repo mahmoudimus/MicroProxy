@@ -14,6 +14,7 @@ import static org.microproxy.TestSupport.url;
 import com.sun.net.httpserver.HttpServer;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.net.Socket;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -54,6 +55,44 @@ class LauncherScriptTest {
             proxy.abort();
             origin.stop(0);
         }
+    }
+
+    @Test
+    void scriptsWithTcpHooksGetTheTcpInterceptorAndOthersDoNot(@TempDir Path dir) throws Exception {
+        Path tcp = dir.resolve("tcp.star");
+        Files.writeString(tcp, """
+                def on_tcp_message(msg, ctx):
+                    if not msg.from_client:
+                        return msg.text.replace("ready", "scripted") if msg.text != None else None
+                """);
+        Path http = dir.resolve("http.star");
+        Files.writeString(http, """
+                def on_request(req, ctx):
+                    return None
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream console = new PrintStream(out, true, StandardCharsets.UTF_8);
+        assertNull(Launcher.parse(new String[] {"--script", http.toString()}, console).bootstrap().getTcpInterceptor(),
+                "without TCP hooks, tunnels keep their fast path");
+        assertFalse(out.toString(StandardCharsets.UTF_8).contains("on_tcp_"), out.toString(StandardCharsets.UTF_8));
+
+        try (TestSupport.RawServer banner = TestSupport.rawServer(s -> {
+            s.getOutputStream().write("220 ready\r\n".getBytes(StandardCharsets.UTF_8));
+            s.getOutputStream().flush();
+            s.getInputStream().read();
+        })) {
+            HttpProxyServer proxy = Launcher.start(new String[] {"--port", "0", "--script", tcp.toString()}, console);
+            try (Socket s = new Socket(proxy.getListenAddress().getAddress(),
+                    proxy.getListenAddress().getPort())) {
+                s.setSoTimeout(20_000);
+                TestSupport.write(s.getOutputStream(), "CONNECT 127.0.0.1:" + banner.port() + " HTTP/1.1\r\n\r\n");
+                assertTrue(TestSupport.readUntil(s.getInputStream(), "\r\n\r\n").startsWith("HTTP/1.1 200"));
+                assertEquals("220 scripted\r\n", TestSupport.readUntil(s.getInputStream(), "\r\n"));
+            } finally {
+                proxy.abort();
+            }
+        }
+        assertTrue(out.toString(StandardCharsets.UTF_8).contains("on_tcp_*()"), out.toString(StandardCharsets.UTF_8));
     }
 
     @Test

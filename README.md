@@ -205,6 +205,7 @@ Command-line flags override values from the file.
 | `socks` | also serve SOCKS5 and SOCKS4(a) clients on the regular listener, told apart by their first byte | `false` |
 | `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
 | `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
+| `tcp_hosts` | comma-separated regular expressions for host names (CONNECT target, SNI) relayed as raw TCP even when they look like HTTP (see [Raw TCP streams](#raw-tcp-streams)) | none |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -255,7 +256,7 @@ Command-line flags override values from the file.
 | HTTP/2 to clients | optional (`--http2`): clients that negotiate `h2` on intercepted TLS or the proxy TLS listener get HTTP/2, each stream an exchange of its own with the same filters, cache, failure answers and logging; hardened against stream, reset and frame floods (see below). `--http2-cleartext` adds `h2c` with prior knowledge on the plain listener |
 | HTTP/2 to servers | optional (`--http2-upstream`): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy |
 | Filters | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
-| CONNECT | byte tunnel with idle timeout and half-close |
+| CONNECT | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` (see below) |
 | MITM | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection (see below) |
 | ClientHello inspection | after `CONNECT`, the client's ClientHello is read without consuming it (SNI, ALPN, versions, cipher suites), and interception is decided by it: ignore / allow host rules as in mitmproxy, `MitmManager` and filter hooks; plain HTTP after `CONNECT` is served as HTTP, other protocols are tunnelled; ALPN is mirrored between client and server (see below) |
 | Transparent and reverse modes | TLS redirected to the proxy without `CONNECT` is routed by SNI; `--mode reverse:https://host` serves one upstream over HTTP, HTTPS or raw TCP (see below) |
@@ -266,7 +267,7 @@ Command-line flags override values from the file.
 | mitmproxy-style addons | `MapLocal`, `MapRemote`, `ModifyBody`, `ModifyHeaders`, `BlockList`, `AntiCache` and `StickyCookie`, with mitmproxy's option syntax and flow filter expressions (`~d example.com & !~m GET`), from Java or the command line (see below) |
 | HAR export and replay | `HarRecorder` writes HAR 1.2 files; `ServerReplay` answers requests from recorded HAR or WARC responses, `ClientReplay` sends recorded requests again through the proxy (see below) |
 | Body rewriting | `HttpBodies` decodes gzip, deflate, Brotli and (with `zstd-decoder`) zstd bodies and re-encodes them with the right charset; `RewriteRules` edits headers and text bodies declaratively, buffering only the responses it rewrites |
-| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` hooks in Starlark, sandboxed, with hot reload (see below) |
+| Scripting | optional module: `on_request` / `on_response` / `upstream` / `allow_mitm` / `on_failure` / `authenticate` / `on_tcp_message` hooks in Starlark, sandboxed, with hot reload (see below) |
 | Proxy authentication | `ProxyAuthenticator`: Basic by default, or any scheme (Bearer tokens, API keys) with custom challenges; per connection or per request (see below) |
 | TLS listener | `withSslContextSource(...)`, optional client-certificate auth |
 | TLS protocol pinning | every TLS connection (listener, both sides of interception, TLS chained proxies) allows only TLS 1.3 and 1.2 by default; `withTlsProtocols(...)` changes it (see below) |
@@ -619,8 +620,10 @@ Interception is decided in this order; the first "no" tunnels the connection unt
    against the `CONNECT` target, when the `CONNECT` arrives. Nothing is read from the client
    then, as before.
 2. With the ClientHello: the host rules against the `CONNECT` target and the SNI; a client whose
-   ALPN offers no protocol the proxy speaks (only `acme-tls/1`, say); then
-   `MitmManager.shouldIntercept(clientHello, flow)` and `HttpFilters.proxyToServerAllowMitm(clientHello)`.
+   ALPN offers no protocol the proxy speaks (only `acme-tls/1`, say; with a
+   [TCP interceptor](#raw-tcp-streams), such clients are intercepted, except `acme-tls/1`, and
+   their sessions relayed as raw TCP); then `MitmManager.shouldIntercept(clientHello, flow)` and
+   `HttpFilters.proxyToServerAllowMitm(clientHello)`.
 
 ```java
 MicroProxy.bootstrap()
@@ -823,7 +826,10 @@ HTTP client's `CONNECT` goes:
   ([Deciding what to intercept](#deciding-what-to-intercept-the-clienthello)): a ClientHello is
   intercepted with the MITM manager unless the [host rules](#ignoring-and-allowing-hosts), its SNI
   and ALPN, the manager or a filter decline it; plain HTTP is served as HTTP, its requests going to
-  the destination through the filters; anything else is tunnelled.
+  the destination through the filters; anything else is tunnelled;
+- the [TCP hooks](#raw-tcp-streams) see its tunnels as they see a `CONNECT`'s, and an intercepted
+  TLS session that does not carry HTTP (or one with a [TCP host](#raw-tcp-streams)) is relayed
+  decrypted through them.
 
 A SOCKS client has no other way to send plain HTTP through the proxy, so its first bytes are read
 even without `--mitm`: its HTTP requests are filtered and logged, and its TLS is tunnelled.
@@ -1732,6 +1738,7 @@ bootstrap.start();
 | `on_websocket_message(msg, ctx)` | for each whole text or binary message of an upgraded WebSocket, in both directions, joined from its frames and inflated (after `on_websocket_frame`, if defined, has seen the frames) | `None` (or `msg`) to send the message with any changes, `False` to drop it, another message to replace it, or a list of messages to send instead (`[]` drops it) |
 | `on_failure(req, failure, ctx)` | when the proxy has to answer the request itself (see [Failure responses](#failure-responses)) | `response(...)` to answer, or `None` for the `FailureResponder`'s answer or the default |
 | `on_frame(frame, ctx)` | for each HTTP/2 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
+| `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2178,10 +2185,87 @@ def on_frame(frame: Frame, ctx: FrameContext) -> list[Frame] | bool | None:
     return None
 ```
 
+<a id="tcp-hooks"></a>**Raw TCP.** A script that defines `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)` or
+`on_tcp_end(ctx)` sees the bytes of raw TCP tunnels, decrypted where the proxy intercepted TLS
+that does not carry HTTP ([Raw TCP streams](#raw-tcp-streams) describes which tunnels). As with
+`on_frame`, `--script` installs the TCP interceptor only when the script defines one of these
+hooks when it loads, so other scripts leave tunnels on their fast path. From Java:
+`bootstrap.withTcpInterceptor(script.tcpInterceptor())` when `script.definesTcpHooks()`.
+
+- `msg`: `data` (bytes) and `text` (`None` when the bytes are not UTF-8), both assignable,
+  `from_client` and `timestamp` (seconds since the epoch); `msg.with_data(data)` and
+  `msg.with_text(text)` make changed copies. Its type is `TcpMessage`. TCP has no message
+  boundaries: a message is whatever one read returned, so a line or a command may arrive in
+  pieces, or several in one message.
+- `ctx`: `connection_id`, `client_ip`, `client_port`, `host`, `port`, `server` (`host:port`),
+  `tls` (whether the proxy decrypted the client's TLS), `sni` and `alpn` (or `None`), `vars`, a
+  dict that lives as long as the tunnel, and `error`, why the tunnel failed (`None` otherwise, and
+  before `on_tcp_end`). `ctx.send(from_client, data)` adds bytes as if that side had sent them
+  (to the server when `from_client` is `True`), after the message being handled when sent in the
+  same direction. Its type is `TcpContext`.
+- The hooks of one tunnel run one at a time, though its two directions are read concurrently. A
+  failing `on_tcp_message`, or one returning something else, is logged and the bytes passed on
+  unchanged.
+
+Rewrite a server's greeting, such as an SMTP banner, which arrives before the client says
+anything:
+
+```python
+def on_tcp_message(msg, ctx):
+    # The server's first message is its greeting.
+    if not msg.from_client and not ctx.vars.get("greeted"):
+        ctx.vars["greeted"] = True
+        if msg.text != None:
+            return msg.text.replace("ESMTP", "ESMTP (via MicroProxy)")
+```
+
+Log a line-based protocol (POP3, SMTP, IMAP, Redis), a line at a time whatever the reads:
+
+```python
+def on_tcp_start(ctx):
+    log.info("%s opened by %s (tls %s, sni %s)" % (ctx.server, ctx.client_ip, ctx.tls, ctx.sni))
+
+def on_tcp_message(msg, ctx):
+    # TCP has no message boundaries: keep a line's start until its end arrives.
+    side = "C" if msg.from_client else "S"
+    lines = (ctx.vars.get(side, "") + (msg.text or "")).split("\n")
+    for line in lines[:-1]:
+        log.info("%s: %s" % (side, line.rstrip("\r")))
+    ctx.vars[side] = lines[-1]
+
+def on_tcp_end(ctx):
+    log.info("%s closed%s" % (ctx.server, "" if ctx.error == None else ": " + ctx.error))
+```
+
+Drop a command, answering it in the server's place:
+
+```python
+def on_tcp_message(msg, ctx):
+    # Never let a POP3 client delete mail: answer DELE in the server's place.
+    if msg.from_client and msg.text != None and msg.text.upper().startswith("DELE "):
+        ctx.send(False, "-ERR deleting is disabled here\r\n")
+        return False
+```
+
+With types: `TcpMessage` and `TcpContext`. `text` is typed `str | None`, so typed code casts it; a
+returned message replaces the bytes with its own:
+
+```python
+def on_tcp_message(msg: TcpMessage, ctx: TcpContext) -> TcpMessage | str | bool | None:
+    if msg.text == None:
+        return None
+    text = cast(str, msg.text)
+    if msg.from_client:
+        return msg.with_text(text.upper())
+    ctx.vars["lines"] = ctx.vars.get("lines", 0) + text.count("\n")
+    return text + "!"
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
-`Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame` and `FrameContext`:
+`Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame`, `FrameContext`,
+`TcpMessage` and `TcpContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
@@ -2415,6 +2499,78 @@ the server's answer says to the server's hop and what the client received to the
   a message a filter sends back to a peer is compressed whenever that hop agreed to it.
 - `java.net.http.WebSocket` never offers extensions, so the tests use peers built on `Deflater`
   and `Inflater`.
+
+### Raw TCP streams
+
+`withTcpInterceptor(TcpInterceptor)` shows the bytes of every raw TCP tunnel to one interceptor,
+with mitmproxy's TCP hooks: `tcpStart(ctx)`; `tcpMessage(msg, ctx)` for the bytes of each read,
+which returns the bytes to pass on (`msg.data()` as it is or changed in place, others, or `null`
+or an empty array to drop them); `tcpHalfClose(ctx, fromClient)` when one side finishes sending,
+before the end is passed on; then `tcpEnd(ctx)`, or `tcpError(ctx, error)` when a read or write
+failed, never both. `ctx.send(fromClient, bytes)` adds bytes as if that side had sent them, at any
+time while that direction is open; sent from a `tcpMessage` call in the same direction, they
+follow the message. `TcpContext` also gives the client connection's id and address, the target's
+host and port, whether the proxy decrypted the client's TLS (`tlsIntercepted()`), the SNI and the
+negotiated ALPN protocol.
+
+```java
+MicroProxy.bootstrap()
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withTcpHosts("^mail\\.example\\.com$")                      // --tcp-hosts, tcp_hosts
+        .withTcpInterceptor((msg, ctx) -> {
+            if (!msg.fromClient() && msg.text().startsWith("220 ")) {
+                return msg.text().replace("ESMTP", "ESMTP (via MicroProxy)").getBytes(UTF_8);
+            }
+            return msg.data();
+        })
+        .start();
+```
+
+- **Which tunnels.** A `CONNECT` that is not intercepted (no MITM manager, an ignored host, a
+  declined ClientHello, a protocol that is neither TLS nor HTTP, a server that speaks first), on
+  an HTTP/1 connection or as a stream of an HTTP/2 one; whether the server is reached directly,
+  through a chained proxy, on a stream of an HTTP/2 connection, or through the HTTP or HTTPS proxy
+  of a session ([In front of an HTTP or HTTPS proxy](#in-front-of-an-http-or-https-proxy));
+  `reverse:tcp://` connections; and a [SOCKS client](#socks5-mode)'s connection that is not
+  intercepted or served as HTTP, which goes the way of a `CONNECT`. Upgraded WebSockets are not
+  tunnels: their frames and messages go to the
+  [WebSocket hooks](#websocket-frames-and-messages).
+- **Messages.** TCP has no message boundaries. A `TcpMessage` is whatever one read returned (up
+  to a buffer, 16 KiB by default), with `fromClient()` and a timestamp; a peer's write may show
+  up in pieces, or joined with the next one. Hooks that look for lines or commands keep the start
+  of one until its end arrives.
+- **Threads.** Each direction is read by a thread of its own, so a tunnel's hooks are called
+  from two threads at once: the interceptor must be thread-safe. Within a direction calls come in
+  order, and the direction waits for each.
+- **Half-close.** The end of one direction is reported, then passed on; the other direction goes
+  on, as without hooks. (Intercepted TLS closes the whole connection there instead, as before:
+  TLS peers differ in their support for half-close.)
+- **The fast path.** Without an interceptor, tunnels copy bytes through pooled buffers without
+  copying them again, as before; with one, each message gets an array of its own.
+
+**TLS that does not carry HTTP.** Once the client's TLS is intercepted, the proxy decides what
+the session is, as mitmproxy's next layer does inside TLS: an `h2` client is served as HTTP/2;
+the [TCP hosts](#raw-tcp-streams) are raw TCP; an ALPN protocol of HTTP/1 is HTTP and any other
+(`imap`, `mqtt`, ...) raw TCP; without ALPN, a server that speaks first (an SMTP banner) makes the
+session raw at once, while the proxy waits for the client's first bytes, and otherwise those bytes
+decide: a request line is HTTP, anything else raw TCP. A raw session is relayed between the
+decrypted streams through the TCP hooks, whose context says `tlsIntercepted()`, with the SNI and
+ALPN. With an interceptor, a client whose ALPN offers no HTTP protocol (an MQTT client offering
+`mqtt`, say) is intercepted rather than tunnelled: the server is offered the client's protocols
+and the client gets the server's choice. `acme-tls/1` (the ACME TLS-ALPN challenge) is never
+intercepted, since no certificate the proxy makes could answer it. Without an interceptor such
+clients are tunnelled untouched, as before.
+
+**TCP hosts.** `withTcpHosts(...)` (`--tcp-hosts`, `tcp_hosts`) is mitmproxy's `tcp_hosts`: each
+pattern is a regular expression searched for, ignoring case, in the target's host name and the
+client's SNI (without ports). Their connections are raw TCP even when they speak HTTP: plain
+bytes after a `CONNECT` are tunnelled rather than served as HTTP, and an intercepted TLS session
+is relayed decrypted. TLS is still intercepted, unlike with `--ignore-hosts`.
+
+**Limitations.** A session can be relayed as raw TCP only over a server connection of its own:
+one shared as an HTTP/2 connection, a pooled one or none at all (offline interception) leaves it
+served as HTTP. Bytes added with `send` do not pass through `tcpMessage`, unlike mitmproxy's
+injected messages. UDP is not proxied.
 
 ### Access logs
 

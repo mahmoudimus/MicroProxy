@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.tcp.TcpInterceptor;
 
 /** Configures and starts a {@link HttpProxyServer}. */
 public interface HttpProxyServerBootstrap {
@@ -542,6 +543,51 @@ public interface HttpProxyServerBootstrap {
     /** {@return the frame interceptor configured so far, or null} */
     default FrameInterceptor getFrameInterceptor() {
         return null;
+    }
+
+    /**
+     * Shows the bytes of every raw TCP tunnel to {@code interceptor}, which may rewrite, drop and
+     * add them (mitmproxy's {@code tcp_message} and related hooks; see {@link TcpInterceptor} for
+     * which tunnels). One per proxy: a later call replaces it, and null removes it. Without one
+     * (the default), tunnels copy bytes through pooled buffers and cost nothing extra.
+     *
+     * <p>With an interceptor, TLS that does not carry HTTP is intercepted too, so the hooks see it
+     * decrypted: a client whose ALPN offers only other protocols ({@code imap}, {@code mqtt}, ...)
+     * is intercepted, the server being offered the same protocols and the client getting the
+     * server's choice, rather than tunnelled (unless the other rules decline it; {@code
+     * acme-tls/1} never is). Whatever the interceptor, an intercepted session is relayed as raw
+     * TCP rather than served as HTTP when its ALPN protocol is not HTTP's, when its host is a
+     * {@linkplain #withTcpHosts TCP host}, or, without ALPN, when its decrypted bytes do not start
+     * like an HTTP request or its server speaks first (an SMTP banner).
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withTcpInterceptor(TcpInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TCP interception");
+    }
+
+    /** {@return the TCP interceptor configured so far, or null} */
+    default TcpInterceptor getTcpInterceptor() {
+        return null;
+    }
+
+    /**
+     * Hosts whose connections are relayed as raw TCP even when they look like HTTP (mitmproxy's
+     * {@code tcp_hosts}): plain bytes after a {@code CONNECT} are not served as HTTP, and an
+     * intercepted TLS session is relayed decrypted rather than served as HTTP, its bytes going
+     * through the {@link #withTcpInterceptor TCP hooks}. TLS is still intercepted, as for other
+     * hosts; use {@link #withIgnoreHosts} to leave it untouched. Each pattern is a regular
+     * expression searched for, ignoring case, in the target's host name and in the client's SNI
+     * (without the port, as mitmproxy matches them). Replaces earlier patterns; none by default.
+     *
+     * @param patterns the regular expressions
+     * @return this bootstrap
+     * @throws IllegalArgumentException if a pattern is not a valid regular expression
+     */
+    default HttpProxyServerBootstrap withTcpHosts(String... patterns) {
+        if (patterns.length == 0) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support TCP hosts");
     }
 
     /**

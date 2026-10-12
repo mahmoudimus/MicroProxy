@@ -84,6 +84,8 @@ final class Builtins {
         env.put("Frame", TypeConstructorValue.of(ScriptType.HTTP_FRAME_CONSTRUCTOR));
         env.put("FrameContext", TypeConstructorValue.of(ScriptType.FRAME_CONTEXT_CONSTRUCTOR));
         env.put("ClientHello", TypeConstructorValue.of(ScriptType.CLIENT_HELLO_CONSTRUCTOR));
+        env.put("TcpMessage", TypeConstructorValue.of(ScriptType.TCP_MESSAGE_CONSTRUCTOR));
+        env.put("TcpContext", TypeConstructorValue.of(ScriptType.TCP_CONTEXT_CONSTRUCTOR));
         PREDECLARED = env.buildOrThrow();
     }
 

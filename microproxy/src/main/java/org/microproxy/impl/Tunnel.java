@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLSocket;
 
@@ -17,7 +18,9 @@ import javax.net.ssl.SSLSocket;
  * long.
  *
  * <p>For upgraded WebSocket connections a {@link WebSocketRelay} can parse frames and pass them,
- * and whole messages, to hooks that may forward, replace or drop them.
+ * and whole messages, to hooks that may forward, replace or drop them. For raw tunnels the relay
+ * can pass the bytes of each read through a {@link TcpSession} instead; without either, bytes are
+ * copied through pooled buffers.
  */
 final class Tunnel {
 
@@ -41,45 +44,59 @@ final class Tunnel {
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
             Duration idleTimeout, String name, String logPrefix, BufferPool pool) {
         relay(clientSocket, clientIn, clientOut, serverSocket, serverIn, serverOut, idleTimeout, name, logPrefix,
-                null, pool);
+                null, null, pool);
     }
 
     /**
-     * Relays bytes, parsing WebSocket frames when {@code webSocket} is non-null.
+     * Relays bytes, parsing WebSocket frames when {@code webSocket} is non-null, or passing them
+     * through {@code tcp} when that is.
      *
      * @param logPrefix starts each log line, naming the client connection
      * @param webSocket the frame relay for an upgraded WebSocket connection, or null for raw bytes
+     * @param tcp the TCP hooks for a raw tunnel, or null
      */
     static void relay(
             Socket clientSocket, InputStream clientIn, OutputStream clientOut,
             Socket serverSocket, InputStream serverIn, OutputStream serverOut,
-            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, BufferPool pool) {
+            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, TcpSession tcp,
+            BufferPool pool) {
         Runnable closeAll = () -> {
             Tls.closeQuietly(clientSocket);
             Tls.closeQuietly(serverSocket);
         };
         relay(clientIn, clientOut, () -> halfClose(clientSocket), serverIn, serverOut, () -> halfClose(serverSocket),
-                closeAll, idleTimeout, name, logPrefix, webSocket, pool);
+                closeAll, idleTimeout, name, logPrefix, webSocket, tcp, pool);
     }
 
-    /** The same relay and frame hooks for sockets and multiplexed streams. */
+    /**
+     * The same relay, frame hooks and TCP hooks for sockets and multiplexed streams.
+     *
+     * @param webSocket the frame relay for an upgraded WebSocket connection, or null
+     * @param tcp sees the bytes of each read, or null (never together with {@code webSocket})
+     */
     static void relay(InputStream clientIn, OutputStream clientOut, HalfClose clientEnd,
             InputStream serverIn, OutputStream serverOut, HalfClose serverEnd, Runnable closeAll,
-            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, BufferPool pool) {
+            Duration idleTimeout, String name, String logPrefix, WebSocketRelay webSocket, TcpSession tcp,
+            BufferPool pool) {
         AtomicLong lastActivity = new AtomicLong(System.nanoTime());
         long idleNanos = idleTimeout == null ? 0 : idleTimeout.toNanos();
         Direction up = new Direction(clientIn, serverOut, serverEnd, lastActivity, idleNanos, true, pool, logPrefix);
         Direction down = new Direction(serverIn, clientOut, clientEnd, lastActivity, idleNanos, false, pool, logPrefix);
         if (webSocket != null) webSocket.attach(up, down);
-        Thread upstream = Thread.ofVirtual().name(name + "-up").start(() -> run(up, webSocket, closeAll));
-        run(down, webSocket, closeAll);
+        if (tcp != null) tcp.start(up.sink(), down.sink(), closeAll);
+        Thread upstream = null;
         try {
-            upstream.join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            upstream = Thread.ofVirtual().name(name + "-up").start(() -> run(up, webSocket, tcp, closeAll));
+            run(down, webSocket, tcp, closeAll);
+            try {
+                upstream.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         } finally {
             closeAll.run();
-            if (webSocket != null && !upstream.isAlive()) webSocket.end();
+            if (tcp != null) tcp.finish();
+            if (webSocket != null && upstream != null && !upstream.isAlive()) webSocket.end();
         }
     }
 
@@ -92,8 +109,13 @@ final class Tunnel {
         }
     }
 
-    private static void run(Direction d, WebSocketRelay webSocket, Runnable closeAll) {
+    private static void run(Direction d, WebSocketRelay webSocket, TcpSession tcp, Runnable closeAll) {
         try {
+            if (tcp != null) {
+                pumpTcp(d, tcp);
+                tcp.endOfStream(d.fromClient);
+                return;
+            }
             if (webSocket == null) {
                 d.copyAll();
             } else {
@@ -101,7 +123,37 @@ final class Tunnel {
             }
             d.halfClose();
         } catch (IOException | UnsupportedOperationException e) {
+            if (tcp != null) tcp.failed(d.fromClient, e instanceof IOException io ? io : new IOException(e));
             closeAll.run();
+        }
+    }
+
+    /**
+     * Hands the bytes of each read to {@code tcp} until end-of-stream. As {@link
+     * Direction#copyAll}, it holds no buffer while waiting for a quiet peer; each message gets an
+     * array of its own, as the interceptor may keep it.
+     */
+    private static void pumpTcp(Direction d, TcpSession tcp) throws IOException {
+        while (true) {
+            int first = d.readByte();
+            if (first < 0) return;
+            byte[] buf = d.pool.take();
+            byte[] data;
+            try {
+                buf[0] = (byte) first;
+                int n = 1;
+                // Everything that arrived with it, without waiting for more. (A read with input
+                // available returns what is there; some streams report only that there is some.)
+                while (n < buf.length && d.in.available() > 0) {
+                    int more = d.read(buf, n, buf.length - n);
+                    if (more <= 0) break;
+                    n += more;
+                }
+                data = Arrays.copyOf(buf, n);
+            } finally {
+                d.pool.give(buf);
+            }
+            tcp.message(d.fromClient, data);
         }
     }
 
@@ -253,6 +305,22 @@ final class Tunnel {
         void halfClose() throws IOException {
             out.flush();
             destination.close();
+        }
+
+        /** Where a {@link TcpSession} writes this direction's bytes. */
+        TcpSession.Sink sink() {
+            return new TcpSession.Sink() {
+                @Override
+                public void write(byte[] data) throws IOException {
+                    out.write(data, 0, data.length);
+                    out.flush();
+                }
+
+                @Override
+                public void end() throws IOException {
+                    halfClose();
+                }
+            };
         }
     }
 }

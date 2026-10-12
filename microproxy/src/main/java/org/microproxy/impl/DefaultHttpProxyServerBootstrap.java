@@ -41,6 +41,7 @@ import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.tcp.TcpInterceptor;
 
 /** Default {@link HttpProxyServerBootstrap}. */
 public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
@@ -64,6 +65,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     int transparentTlsPort = 443;
     /** Host patterns whose TLS is tunnelled untouched / the only ones intercepted. */
     List<String> ignoreHosts = List.of();
+    /** Hosts relayed as raw TCP even when they look like HTTP (mitmproxy's tcp_hosts). */
+    List<String> tcpHosts = List.of();
     List<String> allowHosts = List.of();
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     ReverseProxyMode reverseProxy;
@@ -114,6 +117,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Http2Options http2Options = Http2Options.DEFAULT;
     /** Sees every HTTP/2 frame; null for none. */
     FrameInterceptor frameInterceptor;
+    /** Sees the bytes of raw TCP tunnels; null for none. */
+    TcpInterceptor tcpInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -134,6 +139,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.transparent = transparent;
         c.transparentTlsPort = transparentTlsPort;
         c.ignoreHosts = ignoreHosts;
+        c.tcpHosts = tcpHosts;
         c.allowHosts = allowHosts;
         c.reverseProxy = reverseProxy;
         c.keepHostHeader = keepHostHeader;
@@ -174,6 +180,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.http2Cleartext = http2Cleartext;
         c.http2Options = http2Options;
         c.frameInterceptor = frameInterceptor;
+        c.tcpInterceptor = tcpInterceptor;
         return c;
     }
 
@@ -206,6 +213,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("allow_hosts")) {
             withAllowHosts(HostRules.split(p.getProperty("allow_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("tcp_hosts")) {
+            withTcpHosts(HostRules.split(p.getProperty("tcp_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("mode")) {
             String mode = p.getProperty("mode").strip();
@@ -519,6 +529,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withTcpHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.tcpHosts = rules;
+        return this;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withReverseProxy(ReverseProxyMode mode) {
         this.reverseProxy = mode;
         return this;
@@ -662,6 +680,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public FrameInterceptor getFrameInterceptor() {
         return frameInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTcpInterceptor(TcpInterceptor interceptor) {
+        this.tcpInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public TcpInterceptor getTcpInterceptor() {
+        return tcpInterceptor;
     }
 
     @Override
