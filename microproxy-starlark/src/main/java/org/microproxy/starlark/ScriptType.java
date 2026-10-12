@@ -129,6 +129,15 @@ final class ScriptType extends StarlarkType {
             "host", Types.union(Types.STR, Types.NONE),
             "message", Types.STR), false);
 
+    static final ScriptType PROTO_FIXED = new ScriptType("ProtoFixed", ProtoFixed.class, ImmutableMap.of(
+            "bits", Types.INT,
+            "value", Types.INT,
+            "signed", Types.INT,
+            "float", Types.FLOAT), false);
+
+    static final ScriptType PROTO_GROUP = new ScriptType("ProtoGroup", ProtoGroup.class, ImmutableMap.of(
+            "fields", Types.dict(Types.ANY, Types.ANY)), false);
+
     static final TypeConstructor REQUEST_CONSTRUCTOR = Types.wrapType("Request", REQUEST);
     static final TypeConstructor RESPONSE_CONSTRUCTOR = Types.wrapType("Response", RESPONSE);
     static final TypeConstructor HEADERS_CONSTRUCTOR = Types.wrapType("Headers", HEADERS);
@@ -136,6 +145,8 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor FRAME_CONSTRUCTOR = Types.wrapType("WebSocketFrame", FRAME);
     static final TypeConstructor FAILURE_CONSTRUCTOR = Types.wrapType("Failure", FAILURE);
     static final TypeConstructor TIMINGS_CONSTRUCTOR = Types.wrapType("Timings", TIMINGS);
+    static final TypeConstructor PROTO_FIXED_CONSTRUCTOR = Types.wrapType("ProtoFixed", PROTO_FIXED);
+    static final TypeConstructor PROTO_GROUP_CONSTRUCTOR = Types.wrapType("ProtoGroup", PROTO_GROUP);
     static final TypeConstructor HTTP_FRAME_CONSTRUCTOR = Types.wrapType("Frame", HTTP_FRAME);
     static final TypeConstructor FRAME_CONTEXT_CONSTRUCTOR = Types.wrapType("FrameContext", FRAME_CONTEXT);
     static final TypeConstructor CLIENT_HELLO_CONSTRUCTOR = Types.wrapType("ClientHello", CLIENT_HELLO);

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.microproxy.contentviews.ProtoSchema;
 import org.microproxy.starlark.stdlib.Stdlib;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Module;
@@ -89,12 +90,32 @@ public final class StarlarkScript {
     private final Module module;
     private final Limits limits;
     private final StarlarkSemantics semantics;
+    private final ProtoSchema protoSchema;
 
-    private StarlarkScript(String name, Module module, Limits limits, StarlarkSemantics semantics) {
+    private StarlarkScript(String name, Module module, Limits limits, StarlarkSemantics semantics,
+            ProtoSchema protoSchema) {
         this.name = name;
         this.module = module;
         this.limits = limits;
         this.semantics = semantics;
+        this.protoSchema = protoSchema;
+    }
+
+    /**
+     * This script with a protobuf schema for its {@code protobuf} and {@code grpc} modules, so that
+     * {@code protobuf.decode(data, type="pkg.Message")} decodes with field names (and {@code
+     * encode} takes them). The script itself is shared, not run again.
+     *
+     * @param schema the schema, or {@code null} for none (the well-known types only)
+     * @return the script with the schema
+     */
+    public StarlarkScript withProtoSchema(ProtoSchema schema) {
+        return new StarlarkScript(name, module, limits, semantics, schema);
+    }
+
+    /** {@return the protobuf schema the script decodes with, or {@code null}} */
+    public ProtoSchema protoSchema() {
+        return protoSchema;
     }
 
     /**
@@ -189,7 +210,7 @@ public final class StarlarkScript {
             }
         }
         // Closing the mutability froze the globals.
-        return new StarlarkScript(name, module, limits, semantics);
+        return new StarlarkScript(name, module, limits, semantics, null);
     }
 
     /** The labels of the file's load statements. */
@@ -248,7 +269,9 @@ public final class StarlarkScript {
         if (!(fn instanceof StarlarkCallable)) {
             throw Starlark.errorf("%s does not define %s()", name, function);
         }
-        return Starlark.call(newThread(mu, limits, semantics), fn, List.of(args), Map.of());
+        StarlarkThread thread = newThread(mu, limits, semantics);
+        if (protoSchema != null) thread.setThreadLocal(ProtoSchema.class, protoSchema);
+        return Starlark.call(thread, fn, List.of(args), Map.of());
     }
 
     private static StarlarkThread newThread(Mutability mu, Limits limits, StarlarkSemantics semantics) {

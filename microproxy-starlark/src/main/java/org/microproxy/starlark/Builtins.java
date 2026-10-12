@@ -46,7 +46,8 @@ import org.microproxy.thirdparty.starlark.lib.json.Json;
 /**
  * The names every proxy script sees besides the Starlark built-ins: {@code response()} and the
  * modules {@code json}, {@code re}, {@code base64}, {@code digest}, {@code codecs}, {@code url},
- * {@code time}, {@code log}, and {@code h2} and {@code h3}, which make frames for {@code on_frame}.
+ * {@code time}, {@code log}, {@code protobuf} and {@code grpc} (see {@link ProtoBuiltins}), and
+ * {@code h2} and {@code h3}, which make frames for {@code on_frame}.
  */
 final class Builtins {
 
@@ -62,6 +63,8 @@ final class Builtins {
         env.put("url", new UrlModule());
         env.put("time", new TimeModule());
         env.put("log", new LogModule());
+        env.put("protobuf", new ProtoBuiltins.ProtobufModule());
+        env.put("grpc", new ProtoBuiltins.GrpcModule());
         env.put("h2", new H2Module());
         env.put("h3", new H3Module());
         Starlark.addMethods(env, new Functions());
@@ -73,6 +76,8 @@ final class Builtins {
         env.put("WebSocketFrame", TypeConstructorValue.of(ScriptType.FRAME_CONSTRUCTOR));
         env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
+        env.put("ProtoFixed", TypeConstructorValue.of(ScriptType.PROTO_FIXED_CONSTRUCTOR));
+        env.put("ProtoGroup", TypeConstructorValue.of(ScriptType.PROTO_GROUP_CONSTRUCTOR));
         env.put("Frame", TypeConstructorValue.of(ScriptType.HTTP_FRAME_CONSTRUCTOR));
         env.put("FrameContext", TypeConstructorValue.of(ScriptType.FRAME_CONTEXT_CONSTRUCTOR));
         env.put("ClientHello", TypeConstructorValue.of(ScriptType.CLIENT_HELLO_CONSTRUCTOR));

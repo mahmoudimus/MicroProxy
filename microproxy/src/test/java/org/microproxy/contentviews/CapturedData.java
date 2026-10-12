@@ -1,0 +1,41 @@
+package org.microproxy.contentviews;
+
+/**
+ * Captured protobuf messages from mitmproxy's tests (test/mitmproxy/contentviews/test_protobuf_data
+ * and test_grpc_data; Copyright (c) 2013, Aldo Cortesi; MIT License, see
+ * META-INF/LICENSE-mitmproxy.txt), as hex.
+ */
+final class CapturedData {
+
+    private CapturedData() {}
+
+    /** protobuf01.bin: one string field. */
+    static final String PROTOBUF01 = "0a2433626263333333632d653631632d343333622d383139612d306239613863633130336238";
+
+    /**
+     * protobuf02.bin: a {@code FileDescriptorSet} as protoc writes it, for a proto2 file "tpbuf"
+     * with {@code message Person { required string name = 1; required int32 id = 2; optional
+     * string email = 3; repeated PhoneNumber phone = 4; message PhoneNumber { required string
+     * number = 1; optional PhoneType type = 2 [default = HOME]; } enum PhoneType { MOBILE = 0;
+     * HOME = 1; WORK = 2; } }}.
+     */
+    static final String DESCRIPTOR_SET = "0ad2010a05747062756622c8010a06506572736f6e120c0a046e616d6518012002"
+            + "2809120a0a026964180220022805120d0a05656d61696c18032001280912220a0570686f6e6518042003280b32132e50"
+            + "6572736f6e2e50686f6e654e756d6265721a440a0b50686f6e654e756d626572120e0a066e756d626572180120022809"
+            + "12250a047479706518022001280e32112e506572736f6e2e50686f6e65547970653a04484f4d45222b0a0950686f6e65"
+            + "54797065120a0a064d4f42494c45100012080a04484f4d45100112080a04574f524b1002";
+
+    /** protobuf03.bin: a group. */
+    static final String PROTOBUF03 = "1318801e20f01014";
+
+    /** gRPC msg3.bin: a geocoding response. */
+    static final String GRPC_MSG3 = "0a9f030a01151236313635302050656e6e73796c76616e6961204176656e7565204e572c"
+            + "2057617368696e67746f6e2c2044432032303530322c205553411a0f0a01221204313635301a04313635301a3a0a0102"
+            + "121d50656e6e73796c76616e6961204176656e7565204e6f727468776573741a1650656e6e73796c76616e696120417665"
+            + "6e7565204e571a300a02140412144e6f727468776573742057617368696e67746f6e1a144e6f72746877657374205761"
+            + "7368696e67746f6e1a1c0a020c04120a57617368696e67746f6e1a0a57617368696e67746f6e1a1e0a02060412144469"
+            + "737472696374206f6620436f6c756d6269611a0244431a0d0a02050412035553411a0255531a110a0117120532303530"
+            + "321a0532303530322a660a12092f8095e8d1724340112661f07a7a4253c010011a1209a3d76792b7724340112a61d33290"
+            + "4253c0221209c8138afa0f734340111743c2fe634253c02a120985ecbc8dcd724340112eda88cc814253c0321209e5fe34"
+            + "fff97243401113ca0c65724253c03a1b4368494a415869416f72793374346b52706b727661733964596d5112020815";
+}
