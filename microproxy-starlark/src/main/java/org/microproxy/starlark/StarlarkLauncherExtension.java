@@ -42,7 +42,7 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
                   --script-max-steps <n>       interpreter steps a hook call may run (default 10000000)
                   --script-max-time <time>     wall-clock budget of a hook call: 250ms, 5s, 1m (default 5s; 0 = none)
                   --script-max-alloc <bytes>   bytes of values a hook call may create, an estimate: 512k, 64m, 1g
-                                               (default 64m; 0 = no limit)
+                                               (default 256m; 0 = no limit)
                 """;
     }
 
