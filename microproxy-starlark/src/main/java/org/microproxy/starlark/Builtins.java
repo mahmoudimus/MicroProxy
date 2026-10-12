@@ -73,6 +73,8 @@ final class Builtins {
         env.put("h3", new H3Module());
         // The script's metrics: a proxy with metrics gives each script a module of its own registry.
         env.put("stats", ScriptStats.NOOP);
+        // The exchange's span, for the hook that runs for it (see ScriptTrace).
+        env.put("trace", ScriptTrace.MODULE);
         Starlark.addMethods(env, new Functions());
         // Names for annotations, as in `def on_request(req: Request, ctx: Context) -> Response | None`.
         env.put("Request", TypeConstructorValue.of(ScriptType.REQUEST_CONSTRUCTOR));

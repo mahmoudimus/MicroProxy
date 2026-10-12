@@ -2703,6 +2703,22 @@ def on_response(req, res, ctx):
     return None
 ```
 
+**The exchange's trace.** With a tracer ([OpenTelemetry](#opentelemetry)), `ctx.trace_id` and
+`ctx.span_id` are the exchange's trace id and the proxy's span id for it, in hex (`None` without
+one), and the `trace` module adds to that span: `trace.set_attribute(key, value)` (a string, bool,
+int, float or a list of those), `trace.add_event(name, attributes={})`, and
+`trace.is_recording()`, false when the exchange is not sampled and the calls would be ignored. In
+hooks that run for no exchange (the TCP, UDP and QUIC hooks) the calls do nothing. The span's
+[limits](#opentelemetry) bound what a script adds.
+
+```python
+def on_request(req, ctx):
+    trace.set_attribute("tenant", req.headers.get("x-tenant", "none"))
+    if trace.is_recording() and req.path.startswith("/admin"):
+        trace.add_event("admin.access", {"user": ctx.user or "anonymous"})
+    req.headers["X-Trace-Id"] = ctx.trace_id or "untraced"
+```
+
 **Deciding by the ClientHello.** `allow_mitm` runs when the `CONNECT` arrives, before the client
 has said which server name it wants. `on_client_hello` runs once it has, and later hooks of the
 session see the same ClientHello as `ctx.client_hello`:

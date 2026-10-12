@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.microproxy.contentviews.ProtoSchema;
+import org.microproxy.FlowTrace;
 import org.microproxy.stats.Counter;
 import org.microproxy.stats.Histogram;
 import org.microproxy.stats.StatsRegistry;
@@ -331,6 +332,12 @@ public final class StarlarkScript {
         }
         StarlarkThread thread = newThread(mu, limits, semantics);
         if (protoSchema != null) thread.setThreadLocal(ProtoSchema.class, protoSchema);
+        for (Object arg : args) {
+            // The trace module adds to the span of the exchange the hook runs for.
+            if (arg instanceof ScriptContext ctx && ctx.flow() != null) {
+                thread.setThreadLocal(FlowTrace.class, ctx.flow().trace());
+            }
+        }
         HookStats stats = hookStats;
         if (stats == null) return Starlark.call(thread, fn, List.of(args), Map.of());
         long start = System.nanoTime();

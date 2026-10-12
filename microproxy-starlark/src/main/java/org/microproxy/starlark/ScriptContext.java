@@ -35,7 +35,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * handshake. How the exchange is going: {@code failure}, why the proxy has to answer it itself (a
  * {@code Failure}, as {@code on_failure} gets it) or {@code None}, {@code response_flags}, the
  * Envoy-style flags so far as short codes ({@code ["UF"]}), and {@code response_code_details}
- * ({@code "proxy_failure:connect_failed"}, ...) or {@code None}.
+ * ({@code "proxy_failure:connect_failed"}, ...) or {@code None}. {@code trace_id} and {@code
+ * span_id} are the exchange's trace id and the proxy's span id for it, in hex, with a tracer
+ * ({@code microproxy-otel}), else {@code None}; the {@code trace} module adds to that span.
  */
 @StarlarkBuiltin(name = "context", doc = "The client and per-request scratch space.")
 public final class ScriptContext implements Structure {
@@ -43,7 +45,7 @@ public final class ScriptContext implements Structure {
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
                     "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data", "failure",
-                    "response_flags", "response_code_details");
+                    "response_flags", "response_code_details", "trace_id", "span_id");
 
     private final InetSocketAddress client;
     private final String user;
@@ -119,8 +121,19 @@ public final class ScriptContext implements Structure {
             }
             case "response_code_details" -> flow == null ? Starlark.NONE
                     : flow.responseCodeDetails().<Object>map(d -> d).orElse(Starlark.NONE);
+            case "trace_id" -> orNone(flow == null ? null : flow.trace().traceId());
+            case "span_id" -> orNone(flow == null ? null : flow.trace().spanId());
             default -> null;
         };
+    }
+
+    private static Object orNone(String s) {
+        return s == null ? Starlark.NONE : s;
+    }
+
+    /** {@return the client connection, or {@code null} where the hook gets no flow} */
+    FlowContext flow() {
+        return flow;
     }
 
     @Override
