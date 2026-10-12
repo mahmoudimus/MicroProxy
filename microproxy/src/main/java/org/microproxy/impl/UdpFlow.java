@@ -28,17 +28,23 @@ import org.microproxy.udp.UdpMessage;
 /**
  * One CONNECT-UDP flow (MASQUE, RFC 9298): the UDP payloads a client sends in HTTP Datagrams
  * (RFC 9297), with context ID 0, go to the target from a UDP socket of the flow's own, connected
- * to it, and the target's datagrams go back to the client the same way. The client's datagrams
- * arrive in QUIC DATAGRAM frames, which the connection hands over ({@link #fromClient}), or in
- * DATAGRAM capsules on the request stream, which {@link #run} reads; unknown capsules are skipped,
- * and payloads with another context ID dropped.
+ * to it, and the target's datagrams go back to the client the same way. The flow is the same
+ * whatever carries it: its {@link Client} is an HTTP/3 request stream, an HTTP/2 stream (extended
+ * {@code CONNECT}) or an HTTP/1.1 connection that switched to {@code connect-udp}. Over HTTP/3 the
+ * client's datagrams arrive in QUIC DATAGRAM frames, which the connection hands over ({@link
+ * #fromClient}), or in DATAGRAM capsules on the request stream; over HTTP/2 and HTTP/1.1, which
+ * have no datagrams, only in capsules (RFC 9297 section 3.5). {@link #run} reads the capsules:
+ * unknown ones are skipped, and payloads with another context ID dropped.
  *
  * <p>Each direction has a queue of bounded length and size, from which a thread of its own sends:
  * a datagram that finds its queue full is dropped, as a network drops what it cannot carry, so a
  * client that does not read its stream (where datagrams go as capsules) or a target that does not
- * keep up holds up neither the other direction nor the connection. The {@link UdpInterceptor}
- * runs on those threads. The flow ends when the client ends or resets its stream, when nothing
- * has moved either way for the idle timeout, or when its socket fails.
+ * keep up holds up neither the other direction nor the connection. A capsule to the client is
+ * stream data, which waits for flow control (the stream's and connection's windows in HTTP/2 and
+ * HTTP/3, TCP's in HTTP/1.1): while the sender to the client waits, later datagrams queue up to
+ * the bounds, and those past them are dropped and counted ({@link #dropped}). The {@link
+ * UdpInterceptor} runs on those threads. The flow ends when the client ends or resets its stream,
+ * when nothing has moved either way for the idle timeout, or when its socket fails.
  *
  * <p>Threads: the stream's (capsules, {@link #run}), one receiving from the target, one sending to
  * the target, one sending to the client. No {@code synchronized}: each queue has a lock and a
@@ -53,7 +59,10 @@ final class UdpFlow implements UdpContext {
     /** The capsule type of HTTP Datagrams on the stream (RFC 9297 section 3.5). */
     static final long DATAGRAM_CAPSULE = 0x00;
 
-    /** The client side of a flow: its request stream, and its connection's datagrams. */
+    /**
+     * The client side of a flow: its request stream (for HTTP/1.1, its connection), and for HTTP/3
+     * its connection's datagrams.
+     */
     interface Client {
         /** The stream's bytes after the response head: capsules (RFC 9297 section 3.2). */
         InputStream capsules();
@@ -63,8 +72,9 @@ final class UdpFlow implements UdpContext {
 
         /**
          * Sends an HTTP Datagram of the stream with {@code content} (a context ID, then the
-         * payload): in a QUIC DATAGRAM frame when the client accepts them and it fits, else in a
-         * DATAGRAM capsule on the stream, which waits for flow control.
+         * payload): over HTTP/3 in a QUIC DATAGRAM frame when the client accepts them and it fits,
+         * else in a DATAGRAM capsule on the stream ({@link #datagramCapsule}), which waits for flow
+         * control.
          *
          * @return whether it went in a DATAGRAM capsule
          */
@@ -74,13 +84,27 @@ final class UdpFlow implements UdpContext {
         void endFlow(boolean clean);
 
         /**
-         * Routes the stream's HTTP Datagrams to {@code flow}; false if the client connection may
-         * have no more flows.
+         * Routes the stream's HTTP Datagrams to {@code flow}, counting it against the client
+         * connection's flows; false if the connection may have no more.
          */
         boolean attach(UdpFlow flow);
 
         /** The flow ended: its datagrams go nowhere from now on. */
         void detach(UdpFlow flow);
+    }
+
+    /**
+     * A DATAGRAM capsule (RFC 9297 section 3.5) carrying {@code content}, an HTTP Datagram's
+     * context ID and payload: the capsule type, the content's length, then the content.
+     */
+    static byte[] datagramCapsule(byte[] content) {
+        byte[] type = QuicVarInt.encode(DATAGRAM_CAPSULE);
+        byte[] length = QuicVarInt.encode(content.length);
+        byte[] capsule = new byte[type.length + length.length + content.length];
+        System.arraycopy(type, 0, capsule, 0, type.length);
+        System.arraycopy(length, 0, capsule, type.length, length.length);
+        System.arraycopy(content, 0, capsule, type.length + length.length, content.length);
+        return capsule;
     }
 
     /** A datagram waiting to be sent, and whether it was {@linkplain #send injected} (hooks skip it). */

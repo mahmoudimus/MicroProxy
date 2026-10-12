@@ -4,6 +4,7 @@ import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketException;
@@ -47,10 +48,18 @@ import org.microproxy.http.LastHttpContent;
  * {@code CONNECT} stream as a socket for TLS. A {@code 100 Continue} is
  * sent only to a client that asked for it; other interim responses are forwarded as interim
  * HEADERS.
+ *
+ * <p>CONNECT-UDP (RFC 9298 section 3.4): on a forward proxy's connection, an extended {@code
+ * CONNECT} with {@code :protocol connect-udp} is the client of a {@link UdpFlow}, whose datagrams
+ * travel both ways as DATAGRAM capsules in the stream's DATA (HTTP/2 has no datagrams of its own).
+ * The capsules to the client wait for send window like any DATA; the flow drops what queues up
+ * meanwhile past its bounds.
  */
-final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientChannel, StreamSocket.Stream {
+final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientChannel, StreamSocket.Stream, UdpFlow.Client {
 
     private static final Object CANCELLED = new Object();
+    /** How long a CONNECT-UDP flow's clean end waits for a capsule being written, before resetting. */
+    private static final long FLOW_END_WAIT_MILLIS = 250;
 
     final Http2Connection connection;
     private final ClientFlowContext flow;
@@ -96,6 +105,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     volatile boolean tunnelOpen;
     /** The stream, shown as a socket ({@link #tunnelSocket}), was closed: reads fail. */
     private boolean inputClosed;
+    /** The stream carries a CONNECT-UDP flow, counted against the connection's. */
+    boolean udpFlow;
 
     // The stream thread's own.
     private boolean headersSent;
@@ -263,10 +274,11 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     @Override
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
         int code = response.status().code();
-        if ("websocket".equals(protocol) ? code == 101 : code / 100 == 2 && ProxyUtils.isCONNECT(request)) {
-            // The response opens a tunnel: HEADERS :status 200 without END_STREAM. DATA are tunnel
-            // bytes, not a message body: even a FullHttpResponse with an empty payload must leave
-            // the stream open. The 101 itself stays as filters and trackers saw it.
+        if (upgrade() ? code == 101 : code / 100 == 2 && ProxyUtils.isCONNECT(request)) {
+            // The response opens a tunnel (or a CONNECT-UDP flow's capsules): HEADERS :status 200
+            // without END_STREAM. DATA are tunnel bytes, not a message body: even a
+            // FullHttpResponse with an empty payload must leave the stream open. The 101 itself
+            // stays as filters and trackers saw it.
             HttpHeaders headers = response.headers().copy();
             headers.remove("Sec-WebSocket-Accept");
             headers.remove(HttpHeaderNames.CONTENT_LENGTH);
@@ -453,6 +465,90 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
         }
     }
 
+    /**
+     * Whether the stream is an extended {@code CONNECT} that filters see as an HTTP/1.1 upgrade
+     * (a WebSocket, or CONNECT-UDP), which a {@code 101} accepts.
+     */
+    private boolean upgrade() {
+        return "websocket".equals(protocol) || ClientConnection.CONNECT_UDP.equals(protocol);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // CONNECT-UDP (RFC 9298): DATAGRAM capsules both ways in the stream's DATA
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * The stream as a CONNECT-UDP flow's client: for {@code :protocol connect-udp} on a connection
+     * to the proxy's own listener (h2c, or its TLS listener), not in an intercepted session. (A
+     * proxy that does not serve CONNECT-UDP, a reverse proxy among them, answers it {@code 501}.)
+     */
+    @Override
+    public UdpFlow.Client udpClient() {
+        return ClientConnection.CONNECT_UDP.equals(protocol) && connection.ownListener() ? this : null;
+    }
+
+    @Override
+    public boolean attach(UdpFlow flow) {
+        return connection.addUdpFlow(this);
+    }
+
+    @Override
+    public void detach(UdpFlow flow) {
+        connection.removeUdpFlow(this);
+    }
+
+    @Override
+    public InputStream capsules() {
+        return body.asInputStream();
+    }
+
+    /** Always a DATAGRAM capsule, in DATA that waits for send window, as the tunnel's bytes do. */
+    @Override
+    public boolean sendDatagram(byte[] content) throws IOException {
+        byte[] capsule = UdpFlow.datagramCapsule(content);
+        tunnelOutput.lock();
+        try {
+            if (responseEnded) throw new SocketException("the stream's output has ended");
+            sendData(capsule, 0, capsule.length, false, true);
+        } finally {
+            tunnelOutput.unlock();
+        }
+        return true;
+    }
+
+    /**
+     * Ends the flow's stream, after which what the client still sends is read no more: cleanly
+     * with END_STREAM, once a capsule being written on the flow's sender thread is out (the client
+     * may have read it already and ended its side meanwhile), or by resetting it, when not clean or
+     * when that capsule waits for send window for longer than {@link #FLOW_END_WAIT_MILLIS}.
+     */
+    @Override
+    public void endFlow(boolean clean) {
+        connection.stateLock.lock();
+        try {
+            inputClosed = true;
+            changed.signalAll();
+        } finally {
+            connection.stateLock.unlock();
+        }
+        boolean ended = false;
+        try {
+            if (clean && tunnelOutput.tryLock(FLOW_END_WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
+                try {
+                    if (!responseEnded) sendData(Http2Endpoint.EMPTY, 0, 0, true, true);
+                    ended = true;
+                } finally {
+                    tunnelOutput.unlock();
+                }
+            }
+        } catch (IOException e) {
+            // reset below
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!ended) close();
+    }
+
     @Override
     public void reject(HttpResponseStatus status) {
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, status, status.reasonPhrase());
@@ -523,7 +619,7 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
         @Override
         public boolean hasBody() {
-            return !"websocket".equals(protocol) && !emptyRequest && declaredLength != 0;
+            return !upgrade() && !emptyRequest && declaredLength != 0;
         }
 
         @Override

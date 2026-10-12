@@ -6,8 +6,10 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -32,9 +34,13 @@ import org.microproxy.http.LastHttpContent;
  * <p>Besides the channel operations, it reads request heads ({@link #awaitRequest}, {@link
  * #readRequest}), which is how pipelining works: unread pipelined requests simply wait in the
  * buffer. It also turns the connection into TLS ({@link #startTls}), for the TLS listener and for
- * intercepted {@code CONNECT}s. The connection loop in {@link ClientConnection} drives those.
+ * intercepted {@code CONNECT}s. The connection loop in {@link ClientConnection} drives those. After
+ * an HTTP/1.1 CONNECT-UDP upgrade the connection carries the flow's capsules ({@link #udpClient}).
  */
 final class Http1ClientChannel implements ClientChannel {
+
+    /** How long a CONNECT-UDP flow's clean end waits for a capsule being written, before closing. */
+    private static final long FLOW_END_WAIT_MILLIS = 250;
 
     private final DefaultHttpProxyServer server;
     private final ClientFlowContext flowContext;
@@ -363,6 +369,85 @@ final class Http1ClientChannel implements ClientChannel {
                 conn.tunnelInput(), conn.tunnelOutput(), conn::endTunnelOutput,
                 () -> { close(); conn.close(); },
                 server.getIdleConnectionTimeout(), name, logPrefix, webSocket, tcp, server.ioBuffers, counted);
+    }
+
+    /**
+     * The connection as the client of a CONNECT-UDP flow, for an exchange that the proxy took for
+     * an HTTP/1.1 CONNECT-UDP request (RFC 9298 section 3.2): once its {@code 101} is written, the
+     * connection carries capsules both ways, and the connection closes when the flow ends.
+     */
+    @Override
+    public UdpFlow.Client udpClient() {
+        return new UdpClient();
+    }
+
+    /** The connection's bytes after the {@code 101}, as a CONNECT-UDP flow's capsules. */
+    private final class UdpClient implements UdpFlow.Client {
+        /** Serializes writing a capsule with ending the output from another thread. */
+        private final ReentrantLock output = new ReentrantLock();
+
+        @Override
+        public InputStream capsules() {
+            return in.asInputStream();
+        }
+
+        @Override
+        public void setReadTimeout(int millis) {
+            try {
+                socket.setSoTimeout(millis);
+            } catch (SocketException e) {
+                // the connection is failing: the next read says so
+            }
+        }
+
+        /** Always a DATAGRAM capsule, written as TCP takes it. */
+        @Override
+        public boolean sendDatagram(byte[] content) throws IOException {
+            byte[] capsule = UdpFlow.datagramCapsule(content);
+            output.lock();
+            try {
+                out.write(capsule);
+                out.flush();
+            } finally {
+                output.unlock();
+            }
+            return true;
+        }
+
+        /**
+         * Ends the connection's output when {@code clean} (the client reads its end), once a capsule
+         * being written on the flow's sender thread is out, unless TCP holds it up for longer than
+         * {@link #FLOW_END_WAIT_MILLIS}; otherwise closes the connection.
+         */
+        @Override
+        public void endFlow(boolean clean) {
+            try {
+                if (clean && output.tryLock(FLOW_END_WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
+                    try {
+                        Tunnel.halfClose(socket);
+                        return;
+                    } finally {
+                        output.unlock();
+                    }
+                }
+            } catch (IOException e) {
+                // closed below
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            closeSocket();
+        }
+
+        /** One flow on the connection, which the per-connection bound always allows. */
+        @Override
+        public boolean attach(UdpFlow flow) {
+            return true;
+        }
+
+        @Override
+        public void detach(UdpFlow flow) {
+            // the connection closes with the flow
+        }
     }
 
     @Override

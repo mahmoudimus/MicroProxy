@@ -210,6 +210,11 @@ public final class Launcher {
               --no-http3-alt-svc           with --http3, do not advertise it with Alt-Svc
               --http3-retry                validate QUIC clients' addresses with a Retry first
                                            (--http3 and --transparent-quic-port)
+              --masque                     serve CONNECT-UDP (MASQUE) on the TCP listener, also
+                                           without --http3: over HTTP/2 (--http2, --http2-cleartext)
+                                           and as HTTP/1.1 Upgrade: connect-udp, in DATAGRAM
+                                           capsules; a forward proxy with --http3 serves it there
+                                           anyway; needs the quic and http3-codec jars
               --masque-udp-template <t>    the URI template of CONNECT-UDP requests (default
                                            /.well-known/masque/udp/{target_host}/{target_port}/)
               --masque-udp-idle-timeout <seconds>  close a CONNECT-UDP flow after this long without
@@ -635,6 +640,7 @@ public final class Launcher {
                 case "--http3-max-streams" -> http3MaxStreams = intValue(queue, arg);
                 case "--no-http3-alt-svc" -> noHttp3AltSvc = true;
                 case "--http3-retry" -> http3Retry = true;
+                case "--masque" -> bootstrap.withConnectUdp(true);
                 case "--masque-udp-template" -> masqueTemplate = value(queue, arg);
                 case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
                 case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
