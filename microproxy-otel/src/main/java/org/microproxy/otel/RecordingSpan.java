@@ -169,7 +169,13 @@ final class RecordingSpan extends PropagatedTrace {
         }
         SpanLimits limits = telemetry.limits;
         long duration = record.durationNanos();
-        long end = duration >= 0 ? startEpochNanos + duration : Telemetry.epochNanos();
+        // The record's times run from the request's first byte, a few microseconds before this span
+        // started: the span ends no earlier than its attempts, and its events fall inside it.
+        long measured = duration >= 0 ? startEpochNanos + duration : Telemetry.epochNanos();
+        for (Attempt attempt : tried) {
+            if (attempt.ended) measured = Math.max(measured, epoch(attempt.endNanoTime));
+        }
+        long end = Math.max(startEpochNanos, measured);
         boolean http = record.kind().isHttp();
 
         Attrs a = new Attrs(limits.maxAttributes(), limits.maxAttributeValueLength());
@@ -188,7 +194,7 @@ final class RecordingSpan extends PropagatedTrace {
             }
             Attrs ea = new Attrs(limits.maxAttributesPerEvent(), limits.maxAttributeValueLength());
             if (key != null) ea.put(key, nanos / 1_000_000.0);
-            spanEvents.add(new OtlpData.Event(time, name, ea));
+            spanEvents.add(new OtlpData.Event(Math.min(end, Math.max(startEpochNanos, time)), name, ea));
         }, record.timings(), startEpochNanos);
         spanEvents.addAll(added);
         spanEvents.sort((x, y) -> Long.compare(x.timeNanos(), y.timeNanos()));
@@ -198,7 +204,7 @@ final class RecordingSpan extends PropagatedTrace {
         String name = http ? (request.isConnect() ? "CONNECT" : spanName(request.method()))
                 : Semconv.flowName(record.kind(), request);
         telemetry.export(new OtlpData.Span(traceIdHigh, traceIdLow, spanId, parentSpanId, traceState, flags, name,
-                http ? OtlpData.KIND_SERVER : OtlpData.KIND_INTERNAL, startEpochNanos, Math.max(startEpochNanos, end), a,
+                http ? OtlpData.KIND_SERVER : OtlpData.KIND_INTERNAL, startEpochNanos, end, a,
                 List.copyOf(spanEvents), droppedTotal[0], error ? OtlpData.STATUS_ERROR : OtlpData.STATUS_UNSET,
                 error ? record.responseCodeDetails() : null));
 
