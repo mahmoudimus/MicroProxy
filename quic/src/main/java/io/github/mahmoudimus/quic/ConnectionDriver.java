@@ -4,6 +4,7 @@ import io.github.mahmoudimus.quic.connection.Connection;
 import io.github.mahmoudimus.quic.connection.ConnectionError;
 import io.github.mahmoudimus.quic.connection.ConnectionEvent;
 import io.github.mahmoudimus.quic.connection.NanoClock;
+import io.github.mahmoudimus.quic.connection.Transmit;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -35,7 +36,7 @@ final class ConnectionDriver implements Runnable {
     /** Datagrams handled per wake-up in each direction. */
     private static final int BATCH = 64;
 
-    private record Inbound(InetSocketAddress from, ByteBuffer datagram) {}
+    private record Inbound(InetSocketAddress local, InetSocketAddress from, ByteBuffer datagram) {}
 
     private final EndpointDriver endpoint;
     private final Connection conn;
@@ -57,6 +58,12 @@ final class ConnectionDriver implements Runnable {
     private boolean acceptedEarly;
     private ConnectionError lost;
     private boolean terminated;
+    /** The socket a client connection sends from; null for the endpoint's first one on a server. */
+    private EndpointDriver.Socket socket;
+    /** The socket of the path a client probes, until it switches there or gives up. */
+    private EndpointDriver.Socket probing;
+    /** The outcome of the last migration: true once switched, false once failed, null while probing. */
+    private Boolean migrated;
 
     ConnectionDriver(EndpointDriver endpoint, Connection conn, boolean server) {
         this.endpoint = endpoint;
@@ -85,9 +92,18 @@ final class ConnectionDriver implements Runnable {
         return endpoint.clock.nanoTime();
     }
 
-    /** Queues a received datagram and wakes the driver; drops it if the queue is full. */
-    void deliver(InetSocketAddress from, ByteBuffer datagram) {
-        if (!inbound.offer(new Inbound(from, datagram))) {
+    /** Sets the socket a new client connection sends from; before it starts. */
+    void useSocket(EndpointDriver.Socket socket) {
+        this.socket = socket;
+    }
+
+    /**
+     * Queues a received datagram and wakes the driver; drops it if the queue is full.
+     *
+     * @param local the local address it arrived at, null for the endpoint's first socket
+     */
+    void deliver(InetSocketAddress local, InetSocketAddress from, ByteBuffer datagram) {
+        if (!inbound.offer(new Inbound(local, from, datagram))) {
             droppedDatagrams.incrementAndGet();
         }
         wake();
@@ -116,6 +132,8 @@ final class ConnectionDriver implements Runnable {
             }
             endpoint.forget(conn);
         } finally {
+            EndpointDriver.Socket last;
+            EndpointDriver.Socket probe;
             lock.lock();
             try {
                 terminated = true;
@@ -123,21 +141,29 @@ final class ConnectionDriver implements Runnable {
                     ConnectionError reason = conn.closeReason();
                     lost = reason != null ? reason : ConnectionError.of(ConnectionError.Kind.LOCALLY_CLOSED);
                 }
+                last = socket;
+                probe = probing;
+                socket = null;
+                probing = null;
                 changed.signalAll();
             } finally {
                 lock.unlock();
             }
             endpoint.remove(this);
+            endpoint.release(probe, null);
+            endpoint.release(last, null);
         }
     }
 
     private void loop() {
         while (!stopped) {
             wakeRequested.set(false);
-            List<ByteBuffer> out;
+            List<Transmit> out;
             boolean more;
             long deadline;
             boolean drained;
+            EndpointDriver.Socket left;
+            EndpointDriver.Socket current;
             lock.lock();
             try {
                 long now = now();
@@ -146,7 +172,7 @@ final class ConnectionDriver implements Runnable {
                     if (in == null) {
                         break;
                     }
-                    conn.handleDatagram(now, in.from(), 0, in.datagram());
+                    conn.handleDatagram(now, in.local(), in.from(), 0, in.datagram());
                 }
                 long timeout = conn.pollTimeout();
                 if (timeout != NanoClock.NONE && timeout <= now) {
@@ -164,12 +190,18 @@ final class ConnectionDriver implements Runnable {
                 drained = conn.isDrained();
                 more = !inbound.isEmpty() || out.size() >= BATCH;
                 deadline = conn.pollTimeout();
+                left = this.left;
+                current = socket;
+                this.left = null;
             } finally {
                 lock.unlock();
             }
-            InetSocketAddress remote = conn.remoteAddress();
-            for (ByteBuffer d : out) {
-                endpoint.send(d, remote);
+            for (Transmit t : out) {
+                endpoint.send(t.datagram(), t.destination(), t.source());
+            }
+            if (left != null) {
+                // After what went out: the last datagrams from the old socket are sent
+                endpoint.release(left, current);
             }
             if (drained) {
                 return;
@@ -212,10 +244,65 @@ final class ConnectionDriver implements Runnable {
                     }
                 }
                 case ConnectionEvent.ConnectionLost l -> lost = l.reason();
+                case ConnectionEvent.PathUpdated u -> {
+                    if (probing != null && probing.address.equals(u.local())) {
+                        // A client switched to the path it probed: the old socket goes once unused
+                        left = socket;
+                        socket = probing;
+                        probing = null;
+                        migrated = Boolean.TRUE;
+                    }
+                }
+                case ConnectionEvent.PathProbeFailed f -> {
+                    if (probing != null && probing.address.equals(f.local())) {
+                        left = probing;
+                        probing = null;
+                        migrated = Boolean.FALSE;
+                    }
+                }
                 default -> {}
             }
         }
         return any;
+    }
+
+    /** A socket the connection no longer sends from, released after the next send; guarded by lock. */
+    private EndpointDriver.Socket left;
+
+    /**
+     * Starts a client's migration to {@code next} (bound, its user counted); called with the lock
+     * held. The connection probes the path and switches if the server answers, or switches at once
+     * without {@code probe}.
+     *
+     * @throws IllegalStateException if the connection cannot migrate now
+     */
+    void startMigration(EndpointDriver.Socket next, boolean probe) {
+        if (probing != null) {
+            throw new IllegalStateException("a migration is under way");
+        }
+        if (probe) {
+            conn.probePath(now(), next.address);
+        } else {
+            conn.rebind(now(), next.address);
+        }
+        probing = next;
+        migrated = null;
+    }
+
+    /** The outcome of the last migration, or null while it is under way; called with the lock held. */
+    Boolean migrated() {
+        return migrated;
+    }
+
+    /** The bound address of the socket the connection sends from, or null for an unbound endpoint. */
+    InetSocketAddress socketAddress() {
+        lock.lock();
+        try {
+            EndpointDriver.Socket s = socket;
+            return s != null ? s.address : null;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** Closes the connection as its endpoint shuts down. */

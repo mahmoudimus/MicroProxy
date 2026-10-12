@@ -109,6 +109,10 @@ async def main(args):
     configuration.load_cert_chain(args.certificate, args.private_key)
     if args.secrets_log:
         configuration.secrets_log_file = open(args.secrets_log, "a")
+    if args.qlog:
+        from aioquic.quic.logger import QuicFileLogger
+
+        configuration.quic_logger = QuicFileLogger(args.qlog)
     tickets = {}
     server = await serve(
         args.host,
@@ -137,4 +141,5 @@ if __name__ == "__main__":
     parser.add_argument("--retry", action="store_true")
     parser.add_argument("--tickets", action="store_true", help="issue session tickets and accept 0-RTT")
     parser.add_argument("--secrets-log")
+    parser.add_argument("--qlog", help="a directory for qlog files, one per connection, written as it closes")
     asyncio.run(main(parser.parse_args()))

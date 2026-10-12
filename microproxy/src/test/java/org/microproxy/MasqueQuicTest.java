@@ -1,5 +1,6 @@
 package org.microproxy;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -100,8 +101,10 @@ class MasqueQuicTest {
                 });
     }
 
-    /** A MASQUE client's flow to {@code host:port}, bridged to a local UDP socket. */
-    private MasqueBridge flowTo(String host, int port) throws IOException {
+    /** A CONNECT-UDP flow to {@code host:port}, on a MASQUE client of its own. */
+    private record Flow(H3TestClient masque, H3TestClient.Tunnel tunnel) {}
+
+    private Flow connectUdp(String host, int port) throws IOException {
         H3TestClient masque = H3TestClient.connect(
                 new InetSocketAddress(TestSupport.LOOPBACK, proxy.getListenAddress().getPort()), "localhost",
                 TLS.getCertificate());
@@ -111,7 +114,13 @@ class MasqueQuicTest {
                 new HeaderField("capsule-protocol", "?1"));
         H3TestClient.Tunnel tunnel = masque.open(request);
         assertEquals(200, tunnel.status);
-        MasqueBridge bridge = new MasqueBridge(masque, tunnel);
+        return new Flow(masque, tunnel);
+    }
+
+    /** A MASQUE client's flow to {@code host:port}, bridged to a local UDP socket. */
+    private MasqueBridge flowTo(String host, int port) throws IOException {
+        Flow flow = connectUdp(host, port);
+        MasqueBridge bridge = new MasqueBridge(flow.masque(), flow.tunnel());
         closeables.add(bridge);
         return bridge;
     }
@@ -218,6 +227,53 @@ class MasqueQuicTest {
         eventually("quicStart", () -> !hooks.isEmpty());
         assertEquals("start " + HOST + " " + QuicStreamHooksTest.ALPN + " " + HOST + ":" + origin.port() + " masque=true",
                 hooks.getFirst());
+        assertEquals(List.of(HOST + " true ALPN [" + QuicStreamHooksTest.ALPN + "]"), decisions);
+    }
+
+    /**
+     * The MASQUE client carries an intercepted connection over to a new CONNECT-UDP flow in the
+     * middle of a transfer, and ends the old flow: the proxy's connection to the client follows it
+     * there (validating the path through the new flow) and stays open; the inner client then moves
+     * to a new local port as well.
+     *
+     * <p>The proxy's connection is on the new flow once a packet the client sent through it arrived
+     * (and closes with the flow it is on): the old flow ends only after a stream echoed through the
+     * new one, since the transfer may be over before the move, the client then having nothing more
+     * to send.
+     */
+    @Test
+    void anInterceptedConnectionFollowsItsClientToAnotherFlow() throws Exception {
+        QuicEchoOrigin origin = new QuicEchoOrigin(originCa, QuicStreamHooksTest.ALPN);
+        closeables.add(origin);
+        proxy = forwardProxy().withQuicInterceptor((message, stream) -> message.data()).start();
+        MasqueBridge bridge = flowTo(HOST, origin.port());
+        Flow next = connectUdp(HOST, origin.port()); // ready before the transfer, to move in its middle
+        ClientConfig config = ClientConfig.builder(TlsConfig.builder()
+                .alpnProtocols(QuicStreamHooksTest.ALPN)
+                .serverName(HOST)
+                .trustManager(H3TestClient.trusting(proxyCa.getCertificate()))
+                .build()).build();
+        try (QuicClient client = QuicClient.create(config);
+                QuicConnection c = client.connect(bridge.address(), HOST, Duration.ofSeconds(10))) {
+            byte[] data = QuicMigrationProxyTest.data(11, 2 << 20);
+            java.util.concurrent.atomic.AtomicLong received = new java.util.concurrent.atomic.AtomicLong();
+            java.util.concurrent.CompletableFuture<byte[]> echoed = QuicMigrationProxyTest.echo(c, data, received);
+            eventually("a quarter echoed", () -> received.get() > data.length / 4);
+            H3TestClient.Tunnel old = bridge.moveTo(next.masque(), next.tunnel());
+            assertArrayEquals(QuicMigrationProxyTest.sha256(data), echoed.get(60, TimeUnit.SECONDS));
+            byte[] more = QuicMigrationProxyTest.data(12, 200_000);
+            assertArrayEquals(QuicMigrationProxyTest.sha256(more),
+                    QuicMigrationProxyTest.echo(c, more, new java.util.concurrent.atomic.AtomicLong()).get(30, TimeUnit.SECONDS));
+            assertTrue(bridge.receivedThrough(next.tunnel()) > 0, "the proxy answers through the new flow");
+            old.end(); // the flow the connection left ends: the connection stays
+            assertArrayEquals(QuicMigrationProxyTest.sha256(more),
+                    QuicMigrationProxyTest.echo(c, more, new java.util.concurrent.atomic.AtomicLong()).get(30, TimeUnit.SECONDS));
+            c.migrate(new InetSocketAddress(TestSupport.LOOPBACK, 0));
+            assertArrayEquals(QuicMigrationProxyTest.sha256(more),
+                    QuicMigrationProxyTest.echo(c, more, new java.util.concurrent.atomic.AtomicLong()).get(30, TimeUnit.SECONDS));
+            assertTrue(c.isOpen());
+            c.close(0, "done");
+        }
         assertEquals(List.of(HOST + " true ALPN [" + QuicStreamHooksTest.ALPN + "]"), decisions);
     }
 

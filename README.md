@@ -1744,6 +1744,30 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
   connection IDs the proxy issued (so they survive the client moving to new ones); relayed flows
   by the client address and the connection IDs seen in their long headers, and otherwise to the
   client address's most recently active flow (servers issue more IDs in encrypted frames).
+- **Clients that move** (QUIC connection migration, RFC 9000 section 9: a NAT that rebinds the
+  client to a new port, a phone that goes from Wi-Fi to cellular, a client that migrates on
+  purpose). An intercepted connection, HTTP/3 or [stream by stream](#quic-stream-hooks), follows
+  its client as any QUIC server does: its datagrams are routed by connection ID from any address,
+  the proxy validates the new path with PATH_CHALLENGE, sends there no more than three times what
+  it received until the client answers, keeps the congestion state for a new port and starts it
+  over for a new address, goes back to the old path if the new one does not answer, and answers
+  from the new path. The proxy's own connection to the server (stream by stream, and HTTP/3 to
+  origins) stays where it is. A relayed flow is harder: the proxy cannot read the client's packets,
+  nor the encrypted frames in which the server gives the client the connection IDs it moves to.
+  A short header packet from an address with no flow goes to the relayed flow that knows its
+  connection ID (from any address), else to the flow of the same client IP address whose known
+  server IDs share the longest prefix of at least 4 bytes with it (servers that encode routing in
+  their IDs), else to that IP address's most recently active relayed flow, which is what a NAT
+  rebinding needs. The flow then sends the server's datagrams to the new address, as a NAT sends
+  replies to its latest mapping, and learns the client's new ID when the server's IDs all have
+  one length. Limits: a relayed client that changes both IP address and connection ID is found
+  only by an ID prefix; with several relayed flows from one IP address the fallback may pick the
+  wrong one; and since the proxy can neither validate the new address nor tell a newer packet from
+  a replayed one, a sender that can spoof the client's IP address with one of the flow's
+  connection IDs can turn its replies elsewhere until the client sends again (the end-to-end
+  connection stays the client's: the server, whose path to the proxy does not change, validates
+  nothing). A server that sends `disable_active_migration` is not migrated away from by clients
+  that honour it.
 - **Versions.** A new client offering a version the proxy cannot read gets Version Negotiation
   (v1, v2), since its destination is in a ClientHello the proxy cannot decrypt; on an existing
   relayed flow, other versions are relayed like anything else.
@@ -1802,10 +1826,8 @@ UDP flow (`nf_conntrack_udp_timeout_stream`, 120 s by default) should outlive th
 timeout. TPROXY needs a listening socket with `IP_TRANSPARENT`, which the JDK cannot set, and
 replies sent from the original destination address, which the JDK cannot do either: it does not
 work with MicroProxy as it is. Relayed flows reach servers from a new UDP socket each, so a
-firewall in front of the proxy sees each as a flow of its own. A client that moves to another
-address (QUIC connection migration) is not followed: its datagrams from the new address belong to
-no flow, and are dropped (intercepted connections drop them too, as the QUIC module does not
-migrate connections yet).
+firewall in front of the proxy sees each as a flow of its own. A client the NAT maps to a new port
+is followed (see **Clients that move** above).
 
 #### QUIC stream hooks
 
@@ -2004,11 +2026,17 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
 - **MASQUE.** QUIC inside a CONNECT-UDP flow is intercepted only with `--masque-intercept-quic`,
   and a flow is inspected from its first datagram: one that starts with anything but a QUIC
   Initial is relayed as UDP throughout, and once one of its QUIC connections is relayed, so is the
-  rest of the flow. QUIC that moves between flows (connection migration) is not followed. CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
+  rest of the flow. An intercepted connection that its client carries over to another CONNECT-UDP
+  flow to the same target follows it there (a flow whose first datagram belongs to the connection
+  goes to the proxy's QUIC server, which validates the path through the new flow), and closes when
+  the flow it is on ends, not one it left; relayed QUIC that moves between flows is not followed.
+  CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
   chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
-- From the QUIC module: 0-RTT and session resumption, connection migration (see its
-  [README](quic/README.md)).
+- The proxy's own QUIC connections to servers (stream by stream, HTTP/3 to origins) never move to
+  a new local address, having no reason to; they move to a server's preferred address as any
+  client does, and do not follow a server that moves to another address of its own accord (see
+  the QUIC module's [README](quic/README.md)).
 - HTTP/3 to servers only over direct connections, and without client certificates.
 
 ### Rewriting bodies
