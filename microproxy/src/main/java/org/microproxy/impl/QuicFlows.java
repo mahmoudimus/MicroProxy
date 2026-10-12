@@ -209,6 +209,9 @@ final class QuicFlows implements AutoCloseable {
         DatagramChannel upstream;
         ClientConnection connection;
         FullFlowContext serverFlow;
+        /** Bytes relayed from the client and from the server, counted when the relay ends. */
+        long relayedIn;
+        long relayedOut;
 
         Flow(InetSocketAddress client, ConnectionId destinationId, Origin origin, QuicClientHello reader, long now) {
             this.client = client;
@@ -234,6 +237,8 @@ final class QuicFlows implements AutoCloseable {
     /** The origin of a new client's flow; null for a client that has none (its datagrams are dropped). */
     private final Function<InetSocketAddress, Origin> origins;
     private final String name;
+    /** {@code quic_transparent.*} or {@code masque.quic.*}. */
+    private final ProtocolStats.QuicFlowStats stats;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition stopped = lock.newCondition();
     // Guarded by lock.
@@ -264,10 +269,12 @@ final class QuicFlows implements AutoCloseable {
      * @param keys the certificate for a server name, or null when no flow can be intercepted
      * @param origins the origin of a new client's flow, or null when it has none
      * @param name names the threads
+     * @param stats counts the flows
      */
     QuicFlows(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys, Function<InetSocketAddress, Origin> origins,
-            String name) {
+            String name, ProtocolStats.QuicFlowStats stats) {
         this.server = server;
+        this.stats = stats;
         this.options = server.http3Options;
         this.keys = keys;
         this.origins = origins;
@@ -314,6 +321,7 @@ final class QuicFlows implements AutoCloseable {
                 }
                 case RELAYED -> {
                     flow.lastActive = System.nanoTime();
+                    flow.relayedIn += datagram.remaining();
                     write(flow, datagram);
                     relay = flow;
                 }
@@ -540,6 +548,7 @@ final class QuicFlows implements AutoCloseable {
         }
         if (origin == null || datagram.remaining() < MIN_INITIAL_DATAGRAM || server.refusesNewConnections()) {
             dropped.incrementAndGet();
+            (datagram.remaining() < MIN_INITIAL_DATAGRAM ? stats.droppedMalformed : stats.droppedRefused).inc();
             return true;
         }
         InetAddress source = from.getAddress();
@@ -547,11 +556,14 @@ final class QuicFlows implements AutoCloseable {
                 || pendingBySource.getOrDefault(source, 0) >= options.transparentMaxPendingPerSource()
                 || heldBytes + datagram.remaining() > options.transparentMaxBufferedBytes()) {
             dropped.incrementAndGet();
+            stats.droppedCap.inc();
             LOG.log(Level.DEBUG, () -> "QUIC " + from + ": too many new clients; dropping an Initial");
             return true;
         }
         Flow flow = new Flow(from, reader.destinationId(), origin, reader, System.nanoTime());
         flows.computeIfAbsent(from, k -> new ArrayList<>(1)).add(flow);
+        stats.flowsActive.inc();
+        stats.pendingInitials.inc();
         pending++;
         pendingBySource.merge(source, 1, Integer::sum);
         hold(flow, datagram);
@@ -565,6 +577,7 @@ final class QuicFlows implements AutoCloseable {
         if (flow.held.size() >= MAX_HELD_DATAGRAMS || flow.heldBytes + n > MAX_HELD_BYTES
                 || heldBytes + n > options.transparentMaxBufferedBytes()) {
             dropped.incrementAndGet();
+            stats.droppedCap.inc();
             return;
         }
         flow.held.add(datagram);
@@ -584,6 +597,7 @@ final class QuicFlows implements AutoCloseable {
             } else {
                 LOG.log(Level.DEBUG, () -> flow.log() + "no readable ClientHello (" + e.getMessage() + "); dropping");
                 dropped.addAndGet(flow.held.size());
+                stats.droppedMalformed.add(flow.held.size());
             }
             forget(flow);
             return;
@@ -663,6 +677,7 @@ final class QuicFlows implements AutoCloseable {
         lock.lock();
         try {
             if (!isGone(flow)) {
+                stats.interceptedTotal.inc();
                 intercepted(flow, new Accepting(client, hello.sni(),
                         System.nanoTime() + options.transparentPendingTimeout().toNanos() + HANDSHAKE_NANOS,
                         flow.origin, config, upstream));
@@ -722,6 +737,7 @@ final class QuicFlows implements AutoCloseable {
                 .receiveWindow(options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(upstream.connection().maxDatagramSize() >= 0 ? DATAGRAM_BUFFER : 0)
                 .congestionControl(Http3Listener.congestionControl(options))
+                .qlog(QlogWriter.sink(server, true))
                 .build();
         return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
     }
@@ -756,6 +772,7 @@ final class QuicFlows implements AutoCloseable {
         try {
             if (!isGone(flow) && flow.origin.relay(client, new ArrayList<>(flow.held))) {
                 byOrigin = true;
+                stats.relayedTotal.inc();
                 forget(flow);
             }
         } finally {
@@ -792,6 +809,7 @@ final class QuicFlows implements AutoCloseable {
                     || relayedBySource.getOrDefault(source, 0) >= options.transparentMaxRelayFlowsPerSource()) {
                 LOG.log(Level.DEBUG, () -> flow.log() + "too many relayed flows; dropping");
                 dropped.addAndGet(flow.held.size());
+                stats.droppedCap.add(flow.held.size());
                 forget(flow);
             } else {
                 unpend(flow);
@@ -802,9 +820,13 @@ final class QuicFlows implements AutoCloseable {
                 flow.lastActive = System.nanoTime();
                 relayed++;
                 relayedBySource.merge(source, 1, Integer::sum);
+                stats.relayedTotal.inc();
                 relayedByIp.computeIfAbsent(source, k -> new ArrayList<>(1)).add(flow);
                 for (ConnectionId id : flow.serverIds) index(flow, id);
-                for (ByteBuffer datagram : flow.held) write(flow, datagram);
+                for (ByteBuffer datagram : flow.held) {
+                    flow.relayedIn += datagram.remaining();
+                    write(flow, datagram);
+                }
                 release(flow);
                 started = true;
             }
@@ -832,6 +854,7 @@ final class QuicFlows implements AutoCloseable {
         lock.lock();
         try {
             dropped.addAndGet(flow.held.size());
+            stats.droppedRefused.add(flow.held.size());
             if (!isGone(flow)) forget(flow);
         } finally {
             lock.unlock();
@@ -875,6 +898,7 @@ final class QuicFlows implements AutoCloseable {
             try {
                 if (flow.upstream == null || !flow.upstream.isOpen()) return;
                 flow.lastActive = System.nanoTime();
+                flow.relayedOut += n;
                 learnServerId(flow, buf);
                 to = flow.client;
             } finally {
@@ -979,6 +1003,7 @@ final class QuicFlows implements AutoCloseable {
                                 LOG.log(Level.DEBUG, () -> f.log() + "still pending after "
                                         + options.transparentPendingTimeout().toMillis() + " ms; dropping");
                                 dropped.addAndGet(f.held.size());
+                                stats.droppedTimeout.add(f.held.size());
                             }
                             forget(f);
                         }
@@ -1035,6 +1060,10 @@ final class QuicFlows implements AutoCloseable {
     /** Takes a relayed flow out of the flows and closes its socket. Holds lock. */
     private void endRelay(Flow f) {
         closeQuietly(f.upstream);
+        stats.relayRxBytes.add(f.relayedIn);
+        stats.relayTxBytes.add(f.relayedOut);
+        f.relayedIn = 0;
+        f.relayedOut = 0;
         relayed--;
         decrement(relayedBySource, f.client.getAddress());
         unindexIp(f);
@@ -1060,6 +1089,7 @@ final class QuicFlows implements AutoCloseable {
     private void unpend(Flow flow) {
         if (!flow.counted) return;
         flow.counted = false;
+        stats.pendingInitials.dec();
         pending--;
         decrement(pendingBySource, flow.client.getAddress());
     }
@@ -1074,7 +1104,9 @@ final class QuicFlows implements AutoCloseable {
 
     private void remove(Flow flow) {
         List<Flow> list = flows.get(flow.client);
-        if (list != null && list.remove(flow) && list.isEmpty()) flows.remove(flow.client);
+        if (list == null || !list.remove(flow)) return;
+        stats.flowsActive.dec();
+        if (list.isEmpty()) flows.remove(flow.client);
     }
 
     private static void decrement(Map<InetAddress, Integer> counts, InetAddress key) {

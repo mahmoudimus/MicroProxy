@@ -390,8 +390,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
                 || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
                 || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
-                || p.containsKey("masque_quic_ports")) {
+                || p.containsKey("masque_quic_ports") || p.containsKey("qlog_dir") || p.containsKey("qlog_max_files")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("qlog_dir")) h3.qlogDirectory(Path.of(p.getProperty("qlog_dir").strip()));
+            if (p.containsKey("qlog_max_files")) h3.qlogMaxFiles(Integer.parseInt(p.getProperty("qlog_max_files").strip()));
             if (p.containsKey("masque_intercept_quic")) h3.connectUdpInterceptQuic(bool(p, "masque_intercept_quic"));
             if (p.containsKey("masque_quic_ports")) h3.connectUdpQuicPorts(parsePorts(p.getProperty("masque_quic_ports")));
             if (p.containsKey("masque_udp_template")) h3.connectUdpTemplate(p.getProperty("masque_udp_template").strip());

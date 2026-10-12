@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.microproxy.contentviews.ProtoSchema;
+import org.microproxy.stats.Counter;
+import org.microproxy.stats.Histogram;
 import org.microproxy.stats.StatsRegistry;
 import org.microproxy.starlark.stdlib.Stdlib;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
@@ -92,14 +94,29 @@ public final class StarlarkScript {
     private final Limits limits;
     private final StarlarkSemantics semantics;
     private final ProtoSchema protoSchema;
+    /** {@code hooks.starlark.*}: the calls into scripts, resolved once; null without metrics, when no clock is read. */
+    private final HookStats hookStats;
+
+    /** The counts of calls into scripts, which every script of a registry shares. */
+    private record HookStats(Counter invocations, Counter errors, Histogram latencyUs) {
+
+        static HookStats of(StatsRegistry stats) {
+            if (stats == null || !stats.enabled()) return null;
+            return new HookStats(stats.counter("hooks.starlark.invocations", "Hook calls"),
+                    stats.counter("hooks.starlark.errors", "Hook calls that threw"),
+                    stats.histogram("hooks.starlark.latency_us", "Microseconds hook calls took",
+                            Histogram.microsecondBounds()));
+        }
+    }
 
     private StarlarkScript(String name, Module module, Limits limits, StarlarkSemantics semantics,
-            ProtoSchema protoSchema) {
+            ProtoSchema protoSchema, HookStats hookStats) {
         this.name = name;
         this.module = module;
         this.limits = limits;
         this.semantics = semantics;
         this.protoSchema = protoSchema;
+        this.hookStats = hookStats;
     }
 
     /**
@@ -111,7 +128,7 @@ public final class StarlarkScript {
      * @return the script with the schema
      */
     public StarlarkScript withProtoSchema(ProtoSchema schema) {
-        return new StarlarkScript(name, module, limits, semantics, schema);
+        return new StarlarkScript(name, module, limits, semantics, schema, hookStats);
     }
 
     /** {@return the protobuf schema the script decodes with, or {@code null}} */
@@ -252,7 +269,7 @@ public final class StarlarkScript {
             }
         }
         // Closing the mutability froze the globals.
-        return new StarlarkScript(name, module, limits, semantics, null);
+        return new StarlarkScript(name, module, limits, semantics, null, HookStats.of(stats));
     }
 
     /** The labels of the file's load statements. */
@@ -297,7 +314,8 @@ public final class StarlarkScript {
 
     /**
      * Calls {@code function} with {@code args}. Values the call creates belong to {@code mu}, so
-     * several calls for one request can share state through it.
+     * several calls for one request can share state through it. With metrics, the call is counted
+     * in {@code hooks.starlark.*}: its time, and whether it failed.
      *
      * @param function the global function name
      * @param mu the owner of values created by this call
@@ -313,7 +331,19 @@ public final class StarlarkScript {
         }
         StarlarkThread thread = newThread(mu, limits, semantics);
         if (protoSchema != null) thread.setThreadLocal(ProtoSchema.class, protoSchema);
-        return Starlark.call(thread, fn, List.of(args), Map.of());
+        HookStats stats = hookStats;
+        if (stats == null) return Starlark.call(thread, fn, List.of(args), Map.of());
+        long start = System.nanoTime();
+        boolean failed = true;
+        try {
+            Object result = Starlark.call(thread, fn, List.of(args), Map.of());
+            failed = false;
+            return result;
+        } finally {
+            stats.invocations().inc();
+            if (failed) stats.errors().inc();
+            stats.latencyUs().record((System.nanoTime() - start) / 1_000.0);
+        }
     }
 
     private static StarlarkThread newThread(Mutability mu, Limits limits, StarlarkSemantics semantics) {

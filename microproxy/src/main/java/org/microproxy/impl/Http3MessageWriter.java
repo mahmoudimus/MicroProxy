@@ -137,6 +137,7 @@ final class Http3MessageWriter {
     void reset(Http3ErrorCode code) {
         if (ended) return;
         ended = true;
+        endpoint.stats.txReset.inc();
         try {
             stream.reset(code.code());
         } catch (IOException | RuntimeException e) {

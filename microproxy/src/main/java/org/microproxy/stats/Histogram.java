@@ -44,6 +44,15 @@ public interface Histogram extends Metric {
     }
 
     /**
+     * {@return bucket bounds for short durations in microseconds, such as a hook's run: 1, 5, 10,
+     * 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000 and
+     * 1000000}
+     */
+    static double[] microsecondBounds() {
+        return Snapshot.MICROSECOND_BOUNDS.clone();
+    }
+
+    /**
      * The counts of a histogram at one moment.
      *
      * <p>Bucket {@code i} counts the values above bound {@code i - 1} (or any value, for {@code
@@ -51,6 +60,10 @@ public interface Histogram extends Metric {
      * the last bound.
      */
     final class Snapshot {
+
+        static final double[] MICROSECOND_BOUNDS = {
+            1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000
+        };
 
         static final double[] DEFAULT_BOUNDS = {
             0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 300000, 600000, 1800000, 3600000

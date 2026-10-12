@@ -177,6 +177,7 @@ final class Http3StreamReader {
             } finally {
                 lock.unlock();
             }
+            endpoint.stats.rxReset.inc();
             // Before the stream's exchange learns of the reset: it may then finish, and its stream
             // be forgotten, before the reset is seen as the client's.
             if (onReset != null) onReset.run();

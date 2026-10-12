@@ -92,6 +92,9 @@ public final class Http3Options {
     private final boolean connectUdpInterceptQuic;
     private final Set<Integer> connectUdpQuicPorts;
     private final QuicCongestionControl quicCongestionControl;
+    private final java.nio.file.Path qlogDirectory;
+    private final int qlogMaxFiles;
+    private final long qlogMaxFileBytes;
 
     private Http3Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -127,6 +130,9 @@ public final class Http3Options {
         connectUdpInterceptQuic = b.connectUdpInterceptQuic;
         connectUdpQuicPorts = b.connectUdpQuicPorts;
         quicCongestionControl = b.quicCongestionControl;
+        qlogDirectory = b.qlogDirectory;
+        qlogMaxFiles = b.qlogMaxFiles;
+        qlogMaxFileBytes = b.qlogMaxFileBytes;
     }
 
     /**
@@ -178,6 +184,9 @@ public final class Http3Options {
         b.connectUdpInterceptQuic = connectUdpInterceptQuic;
         b.connectUdpQuicPorts = connectUdpQuicPorts;
         b.quicCongestionControl = quicCongestionControl;
+        b.qlogDirectory = qlogDirectory;
+        b.qlogMaxFiles = qlogMaxFiles;
+        b.qlogMaxFileBytes = qlogMaxFileBytes;
         return b;
     }
 
@@ -361,6 +370,21 @@ public final class Http3Options {
         return quicCongestionControl;
     }
 
+    /** {@return the directory the proxy's QUIC connections write qlog files to, or null for none} */
+    public java.nio.file.Path qlogDirectory() {
+        return qlogDirectory;
+    }
+
+    /** {@return how many qlog files the directory keeps; past it, the oldest are deleted} */
+    public int qlogMaxFiles() {
+        return qlogMaxFiles;
+    }
+
+    /** {@return the largest a qlog file grows; past it, the connection's later events are left out} */
+    public long qlogMaxFileBytes() {
+        return qlogMaxFileBytes;
+    }
+
     @Override
     public String toString() {
         return "Http3Options[maxConcurrentStreams=" + maxConcurrentStreams + ", streamReceiveWindow=" + streamReceiveWindow
@@ -381,7 +405,8 @@ public final class Http3Options {
                 + connectUdpMaxFlowsPerConnection + ", connectUdpMaxQueued=" + connectUdpMaxQueued
                 + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes + ", connectUdpInterceptQuic="
                 + connectUdpInterceptQuic + ", connectUdpQuicPorts=" + connectUdpQuicPorts
-                + ", quicCongestionControl=" + quicCongestionControl + "]";
+                + ", quicCongestionControl=" + quicCongestionControl + ", qlogDirectory=" + qlogDirectory
+                + ", qlogMaxFiles=" + qlogMaxFiles + ", qlogMaxFileBytes=" + qlogMaxFileBytes + "]";
     }
 
     /** Builds {@link Http3Options}. */
@@ -419,6 +444,9 @@ public final class Http3Options {
         private boolean connectUdpInterceptQuic;
         private Set<Integer> connectUdpQuicPorts = Set.of(443);
         private QuicCongestionControl quicCongestionControl = QuicCongestionControl.CUBIC;
+        private java.nio.file.Path qlogDirectory;
+        private int qlogMaxFiles = 1000;
+        private long qlogMaxFileBytes = 64L << 20;
 
         private Builder() {}
 
@@ -845,6 +873,48 @@ public final class Http3Options {
          */
         public Builder quicCongestionControl(QuicCongestionControl control) {
             quicCongestionControl = Objects.requireNonNull(control, "control");
+            return this;
+        }
+
+        /**
+         * Writes a qlog file for each of the proxy's QUIC connections, to clients and to servers,
+         * into {@code directory} (made if missing): JSON-SEQ ({@code .sqlog}) in the qlog main
+         * schema's format, named after the connection's original Destination Connection ID and
+         * whether the proxy was its server or its client. Off by default (null); qlog builds an
+         * event for every packet, so it is for debugging.
+         *
+         * @param directory the directory, or null for no qlog
+         * @return this builder
+         */
+        public Builder qlogDirectory(java.nio.file.Path directory) {
+            qlogDirectory = directory;
+            return this;
+        }
+
+        /**
+         * How many qlog files the directory keeps (default 1000): past it, the oldest the proxy
+         * wrote are deleted.
+         *
+         * @param max the most files
+         * @return this builder
+         * @throws IllegalArgumentException if it is not positive
+         */
+        public Builder qlogMaxFiles(int max) {
+            qlogMaxFiles = positive(max, "qlogMaxFiles");
+            return this;
+        }
+
+        /**
+         * The largest a qlog file grows (default 64 MiB): past it, the connection's later events
+         * are left out.
+         *
+         * @param max the most bytes
+         * @return this builder
+         * @throws IllegalArgumentException if it is not positive
+         */
+        public Builder qlogMaxFileBytes(long max) {
+            if (max <= 0) throw new IllegalArgumentException("qlogMaxFileBytes must be positive: " + max);
+            qlogMaxFileBytes = max;
             return this;
         }
 

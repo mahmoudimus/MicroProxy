@@ -303,9 +303,10 @@ class Http3HardeningTest {
             Future<?> stopping = pool.submit(proxy::stop);
             long goAway = client.awaitGoAway(Duration.ofSeconds(10));
             assertTrue(goAway >= 8, "GOAWAY names the first stream not processed: " + goAway);
-            // A stream opened after GOAWAY is refused, to be retried elsewhere.
-            QuicStream late = client.send(client.head("GET", "/late", List.of()), true);
-            QuicStreamException refused = assertThrows(QuicStreamException.class, () -> client.readResponse(late));
+            // A stream opened after GOAWAY is refused, to be retried elsewhere (the refusal may come
+            // while the request is still being written).
+            QuicStreamException refused = assertThrows(QuicStreamException.class,
+                    () -> client.readResponse(client.send(client.head("GET", "/late", List.of()), true)));
             assertEquals(0x010b, refused.errorCode(), "H3_REQUEST_REJECTED");
             release.countDown();
             assertEquals(200, slow.get().status(), "the stream in progress completes");

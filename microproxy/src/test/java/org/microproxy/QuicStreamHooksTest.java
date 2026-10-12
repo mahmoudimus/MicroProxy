@@ -187,6 +187,28 @@ class QuicStreamHooksTest {
     }
 
     @Test
+    void theHooksCallsAndBothQuicConnectionsAreCounted() throws Exception {
+        QuicEchoOrigin origin = origin(ALPN);
+        proxy = transparent(origin).withMetrics(true).withQuicInterceptor(rewriting()).start();
+        org.microproxy.stats.StatsRegistry r = proxy.getStats();
+        QuicConnection c = connect(proxyCa.getCertificate(), ALPN);
+        assertEquals("hi:3AMPL3 T3T:bye", exchange(c, "echo\nexample xtext"));
+        c.close();
+        long calls = MetricsAssertions.value(r, "hooks.quic_stream.invocations");
+        assertTrue(calls >= 2, "the client's data and the server's: " + calls);
+        assertEquals(calls, MetricsAssertions.value(r, "hooks.quic_stream.latency_us"));
+        assertTrue(MetricsAssertions.value(r, "hooks.quic_stream.rewrites") >= 2);
+        assertEquals(0, MetricsAssertions.value(r, "hooks.quic_stream.errors"));
+        assertEquals(1, MetricsAssertions.value(r, "quic_transparent.intercepted_total"));
+        MetricsAssertions.awaitValue(r, "quic.transparent.connections_active", 0);
+        assertEquals(1, MetricsAssertions.value(r, "quic.transparent.connections_total"));
+        // The proxy's own connection to the server, which ends with the client's
+        MetricsAssertions.awaitValue(r, "quic.upstream.connections_active", 0);
+        assertEquals(1, MetricsAssertions.value(r, "quic.upstream.connections_total"));
+        assertTrue(MetricsAssertions.value(r, "quic.upstream.bytes_received_total") > 0);
+    }
+
+    @Test
     void bidirectionalStreamsAreRewrittenDroppedAndAddedTo() throws Exception {
         QuicEchoOrigin origin = origin(ALPN);
         proxy = transparent(origin).withQuicInterceptor(rewriting()).start();

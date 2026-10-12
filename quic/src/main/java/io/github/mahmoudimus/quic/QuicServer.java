@@ -260,6 +260,27 @@ public final class QuicServer implements AutoCloseable {
     }
 
     /**
+     * Sets what learns of this endpoint's connections as they open, complete their handshakes and
+     * close, with their statistics; null for nothing. Each connection keeps the observer set when
+     * it started, so connections that started before are not observed.
+     *
+     * @param observer the observer, or null
+     */
+    public void observe(QuicConnection.Observer observer) {
+        driver.observe(observer);
+    }
+
+    /**
+     * What the endpoint answered itself, without a connection: Version Negotiation, Retry,
+     * stateless resets and refusals.
+     *
+     * @return the counts so far
+     */
+    public EndpointStats endpointStats() {
+        return driver.stats();
+    }
+
+    /**
      * Closes every connection (CONNECTION_CLOSE with code 0), stops the threads and closes the
      * socket. Blocked {@link #accept()} calls fail.
      */

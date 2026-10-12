@@ -393,8 +393,8 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, Ud
     }
 
     @Override
-    public void sendDatagram(byte[] content) throws IOException {
-        if (connection.sendHttpDatagram(id, content)) return;
+    public boolean sendDatagram(byte[] content) throws IOException {
+        if (connection.sendHttpDatagram(id, content)) return false;
         // No QUIC datagrams to this client (or too large for one): a DATAGRAM capsule on the stream.
         byte[] type = QuicVarInt.encode(UdpFlow.DATAGRAM_CAPSULE);
         byte[] length = QuicVarInt.encode(content.length);
@@ -405,6 +405,7 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, Ud
         if (writer.ended()) throw new SocketException("the stream's output has ended");
         writer.data(capsule, 0, capsule.length, false);
         writer.flush();
+        return true;
     }
 
     @Override

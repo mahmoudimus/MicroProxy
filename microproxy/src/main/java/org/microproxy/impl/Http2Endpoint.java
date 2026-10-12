@@ -85,6 +85,8 @@ abstract class Http2Endpoint {
 
     /** The frame interceptor's side of this connection, or null without one: frames then go straight through. */
     final Http2Frames frames;
+    /** {@code http2.downstream.*} or {@code http2.upstream.*}: this side's codec stats. */
+    final ProtocolStats.Http2Stats stats;
 
     /** One stream, as far as the code shared by both kinds of connection is concerned. */
     abstract static class Stream {
@@ -105,11 +107,12 @@ abstract class Http2Endpoint {
         void run() throws IOException;
     }
 
-    Http2Endpoint(DefaultHttpProxyServer server, String logPrefix, FlowController flow) {
+    Http2Endpoint(DefaultHttpProxyServer server, String logPrefix, FlowController flow, ProtocolStats.Http2Stats stats) {
         this.server = server;
         this.logPrefix = logPrefix;
         this.options = server.http2Options;
         this.flow = flow;
+        this.stats = stats;
         this.frames = server.frameInterceptor == null ? null : new Http2Frames(server.frameInterceptor, this);
     }
 
@@ -296,6 +299,7 @@ abstract class Http2Endpoint {
         if (len == 0) return 0;
         int idle = server.idleTimeoutMillis();
         long remaining = idle > 0 ? TimeUnit.MILLISECONDS.toNanos(idle) : Long.MAX_VALUE;
+        boolean blocked = false;
         stateLock.lock();
         try {
             while (true) {
@@ -305,6 +309,12 @@ abstract class Http2Endpoint {
                 if (n > 0) {
                     flow.onDataSent(s.id, n);
                     return n;
+                }
+                if (!blocked) {
+                    // Waiting for window: the connection's, or else the stream's.
+                    blocked = true;
+                    (flow.connectionSendWindow().available() <= 0 ? stats.connectionFlowControlBlocked
+                            : stats.streamFlowControlBlocked).inc();
                 }
                 if (remaining <= 0) {
                     throw new SocketTimeoutException("the " + peer() + " opened no flow-control window for " + idle + " ms");
@@ -334,6 +344,7 @@ abstract class Http2Endpoint {
                 s.rstWritten = true;
             }
             if (writesFailed || closed) return;
+            stats.txReset.inc();
             writeStartedNanos = nanoTime();
             try {
                 if (out == null) {
@@ -428,6 +439,7 @@ abstract class Http2Endpoint {
 
     /** Writes GOAWAY; a failure only means the connection is going anyway. */
     final void writeGoAway(int lastStreamId, ErrorCode code, String debug) {
+        stats.goawaySent.inc();
         byte[] debugData = debug == null || debug.isEmpty() ? EMPTY
                 : debug.substring(0, Math.min(debug.length(), 200)).getBytes(StandardCharsets.US_ASCII);
         List<Http2Frame> out = frames == null ? null

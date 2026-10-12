@@ -118,6 +118,7 @@ final class QuicSession implements QuicContext {
                 .receiveWindow(server.http3Options.connectionReceiveWindow())
                 .datagramReceiveBufferSize(DATAGRAM_BUFFER)
                 .congestionControl(Http3Listener.congestionControl(server.http3Options))
+                .qlog(QlogWriter.sink(server, false))
                 .build();
         ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
         boolean ipv6 = address.getAddress() instanceof Inet6Address;
@@ -126,6 +127,7 @@ final class QuicSession implements QuicContext {
                 ? new InetSocketAddress(local.getAddress(), 0)
                 : new InetSocketAddress(InetAddress.getByName(ipv6 ? "::" : "0.0.0.0"), 0);
         QuicClient client = QuicClient.create(config, bind, EndpointConfig.defaults());
+        QuicStats.of(server, QuicStats.UPSTREAM).observe(client);
         try {
             return new Upstream(client, client.connect(address, hello.sni(), timeout));
         } catch (IOException | RuntimeException e) {
@@ -160,6 +162,12 @@ final class QuicSession implements QuicContext {
     private final String alpn;
     private final boolean masque;
     private final String logPrefix;
+    /** Count the hooks' {@code streamData}, {@code datagram} and {@code streamMessage} calls. */
+    private final ProtocolStats.HookStats streamStats;
+    private final ProtocolStats.HookStats datagramStats;
+    private final ProtocolStats.HookStats messageStats;
+    /** Count the messages of framed streams, and the streams reset for what could not be framed. */
+    private final ProtocolStats.QuicMessageStats messages;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition changed = lock.newCondition();
     // Guarded by lock.
@@ -176,11 +184,17 @@ final class QuicSession implements QuicContext {
      * @param framing which streams the hooks see as messages, or null for the defaults
      * @param client the client's connection, accepted by the proxy
      * @param server the proxy's connection to the server
+     * @param stats counts the hooks' calls and the framed messages
      */
     QuicSession(QuicInterceptor hooks, QuicFraming framing, QuicConnection client, QuicConnection server,
-            FlowContext flow, HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix) {
+            FlowContext flow, HostAndPort target, InetSocketAddress serverAddress, boolean masque, String logPrefix,
+            ProxyStats stats) {
         this.hooks = hooks;
         this.framing = framing != null ? framing : QuicFraming.defaults();
+        this.streamStats = stats.hooks.quicStream;
+        this.datagramStats = stats.hooks.quicDatagram;
+        this.messageStats = stats.hooks.quicMessage;
+        this.messages = stats.quicMessages;
         this.client = client;
         this.server = server;
         this.flow = flow;
@@ -362,9 +376,13 @@ final class QuicSession implements QuicContext {
                 count(fromClient, data.length);
                 byte[] result = data;
                 if (hooks != null) {
+                    long start = datagramStats.start();
                     try {
                         result = hooks.datagram(new QuicDatagram(data, fromClient, Instant.now()), this);
+                        datagramStats.end(start);
+                        datagramStats.outcome(data, result);
                     } catch (RuntimeException e) {
+                        datagramStats.failed(start);
                         LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's datagram threw; passing it on", e);
                     }
                 }
@@ -582,9 +600,13 @@ final class QuicSession implements QuicContext {
             byte[] result = data;
             if (hooks != null) {
                 d.hookThread = Thread.currentThread();
+                long start = streamStats.start();
                 try {
                     result = hooks.streamData(new QuicStreamMessage(data, d.fromClient, Instant.now()), this);
+                    streamStats.end(start);
+                    streamStats.outcome(data, result == null || result.length == 0 ? null : result);
                 } catch (RuntimeException e) {
+                    streamStats.failed(start);
                     LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's streamData threw; passing the bytes on", e);
                     result = data;
                 } finally {
@@ -621,17 +643,32 @@ final class QuicSession implements QuicContext {
         private void framed(Direction d, byte[] whole) throws IOException {
             List<byte[]> same = new ArrayList<>();
             List<byte[]> other = new ArrayList<>();
+            messages.messagesRx.inc();
             d.hookThread = Thread.currentThread();
+            long start = messageStats.start();
+            boolean returned = false;
             try {
                 QuicMessage message = new QuicMessage(framer.payload(whole), d.fromClient, clientSide.id(), alpn,
                         Instant.now());
                 List<QuicMessage> result = hooks.streamMessage(message, this);
+                returned = true;
+                messageStats.end(start);
+                if (result == null || result.isEmpty()) {
+                    messageStats.drops.inc();
+                } else if (result.size() != 1 || result.get(0) != message) {
+                    messageStats.rewrites.inc();
+                }
                 if (result != null) {
                     for (QuicMessage m : result) {
                         if (m != null) (m.fromClient() == d.fromClient ? same : other).add(framer.frame(m.data()));
                     }
                 }
             } catch (RuntimeException e) {
+                if (returned) {
+                    messageStats.errors.inc(); // what it returned could not be framed: counted as called already
+                } else {
+                    messageStats.failed(start);
+                }
                 LOG.log(Level.WARNING, logPrefix + "QUIC interceptor's streamMessage threw, or what it returned could"
                         + " not be framed; passing the message on", e);
                 same = List.of(whole);
@@ -647,6 +684,7 @@ final class QuicSession implements QuicContext {
                 for (byte[] bytes : same) {
                     if (bytes.length > 0) d.out.write(bytes);
                 }
+                messages.messagesTx.add(same.size());
                 if (added != null) {
                     for (byte[] bytes : added) {
                         if (bytes.length > 0) d.out.write(bytes);
@@ -658,6 +696,7 @@ final class QuicSession implements QuicContext {
             for (byte[] bytes : other) {
                 try {
                     send(!d.fromClient, bytes);
+                    messages.messagesTx.inc();
                 } catch (IllegalStateException e) {
                     LOG.log(Level.DEBUG, () -> logPrefix + "dropping a QUIC message for the other side: " + e.getMessage());
                 }
@@ -685,6 +724,7 @@ final class QuicSession implements QuicContext {
          */
         private boolean abort(Direction d, String why) {
             long code = framing.errorCode();
+            messages.framingErrors.inc();
             LOG.log(Level.INFO, logPrefix + "QUIC stream " + clientSide.id() + " to " + target + ": the "
                     + (d.fromClient ? "client" : "server") + " sent " + why + "; resetting the stream with code " + code);
             // Both directions ended first, so that neither passes on what a peer does once it is told

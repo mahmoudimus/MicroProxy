@@ -205,7 +205,8 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             Object owner) {
         // The larger receive window applies at once: it only lets the server send more sooner.
         super(server, "[h2 " + carrier.hostAndPort + "] ",
-                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE));
+                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
+                server.stats.http2Upstream);
         this.origins = origins;
         this.carrier = carrier;
         this.key = key;
@@ -279,9 +280,16 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         Socket socket = carrier.socket;
         // Raw socket streams, throttled like the carrier's; the carrier's own reader and writer,
         // which nothing has used yet, are left alone. Bytes are counted per stream, by frame.
-        InputStream is = new BufferedInputStream(server.readLimiter.wrap(socket.getInputStream()), 16_384);
+        InputStream raw = server.readLimiter.wrap(socket.getInputStream());
+        OutputStream rawOut = server.writeLimiter.wrap(socket.getOutputStream());
+        ProxyStats.ClusterStats cluster = carrier.cluster;
+        if (cluster.enabled) {
+            raw = CountingStreams.counting(raw, cluster.cxRxBytes::add);
+            rawOut = CountingStreams.counting(rawOut, cluster.cxTxBytes::add);
+        }
+        InputStream is = new BufferedInputStream(raw, 16_384);
         countedIn = new CountingInput(is);
-        countedOut = new CountingOutput(new BufferedOutputStream(server.writeLimiter.wrap(socket.getOutputStream()), 16_384));
+        countedOut = new CountingOutput(new BufferedOutputStream(rawOut, 16_384));
         reader = new FrameReader(countedIn);
         // Extension frames are skipped unread unless an interceptor is to see them.
         reader.setDeliverUnknownFrames(frames != null);
@@ -355,6 +363,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             try {
                 frame = reader.readFrame();
             } catch (Http2Exception e) {
+                stats.rxMessagingError.inc();
                 if (e.isConnectionError()) throw e;
                 resetStream(e.streamId(), e.errorCode(), e);
                 continue;
@@ -364,6 +373,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             try {
                 onFrame(frame);
             } catch (Http2Exception e) {
+                stats.rxMessagingError.inc();
                 if (e.isConnectionError()) throw e;
                 resetStream(e.streamId(), e.errorCode(), e);
             }
@@ -456,6 +466,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             fields = decoder.decode(id, h.fieldBlock());
         } catch (HeaderListSizeException e) {
             tooLarge = e;
+            stats.headerOverflow.inc();
         }
         if (frames == null || tooLarge != null) {
             onHeaders(id, h.endStream(), fields, tooLarge);
@@ -474,7 +485,10 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         stateLock.lock();
         try {
             s = known(id, "HEADERS");
-            if (s == null) return;
+            if (s == null) {
+                stats.headersCbNoStream.inc();
+                return;
+            }
             if (s.remoteClosed) throw Http2Exception.streamError(id, ErrorCode.STREAM_CLOSED, "HEADERS after END_STREAM");
             trailers = s.finalHead;
         } finally {
@@ -489,6 +503,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             try {
                 if (s.reset) return;
                 if (!s.bodyless) Http2Headers.checkContentLength(id, s.declaredLength, s.received, true);
+                stats.trailers.inc();
                 s.trailers = t;
                 s.remoteClosed = true;
                 s.changed.signalAll();
@@ -625,6 +640,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     }
 
     private void onRstStream(Frame.RstStream rst) throws IOException {
+        stats.rxReset.inc();
         int id = rst.streamId();
         StreamState s;
         stateLock.lock();
@@ -649,6 +665,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     }
 
     private void onGoAway(Frame.GoAway goAway) {
+        stats.goawayReceived.inc();
         int last = goAway.lastStreamId();
         int unprocessed = 0;
         boolean idle;
@@ -759,6 +776,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 nextStreamId += 2;
                 streams.put(s.id, s);
                 flow.addStream(s.id);
+                stats.streamsActive.inc();
                 s.localClosed = endStream;
                 s.tunnel = fields.stream().anyMatch(f -> f.name().equals(":method") && f.value().equals("CONNECT"));
             } finally {
@@ -876,7 +894,10 @@ final class Http2UpstreamConnection extends Http2Endpoint {
 
     /** The stream is closed: stops tracking it and gives back its slot. Holds stateLock. */
     private void forget(StreamState s) {
-        if (streams.remove(s.id, s)) flow.removeStream(s.id);
+        if (streams.remove(s.id, s)) {
+            flow.removeStream(s.id);
+            stats.streamsActive.dec();
+        }
         recentlyClosed.put(s.id, Boolean.TRUE);
         releaseSlot(s);
     }
@@ -1086,6 +1107,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                 }
                 releaseSlot(s);
             }
+            stats.streamsActive.add(-streams.size());
             streams.clear();
             windowOpened.signalAll();
         } finally {
@@ -1128,6 +1150,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         long writeStarted = writeStartedNanos;
         if (writeStarted != 0 && now - writeStarted > idleNanos) {
             LOG.log(Level.DEBUG, logPrefix + "closing: no write progress for " + idle + " ms");
+            stats.txFlushTimeout.inc();
             Thread.ofVirtual().start(() -> close(new SocketTimeoutException("the server stopped reading")));
             return;
         }

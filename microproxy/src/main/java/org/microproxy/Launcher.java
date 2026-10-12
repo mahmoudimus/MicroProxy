@@ -230,6 +230,10 @@ public final class Launcher {
                                            default GET, HEAD and OPTIONS without a body may go)
               --quic-congestion <name>     congestion control of the proxy's QUIC connections:
                                            cubic (default), newreno or bbr (experimental)
+              --qlog-dir <dir>             write a qlog file (JSON-SEQ, .sqlog) per QUIC connection,
+                                           to clients and to servers, into <dir> (for debugging)
+              --qlog-max-files <n>         qlog files the directory keeps, the oldest deleted past
+                                           it (default 1000)
               --listener-keystore <file>   serve TLS on the listener with this PKCS#12 or JKS key
                                            store's first key entry (HTTPS, HTTP/2 with --http2, and
                                            the certificate --http3 presents)
@@ -409,6 +413,8 @@ public final class Launcher {
         boolean masqueInterceptQuic = false;
         int[] masqueQuicPorts = null;
         Http3Options.QuicCongestionControl quicCongestion = null;
+        Path qlogDir = null;
+        int qlogMaxFiles = 0;
         List<String> http3UpstreamHosts = new ArrayList<>();
         Path listenerKeystore = null;
         String listenerKeystorePassword = "";
@@ -638,6 +644,8 @@ public final class Launcher {
                 case "--http3-0rtt" -> http3ZeroRtt = true;
                 case "--no-http3-upstream-0rtt" -> noHttp3UpstreamZeroRtt = true;
                 case "--quic-congestion" -> quicCongestion = Http3Options.QuicCongestionControl.parse(value(queue, arg));
+                case "--qlog-dir" -> qlogDir = Path.of(value(queue, arg));
+                case "--qlog-max-files" -> qlogMaxFiles = intValue(queue, arg);
                 case "--listener-keystore" -> listenerKeystore = Path.of(value(queue, arg));
                 case "--listener-keystore-password" -> listenerKeystorePassword = value(queue, arg);
                 default -> {
@@ -682,8 +690,10 @@ public final class Launcher {
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
                 || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null
                 || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0 || masqueInterceptQuic
-                || masqueQuicPorts != null) {
+                || masqueQuicPorts != null || qlogDir != null || qlogMaxFiles > 0) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
+            if (qlogDir != null) h3.qlogDirectory(qlogDir);
+            if (qlogMaxFiles > 0) h3.qlogMaxFiles(qlogMaxFiles);
             if (masqueInterceptQuic) h3.connectUdpInterceptQuic(true);
             if (masqueQuicPorts != null) h3.connectUdpQuicPorts(masqueQuicPorts);
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);

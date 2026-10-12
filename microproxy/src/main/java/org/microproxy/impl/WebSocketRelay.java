@@ -65,6 +65,10 @@ final class WebSocketRelay {
     private final int maxMessageSize;
     private final PerMessageDeflate.Params clientHop;
     private final PerMessageDeflate.Params serverHop;
+    /** {@code websocket.*}: frames, messages, close codes and what compression saved. */
+    private final ProtocolStats.WebSocketStats stats;
+    private final ProtocolStats.HookStats frameHooks;
+    private final ProtocolStats.HookStats messageHooks;
 
     private Output toServer;
     private Output toClient;
@@ -80,9 +84,13 @@ final class WebSocketRelay {
      * @param clientHop the permessage-deflate parameters agreed with the client, or null to relay
      *     its payloads as they are
      * @param serverHop the parameters agreed with the server, or null
+     * @param stats the proxy's stats, of WebSockets and of the frame and message hooks
      */
     WebSocketRelay(FrameHandler frames, MessageHandler messages, int maxFrameBuffer, int maxMessageSize,
-            PerMessageDeflate.Params clientHop, PerMessageDeflate.Params serverHop) {
+            PerMessageDeflate.Params clientHop, PerMessageDeflate.Params serverHop, ProxyStats stats) {
+        this.stats = stats.webSocket;
+        this.frameHooks = stats.hooks.webSocketFrame;
+        this.messageHooks = stats.hooks.webSocketMessage;
         this.frames = frames;
         this.messages = messages;
         this.maxFrameBuffer = maxFrameBuffer;
@@ -105,9 +113,9 @@ final class WebSocketRelay {
     void attach(Tunnel.Direction up, Tunnel.Direction down) {
         // The proxy is the client on the server's hop, and the server on the client's.
         toServer = new Output(up, true, serverHop == null ? null
-                : new PerMessageDeflate.Compressor(serverHop.clientNoContextTakeover(), serverHop.clientMaxWindowBits()));
+                : new PerMessageDeflate.Compressor(serverHop.clientNoContextTakeover(), serverHop.clientMaxWindowBits()), stats);
         toClient = new Output(down, false, clientHop == null ? null
-                : new PerMessageDeflate.Compressor(clientHop.serverNoContextTakeover(), clientHop.serverMaxWindowBits()));
+                : new PerMessageDeflate.Compressor(clientHop.serverNoContextTakeover(), clientHop.serverMaxWindowBits()), stats);
         fromClient = new Inbound(clientHop == null ? null
                 : new PerMessageDeflate.Decompressor(clientHop.clientNoContextTakeover()));
         fromServer = new Inbound(serverHop == null ? null
@@ -197,6 +205,8 @@ final class WebSocketRelay {
                 payload = new byte[(int) length];
                 d.readFully(payload, 0, payload.length, false);
             }
+            stats.framesRx.inc();
+            if (opcode == WebSocketFrame.OPCODE_CLOSE) closeCode(header, payload, length);
             WebSocketFrame wire = new WebSocketFrame(header, payload, length);
             WebSocketFrame seen = wire;
             if (compressed) {
@@ -224,6 +234,22 @@ final class WebSocketRelay {
         }
     }
 
+    /** Counts a close frame by its status code: 1005 (none received) when it has none. */
+    private void closeCode(byte[] header, byte[] payload, long length) {
+        if (payload == null || length < 2) {
+            stats.closeCode(1005).inc();
+            return;
+        }
+        int b0 = payload[0];
+        int b1 = payload[1];
+        if ((header[1] & 0x80) != 0) {
+            // A client's frame: its payload is masked with the header's last four bytes.
+            b0 ^= header[header.length - 4];
+            b1 ^= header[header.length - 3];
+        }
+        stats.closeCode(((b0 & 0xff) << 8) | (b1 & 0xff)).inc();
+    }
+
     /** Opcodes 0-2: frames that carry a message's data. */
     private static boolean isData(int opcode) {
         return opcode <= WebSocketFrame.OPCODE_BINARY;
@@ -231,8 +257,11 @@ final class WebSocketRelay {
 
     /** The handler's verdict; a failing handler, or one returning a truncated frame of its own, forwards the frame. */
     private WebSocketFrame handle(WebSocketFrame frame, Tunnel.Direction d) {
+        long start = frameHooks.start();
         try {
             WebSocketFrame out = frames.frame(frame, d.fromClient);
+            frameHooks.end(start);
+            frameHooks.outcome(frame, out);
             if (out != null && out != frame && out.isTruncated()) {
                 LOG.log(Level.WARNING, d.logPrefix
                         + "WebSocket frame filter returned a truncated frame; forwarding the original");
@@ -240,6 +269,7 @@ final class WebSocketRelay {
             }
             return out;
         } catch (RuntimeException e) {
+            frameHooks.failed(start);
             LOG.log(Level.WARNING, d.logPrefix + "WebSocket frame filter threw", e);
             return frame;
         }
@@ -291,15 +321,25 @@ final class WebSocketRelay {
                 ? WebSocketMessage.Type.TEXT : WebSocketMessage.Type.BINARY;
         WebSocketMessage message = new WebSocketMessage(type, in.message.toArray(), d.fromClient);
         List<WebSocketMessage> results;
+        stats.messagesRx.inc();
+        long start = messageHooks.start();
         try {
             results = messages.messages(message, d.fromClient);
+            messageHooks.end(start);
+            if (results == null || results.isEmpty()) {
+                messageHooks.drops.inc();
+            } else if (results.size() != 1 || results.get(0) != message) {
+                messageHooks.rewrites.inc();
+            }
         } catch (RuntimeException e) {
+            messageHooks.failed(start);
             LOG.log(Level.WARNING, d.logPrefix + "WebSocket message filter threw", e);
             results = List.of(message);
         }
         if (results != null) {
             for (WebSocketMessage m : results) {
                 if (m == null) continue;
+                stats.messagesTx.inc();
                 boolean sameWay = m.fromClient() == d.fromClient;
                 Output o = m.fromClient() ? toServer : toClient;
                 // Mirror the sender's choice to compress; a message sent back is compressed if it can be.
@@ -402,11 +442,19 @@ final class WebSocketRelay {
         /** Whether the message being forwarded frame by frame is compressed. */
         private boolean streaming;
         private boolean ended;
+        private final ProtocolStats.WebSocketStats stats;
 
-        Output(Tunnel.Direction d, boolean masked, PerMessageDeflate.Compressor compressor) {
+        Output(Tunnel.Direction d, boolean masked, PerMessageDeflate.Compressor compressor,
+                ProtocolStats.WebSocketStats stats) {
             this.d = d;
             this.masked = masked;
             this.compressor = compressor;
+            this.stats = stats;
+        }
+
+        /** Counts what compressing {@code len} bytes into {@code c} saved. */
+        private void saved(int len, PerMessageDeflate.Buffer c) {
+            if (len > c.size()) stats.deflateBytesSaved.add(len - c.size());
         }
 
         /**
@@ -424,6 +472,7 @@ final class WebSocketRelay {
                     streaming = false;
                 }
                 d.write(header, 0, header.length);
+                stats.framesTx.inc();
                 if (wire != null) {
                     byte[] bytes = wire.rawBytes();
                     d.write(bytes, header.length, bytes.length - header.length);
@@ -457,6 +506,7 @@ final class WebSocketRelay {
                     rsv &= ~RSV1;
                     if (streaming) {
                         PerMessageDeflate.Buffer c = compressor.deflate(payload, 0, payload.length, frame.isFinal());
+                        saved(payload.length, c);
                         write(frame.isFinal(), first ? rsv | RSV1 : rsv, opcode, c.array(), 0, c.size());
                     } else {
                         write(frame.isFinal(), rsv, opcode, payload, 0, payload.length);
@@ -476,6 +526,7 @@ final class WebSocketRelay {
                 check();
                 if (compress) {
                     PerMessageDeflate.Buffer c = compressor.deflate(payload, 0, payload.length, true);
+                    saved(payload.length, c);
                     write(true, RSV1, opcode, c.array(), 0, c.size());
                 } else {
                     write(true, 0, opcode, payload, 0, payload.length);
@@ -498,6 +549,7 @@ final class WebSocketRelay {
                     int op = i == 0 ? opcode : WebSocketFrame.OPCODE_CONTINUATION;
                     if (compress) {
                         PerMessageDeflate.Buffer c = compressor.deflate(payload, off, len, fin);
+                        saved(len, c);
                         write(fin, i == 0 ? RSV1 : 0, op, c.array(), 0, c.size());
                     } else {
                         write(fin, 0, op, payload, off, len);
@@ -542,6 +594,7 @@ final class WebSocketRelay {
         }
 
         private void write(boolean fin, int rsv, int opcode, byte[] payload, int off, int len) throws IOException {
+            stats.framesTx.inc();
             byte[] head = header(fin, rsv, opcode, len, masked);
             if (!masked) {
                 d.write(head, 0, head.length);

@@ -40,7 +40,8 @@ class Http2FramesTest {
     private static final class Endpoint extends Http2Endpoint {
         Endpoint(FrameInterceptor interceptor) {
             super(new DefaultHttpProxyServer((DefaultHttpProxyServerBootstrap) MicroProxy.bootstrap().withPort(0)
-                    .withFrameInterceptor(interceptor)), "[test] ", new FlowController());
+                    .withFrameInterceptor(interceptor)), "[test] ", new FlowController(),
+                    new ProtocolStats.Http2Stats(org.microproxy.stats.StatsRegistry.NOOP, "downstream"));
         }
 
         @Override

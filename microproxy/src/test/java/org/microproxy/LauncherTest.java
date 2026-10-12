@@ -123,7 +123,8 @@ class LauncherTest {
                 "--log-http-view", "--proto-descriptors", "--shared-pool", "--max-concurrent-per-client", "--cache-dir", "--cache-size", "--cache-memory", "--offline", "--warc-dir", "--mitm", "--mitm-ca",
                 "--mitm-ca-password", "--mitm-trust-all", "--http2", "--http2-upstream", "--http2-cleartext",
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
-                "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion", "--masque-udp-template", "--masque-udp-idle-timeout",
+                "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion",
+                "--qlog-dir", "--qlog-max-files", "--masque-udp-template", "--masque-udp-idle-timeout",
                 "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
                 "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
                 "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
@@ -198,6 +199,16 @@ class LauncherTest {
         assertEquals(Http3Options.QuicCongestionControl.NEW_RENO,
                 BootstrapView.http3Options(parse("--quic-congestion", "newreno").bootstrap()).quicCongestionControl());
         assertThrows(IllegalArgumentException.class, () -> parse("--quic-congestion", "vegas"));
+        assertNull(BootstrapView.http3Options(defaults).qlogDirectory(), "no qlog by default");
+        Http3Options qlog = BootstrapView.http3Options(parse("--qlog-dir", "/tmp/q", "--qlog-max-files", "7").bootstrap());
+        assertEquals(java.nio.file.Path.of("/tmp/q"), qlog.qlogDirectory());
+        assertEquals(7, qlog.qlogMaxFiles());
+        java.util.Properties qlogProps = new java.util.Properties();
+        qlogProps.setProperty("qlog_dir", "/tmp/q2");
+        qlogProps.setProperty("qlog_max_files", "9");
+        Http3Options qlogFromFile = BootstrapView.http3Options(BootstrapView.fromProperties(qlogProps));
+        assertEquals(java.nio.file.Path.of("/tmp/q2"), qlogFromFile.qlogDirectory());
+        assertEquals(9, qlogFromFile.qlogMaxFiles());
 
         java.util.Properties p = new java.util.Properties();
         p.setProperty("transparent", "true");
@@ -446,7 +457,7 @@ class LauncherTest {
         "--access-log-filter", "--statsd", "--dogstatsd", "--stats-prefix", "--stats-max-clusters",
         "--log-http", "--log-http-view", "--proto-descriptors",
         "--cache-dir", "--cache-size", "--cache-memory",
-        "--warc-dir", "--mitm-ca", "--mitm-ca-password"})
+        "--warc-dir", "--qlog-dir", "--mitm-ca", "--mitm-ca-password"})
     void optionsWithoutTheirValueAreRejected(String flag) {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parse("--port", "0", flag));
         assertEquals(flag + " needs a value", e.getMessage());

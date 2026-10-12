@@ -153,7 +153,8 @@ final class Http2Connection extends Http2Endpoint {
             ClientFlowContext connectionFlow, String logPrefix, HostAndPort target) {
         // The larger receive window applies at once: it only lets the client send more sooner.
         super(server, logPrefix,
-                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE));
+                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
+                server.stats.http2Downstream);
         this.client = client;
         this.socket = socket;
         this.received = received;
@@ -308,6 +309,7 @@ final class Http2Connection extends Http2Endpoint {
             try {
                 frame = reader.readFrame();
             } catch (Http2Exception e) {
+                stats.rxMessagingError.inc();
                 if (e.isConnectionError()) throw e;
                 resetStream(e.streamId(), e.errorCode(), e);
                 continue;
@@ -320,6 +322,7 @@ final class Http2Connection extends Http2Endpoint {
             try {
                 onFrame(frame);
             } catch (Http2Exception e) {
+                if (e.errorCode() != ErrorCode.ENHANCE_YOUR_CALM) stats.rxMessagingError.inc();
                 if (e.isConnectionError()) throw e;
                 resetStream(e.streamId(), e.errorCode(), e);
             }
@@ -430,9 +433,21 @@ final class Http2Connection extends Http2Endpoint {
             rateWindowStart = now;
         }
         if (++counts[kind] > limits[kind]) {
+            flooded(kind).inc();
             throw Http2Exception.connectionError(ErrorCode.ENHANCE_YOUR_CALM, KINDS[kind] + " flood: more than "
                     + limits[kind] + " in " + options.rateWindow().toMillis() + " ms");
         }
+    }
+
+    /** The stat of a flood of {@code kind}: PINGs and SETTINGS each need an answer, as Envoy's outbound control frames. */
+    private org.microproxy.stats.Counter flooded(int kind) {
+        return switch (kind) {
+            case PING, SETTINGS -> stats.outboundControlFlood;
+            case RESET -> stats.priorityFramesFlood;
+            case WINDOW_UPDATE -> stats.windowUpdateFramesFlood;
+            case EMPTY_FRAME -> stats.emptyFramesFlood;
+            default -> stats.rapidResetFlood;
+        };
     }
 
     private static Http2Exception idleStream(String frame, int id) {
@@ -455,6 +470,7 @@ final class Http2Connection extends Http2Endpoint {
             fields = decoder.decode(id, h.fieldBlock());
         } catch (HeaderListSizeException e) {
             tooLarge = e;
+            stats.headerOverflow.inc();
         }
         if (frames == null || tooLarge != null) {
             onHeaders(id, h.endStream(), h.priority(), fields, tooLarge);
@@ -499,6 +515,7 @@ final class Http2Connection extends Http2Endpoint {
             return;
         }
         if (id <= last) {
+            stats.headersCbNoStream.inc();
             if (recent) return;
             throw Http2Exception.connectionError(ErrorCode.STREAM_CLOSED, "HEADERS on closed stream " + id);
         }
@@ -539,6 +556,7 @@ final class Http2Connection extends Http2Endpoint {
         } finally {
             stateLock.unlock();
         }
+        stats.streamsActive.inc();
         // A plain CONNECT names the target of a tunnel, not this session's authority: the client
         // takes the intercepted server for its HTTPS proxy (ClientConnection.forwardConnect).
         boolean misdirected = !(head.isConnect() && head.protocol() == null) && !proxyRequest
@@ -584,6 +602,7 @@ final class Http2Connection extends Http2Endpoint {
             }
             if (s.reset) return;
             Http2Headers.checkContentLength(id, s.declaredLength, s.received, true);
+            stats.trailers.inc();
             s.trailers = trailers;
             s.remoteClosed = true;
             s.changed.signalAll();
@@ -690,6 +709,7 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     private void onRstStream(Frame.RstStream rst) throws IOException {
+        stats.rxReset.inc();
         int id = rst.streamId();
         Http2StreamChannel s;
         boolean early = false;
@@ -723,6 +743,7 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     private void onGoAway(Frame.GoAway goAway) {
+        stats.goawayReceived.inc();
         LOG.log(Level.DEBUG, logPrefix + "client sent GOAWAY (" + goAway.error() + ")");
         boolean idle;
         stateLock.lock();
@@ -855,6 +876,7 @@ final class Http2Connection extends Http2Endpoint {
                 pendingConnectionCredit += (int) s.buffered;
                 s.buffered = 0;
                 s.inbound.clear();
+                stats.streamsActive.dec();
             }
             activeStreams = streams.size();
             lastStreamEndNanos = System.nanoTime();
@@ -1059,12 +1081,14 @@ final class Http2Connection extends Http2Endpoint {
         if (idle > 0 && writeStarted != 0 && now - writeStarted > idleNanos) {
             // The client stopped reading: nothing can be written to it, not even GOAWAY.
             LOG.log(Level.DEBUG, logPrefix + "closing: no write progress for " + idle + " ms");
+            stats.txFlushTimeout.inc();
             closeAsync();
             return;
         }
         long sent = settingsSentNanos;
         if (sent != 0 && now - sent > options.settingsAckTimeout().toNanos()) {
             settingsSentNanos = 0;
+            stats.settingsTimeout.inc();
             Thread.ofVirtual().start(() -> {
                 goAway(ErrorCode.SETTINGS_TIMEOUT, "SETTINGS not acknowledged in time");
                 client.close();

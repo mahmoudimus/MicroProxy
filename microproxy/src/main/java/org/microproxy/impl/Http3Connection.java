@@ -104,7 +104,7 @@ final class Http3Connection extends Http3Endpoint {
      */
     Http3Connection(DefaultHttpProxyServer server, ClientConnection client, QuicConnection quic,
             ClientFlowContext connectionFlow, String logPrefix, Role role, HostAndPort target) {
-        super(server, quic, logPrefix, Http3StreamValidator.Role.SERVER);
+        super(server, quic, logPrefix, Http3StreamValidator.Role.SERVER, server.stats.http3Downstream);
         this.client = client;
         this.connectionFlow = connectionFlow;
         this.role = role;
@@ -279,6 +279,7 @@ final class Http3Connection extends Http3Endpoint {
         } finally {
             stateLock.unlock();
         }
+        stats.streamsActive.inc();
         flow.startExchange();
         String name = server.name + "-h3-" + connectionFlow.getConnectionId() + "-" + id;
         try {
@@ -367,6 +368,7 @@ final class Http3Connection extends Http3Endpoint {
             }
         }
         if (reader.stream.receivedEarlyData()) {
+            stats.earlyDataRequests.inc();
             s.flowContext().earlyData();
             // A CONNECT opens a tunnel (an extended one's upgrade too), which is never safe to replay
             if (request.isConnect() || !replaySafe(http1, reader.endsHere())) {
@@ -375,6 +377,7 @@ final class Http3Connection extends Http3Endpoint {
                         + " in 0-RTT data");
                 if (!reader.endsHere()) reader.abort(Http3ErrorCode.H3_NO_ERROR);
                 s.flowContext().setResponseCodeDetails("too_early");
+                stats.tooEarly.inc();
                 FullHttpResponse tooEarly = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                         HttpResponseStatus.valueOf(425), "Too Early");
                 s.writeComplete(tooEarly, true);
@@ -478,7 +481,7 @@ final class Http3Connection extends Http3Endpoint {
         boolean lastOne;
         stateLock.lock();
         try {
-            streams.remove(s.id, s);
+            if (streams.remove(s.id, s)) stats.streamsActive.dec();
             activeStreams = streams.size();
             lastOne = streams.isEmpty() && goAwaySent;
             stateChanged.signalAll();

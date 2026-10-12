@@ -315,8 +315,9 @@ stricter than quinn:
 - BBR samples the delivery rate as draft-cheng-iccrg-delivery-rate-estimation does and follows
   the BBRv1 draft where quinn's port does not (see [BBR](#bbr)).
 - Not ported: the hashed connection ID generator, quinn's qlog module (the connection layer
-  has a smaller qlog-style sink instead), and connection statistics beyond the loss counters on
-  `Recovery`. DATAGRAM buffering lives in the connection layer.
+  has a smaller qlog-style sink instead), and quinn's per-frame statistics (`QuicConnection.Stats`
+  has the path, packet, byte, loss and congestion counts). DATAGRAM buffering lives in the
+  connection layer.
 - ECN: counts on received packets, ACK frames with ECN counts and validation of the peer's
   counts are here; marking outgoing packets is the socket layer's job.
 
@@ -461,8 +462,8 @@ try (QuicClient client = QuicClient.create(clientConfig);
 
 | Type | Role |
 | --- | --- |
-| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])` (and a socket at each preferred address), `unbound(local, ServerConfig, EndpointConfig, DatagramFilter, DatagramSink)` (no socket), `accept()` (blocks until a handshake completes), `receive(from, datagram)`, `inject(from, datagram[, ServerConfig])`, `send(datagram, to)`, `knows(from, datagram)`, `localAddress()`, `close()` |
-| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `close()` |
+| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])` (and a socket at each preferred address), `unbound(local, ServerConfig, EndpointConfig, DatagramFilter, DatagramSink)` (no socket), `accept()` (blocks until a handshake completes), `receive(from, datagram)`, `inject(from, datagram[, ServerConfig])`, `send(datagram, to)`, `knows(from, datagram)`, `localAddress()`, `observe(Observer)`, `endpointStats()`, `close()` |
+| `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `observe(Observer)`, `endpointStats()`, `close()` |
 | `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `migrate(local or DatagramChannel)` (probes, then switches), `rebind(local)` (switches at once), `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
 | `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `awaitStopped()` (the peer's STOP_SENDING code, for a writer that is not writing), `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
 | `...connection.SessionCache` | A client's session tickets (`ClientSessionStore`) and NEW_TOKEN tokens (`TokenStore`, `TokenMemoryCache` after quinn's), by server name: `memory()`, `none()` |
@@ -667,6 +668,21 @@ it was, and `rebind` works.
 `SSLKEYLOGFILE`) writes the TLS secrets in the NSS key log format, so Wireshark can decrypt a
 capture. `qlog(QlogSink.logger(System.getLogger("quic")))` reports qlog-style events (packets sent,
 received and lost, key updates, state changes) as JSON lines. Both are off by default.
+
+`QuicConnection.stats()` is a snapshot of the connection's counts: smoothed, minimum and
+variation of the RTT, congestion window, bytes in flight, MTU, packets and bytes sent, received
+and lost (on every path), probe timeouts, congestion events, key updates, migrations (a server
+following its client to a new address, a client switching to a path it probed or rebound to) and
+of those the NAT rebindings (a server's to a new port of the client's address), PATH_CHALLENGEs
+answered, path validations that failed (a server's of its client's new address, a client's
+probes), datagrams from an address the connection takes no packets from (dropped), whether 0-RTT
+was accepted or rejected, and the congestion controller. The connection's thread keeps them as plain fields, so
+counting costs nothing more; a snapshot takes the connection's lock. `Stats.of(connection)` reads
+a sans-I/O `Connection` the same way. `observe(QuicConnection.Observer)` on a server or client
+hears of each connection as it opens, completes its handshake (with how long it took) and closes
+(with its statistics, why it ended, and whether its handshake completed), on the connection's
+thread with no lock held; `endpointStats()` counts what the endpoint answered without a
+connection: Version Negotiation, Retry, stateless resets and refusals.
 
 ### Tests
 

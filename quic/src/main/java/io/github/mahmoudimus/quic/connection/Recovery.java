@@ -115,6 +115,11 @@ public final class Recovery {
     private PathData prevPath;
 
     private int ptoCount;
+    /** Probe timeouts so far, which {@link #ptoCount} forgets on every acknowledgment. */
+    private long probeTimeoutCount;
+    /** Bytes of datagrams sent and received on every path, which each path's counts start over for. */
+    private long sentBytesTotal;
+    private long receivedBytesTotal;
     private boolean appLimited;
     private boolean handshakeConfirmed;
     private boolean closed;
@@ -464,6 +469,7 @@ public final class Recovery {
      */
     public void onDatagramSent(long now, long bytes, long lastPacketNumber) {
         path.totalSent += bytes;
+        sentBytesTotal += bytes;
         path.congestion.onSent(now, bytes, lastPacketNumber);
     }
 
@@ -474,6 +480,27 @@ public final class Recovery {
      */
     public void onDatagramReceived(long bytes) {
         path.totalReceived += bytes;
+        receivedBytesTotal += bytes;
+    }
+
+    /**
+     * Records a datagram of path validation frames sent outside the current path's accounting (to
+     * the previous path, a probed one, or another the peer challenged from), for {@link #sentBytes}.
+     *
+     * @param bytes the datagram's size
+     */
+    void onPathDatagramSent(long bytes) {
+        sentBytesTotal += bytes;
+    }
+
+    /**
+     * Records a datagram received from an address other than the current path's (a probed path, or
+     * a peer probing a new one), for {@link #receivedBytes}.
+     *
+     * @param bytes the datagram's size
+     */
+    void onOffPathDatagramReceived(long bytes) {
+        receivedBytesTotal += bytes;
     }
 
     /**
@@ -720,6 +747,7 @@ public final class Recovery {
         PacketSpace space = space(pto.space());
         space.lossProbes = (int) Math.min((long) space.lossProbes + count, Integer.MAX_VALUE);
         ptoCount = ptoCount == Integer.MAX_VALUE ? ptoCount : ptoCount + 1;
+        probeTimeoutCount++;
         setLossDetectionTimer(now);
     }
 
@@ -1007,6 +1035,33 @@ public final class Recovery {
      */
     public long sentPackets() {
         return sentPacketCount;
+    }
+
+    /**
+     * Bytes of datagrams sent, as UDP payloads, on every path.
+     *
+     * @return the count
+     */
+    public long sentBytes() {
+        return sentBytesTotal;
+    }
+
+    /**
+     * Bytes of datagrams received and taken by the connection, as UDP payloads, on every path.
+     *
+     * @return the count
+     */
+    public long receivedBytes() {
+        return receivedBytesTotal;
+    }
+
+    /**
+     * Probe timeouts so far: unlike {@link #ptoCount()}, never reset.
+     *
+     * @return the count
+     */
+    public long probeTimeouts() {
+        return probeTimeoutCount;
     }
 
     /**

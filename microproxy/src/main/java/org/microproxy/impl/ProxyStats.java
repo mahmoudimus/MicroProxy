@@ -35,8 +35,8 @@ import org.microproxy.stats.TagExtractor;
  *
  * <p>With metrics off the registry is {@link StatsRegistry#NOOP}: every metric here does nothing
  * and {@link #enabled} is false, which guards the few call sites that would otherwise read a clock.
- * The per-protocol stats (HTTP/2 and HTTP/3 codecs, QUIC, SOCKS, MASQUE, the hooks) hang off this
- * class the same way.
+ * The per-protocol stats (HTTP/2 and HTTP/3 codecs, QUIC, SOCKS, MASQUE, tunnels, WebSockets, the
+ * hooks) hang off this class the same way ({@link ProtocolStats}, {@link QuicStats}).
  */
 final class ProxyStats {
 
@@ -55,6 +55,24 @@ final class ProxyStats {
     /** {@code listener_manager.listener_stopped}: listeners closed. */
     final Counter listenerStopped;
     private final ClusterTable clusters;
+    /** {@code http2.downstream.*} and {@code http2.upstream.*}. */
+    final ProtocolStats.Http2Stats http2Downstream;
+    final ProtocolStats.Http2Stats http2Upstream;
+    /** {@code http3.downstream.*} and {@code http3.upstream.*}. */
+    final ProtocolStats.Http3Stats http3Downstream;
+    final ProtocolStats.Http3Stats http3Upstream;
+    final ProtocolStats.QuicFlowStats transparentQuic;
+    final ProtocolStats.SocksStats socks;
+    final ProtocolStats.MasqueStats masque;
+    final ProtocolStats.TunnelStats tunnel;
+    final ProtocolStats.WebSocketStats webSocket;
+    final ProtocolStats.QuicMessageStats quicMessages;
+    final ProtocolStats.Hooks hooks;
+    /**
+     * The {@link QuicStats} of each QUIC scope, made on first use by code that runs QUIC: plain
+     * objects here, so that this class needs nothing of the optional {@code quic} module.
+     */
+    private final Map<String, Object> quicScopes = new ConcurrentHashMap<>();
 
     ProxyStats(StatsRegistry registry, String listenerName) {
         this.registry = registry;
@@ -67,6 +85,23 @@ final class ProxyStats {
         this.replay = new ClusterStats(registry, "replay");
         this.listenerStopped = registry.counter("listener_manager.listener_stopped", "Listeners closed");
         this.clusters = new ClusterTable(registry);
+        this.http2Downstream = new ProtocolStats.Http2Stats(registry, "downstream");
+        this.http2Upstream = new ProtocolStats.Http2Stats(registry, "upstream");
+        this.http3Downstream = new ProtocolStats.Http3Stats(registry, "downstream");
+        this.http3Upstream = new ProtocolStats.Http3Stats(registry, "upstream");
+        this.transparentQuic = new ProtocolStats.QuicFlowStats(registry, "quic_transparent");
+        this.socks = new ProtocolStats.SocksStats(registry);
+        this.masque = new ProtocolStats.MasqueStats(registry);
+        this.tunnel = new ProtocolStats.TunnelStats(registry);
+        this.webSocket = new ProtocolStats.WebSocketStats(registry);
+        this.quicMessages = new ProtocolStats.QuicMessageStats(registry);
+        this.hooks = new ProtocolStats.Hooks(registry);
+    }
+
+    /** The object kept for QUIC scope {@code scope}, made by {@code make} the first time ({@link QuicStats#of}). */
+    Object quicScope(String scope, java.util.function.Supplier<Object> make) {
+        Object o = quicScopes.get(scope);
+        return o != null ? o : quicScopes.computeIfAbsent(scope, k -> make.get());
     }
 
     /** What a cluster is: {@code direct}, {@code cache}, {@code replay}, a chained proxy, a server, or the overflow. */
@@ -410,6 +445,11 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter sslHandshake;
         final Counter sslConnectionError;
+        final Counter cxRxBytes;
+        final Counter cxTxBytes;
+        final Counter backoffEngaged;
+        final Counter failover;
+        final Gauge backoffActive;
         /** What the cluster is ({@link #CHAINED_PROXY}, {@link #HOST}), for the admin listener; null for the fixed ones. */
         volatile String kind;
         /** When it was last handed out, for {@link StatsRegistry.Overflow#LRU}. */
@@ -447,6 +487,11 @@ final class ProxyStats {
             rqRxReset = counter(p + "upstream_rq_rx_reset", "Requests the server reset or closed the connection of");
             sslHandshake = counter(p + "ssl.handshake", "TLS handshakes with the cluster that succeeded");
             sslConnectionError = counter(p + "ssl.connection_error", "TLS handshakes with the cluster that failed");
+            cxRxBytes = counter(p + "upstream_cx_rx_bytes_total", "Bytes read from the cluster (decrypted, over TLS)");
+            cxTxBytes = counter(p + "upstream_cx_tx_bytes_total", "Bytes written to the cluster (before encryption, over TLS)");
+            backoffEngaged = counter(p + "backoff_engaged", "Waits before trying the cluster after earlier attempts failed");
+            failover = counter(p + "failover", "Connection attempts that failed and moved on to the route's next choice");
+            backoffActive = gauge(p + "backoff_active", "Requests waiting before they try the cluster (backing off)");
         }
 
         private Counter counter(String name, String help) {

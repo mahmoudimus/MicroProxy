@@ -7,6 +7,7 @@ import io.github.mahmoudimus.quic.connection.NanoClock;
 import io.github.mahmoudimus.quic.connection.Transmit;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +52,11 @@ final class ConnectionDriver implements Runnable {
     private volatile boolean stopped;
     private volatile boolean closeSent;
     private final AtomicLong droppedDatagrams = new AtomicLong();
+    /** The endpoint's observer when the connection started, or null. */
+    private final QuicConnection.Observer observer;
+    private final long startedNanos;
+    /** The handshake completed and the observer has yet to hear of it; the driver's thread's. */
+    private boolean handshakeToReport;
 
     // Guarded by lock
     private boolean connected;
@@ -70,6 +76,8 @@ final class ConnectionDriver implements Runnable {
         this.conn = conn;
         this.server = server;
         this.facade = new QuicConnection(this);
+        this.observer = endpoint.observer();
+        this.startedNanos = endpoint.clock.nanoTime();
     }
 
     void start() {
@@ -120,6 +128,9 @@ final class ConnectionDriver implements Runnable {
 
     @Override
     public void run() {
+        if (observer != null) {
+            notify(() -> observer.opened(facade));
+        }
         try {
             loop();
         } catch (RuntimeException | Error e) {
@@ -152,6 +163,34 @@ final class ConnectionDriver implements Runnable {
             endpoint.remove(this);
             endpoint.release(probe, null);
             endpoint.release(last, null);
+            if (observer != null) {
+                reportClosed();
+            }
+        }
+    }
+
+    /** Tells the observer the connection ended, with its statistics. */
+    private void reportClosed() {
+        QuicConnection.Stats stats;
+        ConnectionError reason;
+        boolean handshook;
+        lock.lock();
+        try {
+            stats = QuicConnection.stats(conn, droppedDatagrams.get());
+            reason = lost;
+            handshook = connected;
+        } finally {
+            lock.unlock();
+        }
+        notify(() -> observer.closed(facade, stats, reason, handshook));
+    }
+
+    /** Runs an observer's method; what it throws is logged. */
+    private void notify(Runnable call) {
+        try {
+            call.run();
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "a QUIC connection observer failed", e);
         }
     }
 
@@ -203,6 +242,11 @@ final class ConnectionDriver implements Runnable {
                 // After what went out: the last datagrams from the old socket are sent
                 endpoint.release(left, current);
             }
+            if (handshakeToReport) {
+                handshakeToReport = false;
+                Duration elapsed = Duration.ofNanos(now() - startedNanos);
+                notify(() -> observer.handshakeCompleted(facade, elapsed));
+            }
             if (drained) {
                 return;
             }
@@ -239,6 +283,7 @@ final class ConnectionDriver implements Runnable {
                 }
                 case ConnectionEvent.Connected c -> {
                     connected = true;
+                    handshakeToReport = observer != null;
                     if (server && !acceptedEarly) {
                         endpoint.accepted(facade);
                     }

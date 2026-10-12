@@ -855,6 +855,28 @@ flow control counts what is on the wire, whatever the interceptor makes of it.
   handshake fields/status and uses the same relay and frame hooks.
 - **The PROXY protocol header**, which is read when the connection starts.
 
+## Stats: `ProxyStats`, `ProtocolStats` and `QuicStats`
+
+`ProxyStats` resolves every metric of the proxy once, when it starts, from its `StatsRegistry`
+(`StatsRegistry.NOOP` without metrics, whose metrics do nothing): the `http`, `listener`,
+`tls_inspector` and `cluster` stats, and `ProtocolStats`' holders, one field each for the HTTP/2
+and HTTP/3 codecs by direction, transparent QUIC, SOCKS, MASQUE, tunnels, WebSockets and each hook
+family. Code counts through those fields: an endpoint keeps its direction's codec stats
+(`Http2Endpoint.stats`, `Http3Endpoint.stats`), a server connection its cluster, a session its
+hook stats. A hook's call is timed only with metrics on (`HookStats.start` returns 0 otherwise).
+
+QUIC is counted per connection, not per packet: the quic module keeps a connection's counts as
+plain fields (`QuicConnection.stats()`), and `QuicStats`, one per scope (`downstream`,
+`transparent`, `masque`, `upstream`), observes the endpoints (`QuicServer.observe`,
+`QuicClient.observe`) and adds a connection's counts to the registry when it closes. It is the only
+stats class that needs the quic module, so `ProxyStats` keeps the scopes as plain objects
+(`quicScope`), and only HTTP/3 code makes them (`QuicStats.of`). `QlogWriter` writes the qlog files
+(`Http3Options.qlogDirectory`): the `TransportConfig` of every QUIC endpoint the proxy makes gets
+its sink (`QlogWriter.sink`), and `QuicStats` closes a connection's file when it ends, so it
+observes the endpoints with qlog on even without metrics. CONNECT-UDP flows (`UdpFlow.countInto`)
+and transparent QUIC relays (`QuicFlows.endRelay`) also count their datagrams in fields of their
+own, added when they end.
+
 ## Notes for later
 
 - CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies), and CONNECT-UDP over HTTP/2

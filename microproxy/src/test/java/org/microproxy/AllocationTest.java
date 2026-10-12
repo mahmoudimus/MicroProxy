@@ -23,7 +23,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Guards the per-request allocation of the plain keep-alive path (about 4.7 KB per small GET, the
  * benchmark client included, when this was written). The bound is generous, so only a real
- * regression (such as a buffer or a copy per request) fails it, not noise.
+ * regression (such as a buffer or a copy per request) fails it, not noise. For HTTP/2 and HTTP/3,
+ * whose paths allocate more, it compares a proxy with metrics to one without: the codec, QUIC and
+ * hook stats must add nothing per request beyond noise.
  */
 class AllocationTest {
 
@@ -80,6 +82,110 @@ class AllocationTest {
         assertTrue(requests >= (long) CLIENTS * 10_000, requests + " requests counted");
         assertEquals(requests, ((org.microproxy.stats.Counter) stats.get("http.alloc.downstream_rq_2xx")).value());
         assertEquals(requests, ((org.microproxy.stats.Counter) stats.get("cluster.direct.upstream_rq_total")).value());
+    }
+
+    /** Bytes per request that metrics may add to a multiplexed protocol's, beyond a tenth: noise. */
+    private static final long MAX_EXTRA_BYTES_WITH_METRICS = 2048;
+
+    /** Sends one round of requests through one of the proxies compared. */
+    @FunctionalInterface
+    private interface Round {
+        void run() throws Exception;
+    }
+
+    /**
+     * The bytes per request of rounds through a proxy without metrics and one with, taken in turn
+     * (so that drift over the run, from the JIT and the heap, weighs on both alike), the best of
+     * five each: {without, with}.
+     */
+    private static long[] compare(Round without, Round with, int requestsPerRound) throws Exception {
+        com.sun.management.ThreadMXBean threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        without.run(); // warm-up: the path compiled before either is measured
+        with.run();
+        long[] best = {Long.MAX_VALUE, Long.MAX_VALUE};
+        Round[] rounds = {without, with};
+        for (int i = 0; i < 10; i++) {
+            long before = threads.getTotalThreadAllocatedBytes();
+            rounds[i % 2].run();
+            best[i % 2] = Math.min(best[i % 2], (threads.getTotalThreadAllocatedBytes() - before) / requestsPerRound);
+        }
+        return best;
+    }
+
+    /**
+     * HTTP/2 (with prior knowledge, one connection, one stream after another): the codec stats,
+     * the streams gauge and the hooks' clock add nothing per request over a proxy without
+     * metrics, beyond noise.
+     */
+    @Test
+    void http2StreamsAllocateNoMoreWithMetrics() throws Exception {
+        HttpProxyServer plain = MicroProxy.bootstrap().withPort(0).withHttp2Cleartext(true).start();
+        proxy = MicroProxy.bootstrap().withPort(0).withName("alloc2").withMetrics(true).withHttp2Cleartext(true).start();
+        String authority = "127.0.0.1:" + origin.getLocalPort();
+        try (H2TestClient a = H2TestClient.cleartext(plain.getListenAddress(), authority).handshake();
+                H2TestClient b = H2TestClient.cleartext(proxy.getListenAddress(), authority).handshake()) {
+            long[] bytes = compare(http2Round(a), http2Round(b), 2_000);
+            System.out.println("AllocationTest: HTTP/2 " + bytes[0] + " bytes per request, " + bytes[1] + " with metrics");
+            assertTrue(bytes[1] <= bytes[0] + bytes[0] / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
+                    bytes[1] + " bytes per HTTP/2 request with metrics, " + bytes[0] + " without");
+        } finally {
+            plain.abort();
+        }
+        assertEquals(0, ((org.microproxy.stats.Gauge) proxy.getStats().get("http2.downstream.streams_active")).value());
+    }
+
+    /** 2000 requests on {@code h2}, one stream after another. */
+    private static Round http2Round(H2TestClient h2) throws IOException {
+        // Room for every response's DATA: the test client gives none back
+        h2.writer.writeWindowUpdate(0, 1 << 30);
+        h2.writer.flush();
+        int[] id = {1};
+        return () -> {
+            for (int i = 0; i < 2_000; i++) {
+                h2.get(id[0], "/item?id=42");
+                h2.response(id[0]);
+                id[0] += 2;
+            }
+        };
+    }
+
+    /**
+     * HTTP/3 to a reverse proxy (one QUIC connection, one request stream after another): the QUIC
+     * connection counts its packets in plain fields of its own, which reach the registry once, when
+     * it closes, so metrics add nothing per packet or request beyond noise.
+     */
+    @Test
+    void http3StreamsAllocateNoMoreWithMetrics() throws Exception {
+        org.microproxy.tls.SelfSignedSslContextSource tls = new org.microproxy.tls.SelfSignedSslContextSource();
+        String upstream = "http://127.0.0.1:" + origin.getLocalPort();
+        HttpProxyServer plain = MicroProxy.bootstrap().withPort(0).withReverseProxy(upstream).withSslContextSource(tls)
+                .withHttp3(true).start();
+        proxy = MicroProxy.bootstrap().withPort(0).withName("alloc3").withMetrics(true).withReverseProxy(upstream)
+                .withSslContextSource(tls).withHttp3(true).start();
+        try (H3TestClient a = h3(plain, tls); H3TestClient b = h3(proxy, tls)) {
+            long[] bytes = compare(http3Round(a), http3Round(b), 500);
+            System.out.println("AllocationTest: HTTP/3 " + bytes[0] + " bytes per request, " + bytes[1] + " with metrics");
+            assertTrue(bytes[1] <= bytes[0] + bytes[0] / 10 + MAX_EXTRA_BYTES_WITH_METRICS,
+                    bytes[1] + " bytes per HTTP/3 request with metrics, " + bytes[0] + " without");
+        } finally {
+            plain.abort();
+        }
+        assertEquals(0, ((org.microproxy.stats.Gauge) proxy.getStats().get("http3.downstream.streams_active")).value());
+    }
+
+    private static H3TestClient h3(HttpProxyServer proxy, org.microproxy.tls.SelfSignedSslContextSource tls)
+            throws IOException {
+        return H3TestClient.connect(new java.net.InetSocketAddress(TestSupport.LOOPBACK, proxy.getListenAddress().getPort()),
+                "localhost", tls.getCertificate());
+    }
+
+    /** 500 requests on {@code h3}, one stream after another. */
+    private static Round http3Round(H3TestClient h3) {
+        return () -> {
+            for (int i = 0; i < 500; i++) {
+                assertEquals(200, h3.get("/item?id=42").status());
+            }
+        };
     }
 
     /** The best of three rounds' bytes per request, failing above {@link #MAX_BYTES_PER_REQUEST}. */

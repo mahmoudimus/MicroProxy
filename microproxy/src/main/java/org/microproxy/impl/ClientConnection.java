@@ -290,7 +290,94 @@ final class ClientConnection implements Runnable {
             return change ? filters.filterWebSocketFrame(frame, fromClient) : frame;
         };
         return new WebSocketRelay(frames, messages ? filters::filterWebSocketMessages : null,
-                server.maxWebSocketFrameBufferSize, server.maxWebSocketMessageSize, clientHop, serverHop);
+                server.maxWebSocketFrameBufferSize, server.maxWebSocketMessageSize, clientHop, serverHop, server.stats);
+    }
+
+    /**
+     * Runs a request's head through {@code clientToProxyRequest} (or, {@code toServer}, {@code
+     * proxyToServerRequest}), counted in {@code hooks.http_filters}: an answer is a rewrite.
+     */
+    private HttpResponse requestHook(HttpFilters filters, HttpRequest request, boolean toServer) {
+        ProtocolStats.HookStats hooks = server.stats.hooks.httpFilters;
+        long start = hooks.start();
+        HttpResponse answer;
+        try {
+            answer = toServer ? filters.proxyToServerRequest(request) : filters.clientToProxyRequest(request);
+        } catch (RuntimeException | Error e) {
+            hooks.failed(start);
+            throw e;
+        }
+        hooks.end(start);
+        if (answer != null) hooks.rewrites.inc();
+        return answer;
+    }
+
+    /**
+     * Runs a response's head through {@code serverToProxyResponse} (or, {@code toClient}, {@code
+     * proxyToClientResponse}), counted in {@code hooks.http_filters}: null drops it, another
+     * object rewrites it.
+     */
+    private HttpObject responseHook(HttpFilters filters, HttpObject response, boolean toClient) {
+        ProtocolStats.HookStats hooks = server.stats.hooks.httpFilters;
+        long start = hooks.start();
+        HttpObject result;
+        try {
+            result = toClient ? filters.proxyToClientResponse(response) : filters.serverToProxyResponse(response);
+        } catch (RuntimeException | Error e) {
+            hooks.failed(start);
+            throw e;
+        }
+        hooks.end(start);
+        hooks.outcome(response, result);
+        return result;
+    }
+
+    /**
+     * Relays {@code ex}'s tunnel through {@code channel} ({@link ClientChannel#relay}), counted in
+     * {@code tunnel.*} under {@code kind}, or, for a WebSocket ({@code kind} null), in {@code
+     * websocket.*}: opened, open, and, for tunnels, the bytes it carried and how long it was open.
+     */
+    private void relayCounted(ClientChannel channel, Exchange ex, ServerConnection conn, WebSocketRelay webSocket,
+            TcpSession tcp, String name, org.microproxy.stats.Counter kind) {
+        ProxyStats stats = server.stats;
+        if (!stats.enabled) {
+            channel.relay(conn, webSocket, tcp, ex.flow, name);
+            return;
+        }
+        ProtocolStats.TunnelStats tunnels = stats.tunnel;
+        org.microproxy.stats.Gauge active = kind == null ? stats.webSocket.sessionsActive : tunnels.active;
+        (kind == null ? stats.webSocket.sessionsTotal : kind).inc();
+        long received = ex.flow.bytesReceived();
+        long sent = ex.flow.bytesSent();
+        long start = ClientFlowContext.now();
+        active.inc();
+        try {
+            channel.relay(conn, webSocket, tcp, ex.flow, name);
+        } finally {
+            if (kind != null) {
+                tunnels.rxBytes.add(Math.max(0, ex.flow.bytesReceived() - received));
+                tunnels.txBytes.add(Math.max(0, ex.flow.bytesSent() - sent));
+                tunnels.durationMs.recordNanos(ClientFlowContext.now() - start);
+            }
+            // Last: a tunnel no longer active has been counted in full.
+            active.dec();
+        }
+    }
+
+    /**
+     * The kind of a {@code CONNECT}'s tunnel: forwarded (through a chained proxy, or a session's
+     * server the client takes for its proxy), a SOCKS client's, else by the protocol the {@code
+     * CONNECT} came in.
+     */
+    private org.microproxy.stats.Counter tunnelKind(Exchange ex, ServerConnection conn) {
+        ProtocolStats.TunnelStats tunnels = server.stats.tunnel;
+        if (conn.chainedProxy != null || conn.through != null) return tunnels.forwarded;
+        if (ex.socks != 0) return tunnels.socks;
+        return switch (kind(ex.channel)) {
+            case HTTP2 -> tunnels.h2Connect;
+            case HTTP3 -> tunnels.h3Connect;
+            default -> tunnels.h1Connect;
+        };
     }
 
     /** How a server connection is used. */
@@ -1103,6 +1190,8 @@ final class ClientConnection implements Runnable {
         ByteReader in = http1.input();
         int version = in.peek();
         flowContext.socksVersion(version);
+        ProtocolStats.SocksStats socks = server.stats.socks;
+        (version == Socks.VERSION_4 ? socks.connectionsV4 : socks.connectionsV5).inc();
         long deadline = server.tlsHandshakeTimeout.isZero() ? 0 : System.nanoTime() + server.tlsHandshakeTimeout.toNanos();
         SocksHandshake.Destination destination;
         try {
@@ -1110,6 +1199,9 @@ final class ClientConnection implements Runnable {
                     http1::writeRaw, socksAuthenticator());
         } catch (SocksHandshake.Refused e) {
             LOG.log(Level.DEBUG, logPrefix + "SOCKS client refused: " + e.getMessage());
+            if (e.refusal == SocksHandshake.Refusal.AUTHENTICATION) socks.authFailures.inc();
+            if (e.refusal == SocksHandshake.Refusal.COMMAND) socks.commandNotSupported.inc();
+            if (e.reply >= 0) socks.reply(e.reply);
             return;
         }
         String authorization = destination.user() == null ? null : "Basic " + Base64.getEncoder().encodeToString(
@@ -1522,7 +1614,7 @@ final class ClientConnection implements Runnable {
             ex.request = full;
         }
 
-        HttpResponse shortCircuit = ex.filters.clientToProxyRequest(ex.request);
+        HttpResponse shortCircuit = requestHook(ex.filters, ex.request, false);
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
@@ -1778,7 +1870,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
+        HttpResponse shortCircuit = requestHook(ex.filters, ex.request, true);
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
@@ -2283,7 +2375,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        HttpObject filtered = filters.serverToProxyResponse(head);
+        HttpObject filtered = responseHook(filters, head, false);
         if (!(filtered instanceof HttpResponse res)) {
             return abort(ex, conn);
         }
@@ -2315,7 +2407,7 @@ final class ClientConnection implements Runnable {
             ex.channel.setKeepAlive(res, !closeClient);
         }
 
-        HttpObject toClient = filters.proxyToClientResponse(res);
+        HttpObject toClient = responseHook(filters, res, true);
         if (!(toClient instanceof HttpResponse finalResponse)) {
             return abort(ex, conn);
         }
@@ -2391,7 +2483,8 @@ final class ClientConnection implements Runnable {
             // Parsing buffers each frame before forwarding it, so only do it for filters that listen.
             WebSocketRelay relay = webSocket ? webSocketRelay(filters, serverExtensions, finalResponse, ex.channel.logPrefix())
                     : null;
-            ex.channel.relay(conn, relay, null, ex.flow, server.name + "-upgrade-" + id);
+            relayCounted(ex.channel, ex, conn, relay, null, server.name + "-upgrade-" + id,
+                    webSocket ? null : server.stats.tunnel.raw);
             conn.close();
             return false;
         }
@@ -2705,14 +2798,17 @@ final class ClientConnection implements Runnable {
         if (route == null || !route.contains(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION)) {
             // A chained proxy carries no UDP: only a direct route (or a fallback to one) will do.
             LOG.log(Level.DEBUG, ex.log + "no direct route for UDP to " + hostAndPort);
+            server.stats.masque.rejectedPolicy.inc();
             return respondFailure(ex, new ProxyFailure.NoRoute(hostAndPort), false);
         }
         HttpResponse shortCircuit = ex.filters.proxyToServerRequest(ex.request);
         if (shortCircuit != null) {
+            server.stats.masque.rejectedPolicy.inc();
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
         if (server.udpFlows.incrementAndGet() > server.http3Options.connectUdpMaxFlows()) {
             server.udpFlows.decrementAndGet();
+            server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + server.http3Options.connectUdpMaxFlows() + " flows open");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -2757,10 +2853,12 @@ final class ClientConnection implements Runnable {
         }
         Http3Options options = server.http3Options;
         UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
-                options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes());
+                options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes(),
+                server.stats.hooks.udp);
         // Before the answer: the client may send datagrams as soon as it reads it.
         if (!client.attach(flow)) {
             socket.close();
+            server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -2788,6 +2886,7 @@ final class ClientConnection implements Runnable {
             ex.responseStarted = true;
             if (response.status().code() != 101) {
                 // A filter refused the flow: its answer goes to the client as it is.
+                server.stats.masque.rejectedPolicy.inc();
                 writeToClient(() -> ex.channel.writeComplete(response, true));
                 countFull(ex, response, true);
                 sent(ex, response, source);
@@ -2798,7 +2897,16 @@ final class ClientConnection implements Runnable {
             sent(ex, response, source);
             completed(ex, response, source);
             LOG.log(Level.DEBUG, ex.log + "relaying UDP to " + hostAndPort + " (" + address + ")");
-            flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
+            ProtocolStats.MasqueStats masqueStats = server.stats.masque;
+            masqueStats.flowsTotal.inc();
+            masqueStats.flowsActive.inc();
+            try {
+                flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
+            } finally {
+                flow.countInto(masqueStats);
+                // Last: a flow no longer active has been counted in full.
+                masqueStats.flowsActive.dec();
+            }
             return false;
         } finally {
             client.detach(flow);
@@ -2877,6 +2985,8 @@ final class ClientConnection implements Runnable {
         }
         if (ex.socks != 0) {
             // The SOCKS client's request succeeded: the server is connected (or will be, by the session).
+            // Counted first, so that a client that has its reply finds it counted.
+            server.stats.socks.reply(Socks.REPLY_SUCCEEDED);
             writeToClient(() -> http1.writeRaw(SocksHandshake.reply(ex.socks, Socks.REPLY_SUCCEEDED)));
             sent(ex, response, source);
         } else if (!ex.implicit) {
@@ -2935,7 +3045,8 @@ final class ClientConnection implements Runnable {
             boolean decrypted = server.reverseProxy != null && sslSession != null;
             TcpSession tcp = tcpSession(ex.flow, target, decrypted);
             if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
-            ex.channel.relay(conn, null, tcp, ex.flow, server.name + "-tunnel-" + id);
+            relayCounted(ex.channel, ex, conn, null, tcp, server.name + "-tunnel-" + id,
+                    server.reverseProxy != null ? server.stats.tunnel.raw : tunnelKind(ex, conn));
             conn.close();
             return false;
         }
@@ -3295,8 +3406,8 @@ final class ClientConnection implements Runnable {
             String hostAndPort, List<String> alpn) throws IOException {
         SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
         Supplier<FullFlowContext> context = () -> conn.flowContext;
-        conn.layerTls(tls, new ByteReader(serverInput(tls, context), server.ioBuffers),
-                new PooledOutputStream(serverOutput(tls, context), server.ioBuffers));
+        conn.layerTls(tls, new ByteReader(serverInput(tls, context, conn.cluster), server.ioBuffers),
+                new PooledOutputStream(serverOutput(tls, context, conn.cluster), server.ioBuffers));
         conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
     }
 
@@ -3341,7 +3452,7 @@ final class ClientConnection implements Runnable {
         // intercepted CONNECT stream), not the CONNECT exchange's channel's.
         TcpSession tcp = tcpSession(ex.flow, HostAndPort.parse(hostAndPort, 443), false);
         if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
-        http1.relay(conn, null, tcp, ex.flow, server.name + "-tunnel-" + id);
+        relayCounted(http1, ex, conn, null, tcp, server.name + "-tunnel-" + id, tunnelKind(ex, conn));
         conn.close();
         return false;
     }
@@ -3365,7 +3476,9 @@ final class ClientConnection implements Runnable {
             alpn = tls.getApplicationProtocol();
             if (sni == null) sni = requestedServerName(tls.getSession());
         }
-        return new TcpSession(interceptor, flow, target, tlsIntercepted, sni, alpn, logPrefix);
+        TcpSession session = new TcpSession(interceptor, flow, target, tlsIntercepted, sni, alpn, logPrefix);
+        session.stats = server.stats.hooks.tcp;
+        return session;
     }
 
     /** The host name a TLS client asked for (SNI) in {@code session}, or null. */
@@ -3780,7 +3893,7 @@ final class ClientConnection implements Runnable {
         TcpSession tcp = tcpSession(flowContext, target, true);
         if (tcp != null) ex.kind = FlowRecord.Kind.TCP;
         try {
-            http1.relay(conn, null, tcp, ex.flow, server.name + "-tls-tunnel-" + id);
+            relayCounted(http1, ex, conn, null, tcp, server.name + "-tls-tunnel-" + id, server.stats.tunnel.raw);
         } finally {
             conn.close();
             recordExchange(ex);
@@ -3957,6 +4070,12 @@ final class ClientConnection implements Runnable {
         } finally {
             close();
             quic.close();
+            if (countsBytes()) {
+                // QUIC counts its datagrams' bytes itself; they are added once, as the connection ends.
+                io.github.mahmoudimus.quic.QuicConnection.Stats bytes = quic.stats();
+                server.stats.http.cxRxBytes.add(bytes.receivedBytes());
+                server.stats.http.cxTxBytes.add(bytes.sentBytes());
+            }
             cxClosed(!server.isStopping());
             endQuicFilters(true);
             server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
@@ -4124,7 +4243,8 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
             HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
             QuicSession session = new QuicSession(server.quicInterceptor, server.quicFraming, quic,
-                    upstream.connection(), flowContext, target, serverFlow.getRemoteAddress(), masque, logPrefix);
+                    upstream.connection(), flowContext, target, serverFlow.getRemoteAddress(), masque, logPrefix,
+                    server.stats);
             quicSession = session;
             if (!closed) session.run();
             completed = true;
@@ -4418,8 +4538,11 @@ final class ClientConnection implements Runnable {
         boolean connecting = false;
         int failures = 0;
         long backoffBudget = server.backoffInitialNanos > 0 ? backoffBudgetNanos(ex) : 0;
+        ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
+            // The last attempt failed and this one takes over from it.
+            if (failedCluster != null) failedCluster.failover.inc();
             if (failures > 0 && backoffBudget > 0) {
                 backoffBudget -= backOff(ex, failures, backoffBudget, hostAndPort, proxy);
             }
@@ -4443,6 +4566,7 @@ final class ClientConnection implements Runnable {
                 }
                 last = e;
                 failures++;
+                if (server.stats.enabled) failedCluster = server.stats.cluster(proxy, hostAndPort);
                 // A name that did not resolve never got as far as connecting.
                 connecting |= !(e instanceof UnknownHostException || e instanceof UnresolvedChainedProxy);
                 if (proxy != null) {
@@ -4524,8 +4648,16 @@ final class ClientConnection implements Runnable {
                     + (next == null ? "a direct connection" : "chained proxy " + next.getChainedProxyAddress())
                     + " for " + hostAndPort + " after " + failures + " failed attempt" + (failures == 1 ? "" : "s"));
         }
+        ProxyStats.ClusterStats cluster = server.stats.enabled ? server.stats.cluster(next, hostAndPort)
+                : ProxyStats.ClusterStats.NOOP;
+        cluster.backoffEngaged.inc();
+        cluster.backoffActive.inc();
         long start = System.nanoTime();
-        ex.channel.awaitUnlessClientLeaves(start + wait);
+        try {
+            ex.channel.awaitUnlessClientLeaves(start + wait);
+        } finally {
+            cluster.backoffActive.dec();
+        }
         return System.nanoTime() - start;
     }
 
@@ -4632,8 +4764,8 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
-            ByteReader reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
-            OutputStream output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
+            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+            OutputStream output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();
 
@@ -4673,8 +4805,8 @@ final class ClientConnection implements Runnable {
                 }
                 active = serverTls(ex, active, target, target.host(), hostAndPort, serverContext,
                         upstreamAlpn(ex.offerHttp2, sessionHello()));
-                reader = new ByteReader(serverInput(active, currentContext), server.ioBuffers);
-                output = new PooledOutputStream(serverOutput(active, currentContext), server.ioBuffers);
+                reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+                output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             }
             holder[0] = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, mode != Mode.PLAIN,
                     active, reader, output, remote, serverContext, server.trackers);
@@ -4750,9 +4882,11 @@ final class ClientConnection implements Runnable {
         socket.setSSLParameters(params);
     }
 
-    private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext)
+    /** {@code s}'s input, counted in {@code cluster}'s {@code upstream_cx_rx_bytes_total} and for trackers. */
+    private InputStream serverInput(Socket s, Supplier<FullFlowContext> serverContext, ProxyStats.ClusterStats cluster)
             throws IOException {
         InputStream is = server.readLimiter.wrap(s.getInputStream());
+        if (cluster.enabled) is = CountingStreams.counting(is, cluster.cxRxBytes::add);
         if (!server.trackers.isEmpty()) {
             is = CountingStreams.counting(is, n -> {
                 FullFlowContext context = serverContext.get();
@@ -4763,9 +4897,11 @@ final class ClientConnection implements Runnable {
         return is;
     }
 
-    private OutputStream serverOutput(Socket s, Supplier<FullFlowContext> serverContext)
+    /** {@code s}'s output, counted in {@code cluster}'s {@code upstream_cx_tx_bytes_total} and for trackers. */
+    private OutputStream serverOutput(Socket s, Supplier<FullFlowContext> serverContext, ProxyStats.ClusterStats cluster)
             throws IOException {
         OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
+        if (cluster.enabled) os = CountingStreams.counting(os, cluster.cxTxBytes::add);
         if (!server.trackers.isEmpty()) {
             os = CountingStreams.counting(os, n -> {
                 FullFlowContext context = serverContext.get();
@@ -5116,6 +5252,7 @@ final class ClientConnection implements Runnable {
         LOG.log(Level.DEBUG, ex.log + "refusing SOCKS CONNECT " + ex.request.uri() + " with reply code " + code
                 + " (" + response.status() + ")");
         try {
+            server.stats.socks.reply(code);
             http1.writeRaw(SocksHandshake.reply(ex.socks, code));
             sent(ex, response, source);
             completed(ex, response, source);

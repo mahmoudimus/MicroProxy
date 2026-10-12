@@ -252,6 +252,18 @@ public final class Connection {
     private final boolean spinEnabled;
     private boolean spin;
     private long totalAuthedPackets;
+    /** Datagrams that came from an address the connection does not take packets from, and were dropped. */
+    private long strayDatagrams;
+    /** PATH_CHALLENGE frames answered. */
+    private long pathChallenges;
+    /** Moves to a new path: a server following its client, a client switching to a path. */
+    private long migrations;
+    /** Of {@link #migrations}, a server's that followed its client to a new port of the same address. */
+    private long natRebindings;
+    /** Path validations that got no PATH_RESPONSE in time: a server's of its client's new path, a client's probe. */
+    private long pathValidationFailures;
+    /** Whether 0-RTT was attempted and not accepted: a client's rejected by the server, or a server's refused. */
+    private boolean zeroRttRefused;
     private boolean receivingEcn;
     private StatelessResetToken peerResetToken;
 
@@ -511,6 +523,7 @@ public final class Connection {
             boolean allowed = side.isServer() ? remoteMayMigrate && state != State.HANDSHAKE
                     : probe != null && from.equals(probe.remote);
             if (!allowed) {
+                strayDatagrams++;
                 return;
             }
         }
@@ -550,6 +563,8 @@ public final class Connection {
         // the current path whatever their sender)
         if (from.equals(recovery.path().remote())) {
             recovery.onDatagramReceived(length);
+        } else {
+            recovery.onOffPathDatagramReceived(length);
         }
         if (wasBlocked) {
             // A loss detection timer the limit kept off may be needed now
@@ -577,6 +592,8 @@ public final class Connection {
             case ZERO_RTT -> {
                 if (side.isServer() && zeroRttKeys != null) {
                     handleZeroRtt(now, p, ecn);
+                } else if (side.isServer() && !zeroRttAccepted) {
+                    zeroRttRefused = true;
                 }
                 return;
             }
@@ -974,6 +991,7 @@ public final class Connection {
             return;
         }
         pathChanged(now, next);
+        migrations++;
         spin = false;
         ping();
         recovery.setLossDetectionTimer(now);
@@ -1082,6 +1100,7 @@ public final class Connection {
                 case Frame.ApplicationClose c -> close = new ConnectionError(ConnectionError.Kind.APPLICATION_CLOSED,
                         c.errorCode(), 0, c.reasonPhrase());
                 case Frame.PathChallenge c -> {
+                    pathChallenges++;
                     if (rxFrom == null) {
                         break; // a 1-RTT packet held during the handshake: answered on the path
                     }
@@ -1190,6 +1209,7 @@ public final class Connection {
         pathCounter++;
         PathData next = cur.sameHosts(to, local) ? PathData.fromPrevious(to, local, cur, pathCounter, now)
                 : PathData.create(recoveryConfig, to, local, peerMaxUdpPayloadSize(), pathCounter, now);
+        migrations++;
         if (to.equals(cur.remote())) {
             // Only the local address changed: the client moved to our preferred address, from an
             // address already validated
@@ -1197,6 +1217,9 @@ public final class Connection {
             recovery.setPath(next, true);
             pathChanged(now, next);
             return;
+        }
+        if (cur.sameHosts(to, local)) {
+            natRebindings++; // the same address and local address, another port
         }
         next.challenge = random.nextLong();
         next.hasChallenge = true;
@@ -1280,6 +1303,7 @@ public final class Connection {
             setResetToken(peerResetToken); // the same token, from the new address
         }
         pathChanged(now, next);
+        migrations++;
         spin = false;
         recovery.setLossDetectionTimer(now);
     }
@@ -1414,6 +1438,7 @@ public final class Connection {
      * control frames again, and send the stream data again in 1-RTT if it fits the server's limits.
      */
     private void zeroRttRejected(long now, TransportParameters params) {
+        zeroRttRefused = true;
         Retransmits pending = recovery.space(SpaceId.DATA).pending();
         for (SentPacket p : recovery.discardZeroRttPackets(now)) {
             if (p.retransmits() != null) {
@@ -1632,6 +1657,7 @@ public final class Connection {
                 }
                 case PATH_VALIDATION -> {
                     // The client did not answer on its new path: back to the previous one
+                    pathValidationFailures++;
                     PathData prev = recovery.prevPath();
                     if (prev != null) {
                         recovery.setPath(prev, false);
@@ -1650,6 +1676,7 @@ public final class Connection {
                     }
                     if (now - pr.deadline >= 0) {
                         probe = null;
+                        pathValidationFailures++;
                         events.add(new ConnectionEvent.PathProbeFailed(pr.remote, pr.local));
                         qlog(now, "connectivity:path_probe_failed", "{\"remote\":\"" + pr.remote + "\"}");
                     } else {
@@ -1771,13 +1798,13 @@ public final class Connection {
         if (prev != null && prev.challengePending && out.size() < maxDatagrams) {
             prev.challengePending = false;
             long token = prev.challenge;
-            out.add(new Transmit(buildPathPacket(prevPathCid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(token).encode(f)),
+            out.add(pathTransmit(buildPathPacket(prevPathCid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(token).encode(f)),
                     prev.remote(), prev.local()));
         }
         Probe pr = probe;
         if (pr != null && pr.pending && out.size() < maxDatagrams) {
             pr.pending = false;
-            out.add(new Transmit(buildPathPacket(pr.cid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(pr.challenge).encode(f)),
+            out.add(pathTransmit(buildPathPacket(pr.cid, MIN_INITIAL_SIZE, f -> new Frame.PathChallenge(pr.challenge).encode(f)),
                     pr.remote, pr.local));
         }
         PathData path = recovery.path();
@@ -1791,9 +1818,15 @@ public final class Connection {
             if (size < min1rttDatagram()) {
                 continue;
             }
-            out.add(new Transmit(buildPathPacket(remoteCids.active(), size, f -> new Frame.PathResponse(r.token()).encode(f)),
+            out.add(pathTransmit(buildPathPacket(remoteCids.active(), size, f -> new Frame.PathResponse(r.token()).encode(f)),
                     r.remote(), r.local()));
         }
+    }
+
+    /** A datagram of {@link #pollPathTransmits}, counted in the bytes sent. */
+    private Transmit pathTransmit(ByteBuffer datagram, InetSocketAddress remote, InetSocketAddress local) {
+        recovery.onPathDatagramSent(datagram.remaining());
+        return new Transmit(datagram, remote, local);
     }
 
     /**
@@ -2750,6 +2783,79 @@ public final class Connection {
      */
     public long congestionWindow() {
         return recovery.congestion().window();
+    }
+
+    /**
+     * Packets received and authenticated.
+     *
+     * @return the count
+     */
+    public long receivedPackets() {
+        return totalAuthedPackets;
+    }
+
+    /**
+     * Datagrams that came from an address the connection does not take packets from, and were
+     * dropped: on a server, from a new address during the handshake or when migration is disabled;
+     * on a client, from anywhere but the server's address and the path it probes.
+     *
+     * @return the count
+     */
+    public long strayDatagrams() {
+        return strayDatagrams;
+    }
+
+    /**
+     * Moves to a new path: on a server, each time it followed its client to a new address (a NAT
+     * rebinding, a migration, the preferred address), not counting a return to the previous path
+     * after a failed validation; on a client, each switch to a path it probed and each {@link
+     * #rebind}.
+     *
+     * @return the count
+     */
+    public long migrations() {
+        return migrations;
+    }
+
+    /**
+     * The server's {@link #migrations()} to a new port of the client's address, with the same local
+     * address: what a NAT rebinding looks like, and what keeps the congestion and RTT state.
+     *
+     * @return the count
+     */
+    public long natRebindings() {
+        return natRebindings;
+    }
+
+    /**
+     * Path validations that failed: on a server, a client's new path that sent no PATH_RESPONSE
+     * in time (the server went back to the previous path, when it had one); on a client, a probe
+     * of a path that got no answer ({@link ConnectionEvent.PathProbeFailed}).
+     *
+     * @return the count
+     */
+    public long pathValidationFailures() {
+        return pathValidationFailures;
+    }
+
+    /**
+     * PATH_CHALLENGE frames the peer sent, each answered with PATH_RESPONSE: the peer's path
+     * validations.
+     *
+     * @return the count
+     */
+    public long pathChallengesReceived() {
+        return pathChallenges;
+    }
+
+    /**
+     * Whether 0-RTT was attempted and not accepted: on a client, the server rejected it; on a
+     * server, the client sent 0-RTT packets that it did not accept.
+     *
+     * @return true if 0-RTT was rejected
+     */
+    public boolean zeroRttRejected() {
+        return zeroRttRefused;
     }
 
     /**

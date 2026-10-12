@@ -76,6 +76,8 @@ abstract class Http3Endpoint {
     final Http3Options options;
     /** Runs the frame interceptor; null without one. */
     final Http3Frames frames;
+    /** {@code http3.downstream.*} or {@code http3.upstream.*}: this side's codec stats. */
+    final ProtocolStats.Http3Stats stats;
     /** SETTINGS_MAX_FIELD_SECTION_SIZE, the largest decoded field section accepted. */
     final long maxFieldSectionSize;
     /** The largest frame payload read on a request stream: a field section, or a piece of DATA. */
@@ -114,13 +116,16 @@ abstract class Http3Endpoint {
     /** A connection error has closed the connection, once. */
     private final java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
 
-    Http3Endpoint(DefaultHttpProxyServer server, QuicConnection quic, String logPrefix, Http3StreamValidator.Role role) {
+    Http3Endpoint(DefaultHttpProxyServer server, QuicConnection quic, String logPrefix, Http3StreamValidator.Role role,
+            ProtocolStats.Http3Stats stats) {
         this.server = server;
+        this.stats = stats;
         this.quic = quic;
         this.logPrefix = logPrefix;
         this.options = server.http3Options;
         this.role = role;
-        this.frames = server.frameInterceptor == null ? null : new Http3Frames(server.frameInterceptor);
+        this.frames = server.frameInterceptor == null ? null
+                : new Http3Frames(server.frameInterceptor, server.stats.hooks.frameInterceptor);
         this.maxFieldSectionSize = options.maxFieldSectionSize() > 0 ? options.maxFieldSectionSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
         this.maxFramePayload = (int) Math.min(Integer.MAX_VALUE - 8, Math.max(64 * 1024, maxFieldSectionSize + 4096));
@@ -236,6 +241,7 @@ abstract class Http3Endpoint {
         controlLock.lock();
         try {
             if (control == null) return;
+            stats.goawaySent.inc();
             Http3Frame.GoAway goAway = new Http3Frame.GoAway(id);
             for (Http3Frame f : frames == null ? List.<Http3Frame>of(goAway)
                     : frames.onControl(goAway, sentDirection(), frameOrigin(), controlStreamId)) {
@@ -367,6 +373,7 @@ abstract class Http3Endpoint {
     }
 
     private void peerGoingAway(long id) {
+        stats.goawayReceived.inc();
         stateLock.lock();
         try {
             peerGoAway = id;
@@ -470,8 +477,14 @@ abstract class Http3Endpoint {
             } catch (FieldSectionSizeException e) {
                 flushDecoderStream();
                 throw e;
+            } catch (Http3Exception e) {
+                stats.qpackDecoderErrors.inc();
+                throw e;
             }
-            if (fields == null) fields = awaitUnblocked(streamId);
+            if (fields == null) {
+                stats.qpackBlockedStreams.inc();
+                fields = awaitUnblocked(streamId);
+            }
             flushDecoderStream();
             return fields;
         } finally {
@@ -562,6 +575,11 @@ abstract class Http3Endpoint {
 
     /** Counts an event against its rate limit; over it, the connection ends with H3_EXCESSIVE_LOAD. */
     void count(int kind) throws Http3Exception {
+        if (kind == UNKNOWN_FRAME) {
+            stats.unknownFrames.inc();
+        } else if (kind == UNKNOWN_STREAM) {
+            stats.unknownStreamTypes.inc();
+        }
         boolean over;
         stateLock.lock();
         try {

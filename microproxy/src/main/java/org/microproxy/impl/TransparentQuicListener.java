@@ -35,9 +35,10 @@ final class TransparentQuicListener implements AutoCloseable {
     private TransparentQuicListener(DefaultHttpProxyServer server, InetSocketAddress address,
             Function<String, KeyMaterial> keys) throws IOException {
         Origin origin = new Origin(server);
-        this.flows = new QuicFlows(server, keys, client -> origin, server.name + "-quic");
+        this.flows = new QuicFlows(server, keys, client -> origin, server.name + "-quic", server.stats.transparentQuic);
         this.quic = QuicServer.bind(address, Http3Listener.serverConfig(server, keys != null ? keys : sni -> null),
                 EndpointConfig.defaults(), flows::filter);
+        QuicStats.of(server, QuicStats.TRANSPARENT).observe(quic);
         flows.start(quic);
     }
 
