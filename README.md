@@ -2718,8 +2718,18 @@ def on_response(req, res, ctx):
 one), and the `trace` module adds to that span: `trace.set_attribute(key, value)` (a string, bool,
 int, float or a list of those), `trace.add_event(name, attributes={})`, and
 `trace.is_recording()`, false when the exchange is not sampled and the calls would be ignored. In
-hooks that run for no exchange (the TCP, UDP and QUIC hooks) the calls do nothing. The span's
+the TCP, UDP and QUIC hooks they add to the span of the tunnel or flow; in hooks that run for no
+exchange (`upstream`, `quic_message_length`) they do nothing. The span's
 [limits](#opentelemetry) bound what a script adds.
+
+Each hook call for a sampled exchange is also a span of its own, `starlark <hook>` (INTERNAL, a
+child of the exchange's, tunnel's or flow's span), with `starlark.hook`, `starlark.script`,
+`starlark.steps`, `starlark.alloc_bytes` and, when a [budget](#script-budgets) stopped it,
+`starlark.budget_exceeded` (`steps`, `memory` or `time`); a call that failed has an error status
+with its message. What `trace.set_attribute` and `trace.add_event` add goes on the exchange's span,
+not on the hook call's: it describes the exchange, and stays in one place however many hooks see
+it. Exchanges that are not sampled, and proxies without a tracer, get no hook spans and pay nothing
+for them.
 
 ```python
 def on_request(req, ctx):
@@ -4142,6 +4152,7 @@ its exchanges ended: what is queued is exported then.
 | an attempt to reach the server, a child of the exchange's span | CLIENT | the method | from the connection attempt (directly, or through a chained proxy) or, on a connection at hand, from the request, to the response; each chained proxy tried and each request sent again after a stale keep-alive connection is one more, with `http.request.resend_count` |
 | a `CONNECT` tunnel, a SOCKS client, a WebSocket session, a TCP-hook tunnel, a CONNECT-UDP flow | INTERNAL | `tunnel example.com:443`, `socks ...`, `websocket ...`, `udp ...` | until it closes; its connection's CLIENT span lasts as long |
 | a QUIC flow relayed or intercepted stream by stream, a request a transport answered itself | INTERNAL (SERVER for HTTP) | `quic_relay ...`, `quic ...` | a span of its own, under the context its request carried |
+| a call into a [script's](#scripting-with-starlark) hook, a child of its exchange's (tunnel's, flow's) span | INTERNAL | `starlark on_request`, `starlark on_tcp_message`, ... | the call, with `starlark.hook`, `starlark.script`, `starlark.steps`, `starlark.alloc_bytes` and `starlark.budget_exceeded` |
 
 The server sees the CLIENT span as its parent: the proxy writes its own `traceparent` (and the
 configured propagators' headers) on each request it sends, after the filters, so the trace goes
