@@ -17,13 +17,15 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
 /**
  * A request as scripts see it. {@code method}, {@code uri}, {@code body} and {@code text} can be
  * assigned; {@code url}, {@code scheme}, {@code host}, {@code port}, {@code path} and {@code
- * query} are derived from the request target and the {@code Host} header. For {@code CONNECT},
- * {@code url} is the {@code host:port} authority and {@code scheme} is empty. {@code http_version}
- * is the HTTP version the client used: {@code "HTTP/1.1"}, {@code "HTTP/1.0"}, {@code "HTTP/2"}
- * or {@code "HTTP/3"} (requests reach servers as HTTP/1.1, HTTP/2 or HTTP/3, as each server
- * speaks, whichever the client used). Assigning an absolute {@code uri} in {@code
- * on_request} sends the request to that URI's server, with a {@code Host} header to match, also
- * from inside an intercepted session (over TLS for {@code https://}).
+ * query} are derived from the request target and the {@code Host} header; an absolute target's
+ * scheme stays after the proxy has made the request origin-form for its server, so the hooks that
+ * run afterwards see {@code https} for an {@code https://} URI the proxy fetched over TLS. For
+ * {@code CONNECT}, {@code url} is the {@code host:port} authority and {@code scheme} is empty.
+ * {@code http_version} is the HTTP version the client used: {@code "HTTP/1.1"}, {@code
+ * "HTTP/1.0"}, {@code "HTTP/2"} or {@code "HTTP/3"} (requests reach servers as HTTP/1.1, HTTP/2 or
+ * HTTP/3, as each server speaks, whichever the client used). Assigning an absolute {@code uri}
+ * in {@code on_request} sends the request to that URI's server, with a {@code Host} header to
+ * match, also from inside an intercepted session (over TLS for {@code https://}).
  */
 @StarlarkBuiltin(name = "request", doc = "An HTTP request.")
 public final class ScriptRequest extends ScriptMessage {
@@ -33,6 +35,13 @@ public final class ScriptRequest extends ScriptMessage {
 
     private final HttpRequest request;
     private final boolean secure;
+    /**
+     * The scheme of the absolute-form target the request had after {@code on_request}, or null:
+     * the proxy makes a forward proxy's request origin-form for the server it goes to, and the
+     * hooks that run afterwards still see the scheme it went with ({@code https} for a URI the
+     * proxy fetches over TLS of its own), not the client connection's.
+     */
+    private String absoluteScheme;
     /** The version the client used, kept as it was: the proxy forwards HTTP/2 requests as HTTP/1.1. */
     private final String httpVersion;
 
@@ -44,6 +53,19 @@ public final class ScriptRequest extends ScriptMessage {
         this.request = request;
         this.secure = secure;
         this.httpVersion = versionLabel(request.protocolVersion());
+        noteScheme();
+    }
+
+    /**
+     * Remembers the scheme of the request's target if it is absolute, for when the proxy has made
+     * it origin-form; forgets it if not (a script that made it origin-form sends it by its {@code
+     * Host}).
+     */
+    void noteScheme() {
+        String uri = request.uri();
+        int sep = uri.indexOf("://");
+        absoluteScheme = sep > 0 && uri.indexOf('/') > sep && !request.method().equals(HttpMethod.CONNECT)
+                ? uri.substring(0, sep).toLowerCase(Locale.ROOT) : null;
     }
 
     /** {@code HTTP/2} and {@code HTTP/3} rather than {@code HTTP/2.0} and {@code HTTP/3.0}: they have no minor version. */
@@ -148,9 +170,9 @@ public final class ScriptRequest extends ScriptMessage {
             t.pathAndQuery(end < uri.length() ? uri.substring(end) : "/");
             return t;
         }
-        String scheme = secure ? "https" : "http";
+        String scheme = absoluteScheme != null ? absoluteScheme : secure ? "https" : "http";
         String host = request.headers().get(HttpHeaderNames.HOST);
-        Target t = Target.authority(scheme, host == null ? "" : host, secure ? 443 : 80);
+        Target t = Target.authority(scheme, host == null ? "" : host, scheme.equals("https") ? 443 : 80);
         t.pathAndQuery(uri);
         return t;
     }

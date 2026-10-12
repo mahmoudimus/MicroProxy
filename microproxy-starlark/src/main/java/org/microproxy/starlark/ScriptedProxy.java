@@ -579,6 +579,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!s.defines("on_request")) return null;
             try {
                 Object r = s.call(flow, "on_request", mu, req, ctx);
+                req.noteScheme();
                 if (r instanceof ScriptResponse res) return res.response();
                 if (r != Starlark.NONE) {
                     throw Starlark.errorf("on_request must return None or response(...), not %s", Starlark.type(r));
