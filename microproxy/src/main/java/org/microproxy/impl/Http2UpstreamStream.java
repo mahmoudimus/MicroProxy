@@ -50,6 +50,7 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
         super(connection.carrier.hostAndPort, connection.carrier.chainedProxy, connection.carrier.socket,
                 connection.carrier.remoteAddress, flowContext, trackers);
         this.connection = connection;
+        this.cluster = connection.carrier.cluster;
         this.state = state;
         this.logPrefix = state.logPrefix;
         // A stream is a reused connection as far as retries go: one the server never processed

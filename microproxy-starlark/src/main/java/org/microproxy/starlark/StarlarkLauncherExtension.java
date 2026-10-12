@@ -84,6 +84,7 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
                     .reload(reload)
                     .fallback(bootstrap.getChainProxyManager())
                     .constants(constants)
+                    .stats(bootstrap.getStats())
                     .build();
         } catch (ScriptException e) {
             throw new IllegalArgumentException("cannot load " + script + ":\n" + e.getMessage(), e);

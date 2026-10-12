@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.microproxy.contentviews.ProtoSchema;
+import org.microproxy.stats.StatsRegistry;
 import org.microproxy.starlark.stdlib.Stdlib;
 import org.microproxy.thirdparty.starlark.eval.EvalException;
 import org.microproxy.thirdparty.starlark.eval.Module;
@@ -145,7 +146,25 @@ public final class StarlarkScript {
      */
     public static StarlarkScript load(Path file, Limits limits, Map<String, ?> constants)
             throws IOException, ScriptException {
-        return compile(Files.readString(file, StandardCharsets.UTF_8), file.toString(), limits, constants);
+        return load(file, limits, constants, null);
+    }
+
+    /**
+     * Loads and runs the script in {@code file}, with {@code constants} as read-only globals and
+     * its {@code stats} module counting into {@code stats}.
+     *
+     * @param file the UTF-8 script file
+     * @param limits the bounds for top-level execution and later calls
+     * @param constants the globals to copy and freeze before compilation
+     * @param stats the registry of the script's {@code stats}, or {@code null} for metrics that count nothing
+     * @return the compiled script with frozen globals
+     * @throws IOException if the file cannot be read
+     * @throws ScriptException if parsing, compilation or top-level execution fails
+     * @throws IllegalArgumentException if a constant name or value is invalid
+     */
+    public static StarlarkScript load(Path file, Limits limits, Map<String, ?> constants, StatsRegistry stats)
+            throws IOException, ScriptException {
+        return compile(Files.readString(file, StandardCharsets.UTF_8), file.toString(), limits, constants, stats);
     }
 
     /**
@@ -176,6 +195,26 @@ public final class StarlarkScript {
      */
     public static StarlarkScript compile(String source, String name, Limits limits, Map<String, ?> constants)
             throws ScriptException {
+        return compile(source, name, limits, constants, null);
+    }
+
+    /**
+     * Compiles and runs {@code source} with {@code constants} as read-only globals, its {@code
+     * stats} module counting into {@code stats} ({@link ScriptStats}); {@code name} appears in error
+     * messages.
+     *
+     * @param source the Starlark source to compile
+     * @param name the script name used in diagnostics
+     * @param limits the bounds for top-level execution and later calls
+     * @param constants the globals to copy and freeze before compilation
+     * @param stats the registry of the script's {@code stats}, or {@code null} for metrics that count nothing
+     * @return the compiled script with frozen globals
+     * @throws ScriptException if parsing, compilation or top-level execution fails
+     * @throws IllegalArgumentException for constants that are not valid (see {@link
+     *     ScriptedProxy.Builder#constants})
+     */
+    public static StarlarkScript compile(String source, String name, Limits limits, Map<String, ?> constants,
+            StatsRegistry stats) throws ScriptException {
         ImmutableMap<String, Object> values = ScriptConstants.convert(constants);
         StarlarkFile file = StarlarkFile.parse(ParserInput.fromString(source, name), FILE_OPTIONS);
         if (!file.ok()) {
@@ -183,8 +222,11 @@ public final class StarlarkScript {
         }
         List<String> loads = loads(file);
         StarlarkSemantics semantics = loads.isEmpty() ? SEMANTICS : StdlibSemantics.VALUE;
-        Module module = Module.withPredeclared(semantics, values.isEmpty() ? Builtins.PREDECLARED
-                : ImmutableMap.<String, Object>builder().putAll(Builtins.PREDECLARED).putAll(values).buildOrThrow());
+        ScriptStats scriptStats = ScriptStats.of(stats);
+        Module module = Module.withPredeclared(semantics, values.isEmpty() && scriptStats == ScriptStats.NOOP
+                ? Builtins.PREDECLARED
+                : ImmutableMap.<String, Object>builder().putAll(Builtins.PREDECLARED).putAll(values)
+                        .put("stats", scriptStats).buildKeepingLast());
         Map<String, Module> loaded;
         try {
             loaded = loads.isEmpty() ? Map.of() : Stdlib.loadAll(loads);

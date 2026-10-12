@@ -210,6 +210,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         this.carrier = carrier;
         this.key = key;
         this.owner = owner;
+        carrier.cluster.cxHttp2.inc();
         this.maxHeaderListSize = options.maxHeaderListSize() > 0 ? options.maxHeaderListSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
     }

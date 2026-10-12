@@ -460,8 +460,10 @@ final class ClientConnection implements Runnable {
         HttpHeaders sentTrailers;
         /** The access-log record waits for the end of a tunnel that outlives the exchange's filters. */
         boolean deferRecord;
-        /** The access-log record has been written. */
+        /** The access-log record has been written, and the exchange counted as over in the stats. */
         boolean recorded;
+        /** The stats count it as a request in progress ({@code downstream_rq_active}). */
+        boolean counted;
 
         Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
             this.channel = channel;
@@ -594,6 +596,20 @@ final class ClientConnection implements Runnable {
     private volatile ProxyProtocol.Header proxyHeader;
     private volatile boolean idle = true;
     private volatile boolean closed;
+
+    // Client connection stats (ProxyStats.HttpStats, ListenerStats): only for connections the
+    // listeners accepted, not for those of intercepted streams or CONNECT-UDP flows. Touched by
+    // the connection's own thread.
+    /** When this connection was counted as a client connection ({@link System#nanoTime()}); 0 if it is not one. */
+    private long cxStart;
+    /** It still counts in {@code downstream_pre_cx_active}: its protocol is not known yet. */
+    private boolean preCx;
+    /** The listener it counts in, or null for an HTTP/3 connection (which counts in {@code http} stats only). */
+    private ProxyStats.ListenerStats cxListener;
+    /** The protocols it has been counted as carrying: 1 for HTTP/1, 2 for HTTP/2, 4 for HTTP/3, 8 once its TLS was. */
+    private int cxCounted;
+    /** The client ended the connection (end of stream before a request): it counts as closed remotely. */
+    private boolean clientClosed;
 
     // Connection-level state the exchange logic reads. HTTP/1 exchanges run one at a time on the
     // connection's thread, so the authentication state is only ever touched by one thread. HTTP/2
@@ -796,14 +812,78 @@ final class ClientConnection implements Runnable {
     // The HTTP/1 connection: TLS, the PROXY header, reading request heads
     // ---------------------------------------------------------------------------------------
 
+    // ---------------------------------------------------------------------------------------
+    // Client connection stats
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Counts this connection, which a listener accepted, as open: in {@code listener}'s stats too,
+     * unless it is null (an HTTP/3 connection).
+     */
+    private void cxOpened(ProxyStats.ListenerStats listener) {
+        ProxyStats stats = server.stats;
+        if (!stats.enabled) return;
+        cxStart = ClientFlowContext.now();
+        cxListener = listener;
+        stats.http.cxTotal.inc();
+        stats.http.cxActive.inc();
+        if (listener != null) {
+            listener.cxTotal.inc();
+            listener.cxActive.inc();
+            listener.preCxActive.inc();
+            preCx = true;
+        }
+    }
+
+    /** Its protocol is known: it no longer counts in {@code downstream_pre_cx_active}. */
+    private void preCxDone() {
+        if (preCx) {
+            preCx = false;
+            cxListener.preCxActive.dec();
+        }
+    }
+
+    /** Counts it as carrying {@code protocol} (1, 2 or 4: HTTP/1, HTTP/2, HTTP/3; 8: TLS), once each. */
+    private void cxCarries(int protocol) {
+        if (cxStart == 0 || (cxCounted & protocol) != 0) return;
+        cxCounted |= protocol;
+        ProxyStats.HttpStats http = server.stats.http;
+        (protocol == 1 ? http.cxHttp1 : protocol == 2 ? http.cxHttp2 : protocol == 4 ? http.cxHttp3 : http.cxSsl).inc();
+    }
+
+    /** Whether its bytes count in {@code downstream_cx_rx_bytes_total} and {@code downstream_cx_tx_bytes_total}. */
+    boolean countsBytes() {
+        return cxStart != 0;
+    }
+
+    /** Counts it as closed, by the client ({@code remote}) or by the proxy. */
+    private void cxClosed(boolean remote) {
+        if (cxStart == 0) return;
+        preCxDone();
+        long nanos = ClientFlowContext.now() - cxStart;
+        cxStart = 0;
+        ProxyStats.HttpStats http = server.stats.http;
+        http.cxActive.dec();
+        http.cxDestroy.inc();
+        (remote ? http.cxDestroyRemote : http.cxDestroyLocal).inc();
+        http.cxLength.recordNanos(nanos);
+        if (cxListener != null) {
+            cxListener.cxActive.dec();
+            cxListener.cxDestroy.inc();
+        }
+    }
+
     @Override
     public void run() {
         boolean connectedFired = false;
+        boolean remote = false;
+        cxOpened(server.stats.listener());
         try {
             rawSocket.setTcpNoDelay(true);
             rawSocket.setSoTimeout(server.idleTimeoutMillis());
             clientDetails.setClientAddress((InetSocketAddress) rawSocket.getRemoteSocketAddress());
             if (rawSocket.getLocalSocketAddress() instanceof InetSocketAddress local) flowContext.localAddress(local);
+            if (cxStart != 0) http1.countBytes(server.stats.http.cxRxBytes, server.stats.http.cxTxBytes);
             http1.attach(rawSocket);
             if (server.acceptProxyProtocol) {
                 proxyHeader = http1.readProxyHeader();
@@ -819,6 +899,7 @@ final class ClientConnection implements Runnable {
                             server.sslContextSource.configure(s, false);
                             if (server.http2) offerHttp2(s);
                         }, null);
+                preCxDone();
                 if (server.http2 && "h2".equals(tls.getApplicationProtocol())) {
                     serveHttp2(tls, new byte[0], null);
                     return;
@@ -851,6 +932,8 @@ final class ClientConnection implements Runnable {
             LOG.log(Level.DEBUG, logPrefix + "client connection timed out");
             server.trackers.fire(t -> t.connectionTimedOut(flowContext));
         } catch (IOException e) {
+            // The client failed (reset, went away), unless the proxy had closed the connection.
+            remote = !closed;
             if (!closed) {
                 if (e instanceof SSLException) {
                     // A failed handshake with the client has been logged by Tls already.
@@ -865,6 +948,7 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
         } finally {
             close();
+            cxClosed(remote || clientClosed);
             if (connectedFired) {
                 SSLSession session = sslSession;
                 server.trackers.fire(t -> t.clientDisconnected(flowContext, session));
@@ -886,9 +970,12 @@ final class ClientConnection implements Runnable {
         try {
             tls = http1.startTls(context, needClientAuth, configurer, new TlsLog.Peer(logPrefix, "client", host));
         } catch (IOException e) {
+            server.stats.listener().sslConnectionError.inc();
             server.trackers.fire(t -> t.tlsHandshakeFailed(flowContext, true, e));
             throw e;
         }
+        server.stats.listener().sslHandshake.inc();
+        cxCarries(8);
         flowContext.clientTlsFinished();
         sslSession = tls.getSession();
         SSLSession session = sslSession;
@@ -920,6 +1007,7 @@ final class ClientConnection implements Runnable {
      * there is nowhere to go.
      */
     private void serveTransparentTls() throws IOException {
+        preCxDone();
         ClientStart start = peekClient(null);
         ClientHello hello = start.hello();
         if (hello == null || hello.sni() == null) {
@@ -960,6 +1048,7 @@ final class ClientConnection implements Runnable {
      * @param authorization the {@code Proxy-Authorization} the client's SOCKS credentials make, or null
      */
     private void serveImplicitConnect(String hostAndPort, int socks, String authorization) throws IOException {
+        preCxDone();
         idle = false;
         flowContext.startExchange();
         HttpRequest connect = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.CONNECT, hostAndPort);
@@ -992,6 +1081,7 @@ final class ClientConnection implements Runnable {
      * CONNECT}'s {@code 200}.
      */
     private void serveSocks() throws IOException {
+        preCxDone();
         ByteReader in = http1.input();
         int version = in.peek();
         flowContext.socksVersion(version);
@@ -1054,6 +1144,7 @@ final class ClientConnection implements Runnable {
 
     /** Reads and handles requests until the connection should close. */
     private void serveRequests() throws IOException {
+        preCxDone();
         while (!closed) {
             idle = true;
             if (server.isStopping()) {
@@ -1077,6 +1168,7 @@ final class ClientConnection implements Runnable {
                 return;
             }
             if (request == null) {
+                clientClosed = true;
                 return;
             }
             idle = false;
@@ -1125,6 +1217,7 @@ final class ClientConnection implements Runnable {
         ex.socks = socksConnect;
         implicitConnect = false;
         socksConnect = 0;
+        if (ex.kind == FlowRecord.Kind.HTTP1) cxCarries(1);
         if (server.reverseProxy != null && !ex.implicit && !ProxyUtils.isCONNECT(request)) {
             reverseProxyTarget(request);
         }
@@ -1142,6 +1235,7 @@ final class ClientConnection implements Runnable {
             if (refusal != null) {
                 ex.flow.addResponseFlag(ResponseFlag.UNAUTHORIZED_EXTERNAL_SERVICE);
                 ex.flow.setResponseCodeDetails("auth_rejected");
+                requestStarted(ex);
                 try {
                     return respondDirect(ex, refusal, false, ResponseSource.PROXY);
                 } finally {
@@ -1164,6 +1258,7 @@ final class ClientConnection implements Runnable {
             if (filters instanceof HttpFiltersBuilder.Built built) filters = built.filterRequest(original, ex.flow);
         }
         ex.filters = filters != null ? filters : NOOP;
+        requestStarted(ex);
         try {
             return handleFilteredRequest(ex);
         } catch (ClientFailure e) {
@@ -1219,16 +1314,28 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.responseSentToClient(ex.flow, response, source));
     }
 
-    /** Hands the trackers {@code ex}'s access-log record, once, when there are trackers. */
+    /** Counts {@code ex} as a request in progress, once. */
+    private void requestStarted(Exchange ex) {
+        if (ex.counted) return;
+        ex.counted = true;
+        server.stats.http.requestStarted(ex.kind);
+    }
+
+    /**
+     * Counts the end of {@code ex} in the stats and hands the trackers its access-log record (when
+     * there are trackers), once.
+     */
     private void recordExchange(Exchange ex) {
-        if (ex.recorded || server.trackers.isEmpty()) return;
+        if (ex.recorded) return;
         ex.recorded = true;
         ClientFlowContext flow = ex.flow;
-        if (!ex.completed && !flow.hasResponseFlags() && flow.failure().isEmpty()) {
+        if (!ex.completed && !flow.hasResponseFlags() && flow.failureOrNull() == null) {
             // Abandoned without a reason of its own: the client side ended it.
             flow.addResponseFlag(ResponseFlag.DOWNSTREAM_CONNECTION_TERMINATION);
             flow.defaultResponseCodeDetails("downstream_remote_disconnect");
         }
+        countExchange(ex);
+        if (server.trackers.isEmpty()) return;
         FlowRecord.Kind kind = ex.kind;
         boolean http = kind.isHttp() && ex.sentResponse != null && ex.sentResponse.status().code() != 101;
         FlowTimings timings = flow.timings();
@@ -1252,6 +1359,39 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.flowEnded(record));
     }
 
+    /**
+     * Counts the end of {@code ex}: its response's class and time, the flags of a failed one, how
+     * it was reset, and for a response from the cache or a recording, a request to the {@code
+     * cache} or {@code replay} cluster (requests to servers are counted where they are sent).
+     */
+    private void countExchange(Exchange ex) {
+        ProxyStats stats = server.stats;
+        if (!stats.enabled) return;
+        ClientFlowContext flow = ex.flow;
+        HttpResponse sent = ex.sentResponse;
+        int status = sent == null ? 0 : sent.status().code();
+        long start = flow.startNanos();
+        long end = flow.markNanos(ClientFlowContext.RESPONSE_COMPLETE);
+        long nanos = start == 0 ? -1 : Math.max(0, (end != 0 ? end : ClientFlowContext.now()) - start);
+        long flags = flow.responseFlagBits();
+        ProxyStats.HttpStats http = stats.http;
+        if ((flags & (1L << ResponseFlag.DOWNSTREAM_REMOTE_RESET.ordinal())) != 0) {
+            http.rqRxReset.inc();
+        } else if (!ex.completed && ex.responseStarted
+                && (flags & (1L << ResponseFlag.DOWNSTREAM_CONNECTION_TERMINATION.ordinal())) == 0) {
+            // The proxy gave up on a response it had begun: it reset the stream, or closed the connection.
+            http.rqTxReset.inc();
+        }
+        if (status == 413 && ex.sentSource != ResponseSource.SERVER) http.rqTooLarge.inc();
+        if (ex.sentSource == ResponseSource.CACHE) {
+            stats.cache.answered(status, nanos);
+        } else if (ex.sentSource == ResponseSource.REPLAY) {
+            stats.replay.answered(status, nanos);
+        }
+        // Last, as it ends the request's downstream_rq_active.
+        http.requestEnded(ex.kind, ex.counted, status, nanos, flags);
+    }
+
     /** Records a request the client connection refused before it became an exchange: it could not be read. */
     private void recordRejected(ClientFlowContext flow, FlowRecord.Kind kind, HttpRequest request,
             HttpResponseStatus status) {
@@ -1263,9 +1403,15 @@ final class ClientConnection implements Runnable {
      * one, or an HTTP/3 request in 0-RTT data that is not safe to replay).
      */
     void recordAnswered(ClientFlowContext flow, FlowRecord.Kind kind, HttpRequest request, HttpResponse response) {
+        long start = flow.startNanos();
+        if (server.stats.enabled) {
+            int status = response.status().code();
+            server.stats.http.requestEnded(kind, false, status, start == 0 ? -1 : Math.max(0, ClientFlowContext.now() - start),
+                    flow.responseFlagBits());
+            if (status == 413) server.stats.http.rqTooLarge.inc();
+        }
         if (server.trackers.isEmpty()) return;
         flow.responseSource(ResponseSource.PROXY);
-        long start = flow.startNanos();
         FlowRecord record = FlowRecord.builder(flow, kind)
                 .request(request == null ? null : copy(request))
                 .response(response, ResponseSource.PROXY)
@@ -1609,6 +1755,7 @@ final class ClientConnection implements Runnable {
                                 ProxyUtils.isHEAD(ex.request), Math.max(1000, connectTimeoutMillis(ex)));
                     } catch (IOException e) {
                         LOG.log(Level.DEBUG, ex.log + "no HTTP/2 stream to " + hostAndPort + ": " + e.getMessage());
+                        server.stats.cluster(route.getFirst(), hostAndPort).cxPoolOverflow.inc();
                         return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
                     }
                     if (conn != null && LOG.isLoggable(Level.DEBUG)) {
@@ -1627,6 +1774,7 @@ final class ClientConnection implements Runnable {
                                 : connect(hostAndPort, ex, route, ex.proxyForm && mode == Mode.PLAIN ? Mode.TUNNEL : mode);
                     } catch (SharedConnectionPool.PoolExhaustedException e) {
                         LOG.log(Level.DEBUG, ex.log + e.getMessage());
+                        server.stats.cluster(route.getFirst(), hostAndPort).cxPoolOverflow.inc();
                         return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
                     } catch (ClientFailure e) {
                         LOG.log(Level.DEBUG, ex.log + "client left before " + hostAndPort + " could be reached: "
@@ -1684,6 +1832,8 @@ final class ClientConnection implements Runnable {
                 return exchange(ex, conn, attempt < 3 && conn.used && replayable);
             } catch (StaleConnection e) {
                 LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
+                conn.cluster.rqRetry.inc();
+                conn.closedByServer = true;
                 conn.close();
                 conn = null;
                 route = null;
@@ -1744,6 +1894,9 @@ final class ClientConnection implements Runnable {
         boolean streamingBody = !(request instanceof FullHttpRequest) && ex.body.hasBody() && !connect;
         conn.inExchange = true;
         recordUpstream(ex, conn);
+        ProxyStats.ClusterStats cluster = conn.cluster;
+        cluster.requestStarted();
+        long sentAt = cluster.enabled ? ClientFlowContext.now() : 0;
         RequestPump pump = null;
         try {
             // The transport may close it if the client cancels the exchange (an HTTP/2 reset).
@@ -1756,6 +1909,7 @@ final class ClientConnection implements Runnable {
                 if (retryAllowed && conn.retryable(e)) throw new StaleConnection(e);
                 throw new ServerFailure("write to server failed", e);
             }
+            if (!conn.used && !conn.multiplexed()) cluster.cxHttp1.inc();
             conn.used = true;
             if (!streamingBody) {
                 ex.flow.mark(ClientFlowContext.REQUEST_SENT);
@@ -1808,6 +1962,7 @@ final class ClientConnection implements Runnable {
             return relayResponse(ex, conn, response);
         } catch (ServerTimeout e) {
             if (pump != null && pump.clientFailed()) return clientLeft(ex, conn, pump);
+            cluster.rqTimeout.inc();
             filters.serverToProxyResponseTimedOut();
             conn.close();
             IOException cause = (IOException) e.getCause();
@@ -1822,8 +1977,12 @@ final class ClientConnection implements Runnable {
         } catch (ServerFailure e) {
             if (pump != null && pump.clientFailed()) return clientLeft(ex, conn, pump);
             LOG.log(Level.DEBUG, ex.log + "server failure on " + conn, e);
-            conn.close();
             IOException reason = e.reason();
+            if (ex.responseStarted || ClientFlowContext.serverClosedEarly(reason)) {
+                cluster.rqRxReset.inc();
+                conn.closedByServer = true;
+            }
+            conn.close();
             reportServerFailure(conn.flowContext, reason);
             if (ex.responseStarted) {
                 ex.flow.addResponseFlag(ResponseFlag.UPSTREAM_REMOTE_RESET);
@@ -1851,6 +2010,7 @@ final class ClientConnection implements Runnable {
             return false;
         } finally {
             if (pump != null) pump.stop();
+            cluster.requestEnded(ex.flow.upstreamStatusCode(), sentAt == 0 ? -1 : ClientFlowContext.now() - sentAt);
         }
     }
 
@@ -2385,6 +2545,7 @@ final class ClientConnection implements Runnable {
             try {
                 serverSession = server.http2Origins.session(http2Key, Math.max(1000, connectTimeoutMillis(ex)));
             } catch (IOException e) {
+                server.stats.cluster(route.getFirst(), hostAndPort).cxPoolOverflow.inc();
                 return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
             }
         }
@@ -2409,6 +2570,7 @@ final class ClientConnection implements Runnable {
                     }
                 } catch (SharedConnectionPool.PoolExhaustedException e) {
                     LOG.log(Level.DEBUG, ex.log + e.getMessage());
+                    server.stats.cluster(route.getFirst(), hostAndPort).cxPoolOverflow.inc();
                     return respondFailure(ex, new ProxyFailure.NoConnectionAvailable(hostAndPort), false);
                 } catch (ClientFailure e) {
                     LOG.log(Level.DEBUG, ex.log + "client left before " + hostAndPort + " could be reached: " + e.getCause());
@@ -2770,8 +2932,13 @@ final class ClientConnection implements Runnable {
      *
      * @param hello the ClientHello, for {@link StartKind#TLS}
      * @param note why the bytes are {@link StartKind#OTHER}, for log lines
+     * @param tooLarge the bytes are a ClientHello too large to read
      */
-    private record ClientStart(StartKind kind, ClientHello hello, String note) {
+    private record ClientStart(StartKind kind, ClientHello hello, String note, boolean tooLarge) {
+        ClientStart(StartKind kind, ClientHello hello, String note) {
+            this(kind, hello, note, false);
+        }
+
         static ClientStart other(String note) {
             return new ClientStart(StartKind.OTHER, null, note);
         }
@@ -2794,6 +2961,13 @@ final class ClientConnection implements Runnable {
      * noticed while waiting.
      */
     private ClientStart peekClient(ServerConnection conn) throws IOException {
+        ClientStart start = readClientStart(conn);
+        if (start.kind() != StartKind.CLOSED) server.stats.tlsInspector.inspected(start.hello(), start.tooLarge());
+        return start;
+    }
+
+    /** {@link #peekClient}, uncounted. */
+    private ClientStart readClientStart(ServerConnection conn) throws IOException {
         ByteReader in = http1.input();
         if (!awaitClientFirst(in, conn)) {
             return in.buffered() == 0 && (conn == null || !serverSpoke(conn))
@@ -2814,8 +2988,10 @@ final class ClientConnection implements Runnable {
                 try {
                     byte[] message = TlsClientHello.message(data, data.length, TlsClientHello.MAX_MESSAGE_SIZE, need);
                     if (message != null) return new ClientStart(StartKind.TLS, TlsClientHello.parse(message), null);
-                } catch (TlsClientHello.Malformed | TlsClientHello.TooLarge e) {
+                } catch (TlsClientHello.Malformed e) {
                     return ClientStart.other(e.getMessage());
+                } catch (TlsClientHello.TooLarge e) {
+                    return new ClientStart(StartKind.OTHER, null, e.getMessage(), true);
                 }
             }
         }
@@ -3250,6 +3426,8 @@ final class ClientConnection implements Runnable {
                 open = exchange(ex, conn, attempt < 3 && conn.used);
             } catch (StaleConnection e) {
                 LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
+                conn.cluster.rqRetry.inc();
+                conn.closedByServer = true;
                 conn.close();
                 continue;
             }
@@ -3463,6 +3641,7 @@ final class ClientConnection implements Runnable {
         ServerConnection conn = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, hop.chained, true, carrier,
                 in, out, tunnel.remoteAddress, serverContext, server.trackers);
         conn.through = tunnel;
+        conn.cluster = tunnel.cluster;
         conn.tunnelThroughProxy = true;
         conn.onDetach = () -> detach(conn);
         return conn;
@@ -3672,6 +3851,8 @@ final class ClientConnection implements Runnable {
      * @param target the intercepted {@code CONNECT} target, or null for a forward proxy
      */
     private void serveHttp2(Socket socket, byte[] received, HostAndPort target) throws IOException {
+        preCxDone();
+        cxCarries(2);
         // Choose once, before concurrent streams begin (secure extended CONNECT may need
         // origin TLS even on a forward-proxy connection).
         if (target == null && server.mitmManager != null) mitmManager();
@@ -3705,7 +3886,11 @@ final class ClientConnection implements Runnable {
      */
     private void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic, boolean connected) {
         try {
-            if (connected) server.trackers.fire(t -> t.clientConnected(flowContext));
+            if (connected) {
+                cxOpened(null);
+                cxCarries(4);
+                server.trackers.fire(t -> t.clientConnected(flowContext));
+            }
             if (server.mitmManager != null) mitmManager();
             streamConnections = new StreamServerConnections(server.http3Options.maxConcurrentStreams());
             // An intercepted flow's requests are for the server its SNI named; the listener's are
@@ -3722,6 +3907,7 @@ final class ClientConnection implements Runnable {
         } finally {
             close();
             quic.close();
+            cxClosed(!server.isStopping());
             endQuicFilters(true);
             server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
             server.unregister(this);
@@ -4350,6 +4536,7 @@ final class ClientConnection implements Runnable {
         }
         FullFlowContext serverContext = new FullFlowContext(ex.flow, hostAndPort, proxy, remote);
         ex.attempt = serverContext;
+        ProxyStats.ClusterStats cluster = server.stats.cluster(proxy, hostAndPort);
 
         filters.proxyToServerConnectionStarted();
         Socket plain = new Socket(Proxy.NO_PROXY);
@@ -4360,7 +4547,9 @@ final class ClientConnection implements Runnable {
                 plain.bind(local);
             }
             ex.flow.markFirst(ClientFlowContext.CONNECT_START);
+            long connectStart = cluster.enabled ? ClientFlowContext.now() : 0;
             plain.connect(remote, connectTimeoutMillis(ex));
+            long connectNanos = cluster.enabled ? ClientFlowContext.now() - connectStart : -1;
             ex.flow.mark(ClientFlowContext.CONNECT_END);
             plain.setTcpNoDelay(true);
             plain.setSoTimeout(server.idleTimeoutMillis());
@@ -4379,7 +4568,9 @@ final class ClientConnection implements Runnable {
                             s -> proxy.configure(s, true), server.tlsHandshakeTimeout,
                             new TlsLog.Peer(ex.log, "chained proxy", remote.getHostString()));
                     ex.flow.mark(ClientFlowContext.TLS_END);
+                    cluster.sslHandshake.inc();
                 } catch (IOException e) {
+                    cluster.sslConnectionError.inc();
                     ex.flow.transportFailure(e);
                     server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
                     throw new TlsHandshakeFailed(e);
@@ -4441,12 +4632,20 @@ final class ClientConnection implements Runnable {
             created.tlsPending = deferTls;
             created.http2 = mode == Mode.TLS && active instanceof SSLSocket tls && "h2".equals(tls.getApplicationProtocol());
             created.onDetach = () -> detach(created);
+            created.cluster = cluster;
+            if (cluster.enabled) {
+                created.countedAt = ClientFlowContext.now();
+                cluster.connected(connectNanos);
+            }
             return created;
         } catch (IOException e) {
             Tls.closeQuietly(plain);
+            // (A server that does not speak TLS was reached: it is tunnelled to instead.)
+            if (!(e instanceof NotTlsServer)) cluster.connectFailed(e);
             throw e;
         } catch (RuntimeException e) {
             Tls.closeQuietly(plain);
+            cluster.connectFailed(e);
             throw new IOException("connecting to " + hostAndPort + " failed", e);
         }
     }
@@ -4471,6 +4670,7 @@ final class ClientConnection implements Runnable {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new IOException("default TLS context unavailable", e);
         }
+        ProxyStats.ClusterStats cluster = server.stats.cluster(serverContext.getChainedProxy(), hostAndPort);
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
             SSLSocket tls = Tls.clientHandshake(context, active, sniHost, target.port(), true, server.tlsProtocols,
@@ -4480,11 +4680,13 @@ final class ClientConnection implements Runnable {
                     }, server.tlsHandshakeTimeout,
                     new TlsLog.Peer(ex.log, "server", sniHost));
             ex.flow.mark(ClientFlowContext.TLS_END);
+            cluster.sslHandshake.inc();
             return tls;
         } catch (IOException e) {
             if (e instanceof SSLException ssl && NotTlsServer.isCause(ssl)) {
                 throw new NotTlsServer(hostAndPort, ssl);
             }
+            cluster.sslConnectionError.inc();
             ex.flow.transportFailure(e);
             server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             throw new TlsHandshakeFailed(e);

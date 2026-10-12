@@ -102,6 +102,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private final ReentrantLock mitmManagerIdsLock = new ReentrantLock();
     private long nextMitmManagerId;
     final Trackers trackers = new Trackers();
+    /** The proxy's own metrics, resolved once; no-ops without metrics. */
+    final ProxyStats stats;
     final RateLimiter readLimiter;
     final RateLimiter writeLimiter;
 
@@ -208,6 +210,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         this.config = b;
         this.name = b.name;
+        this.stats = new ProxyStats(b.stats, b.name);
         this.transparent = b.transparent;
         this.transparentTlsPort = b.transparentTlsPort;
         this.hostRules = HostRules.of(b.ignoreHosts, b.allowHosts);
@@ -360,6 +363,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             throw new UncheckedIOException("unable to bind " + requested, e);
         }
         boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
+        stats.bound(boundAddress);
+        stats.registerServer(this, config.httpCache, filtersSource);
         executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(name + "-conn-", 0).factory());
         if (http3) {
             try {
@@ -622,6 +627,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     @Override
     public PoolMetrics getServerConnectionPoolMetrics() {
         return pool == null ? null : pool.metrics();
+    }
+
+    @Override
+    public org.microproxy.stats.StatsRegistry getStats() {
+        return stats.registry;
     }
 
     /** {@return number of open client connections (for tests and monitoring)} */

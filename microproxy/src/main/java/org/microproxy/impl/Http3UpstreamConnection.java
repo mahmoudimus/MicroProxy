@@ -48,6 +48,12 @@ final class Http3UpstreamConnection extends Http3Endpoint {
     final String hostAndPort;
     final InetSocketAddress remote;
     private final Http3Frames.Origin origin;
+    /** The cluster whose stats count the connection and its streams' requests. */
+    final ProxyStats.ClusterStats cluster;
+    /** When the connection was counted open ({@link System#nanoTime()}), or 0 if it is not counted. */
+    volatile long countedAt;
+    /** The proxy closed the connection ({@link #shutdown}), rather than the server or the transport. */
+    private volatile boolean closedLocally;
 
     // Guarded by stateLock.
     private final Map<Long, Http3UpstreamStream> streams = new HashMap<>();
@@ -61,6 +67,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
         this.hostAndPort = hostAndPort;
         this.remote = quic.remoteAddress();
         this.origin = new Http3Frames.Origin(-1, null, hostAndPort);
+        this.cluster = server.stats.cluster(null, hostAndPort);
     }
 
     @Override
@@ -160,6 +167,8 @@ final class Http3UpstreamConnection extends Http3Endpoint {
     void closed() {
         super.closed();
         if (!shutDown.compareAndSet(false, true)) return;
+        long counted = countedAt;
+        if (counted != 0) cluster.closed(ClientFlowContext.now() - counted, !closedLocally);
         origins.remove(this);
         List<Http3UpstreamStream> open;
         stateLock.lock();
@@ -175,6 +184,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
     /** Closes the connection (CONNECTION_CLOSE with H3_NO_ERROR); its open streams fail. */
     void shutdown(String reason) {
         LOG.log(Level.DEBUG, logPrefix + "closing: " + reason);
+        closedLocally = true;
         quic.close(Http3ErrorCode.H3_NO_ERROR.code(), reason);
         closed();
     }

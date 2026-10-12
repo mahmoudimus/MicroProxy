@@ -231,6 +231,12 @@ final class Http2Connection extends Http2Endpoint {
     void serve() throws IOException {
         InputStream is = socket.getInputStream();
         OutputStream os = socket.getOutputStream();
+        if (client.countsBytes()) {
+            org.microproxy.stats.Counter rx = server.stats.http.cxRxBytes;
+            org.microproxy.stats.Counter tx = server.stats.http.cxTxBytes;
+            is = CountingStreams.counting(is, rx::add);
+            os = CountingStreams.counting(os, tx::add);
+        }
         if (!server.trackers.isEmpty()) {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(connectionFlow, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(connectionFlow, n)));

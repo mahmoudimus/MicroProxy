@@ -153,6 +153,11 @@ final class ClientFlowContext extends FlowContext {
         marks[mark] = now();
     }
 
+    /** When phase {@code mark} happened ({@link System#nanoTime()}), or 0 if it has not. */
+    long markNanos(int mark) {
+        return marks[mark];
+    }
+
     /** Records that phase {@code mark} happened now, unless it already has (it began earlier). */
     void markFirst(int mark) {
         if (marks[mark] == 0) {
@@ -194,6 +199,11 @@ final class ClientFlowContext extends FlowContext {
 
     void upstreamStatus(int status) {
         upstreamStatus = status;
+    }
+
+    /** The status of the server's final response, or 0 for none; without an {@link OptionalInt}. */
+    int upstreamStatusCode() {
+        return upstreamStatus;
     }
 
     @Override
@@ -308,6 +318,11 @@ final class ClientFlowContext extends FlowContext {
         return Optional.ofNullable(failure);
     }
 
+    /** The failure, or null; without an {@link Optional}. */
+    ProxyFailure failureOrNull() {
+        return failure;
+    }
+
     @Override
     public void addResponseFlag(ResponseFlag flag) {
         FLAGS.getAndBitwiseOr(this, 1L << flag.ordinal());
@@ -316,6 +331,11 @@ final class ClientFlowContext extends FlowContext {
     /** Whether {@code flag} has been added for the current exchange. */
     boolean hasResponseFlag(ResponseFlag flag) {
         return ((long) FLAGS.getVolatile(this) & (1L << flag.ordinal())) != 0;
+    }
+
+    /** The response flags of the current exchange, one bit per {@link ResponseFlag} ordinal; without a set. */
+    long responseFlagBits() {
+        return (long) FLAGS.getVolatile(this);
     }
 
     /** Whether any response flag has been added for the current exchange. */

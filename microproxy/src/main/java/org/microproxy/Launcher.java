@@ -39,6 +39,8 @@ import org.microproxy.extras.RecordedExchange;
 import org.microproxy.extras.ServerReplay;
 import org.microproxy.extras.StickyCookie;
 import org.microproxy.simd.Simd;
+import org.microproxy.stats.StatsRegistry;
+import org.microproxy.stats.StatsdSink;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 import org.microproxy.tls.KeyStoreSslContextSource;
@@ -112,6 +114,18 @@ public final class Launcher {
                                            JSON line per exchange
               --access-log-filter <expr>   log only what passes, e.g. 'status>=500 ||
                                            response_flag' (repeatable: all must pass)
+              --metrics                    keep Envoy-style stats (http.*, cluster.*, listener.*,
+                                           server.*; see README) for Prometheus, statsd and scripts
+              --statsd <host:port>         push the stats to statsd over UDP every 5 seconds
+                                           (implies --metrics)
+              --dogstatsd <host:port>      the same, with DogStatsD tags
+              --stats-prefix <prefix>      prefix of exported stat names (default envoy:
+                                           envoy_http_downstream_rq_total, envoy.http....)
+              --stats-max-clusters <n>     clusters with stats of their own (default 100); more
+                                           share cluster "other" unless --stats-cluster-lru
+              --stats-cluster-lru          evict the least recently used cluster's stats instead
+              --stats-per-host             a cluster per server of direct connections (host_port),
+                                           not one "direct" cluster, bounded by --stats-max-clusters
               --log-http <level>           log whole requests and responses: basic, headers or
                                            body (to the System.Logger org.microproxy.http)
               --log-http-json              write --log-http as JSON lines (headers if no level)
@@ -259,6 +273,9 @@ public final class Launcher {
         HttpProxyServer server = parsed.bootstrap().start();
         // Closed after the server's connections finish, so in-flight records are written.
         parsed.resources().forEach(server::closeOnStop);
+        for (AutoCloseable resource : parsed.resources()) {
+            if (resource instanceof StatsdSink sink) sink.start();
+        }
         console.println("MicroProxy listening on " + server.getListenAddress());
         if (Simd.isVectorized()) {
             console.println("SIMD: " + Simd.ops().description());
@@ -329,6 +346,10 @@ public final class Launcher {
         Path warcDir = null;
         String accessLog = null;
         String accessLogFormat = null;
+        boolean metrics = false;
+        String statsd = null;
+        boolean dogStatsd = false;
+        StatsRegistry.Builder statsOptions = null;
         String accessLogJson = null;
         List<String> accessLogFilters = new ArrayList<>();
         HttpLogger.Level logHttp = null;
@@ -446,6 +467,15 @@ public final class Launcher {
                 case "--access-log-format" -> accessLogFormat = value(queue, arg);
                 case "--access-log-json" -> accessLogJson = value(queue, arg);
                 case "--access-log-filter" -> accessLogFilters.add(value(queue, arg));
+                case "--metrics" -> metrics = true;
+                case "--statsd", "--dogstatsd" -> {
+                    statsd = value(queue, arg);
+                    dogStatsd = arg.equals("--dogstatsd");
+                }
+                case "--stats-prefix" -> statsOptions = statsOptions(statsOptions).prefix(value(queue, arg));
+                case "--stats-max-clusters" -> statsOptions = statsOptions(statsOptions).maxClusters(intValue(queue, arg));
+                case "--stats-cluster-lru" -> statsOptions = statsOptions(statsOptions).clusterOverflow(StatsRegistry.Overflow.LRU);
+                case "--stats-per-host" -> statsOptions = statsOptions(statsOptions).perHostClusters(true);
                 case "--log-http" -> logHttp = logHttpLevel(value(queue, arg));
                 case "--log-http-json" -> logHttpJson = true;
                 case "--log-http-view" -> logHttpView = value(queue, arg);
@@ -704,6 +734,18 @@ public final class Launcher {
         } else if (offline) {
             throw new IllegalArgumentException("--offline needs --cache-dir or --cache-memory");
         }
+        if (metrics || statsd != null || statsOptions != null) {
+            // Before the extensions, whose scripts may count into the registry.
+            StatsRegistry registry = statsOptions != null ? statsOptions.build()
+                    : bootstrap.getStats().enabled() ? bootstrap.getStats() : StatsRegistry.create();
+            bootstrap.withStats(registry);
+            if (statsd != null) {
+                StatsdSink sink = StatsdSink.builder(registry, statsd).dogStatsd(dogStatsd).build();
+                // Started once the proxy runs, and stopped (after a last flush) with it.
+                resources.add(sink);
+                console.println("Pushing stats to " + (dogStatsd ? "DogStatsD" : "statsd") + " at " + statsd.strip());
+            }
+        }
         for (LauncherExtension extension : extensions) {
             extension.configure(bootstrap, console);
         }
@@ -849,6 +891,11 @@ public final class Launcher {
                     .toArray(HttpFiltersSource[]::new));
         }
         return source;
+    }
+
+    /** {@code options}, or a new builder of stats options if it is null. */
+    private static StatsRegistry.Builder statsOptions(StatsRegistry.Builder options) {
+        return options != null ? options : StatsRegistry.builder();
     }
 
     /** {@code source} with {@code limiter} replacing its concurrency limiters, or first if it has none. */

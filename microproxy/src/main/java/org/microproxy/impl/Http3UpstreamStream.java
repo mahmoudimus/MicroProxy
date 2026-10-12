@@ -73,6 +73,7 @@ final class Http3UpstreamStream extends ServerConnection {
             boolean headRequest) {
         super(connection.hostAndPort, null, null, connection.remote, flowContext, connection.server.trackers);
         this.connection = connection;
+        this.cluster = connection.cluster;
         this.stream = stream;
         this.id = stream.id();
         this.headRequest = headRequest;
