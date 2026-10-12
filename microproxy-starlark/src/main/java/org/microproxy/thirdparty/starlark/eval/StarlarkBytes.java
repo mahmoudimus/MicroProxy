@@ -1517,9 +1517,11 @@ public class StarlarkBytes implements ByteStringModuleApi,
    * Returns a new StarlarkBytes containing n consecutive repeats of this byte array.
    */
   public StarlarkBytes repeat(StarlarkInt n, Mutability mutability) throws EvalException {
-    if (n.signum() > 0) {
-      // MicroProxy: before allocating, so that b"x" * 10**9 fails at once.
-      StarlarkThread.checkAllocationCurrent(Allocations.bytes((long) size() * n.toInt("repeat")));
+    long total = n.signum() > 0 ? (long) size() * n.toInt("repeat") : 0;
+    if (total <= ByteList.MAXIMUM_CAPACITY) {
+      // MicroProxy: before allocating, so that b"x" * 10**9 fails at once (a repeat past the
+      // capacity fails as before, as an excessive repeat).
+      StarlarkThread.checkAllocationCurrent(Allocations.bytes(total));
     }
     try {
       return derived(mutability, this.delegate.repeat(n.toInt("repeat")));

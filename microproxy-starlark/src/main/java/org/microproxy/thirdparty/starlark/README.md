@@ -37,7 +37,9 @@ Changes from upstream:
   (`join`, `replace`, `split`, `upper`, `format`, ...), list comprehensions as they grow,
   `json.encode`/`decode`/`indent`, `bytes.decode` and `hex`. Strings, lists, tuples and bytes
   repeated with `*`, lists concatenated with `+`, and `list(range(n))` are checked before they
-  are allocated (`checkAllocation`), so `"x" * 10**9` fails without allocating; `replace` and
+  are allocated (`checkAllocation`), so `"x" * 10**9` fails without allocating (a repeat past a
+  sequence's capacity still fails as an excessive repeat, for which `ext/ByteList.MAXIMUM_CAPACITY`
+  is public); `replace` and
   `json.encode` check as their output grows. Code that cannot throw counts with `allocateLater`,
   which makes the thread's next step fail instead. `allocateCurrent` counts against the thread of
   `current()`, for code that is not handed its thread.

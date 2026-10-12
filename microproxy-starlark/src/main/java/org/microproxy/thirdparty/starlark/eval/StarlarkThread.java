@@ -173,6 +173,8 @@ public final class StarlarkThread {
   public void setMaxAllocatedBytes(long bytes) {
     Preconditions.checkArgument(bytes > 0, "the allocation budget must be positive");
     this.maxAllocatedBytes = bytes;
+    // A larger budget lets the thread go on (a test runner gives each test one of its own).
+    this.stepLimit = allocatedBytes > maxAllocatedBytes ? 0 : maxSteps;
   }
 
   /**
