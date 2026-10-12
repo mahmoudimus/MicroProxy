@@ -158,3 +158,91 @@ signature scheme with randomly fragmented CRYPTO data, and fuzz the decoders fro
 Out of scope for now, as follow-ups: session resumption, PSKs, 0-RTT and session tickets (a server sends
 no NewSessionTicket; a client checks and ignores the ones it gets), `rsa_pss_pss` schemes, secp521r1
 and ML-KEM hybrids, certificate compression, OCSP stapling and raw public keys.
+
+## Connection internals
+
+The building blocks a connection is assembled from, ported from quinn-proto's `connection` module,
+`congestion.rs`, `range_set`, `cid_generator.rs`, `cid_queue.rs`, `token.rs` and
+`bloom_token_log.rs`. Like the rest of the module they are sans-I/O: they take frames and times in
+and hand frames, packet numbers and deadlines out. The connection layer that drives them (packet
+assembly, the handshake state machine, migration) is the next step.
+
+```java
+TimerTable timers = new TimerTable();
+NanoClock clock = NanoClock.system();                 // a fake clock in tests
+Recovery recovery = new Recovery(Side.CLIENT, RecoveryConfig.DEFAULT, timers, new SecureRandom(), clock.nanoTime());
+StreamsState streams = new StreamsState(Side.CLIENT, 100, 100, 8 << 20, 1 << 30, 1_250_000);
+streams.setParams(peerTransportParameters);
+Recovery.Listener listener = Recovery.Listener.forStreams(streams);
+Retransmits pending = recovery.space(SpaceId.DATA).pending();
+
+StreamId id = streams.open(Dir.BI);
+int taken = streams.write(id, data, pending);         // StreamException BLOCKED: wait for Writable
+
+// Building a packet: control frames, then STREAM frames, then remember what it carried
+long pn = recovery.nextPacketNumber(SpaceId.DATA);
+Retransmits sent = new Retransmits();
+streams.writeControlFrames(payload, pending, sent, limit);
+List<StreamMeta> frames = streams.writeStreamFrames(payload, limit, true);
+recovery.onPacketSent(now, SpaceId.DATA, pn, new SentPacket(now, size, true, -1, sent, frames));
+
+// Receiving
+recovery.onAckReceived(now, SpaceId.DATA, ackFrame, listener);
+streams.received(streamFrame, payloadLength);         // QuicException: close with its code
+try (Chunks chunks = streams.read(id, true, pending)) { ... chunks.next(max) ... }
+
+// Timers: sleep until timers.nextTimeout(), then
+for (Timer t; (t = timers.pollExpired(clock.nanoTime())) != null; ) { ... }
+```
+
+| Area | Classes | Notes |
+| --- | --- | --- |
+| Ranges and reassembly | `RangeSet`, `Assembler`, `Chunk`, `SendBuffer` | Ordered or unordered reads; duplicate and overlap removal; compaction when small frames pin large buffers, and a hard bound of 1024 pieces per stream |
+| Streams (RFC 9000 sections 2 to 4) | `StreamsState`, `StreamId`, `Side`, `Dir`, `SendState`, `RecvState`, `StreamEvent`, `StreamException`, `Chunks`, `StreamMeta` | Send states Ready, Send, DataSent, ResetSent, DataRecvd, ResetRecvd and the six receive states; MAX_DATA, MAX_STREAM_DATA and MAX_STREAMS credit moved by an eighth of the window, as quinn does; DATA_BLOCKED, STREAM_DATA_BLOCKED and STREAMS_BLOCKED once per limit; priorities with fair round-robin; events Opened, Readable, Writable, Finished, Stopped, Available |
+| Packet number spaces | `PacketSpace`, `SpaceId`, `SentPacket`, `SentPackets`, `Retransmits`, `PendingAcks`, `Dedup`, `PacketNumberFilter` | Duplicate detection; ACK frames with at most 64 ranges, the ACK delay and ECN counts; an immediate ACK every second ack-eliciting packet or on reordering, else after `max_ack_delay`; skipped packet numbers against optimistic ACKs |
+| Loss detection (RFC 9002) | `Recovery`, `RecoveryConfig`, `RttEstimator` | Packet and time thresholds, PTO with exponential backoff (capped at 2^16) and probes, the client's anti-deadlock probe, discarding Initial and Handshake spaces, persistent congestion, spurious loss detection, ECN validation, the anti-amplification limit |
+| Congestion control | `Controller`, `ControllerFactory`, `NewReno`, `Cubic` (default), `Pacer` | RFC 9002 NewReno and RFC 9438 CUBIC with fast convergence and spurious-loss undo; a token-bucket pacer |
+| MTU discovery | `MtuDiscovery`, `MtuDiscoveryConfig` | DPLPMTUD (RFC 8899) by binary search up to 1452 bytes by default, three retransmissions per probe size, black hole detection |
+| Connection IDs | `ConnectionIdGenerator`, `RandomConnectionIdGenerator`, `LocalCidState`, `RemoteCidQueue`, `IssuedCid` | Sequence numbers, HMAC-derived stateless reset tokens, at most `min(active_connection_id_limit, 8)` issued, rotation through Retire Prior To when IDs have a lifetime, the peer's IDs bounded by our `active_connection_id_limit` |
+| ACK frequency | `AckFrequencyState` | The `max_ack_delay` each side uses, and ACK_FREQUENCY thresholds |
+| Timers | `Timer`, `TimerTable`, `NanoClock` | Loss detection and PTO, idle, close and drain, key discard, path validation, keep-alive, pacing, CID rotation, ACK delay |
+| Address validation (`...quic.token`) | `TokenKey`, `Token`, `TokenPayload`, `TokenValidator`, `IncomingToken`, `TokenLog`, `BloomTokenLog` | Retry tokens bound to the client's address and port (15 s) and NEW_TOKEN tokens bound to its IP (two weeks), sealed with a one-time AES-256-GCM key derived by HKDF from the server's key; expiry from an injectable `InstantSource`; a bounded replay log |
+
+- **Time.** Every method that depends on time takes `now` in nanoseconds from one monotonic clock;
+  nothing reads a clock itself. `NanoClock.NONE` (`Long.MIN_VALUE`) marks an unset time. Tests use
+  a fake clock and never sleep.
+- **Threads.** None of these classes is thread-safe and none takes a lock: each belongs to one
+  connection, which serializes access (the blocking stream layer included). `BloomTokenLog` is
+  shared by an endpoint, which must serialize calls to it. Configurations are immutable.
+- **Errors.** Peer misbehaviour is a `QuicException` with the RFC 9000 code: `FLOW_CONTROL_ERROR`,
+  `FINAL_SIZE_ERROR`, `STREAM_STATE_ERROR`, `STREAM_LIMIT_ERROR`, `CONNECTION_ID_LIMIT_ERROR`,
+  `PROTOCOL_VIOLATION` (an ACK of an unsent or skipped packet number, a bad RETIRE_CONNECTION_ID),
+  `INVALID_TOKEN` (an authentic Retry token from another address, or expired). Application-level
+  conditions are a `StreamException` (`BLOCKED`, `STOPPED`, `RESET`, `CLOSED_STREAM`,
+  `ILLEGAL_ORDERED_READ`), which leaves the connection open.
+- **Data ownership.** The assembler and send buffer keep views, not copies: copy STREAM and CRYPTO
+  data out of reusable packet buffers before handing it over, and do not change written buffers.
+  `StreamsState.write` copies; `writeChunks` does not.
+
+Ported faithfully, with quinn's unit tests: the assembler, send buffer, range set, streams,
+packet spaces and sent-packet tracking, pacing, MTU discovery (full DPLPMTUD with black hole
+detection), CUBIC, connection ID queue, ACK frequency state and tokens with the bloom log (a small
+bloom filter replaces the `fastbloom` crate). Differences, mostly where RFC 9000 and 9002 are
+stricter than quinn:
+
+- Single path: no path generations, migration or path validation logic (only its timer), so the
+  in-flight counts are per connection.
+- The explicit RFC state names (Ready versus Send, DataRecvd, ResetRecvd; SizeKnown, DataRecvd,
+  DataRead, ResetRead) are tracked for inspection; quinn folds them into three and two states.
+- A FIN below data already received is a `FINAL_SIZE_ERROR`; STOP_SENDING beyond the stream limit
+  is a `STREAM_LIMIT_ERROR`; RETIRE_CONNECTION_ID for a sequence number not yet issued or for the
+  packet's own Destination Connection ID, and NEW_CONNECTION_ID reusing a sequence number for
+  another ID, are `PROTOCOL_VIOLATION`s.
+- Discarding Initial or Handshake keys resets the PTO backoff (RFC 9002 appendix A.11), and the
+  client's anti-deadlock probe goes in the Handshake space once it has Handshake keys.
+- MTU probes and black hole detection only count application data packets.
+- No flow-control window auto-tuning (quinn has none); windows can be changed at run time.
+- Not ported: BBR, the hashed connection ID generator, qlog, connection statistics beyond the
+  loss counters on `Recovery`, and DATAGRAM buffering.
+- ECN: counts on received packets, ACK frames with ECN counts and validation of the peer's
+  counts are here; marking outgoing packets is the socket layer's job.
