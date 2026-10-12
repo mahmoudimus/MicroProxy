@@ -84,6 +84,7 @@ final class Builtins {
         env.put("WebSocketMessage", TypeConstructorValue.of(ScriptType.WEBSOCKET_MESSAGE_CONSTRUCTOR));
         env.put("Failure", TypeConstructorValue.of(ScriptType.FAILURE_CONSTRUCTOR));
         env.put("Timings", TypeConstructorValue.of(ScriptType.TIMINGS_CONSTRUCTOR));
+        env.put("ScriptStats", TypeConstructorValue.of(ScriptType.SCRIPT_STATS_CONSTRUCTOR));
         env.put("ProtoFixed", TypeConstructorValue.of(ScriptType.PROTO_FIXED_CONSTRUCTOR));
         env.put("ProtoGroup", TypeConstructorValue.of(ScriptType.PROTO_GROUP_CONSTRUCTOR));
         env.put("Frame", TypeConstructorValue.of(ScriptType.HTTP_FRAME_CONSTRUCTOR));

@@ -123,12 +123,15 @@ class ScriptedStatsTest {
         assertEquals(200, get(client, url(origin, "/ok")).statusCode());
         get(client, url(origin, "/fail"));
         // on_request twice, on_response at least once
-        long calls = ((Counter) registry.get("hooks.starlark.invocations")).value();
-        assertTrue(calls >= 3, "calls: " + calls);
-        assertEquals(1, ((Counter) registry.get("hooks.starlark.errors")).value());
-        assertEquals(calls, ((Histogram) registry.get("hooks.starlark.latency_us")).snapshot().count());
+        assertEquals(2, ((Counter) registry.get("hooks.starlark.hooks.on_request.invocations")).value());
+        long responses = ((Counter) registry.get("hooks.starlark.hooks.on_response.invocations")).value();
+        assertTrue(responses >= 1, "on_response calls: " + responses);
+        assertEquals(1, ((Counter) registry.get("hooks.starlark.hooks.on_request.errors")).value());
+        assertEquals(0, ((Counter) registry.get("hooks.starlark.hooks.on_response.errors")).value());
+        assertEquals(2, ((Histogram) registry.get("hooks.starlark.hooks.on_request.latency_us")).snapshot().count());
         String scrape = StatsFormatter.prometheus(registry);
-        assertTrue(scrape.contains("envoy_hooks_errors{microproxy_hook=\"starlark\"} 1"), scrape);
+        assertTrue(scrape.contains("envoy_hooks_errors{microproxy_script=\"hooks\",microproxy_script_hook=\"on_request\","
+                + "microproxy_hook=\"starlark\"} 1"), scrape);
     }
 
     @Test

@@ -29,6 +29,7 @@ import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ScriptCallObserver;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.UpstreamProxyManager;
 import org.microproxy.cache.HttpCache;
@@ -198,6 +199,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private final Map<String, Object> constants;
     private final ProtoSchema protoSchema;
     private final StatsRegistry stats;
+    private final String statsName;
+    private final ScriptCallObserver observer;
     private final ReentrantLock reloadLock = new ReentrantLock();
     private volatile StarlarkScript script;
     private volatile FileTime loadedModified;
@@ -212,6 +215,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         this.constants = b.constants;
         this.protoSchema = b.protoSchema;
         this.stats = b.stats;
+        this.statsName = b.statsName;
+        this.observer = b.observer;
         this.script = script;
         this.loadedModified = modified;
         this.lastCheck = System.nanoTime();
@@ -250,6 +255,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private Map<String, Object> constants = Map.of();
         private ProtoSchema protoSchema;
         private StatsRegistry stats;
+        private String statsName;
+        private ScriptCallObserver observer;
 
         private Builder(Path path, String source, String name) {
             this.path = path;
@@ -352,6 +359,30 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         }
 
         /**
+         * The name the script's {@code hooks.starlark.*} stats are tagged with ({@code
+         * microproxy_script}); by default its file name without {@code .star}.
+         *
+         * @param statsName the name, or null for the default
+         * @return this builder
+         */
+        public Builder statsName(String statsName) {
+            this.statsName = statsName;
+            return this;
+        }
+
+        /**
+         * Shows every call into the script to {@code observer}: when it starts, and its steps,
+         * bytes of values created, time and error when it ends (see {@link ScriptCallObserver}).
+         *
+         * @param observer the observer, or null for none
+         * @return this builder
+         */
+        public Builder observer(ScriptCallObserver observer) {
+            this.observer = observer;
+            return this;
+        }
+
+        /**
          * Compiles the script and runs its top level.
          *
          * @return a proxy using the compiled script
@@ -361,12 +392,20 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public ScriptedProxy build() throws IOException, ScriptException {
             if (path != null) {
                 FileTime modified = Files.getLastModifiedTime(path);
-                return new ScriptedProxy(this,
-                        StarlarkScript.load(path, limits, constants, stats).withProtoSchema(protoSchema), modified);
+                return new ScriptedProxy(this, configure(StarlarkScript.load(path, limits, constants, stats), protoSchema, statsName, observer), modified);
             }
             return new ScriptedProxy(this,
-                    StarlarkScript.compile(source, name, limits, constants, stats).withProtoSchema(protoSchema), null);
+                    configure(StarlarkScript.compile(source, name, limits, constants, stats), protoSchema, statsName,
+                            observer), null);
         }
+    }
+
+    /** {@code script} with a protobuf schema, a stats name and an observer, as the builder gave them. */
+    private static StarlarkScript configure(StarlarkScript script, ProtoSchema protoSchema, String statsName,
+            ScriptCallObserver observer) {
+        StarlarkScript s = script.withProtoSchema(protoSchema);
+        if (statsName != null) s = s.withStatsName(statsName);
+        return observer == null ? s : s.withObserver(observer);
     }
 
     /**
@@ -381,7 +420,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 FileTime modified = Files.getLastModifiedTime(path);
                 if (!modified.equals(loadedModified)) {
                     loadedModified = modified;
-                    script = StarlarkScript.load(path, limits, constants, stats).withProtoSchema(protoSchema);
+                    script = configure(StarlarkScript.load(path, limits, constants, stats), protoSchema, statsName, observer);
                     LOG.log(Level.INFO, "reloaded {0}", path);
                 }
             } catch (IOException | ScriptException e) {
@@ -444,7 +483,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             ScriptFrame f = new ScriptFrame(frame, fromClient);
             frameLock.lock();
             try {
-                Object r = s.call("on_websocket_frame", mu, request(), f, ctx);
+                Object r = s.call(flow, "on_websocket_frame", mu, request(), f, ctx);
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == f) return f.frame();
                 if (r == Boolean.FALSE) return null;
                 if (r instanceof ScriptFrame other) return other.frame();
@@ -468,7 +507,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             ScriptWebSocketMessage m = new ScriptWebSocketMessage(message);
             frameLock.lock();
             try {
-                Object r = s.call("on_websocket_message", mu, m, ctx);
+                Object r = s.call(flow, "on_websocket_message", mu, m, ctx);
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return List.of(m.message());
                 if (r == Boolean.FALSE) return List.of();
                 if (r instanceof ScriptWebSocketMessage other) return List.of(other.message());
@@ -501,7 +540,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         final StarlarkScript s;
         final Mutability mu = Mutability.create("request");
         final ScriptContext ctx;
-        private final FlowContext flow;
+        final FlowContext flow;
         private final boolean secure;
         /** A copy of the request as it arrived, for hooks that may run before clientToProxyRequest. */
         private final HttpRequest original;
@@ -519,7 +558,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public int requestBufferSizeInBytes(HttpRequest request) {
             if (!s.defines("buffer_request")) return 0;
             try {
-                Object r = s.call("buffer_request", mu, new ScriptRequest(request, secure, true), ctx);
+                Object r = s.call(flow, "buffer_request", mu, new ScriptRequest(request, secure, true), ctx);
                 return Starlark.truth(r) ? maxBodySize : 0;
             } catch (EvalException e) {
                 failed("buffer_request", e);
@@ -539,7 +578,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             }
             if (!s.defines("on_request")) return null;
             try {
-                Object r = s.call("on_request", mu, req, ctx);
+                Object r = s.call(flow, "on_request", mu, req, ctx);
                 if (r instanceof ScriptResponse res) return res.response();
                 if (r != Starlark.NONE) {
                     throw Starlark.errorf("on_request must return None or response(...), not %s", Starlark.type(r));
@@ -557,7 +596,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public boolean proxyToServerAllowMitm() {
             if (!s.defines("allow_mitm") || req == null) return true;
             try {
-                return Starlark.truth(s.call("allow_mitm", mu, req, ctx));
+                return Starlark.truth(s.call(flow, "allow_mitm", mu, req, ctx));
             } catch (EvalException e) {
                 failed("allow_mitm", e);
             } catch (InterruptedException e) {
@@ -570,7 +609,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public boolean proxyToServerAllowMitm(ClientHello clientHello) {
             if (!s.defines("on_client_hello")) return true;
             try {
-                Object r = s.call("on_client_hello", mu, new ScriptClientHello(clientHello), ctx);
+                Object r = s.call(flow, "on_client_hello", mu, new ScriptClientHello(clientHello), ctx);
                 if (r == Starlark.NONE || r == Boolean.TRUE) return true;
                 if (r == Boolean.FALSE) return false;
                 throw Starlark.errorf("on_client_hello must return True, False or None, not %s", Starlark.type(r));
@@ -587,7 +626,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!s.defines("on_response")) return 0;
             if (s.defines("buffer_response")) {
                 try {
-                    Object r = s.call("buffer_response", mu, request(), received(response, true), ctx);
+                    Object r = s.call(flow, "buffer_response", mu, request(), received(response, true), ctx);
                     return Starlark.truth(r) ? maxBodySize : 0;
                 } catch (EvalException e) {
                     failed("buffer_response", e);
@@ -605,7 +644,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             if (!(httpObject instanceof HttpResponse response) || !s.defines("on_response")) return httpObject;
             ScriptResponse res = received(response, false);
             try {
-                Object r = s.call("on_response", mu, request(), res, ctx);
+                Object r = s.call(flow, "on_response", mu, request(), res, ctx);
                 if (r instanceof ScriptResponse replacement && replacement != res) return replacement.response();
                 if (r != Starlark.NONE && r != res) {
                     throw Starlark.errorf("on_response must return None or response(...), not %s", Starlark.type(r));
@@ -645,7 +684,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         public HttpResponse proxyToServerFailure(ProxyFailure failure) {
             if (!s.defines("on_failure")) return null;
             try {
-                Object r = s.call("on_failure", mu, request(), new ScriptFailure(failure), ctx);
+                Object r = s.call(flow, "on_failure", mu, request(), new ScriptFailure(failure), ctx);
                 if (r instanceof ScriptResponse res) return res.response();
                 if (r != Starlark.NONE) {
                     throw Starlark.errorf("on_failure must return None or response(...), not %s", Starlark.type(r));
@@ -714,7 +753,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         Mutability mu = Mutability.create("frame");
         ScriptHttpFrame f = new ScriptHttpFrame(frame, direction, context.streamId(), mu);
         try {
-            Object r = s.call("on_frame", mu, f, new ScriptFrameContext(context));
+            Object r = s.call(context.flowContext(), "on_frame", mu, f, new ScriptFrameContext(context));
             if (r == Starlark.NONE || r == Boolean.TRUE || r == f) return f.toFrame();
             if (r == Boolean.FALSE) return null;
             if (r instanceof ScriptHttpFrame other) return other.toFrame();
@@ -776,10 +815,13 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private static final class UdpFlowState {
         final Mutability mu = Mutability.create("udp");
         final ScriptUdpContext ctx;
+        /** The CONNECT-UDP exchange, whose script totals the calls add to. */
+        final FlowContext flow;
         final ReentrantLock lock = new ReentrantLock();
 
         UdpFlowState(UdpContext context) {
             this.ctx = new ScriptUdpContext(context, mu);
+            this.flow = context.flowContext();
         }
     }
 
@@ -805,7 +847,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             ScriptUdpMessage m = new ScriptUdpMessage(message.data(), message.fromClient(), message.timestamp());
             f.lock.lock();
             try {
-                Object r = s.call("on_udp_message", f.mu, m, f.ctx);
+                Object r = s.call(f.flow, "on_udp_message", f.mu, m, f.ctx);
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
                 if (r == Boolean.FALSE) return null;
                 if (r instanceof ScriptUdpMessage other) return other.data();
@@ -836,7 +878,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private void call(StarlarkScript s, UdpFlowState f, String hook, Object... args) {
             f.lock.lock();
             try {
-                s.call(hook, f.mu, args);
+                s.call(f.flow, hook, f.mu, args);
             } catch (EvalException e) {
                 LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
             } catch (InterruptedException e) {
@@ -1103,10 +1145,13 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
     private static final class TcpTunnel {
         final Mutability mu = Mutability.create("tcp");
         final ScriptTcpContext ctx;
+        /** The exchange that opened the tunnel, whose script totals the calls add to. */
+        final FlowContext flow;
         final ReentrantLock lock = new ReentrantLock();
 
         TcpTunnel(TcpContext context) {
             this.ctx = new ScriptTcpContext(context, mu);
+            this.flow = context.flowContext();
         }
     }
 
@@ -1132,7 +1177,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             ScriptTcpMessage m = new ScriptTcpMessage(message.data(), message.fromClient(), message.timestamp());
             t.lock.lock();
             try {
-                Object r = s.call("on_tcp_message", t.mu, m, t.ctx);
+                Object r = s.call(t.flow, "on_tcp_message", t.mu, m, t.ctx);
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
                 if (r == Boolean.FALSE) return null;
                 if (r instanceof ScriptTcpMessage other) return other.data();
@@ -1173,7 +1218,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         private void call(StarlarkScript s, TcpTunnel t, String hook, Object... args) {
             t.lock.lock();
             try {
-                s.call(hook, t.mu, args);
+                s.call(t.flow, hook, t.mu, args);
             } catch (EvalException e) {
                 LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
             } catch (InterruptedException e) {
@@ -1219,7 +1264,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         // No filters exist yet for this request: the context comes from the connection.
         ScriptContext ctx = new ScriptContext(flow, mu);
         try {
-            Object r = s.call("authenticate", mu, new ScriptRequest(request, flow.getClientSslSession() != null, true), ctx);
+            Object r = s.call(flow, "authenticate", mu, new ScriptRequest(request, flow.getClientSslSession() != null, true), ctx);
             if (r instanceof String user) {
                 // "" is falsy, like False: `return USERS.get(token, "")` must not let anyone in.
                 return user.isEmpty() ? AuthResult.reject() : AuthResult.accept(user);

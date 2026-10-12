@@ -8,6 +8,7 @@ import org.microproxy.ClientHello;
 import org.microproxy.FlowContext;
 import org.microproxy.FlowTimings;
 import org.microproxy.ResponseFlag;
+import org.microproxy.ScriptUsage;
 import org.microproxy.thirdparty.starlark.annot.StarlarkBuiltin;
 import org.microproxy.thirdparty.starlark.eval.Dict;
 import org.microproxy.thirdparty.starlark.eval.Mutability;
@@ -30,7 +31,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * plain HTTP), or {@code None}, {@code socks_version}, the SOCKS version the client reached the
  * proxy with ({@code 5}, or {@code 4} for SOCKS4 and 4a), or {@code None} for an HTTP client,
  * {@code transparent_quic}, whether the client's QUIC came to the transparent QUIC listener, and
- * {@code early_data}, whether the HTTP/3 request arrived as 0-RTT early data, which may be a
+ * {@code script_stats}, what the calls into scripts for the exchange added up to so far (calls,
+ * time, interpreter steps and bytes of values created; see {@link ScriptUsageValue}), {@code
+ * early_data}, whether the HTTP/3 request arrived as 0-RTT early data, which may be a
  * replay: a hook may answer it {@code 425} (Too Early) for its client to send again after the
  * handshake. How the exchange is going: {@code failure}, why the proxy has to answer it itself (a
  * {@code Failure}, as {@code on_failure} gets it) or {@code None}, {@code response_flags}, the
@@ -42,7 +45,7 @@ public final class ScriptContext implements Structure {
 
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
-                    "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data", "failure",
+                    "script_stats", "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data", "failure",
                     "response_flags", "response_code_details");
 
     private final InetSocketAddress client;
@@ -98,6 +101,7 @@ public final class ScriptContext implements Structure {
             case "tls" -> tls;
             case "vars" -> vars;
             case "timings" -> new ScriptTimings(flow == null ? FlowTimings.NONE : flow.timings());
+            case "script_stats" -> new ScriptUsageValue(flow == null ? ScriptUsage.NONE : flow.scriptStats());
             case "client_hello" -> {
                 ClientHello hello = flow == null ? null : flow.getClientHello();
                 yield hello == null ? Starlark.NONE : new ScriptClientHello(hello);
