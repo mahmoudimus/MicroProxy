@@ -3,7 +3,7 @@ package org.microproxy.starlark;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
@@ -40,7 +40,7 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
 /**
  * {@code on_quic_start}, {@code on_quic_stream_data}, {@code on_quic_datagram} and {@code
  * on_quic_end} on QUIC that is not HTTP/3, intercepted on a transparent QUIC listener: the
- * README's example and a typed script with {@code ctx.send}, {@code ctx.send_datagram} and {@code
+ * documented example and a typed script with {@code ctx.send}, {@code ctx.send_datagram} and {@code
  * ctx.vars}.
  */
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
@@ -194,7 +194,7 @@ class ScriptedQuicTest {
     @Test
     void readmeExample() throws Exception {
         QuicEchoOrigin origin = origin();
-        QuicConnection c = connect(inReadme(REDACT), origin);
+        QuicConnection c = connect(inDocs(REDACT), origin);
         assertEquals("the ****** word", exchange(c, "echo\nthe secret word"));
         assertEquals(Set.of("allowed"), datagrams(c, "blocked", "allowed"));
         assertTrue(logged.contains("QUIC " + ALPN + " to " + HOST + ":" + origin.port() + " for 127.0.0.1"),

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,7 +25,7 @@ import org.microproxy.SocksClient;
 import org.microproxy.TestSupport;
 
 /**
- * {@code on_tcp_start}, {@code on_tcp_message} and {@code on_tcp_end}: the README's examples on
+ * {@code on_tcp_start}, {@code on_tcp_message} and {@code on_tcp_end}: the documented examples on
  * live tunnels, return values, {@code ctx.send} and {@code ctx.vars}, failures, and typed scripts.
  */
 class ScriptedTcpTest {
@@ -127,7 +127,7 @@ class ScriptedTcpTest {
     @Test
     void bannerExample() throws Exception {
         TestSupport.RawServer origin = lineServer("220 mail.test ESMTP ready");
-        HttpProxyServer proxy = start(inReadme(BANNER));
+        HttpProxyServer proxy = start(inDocs(BANNER));
         try (Socket s = tunnel(proxy, origin)) {
             assertEquals("220 mail.test ESMTP (via MicroProxy) ready\r\n", line(s));
             send(s, "EHLO ESMTP");
@@ -138,7 +138,7 @@ class ScriptedTcpTest {
     @Test
     void theHooksSeeASocksClientsTunnel() throws Exception {
         TestSupport.RawServer origin = lineServer("220 mail.test ESMTP ready");
-        ScriptedProxy script = ScriptedProxy.builder(inReadme(BANNER), "tcp.star").build();
+        ScriptedProxy script = ScriptedProxy.builder(inDocs(BANNER), "tcp.star").build();
         HttpProxyServer proxy = MicroProxy.bootstrap().withPort(0).withSocksServer(true)
                 .withTcpInterceptor(script.tcpInterceptor()).start();
         closeables.add(proxy::abort);
@@ -174,7 +174,7 @@ class ScriptedTcpTest {
         logger.addHandler(handler);
         try {
             TestSupport.RawServer origin = lineServer("+OK POP3 ready");
-            HttpProxyServer proxy = start(inReadme(LOG_LINES));
+            HttpProxyServer proxy = start(inDocs(LOG_LINES));
             String server = "127.0.0.1:" + origin.port();
             try (Socket s = tunnel(proxy, origin)) {
                 assertEquals("+OK POP3 ready\r\n", line(s));
@@ -198,7 +198,7 @@ class ScriptedTcpTest {
     @Test
     void dropCommandExample() throws Exception {
         TestSupport.RawServer origin = lineServer("+OK POP3 ready");
-        HttpProxyServer proxy = start(inReadme(DROP_COMMAND));
+        HttpProxyServer proxy = start(inDocs(DROP_COMMAND));
         try (Socket s = tunnel(proxy, origin)) {
             assertEquals("+OK POP3 ready\r\n", line(s));
             send(s, "DELE 1");
@@ -211,7 +211,7 @@ class ScriptedTcpTest {
     @Test
     void typedScriptsReplaceWithCopiesAndBytes() throws Exception {
         TestSupport.RawServer origin = lineServer("hi");
-        HttpProxyServer proxy = start(inReadme(TYPED));
+        HttpProxyServer proxy = start(inDocs(TYPED));
         try (Socket s = tunnel(proxy, origin)) {
             assertEquals("hi\r\n!", TestSupport.readUntil(s.getInputStream(), "!"));
             send(s, "quiet");

@@ -516,6 +516,11 @@ final class ClientConnection implements Runnable {
         boolean bodyAbandoned;
         /** The server side of the connection attempt in progress, once known. */
         FullFlowContext attempt;
+        /**
+         * The exchange's streams that each chained HTTP/2 proxy left unprocessed (GOAWAY, {@code
+         * REFUSED_STREAM}); null until one did.
+         */
+        Map<ChainedProxy, Integer> unprocessedStreams;
         /** The response was written in full ({@link HttpFilters#proxyToClientResponseSent} called). */
         boolean completed;
         /** {@link HttpFilters#exchangeEnded} has been called. */
@@ -604,6 +609,17 @@ final class ClientConnection implements Runnable {
 
         boolean bodyUnread() {
             return !(request instanceof FullHttpRequest) && body.hasBody() && !body.isDone();
+        }
+
+        /** How many of the exchange's streams {@code proxy}, a chained HTTP/2 proxy, left unprocessed. */
+        int unprocessedStreams(ChainedProxy proxy) {
+            return unprocessedStreams == null ? 0 : unprocessedStreams.getOrDefault(proxy, 0);
+        }
+
+        /** {@code proxy} left one of the exchange's streams unprocessed: it may be sent again. */
+        void unprocessedStream(ChainedProxy proxy) {
+            if (unprocessedStreams == null) unprocessedStreams = new java.util.IdentityHashMap<>();
+            unprocessedStreams.merge(proxy, 1, Integer::sum);
         }
 
         /**
@@ -1550,6 +1566,7 @@ final class ClientConnection implements Runnable {
                 .upstreamBytes(flow.upstreamSent(), flow.upstreamReceived())
                 .upstream(flow.upstreamAddress(), flow.upstreamLocalAddress(), flow.upstreamCluster(),
                         flow.upstreamSslSession())
+                .upstreamProtocol(flow.upstreamProtocol())
                 .upstreamTransportFailureReason(flow.transportFailure())
                 .downstreamLocalAddress(flow.localAddress())
                 .outcome(flow.responseFlags(), flow.failure().orElse(null), flow.responseCodeDetails().orElse(null))
@@ -1676,7 +1693,7 @@ final class ClientConnection implements Runnable {
 
     /**
      * Records the server connection {@code ex} uses: its address, the proxy's end of it, the
-     * chained proxy (or server) it goes to and its TLS session.
+     * chained proxy (or server) it goes to, the protocol spoken to that one, and its TLS session.
      */
     private static void recordUpstream(Exchange ex, ServerConnection conn) {
         Socket socket = conn.socket;
@@ -1692,6 +1709,29 @@ final class ClientConnection implements Runnable {
                 ? proxy.getChainedProxyAddress().getHostString() + ":" + proxy.getChainedProxyAddress().getPort()
                 : conn.hostAndPort;
         ex.flow.upstream(conn.remoteAddress, local, cluster, session);
+        ex.flow.upstreamProtocol(upstreamProtocol(ex, conn));
+    }
+
+    /**
+     * The protocol {@code conn} speaks to its next hop: to the chained proxy it goes through (the
+     * one a tunnel's {@code CONNECT} went to), else to the server; null for a tunnel straight to
+     * the server.
+     */
+    private static String upstreamProtocol(Exchange ex, ServerConnection conn) {
+        ChainedProxy proxy = conn.chainedProxy;
+        // The connection to the next hop: the one an HTTP/2 stream is on, the one a tunnel runs through.
+        ServerConnection base = conn instanceof Http2UpstreamStream stream ? stream.carrier() : conn;
+        if (proxy != null && proxy != ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
+            return switch (proxy.getChainedProxyType()) {
+                case SOCKS4 -> "SOCKS4";
+                case SOCKS5 -> "SOCKS5";
+                case HTTP -> conn instanceof Http2UpstreamStream stream && stream.toProxy() || base.overHttp2Stream()
+                        ? "HTTP/2" : "HTTP/1.1";
+            };
+        }
+        if (conn instanceof Http2UpstreamStream) return "HTTP/2";
+        if (conn instanceof Http3UpstreamStream) return "HTTP/3";
+        return ProxyUtils.isCONNECT(ex.request) ? null : "HTTP/1.1";
     }
 
     /** Handles a request whose filters have been created. Returns whether the client connection stays open. */
@@ -2055,11 +2095,14 @@ final class ClientConnection implements Runnable {
                     } else {
                         if (http2Key != null) server.http2Origins.negotiatedHttp1(http2Key);
                         reported = true;
-                        conn.key = key;
-                        if (multiplexed) {
-                            streamConnections.add(conn);
-                        } else {
-                            serverConnections.put(key, conn);
+                        // (A stream to a chained HTTP/2 proxy carries this exchange only: no one keeps it.)
+                        if (!conn.multiplexed()) {
+                            conn.key = key;
+                            if (multiplexed) {
+                                streamConnections.add(conn);
+                            } else {
+                                serverConnections.put(key, conn);
+                            }
                         }
                     }
                 } finally {
@@ -2094,6 +2137,10 @@ final class ClientConnection implements Runnable {
                 } else {
                     LOG.log(Level.DEBUG, ex.log + "retrying on a new connection after stale " + conn);
                     conn.closedByServer = true;
+                    if (conn instanceof Http2UpstreamStream stream && stream.toProxy()) {
+                        // The chained proxy did not process it: after too many, the next route.
+                        ex.unprocessedStream(conn.chainedProxy);
+                    }
                 }
                 conn.close();
                 conn = null;
@@ -3624,8 +3671,14 @@ final class ClientConnection implements Runnable {
         SSLSocket tls = serverTls(ex, conn.socket, target, sniHost, hostAndPort, conn.flowContext, alpn);
         conn.tlsContext = ex.serverTlsContext;
         Supplier<FullFlowContext> context = () -> conn.flowContext;
-        conn.layerTls(tls, new ByteReader(serverInput(tls, context, conn.cluster), server.ioBuffers),
-                new PooledOutputStream(serverOutput(tls, context, conn.cluster), server.ioBuffers));
+        if (conn.overHttp2Stream()) {
+            // (The HTTP/2 connection whose stream the tunnel is throttles it and counts it in the cluster.)
+            conn.layerTls(tls, new ByteReader(trackedInput(tls.getInputStream(), context), server.ioBuffers),
+                    new PooledOutputStream(trackedOutput(tls.getOutputStream(), context), server.ioBuffers));
+        } else {
+            conn.layerTls(tls, new ByteReader(serverInput(tls, context, conn.cluster), server.ioBuffers),
+                    new PooledOutputStream(serverOutput(tls, context, conn.cluster), server.ioBuffers));
+        }
         conn.http2 = ClientHello.H2.equals(tls.getApplicationProtocol());
     }
 
@@ -4629,6 +4682,11 @@ final class ClientConnection implements Runnable {
                 server.pool.cancel(hostKey);
                 throw e;
             }
+            if (conn.multiplexed()) {
+                // A stream to a chained HTTP/2 proxy: its connection is shared already, never pooled.
+                server.pool.cancel(hostKey);
+                return conn;
+            }
             ChainedProxy actual = conn.chainedProxy == null
                     ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : conn.chainedProxy;
             server.pool.register(conn, hostKey + "|" + routeKey(actual) + managerKey, hostKey);
@@ -4963,6 +5021,20 @@ final class ClientConnection implements Runnable {
 
     private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode)
             throws IOException {
+        Http2Origins.Key proxyKey = http2ProxyKey(proxy, ex, mode);
+        return proxyKey != null ? connectViaHttp2(hostAndPort, ex, proxy, mode, proxyKey)
+                : connectVia(hostAndPort, ex, proxy, mode, null);
+    }
+
+    /**
+     * Connects to {@code hostAndPort} directly, or through {@code proxy} (null for direct): over
+     * HTTP/1.1, SOCKS or a plain TCP connection. With {@code proxyKey}, {@code proxy} is offered
+     * HTTP/2 ({@link ChainedProxy#http2()}): a connection that speaks it is returned as soon as it is
+     * made, marked {@link ServerConnection#http2}, for {@link #connectViaHttp2} to start HTTP/2 on;
+     * one whose TLS chose HTTP/1.1 goes on as any other.
+     */
+    private ServerConnection connectVia(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode,
+            Http2Origins.Key proxyKey) throws IOException {
         HttpFilters filters = ex.filters;
         HostAndPort target = HostAndPort.parse(hostAndPort, 80);
         InetSocketAddress remote;
@@ -5018,7 +5090,11 @@ final class ClientConnection implements Runnable {
                     ex.flow.markFirst(ClientFlowContext.TLS_START);
                     active = Tls.clientHandshake(context, plain, remote.getHostString(), remote.getPort(), false,
                             server.tlsProtocols,
-                            s -> proxy.configure(s, true), server.tlsHandshakeTimeout,
+                            s -> {
+                                // (Before the proxy's own settings, which may change it.)
+                                if (proxyKey != null) offerAlpn(s, List.of(ClientHello.H2, ClientHello.HTTP_1_1));
+                                proxy.configure(s, true);
+                            }, server.tlsHandshakeTimeout,
                             new TlsLog.Peer(ex.log, "chained proxy", remote.getHostString()));
                     ex.flow.mark(ClientFlowContext.TLS_END);
                     cluster.sslHandshake.inc();
@@ -5028,6 +5104,21 @@ final class ClientConnection implements Runnable {
                     server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
                     throw new TlsHandshakeFailed(e);
                 }
+            }
+            boolean http2 = proxyKey != null
+                    && (!(active instanceof SSLSocket tls) || ClientHello.H2.equals(tls.getApplicationProtocol()));
+            if (http2) {
+                // HTTP/2 to the proxy (ALPN h2, or prior knowledge): a connection to it, not to the
+                // server, which streams on it reach. Its frames count in the proxy's cluster.
+                ServerConnection carrier = new ServerConnection(proxyKey.toString(), proxyKey.authority(), proxy, false,
+                        active, null, null, remote, serverContext, server.trackers);
+                carrier.http2 = true;
+                carrier.cluster = cluster;
+                if (cluster.enabled) {
+                    carrier.countedAt = ClientFlowContext.now();
+                    cluster.connected(connectNanos);
+                }
+                return carrier;
             }
             ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
@@ -5106,6 +5197,183 @@ final class ClientConnection implements Runnable {
     }
 
     /**
+     * How many of an exchange's streams a chained HTTP/2 proxy may leave unprocessed (GOAWAY,
+     * {@code REFUSED_STREAM}) before the exchange gives up on it and fails over to the next route.
+     */
+    private static final int MAX_UNPROCESSED_STREAMS = 2;
+
+    /**
+     * The key of the HTTP/2 connections to {@code proxy} that {@code ex}'s connection in {@code mode}
+     * would be a stream of, or null when the proxy is reached over HTTP/1.1 (or SOCKS): it is not
+     * an HTTP/2 proxy ({@link ChainedProxy#http2()}), the http2-codec module is missing, or the
+     * exchange is a plain-HTTP upgrade (a WebSocket), which goes over HTTP/1.1. The key's authority
+     * is the proxy's, its isolation everything else that tells its connections apart: the route
+     * (address, TLS), the TLS context, the credentials and the local address. Connections to a
+     * proxy carry nothing particular to one client, so every client shares them.
+     */
+    private Http2Origins.Key http2ProxyKey(ChainedProxy proxy, Exchange ex, Mode mode) {
+        if (proxy == null || proxy.getChainedProxyType() != ChainedProxyType.HTTP || !proxy.http2()) return null;
+        InetSocketAddress address = proxy.getChainedProxyAddress();
+        if (address == null) return null;
+        if (server.http2Proxies == null) {
+            LOG.log(Level.DEBUG, ex.log + "HTTP/1.1 to chained proxy " + address + ": no http2-codec module");
+            return null;
+        }
+        if (mode == Mode.PLAIN && (ProxyUtils.isSwitchingToWebSocketProtocol(ex.request)
+                || ex.channel.tunnelProtocol() != null)) {
+            return null;
+        }
+        StringBuilder isolation = new StringBuilder("proxy|").append(routeKey(proxy));
+        if (proxy.requiresEncryption()) {
+            isolation.append("|ctx").append(Integer.toHexString(System.identityHashCode(proxy.getSslContext())));
+        }
+        if (proxy.getUsername() != null) isolation.append("|cred").append(credentialsId(proxy));
+        if (proxy.getLocalAddress() != null) isolation.append("|local").append(proxy.getLocalAddress());
+        return new Http2Origins.Key(isolation.toString(),
+                new HostAndPort(address.getHostString(), address.getPort()).toString());
+    }
+
+    /** Tells {@code proxy}'s credentials apart without naming them (SHA-256, shortened). */
+    private static String credentialsId(ChainedProxy proxy) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest((proxy.getUsername() + "\0" + proxy.getPassword()).getBytes(UTF_8));
+            return java.util.HexFormat.of().formatHex(digest, 0, 8);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Reaches {@code hostAndPort} through {@code proxy}, a chained proxy offered HTTP/2, on a
+     * stream of a connection to it ({@code proxyKey}): one with room for it, or a new one (only
+     * one is made at a time per key, as for servers: {@link Http2Origins}). For a plain-HTTP
+     * request ({@link Mode#PLAIN}) the stream is the connection, the request the proxy's to
+     * forward; otherwise the stream carries a {@code CONNECT} to {@code hostAndPort}, and the
+     * tunnel it opens is the connection ({@link #tunnelOverHttp2}). A stream the proxy did not
+     * process (GOAWAY, {@code REFUSED_STREAM}) is tried again on another connection, up to {@link
+     * #MAX_UNPROCESSED_STREAMS} per exchange and proxy; then, as any failure here, it fails this
+     * route, and the exchange fails over to the next ({@link #connect}). A proxy whose TLS chose
+     * HTTP/1.1 gets the exchange over HTTP/1.1, as without HTTP/2.
+     */
+    private ServerConnection connectViaHttp2(String hostAndPort, Exchange ex, ChainedProxy proxy, Mode mode,
+            Http2Origins.Key proxyKey) throws IOException {
+        boolean headRequest = mode == Mode.PLAIN && ProxyUtils.isHEAD(ex.request);
+        while (true) {
+            int unprocessed = ex.unprocessedStreams(proxy);
+            if (unprocessed >= MAX_UNPROCESSED_STREAMS) {
+                throw new ConnectException("chained proxy " + proxyKey.authority() + " left " + unprocessed
+                        + " HTTP/2 streams unprocessed");
+            }
+            ServerConnection stream = server.http2Proxies.stream(proxyKey, null, ex.flow, hostAndPort, ex.log,
+                    headRequest, Math.max(1000, connectTimeoutMillis(ex)));
+            if (stream != null) {
+                // A new stream on a connection made before: as a new connection to the proxy would be.
+                ex.filters.proxyToServerConnectionStarted();
+            } else {
+                // (Making a connection for the key is reported back, so others stop waiting for it.)
+                boolean reported = false;
+                try {
+                    ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode, proxyKey);
+                    reported = true;
+                    if (!conn.http2) {
+                        server.http2Proxies.negotiatedHttp1(proxyKey);
+                        return conn;
+                    }
+                    LOG.log(Level.DEBUG, ex.log + "HTTP/2 to chained proxy " + proxyKey.authority());
+                    stream = server.http2Proxies.adopt(conn, proxyKey, proxyKey, null, ex.flow, hostAndPort, ex.log,
+                            headRequest);
+                } finally {
+                    if (!reported) server.http2Proxies.connectFailed(proxyKey);
+                }
+            }
+            ex.attempt = stream.flowContext;
+            if (LOG.isLoggable(Level.DEBUG)) {
+                LOG.log(Level.DEBUG, ex.log + (mode == Mode.PLAIN ? "request" : "tunnel") + " to " + hostAndPort
+                        + " on " + stream);
+            }
+            if (mode == Mode.PLAIN) return stream;
+            try {
+                return tunnelOverHttp2((Http2UpstreamStream) stream, hostAndPort, ex, proxy, mode);
+            } catch (Http2UpstreamConnection.Unprocessed e) {
+                ex.unprocessedStream(proxy);
+                LOG.log(Level.DEBUG, ex.log + "CONNECT " + hostAndPort + " not processed by chained proxy "
+                        + proxyKey.authority() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Opens a tunnel to {@code hostAndPort} on {@code stream}, a new stream on an HTTP/2 connection
+     * to the chained proxy {@code proxy}: the {@code CONNECT} goes as to an HTTP/1.1 chained proxy
+     * (with the proxy's credentials, its filtering and the trace context), and once the proxy
+     * answers 2xx the stream's DATA are the tunnel's bytes, shown as a socket ({@link
+     * Http2UpstreamStream#tunnelSocket}): END_STREAM ends one direction, a reset fails both. On it
+     * go the PROXY protocol header and, unless deferred, TLS with the server, as on a connection of
+     * its own. The connection returned closes the stream when it closes; its bytes are counted for
+     * the trackers by it, and in the proxy's cluster by the HTTP/2 connection.
+     *
+     * @throws ConnectException if the proxy refused the tunnel
+     * @throws Http2UpstreamConnection.Unprocessed if the proxy did not process the stream
+     */
+    private ServerConnection tunnelOverHttp2(Http2UpstreamStream stream, String hostAndPort, Exchange ex,
+            ChainedProxy proxy, Mode mode) throws IOException {
+        ServerConnection conn = null;
+        try {
+            HttpRequest connect = upstreamConnectRequest(ex.request, hostAndPort, proxy);
+            proxy.filterRequest(connect);
+            stripRequestHeaders(connect.headers());
+            traceUpstream(ex, connect.headers());
+            stream.writeRequestHead(connect, false, false);
+            HttpResponse reply;
+            do {
+                stream.awaitResponseHead();
+                reply = stream.readResponse(server.limits);
+            } while (reply.status().code() / 100 == 1);
+            if (reply.status().code() / 100 != 2) {
+                throw new ConnectException("chained proxy refused CONNECT: " + reply.status());
+            }
+            stream.countedAbove();
+            Socket tunnel = stream.tunnelSocket();
+            FullFlowContext serverContext = stream.flowContext;
+            ServerConnection[] holder = new ServerConnection[1];
+            Supplier<FullFlowContext> currentContext = () -> holder[0] != null ? holder[0].flowContext : serverContext;
+            if (server.sendProxyProtocol) {
+                writeProxyProtocolHeader(tunnel.getOutputStream(), stream.remoteAddress);
+            }
+            Socket active = tunnel;
+            boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
+            if (mode == Mode.TLS && !deferTls) {
+                HostAndPort target = HostAndPort.parse(hostAndPort, 80);
+                active = serverTls(ex, tunnel, target, target.host(), hostAndPort, serverContext,
+                        upstreamAlpn(ex.offerHttp2, sessionHello()));
+            }
+            ByteReader reader = new ByteReader(trackedInput(active.getInputStream(), currentContext), server.ioBuffers);
+            OutputStream output = new PooledOutputStream(trackedOutput(active.getOutputStream(), currentContext),
+                    server.ioBuffers);
+            conn = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, true, active, reader, output,
+                    stream.remoteAddress, serverContext, server.trackers);
+            holder[0] = conn;
+            ServerConnection created = conn;
+            created.through = stream;
+            created.cluster = stream.cluster;
+            created.tlsPending = deferTls;
+            if (mode == Mode.TLS && !deferTls) created.tlsContext = ex.serverTlsContext;
+            created.http2 = active instanceof SSLSocket tls && ClientHello.H2.equals(tls.getApplicationProtocol());
+            created.onDetach = () -> detach(created);
+            return created;
+        } catch (IOException | RuntimeException e) {
+            // (Closing the connection closes the stream it runs on.)
+            if (conn != null) {
+                conn.close();
+            } else {
+                stream.close();
+            }
+            throw e;
+        }
+    }
+
+    /**
      * Runs the TLS handshake with the server over {@code active} (the connection to it, or a
      * tunnel through chained proxies), with the MITM manager's context and socket settings.
      *
@@ -5169,14 +5437,17 @@ final class ClientConnection implements Runnable {
             throws IOException {
         InputStream is = server.readLimiter.wrap(s.getInputStream());
         if (cluster.enabled) is = CountingStreams.counting(is, cluster.cxRxBytes::add);
-        if (!server.trackers.isEmpty()) {
-            is = CountingStreams.counting(is, n -> {
-                FullFlowContext context = serverContext.get();
-                if (context.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamReceived(n);
-                server.trackers.fire(t -> t.bytesReceivedFromServer(context, n));
-            });
-        }
-        return is;
+        return trackedInput(is, serverContext);
+    }
+
+    /** {@code is}, counted for the trackers only (throttled and counted in a cluster below it, if at all). */
+    private InputStream trackedInput(InputStream is, Supplier<FullFlowContext> serverContext) {
+        if (server.trackers.isEmpty()) return is;
+        return CountingStreams.counting(is, n -> {
+            FullFlowContext context = serverContext.get();
+            if (context.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamReceived(n);
+            server.trackers.fire(t -> t.bytesReceivedFromServer(context, n));
+        });
     }
 
     /** {@code s}'s output, counted in {@code cluster}'s {@code upstream_cx_tx_bytes_total} and for trackers. */
@@ -5184,14 +5455,17 @@ final class ClientConnection implements Runnable {
             throws IOException {
         OutputStream os = server.writeLimiter.wrap(s.getOutputStream());
         if (cluster.enabled) os = CountingStreams.counting(os, cluster.cxTxBytes::add);
-        if (!server.trackers.isEmpty()) {
-            os = CountingStreams.counting(os, n -> {
-                FullFlowContext context = serverContext.get();
-                if (context.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamSent(n);
-                server.trackers.fire(t -> t.bytesSentToServer(context, n));
-            });
-        }
-        return os;
+        return trackedOutput(os, serverContext);
+    }
+
+    /** {@code os}, counted for the trackers only (throttled and counted in a cluster below it, if at all). */
+    private OutputStream trackedOutput(OutputStream os, Supplier<FullFlowContext> serverContext) {
+        if (server.trackers.isEmpty()) return os;
+        return CountingStreams.counting(os, n -> {
+            FullFlowContext context = serverContext.get();
+            if (context.getClientContext() instanceof ClientFlowContext flow) flow.addUpstreamSent(n);
+            server.trackers.fire(t -> t.bytesSentToServer(context, n));
+        });
     }
 
     /** @param remote the address this server connection goes to */

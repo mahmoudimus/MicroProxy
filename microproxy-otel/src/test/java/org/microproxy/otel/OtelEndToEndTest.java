@@ -123,6 +123,7 @@ class OtelEndToEndTest {
         assertEquals("via_upstream", server.attr("microproxy.response_code_details"));
         assertEquals("h1", server.attr("microproxy.flow"));
         assertEquals("127.0.0.1:" + port, server.attr("upstream_cluster"));
+        assertEquals("HTTP/1.1", server.attr("microproxy.upstream_protocol"));
         assertNull(server.attr("error.type"));
         assertNull(server.attr("response_flags"));
         assertEquals(0, server.statusCode());

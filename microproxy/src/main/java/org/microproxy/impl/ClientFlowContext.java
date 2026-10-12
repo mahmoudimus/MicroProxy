@@ -100,6 +100,7 @@ final class ClientFlowContext extends FlowContext {
     private volatile InetSocketAddress upstreamAddress;
     private volatile InetSocketAddress upstreamLocalAddress;
     private volatile String upstreamCluster;
+    private volatile String upstreamProtocol;
     private volatile SSLSession upstreamSslSession;
     /** The proxy's end of the client connection, or null. */
     private volatile InetSocketAddress localAddress;
@@ -145,6 +146,7 @@ final class ClientFlowContext extends FlowContext {
         upstreamAddress = null;
         upstreamLocalAddress = null;
         upstreamCluster = null;
+        upstreamProtocol = null;
         upstreamSslSession = null;
         resetScriptStats();
         trace = FlowTrace.NONE;
@@ -427,6 +429,15 @@ final class ClientFlowContext extends FlowContext {
 
     String upstreamCluster() {
         return upstreamCluster;
+    }
+
+    /** Records the protocol spoken to the upstream ({@link org.microproxy.FlowRecord#upstreamProtocol()}). */
+    void upstreamProtocol(String protocol) {
+        upstreamProtocol = protocol;
+    }
+
+    String upstreamProtocol() {
+        return upstreamProtocol;
     }
 
     SSLSession upstreamSslSession() {

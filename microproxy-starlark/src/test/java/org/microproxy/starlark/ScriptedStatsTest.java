@@ -97,7 +97,7 @@ class ScriptedStatsTest {
     void theReadmeExampleRunsAsWritten() throws Exception {
         origin = origin(echo());
         StatsRegistry registry = StatsRegistry.create();
-        ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inReadme(README_EXAMPLE), "readme.star")
+        ScriptedProxy script = ScriptedProxy.builder(ScriptedReadmeTest.inDocs(README_EXAMPLE), "readme.star")
                 .stats(registry).build();
         proxy = MicroProxy.bootstrap().withPort(0).withStats(registry).withFiltersSource(script).start();
         assertEquals(403, get(client(proxy), url(origin, "/admin/users")).statusCode());

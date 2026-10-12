@@ -19,7 +19,9 @@ public final class MicroProxy {
     }
 
     /**
-     * A bootstrap configured from a properties file (see the README for keys).
+     * A bootstrap configured from a properties file (see the <a
+     * href="https://mahmoudimus.github.io/MicroProxy/reference/properties/">configuration
+     * properties</a> for keys).
      *
      * @param path the properties file to read
      * @return a bootstrap initialized from the properties file

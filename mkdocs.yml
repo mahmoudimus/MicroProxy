@@ -1,0 +1,128 @@
+# MkDocs configuration for the documentation site, https://mahmoudimus.github.io/MicroProxy/.
+# The pages in docs/ are plain Markdown that also reads well on GitHub. Build with the pinned
+# tools in docs/requirements.txt:  pip install -r docs/requirements.txt && mkdocs build --strict
+site_name: MicroProxy
+site_description: >-
+  A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads,
+  the successor to LittleProxy.
+site_url: https://mahmoudimus.github.io/MicroProxy/
+repo_url: https://github.com/mahmoudimus/MicroProxy
+repo_name: mahmoudimus/MicroProxy
+edit_uri: edit/main/docs/
+copyright: Apache License 2.0
+
+docs_dir: docs
+exclude_docs: |
+  scripts/
+  requirements.txt
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # GitHub's heading ids, so that the same anchors work on github.com and on the site.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+plugins:
+  - search
+
+hooks:
+  # Writes llms.txt and llms-full.txt at the site root, and unescapes pipes in table code spans
+  # (see docs/CONTRIBUTING-DOCS.md).
+  - docs/scripts/hooks.py
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Install: getting-started/install.md
+      - Quick start: getting-started/quick-start.md
+      - Your first filter: getting-started/first-filter.md
+      - Your first Starlark script: getting-started/first-script.md
+  - Guides:
+      - Forward proxy: guides/forward-proxy.md
+      - Filters and failure responses: guides/filters.md
+      - MITM, certificates and TLS: guides/mitm.md
+      - Proxy authentication: guides/authentication.md
+      - Concurrency limiting: guides/concurrency-limiting.md
+      - Chained proxies: guides/chained-proxies.md
+      - Transparent mode: guides/transparent-mode.md
+      - Reverse proxy: guides/reverse-proxy.md
+      - SOCKS: guides/socks.md
+      - HTTP/2: guides/http2.md
+      - HTTP/3 and QUIC: guides/http3.md
+      - CONNECT-UDP (MASQUE): guides/masque.md
+      - QUIC stream hooks: guides/quic-hooks.md
+      - Frame interception: guides/frame-interception.md
+      - WebSockets: guides/websockets.md
+      - Raw TCP and TLS hooks: guides/tcp-hooks.md
+      - Rewriting bodies: guides/rewriting-bodies.md
+      - Addons, HAR and replay: guides/addons.md
+      - HTTP cache: guides/caching.md
+      - WARC recording: guides/warc.md
+      - Content views, gRPC and protobuf: guides/content-views.md
+      - Scripting with Starlark: guides/scripting.md
+      - DNSSEC: guides/dnssec.md
+      - Performance options: guides/performance.md
+  - Observability:
+      - Access logs: observability/access-logs.md
+      - Metrics, Prometheus and statsd: observability/metrics.md
+      - Admin, readiness and draining: observability/admin.md
+      - OpenTelemetry: observability/opentelemetry.md
+      - Request/response logging: observability/request-logging.md
+      - Activity tracking and timings: observability/activity-tracking.md
+      - qlog: observability/qlog.md
+  - Reference:
+      - Command-line flags: reference/cli.md
+      - Configuration properties: reference/properties.md
+      - Stats and metrics names: reference/stats.md
+      - Access-log format: reference/access-log-format.md
+      - Response flags: reference/response-flags.md
+      - Admin endpoints: reference/admin-api.md
+      - Starlark API: reference/starlark-api.md
+  - Security: security.md
+  - Migrating from LittleProxy: migrating-from-littleproxy.md
+  - Architecture: architecture.md
+  - Java API (Javadoc): java-api.md
+  - Project:
+      - Building and testing: project/building-and-testing.md
+      - Writing documentation: CONTRIBUTING-DOCS.md
+      - Publishing to Maven Central: PUBLISHING.md
+      - Acknowledgements and license: project/acknowledgements.md

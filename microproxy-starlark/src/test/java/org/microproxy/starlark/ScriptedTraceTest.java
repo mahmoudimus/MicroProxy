@@ -51,7 +51,7 @@ class ScriptedTraceTest {
                 res.headers["x-recording"] = str(trace.is_recording())
             """;
 
-    /** The README's example. */
+    /** The documented example. */
     static final String README = """
             def on_request(req, ctx):
                 trace.set_attribute("tenant", req.headers.get("x-tenant", "none"))
@@ -132,7 +132,7 @@ class ScriptedTraceTest {
         origin = origin(echo());
         List<Recorded> traces = new CopyOnWriteArrayList<>();
         proxy = MicroProxy.bootstrap().withPort(0)
-                .withFiltersSource(ScriptedProxy.builder(ScriptedReadmeTest.inReadme(README), "readme.star").build())
+                .withFiltersSource(ScriptedProxy.builder(ScriptedReadmeTest.inDocs(README), "readme.star").build())
                 .withTracer((flow, request) -> {
                     Recorded r = new Recorded();
                     traces.add(r);

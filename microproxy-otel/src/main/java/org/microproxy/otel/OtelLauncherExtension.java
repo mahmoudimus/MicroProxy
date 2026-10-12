@@ -44,7 +44,7 @@ public final class OtelLauncherExtension implements LauncherExtension {
         return """
                   --otel                       trace with OpenTelemetry and export traces, metrics and access
                                                logs over OTLP/HTTP; OTEL_* variables configure it, and
-                                               OTEL_EXPORTER_OTLP_ENDPOINT alone turns it on (see README)
+                                               OTEL_EXPORTER_OTLP_ENDPOINT alone turns it on (docs/observability/opentelemetry.md)
                   --otel-endpoint <url>        the collector's OTLP/HTTP base URL (http://localhost:4318)
                   --otel-protocol <p>          http/protobuf (default) or http/json
                   --otel-header <name=value>   a header on every export, e.g. for authentication (repeatable)

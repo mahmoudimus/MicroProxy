@@ -5,6 +5,7 @@ import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
@@ -33,6 +34,10 @@ import org.microproxy.http.LastHttpContent;
  * <p>A {@code CONNECT} (RFC 9113 section 8.5) opens a tunnel through the server, an HTTPS proxy:
  * its stream stays open for the tunnel's bytes, which {@link #tunnelSocket} shows as a socket for
  * TLS to the final server.
+ *
+ * <p>On a connection to a chained proxy ({@link #toProxy()}) a stream is a {@code CONNECT} tunnel
+ * to a server, or a plain-HTTP proxy request ({@code :scheme http}, {@code :authority} the
+ * server's), which goes to the proxy rather than to its server ({@link #nextHopIsOrigin()}).
  *
  * <p>A stream may be coalesced: on a connection made for another authority than its exchange's
  * ({@link Http2Coalescing}). It is its exchange's server's all the same ({@link #hostAndPort},
@@ -75,6 +80,30 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
     @Override
     boolean multiplexed() {
         return true;
+    }
+
+    /** The connection the stream's HTTP/2 connection runs over. */
+    ServerConnection carrier() {
+        return connection.carrier;
+    }
+
+    /** Whether the stream is on a connection to a chained proxy, not to an origin server. */
+    boolean toProxy() {
+        return connection.toProxy;
+    }
+
+    /** A request on a chained proxy's stream is the proxy's to forward: in absolute-form, with its credentials. */
+    @Override
+    boolean nextHopIsOrigin() {
+        return !connection.toProxy;
+    }
+
+    /**
+     * The tunnel's bytes are counted by the connection layered on it, as on a connection of its
+     * own, rather than by the HTTP/2 connection's frames.
+     */
+    void countedAbove() {
+        state.countedAbove = true;
     }
 
     @Override
@@ -250,7 +279,9 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
      * ({@link StreamSocket}).
      */
     StreamSocket tunnelSocket() {
-        return new StreamSocket(this, tunnelInput(), tunnelOutput(), remoteAddress, null);
+        InetSocketAddress local = connection.carrier.socket.getLocalSocketAddress() instanceof InetSocketAddress a
+                ? a : null;
+        return new StreamSocket(this, tunnelInput(), tunnelOutput(), remoteAddress, local);
     }
 
     @Override

@@ -19,9 +19,13 @@ import org.microproxy.tls.SslContexts;
  * for plain HTTP, one for HTTPS (CONNECT), and {@link NoProxyRules} for hosts reached directly.
  *
  * <p>Proxy URLs take the forms {@code http://[user:password@]host[:port]}, {@code https://...}
- * (TLS to the proxy itself), {@code socks4://...}, {@code socks4a://...}, {@code socks5://...} and
- * {@code socks5h://...}. SOCKS proxies always receive host names, so the {@code a}/{@code h}
- * variants behave like the plain ones. Default ports are 80 (http), 443 (https) and 1080 (SOCKS).
+ * (TLS to the proxy itself), {@code h2://...} (TLS, offering HTTP/2 with ALPN), {@code h2c://...}
+ * (HTTP/2 with prior knowledge over plain TCP), {@code socks4://...}, {@code socks4a://...},
+ * {@code socks5://...} and {@code socks5h://...}. An HTTP/2 proxy carries tunnels and plain-HTTP
+ * requests as streams of shared connections ({@link ChainedProxy#http2()}); an {@code h2://} proxy
+ * that chooses HTTP/1.1 is spoken to in HTTP/1.1. SOCKS proxies always receive host names, so the
+ * {@code a}/{@code h} variants behave like the plain ones. Default ports are 80 (http, h2c), 443
+ * (https, h2) and 1080 (SOCKS).
  *
  * <pre>{@code
  * bootstrap.withChainProxyManager(UpstreamProxyManager.fromEnvironment(System.getenv()));
@@ -46,7 +50,9 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
      */
     public UpstreamProxyManager(String httpProxyUrl, String httpsProxyUrl, NoProxyRules noProxy) {
         this.httpProxy = httpProxyUrl == null || httpProxyUrl.isBlank() ? null : proxy(httpProxyUrl);
-        this.httpsProxy = httpsProxyUrl == null || httpsProxyUrl.isBlank() ? httpProxy : proxy(httpsProxyUrl);
+        ChainedProxy https = httpsProxyUrl == null || httpsProxyUrl.isBlank() ? httpProxy : proxy(httpsProxyUrl);
+        // (The same URL twice is one proxy, whose HTTP/2 connections both kinds of request share.)
+        this.httpsProxy = https != null && https.equals(httpProxy) ? httpProxy : https;
         this.noProxy = noProxy == null ? NoProxyRules.none() : noProxy;
     }
 
@@ -92,6 +98,11 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         if (fallbackToDirect) {
             chainedProxies.add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
         }
+    }
+
+    /** {@return whether any of the upstream proxies is spoken to in HTTP/2 ({@code h2://} or {@code h2c://})} */
+    public boolean usesHttp2() {
+        return httpProxy != null && httpProxy.http2() || httpsProxy != null && httpsProxy.http2();
     }
 
     /** {@return the upstream proxies, their credentials masked ({@code http://***@host:port}), and whether direct is a fallback} */
@@ -167,14 +178,15 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         URI uri = URI.create(text);
         String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
         ChainedProxyType type = switch (scheme) {
-            case "http", "https" -> ChainedProxyType.HTTP;
+            case "http", "https", "h2", "h2c" -> ChainedProxyType.HTTP;
             case "socks4", "socks4a" -> ChainedProxyType.SOCKS4;
             case "socks5", "socks5h", "socks" -> ChainedProxyType.SOCKS5;
             default -> throw new IllegalArgumentException("unsupported proxy scheme: " + scheme);
         };
         if (uri.getHost() == null) throw new IllegalArgumentException("proxy URL has no host: " + url);
+        boolean tls = scheme.equals("https") || scheme.equals("h2");
         int port = uri.getPort() >= 0 ? uri.getPort()
-                : scheme.equals("http") ? 80 : scheme.equals("https") ? 443 : 1080;
+                : scheme.equals("http") || scheme.equals("h2c") ? 80 : tls ? 443 : 1080;
         String user = null;
         String password = null;
         if (uri.getRawUserInfo() != null) {
@@ -184,12 +196,20 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
             password = colon >= 0 ? decode(info.substring(colon + 1)) : "";
         }
         String host = uri.getHost().startsWith("[") ? uri.getHost().substring(1, uri.getHost().length() - 1) : uri.getHost();
-        return new UrlProxy(InetSocketAddress.createUnresolved(host, port), type, user, password,
-                scheme.equals("https"), text);
+        return new UrlProxy(InetSocketAddress.createUnresolved(host, port), type, user, password, tls,
+                scheme.startsWith("h2"), text);
     }
 
     private static String decode(String s) {
         return URLDecoder.decode(s.replace("+", "%2B"), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The JVM's default trust for TLS to proxies, made once for every URL: HTTP/2 connections are
+     * shared only by proxies with the same TLS context.
+     */
+    private static final class SystemTls {
+        static final SSLContext CONTEXT = SslContexts.systemDefault();
     }
 
     /** A chained proxy described by a URL. */
@@ -199,14 +219,17 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         private final String user;
         private final String password;
         private final boolean tls;
+        private final boolean http2;
         private final String display;
 
-        UrlProxy(InetSocketAddress address, ChainedProxyType type, String user, String password, boolean tls, String url) {
+        UrlProxy(InetSocketAddress address, ChainedProxyType type, String user, String password, boolean tls,
+                boolean http2, String url) {
             this.address = address;
             this.type = type;
             this.user = user;
             this.password = password;
             this.tls = tls;
+            this.http2 = http2;
             this.display = url.replaceAll("//[^@/]*@", "//***@");
         }
 
@@ -236,8 +259,13 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         }
 
         @Override
+        public boolean http2() {
+            return http2;
+        }
+
+        @Override
         public SSLContext getSslContext() {
-            return tls ? SslContexts.systemDefault() : null;
+            return tls ? SystemTls.CONTEXT : null;
         }
 
         @Override

@@ -12,7 +12,7 @@
         A dependency-free HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
         (Project Loom). A port of LittleProxy without Netty.
     </description>
-    <url>https://github.com/mahmoudimus/MicroProxy</url>
+    <url>https://mahmoudimus.github.io/MicroProxy/</url>
 
     <licenses>
         <license>
@@ -133,6 +133,60 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <!-- The aggregated Javadoc of the published modules, for the documentation site's /api/.
+                     Not bound to a phase: CI runs it after building, with
+                       mvn -B -DskipTests install
+                       mvn -B javadoc:aggregate-no-fork@api-docs -Dmaven.javadoc.skip=true
+                     The goal runs once per module of the reactor; maven.javadoc.skip skips the modules,
+                     and this execution's skip=false keeps it at the root, where it reads every module.
+                     The internals (org.microproxy.impl, see its README.md) and the vendored code
+                     (org.microproxy.thirdparty) are not part of the public API, so they are left out. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+                <executions>
+                    <execution>
+                        <!-- Not inherited: the modules keep only the Central profile's javadoc jars. -->
+                        <id>api-docs</id>
+                        <inherited>false</inherited>
+                        <phase>none</phase>
+                        <goals><goal>aggregate-no-fork</goal></goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <doctitle>MicroProxy ${project.version} API</doctitle>
+                            <windowtitle>MicroProxy ${project.version} API</windowtitle>
+                            <additionalOptions>
+                                <!-- org.microproxy.simd uses the incubating Vector API. -->
+                                <additionalOption>--add-modules</additionalOption>
+                                <additionalOption>jdk.incubator.vector</additionalOption>
+                            </additionalOptions>
+                            <excludePackageNames>org.microproxy.impl:org.microproxy.impl.*:org.microproxy.thirdparty:org.microproxy.thirdparty.*</excludePackageNames>
+                            <groups>
+                                <group>
+                                    <title>Proxy (microproxy)</title>
+                                    <packages>org.microproxy:org.microproxy.cache:org.microproxy.contentviews:org.microproxy.dns:org.microproxy.extras:org.microproxy.frames:org.microproxy.http:org.microproxy.quic:org.microproxy.simd:org.microproxy.stats:org.microproxy.tcp:org.microproxy.tls:org.microproxy.udp:org.microproxy.warc</packages>
+                                </group>
+                                <group>
+                                    <title>OpenTelemetry (microproxy-otel)</title>
+                                    <packages>org.microproxy.otel</packages>
+                                </group>
+                                <group>
+                                    <title>Scripting (microproxy-starlark)</title>
+                                    <packages>org.microproxy.starlark:org.microproxy.starlark.*</packages>
+                                </group>
+                                <group>
+                                    <title>Codecs and QUIC (zstd-decoder, http2-codec, http3-codec, quic)</title>
+                                    <packages>io.github.mahmoudimus.*</packages>
+                                </group>
+                            </groups>
+                            <bottom>Copyright &#169; MicroProxy contributors. Apache License 2.0. &lt;a href="https://mahmoudimus.github.io/MicroProxy/"&gt;Documentation&lt;/a&gt;</bottom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
     <profiles>

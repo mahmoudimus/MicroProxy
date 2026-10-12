@@ -53,7 +53,7 @@ public final class Launcher {
     private static final String USAGE = """
             Usage: java -jar microproxy.jar [options]
 
-              --config <file>              properties file (see README); flags override it
+              --config <file>              properties file (docs/reference/properties.md); flags override it
               --port <port>                listen port (default 8080)
               --address <host:port>        listen address
               --server                     listen on all interfaces, not just loopback
@@ -93,7 +93,9 @@ public final class Launcher {
                                            0 = no waiting, the default)
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
-              --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...
+              --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
+                                           h2://... (TLS, ALPN h2) or h2c://... (prior knowledge)
+                                           speaks HTTP/2 to it, tunnels and requests as streams
               --upstream-https-proxy <url> different upstream for HTTPS / CONNECT
               --no-proxy <list>            hosts to reach directly (NO_PROXY syntax)
               --env-proxy                  take upstream proxies from http_proxy/https_proxy/no_proxy
@@ -119,7 +121,7 @@ public final class Launcher {
               --access-log-filter <expr>   log only what passes, e.g. 'status>=500 ||
                                            response_flag' (repeatable: all must pass)
               --metrics                    keep Envoy-style stats (http.*, cluster.*, listener.*,
-                                           server.*; see README) for Prometheus, statsd and scripts
+                                           server.*; docs/reference/stats.md) for Prometheus, statsd, scripts
               --statsd <host:port>         push the stats to statsd over UDP every 5 seconds
                                            (implies --metrics)
               --dogstatsd <host:port>      the same, with DogStatsD tags
@@ -132,7 +134,7 @@ public final class Launcher {
                                            not one "direct" cluster, bounded by --stats-max-clusters
               --admin-port <port>          serve Envoy's admin API (/stats, /stats/prometheus, /ready,
                                            /server_info, /config_dump, /drain_listeners, ...; see
-                                           README) on this port of 127.0.0.1 (implies --metrics)
+                                           docs/reference/admin-api.md) on this port of 127.0.0.1 (implies --metrics)
               --admin-address <host:port>  the same on another address, such as 0.0.0.0:9901 (then
                                            set --admin-token)
               --admin-token <token>        require this bearer token (or basic password) on every

@@ -764,4 +764,4 @@ Multipath, a server that moves to a new address other than its preferred one, se
 ECN marking (the JDK cannot set or read
 ECN bits) and GSO. HTTP/3 is not this module's: MicroProxy builds it on this module and
 `http3-codec` (its reverse proxy's HTTP/3 listener and its HTTP/3 connections to servers; see
-the main README's HTTP/3 section), and the interop test's HTTP/3 server is test code.
+[HTTP/3 and QUIC](../docs/guides/http3.md)), and the interop test's HTTP/3 server is test code.

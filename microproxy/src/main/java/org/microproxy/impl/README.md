@@ -226,7 +226,7 @@ Writing frames, send flow control, SETTINGS and PING are `Http2Endpoint`'s, whic
 - **Hardening** (`org.microproxy.Http2Options`): the concurrent stream limit, rate limits for
   rapid resets and cheap frames, the SETTINGS ack timeout, stream id parity and ordering, the
   header list limit, and the codec's own limits (frame size, header block size, CONTINUATION
-  count, HPACK). See the main README's HTTP/2 section for the table.
+  count, HPACK). See [HTTP/2, Limits](../../../../../../../docs/guides/http2.md#limits) for the table.
 
 `Http2StreamChannel` defines what the HTTP/1-only `ClientChannel` operations mean for a stream:
 `clientKeepAlive` is always true; `adaptFraming` only drops `Transfer-Encoding`; `setKeepAlive`
@@ -945,5 +945,5 @@ comparison. The `microproxy-otel` module implements the hook.
   frame type the codec does not deliver; forwarding them would need the h3 filtering `Alt-Svc`
   headers get (`AltSvc`).
 - `AllocationTest` guards the allocation per small keep-alive request (about 4 KB with its
-  allocation-free client; the README's 4.7 KB includes a simple benchmark client's own); the
+  allocation-free client; the 4.7 KB in [Architecture](../../../../../../../docs/architecture.md#why-virtual-threads-instead-of-netty) includes a simple benchmark client's own); the
   HTTP/2 additions cost HTTP/1 requests nothing.

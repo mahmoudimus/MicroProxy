@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -743,6 +744,30 @@ class LauncherTest {
         assertEquals(1, upstreamRequests.get());
         assertEquals(200, get(client, TestSupport.localhostUrl(origin, "/direct")).statusCode());
         assertEquals(1, upstreamRequests.get(), "localhost is reached directly");
+    }
+
+    @Test
+    void anH2cUpstreamProxyIsSpokenToInHttp2() throws IOException {
+        ChainedProxy h2 = route(view("--upstream-proxy", "h2://alice:s3cret@127.0.0.1:8443").chainProxyManager(),
+                HttpMethod.GET, "http://example.com/").get(0);
+        assertTrue(h2.http2());
+        assertTrue(h2.requiresEncryption());
+
+        HttpServer origin = origin(echo());
+        List<String> versions = new CopyOnWriteArrayList<>();
+        HttpProxyServer upstream = MicroProxy.bootstrap().withPort(0).withProxyAlias("upstream")
+                .withHttp2Cleartext(true)
+                .plusActivityTracker(new ActivityTrackerAdapter() {
+                    @Override
+                    public void requestReceivedFromClient(FlowContext ctx, org.microproxy.http.HttpRequest req) {
+                        versions.add(req.method() + " " + req.protocolVersion().text());
+                    }
+                }).start();
+        servers.add(upstream);
+        HttpProxyServer proxy = launch("--port", "0", "--upstream-proxy",
+                "h2c://127.0.0.1:" + upstream.getListenAddress().getPort());
+        assertEquals(200, get(client(proxy), url(origin, "/h2c")).statusCode());
+        assertEquals(List.of("GET HTTP/2.0"), versions);
     }
 
     // --- DNS, logging, pool --------------------------------------------------------------------

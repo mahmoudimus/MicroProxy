@@ -16,7 +16,8 @@ import java.net.SocketException;
  * whose decrypted connection is served like any other client connection ({@link
  * javax.net.ssl.SSLSocketFactory#createSocket(Socket, InputStream, boolean)}). Or the proxy opened
  * it on an HTTP/2 connection to a server ({@link Http2UpstreamStream}): a tunnel through an
- * intercepted HTTPS proxy, with the proxy's own TLS to the server inside it.
+ * intercepted HTTPS proxy or a chained HTTP/2 proxy, with the proxy's own TLS to the server (or
+ * a relayed client's bytes) inside it.
  *
  * <p>The streams are the tunnel's bytes in DATA frames, which wait for flow control both ways. The
  * read timeout applies to reads as a socket's does; {@link #shutdownOutput} ends the stream's

@@ -12,7 +12,7 @@ import static org.microproxy.TestSupport.echo;
 import static org.microproxy.TestSupport.echoedBody;
 import static org.microproxy.TestSupport.echoedHeader;
 import static org.microproxy.TestSupport.origin;
-import static org.microproxy.starlark.ScriptedReadmeTest.inReadme;
+import static org.microproxy.starlark.ScriptedReadmeTest.inDocs;
 
 import com.sun.net.httpserver.HttpServer;
 import io.github.mahmoudimus.http2.Frame;
@@ -58,7 +58,7 @@ import org.microproxy.frames.Http3FramePipeline;
 import org.microproxy.frames.HttpFrame;
 
 /**
- * {@code on_frame}: the README's examples on live HTTP/2 (h2c) connections and over the HTTP/3
+ * {@code on_frame}: the documented examples on live HTTP/2 (h2c) connections and over the HTTP/3
  * pipeline, return values, failures, the {@code h2} and {@code h3} constructors, and typed scripts.
  */
 class ScriptedFrameTest {
@@ -224,7 +224,7 @@ class ScriptedFrameTest {
 
     @Test
     void rewritesAHeaderInHeadersFrames() throws Exception {
-        try (RawH2 h2 = start(inReadme(REWRITE_HEADER))) {
+        try (RawH2 h2 = start(inDocs(REWRITE_HEADER))) {
             h2.request(1, "GET", "/", null, "user-agent", "curl", "x-debug", "1");
             String body = h2.response(1).body();
             assertEquals(List.of("MicroProxy"), echoedHeader(body, "user-agent"));
@@ -234,7 +234,7 @@ class ScriptedFrameTest {
 
     @Test
     void redactsAPatternInDataPayloads() throws Exception {
-        try (RawH2 h2 = start(inReadme(REDACT))) {
+        try (RawH2 h2 = start(inDocs(REDACT))) {
             h2.request(1, "POST", "/pay", "card=4111111111111111&cvc=123", "content-length", "30");
             RawH2.Response r = h2.response(1);
             assertEquals("card=<card>&cvc=123", echoedBody(r.body()));
@@ -244,7 +244,7 @@ class ScriptedFrameTest {
 
     @Test
     void dropsPriorityAndExtensionFrames() throws Exception {
-        try (RawH2 h2 = start(inReadme(DROP))) {
+        try (RawH2 h2 = start(inDocs(DROP))) {
             h2.frame(new Frame.Priority(3, new Frame.PrioritySpec(0, false, 16)));
             h2.frame(new Frame.Unknown(0xf1, 0, 0, new byte[] {1}));
             h2.request(1, "GET", "/", null);
@@ -258,7 +258,7 @@ class ScriptedFrameTest {
 
     @Test
     void logsSettingsAndGoAwayFromServers() throws Exception {
-        FrameInterceptor i = script(inReadme(LOG_SERVERS)).frameInterceptor();
+        FrameInterceptor i = script(inDocs(LOG_SERVERS)).frameInterceptor();
         Http2Frame.Settings settings = new Http2Frame.Settings(false, Map.of(Http2Frame.SETTINGS_MAX_CONCURRENT_STREAMS, 100L));
         assertSame(settings, i.intercept(settings, FrameDirection.FROM_SERVER, new Context(FrameProtocol.HTTP_2)));
         Http2Frame.GoAway goAway = new Http2Frame.GoAway(7, 11, "calm down".getBytes(StandardCharsets.UTF_8));
@@ -271,7 +271,7 @@ class ScriptedFrameTest {
 
     @Test
     void injectsFrames() throws Exception {
-        try (RawH2 h2 = start(inReadme(INJECT))) {
+        try (RawH2 h2 = start(inDocs(INJECT))) {
             h2.request(1, "GET", "/", null);
             RawH2.Response r = h2.response(1);
             assertTrue(r.body().startsWith("method: GET"));
@@ -284,7 +284,7 @@ class ScriptedFrameTest {
 
     @Test
     void typedScriptsRunAndAreChecked() throws Exception {
-        try (RawH2 h2 = start(inReadme(TYPED))) {
+        try (RawH2 h2 = start(inDocs(TYPED))) {
             h2.request(5, "GET", "/", null);
             assertEquals(List.of("5"), echoedHeader(h2.response(5).body(), "x-stream"));
         }
@@ -416,10 +416,10 @@ class ScriptedFrameTest {
         }
     }
 
-    /** The README's HTTP/3 example, on a request stream and a control stream through the pipeline. */
+    /** The documented HTTP/3 example, on a request stream and a control stream through the pipeline. */
     @Test
     void http3FramesGoThroughThePipeline() throws Exception {
-        ScriptedProxy script = script(inReadme(HTTP3));
+        ScriptedProxy script = script(inDocs(HTTP3));
         Http3FramePipeline pipeline = Http3FramePipeline.builder(script.frameInterceptor())
                 .direction(FrameDirection.FROM_CLIENT).build();
 

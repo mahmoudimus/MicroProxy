@@ -34,7 +34,7 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
     @Override
     public String usage() {
         return """
-                  --script <file.star>         drive the proxy with a Starlark script (see README)
+                  --script <file.star>         drive the proxy with a Starlark script (docs/guides/scripting.md)
                   --script-no-reload           do not re-read the script when it changes
                   --script-var <NAME=VALUE>    a string constant for the script (repeatable)
                   --script-var-file <file>     string constants for the script, from a properties file

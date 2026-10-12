@@ -6,3 +6,6 @@ target/
 *.jks
 .claude/
 h2spec-report.xml
+# The documentation site, built by mkdocs (see docs/CONTRIBUTING-DOCS.md)
+site/
+__pycache__/
