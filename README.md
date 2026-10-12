@@ -106,7 +106,7 @@ pins its carrier thread:
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.1.2-SNAPSHOT
+MICROPROXY_VERSION=0.2.0
 mvn package
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm   # intercept HTTPS
@@ -193,7 +193,7 @@ pool records, and so on (19 in all).
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.1.2-SNAPSHOT
+MICROPROXY_VERSION=0.2.0
 # JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
 mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
 java --enable-preview -cp microproxy/target/microproxy-${MICROPROXY_VERSION}-valhalla.jar org.microproxy.Launcher
@@ -2497,7 +2497,7 @@ def allow_mitm(req, ctx):
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.1.2-SNAPSHOT
+MICROPROXY_VERSION=0.2.0
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --mitm --script proxy.star
 ```
 <!-- x-release-please-end -->
@@ -2798,7 +2798,7 @@ def authenticate(req, ctx):
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.1.2-SNAPSHOT
+MICROPROXY_VERSION=0.2.0
 echo "TOKENS=alice:$(printf %s "$ALICE_TOKEN" | sha256sum | cut -d' ' -f1)" > tokens.properties
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --script auth.star --script-var-file tokens.properties
 ```
