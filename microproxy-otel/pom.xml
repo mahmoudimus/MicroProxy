@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.mahmoudimus</groupId>
+        <artifactId>microproxy-parent</artifactId>
+        <version>0.1.1</version>
+    </parent>
+
+    <artifactId>microproxy-otel</artifactId>
+    <packaging>jar</packaging>
+
+    <name>MicroProxy OpenTelemetry</name>
+    <description>
+        OpenTelemetry for MicroProxy without dependencies: W3C Trace Context, B3 and Jaeger
+        propagation, server and client spans for every exchange, and traces, metrics and access
+        logs exported over OTLP/HTTP (protobuf or JSON) with the JDK's HttpClient.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- The core's test helpers (origins, the HTTP/2 and HTTP/3 test clients). -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <!-- For the end-to-end tests over HTTP/2 and HTTP/3. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http2-codec</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http3-codec</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>quic</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-serial</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
