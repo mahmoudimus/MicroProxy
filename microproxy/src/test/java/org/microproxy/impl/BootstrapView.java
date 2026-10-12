@@ -188,6 +188,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).keepHostHeader;
     }
 
+    /** Whether clients' own {@code https://} requests are fetched over TLS ({@code withTlsOrigination}). */
+    public static boolean tlsOrigination(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).tlsOrigination;
+    }
+
     /** The port SNI-routed transparent TLS goes to. */
     public static int transparentTlsPort(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentTlsPort;
