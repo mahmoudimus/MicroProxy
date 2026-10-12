@@ -112,6 +112,11 @@ class Http2SupportTest {
         assertEquals(131_072, b.http2Options.initialWindowSize());
         assertEquals(4 << 20, b.http2Options.connectionWindowSize());
         assertEquals(Http2Options.DEFAULT.maxPings(), b.http2Options.maxPings());
+        assertFalse(b.http2Options.coalesceConnections());
+        p.setProperty("http2_coalesce", "true");
+        assertTrue(DefaultHttpProxyServerBootstrap.fromProperties(p).http2Options.coalesceConnections());
+        assertEquals(33, DefaultHttpProxyServerBootstrap.fromProperties(p).http2Options.maxConcurrentStreams());
+        p.remove("http2_coalesce");
         assertFalse(DefaultHttpProxyServerBootstrap.fromProperties(new Properties()).http2);
         // Copied with the rest of the configuration.
         assertTrue(b.copy().http2);

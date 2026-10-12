@@ -8,6 +8,7 @@ import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.HpackDecoder;
 import io.github.mahmoudimus.http2.HpackEncoder;
 import io.github.mahmoudimus.http2.Http2Settings;
+import io.github.mahmoudimus.http2.OriginFrame;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,6 +31,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import javax.net.ssl.ExtendedSSLSession;
+import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocket;
@@ -58,6 +62,10 @@ final class H2TestOrigin implements AutoCloseable {
         boolean proxyProtocol;
         boolean enableConnectProtocol;
         TestSupport.RawHandler http1Handler;
+        /** Origins named in an ORIGIN frame (RFC 8336) sent right after SETTINGS; null for none. */
+        volatile List<String> origins;
+        /** Ask clients for a certificate (they may send none). */
+        boolean wantClientAuth;
     }
 
     private static final Object END = new Object();
@@ -91,7 +99,9 @@ final class H2TestOrigin implements AutoCloseable {
             serverSocket = new ServerSocket(0, 50, TestSupport.LOOPBACK);
         } else {
             SSLServerSocket s = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 50, TestSupport.LOOPBACK);
-            s.setSSLParameters(alpnH2(s.getSSLParameters()));
+            SSLParameters params = alpnH2(s.getSSLParameters());
+            if (options.wantClientAuth) params.setWantClientAuth(true);
+            s.setSSLParameters(params);
             serverSocket = s;
         }
         Thread.ofVirtual().name("h2-origin-accept").start(this::acceptLoop);
@@ -209,6 +219,7 @@ final class H2TestOrigin implements AutoCloseable {
                 }
                 if (options.enableConnectProtocol) settings.put(Http2Settings.ENABLE_CONNECT_PROTOCOL, 1L);
                 writer.writeSettings(settings);
+                if (options.origins != null) writer.writeFrame(OriginFrame.frame(options.origins));
                 writer.flush();
             } finally {
                 lock.unlock();
@@ -347,6 +358,15 @@ final class H2TestOrigin implements AutoCloseable {
                     if (st != null && !d.endStream()) writer.writeWindowUpdate(d.streamId(), n);
                 });
             }
+        }
+
+        /** The server name the client asked for (SNI), or null if it sent none. */
+        String sni() {
+            if (!(socket.getSession() instanceof ExtendedSSLSession session)) return null;
+            for (SNIServerName name : session.getRequestedServerNames()) {
+                if (name instanceof SNIHostName host) return host.getAsciiName();
+            }
+            return null;
         }
 
         void write(IoAction action) throws IOException {
