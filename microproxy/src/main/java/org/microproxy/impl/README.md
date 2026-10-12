@@ -90,11 +90,25 @@ are. `Http2UpstreamStream` overrides them for one stream of an HTTP/2 connection
   `serverConnections` or `StreamServerConnections`;
 - `retryable(e)` is true only for streams the server never processed (`Unprocessed`: `GOAWAY`,
   `REFUSED_STREAM`), so the stale-connection retry resends only those;
+- `misdirected()` is true for a stream coalesced onto a connection made for another server name
+  that the server answered `421`: the connection stops serving that name, and `readResponseHead`
+  sends the request again on a connection of its own (`Misdirected`, through the stale-connection
+  retry) when no body has been sent or the body can be sent again; any other `421` is relayed;
 - when the client side is an HTTP/2 stream too, the request body is relayed by a `RequestPump`
   on a thread of its own while the exchange's thread relays the response (`fullDuplex`): only
   when no filter or chained proxy sees the body's pieces, so filters are never called from two
   threads at once. HTTP/1 clients stay half-duplex: their next request is read from the same
   buffer after this one's body.
+
+`Http2Origins` keeps the HTTP/2 connections by `Key`: the server's authority, and its isolation
+(mode, route or hop, MITM manager, and the client connection for private ones). Its index is by
+isolation, then by every authority a connection serves: the one it was made for and, with
+`Http2Options.coalesceConnections`, those coalesced onto it. `ClientConnection.coalescing` builds
+the exchange's `Http2Coalescing.Request` (the TLS context the MITM manager gives the name, and on
+direct routes the address, resolved as `connectVia` would and kept for it in `Exchange.preResolve`),
+or none, which takes only a connection made for the authority. `Http2Coalescing.Peer` holds what
+a connection may serve: its certificate's names, TLS context and address, the origin set of its
+ORIGIN frames, and the names it was found to serve or answered `421` for.
 
 ## CONNECT: the client's first bytes decide
 
@@ -103,7 +117,8 @@ interception is possible at all (a MITM manager, `proxyToServerAllowMitm()`, an 
 finds the target). When it is, the exchange sets `deferServerTls`, so `connectVia` makes the
 connection (TCP, chained proxies, the PROXY header) but leaves its TLS for later: the
 `ServerConnection` is `tlsPending`. Pooled TLS connections and a shared HTTP/2 connection
-(`Http2Origins.session`) are used as before, and need no handshake. The `200` is written, and
+(`Http2Origins.session`, which may be one coalesced for another name) are used as before, and need
+no handshake. The `200` is written, and
 `serveEstablished` goes on: it relays a tunnel that cannot be intercepted, hands a `CONNECT`
 stream to a connection of its own (`interceptStream`, below), and otherwise lets
 `interceptOrTunnel` take over (mitmproxy's next-layer decision, `next_layer.py`):
