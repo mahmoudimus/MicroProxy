@@ -52,7 +52,7 @@ listener on the TCP listener's port number and serves HTTP/3 there (ALPN `h3`).
   logging, WARC and HAR recording, timings and trackers all apply. The request is an
   `HttpRequest` with version `HTTP/3.0` (`HttpVersion.HTTP_3_0`), `FlowContext.getHttpVersion()`
   says `HTTP/3.0` and `getStreamId()` gives the QUIC stream id, and scripts see
-  `req.http_version == "HTTP/3"`. The upstream gets it as HTTP/1.1, HTTP/2 (`--http2-upstream`)
+  `req.http_version == "HTTP/3"`. The upstream gets it as HTTP/1.1, HTTP/2 (unless `--no-http2-upstream`)
   or HTTP/3 (`--http3-upstream`), whichever it speaks: a body without `content-length` goes chunked
   to an HTTP/1.1 server, trailers go through end to end where both sides carry them, and
   `100-continue` and `103 Early Hints` reach the client as interim responses.

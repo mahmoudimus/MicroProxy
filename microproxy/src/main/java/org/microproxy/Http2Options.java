@@ -15,8 +15,7 @@ import java.util.Objects;
  *
  * <pre>{@code
  * MicroProxy.bootstrap()
- *         .withManInTheMiddle(mitm)
- *         .withHttp2(true)
+ *         .withManInTheMiddle(mitm)      // HTTP/2 to clients and servers is on by default
  *         .withHttp2Options(Http2Options.builder().maxConcurrentStreams(250).build())
  *         .start();
  * }</pre>

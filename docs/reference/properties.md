@@ -13,8 +13,7 @@ Command-line flags override values from the file.
 # proxy.properties
 port = 8080
 allow_local_only = false
-http2 = true
-http2_upstream = true
+http2_cleartext = true
 access_log = -
 metrics = true
 admin_port = 9901
@@ -73,10 +72,11 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](../guides/forward-proxy.md#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [Alt-Svc](../guides/http3.md#alt-svc-which-clients-may-move-to-http3)) | `true` with interception or `transparent`, except for redirected clients with `transparent_quic_port`; else `false` |
-| `http2` | serve HTTP/2 to clients on intercepted TLS and the proxy TLS listener (needs the `http2-codec` jar; see [HTTP/2](../guides/http2.md)) | `false` |
-| `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges (see [HTTP/2 to servers](../guides/http2.md#http2-to-servers)) | `false` |
-| `http2_coalesce` | with `http2_upstream`, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address or that it names in an ORIGIN frame (see [Connection coalescing](../guides/http2.md#connection-coalescing)) | `false` |
+| `http2` | serve HTTP/2 to clients that offer `h2` on intercepted TLS and the proxy TLS listener; `false` serves them HTTP/1.1 only (needs the `http2-codec` jar: unset, it falls back to HTTP/1.1 without it, while `true` fails to start; see [HTTP/2](../guides/http2.md)) | `true` (with the `http2-codec` jar) |
+| `http2_upstream` | speak HTTP/2 to servers that negotiate `h2` on TLS, sharing connections between exchanges; `false` speaks HTTP/1.1 only (the `http2-codec` jar as for `http2`; see [HTTP/2 to servers](../guides/http2.md#http2-to-servers)) | `true` (with the `http2-codec` jar) |
+| `http2_coalesce` | with HTTP/2 to servers, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address or that it names in an ORIGIN frame (see [Connection coalescing](../guides/http2.md#connection-coalescing)) | `false` |
 | `http2_cleartext` | serve HTTP/2 with prior knowledge (`h2c`) on the plain listener (see [h2c](../guides/http2.md#h2c-with-prior-knowledge)) | `false` |
+| `http2_cleartext_only` | serve only `h2c` on the plain listener: a connection without the HTTP/2 preface gets `GOAWAY` `PROTOCOL_ERROR` instead of HTTP/1.x (implies `http2_cleartext`; see [h2c-only listener](../guides/http2.md#h2c-only-listener)) | `false` |
 | `http2_max_concurrent_streams` | streams an HTTP/2 client may have open at once | `100` |
 | `http2_initial_window_size` / `http2_connection_window_size` | request bytes buffered per HTTP/2 stream / per connection | `262144` / `1048576` |
 | `http3` | serve HTTP/3 on the UDP port with the listener's number: in reverse mode, or in forward mode next to the TLS listener (`listener_keystore`) for `CONNECT`, WebSockets and CONNECT-UDP (needs the `quic` and `http3-codec` jars and a certificate; see [HTTP/3 and QUIC](../guides/http3.md)) | `false` |
@@ -85,7 +85,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `http3_max_concurrent_streams` | request streams an HTTP/3 client may have open at once | `100` |
 | `http3_alt_svc` | with `http3`, advertise it with `Alt-Svc: h3=":<port>"` on TCP responses | `true` |
 | `http3_retry` | validate QUIC clients' addresses with a Retry first (`http3` and intercepted `transparent_quic_port` clients) | `false` |
-| `masque` | serve CONNECT-UDP on a forward proxy's TCP listener, also without `http3`: over HTTP/2 (`http2`, `http2_cleartext`) and as an HTTP/1.1 upgrade (needs the `quic` and `http3-codec` jars; see [CONNECT-UDP](../guides/masque.md)); a forward proxy with `http3` serves it there anyway | `false` |
+| `masque` | serve CONNECT-UDP on a forward proxy's TCP listener, also without `http3`: over HTTP/2 (`h2`, `http2_cleartext`) and as an HTTP/1.1 upgrade (needs the `quic` and `http3-codec` jars; see [CONNECT-UDP](../guides/masque.md)); a forward proxy with `http3` serves it there anyway | `false` |
 | `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](../guides/masque.md)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
 | `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
@@ -95,7 +95,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `http3_upstream_0rtt` | send requests safe to replay (`GET`, `HEAD`, `OPTIONS` without a body) to HTTP/3 servers as 0-RTT data when resuming | `true` |
 | `quic_congestion` | congestion control of the proxy's QUIC connections, to clients and to servers: `cubic`, `newreno` or `bbr` (experimental; see [Congestion control](../guides/http3.md#http3-congestion-control)) | `cubic` |
 | `qlog_dir` / `qlog_max_files` | write a qlog file per QUIC connection into this directory (see [qlog](../observability/qlog.md#qlog-files)) / how many it keeps | off / `1000` |
-| `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
+| `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 unless `http2=false`, and the certificate `http3` presents) | none / empty |
 | `dnssec` | resolve server names with DNSSEC validation | `false` |
 | `dnssec_resolver` | DoH URL or comma-separated resolver IPs for `dnssec` | `/etc/resolv.conf` |
 | `activity_log_format` | access log to the `System.Logger`: `CLF`, `ELF`, `JSON`, `JSON_EXTENDED`, `SQUID`, `W3C`, `LTSV`, `CSV`, `HAPROXY`, `ENVOY` | off |

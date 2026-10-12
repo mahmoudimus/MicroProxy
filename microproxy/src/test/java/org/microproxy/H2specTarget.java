@@ -20,7 +20,11 @@ import org.microproxy.http.HttpVersion;
  * <pre>{@code java -cp <classes> org.microproxy.H2specTarget [port]}</pre>
  *
  * <p>With {@code -Dh2spec.intercept=true}, every frame goes through a frame interceptor that
- * returns an equal copy of it, so conformance is checked with interception in the way.
+ * returns an equal copy of it, so conformance is checked with interception in the way. With {@code
+ * -Dh2spec.cleartextOnly=true}, the listener serves h2c alone ({@link
+ * HttpProxyServerBootstrap#withHttp2CleartextOnly}), so that a connection without the preface is
+ * an HTTP/2 connection error rather than an HTTP/1 connection, as h2spec's {@code http2/3.5/2}
+ * expects.
  */
 public final class H2specTarget {
 
@@ -48,6 +52,7 @@ public final class H2specTarget {
                 .withPort(port)
                 .withFrameInterceptor(Boolean.getBoolean("h2spec.intercept") ? COPYING : null)
                 .withHttp2Cleartext(true)
+                .withHttp2CleartextOnly(Boolean.getBoolean("h2spec.cleartextOnly"))
                 // Requests name the proxy itself as the authority (h2spec's -h/-p): answer them here.
                 .withAllowRequestToOriginServer(true)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {

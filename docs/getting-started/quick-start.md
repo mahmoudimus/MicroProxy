@@ -63,13 +63,15 @@ java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --help
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar:\
 zstd-decoder/target/zstd-decoder-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080
 
-# With HTTP/2 to clients on intercepted TLS and to servers (needs the http2-codec jar):
+# With HTTP/2 to clients on intercepted TLS and to servers, on by default once the http2-codec jar
+# is on the class path (without it, the proxy speaks HTTP/1.1; --no-http2 and --no-http2-upstream
+# turn HTTP/2 off):
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar:\
-http2-codec/target/http2-codec-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
+http2-codec/target/http2-codec-${MICROPROXY_VERSION}.jar org.microproxy.Launcher --port 8080 --mitm
 
 # The same launcher with scripting, zstd, HTTP/2, QUIC and HTTP/3 built in (one self-contained jar):
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --script proxy.star
-java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --http2
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm
 
 # Traces, metrics and access logs to an OpenTelemetry Collector (OTLP/HTTP on 4318):
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
@@ -78,13 +80,13 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 # A reverse proxy serving HTTPS, HTTP/2 and HTTP/3 (on UDP 8443), speaking HTTP/3 to servers that offer it:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
     --mode reverse:https://example.com --listener-keystore site.p12 --listener-keystore-password secret \
-    --http2 --http3 --http3-upstream
+    --http3 --http3-upstream
 
 # A forward proxy on TLS (8443) that also serves HTTP/3 on UDP 8443: CONNECT, WebSockets and
 # CONNECT-UDP (MASQUE) for HTTP/3 clients and, over TCP, for HTTP/2 clients, the QUIC inside their
 # UDP flows intercepted too:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
-    --listener-keystore proxy.p12 --listener-keystore-password secret --http2 --http3 \
+    --listener-keystore proxy.p12 --listener-keystore-password secret --http3 \
     --mitm --masque-intercept-quic
 
 # A plain forward proxy (8080) that tunnels UDP too, without HTTP/3: CONNECT-UDP over h2c and as
@@ -95,7 +97,7 @@ java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-a
 # A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too, and
 # other QUIC stream by stream through a script's on_quic_*() hooks:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --server \
-    --transparent --transparent-quic-port 8443 --mitm --http2 --http3-upstream --script quic.star
+    --transparent --transparent-quic-port 8443 --mitm --http3-upstream --script quic.star
 ```
 <!-- x-release-please-end -->
 

@@ -379,18 +379,40 @@ class LauncherTest {
 
     @Test
     void http2Flags() throws IOException {
-        HttpProxyServerBootstrap off = parse().bootstrap();
-        assertFalse(BootstrapView.http2(off));
+        // HTTP/2 to clients and servers is on by default (the codec is on the test class path) and
+        // left unset, so that it can fall back to HTTP/1.1 without the codec; h2c is off.
+        HttpProxyServerBootstrap defaults = parse().bootstrap();
+        assertTrue(BootstrapView.http2(defaults));
+        assertTrue(BootstrapView.http2Upstream(defaults));
+        assertNull(BootstrapView.http2Setting(defaults));
+        assertNull(BootstrapView.http2UpstreamSetting(defaults));
+        assertFalse(BootstrapView.http2Cleartext(defaults));
         HttpProxyServerBootstrap on = parse("--http2", "--http2-max-streams", "250").bootstrap();
         assertTrue(BootstrapView.http2(on));
+        assertEquals(Boolean.TRUE, BootstrapView.http2Setting(on), "--http2 asks for HTTP/2 explicitly");
         assertEquals(250, on.getHttp2Options().maxConcurrentStreams());
         assertEquals(Http2Options.DEFAULT.initialWindowSize(), on.getHttp2Options().initialWindowSize());
-        assertFalse(BootstrapView.http2Upstream(on));
+        assertNull(BootstrapView.http2UpstreamSetting(on));
         assertFalse(BootstrapView.http2Cleartext(on));
         HttpProxyServerBootstrap both = parse("--http2-upstream", "--http2-cleartext").bootstrap();
-        assertTrue(BootstrapView.http2Upstream(both));
+        assertEquals(Boolean.TRUE, BootstrapView.http2UpstreamSetting(both));
         assertTrue(BootstrapView.http2Cleartext(both));
-        assertFalse(BootstrapView.http2(both));
+        assertNull(BootstrapView.http2Setting(both));
+        assertFalse(BootstrapView.http2CleartextOnly(both));
+        assertTrue(BootstrapView.http2CleartextOnly(parse("--http2-cleartext-only").bootstrap()));
+        HttpProxyServerBootstrap off = parse("--no-http2", "--no-http2-upstream").bootstrap();
+        assertFalse(BootstrapView.http2(off));
+        assertFalse(BootstrapView.http2Upstream(off));
+        assertFalse(BootstrapView.http2Cleartext(off));
+        HttpProxyServerBootstrap clientsOnly = parse("--no-http2-upstream").bootstrap();
+        assertTrue(BootstrapView.http2(clientsOnly));
+        assertFalse(BootstrapView.http2Upstream(clientsOnly));
+        HttpProxyServerBootstrap serversOnly = parse("--no-http2").bootstrap();
+        assertFalse(BootstrapView.http2(serversOnly));
+        assertTrue(BootstrapView.http2Upstream(serversOnly));
+        // The last of --http2 and --no-http2 wins, as with the other --no- flags.
+        assertTrue(BootstrapView.http2(parse("--no-http2", "--http2").bootstrap()));
+        assertFalse(BootstrapView.http2Upstream(parse("--http2-upstream", "--no-http2-upstream").bootstrap()));
         // Connection coalescing is off unless asked for, and keeps the other options.
         assertFalse(off.getHttp2Options().coalesceConnections());
         assertFalse(on.getHttp2Options().coalesceConnections());

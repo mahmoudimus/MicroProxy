@@ -13,7 +13,7 @@ with `--http3` or `--masque` (`withConnectUdp(true)`, `masque=true`), on its TCP
 | Transport | Request | UDP payloads |
 |---|---|---|
 | HTTP/3 (`--http3`) | extended `CONNECT`, `:protocol connect-udp` (section 3.5) | QUIC DATAGRAM frames, or DATAGRAM capsules on the stream |
-| HTTP/2: `h2` on the TLS listener (`--http2`), or `h2c` (`--http2-cleartext`) | extended `CONNECT`, `:protocol connect-udp` (section 3.4); the proxy sends `SETTINGS_ENABLE_CONNECT_PROTOCOL` | DATAGRAM capsules in the stream's DATA |
+| HTTP/2: `h2` on the TLS listener (on by default), or `h2c` (`--http2-cleartext`) | extended `CONNECT`, `:protocol connect-udp` (section 3.4); the proxy sends `SETTINGS_ENABLE_CONNECT_PROTOCOL` | DATAGRAM capsules in the stream's DATA |
 | HTTP/1.1, plain or on the TLS listener | `GET` with `Connection: Upgrade` and `Upgrade: connect-udp` (section 3.2), in origin-form or absolute-form; the answer is a `101` | DATAGRAM capsules on the connection, which closes with the flow |
 
 `--masque` serves the TCP listener without an HTTP/3 listener (so no certificate or UDP port is

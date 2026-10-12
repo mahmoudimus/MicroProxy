@@ -2,9 +2,9 @@
 
 Speak HTTP/2 to clients (inside intercepted TLS, on the proxy's TLS listener, and with prior
 knowledge on the plain listener) and to servers, with connection sharing and coalescing, trailers
-and gRPC, CONNECT and WebSockets over HTTP/2, and hardened limits. Use this page to turn HTTP/2 on
-and to understand how streams map to exchanges; frame-level hooks are in [Frame
-interception](frame-interception.md).
+and gRPC, CONNECT and WebSockets over HTTP/2, and hardened limits. Use this page to configure
+HTTP/2 (on by default over TLS) and to understand how streams map to exchanges; frame-level hooks
+are in [Frame interception](frame-interception.md).
 
 MicroProxy can speak HTTP/2 to clients inside intercepted TLS sessions and, with prior knowledge
 (`h2c`), on its plain listener, and to origin servers that negotiate it. Each HTTP/2 stream is an
@@ -15,28 +15,43 @@ can reach an HTTP/2 server and the other way round.
 ```java
 MicroProxy.bootstrap()
         .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
-        .withHttp2(true)                                  // to clients: --http2, http2=true
-        .withHttp2Upstream(true)                          // to servers: --http2-upstream, http2_upstream=true
-        .withHttp2Cleartext(true)                         // h2c: --http2-cleartext, http2_cleartext=true
+        // HTTP/2 to clients and to servers is on by default:
+        // .withHttp2(false)                              // to clients: --no-http2, http2=false
+        // .withHttp2Upstream(false)                      // to servers: --no-http2-upstream, http2_upstream=false
+        .withHttp2Cleartext(true)                         // h2c (opt-in): --http2-cleartext, http2_cleartext=true
         .withHttp2Options(Http2Options.builder().maxConcurrentStreams(200).build())   // optional
         .start();
 ```
 
 ```bash
-java -cp microproxy.jar:http2-codec.jar org.microproxy.Launcher --port 8080 --mitm --http2 --http2-upstream
-java -jar microproxy-starlark-all.jar --port 8080 --http2-cleartext       # h2c on the plain listener
+java -jar microproxy-starlark-all.jar --port 8080 --mitm                  # h2 to clients and servers that offer it
+java -jar microproxy-starlark-all.jar --port 8080 --mitm --no-http2 --no-http2-upstream   # HTTP/1.1 only
+java -jar microproxy-starlark-all.jar --port 8080 --http2-cleartext       # h2c on the plain listener too
 ```
 
-All three are off by default. They need the optional `http2-codec` module on the class path (see
-[Install](../getting-started/install.md#modules-and-artifacts); the `microproxy-starlark` `-all` jar bundles it). A proxy started with any of
-them enabled but without the module fails at startup with an `IllegalStateException` that says
-so; without them, nothing loads the module.
+HTTP/2 to clients (`withHttp2`, `--http2`, `http2`) and to servers (`withHttp2Upstream`,
+`--http2-upstream`, `http2_upstream`) is **on by default**: a client that offers `h2` on
+intercepted TLS or the proxy's TLS listener gets it, and so does a server that the proxy offers
+`h2` and that picks it. Peers that offer only HTTP/1.1, or no ALPN, keep HTTP/1.1, so the default
+changes nothing for them. Turn either off with `false` (`--no-http2`, `--no-http2-upstream`,
+`http2=false`, `http2_upstream=false`). HTTP/2 with prior knowledge on the plain listener (`h2c`,
+`withHttp2Cleartext`) stays opt-in, as does an [h2c-only listener](#h2c-only-listener).
+
+HTTP/2 needs the optional `http2-codec` module on the class path (see
+[Install](../getting-started/install.md#modules-and-artifacts); the `microproxy-starlark` `-all`
+jar bundles it). Without it:
+
+- left at their defaults, HTTP/2 to clients and to servers falls back to HTTP/1.1, which the proxy
+  logs once at `INFO` (`org.microproxy.impl.Http2Support`), and nothing loads the module;
+- enabled explicitly (`withHttp2(true)`, `withHttp2Upstream(true)`, `withHttp2Cleartext(true)`,
+  their flags or properties), the proxy fails at startup with an `IllegalStateException` that says
+  so, since it cannot do what it was asked.
 
 ## HTTP/2 to clients
 
 ### Negotiation
 
-With HTTP/2 on, both intercepted TLS and the proxy's own TLS listener
+With HTTP/2 on (the default), both intercepted TLS and the proxy's own TLS listener
 (`withSslContextSource`) offer `h2` and
 `http/1.1` through ALPN. A client that offers `h2` gets it, unless an intercepted server that was
 offered `h2` chose `http/1.1` (see [ALPN mirroring](mitm.md#alpn-mirroring)). Any other client keeps HTTP/1.1 as
@@ -74,8 +89,9 @@ may run concurrently, on the streams' threads.
 
 ## HTTP/2 to servers
 
-With `withHttp2Upstream(true)` (`--http2-upstream`, `http2_upstream=true`), the proxy's TLS
-connections to servers, for intercepted HTTPS and the `https://` and secure WebSocket requests it
+With HTTP/2 to servers on (the default; `withHttp2Upstream(false)`, `--no-http2-upstream` or
+`http2_upstream=false` turns it off), the proxy's TLS connections to servers, for intercepted
+HTTPS and the `https://` and secure WebSocket requests it
 [originates TLS](forward-proxy.md#tls-origination-https-uris-without-connect) for, offer `h2` and `http/1.1`
 through
 ALPN (before `MitmManager.configureServerSocket`, which may change that). An intercepted client
@@ -153,8 +169,8 @@ take a stream on it instead, as RFC 9113 section 9.1.1 allows, when:
 |---|---|---|
 | `--http2-coalesce` | `http2_coalesce=true` | `withHttp2Options(Http2Options.builder().coalesceConnections(true).build())` |
 
-It is off by default, and needs HTTP/2 to servers (`--http2-upstream`). It applies to intercepted
-`CONNECT`s too: a `CONNECT` for a name an existing connection serves makes no connection of its
+It is off by default, and needs HTTP/2 to servers (on unless `--no-http2-upstream`). It applies
+to intercepted `CONNECT`s too: a `CONNECT` for a name an existing connection serves makes no connection of its
 own, and the certificate the client gets is made from that server's. What the client sees does
 not change.
 
@@ -191,8 +207,8 @@ and no filter looks at the request body's pieces, the request body is relayed on
 own while the response comes back, so bidirectional streaming works; otherwise a request body is
 sent whole before the response is read, as with HTTP/1.1. So gRPC (`application/grpc`, `te:
 trailers`, length-prefixed messages, unary and streaming calls, Trailers-Only error responses)
-works through the intercepting proxy with `--mitm --http2 --http2-upstream`. To read the calls,
-log them with [content views](content-views.md#content-views) (`--log-http-view auto`), which decode each
+works through the intercepting proxy with `--mitm` (HTTP/2 being on by default both ways). To
+read the calls, log them with [content views](content-views.md#content-views) (`--log-http-view auto`), which decode each
 message and the status trailers; scripts can decode and rewrite messages with the
 [`protobuf` and `grpc` modules](scripting.md).
 
@@ -202,7 +218,7 @@ message and the status trailers; scripts can decode and rewrite messages with th
 (the scripts in `microproxy/src/test/resources/interop/`, with generic handlers on raw bytes, so
 no generated code). The client reaches the server through the proxy as a forward proxy, with
 `CONNECT` (grpcio's `grpc.http_proxy`), and trusts the proxy's MITM CA; the proxy speaks HTTP/2 on
-both sides, as with `--mitm --http2 --http2-upstream`, and trusts the server's CA. The calls:
+both sides, as with `--mitm` and the HTTP/2 defaults, and trusts the server's CA. The calls:
 
 - unary, with text and binary metadata both ways;
 - server, client and bidirectional streaming, each bidirectional message answered while the
@@ -242,6 +258,21 @@ origination](forward-proxy.md#tls-origination-https-uris-without-connect)), and 
 `Upgrade: h2c` (deprecated by RFC 9113) is ignored, as
 before: the request is answered in HTTP/1.1. The same limits as for intercepted HTTP/2 apply.
 
+### h2c-only listener
+
+With `withHttp2CleartextOnly(true)` (`--http2-cleartext-only`, `http2_cleartext_only=true`), the
+plain listener serves `h2c` with prior knowledge and nothing else, for a listener only HTTP/2
+clients use, such as a reverse proxy in front of gRPC servers. A connection whose first bytes are
+not the preface is a connection error of type `PROTOCOL_ERROR` (RFC 9113 section 3.4): the proxy
+sends its `SETTINGS` and a `GOAWAY` with `PROTOCOL_ERROR`, and closes it, where a shared listener
+would serve it as HTTP/1. It implies `withHttp2Cleartext`, and a proxy with it fails to start with
+a TLS listener, SOCKS, transparent mode or a `tcp://` reverse proxy, which all take connections
+that are not HTTP/2. The admin API's `/listeners` shows the listener as `h2c` alone.
+
+```bash
+java -jar microproxy-starlark-all.jar --port 8080 --mode reverse:https://grpc.example.com --http2-cleartext-only
+```
+
 ## CONNECT and WebSockets
 
 A normal HTTP/2 `CONNECT` (`:method CONNECT`, `:authority host:port`, no `:scheme` or `:path`)
@@ -271,8 +302,8 @@ on the HTTP/2 wire. On a forward proxy that serves CONNECT-UDP (`--masque`, or `
 `:protocol connect-udp` opens a UDP flow whose datagrams travel in capsules in the stream's DATA
 ([CONNECT-UDP](masque.md)); elsewhere it gets `501`, and so do other extended protocols.
 
-WebSockets can use HTTP/1 or HTTP/2 independently on either side. With HTTP/2 to origins enabled,
-a TLS origin that advertises extended CONNECT gets a WebSocket stream on the existing shared
+WebSockets can use HTTP/1 or HTTP/2 independently on either side. With HTTP/2 to origins on (the
+default), a TLS origin that advertises extended CONNECT gets a WebSocket stream on the existing shared
 HTTP/2 connection. An origin that does not advertise it gets a separate HTTP/1.1 upgrade connection.
 The proxy translates `101` and `200` handshakes, and generates the HTTP/1 nonce/accept fields where
 needed. For secure extended CONNECT on a forward-proxy connection, origin TLS uses the configured
@@ -348,26 +379,29 @@ the client connections are done.
 
 ## Compatibility
 
-Nothing changes unless HTTP/2 is enabled, with two small exceptions in the
-API: `FlowContext.equals` (and `hashCode`) now also compare the stream id, which is 0 for every
-HTTP/1 context, so HTTP/1 behaviour is the same; and `HttpProxyServerBootstrap` gains
-`withHttp2`, `withHttp2Upstream`, `withHttp2Cleartext`, `withHttp2Options` and `getHttp2Options`
-as default methods, so other implementations still compile. Trackers and filters keyed by
+With HTTP/2 off (`--no-http2 --no-http2-upstream`, or without the codec), nothing changes from
+HTTP/1-only behaviour, with two small exceptions in the API: `FlowContext.equals` (and
+`hashCode`) now also compare the stream id, which is 0 for every HTTP/1 context, so HTTP/1 behaviour is the same; and `HttpProxyServerBootstrap` gains
+`withHttp2`, `withHttp2Upstream`, `withHttp2Cleartext`, `withHttp2CleartextOnly`,
+`withHttp2Options` and `getHttp2Options` as default methods, so other implementations still compile. Trackers and filters keyed by
 `FlowContext` keep one entry per stream; state meant per client connection can be keyed by
 `ctx.getConnectionContext()`.
 
 ## Conformance (h2spec)
 
 CI runs [h2spec](https://github.com/summerwind/h2spec) v2.6.0 in strict mode against the `h2c`
-listener (`.github/scripts/h2spec.sh`, with `org.microproxy.H2specTarget` from the test sources:
-the proxy with `h2c` on and a filter that answers every request with `200`). All 147 cases pass
-except one, which CI leaves out:
+listener twice (`.github/scripts/h2spec.sh`, with `org.microproxy.H2specTarget` from the test
+sources: the proxy with `h2c` on and a filter that answers every request with `200`):
 
-- `http2/3.5/2` (*Sends invalid connection preface*): h2spec expects `GOAWAY` or a closed
-  connection. The `h2c` listener is shared with HTTP/1, so a connection that does not start with
-  the preface is an HTTP/1 connection, and gets an HTTP/1 error response before it is closed.
+- **The [h2c-only listener](#h2c-only-listener)** (`-Dh2spec.cleartextOnly=true`): all 147 cases
+  pass.
+- **The listener shared with HTTP/1** (`--http2-cleartext`): all 147 cases pass except one, which
+  this run leaves out. `http2/3.5/2` (*Sends invalid connection preface*) expects `GOAWAY` or a
+  closed connection, but on a shared listener a connection that does not start with the preface
+  is an HTTP/1 connection, and gets an HTTP/1 error response before it is closed.
 
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
-`.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
+`.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`), with
+`H2SPEC_TARGET_OPTS=-Dh2spec.cleartextOnly=true` for the h2c-only listener.
 
 HTTP/3 has its own section: [HTTP/3 and QUIC](http3.md).

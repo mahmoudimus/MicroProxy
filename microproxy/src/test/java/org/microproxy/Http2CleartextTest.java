@@ -1,8 +1,10 @@
 package org.microproxy;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.echoedBody;
 import static org.microproxy.TestSupport.echoedHeader;
@@ -31,7 +33,8 @@ import org.microproxy.http.HttpVersion;
 /**
  * HTTP/2 with prior knowledge ({@code h2c}) on the proxy's plain listener: connections that start
  * with the connection preface are served as HTTP/2, their streams being proxy requests for any
- * target; every other connection is HTTP/1 as before.
+ * target; every other connection is HTTP/1 as before, except on an h2c-only listener ({@code
+ * withHttp2CleartextOnly}), where it is a connection error.
  */
 class Http2CleartextTest {
 
@@ -135,6 +138,69 @@ class Http2CleartextTest {
             // An HTTP/1 answer (505 HTTP Version Not Supported), not HTTP/2 frames.
             assertTrue(answer.startsWith("HTTP/1.1 505"), answer);
         }
+    }
+
+    @Test
+    void anH2cOnlyListenerServesHttp2WithPriorKnowledge() throws Exception {
+        // withHttp2CleartextOnly implies withHttp2Cleartext.
+        proxy = MicroProxy.bootstrap().withPort(0).withProxyAlias("h2c").withHttp2CleartextOnly(true).start();
+        try (H2TestClient c = client(origin)) {
+            c.get(1, "/only");
+            H2TestClient.Response r = c.response(1);
+            assertEquals(200, r.status());
+            assertEquals("/only", echoedUri(r.text()));
+        }
+    }
+
+    /**
+     * On an h2c-only listener, a connection that does not start with the preface is a connection
+     * error of type PROTOCOL_ERROR (RFC 9113 section 3.4): the proxy's SETTINGS, then GOAWAY, then
+     * the end of the connection, not an HTTP/1 answer.
+     */
+    @Test
+    void anH2cOnlyListenerAnswersAnythingElseWithGoAway() throws Exception {
+        proxy = h2c().withHttp2CleartextOnly(true).start();
+        byte[] settingsThenGoAway = {
+            0, 0, 0, 0x4, 0, 0, 0, 0, 0,
+            0, 0, 8, 0x7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte) ErrorCode.PROTOCOL_ERROR.code()
+        };
+        String crlf = "\r\n";
+        List<String> notPrefaces = List.of(
+                "GET " + TestSupport.url(origin, "/http1") + " HTTP/1.1" + crlf + "Host: " + authority(origin) + crlf + crlf,
+                "INVALID CONNECTION PREFACE" + crlf + crlf,
+                "PRI * HTTP/1.1" + crlf + crlf);
+        for (String first : notPrefaces) {
+            try (Socket s = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+                s.setSoTimeout(10_000);
+                s.getOutputStream().write(first.getBytes(StandardCharsets.US_ASCII));
+                s.getOutputStream().flush();
+                assertArrayEquals(settingsThenGoAway, s.getInputStream().readAllBytes(), first);
+            }
+        }
+        // HTTP/2 clients are still served.
+        try (H2TestClient c = client(origin)) {
+            c.get(1, "/after");
+            assertEquals(200, c.response(1).status());
+        }
+    }
+
+    @Test
+    void anH2cOnlyListenerTakesNothingButHttp2() {
+        HttpProxyServerBootstrap tls = MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true)
+                .withSslContextSource(new org.microproxy.tls.SelfSignedSslContextSource());
+        HttpProxyServerBootstrap socks = MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true)
+                .withSocksDetection(true);
+        HttpProxyServerBootstrap transparent = MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true)
+                .withTransparent(true);
+        HttpProxyServerBootstrap rawTcp = MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true)
+                .withReverseProxy("tcp://127.0.0.1:" + origin.getAddress().getPort());
+        for (HttpProxyServerBootstrap b : List.of(tls, socks, transparent, rawTcp)) {
+            IllegalStateException e = assertThrows(IllegalStateException.class, b::start);
+            assertTrue(e.getMessage().contains("h2c-only"), e.getMessage());
+        }
+        // A reverse proxy to an HTTP upstream, for HTTP/2 clients, is fine.
+        proxy = MicroProxy.bootstrap().withPort(0).withHttp2CleartextOnly(true)
+                .withReverseProxy("http://127.0.0.1:" + origin.getAddress().getPort()).start();
     }
 
     @Test

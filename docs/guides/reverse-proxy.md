@@ -29,11 +29,11 @@ scheme `https` by default, the port 443 for `https` and 80 for `http`.
   default) before any filter sees the request, unless `--keep-host-header` (`keep_host_header`,
   `withKeepHostHeader(true)`) keeps the client's.
 - `https://` upstreams are reached over TLS, validated with the MITM manager's server context
-  when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise; with
-  `--http2-upstream`, over HTTP/2 when the upstream offers it. `http://` upstreams get plain HTTP.
+  when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise, and
+  over HTTP/2 when the upstream offers it (unless `--no-http2-upstream`). `http://` upstreams get plain HTTP.
 - `tcp://host:port` relays each client connection to the upstream as raw bytes.
 - With a TLS listener (`withSslContextSource`, `--listener-keystore`), the proxy terminates TLS,
-  and with `--http2` serves HTTP/2 to clients that offer it. With `--http3`, it serves HTTP/3 on
+  and serves HTTP/2 to clients that offer it (unless `--no-http2`). With `--http3`, it serves HTTP/3 on
   the UDP port with the same number, and advertises it with `Alt-Svc` (see
   [HTTP/3 and QUIC](http3.md)); with `--http3-upstream`, it speaks HTTP/3 to an upstream
   that offers it.

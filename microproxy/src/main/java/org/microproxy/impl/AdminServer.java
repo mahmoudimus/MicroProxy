@@ -448,7 +448,9 @@ final class AdminServer {
     private Map<String, Object> features() {
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("http1", true);
-        f.put("h2", server.http2);
+        // Served inside intercepted TLS and on the TLS listener: on by default, it is in use only
+        // on a proxy that has either.
+        f.put("h2", server.http2 && (server.mitmManager != null || server.sslContextSource != null));
         f.put("h2_upstream", server.http2Upstream);
         f.put("h2c", server.http2Cleartext);
         f.put("h3", server.http3);
@@ -499,7 +501,7 @@ final class AdminServer {
             tcp.addAll(List.of("socks5", "socks4"));
         } else {
             if (server.sslContextSource != null) tcp.add("tls");
-            tcp.add("http/1.1");
+            if (!server.http2CleartextOnly) tcp.add("http/1.1");
             if (server.sslContextSource != null && server.http2) tcp.add("h2");
             if (server.http2Cleartext) tcp.add("h2c");
             if (server.connectUdpTemplate != null) tcp.add("masque");

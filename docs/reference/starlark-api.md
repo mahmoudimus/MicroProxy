@@ -34,7 +34,7 @@ All are optional.
 - `req`: `method`, `uri` (assignable), `url`, `scheme`, `host`, `port`, `path`, `query`, and
   `headers`, `body`, `text`, plus `http_version`: the version the client used, `"HTTP/1.1"`,
   `"HTTP/1.0"`, `"HTTP/2"` or `"HTTP/3"` (requests reach servers as HTTP/1.1, or as HTTP/2 or
-  HTTP/3 to servers that speak it with `http2_upstream` or `http3_upstream`). `scheme` (and
+  HTTP/3 to servers that speak it: `http2_upstream`, on by default, and `http3_upstream`). `scheme` (and
   `url`) is the absolute URI's for a request that has one, `https` for one the proxy fetches over
   TLS of its own ([TLS origination](../guides/forward-proxy.md#tls-origination-https-uris-without-connect)), and stays so in
   `on_response` and `on_failure`, after the proxy has made the request origin-form for the server;

@@ -147,6 +147,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final boolean http2Upstream;
     /** Whether the plain listener serves HTTP/2 with prior knowledge; the codec is known to be present. */
     final boolean http2Cleartext;
+    /** Whether it serves nothing else: other connections are a connection error (see {@link #http2Cleartext}). */
+    final boolean http2CleartextOnly;
     final Http2Options http2Options;
     /** Sees every HTTP/2 frame (see {@link FrameInterceptor}); null for none, which costs nothing. */
     final FrameInterceptor frameInterceptor;
@@ -234,9 +236,14 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final long startNanos = System.nanoTime();
 
     DefaultHttpProxyServer(DefaultHttpProxyServerBootstrap b) {
-        if ((b.http2 || b.http2Upstream || b.http2Cleartext) && !Http2Support.available()) {
-            // Fail at startup, not on the first client that asks for h2.
-            throw new IllegalStateException(Http2Support.MISSING);
+        if (!Http2Support.available()) {
+            if (Boolean.TRUE.equals(b.http2) || Boolean.TRUE.equals(b.http2Upstream) || b.http2Cleartext
+                    || b.http2CleartextOnly) {
+                // Asked for explicitly: fail at startup, not on the first client that asks for h2.
+                throw new IllegalStateException(Http2Support.MISSING);
+            }
+            // On by default: HTTP/1.1 it is, said once.
+            if (b.http2 == null || b.http2Upstream == null) Http2Support.defaultsFallBack();
         }
         if (b.chainProxyManager instanceof org.microproxy.UpstreamProxyManager upstream && upstream.usesHttp2()
                 && !Http2Support.available()) {
@@ -246,6 +253,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
         if ((b.http3 || b.http3Upstream || b.transparentQuicPort >= 0) && !Http3Support.available()) {
             throw new IllegalStateException(Http3Support.MISSING);
+        }
+        if (b.http2CleartextOnly && (b.sslContextSource != null || b.socksServer || b.socksDetection || b.transparent
+                || b.reverseProxy != null && b.reverseProxy.rawTcp())) {
+            throw new IllegalStateException("an h2c-only listener (withHttp2CleartextOnly, --http2-cleartext-only,"
+                    + " http2_cleartext_only) serves HTTP/2 with prior knowledge alone, so not with a TLS listener, SOCKS,"
+                    + " transparent mode or a tcp:// reverse proxy");
         }
         if (b.connectUdp && b.reverseProxy != null) {
             throw new IllegalStateException("CONNECT-UDP (withConnectUdp, --masque, masque) is served by a forward proxy,"
@@ -330,9 +343,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
-        this.http2 = b.http2;
-        this.http2Upstream = b.http2Upstream;
-        this.http2Cleartext = b.http2Cleartext;
+        this.http2 = b.offersHttp2();
+        this.http2Upstream = b.offersHttp2Upstream();
+        this.http2Cleartext = b.http2Cleartext || b.http2CleartextOnly;
+        this.http2CleartextOnly = b.http2CleartextOnly;
         this.http2Options = b.http2Options;
         this.frameInterceptor = b.frameInterceptor;
         this.tcpInterceptor = b.tcpInterceptor;
@@ -356,7 +370,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.drainStrategy = b.drainStrategy;
         this.healthCheckPath = b.healthCheckPath;
         this.healthCheckPassThrough = b.healthCheckPassThrough;
-        if (http2 && mitmManager == null && sslContextSource == null) {
+        if (Boolean.TRUE.equals(b.http2) && mitmManager == null && sslContextSource == null) {
+            // Only when asked for: on by default, it has nothing to do on a plain forward proxy.
             LOG.log(Level.WARNING, "HTTP/2 is enabled but nothing is intercepted (no withManInTheMiddle / --mitm):"
                     + " clients are only offered HTTP/2 inside intercepted TLS sessions");
         }

@@ -12,6 +12,8 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.microproxy.tls.SelfSignedSslContextSource;
 
 /** A reverse proxy serving HTTP/3 to clients, for an HTTP/1 upstream. */
@@ -109,12 +111,16 @@ class Http3ReverseProxyTest {
         }
     }
 
-    @Test
-    void tcpResponsesAdvertiseTheHttp3Listener() throws Exception {
-        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder().sslContext(tls.getSslContext()).build();
+    /** Over HTTP/2, which the TLS listener serves by default, and over HTTP/1.1 alike. */
+    @ParameterizedTest
+    @EnumSource(value = java.net.http.HttpClient.Version.class, names = {"HTTP_2", "HTTP_1_1"})
+    void tcpResponsesAdvertiseTheHttp3Listener(java.net.http.HttpClient.Version version) throws Exception {
+        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder().version(version)
+                .sslContext(tls.getSslContext()).build();
         java.net.http.HttpResponse<String> r = TestSupport.send(client, java.net.http.HttpRequest.newBuilder(
                 java.net.URI.create("https://localhost:" + proxy.getListenAddress().getPort() + "/")).build());
         assertEquals(200, r.statusCode());
+        assertEquals(version, r.version());
         assertEquals("h3=\":" + proxy.getListenAddress().getPort() + "\"; ma=86400",
                 r.headers().firstValue("alt-svc").orElse(null));
     }

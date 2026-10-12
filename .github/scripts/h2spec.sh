@@ -6,8 +6,9 @@
 #
 # The target is org.microproxy.H2specTarget (microproxy test sources): the proxy with h2c on the
 # plain listener and a filter that answers every request with 200. Set H2SPEC to use an h2spec
-# binary already present; H2SPEC_PORT to choose the port; extra arguments go to h2spec (such as
-# section numbers to run only those, or --strict).
+# binary already present; H2SPEC_PORT to choose the port; H2SPEC_TARGET_OPTS to pass JVM options
+# to the target (such as -Dh2spec.cleartextOnly=true for an h2c-only listener); extra arguments go
+# to h2spec (such as section numbers to run only those, or --strict).
 set -euo pipefail
 
 VERSION=2.6.0
@@ -27,7 +28,8 @@ if [[ -z "${H2SPEC:-}" ]]; then
 fi
 
 CLASSPATH="$ROOT/microproxy/target/classes:$ROOT/microproxy/target/test-classes:$ROOT/http2-codec/target/classes"
-java -cp "$CLASSPATH" org.microproxy.H2specTarget "$PORT" > "$WORK/target.log" 2>&1 &
+# shellcheck disable=SC2086 # H2SPEC_TARGET_OPTS holds several options
+java ${H2SPEC_TARGET_OPTS:-} -cp "$CLASSPATH" org.microproxy.H2specTarget "$PORT" > "$WORK/target.log" 2>&1 &
 TARGET_PID=$!
 for _ in $(seq 1 100); do
   if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi

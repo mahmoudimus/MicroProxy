@@ -21,7 +21,8 @@ jobs:
       - run: mvn --batch-mode verify
 
   h2spec:
-    # HTTP/2 conformance (h2spec, pinned) against the proxy's h2c listener.
+    # HTTP/2 conformance (h2spec, pinned) against the proxy's h2c listener: shared with HTTP/1, and
+    # h2c-only (--http2-cleartext-only).
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
@@ -37,11 +38,20 @@ jobs:
         # shared with HTTP/1, so a connection that does not start with the preface is answered as
         # HTTP/1. See docs/guides/http2.md (Conformance).
         run: .github/scripts/h2spec.sh --strict generic http2/3.5/1 http2/4 http2/5 http2/6 http2/7 http2/8 hpack
+      - name: Run h2spec against an h2c-only listener
+        # Every case: a connection that does not start with the preface is a connection error there.
+        if: ${{ !cancelled() }}
+        env:
+          H2SPEC_TARGET_OPTS: -Dh2spec.cleartextOnly=true
+          H2SPEC_REPORT: h2spec-cleartext-only-report.xml
+        run: .github/scripts/h2spec.sh --strict
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: h2spec-report
-          path: h2spec-report.xml
+          path: |
+            h2spec-report.xml
+            h2spec-cleartext-only-report.xml
           if-no-files-found: ignore
 
   quic-interop:

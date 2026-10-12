@@ -85,7 +85,7 @@ class HttpsProxyForwardingTest {
     // The servers
     // -------------------------------------------------------------------------------------------
 
-    /** Starts the corporate proxy: a TLS listener, offering HTTP/2 if {@code h2}. */
+    /** Starts the corporate proxy: a TLS listener, offering HTTP/2 if {@code h2}, else HTTP/1.1 only. */
     private void startCorp(boolean h2, ProxyAuthenticator authenticator) {
         HttpProxyServerBootstrap b = MicroProxy.bootstrap().withPort(0).withProxyAlias("corp")
                 .withSslContextSource(() -> serverCa.serverContext("localhost", "127.0.0.1"))
@@ -101,7 +101,8 @@ class HttpsProxyForwardingTest {
                                 + r.headers().get("Proxy-Authorization"));
                     }
                 });
-        if (h2) b.withHttp2(true);
+        // HTTP/2 is on by default: an HTTP/1.1 corporate proxy turns it off.
+        b.withHttp2(h2);
         if (authenticator != null) b.withProxyAuthenticator(authenticator);
         corp = b.start();
     }

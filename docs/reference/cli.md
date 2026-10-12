@@ -34,7 +34,7 @@ See [Quick start](../getting-started/quick-start.md), [configuration properties]
 | `--tls-protocols <list>` | TLS versions allowed on every TLS connection (default TLSv1.3,TLSv1.2; "" = JDK defaults) | `tls_protocols` |
 | `--littleproxy-compat` | behave like LittleProxy where MicroProxy differs | `littleproxy_compatibility` |
 | `--proxy-alias <alias>` | name used in Via headers | `proxy_alias` |
-| `--listener-keystore <file>` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with --http2, and the certificate --http3 presents) | `listener_keystore` |
+| `--listener-keystore <file>` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2, and the certificate --http3 presents) | `listener_keystore` |
 | `--listener-keystore-password <pw>` | the key store's password (default empty) | `listener_keystore_password` |
 | `--help` | show this help |  |
 | `-h` | the same as `--help` | |
@@ -98,11 +98,14 @@ See [HTTP/2](../guides/http2.md).
 
 | Flag | Meaning | Property |
 |---|---|---|
-| `--http2` | serve HTTP/2 on intercepted TLS and the proxy TLS listener; needs the http2-codec jar on the class path | `http2` |
-| `--http2-upstream` | speak HTTP/2 to servers that offer it over TLS (ALPN h2), one shared connection per server; needs the http2-codec jar | `http2_upstream` |
-| `--http2-cleartext` | serve HTTP/2 with prior knowledge (h2c) on the plain listener; needs the http2-codec jar | `http2_cleartext` |
+| `--http2` | serve HTTP/2 to clients that offer it (ALPN h2) on intercepted TLS and the proxy TLS listener (the default); needs the http2-codec jar: without it the default falls back to HTTP/1.1, the flag fails to start the proxy; overrides `http2=false` from `--config` | `http2=true` |
+| `--no-http2` | serve clients HTTP/1.1 only | `http2=false` |
+| `--http2-upstream` | speak HTTP/2 to servers that offer it over TLS (ALPN h2), one shared connection per server (the default); needs the http2-codec jar, as --http2 does | `http2_upstream=true` |
+| `--no-http2-upstream` | speak HTTP/1.1 only to servers | `http2_upstream=false` |
+| `--http2-cleartext` | serve HTTP/2 with prior knowledge (h2c) on the plain listener (off by default); needs the http2-codec jar | `http2_cleartext` |
+| `--http2-cleartext-only` | serve only h2c on the plain listener: a connection without the HTTP/2 preface gets GOAWAY PROTOCOL_ERROR instead of HTTP/1.x (implies --http2-cleartext; [h2c-only listener](../guides/http2.md#h2c-only-listener)) | `http2_cleartext_only` |
 | `--http2-max-streams <n>` | concurrent HTTP/2 streams per client connection (default 100) | `http2_max_concurrent_streams` |
-| `--http2-coalesce` | with --http2-upstream, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address, or that it names in an ORIGIN frame (RFC 9113 9.1.1, RFC 8336) | `http2_coalesce` |
+| `--http2-coalesce` | with HTTP/2 to servers, let an HTTP/2 connection to a server carry requests for other names its certificate covers that resolve to its address, or that it names in an ORIGIN frame (RFC 9113 9.1.1, RFC 8336) | `http2_coalesce` |
 
 ## HTTP/3, QUIC and CONNECT-UDP
 
@@ -121,7 +124,7 @@ See [HTTP/3 and QUIC](../guides/http3.md), [Transparent QUIC](../guides/transpar
 | `--quic-congestion <name>` | congestion control of the proxy's QUIC connections: cubic (default), newreno or bbr (experimental) | `quic_congestion` |
 | `--transparent-quic-port <port>` | with --transparent, also take QUIC (UDP) redirected to this UDP port: route it by the SNI of its ClientHello, intercept HTTP/3 (with --mitm) or relay it untouched; needs the quic and http3-codec jars | `transparent_quic_port` |
 | `--transparent-quic-relay-idle-timeout <seconds>` | close a relayed QUIC flow after this long without a datagram (default 60) | `transparent_quic_relay_idle_timeout` |
-| `--masque` | serve CONNECT-UDP (MASQUE) on the TCP listener, also without --http3: over HTTP/2 (--http2, --http2-cleartext) and as HTTP/1.1 Upgrade: connect-udp, in DATAGRAM capsules; a forward proxy with --http3 serves it there anyway; needs the quic and http3-codec jars | `masque` |
+| `--masque` | serve CONNECT-UDP (MASQUE) on the TCP listener, also without --http3: over HTTP/2 (h2, --http2-cleartext) and as HTTP/1.1 Upgrade: connect-udp, in DATAGRAM capsules; a forward proxy with --http3 serves it there anyway; needs the quic and http3-codec jars | `masque` |
 | `--masque-udp-template <t>` | the URI template of CONNECT-UDP requests (default /.well-known/masque/udp/{target_host}/{target_port}/) | `masque_udp_template` |
 | `--masque-udp-idle-timeout <seconds>` | close a CONNECT-UDP flow after this long without a datagram either way (default 60) | `masque_udp_idle_timeout` |
 | `--masque-max-udp-flows <n>` | CONNECT-UDP flows at once (default 4096) | `masque_max_udp_flows` |

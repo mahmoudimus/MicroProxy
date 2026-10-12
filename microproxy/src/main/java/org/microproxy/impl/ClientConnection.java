@@ -1099,6 +1099,17 @@ final class ClientConnection implements Runnable {
                             + Integer.toHexString(http1.input().peek()) + "); closing");
                 }
                 return;
+            } else if (server.http2CleartextOnly) {
+                // Nothing but HTTP/2 with prior knowledge: another start is a connection error.
+                if (!http1.awaitRequest()) return;
+                if (http1.startsWithHttp2Preface()) {
+                    serveHttp2(rawSocket, http1.drainBuffered(), null);
+                } else {
+                    LOG.log(Level.DEBUG, logPrefix + "no HTTP/2 connection preface on the h2c-only listener;"
+                            + " closing with GOAWAY PROTOCOL_ERROR");
+                    http1.writeRaw(INVALID_PREFACE_ANSWER);
+                }
+                return;
             } else if (server.http2Cleartext && http1.awaitRequest() && http1.startsWithHttp2Preface()) {
                 // HTTP/2 with prior knowledge: the whole connection, preface included, is HTTP/2's.
                 serveHttp2(rawSocket, http1.drainBuffered(), null);
@@ -1181,6 +1192,18 @@ final class ClientConnection implements Runnable {
         socket.setHandshakeApplicationProtocolSelector((s, offered) ->
                 offered.contains("h2") ? "h2" : offered.contains("http/1.1") ? "http/1.1" : "");
     }
+
+    /**
+     * What an h2c-only listener sends a connection that does not start with the HTTP/2 preface (a
+     * connection error of type {@code PROTOCOL_ERROR}, RFC 9113 section 3.4): its own connection
+     * preface, an empty {@code SETTINGS} frame, then {@code GOAWAY} with last stream 0 and {@code
+     * PROTOCOL_ERROR} (0x1). Written out here so that the class does not need the codec.
+     */
+    private static final byte[] INVALID_PREFACE_ANSWER = {
+        0, 0, 0, 0x4, 0, 0, 0, 0, 0, // SETTINGS: length 0, type 0x4, no flags, stream 0
+        0, 0, 8, 0x7, 0, 0, 0, 0, 0, // GOAWAY: length 8, type 0x7, no flags, stream 0
+        0, 0, 0, 0, 0, 0, 0, 0x1 // last stream 0, PROTOCOL_ERROR
+    };
 
     /** A fatal TLS {@code unrecognized_name} alert (RFC 8446 section 6.2), for a ClientHello without SNI. */
     private static final byte[] UNRECOGNIZED_NAME_ALERT = {0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x70};

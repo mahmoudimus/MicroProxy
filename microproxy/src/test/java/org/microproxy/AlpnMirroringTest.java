@@ -144,7 +144,7 @@ class AlpnMirroringTest {
     void withoutHttp2UpstreamTheServerIsNotOfferedH2AndClientsStillGetIt() throws Exception {
         List<List<String>> offered = new CopyOnWriteArrayList<>();
         TestSupport.RawServer origin = http1AlpnOrigin(offered);
-        HttpProxyServer proxy = proxies.start(mitm().withHttp2(true));
+        HttpProxyServer proxy = proxies.start(mitm().withHttp2(true).withHttp2Upstream(false));
         HttpResponse<String> response = h2Get(proxy, "https://localhost:" + origin.port() + "/");
         assertEquals(200, response.statusCode());
         // The server could not have chosen h2, so its choice says nothing: the client keeps HTTP/2.
@@ -152,10 +152,21 @@ class AlpnMirroringTest {
         assertEquals(List.of(List.of("http/1.1")), offered, "h2 is offered only with HTTP/2 upstream");
     }
 
+    /** HTTP/2 both ways is the default: the same as {@link #aClientOfferingHttp2GetsItEndToEnd}, with no option. */
+    @Test
+    void byDefaultAClientOfferingHttp2GetsItEndToEnd() throws Exception {
+        H2TestOrigin origin = h2AndHttp1Origin();
+        HttpProxyServer proxy = proxies.start(mitm());
+        HttpResponse<String> response = h2Get(proxy, origin.url("/"));
+        assertEquals(HttpClient.Version.HTTP_2, response.version());
+        assertEquals("h2", response.body());
+        assertEquals(List.of(List.of("h2", "http/1.1")), origin.offeredAlpn);
+    }
+
     @Test
     void withHttp2OffAClientOfferingH2GetsHttp11BothWays() throws Exception {
         H2TestOrigin origin = h2AndHttp1Origin();
-        HttpProxyServer proxy = proxies.start(mitm());
+        HttpProxyServer proxy = proxies.start(mitm().withHttp2(false).withHttp2Upstream(false));
         try (SSLSocket tls = TlsHellos.throughConnect(proxy, "localhost:" + origin.port(), "localhost",
                 proxyCa.clientContext(), "h2", "http/1.1")) {
             assertEquals("", tls.getApplicationProtocol(), "no protocol: HTTP/1.1, as before");

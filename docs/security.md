@@ -39,7 +39,7 @@ Every input has a bound, and a peer that exceeds it loses its stream or connecti
 
 | Area | Protections | Details |
 |---|---|---|
-| HTTP/2 | stream, header-list, CONTINUATION, HPACK and flow-control limits; Rapid Reset (CVE-2023-44487), PING, SETTINGS, RST_STREAM, WINDOW_UPDATE and empty-frame floods; idle and stalled-write timeouts | [HTTP/2 limits](guides/http2.md#limits) |
+| HTTP/2 (on by default over TLS, to clients and servers; `--no-http2`, `--no-http2-upstream`) | stream, header-list, CONTINUATION, HPACK and flow-control limits; Rapid Reset (CVE-2023-44487), PING, SETTINGS, RST_STREAM, WINDOW_UPDATE and empty-frame floods; idle and stalled-write timeouts | [HTTP/2 limits](guides/http2.md#limits) |
 | HTTP/3 | QUIC's stream limits and flow control, field-section and QPACK limits, unknown frame and stream floods, Rapid Reset, optional address validation with Retry | [HTTP/3 limits](guides/http3.md#limits) |
 | TLS | a handshake timeout (`--tls-handshake-timeout`, 10 s) on both sides; a ClientHello is read up to 64 KiB within that timeout | [Deciding what to intercept](guides/mitm.md#deciding-what-to-intercept-the-clienthello) |
 | SOCKS | the whole handshake within the TLS handshake timeout; field lengths bounded | [SOCKS hardening](guides/socks.md#hardening) |

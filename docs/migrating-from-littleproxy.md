@@ -178,6 +178,15 @@ Compatibility mode covers the two items above. Security fixes (strict request pa
 pages that do not echo the request) are not affected by it, and the following differences remain
 either way:
 
+- HTTP/2 is on by default, and LittleProxy never spoke it: a client that offers `h2` on
+  intercepted TLS (or the proxy's TLS listener) now gets HTTP/2, and so does a server that picks
+  `h2` when the proxy reaches it over TLS. Filters see each HTTP/2 stream as an exchange of its
+  own, with version `HTTP/2.0`, and the streams of one client connection run concurrently, so
+  filter and tracker callbacks for that connection may too (see
+  [HTTP/2](guides/http2.md#http2-to-clients)). Clients and servers that offer only HTTP/1.1 are
+  unaffected. `--no-http2` and `--no-http2-upstream` (`http2=false`, `http2_upstream=false`,
+  `withHttp2(false)`, `withHttp2Upstream(false)`) keep HTTP/1.1 on both sides, as in LittleProxy;
+  compatibility mode leaves HTTP/2 as configured.
 - The proxy does not fill `FlowContext`'s string-keyed timing map (LittleProxy's
   `dns_resolution_*_time_ms`); `FlowContext.timings()` has typed timings for every phase instead
   (see [Observability](observability/activity-tracking.md#observability)).

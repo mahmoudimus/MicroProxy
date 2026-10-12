@@ -24,20 +24,6 @@ build error).
 | a change that matters to LittleProxy users | [migrating-from-littleproxy.md](migrating-from-littleproxy.md) |
 | internals (how the code works) | `microproxy/src/main/java/org/microproxy/impl/README.md`, summarised in [architecture.md](architecture.md) |
 
-Homes for the work in flight:
-
-- **TLS origination** (`https://` URIs without `CONNECT`): [Forward proxy, TLS
-  origination](guides/forward-proxy.md#tls-origination-https-uris-without-connect), with its flags in
-  the CLI reference, `originate_tls` in the properties reference, and pointers from
-  [HTTP/2](guides/http2.md) (h2c and HTTP/2 to servers) and [Security](security.md).
-- **HTTP/2 to chained proxies**: [Chained proxies](guides/chained-proxies.md) (a section next to
-  *Upstream proxies and NO_PROXY*), with the limit removed from [HTTP/2, Remaining
-  limits](guides/http2.md#remaining-limits) and [HTTP/2 to servers](guides/http2.md#http2-to-servers).
-- **HTTP/2 on by default**: the defaults in [HTTP/2](guides/http2.md) (the paragraph after the first
-  example), [reference/cli.md](reference/cli.md), [reference/properties.md](reference/properties.md),
-  the [Quick start](getting-started/quick-start.md) and the feature table of [index.md](index.md),
-  and a line in [Migrating from LittleProxy](migrating-from-littleproxy.md#behaviour-differences).
-
 ## Page conventions
 
 These make the pages predictable for readers and for AI coding agents:

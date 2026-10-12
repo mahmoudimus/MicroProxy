@@ -29,7 +29,7 @@ with **no runtime dependencies**, and LittleProxy's filter API.
 | [Forward proxy](docs/guides/forward-proxy.md) | HTTP/1.0 and 1.1 with keep-alive, pipelining, chunked bodies and trailers; `CONNECT` tunnels; a TLS listener; TLS origination for `https://` URIs; PROXY protocol; throttling; a shared connection pool |
 | [Filters](docs/guides/filters.md) | LittleProxy's `HttpFilters` / `HttpFiltersSource` hooks, a lambda builder, failure answers, [body rewriting](docs/guides/rewriting-bodies.md) |
 | [MITM](docs/guides/mitm.md) | a built-in CA, per-host certificates, interception decided by the ClientHello, mitmproxy's ignore/allow host rules, ALPN mirroring, per-client CAs and trust |
-| [HTTP/2](docs/guides/http2.md) | to clients (intercepted TLS, TLS listener, `h2c`) and servers, connection coalescing, trailers and gRPC, CONNECT and WebSockets, hardened limits |
+| [HTTP/2](docs/guides/http2.md) | on by default to clients (intercepted TLS, TLS listener) and servers that offer it, `h2c` on request, connection coalescing, trailers and gRPC, CONNECT and WebSockets, hardened limits |
 | [HTTP/3 and QUIC](docs/guides/http3.md) | a reverse proxy's and a forward proxy's HTTP/3 listener, HTTP/3 to servers, 0-RTT, [transparent QUIC](docs/guides/transparent-mode.md#transparent-quic), [CONNECT-UDP (MASQUE)](docs/guides/masque.md), [QUIC stream hooks](docs/guides/quic-hooks.md) |
 | Modes | [transparent](docs/guides/transparent-mode.md), [reverse proxy](docs/guides/reverse-proxy.md), [SOCKS4/5 server](docs/guides/socks.md), [chained proxies](docs/guides/chained-proxies.md) with `NO_PROXY` and backoff |
 | Hooks | [WebSocket frames and messages](docs/guides/websockets.md), [HTTP/2 and HTTP/3 frames](docs/guides/frame-interception.md), [raw TCP and decrypted TLS](docs/guides/tcp-hooks.md), UDP datagrams, QUIC streams |
@@ -52,7 +52,7 @@ java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080    
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm           # intercept HTTPS
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8443 --reverse https://example.com
 # Everything built in (scripting, zstd, HTTP/2, QUIC, HTTP/3, OpenTelemetry), one jar:
-java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --http2 --script proxy.star
+java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --mitm --script proxy.star
 ```
 <!-- x-release-please-end -->
 

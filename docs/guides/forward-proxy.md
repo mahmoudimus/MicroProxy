@@ -48,8 +48,8 @@ and rewrite the bytes of tunnels that are not intercepted.
 `withSslContextSource(...)` serves the proxy itself over TLS (an "HTTPS proxy"), and
 `withAuthenticateSslClients(true)` requires client certificates on it. From the command line,
 `--listener-keystore <file>` and `--listener-keystore-password <pw>` (`listener_keystore`,
-`listener_keystore_password`) serve TLS with a PKCS#12 or JKS key store's first key entry. With
-`--http2` the listener also offers HTTP/2, and with `--http3` a forward proxy serves HTTP/3 next to
+`listener_keystore_password`) serve TLS with a PKCS#12 or JKS key store's first key entry. The
+listener also offers HTTP/2 (unless `--no-http2`), and with `--http3` a forward proxy serves HTTP/3 next to
 it ([An HTTP/3 forward-proxy listener](http3.md#an-http3-forward-proxy-listener)).
 
 ```java
@@ -101,7 +101,7 @@ that it opens to the server itself, as it does for the requests of an intercepte
   proxy) and MITM manager: a client connection keeps its own, or, with the [shared
   pool](#shared-server-connection-pool) and `pool_shared_mitm_connections`, every client shares
   them, whether they were made for an intercepted session or for a client's `https://` URI.
-- **HTTP/2 and HTTP/3.** With `--http2-upstream`, the handshake offers `h2` and `http/1.1`, and a
+- **HTTP/2 and HTTP/3.** Unless `--no-http2-upstream`, the handshake offers `h2` and `http/1.1`, and a
   server that picks `h2` gets the requests as streams on a shared connection, with [connection
   coalescing](http2.md#connection-coalescing) when it is on; with `--http3-upstream`, a server known to
   speak HTTP/3 gets them over QUIC, on direct routes.

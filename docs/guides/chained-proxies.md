@@ -77,8 +77,8 @@ command line turns waiting off, overriding a properties file.
 A chained HTTP proxy is spoken to in HTTP/1.1 by default: a connection of its own for each
 tunnel, and plain-HTTP requests on (pooled) connections one at a time. A chained proxy that speaks
 HTTP/2 can carry all of them as streams of a few shared connections instead (RFC 9113 section
-8.5), as forward proxies such as MicroProxy itself (`--http2` on its TLS listener, or
-`--http2-cleartext`) do. It is chosen per proxy: the `h2://` and `h2c://` schemes in a proxy URL,
+8.5), as forward proxies such as MicroProxy itself (on its TLS listener, where HTTP/2 is on by default,
+or with `--http2-cleartext`) do. It is chosen per proxy: the `h2://` and `h2c://` schemes in a proxy URL,
 or `ChainedProxy.http2()`, which is `false` by default.
 
 | Proxy URL | Means | Bootstrap |
@@ -166,8 +166,7 @@ reaches the proxy untouched.)
 ```java
 MicroProxy.bootstrap()
         .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
-        .withHttp2(true)
-        .withHttp2Upstream(true)              // CONNECT streams on the HTTP/2 connection to the proxy
+        // HTTP/2 to servers (on by default) puts CONNECT streams on the HTTP/2 connection to the proxy
         .withFiltersSource((request, ctx) -> new HttpFiltersAdapter(request, ctx) {
             @Override
             public boolean proxyToServerAllowMitm() {
@@ -179,7 +178,7 @@ MicroProxy.bootstrap()
 ```
 
 - **Upstream.** The session's server is a chained proxy for the tunnel. When MicroProxy's
-  connection to an HTTPS proxy negotiated HTTP/2 (`withHttp2Upstream`), the `CONNECT` is a stream
+  connection to an HTTPS proxy negotiated HTTP/2 (`withHttp2Upstream`, on by default), the `CONNECT` is a stream
   on that connection, multiplexed with the session's requests. Otherwise it goes on an HTTP/1.1
   connection to it, over TLS to an HTTPS proxy and plain TCP to an HTTP one: an idle one of the
   session's, or one made as the session's are (the same routes, the MITM manager's trust and

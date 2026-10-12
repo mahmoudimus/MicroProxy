@@ -664,19 +664,25 @@ class SocksServerTest {
         HttpProxyServer proxy = proxies.start(socks()
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
                 .withFiltersSource((request, ctx) -> {
-                    seen.add(request.method() + " " + request.uri());
+                    seen.add(request.method() + " " + request.uri()
+                            + ("CONNECT".equals(request.method().name()) ? "" : " " + request.protocolVersion()));
                     return null;
                 }));
         java.nio.file.Path ca = java.nio.file.Files.createTempFile("socks-proxy-ca", ".pem");
         try {
             proxyCa.writeCertificatePem(ca);
-            String out = curl("--socks5-hostname", "127.0.0.1:" + proxy.getListenAddress().getPort(),
-                    "--cacert", ca.toString(), "https://localhost:" + secure.getAddress().getPort() + "/tls");
+            String url = "https://localhost:" + secure.getAddress().getPort() + "/tls";
+            String socks = "127.0.0.1:" + proxy.getListenAddress().getPort();
+            // curl offers h2, which the proxy serves by default; and HTTP/1.1 when it offers only that.
+            String out = curl("--socks5-hostname", socks, "--cacert", ca.toString(), url);
             assertTrue(out.contains("uri: /tls"), out);
+            String http1 = curl("--socks5-hostname", socks, "--cacert", ca.toString(), "--http1.1", url);
+            assertTrue(http1.contains("uri: /tls"), http1);
         } finally {
             java.nio.file.Files.deleteIfExists(ca);
         }
-        assertEquals(List.of("CONNECT localhost:" + secure.getAddress().getPort(), "GET /tls"), seen);
+        String connect = "CONNECT localhost:" + secure.getAddress().getPort();
+        assertEquals(List.of(connect, "GET /tls HTTP/2.0", connect, "GET /tls HTTP/1.1"), seen);
     }
 
     /** Runs curl with {@code args} and no proxy settings from the environment; returns its output and status code. */

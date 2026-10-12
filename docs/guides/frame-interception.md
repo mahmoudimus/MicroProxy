@@ -12,8 +12,7 @@ GOAWAY belong to a connection:
 
 ```java
 MicroProxy.bootstrap()
-        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
-        .withHttp2(true).withHttp2Upstream(true)
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))   // HTTP/2 both ways by default
         .withFrameInterceptor((frame, direction, ctx) -> switch (frame) {
             case Http2Frame.Headers h when direction == FrameDirection.TO_SERVER -> h.withHeader("x-via-h2", "1");
             case Http2Frame.Data d when direction == FrameDirection.FROM_SERVER && d.text().contains("secret") ->

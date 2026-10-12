@@ -72,8 +72,13 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).socksDetection;
     }
 
-    /** Whether HTTP/2 is enabled ({@code withHttp2}). */
+    /** Whether HTTP/2 to clients is in effect ({@code withHttp2}, on by default with the codec). */
     public static boolean http2(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).offersHttp2();
+    }
+
+    /** HTTP/2 to clients as configured ({@code withHttp2}): null when left at the default. */
+    public static Boolean http2Setting(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2;
     }
 
@@ -102,14 +107,24 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).sslContextSource;
     }
 
-    /** Whether HTTP/2 to servers is enabled ({@code withHttp2Upstream}). */
+    /** Whether HTTP/2 to servers is in effect ({@code withHttp2Upstream}, on by default with the codec). */
     public static boolean http2Upstream(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).offersHttp2Upstream();
+    }
+
+    /** HTTP/2 to servers as configured ({@code withHttp2Upstream}): null when left at the default. */
+    public static Boolean http2UpstreamSetting(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Upstream;
     }
 
     /** Whether h2c with prior knowledge is enabled ({@code withHttp2Cleartext}). */
     public static boolean http2Cleartext(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http2Cleartext;
+    }
+
+    /** Whether the plain listener serves h2c alone ({@code withHttp2CleartextOnly}). */
+    public static boolean http2CleartextOnly(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).http2CleartextOnly;
     }
 
     /** The headers removed from requests sent upstream, as configured. */

@@ -36,6 +36,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.microproxy.frames.FrameDirection;
 import org.microproxy.frames.Http3Frame;
 import org.microproxy.http.HttpObject;
@@ -191,17 +193,20 @@ class TransparentQuicTest {
     /**
      * A CONNECT on an intercepted HTTP/3 connection goes to the intercepted server, which the client
      * takes for its HTTPS proxy, as one on an intercepted HTTP/2 connection does: here a proxy whose
-     * TLS listener is origin.test's, which opens the tunnel to a raw TCP echo server.
+     * TLS listener is origin.test's, which opens the tunnel to a raw TCP echo server. The CONNECT
+     * reaches it as an HTTP/2 stream when it offers h2 (the default), else in HTTP/1.1.
      */
-    @Test
-    void aConnectOnAnInterceptedConnectionGoesToTheInterceptedProxy() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void aConnectOnAnInterceptedConnectionGoesToTheInterceptedProxy(boolean corpHttp2) throws Exception {
         TestSupport.RawServer echo = TestSupport.rawServer(socket -> socket.getInputStream().transferTo(socket.getOutputStream()));
         closeables.add(echo);
         List<String> corpRequests = new CopyOnWriteArrayList<>();
         HttpProxyServer corp = MicroProxy.bootstrap().withPort(0)
                 .withSslContextSource(() -> originCa.serverContext(HOST, "localhost"))
+                .withHttp2(corpHttp2)
                 .withFiltersSource((request, flow) -> {
-                    corpRequests.add(request.method() + " " + request.uri());
+                    corpRequests.add(request.method() + " " + request.uri() + " " + request.protocolVersion());
                     return null;
                 })
                 .start();
@@ -214,7 +219,8 @@ class TransparentQuicTest {
             tunnel.end();
             assertEquals("through the corporate proxy", tunnel.text());
         }
-        assertEquals(List.of("CONNECT 127.0.0.1:" + echo.port()), corpRequests);
+        assertEquals(List.of("CONNECT 127.0.0.1:" + echo.port() + (corpHttp2 ? " HTTP/2.0" : " HTTP/1.1")),
+                corpRequests);
         assertTrue(filtered.contains("CONNECT 127.0.0.1:" + echo.port() + " HTTP/3.0 quic=true sni=" + HOST), filtered.toString());
     }
 

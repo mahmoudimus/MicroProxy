@@ -373,7 +373,7 @@ class Http2ConnectTest {
 
     @Test
     void withoutHttp2TheTlsListenerOffersNoH2() throws Exception {
-        proxy = MicroProxy.bootstrap().withPort(0).withSslContextSource(LISTENER_TLS).start();
+        proxy = MicroProxy.bootstrap().withPort(0).withSslContextSource(LISTENER_TLS).withHttp2(false).start();
         try (Socket raw = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
             SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory()
                     .createSocket(raw, "localhost", proxy.getListenAddress().getPort(), true);
