@@ -390,15 +390,18 @@ HTTP/1-only behaviour, with two small exceptions in the API: `FlowContext.equals
 ## Conformance (h2spec)
 
 CI runs [h2spec](https://github.com/summerwind/h2spec) v2.6.0 in strict mode against the `h2c`
-listener (`.github/scripts/h2spec.sh`, with `org.microproxy.H2specTarget` from the test sources:
-the proxy with `h2c` on and a filter that answers every request with `200`). All 147 cases pass
-except one, which CI leaves out:
+listener twice (`.github/scripts/h2spec.sh`, with `org.microproxy.H2specTarget` from the test
+sources: the proxy with `h2c` on and a filter that answers every request with `200`):
 
-- `http2/3.5/2` (*Sends invalid connection preface*): h2spec expects `GOAWAY` or a closed
-  connection. The `h2c` listener is shared with HTTP/1, so a connection that does not start with
-  the preface is an HTTP/1 connection, and gets an HTTP/1 error response before it is closed.
+- **The [h2c-only listener](#h2c-only-listener)** (`-Dh2spec.cleartextOnly=true`): all 147 cases
+  pass.
+- **The listener shared with HTTP/1** (`--http2-cleartext`): all 147 cases pass except one, which
+  this run leaves out. `http2/3.5/2` (*Sends invalid connection preface*) expects `GOAWAY` or a
+  closed connection, but on a shared listener a connection that does not start with the preface
+  is an HTTP/1 connection, and gets an HTTP/1 error response before it is closed.
 
 To run it locally, build the classes (`mvn -DskipTests test-compile -pl microproxy -am`) and run
-`.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`).
+`.github/scripts/h2spec.sh --strict` (it downloads h2spec, or uses `$H2SPEC`), with
+`H2SPEC_TARGET_OPTS=-Dh2spec.cleartextOnly=true` for the h2c-only listener.
 
 HTTP/3 has its own section: [HTTP/3 and QUIC](http3.md).
