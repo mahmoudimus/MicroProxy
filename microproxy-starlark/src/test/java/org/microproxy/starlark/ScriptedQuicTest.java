@@ -106,6 +106,8 @@ class ScriptedQuicTest {
         @Override
         public void close() {}
     };
+    /** Held for the test: a logger that nothing references may be collected, with the handler on it. */
+    private final Logger scriptLog = Logger.getLogger("microproxy.script");
     private java.util.logging.Level level;
 
     @BeforeAll
@@ -116,18 +118,16 @@ class ScriptedQuicTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        Logger logger = Logger.getLogger("microproxy.script");
-        logger.removeHandler(handler);
-        logger.setLevel(level);
+        scriptLog.removeHandler(handler);
+        scriptLog.setLevel(level);
         for (AutoCloseable c : closeables) c.close();
     }
 
     /** A transparent proxy whose QUIC that is not HTTP/3 goes through {@code source}'s hooks, and a client of it. */
     private QuicConnection connect(String source, QuicEchoOrigin origin) throws Exception {
-        Logger logger = Logger.getLogger("microproxy.script");
-        level = logger.getLevel();
-        logger.setLevel(java.util.logging.Level.INFO);
-        logger.addHandler(handler);
+        level = scriptLog.getLevel();
+        scriptLog.setLevel(java.util.logging.Level.INFO);
+        scriptLog.addHandler(handler);
         ScriptedProxy script = ScriptedProxy.builder(source, "quic.star").build();
         assertTrue(script.definesQuicHooks());
         assertFalse(script.definesTcpHooks());
