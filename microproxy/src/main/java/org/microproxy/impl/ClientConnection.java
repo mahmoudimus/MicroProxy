@@ -354,12 +354,13 @@ final class ClientConnection implements Runnable {
         try {
             channel.relay(conn, webSocket, tcp, ex.flow, name);
         } finally {
-            active.dec();
             if (kind != null) {
                 tunnels.rxBytes.add(Math.max(0, ex.flow.bytesReceived() - received));
                 tunnels.txBytes.add(Math.max(0, ex.flow.bytesSent() - sent));
                 tunnels.durationMs.recordNanos(ClientFlowContext.now() - start);
             }
+            // Last: a tunnel no longer active has been counted in full.
+            active.dec();
         }
     }
 
@@ -2852,8 +2853,9 @@ final class ClientConnection implements Runnable {
             try {
                 flow.run(server.name + "-udp-" + id + "-" + ex.flow.getStreamId());
             } finally {
-                masqueStats.flowsActive.dec();
                 flow.countInto(masqueStats);
+                // Last: a flow no longer active has been counted in full.
+                masqueStats.flowsActive.dec();
             }
             return false;
         } finally {

@@ -154,7 +154,6 @@ final class QuicStats implements QuicConnection.Observer {
     @Override
     public void closed(QuicConnection connection, QuicConnection.Stats s, ConnectionError reason,
             boolean handshakeCompleted) {
-        connectionsActive.dec();
         if (!handshakeCompleted) handshakeFailure(reason).inc();
         if (reason != null && reason.kind() == ConnectionError.Kind.RESET) statelessResetReceived.inc();
         if (handshakeCompleted) rttMs.recordNanos(s.rtt().toNanos());
@@ -175,6 +174,8 @@ final class QuicStats implements QuicConnection.Observer {
         if (s.zeroRttRejected()) zeroRttRejected.inc();
         controller(s.congestionController()).inc();
         if (qlog != null) qlog.closed(vantage, connection.initialDestinationId().toString());
+        // Last: a connection no longer active has been counted in full.
+        connectionsActive.dec();
     }
 
     /** {@code congestion_controller.<name>}: connections by congestion controller, a bounded set of names. */
