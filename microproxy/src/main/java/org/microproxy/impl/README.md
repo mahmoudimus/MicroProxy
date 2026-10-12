@@ -188,7 +188,8 @@ reach `relay` only through `serveEstablished`, `tunnelAfterPeek` and `relayDecry
 ## HTTP/2: `Http2Connection` and `Http2StreamChannel`
 
 When an intercepted handshake or the proxy TLS listener negotiates ALPN `h2` (offered with
-`withHttp2`, when the optional `http2-codec` module is present: `Http2Support`), `intercept` hands the TLS socket to
+`withHttp2`, on by default when the optional `http2-codec` module is present: `Http2Support`, which
+also says whether a server left at the default falls back to HTTP/1.1), `intercept` hands the TLS socket to
 `Http2Connection.serve`, on the connection's own thread; `run` does the same on the TLS listener.
 With `withHttp2Cleartext`, `run` does the
 same for a plain connection whose first bytes are the connection preface
@@ -378,7 +379,7 @@ running at once:
 
 ## HTTP/2 to servers: `Http2UpstreamConnection` and `Http2Origins`
 
-With `withHttp2Upstream`, `connectVia` offers ALPN `h2` on TLS connections to servers (for
+With `withHttp2Upstream` (on by default with the codec), `connectVia` offers ALPN `h2` on TLS connections to servers (for
 intercepted HTTPS, and for the `https://` URIs and secure WebSocket extended CONNECTs of forward-proxy
 clients). A connection whose handshake picks `h2` is marked
 (`ServerConnection.http2`) and handed to `Http2Origins.adopt`, which runs it as an

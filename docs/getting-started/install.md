@@ -32,14 +32,17 @@ Which optional jars a feature needs:
 | Feature | Jars besides `microproxy` |
 |---|---|
 | `zstd` bodies (`Content-Encoding: zstd`, gRPC's `zstd` encoding in content views) | `zstd-decoder` |
-| [HTTP/2](../guides/http2.md) to clients and servers (`--http2`, `--http2-upstream`, `--http2-cleartext`) | `http2-codec` |
+| [HTTP/2](../guides/http2.md) to clients and servers (on by default: `--http2`, `--http2-upstream`; and `--http2-cleartext`) | `http2-codec` |
 | [HTTP/3 and QUIC](../guides/http3.md), [CONNECT-UDP](../guides/masque.md), [transparent QUIC](../guides/transparent-mode.md#transparent-quic) | `quic` and `http3-codec` |
 | [Frame interceptors over HTTP/3 streams](../guides/frame-interception.md#http3-frames) (`Http3FramePipeline`) | `http3-codec` |
 | [OpenTelemetry](../observability/opentelemetry.md) (`--otel`, `OTEL_*`) | `microproxy-otel` |
 | [Starlark scripting](../guides/scripting.md) (`--script`) | `microproxy-starlark` (and its Guava dependency) |
 
 A proxy started with HTTP/2 or HTTP/3 enabled but without the jars it needs fails at startup with
-an `IllegalStateException` that says so; without those features, nothing loads them.
+an `IllegalStateException` that says so; without those features, nothing loads them. HTTP/2 to
+clients and servers, on by default, is the exception: left at its default without `http2-codec`,
+it falls back to HTTP/1.1 (logged once at `INFO`), so the `microproxy` jar alone still runs with
+`--mitm`; only `--http2`, `--http2-upstream` or `--http2-cleartext` given explicitly fail.
 
 ## Maven
 

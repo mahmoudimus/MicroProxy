@@ -89,7 +89,7 @@ stay `ProtoValue.Fixed32`, `Fixed64` and `Group` in it, so that they keep their 
 
 ### gRPC
 
-A unary call logged with `--mitm --http2 --http2-upstream --log-http-view auto` (headers
+A unary call logged with `--mitm --log-http-view auto` (HTTP/2 both ways by default; headers
 shortened):
 
 ```text
@@ -137,7 +137,7 @@ and declared types:
 
 ```bash
 protoc --include_imports --descriptor_set_out=api.desc -I protos protos/*.proto
-java -jar microproxy.jar --mitm --http2 --http2-upstream --proto-descriptors api.desc
+java -jar microproxy-starlark-all.jar --mitm --proto-descriptors api.desc   # the -all jar has HTTP/2
 ```
 
 ```java

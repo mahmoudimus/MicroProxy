@@ -190,16 +190,16 @@ choice when that choice tells what the server speaks, that is, when the server w
 | Client offers | Server offered | Server picks | Client gets |
 |---|---|---|---|
 | `http/1.1` | `http/1.1` | `http/1.1` | `http/1.1`: never HTTP/2 upstream |
-| `h2`, `http/1.1` | `h2`, `http/1.1` | `h2` | `h2` (with `--http2`): HTTP/2 end to end |
+| `h2`, `http/1.1` | `h2`, `http/1.1` | `h2` | `h2` (unless `--no-http2`): HTTP/2 end to end |
 | `h2`, `http/1.1` | `h2`, `http/1.1` | `http/1.1` | `http/1.1`, the same as the server |
-| `h2`, `http/1.1` (no `--http2-upstream`) | `http/1.1` | `http/1.1` | `h2` with `--http2`: the proxy translates |
-| no ALPN | `h2`, `http/1.1` with `--http2-upstream`, else none | either | no protocol (HTTP/1.1) |
+| `h2`, `http/1.1` (with `--no-http2-upstream`) | `http/1.1` | `http/1.1` | `h2` unless `--no-http2`: the proxy translates |
+| no ALPN | `h2`, `http/1.1`, or none with `--no-http2-upstream` | either | no protocol (HTTP/1.1) |
 
 This follows mitmproxy's order (`tlsconfig.py`: the server's handshake first, with the client's
 offers, then the client's with the server's choice). Two differences: a client that sends no ALPN
 keeps the proxy's old offer, so HTTP/1.1 clients without ALPN (such as the JDK's `HttpClient`)
 still reach HTTP/2 servers; and where the server was not offered `h2`,
-clients still get HTTP/2 when `--http2` allows it. Without a server connection of its own, the
+clients still get HTTP/2 unless `--no-http2` turns it off. Without a server connection of its own, the
 session mirrors nothing: an existing HTTP/2 connection the session shares (a client that did not
 offer `h2` gets none of it, and its requests connect with its own offers), a reused pooled
 connection, or offline interception. The session's requests that connect later offer the same
