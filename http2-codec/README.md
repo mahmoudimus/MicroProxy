@@ -51,7 +51,9 @@ and its scope: a connection error means GOAWAY and close; a stream error means R
   stream). It checks frame lengths against SETTINGS_MAX_FRAME_SIZE before allocating, fixed frame
   lengths, padding, which frames may and may not use stream 0, zero window increments and SETTINGS
   values. It joins HEADERS and PUSH_PROMISE with their CONTINUATION frames, rejecting any other
-  frame in between, and skips unknown frame types. PRIORITY is parsed and otherwise ignored.
+  frame in between, and skips unknown frame types (or returns them, all of them with
+  `setDeliverUnknownFrames`, or only ORIGIN with `setDeliverOriginFrames`). PRIORITY is parsed
+  and otherwise ignored.
   PUSH_PROMISE is returned for the caller to refuse: it always comes with a field block that must
   be decoded to keep HPACK in step, and whether it is an error depends on the side.
 - **`FrameWriter`**: one method per frame type plus `writeFrame(Frame)`. Each call is one
@@ -69,6 +71,10 @@ and its scope: a connection error means GOAWAY and close; a stream error means R
 - **`FlowController`, `FlowControlWindow`**: connection and stream windows for both directions,
   WINDOW_UPDATE and SETTINGS_INITIAL_WINDOW_SIZE changes, with FLOW_CONTROL_ERROR on overflow past
   2^31-1 or on a peer overrunning a window. They only count, and do no locking.
+- **`OriginFrame`**: the ORIGIN extension frame (RFC 8336, type `0xc`), by which a server names
+  the origins it serves on a connection: `isOrigin(frame)` (an ORIGIN frame on stream 0, the only
+  one to act on), `origins(frame)` and `decode(payload)`, and `frame(origins)` / `encode(origins)`
+  to send one. It travels as a `Frame.Unknown`, so code that switches over `Frame` is unchanged.
 - **`Http2Settings`**: a record with the protocol defaults, a builder, validation of received
   values (`apply(Frame.Settings)`), and `toFrame()` for the values that differ from the defaults.
 
@@ -116,6 +122,8 @@ frame is bounded by the frame size, and for a field block by the block size.
 - `HuffmanTest` checks the RFC's strings, every octet, and rejection of EOS and bad padding.
 - `HpackTest` covers malformed blocks, integer overflow, size updates, the limits, sensitive
   fields and an encoder and decoder kept in step over random sections.
+- `OriginFrameTest` covers the ORIGIN frame's payload, malformed ones, and the reader delivering
+  it while skipping other extension frames.
 - `FrameRoundTripTest` writes and reads every frame type; `FrameReaderTest` feeds malformed
   frames (lengths, padding, stream ids, interleaved and oversized field blocks, CONTINUATION
   floods) and checks the error code and scope.
