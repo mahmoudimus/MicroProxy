@@ -82,13 +82,14 @@ class ScriptedUdpTest {
         public void close() {}
     };
 
+    /** Held for the test: a logger that nothing references may be collected, with the handler on it. */
+    private final Logger scriptLog = Logger.getLogger("microproxy.script");
     private java.util.logging.Level level;
 
     @AfterEach
     void tearDown() throws Exception {
-        Logger logger = Logger.getLogger("microproxy.script");
-        logger.removeHandler(handler);
-        logger.setLevel(level);
+        scriptLog.removeHandler(handler);
+        scriptLog.setLevel(level);
         for (AutoCloseable c : closeables) c.close();
     }
 
@@ -114,11 +115,10 @@ class ScriptedUdpTest {
 
     /** A forward proxy serving HTTP/3 whose CONNECT-UDP flows go through {@code source}'s hooks, and a client of it. */
     private H3TestClient.Tunnel flow(String source, int port) throws Exception {
-        Logger logger = Logger.getLogger("microproxy.script");
-        level = logger.getLevel();
+        level = scriptLog.getLevel();
         // (The tests' logging configuration shows warnings only.)
-        logger.setLevel(java.util.logging.Level.INFO);
-        logger.addHandler(handler);
+        scriptLog.setLevel(java.util.logging.Level.INFO);
+        scriptLog.addHandler(handler);
         ScriptedProxy script = ScriptedProxy.builder(source, "udp.star").build();
         assertTrue(script.definesUdpHooks());
         assertFalse(script.definesTcpHooks());
