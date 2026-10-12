@@ -489,7 +489,10 @@ class HttpsProxyForwardingTest {
                 write(s.getOutputStream(), "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
                 // Ends its side, then reads the rest of the ClientHello (and anything after it)
                 // until the client is done: a socket closed with bytes unread is reset, and the
-                // reset can overtake the answer, through the corporate proxy's tunnel too.
+                // reset can overtake the answer, through the corporate proxy's tunnel too. Both
+                // ClientHellos need it: the proxy's own, whose handshake must fail on the plain
+                // text and not on a reset, and the client's in the second, plain tunnel, whose
+                // 400 must reach the client.
                 s.shutdownOutput();
                 s.getInputStream().transferTo(OutputStream.nullOutputStream());
             } else if (first >= 0) {
@@ -500,13 +503,21 @@ class HttpsProxyForwardingTest {
         startCorp(true, null);
         proxy = microProxy().start();
         try (H2StreamClient c = h2Session()) {
-            H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target(echo)), false);
-            assertEquals(200, tunnel.status());
-            assertEquals("plain bytes", roundTrip(tunnel, "plain bytes"));
+            // The client's first bytes are not TLS: the tunnel is relayed as it is.
+            H2StreamClient.Stream plain = c.open(H2StreamClient.connect(target(echo)), false);
+            assertEquals(200, plain.status());
+            assertEquals("plain bytes", roundTrip(plain, "plain bytes"));
+            // A ClientHello, which the server answers in plain text.
+            H2StreamClient.Stream tls = c.open(H2StreamClient.connect(target(echo)), false);
+            assertEquals(200, tls.status());
+            tls.out().write(TlsHellos.fromJdkClient("localhost", "http/1.1"));
+            tls.out().flush();
+            assertEquals("HTTP/1.1 400", new String(tls.in().readNBytes(12), StandardCharsets.ISO_8859_1));
         }
-        // The first tunnel ended with the failed handshake; the client got a second, plain one.
-        assertEquals(List.of("CONNECT " + target(echo) + " HTTP/2.0 null", "CONNECT " + target(echo) + " HTTP/2.0 null"),
-                corpSaw);
+        // The ClientHello's tunnel ended with the proxy's failed handshake; the client's
+        // ClientHello went on in a second, plain one.
+        assertEquals(List.of("CONNECT " + target(echo) + " HTTP/2.0 null", "CONNECT " + target(echo) + " HTTP/2.0 null",
+                "CONNECT " + target(echo) + " HTTP/2.0 null"), corpSaw);
     }
 
     @Test

@@ -13,10 +13,13 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.tcp.TcpContext;
@@ -441,6 +444,61 @@ class TcpInterceptorTest {
                 send(s, "unchanged");
                 assertEquals("echo: unchanged", line(s));
             }
+        }
+    }
+
+    @Test
+    void aConnectStreamsHooksSeeItsOwnServerNameNotTheConnections() throws Exception {
+        CertificateAuthority serverCa = CertificateAuthority.generate("Stream SNI Server CA");
+        CertificateAuthority proxyCa = CertificateAuthority.generate("Stream SNI Proxy CA");
+        SSLContext innerContext = serverCa.serverContext("inner.test");
+        List<String> names = new CopyOnWriteArrayList<>();
+        CountDownLatch ended = new CountDownLatch(2);
+        TcpInterceptor interceptor = new TcpInterceptor() {
+            @Override
+            public byte[] tcpMessage(TcpMessage m, TcpContext ctx) {
+                return m.data();
+            }
+
+            @Override
+            public void tcpEnd(TcpContext ctx) {
+                names.add(ctx.port() + " sni=" + ctx.sni() + " alpn=" + ctx.alpn());
+                ended.countDown();
+            }
+        };
+        try (TestSupport.RawServer echo = lineEcho();
+                TestSupport.RawServer inner = TestSupport.rawServer(accepted -> {
+                    SSLSocket s = (SSLSocket) innerContext.getSocketFactory().createSocket(accepted, null, true);
+                    s.setUseClientMode(false);
+                    s.setSoTimeout(20_000);
+                    TestSupport.write(s.getOutputStream(), "echo: " + line(s) + "\n");
+                })) {
+            // The proxy's own TLS listener, which the HTTP/2 client reaches with SNI localhost.
+            HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap()
+                    .withSslContextSource(() -> serverCa.serverContext("localhost"))
+                    .withHttp2(true)
+                    .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, serverCa.clientContext()))
+                    .withIgnoreHosts("^inner\\.test:")
+                    .withTcpInterceptor(interceptor));
+            try (H2StreamClient c = H2StreamClient.tls(proxy.getListenAddress(), serverCa.clientContext(), "localhost")) {
+                // A ClientHello that the host rules decline by its name: relayed as it is, with that name.
+                H2StreamClient.Stream declined = c.open(H2StreamClient.connect("127.0.0.1:" + inner.port()), false);
+                assertEquals(200, declined.status());
+                try (SSLSocket tls = TlsHellos.startTls(declined.asSocket(), "inner.test", serverCa.clientContext())) {
+                    send(tls, "own name");
+                    assertEquals("echo: own name", line(tls));
+                }
+                // No ClientHello: no name, not the connection's.
+                H2StreamClient.Stream plain = c.open(H2StreamClient.connect("127.0.0.1:" + echo.port()), false);
+                assertEquals(200, plain.status());
+                Socket tunnel = plain.asSocket();
+                send(tunnel, "no name");
+                assertEquals("echo: no name", line(tunnel));
+                tunnel.close();
+                assertTrue(ended.await(10, TimeUnit.SECONDS), names.toString());
+            }
+            assertEquals(Set.of(inner.port() + " sni=inner.test alpn=null", echo.port() + " sni=null alpn=null"),
+                    Set.copyOf(names));
         }
     }
 

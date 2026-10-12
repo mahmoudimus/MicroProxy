@@ -614,6 +614,10 @@ consuming it, as mitmproxy does:
   knowledge, and a malformed or oversized ClientHello. A server that speaks first (SMTP, SSH) is
   noticed while the proxy waits for the client, and its connection is tunnelled as well.
 
+So it goes, too, for a tunnel that a client asks its own proxy for inside a session MicroProxy
+serves, once that proxy has opened it: everything then reaches the target through that proxy's
+tunnels ([In front of an HTTP or HTTPS proxy](#in-front-of-an-http-or-https-proxy)).
+
 Interception is decided in this order; the first "no" tunnels the connection untouched:
 
 1. `HttpFilters.proxyToServerAllowMitm()` and the [ignore rules](#ignoring-and-allowing-hosts)
@@ -1156,23 +1160,29 @@ MicroProxy.bootstrap()
   session, and `forwardedVia()` is then empty; one that leaves the client's URI as it was keeps it
   a proxy request. A client's absolute-form request to a server that is not a proxy is legal, if
   rare, and goes there as sent too: the client chose that server.
-- **The tunnel.** Without interception for the target (`proxyToServerAllowMitm`, `allow_mitm` in
-  scripts, or a MITM manager that declines), its bytes are relayed as they are, under flow control
-  both ways; END_STREAM and half-closes go through (over an HTTP/1.1 TLS connection to the proxy,
-  where TLS 1.3 allows one). With interception, the tunnel's TLS is intercepted as a `CONNECT` to
-  MicroProxy would be, MicroProxy's own TLS to the target runs inside the forwarded tunnel, and the
-  requests inside go through filters like any intercepted request. Their server connections are
-  tunnels through the same proxy, opened with the same `CONNECT` fields;
-  `FullFlowContext.getChainedProxy()` names the proxy. A target that does not speak TLS gets a
-  plain tunnel.
+- **The tunnel.** Once the proxy has opened it, the tunnel goes on as a `CONNECT` to MicroProxy
+  would ([Deciding what to intercept](#deciding-what-to-intercept-the-clienthello)), with the
+  proxy's tunnel as the way to the target. Without interception for the target
+  (`proxyToServerAllowMitm`, `allow_mitm` in scripts, an ignore rule for the target, or a MITM
+  manager that declines), its bytes are relayed as they are. Otherwise the client's first bytes
+  decide: a ClientHello goes through the host rules (with its SNI), `shouldIntercept` and
+  `proxyToServerAllowMitm(clientHello)`, and when intercepted, MicroProxy's own TLS to the target
+  runs inside the tunnel, offering the client's ALPN protocols, and the client gets the target's
+  choice; plain HTTP is served as HTTP, its requests going through the filters; anything else, a
+  declined ClientHello, a [TCP host](#raw-tcp-streams) or a server that speaks first (noticed
+  through the tunnel) is relayed as it is, through the TCP hooks, as is intercepted TLS that does
+  not carry HTTP. Relayed bytes go under flow control both ways; END_STREAM and half-closes go
+  through (over an HTTP/1.1 TLS connection to the proxy, where TLS 1.3 allows one). Every other
+  connection to the target, for the requests of an intercepted or plain session in the tunnel, is
+  a tunnel through the same proxy, opened with the same `CONNECT` fields, never pooled;
+  `FullFlowContext.getChainedProxy()` names the proxy. A target that does not speak TLS to a
+  client that does gets a plain tunnel, a new one.
 - **Resets.** A client's reset of the stream resets the stream to the proxy (or closes the
   connection to it), and once the tunnel is open it is not a rapid reset. A reset from the proxy,
   or its connection closing, resets the client's stream.
 
 Over HTTP/2, `:scheme https` requests for another authority still get `421` (connection
-coalescing, above), and so does a WebSocket's extended `CONNECT`, which is not forwarded. A tunnel
-through the proxy is intercepted or not by its target alone (the host rules, `allow_mitm`): its
-ClientHello is not read first.
+coalescing, above), and so does a WebSocket's extended `CONNECT`, which is not forwarded.
 
 **Limits.** Input is untrusted; every limit has a default, and the configurable ones are set with
 `Http2Options` (or the `http2_*` properties and `--http2-max-streams`). Rate limits count frames
