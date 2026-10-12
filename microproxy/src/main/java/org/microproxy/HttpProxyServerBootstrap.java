@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.time.Duration;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
 
@@ -729,6 +730,50 @@ public interface HttpProxyServerBootstrap {
     default HttpProxyServerBootstrap withTcpHosts(String... patterns) {
         if (patterns.length == 0) return this;
         throw new UnsupportedOperationException(getClass().getName() + " does not support TCP hosts");
+    }
+
+    /**
+     * Shows the streams and datagrams of QUIC connections that the proxy intercepts without
+     * speaking their protocol to {@code interceptor}, which may rewrite, drop and add their bytes;
+     * see {@link QuicInterceptor}. One per proxy: a later call replaces it, and null removes it.
+     *
+     * <p>With an interceptor, transparent QUIC (and QUIC inside CONNECT-UDP flows, with {@link
+     * Http3Options.Builder#connectUdpInterceptQuic}) whose ClientHello offers no HTTP/3 is
+     * intercepted, rather than relayed untouched, unless the host rules, {@link
+     * MitmManager#shouldIntercept} or the filters decline it: the proxy terminates the client's
+     * QUIC with a certificate its CA issues, connects to the server with the client's ALPN
+     * protocols, and relays each stream through the hooks. HTTP/3 is still served as HTTP/3, except
+     * for the {@linkplain #withQuicHosts QUIC hosts}.
+     *
+     * @param interceptor the interceptor, or null for none
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withQuicInterceptor(QuicInterceptor interceptor) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support QUIC interception");
+    }
+
+    /** {@return the QUIC interceptor configured so far, or null} */
+    default QuicInterceptor getQuicInterceptor() {
+        return null;
+    }
+
+    /**
+     * Hosts whose intercepted QUIC is relayed stream by stream, as raw QUIC, whatever its ALPN: the
+     * QUIC counterpart of {@link #withTcpHosts}. Their HTTP/3 is not served as HTTP/3 (filters
+     * and frame hooks do not see it); its streams go through the {@link #withQuicInterceptor QUIC
+     * hooks}, as other protocols' do, and QUIC that offers no HTTP/3 is intercepted even without
+     * an interceptor. The other rules still decide whether to intercept at all; use {@link
+     * #withIgnoreHosts} to relay a host untouched. Each pattern is a regular expression searched
+     * for, ignoring case, in the server's host name and in the client's SNI (without the port).
+     * Replaces earlier patterns; none by default.
+     *
+     * @param patterns the regular expressions
+     * @return this bootstrap
+     * @throws IllegalArgumentException if a pattern is not a valid regular expression
+     */
+    default HttpProxyServerBootstrap withQuicHosts(String... patterns) {
+        if (patterns.length == 0) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not support QUIC hosts");
     }
 
     /**

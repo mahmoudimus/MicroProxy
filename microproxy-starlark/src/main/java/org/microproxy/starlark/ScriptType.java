@@ -178,6 +178,32 @@ final class ScriptType extends StarlarkType {
             .put("vars", Types.dict(Types.ANY, Types.ANY))
             .buildOrThrow(), false);
 
+    /** Bytes of an intercepted QUIC connection ({@code on_quic_stream_data}, {@code on_quic_datagram}); named {@code QuicMessage}. */
+    static final ScriptType QUIC_MESSAGE = new ScriptType("QuicMessage", ScriptQuicMessage.class, ImmutableMap.of(
+            "data", Starlark.getStarlarkType(StarlarkBytes.of(null, new byte[0]), StarlarkSemantics.DEFAULT),
+            "text", TEXT,
+            "from_client", Types.BOOL,
+            "timestamp", Types.FLOAT), true);
+
+    /** An intercepted QUIC connection or stream ({@code on_quic_*} hooks); named {@code QuicContext}. */
+    static final ScriptType QUIC_CONTEXT = new ScriptType("QuicContext", ScriptQuicContext.class, ImmutableMap.<String, StarlarkType>builder()
+            .put("connection_id", Types.INT)
+            .put("client_ip", Types.STR)
+            .put("client_port", Types.INT)
+            .put("host", Types.STR)
+            .put("port", Types.INT)
+            .put("server", Types.STR)
+            .put("address", Types.STR)
+            .put("sni", TEXT)
+            .put("alpn", TEXT)
+            .put("masque", Types.BOOL)
+            .put("stream_id", INT_OR_NONE)
+            .put("bidirectional", Types.union(Types.BOOL, Types.NONE))
+            .put("client_initiated", Types.union(Types.BOOL, Types.NONE))
+            .put("vars", Types.dict(Types.ANY, Types.ANY))
+            .put("error", TEXT)
+            .buildOrThrow(), false);
+
     static final ScriptType FAILURE = new ScriptType("Failure", ScriptFailure.class, ImmutableMap.of(
             "kind", Types.STR,
             "status", Types.INT,
@@ -210,6 +236,8 @@ final class ScriptType extends StarlarkType {
     static final TypeConstructor TCP_CONTEXT_CONSTRUCTOR = Types.wrapType("TcpContext", TCP_CONTEXT);
     static final TypeConstructor UDP_MESSAGE_CONSTRUCTOR = Types.wrapType("UdpMessage", UDP_MESSAGE);
     static final TypeConstructor UDP_CONTEXT_CONSTRUCTOR = Types.wrapType("UdpContext", UDP_CONTEXT);
+    static final TypeConstructor QUIC_MESSAGE_CONSTRUCTOR = Types.wrapType("QuicMessage", QUIC_MESSAGE);
+    static final TypeConstructor QUIC_CONTEXT_CONSTRUCTOR = Types.wrapType("QuicContext", QUIC_CONTEXT);
 
     private final String name;
     private final Class<?> javaClass;

@@ -5,6 +5,7 @@ import io.github.mahmoudimus.quic.QuicServer;
 import io.github.mahmoudimus.quic.connection.ServerConfig;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.CertifiedKey;
+import io.github.mahmoudimus.quic.tls.EarlyDataPolicy;
 import io.github.mahmoudimus.quic.tls.Ticketer;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.IOException;
@@ -32,7 +33,7 @@ final class Http3Listener implements AutoCloseable {
 
     /** Unidirectional streams a client may have open: control, QPACK encoder and decoder, and room for extensions. */
     private static final int MAX_UNI_STREAMS = 16;
-    /** Guards the making of a proxy's ticket key. */
+    /** Guards the making of a proxy's ticket key and anti-replay record. */
     private static final ReentrantLock TICKETER_LOCK = new ReentrantLock();
 
     /** QUIC DATAGRAM payloads buffered per connection before the oldest are dropped, where they are accepted. */
@@ -71,10 +72,11 @@ final class Http3Listener implements AutoCloseable {
 
     /**
      * How the proxy's QUIC servers accept clients: ALPN {@code h3}, the certificate {@code keys}
-     * gives for the client's SNI, session tickets sealed with the proxy's ticket key (so that both
-     * listeners resume each other's sessions), 0-RTT if the options turn it on, the HTTP/3 options'
-     * stream limits, windows and congestion controller, the proxy's idle timeout, and Retry if the
-     * options ask for it.
+     * gives for the client's SNI, session tickets sealed with the proxy's ticket key (so that its
+     * QUIC servers resume each other's sessions: the HTTP/3 listener, the transparent QUIC listener
+     * and the one that intercepts HTTP/3 inside CONNECT-UDP flows), 0-RTT if the options turn it on,
+     * with one anti-replay record for all of them, the HTTP/3 options' stream limits, windows and
+     * congestion controller, the proxy's idle timeout, and Retry if the options ask for it.
      */
     static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys) {
         return serverConfig(server, keys, false);
@@ -88,15 +90,16 @@ final class Http3Listener implements AutoCloseable {
     static ServerConfig serverConfig(DefaultHttpProxyServer server, Function<String, KeyMaterial> keys,
             boolean datagrams) {
         Http3Options options = server.http3Options;
-        TlsConfig tls = TlsConfig.builder()
+        TlsConfig.Builder tls = TlsConfig.builder()
                 .alpnProtocols("h3")
                 .certificateSelector(hello -> {
                     KeyMaterial key = keys.apply(hello.serverName());
                     return key == null ? null : new CertifiedKey(key.chain(), key.privateKey());
                 })
                 .sessionTickets(ticketer(server))
-                .earlyData(options.zeroRtt())
-                .build();
+                .earlyData(options.zeroRtt());
+        // A ticket's early data is accepted once by all the servers that take the ticket, not once by each
+        if (options.zeroRtt()) tls.earlyDataPolicy(earlyDataPolicy(server));
         int idle = server.idleTimeoutMillis();
         TransportConfig transport = TransportConfig.builder()
                 .maxIdleTimeout(idle > 0 ? Duration.ofMillis(idle) : Duration.ZERO)
@@ -107,7 +110,7 @@ final class Http3Listener implements AutoCloseable {
                 .datagramReceiveBufferSize(datagrams ? DATAGRAM_BUFFER : 0)
                 .congestionControl(congestionControl(options))
                 .build();
-        return ServerConfig.builder(tls).transport(transport).retry(options.retry()).build();
+        return ServerConfig.builder(tls.build()).transport(transport).retry(options.retry()).build();
     }
 
     /** The proxy's ticket key, which rotates every few hours; made on first use. */
@@ -116,6 +119,17 @@ final class Http3Listener implements AutoCloseable {
         try {
             if (server.quicTicketer == null) server.quicTicketer = Ticketer.create();
             return (Ticketer) server.quicTicketer;
+        } finally {
+            TICKETER_LOCK.unlock();
+        }
+    }
+
+    /** The proxy's anti-replay record of the tickets whose early data its QUIC servers accepted; made on first use. */
+    private static EarlyDataPolicy earlyDataPolicy(DefaultHttpProxyServer server) {
+        TICKETER_LOCK.lock();
+        try {
+            if (server.quicEarlyDataPolicy == null) server.quicEarlyDataPolicy = EarlyDataPolicy.antiReplay();
+            return (EarlyDataPolicy) server.quicEarlyDataPolicy;
         } finally {
             TICKETER_LOCK.unlock();
         }

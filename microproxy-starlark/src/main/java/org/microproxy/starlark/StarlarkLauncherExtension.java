@@ -107,6 +107,11 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
         if (udp) {
             bootstrap.withUdpInterceptor(proxy.udpInterceptor());
         }
+        boolean quic = proxy.definesQuicHooks();
+        if (quic) {
+            // Only then: with an interceptor, QUIC that is not HTTP/3 is intercepted rather than relayed.
+            bootstrap.withQuicInterceptor(proxy.quicInterceptor());
+        }
         if (!constants.isEmpty()) {
             // Names only: the values may be secrets.
             console.println("Script constants: " + String.join(", ", constants.keySet()));
@@ -115,7 +120,8 @@ public final class StarlarkLauncherExtension implements LauncherExtension {
                 + (authenticates ? "; clients authenticate with its authenticate()" : "")
                 + (frames ? "; HTTP/2 and HTTP/3 frames go through its on_frame()" : "")
                 + (tcp ? "; raw TCP tunnels go through its on_tcp_*() hooks" : "")
-                + (udp ? "; CONNECT-UDP flows go through its on_udp_*() hooks" : ""));
+                + (udp ? "; CONNECT-UDP flows go through its on_udp_*() hooks" : "")
+                + (quic ? "; QUIC other than HTTP/3 goes through its on_quic_*() hooks" : ""));
     }
 
     /** The constants from the command line; later ones replace earlier ones of the same name. */

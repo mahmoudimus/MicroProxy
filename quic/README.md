@@ -461,10 +461,10 @@ try (QuicClient client = QuicClient.create(clientConfig);
 
 | Type | Role |
 | --- | --- |
-| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `accept()` (blocks until a handshake completes), `inject(from, datagram)`, `send(datagram, to)`, `localAddress()`, `close()` |
+| `QuicServer` | `bind(address, ServerConfig[, EndpointConfig[, DatagramFilter]])`, `unbound(local, ServerConfig, EndpointConfig, DatagramFilter, DatagramSink)` (no socket), `accept()` (blocks until a handshake completes), `receive(from, datagram)`, `inject(from, datagram[, ServerConfig])`, `send(datagram, to)`, `localAddress()`, `close()` |
 | `QuicClient` | `create(ClientConfig[, bindAddress, EndpointConfig])`, `connect(remote[, serverName, timeout[, SessionCache]])`, `connectEarly(remote, serverName, timeout[, SessionCache])` (returns at once when it can send 0-RTT data), `sessionCache()`, `close()` |
 | `QuicConnection` | `openBidirectionalStream()`, `openUnidirectionalStream()` (block while the peer's stream limit is reached), `acceptStream()`, `sendDatagram`, `receiveDatagram([timeout])`, `maxDatagramSize()`, `updateKeys()`, `close(code, reason)`, `awaitClosed(timeout)`, `closeReason()`, `alpn()`, `serverName()`, `peerCertificates()`, `cipherSuite()`, `keyExchangeGroup()`, `version()`, `initialDestinationId()`, `remoteAddress()`, `localAddress()`, `stats()`, `isResumed()`, `isZeroRtt()`, `earlyDataAccepted()`, `isHandshakeComplete()`, `awaitHandshake(timeout)` |
-| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
+| `QuicStream` | `getInputStream()` (blocks for data, -1 at the FIN), `getOutputStream()` (blocks on flow control and the send window; `close()` is the FIN), `reset(code)`, `stopSending(code)`, `awaitStopped()` (the peer's STOP_SENDING code, for a writer that is not writing), `close()` (FIN, and STOP_SENDING if unread), `receivedEarlyData()` |
 | `...connection.SessionCache` | A client's session tickets (`ClientSessionStore`) and NEW_TOKEN tokens (`TokenStore`, `TokenMemoryCache` after quinn's), by server name: `memory()`, `none()` |
 | `QuicConnectionException`, `QuicStreamException` | `IOException`s: the connection ended (with its `ConnectionError`), or the peer reset or stopped the stream (with its code) |
 | `...connection.Connection` | sans-I/O: `handleDatagram(now, remote, ecn, bytes)`, `pollTransmit(now, maxDatagrams)`, `handleTimeout(now)`, `pollTimeout()`, `pollEvent()`, `pollEndpointEvent()`; stream, datagram and close calls |
@@ -492,7 +492,16 @@ routes it as if it had just arrived (a client's first Initial then starts a conn
 it from the server's socket with `send`. Once a connection exists, its datagrams go straight to it.
 MicroProxy's transparent QUIC listener is built this way: it reads each new client's ClientHello
 from its Initials, then injects them to intercept the connection, or relays the client's datagrams
-elsewhere.
+elsewhere. `inject(from, datagram, config)` accepts the connection a datagram starts with a
+`ServerConfig` of its own (certificates, ALPN, transport parameters, Retry), so one server can offer
+each client what another server it reaches offered.
+
+An unbound server (`QuicServer.unbound`) has no socket and no receiving thread: its owner hands it
+the datagrams it receives with `receive(from, datagram)`, which routes them as the socket's
+receiving thread would (connections first, then the filter, then the endpoint), and the server
+hands those it sends to a `DatagramSink`. QUIC then runs over any datagram transport: MicroProxy
+intercepts QUIC inside CONNECT-UDP flows this way, the addresses being names it gives each flow.
+Path MTU discovery stays off on such a server.
 
 ### What a connection does
 

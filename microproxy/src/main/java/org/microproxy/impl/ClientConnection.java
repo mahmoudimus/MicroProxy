@@ -618,6 +618,15 @@ final class ClientConnection implements Runnable {
      * ends ({@link #endTransparentQuic}); null for other clients.
      */
     private volatile HttpFilters quicFilters;
+    /** The server of a flow intercepted stream by stream ({@link #connectQuic}). */
+    private volatile FullFlowContext quicServerFlow;
+    /** The relay of a flow intercepted stream by stream, while it is served; closed with the connection. */
+    private volatile QuicSession quicSession;
+    /**
+     * Where the server of QUIC intercepted inside a CONNECT-UDP flow is: the flow's address, for
+     * {@link #mitmHostAndPort} (the SNI's name, when the flow named an IP address); null for others.
+     */
+    private volatile InetSocketAddress pinnedServer;
     /** That CONNECT is a SOCKS client's request ({@link Exchange#socks}): its SOCKS version, 0 for none. */
     private int socksConnect;
     /**
@@ -676,6 +685,24 @@ final class ClientConnection implements Runnable {
         this.http1 = new Http1ClientChannel(server, rawSocket, flowContext, logPrefix, this::close);
     }
 
+    /**
+     * The client connection of the QUIC inside one of {@code parent}'s CONNECT-UDP flows ({@link
+     * MasqueQuic}), decided on as transparent QUIC is: it has the MASQUE client's address, user and
+     * MITM manager, and is authenticated already (the CONNECT-UDP request was); its server is at
+     * {@code address}, where the flow went.
+     */
+    ClientConnection(ClientConnection parent, InetSocketAddress address) {
+        this(parent.server, parent.clientDetails.getClientAddress());
+        clientDetails.setUserName(parent.clientDetails.getUserName());
+        this.proxyHeader = parent.proxyHeader;
+        if (server.mitmManager != null) {
+            this.connectionMitm = parent.mitmManager();
+            this.mitmChosen = true;
+        }
+        this.authenticated = true;
+        this.pinnedServer = address;
+    }
+
     /** The connection's own flow context (not one of its streams'). */
     ClientFlowContext connectionFlowContext() {
         return flowContext;
@@ -712,6 +739,8 @@ final class ClientConnection implements Runnable {
         if (h2 != null) h2.closed();
         Http3Connection h3 = http3;
         if (h3 != null) h3.closed();
+        QuicSession streams = quicSession;
+        if (streams != null) streams.close();
         http1.closeSocket();
         Tls.closeQuietly(rawSocket);
         releaseServerConnections();
@@ -2314,6 +2343,12 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows on this connection"), true, ResponseSource.PROXY);
         }
+        MasqueQuic masque = server.masqueQuic();
+        if (masque != null && masque.inspects(target.port())) {
+            // QUIC inside the flow is decided on as transparent QUIC is, by a client connection of
+            // this client's, with the flow's target as the server.
+            flow.inspectQuic(masque.attach(flow, targetAddress -> new ClientConnection(this, targetAddress)));
+        }
         try {
             HttpResponse accepted = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.SWITCHING_PROTOCOLS);
             accepted.headers().set(HttpHeaderNames.UPGRADE, CONNECT_UDP);
@@ -3472,32 +3507,42 @@ final class ClientConnection implements Runnable {
     // Transparent QUIC: a client flow of the transparent QUIC listener
     // ---------------------------------------------------------------------------------------
 
-    /** What the transparent QUIC listener does with a client flow. */
+    /** What the transparent QUIC listener (or a CONNECT-UDP flow) does with a client's QUIC. */
     enum QuicVerdict {
         /** Serve it HTTP/3 with a certificate the proxy issues. */
         INTERCEPT,
+        /**
+         * Terminate it with a certificate the proxy issues and relay its streams and datagrams to
+         * a connection of the proxy's to the server, through the QUIC hooks ({@link QuicSession}).
+         */
+        STREAMS,
         /** Relay its datagrams to the server untouched. */
         RELAY,
         /** Drop its datagrams: refused. */
         DROP
     }
 
-    /** A decision on a transparent QUIC flow, and why (null when it is intercepted). */
+    /** A decision on a transparent QUIC flow, and why (null when it is intercepted as HTTP/3). */
     record QuicDecision(QuicVerdict verdict, String reason) {}
 
     /**
-     * Decides on a new client flow of the transparent QUIC listener ({@link TransparentQuicListener})
-     * from the ClientHello of its Initial packets, by the rules and hooks that decide on a
-     * transparent TLS connection: a {@code CONNECT} to {@code hostAndPort} is made up for it (and
-     * reported to trackers), the authenticator is asked about a client without credentials, filters
-     * are made for it ({@code clientToProxyRequest} may refuse it, {@code proxyToServerAllowMitm()}
-     * decline interception), then the host rules, the client's ALPN (only {@code h3} is
-     * intercepted), {@link MitmManager#shouldIntercept} and {@code proxyToServerAllowMitm(hello)}.
-     * Runs on a thread of the listener's, before any of the flow's datagrams go anywhere.
+     * Decides on a new client flow of the transparent QUIC listener ({@link TransparentQuicListener}),
+     * or on the QUIC inside a CONNECT-UDP flow ({@link MasqueQuic}), from the ClientHello of its
+     * Initial packets, by the rules and hooks that decide on a transparent TLS connection: a {@code
+     * CONNECT} to {@code hostAndPort} is made up for it (and reported to trackers), the
+     * authenticator is asked about a client without credentials (unless the CONNECT-UDP request
+     * was authenticated), filters are made for it ({@code clientToProxyRequest} may refuse it,
+     * {@code proxyToServerAllowMitm()} decline interception), then the host rules (against {@code
+     * hostAndPort} and the SNI on its port), the client's ALPN ({@code h3} is served as HTTP/3; other
+     * protocols are intercepted stream by stream only with a {@link
+     * org.microproxy.quic.QuicInterceptor}, or for the QUIC hosts, which are so whatever their
+     * ALPN), {@link MitmManager#shouldIntercept} and {@code proxyToServerAllowMitm(hello)}. Runs on a
+     * thread of the flows', before any of the flow's datagrams go anywhere.
      *
      * @param canIntercept whether the listener can present a certificate (a CA to issue one)
+     * @param masque whether the QUIC came in a CONNECT-UDP flow, whose target {@code hostAndPort} is
      */
-    QuicDecision decideTransparentQuic(ClientHello hello, String hostAndPort, boolean canIntercept) {
+    QuicDecision decideTransparentQuic(ClientHello hello, String hostAndPort, boolean canIntercept, boolean masque) {
         idle = false;
         flowContext.transparentQuic();
         flowContext.clientHello(hello);
@@ -3514,13 +3559,18 @@ final class ClientConnection implements Runnable {
             decision = new QuicDecision(QuicVerdict.RELAY, "the decision failed");
         }
         if (decision.verdict() == QuicVerdict.INTERCEPT) {
-            // The session's requests go to the server the SNI names, as an intercepted CONNECT's do.
-            mitmHostAndPort = hostAndPort;
-            if (server.http3Origins != null) server.http3Origins.spoke(hostAndPort);
+            // The session's requests go to the server the SNI names, as an intercepted CONNECT's do;
+            // a CONNECT-UDP flow to an IP address goes there by the SNI's name (the server's
+            // certificate names it), at the flow's address ({@link #pinnedServer}).
+            HostAndPort target = HostAndPort.parse(hostAndPort, 443);
+            mitmHostAndPort = masque && Tls.isIpLiteral(target.host())
+                    ? new HostAndPort(hello.sni(), target.port()).toString() : hostAndPort;
+            if (server.http3Origins != null) server.http3Origins.spoke(mitmHostAndPort);
         }
         QuicDecision decided = decision;
         server.trackers.fire(t -> t.transparentQuicFlowDecided(flowContext, hello,
-                decided.verdict() == QuicVerdict.INTERCEPT, decided.reason()));
+                decided.verdict() == QuicVerdict.INTERCEPT || decided.verdict() == QuicVerdict.STREAMS,
+                decided.reason()));
         return decision;
     }
 
@@ -3529,7 +3579,7 @@ final class ClientConnection implements Runnable {
             HttpRequest snapshot = copy(connect);
             server.trackers.fire(t -> t.requestReceivedFromClient(flowContext, snapshot));
         }
-        if (server.proxyAuthenticator != null
+        if (server.proxyAuthenticator != null && !authenticated
                 && !recordAuthentication(server.proxyAuthenticator.authenticate(connect, flowContext))) {
             // A redirected client cannot send credentials (as over transparent TLS).
             return new QuicDecision(QuicVerdict.DROP, "the authenticator refused a client without credentials");
@@ -3548,11 +3598,19 @@ final class ClientConnection implements Runnable {
         if (server.mitmManager == null) return new QuicDecision(QuicVerdict.RELAY, "no MITM manager");
         if (!filters.proxyToServerAllowMitm()) return new QuicDecision(QuicVerdict.RELAY, "a filter declined (CONNECT)");
         if (mitmManager() == null) return new QuicDecision(QuicVerdict.RELAY, "no MITM manager for the connection");
-        if (server.hostRules != null && server.hostRules.ignored(hostAndPort)) {
+        HostAndPort target = HostAndPort.parse(hostAndPort, 443);
+        String sniName = hello.sni() == null ? null : new HostAndPort(hello.sni(), target.port()).toString();
+        if (server.hostRules != null && server.hostRules.ignored(hostAndPort, sniName)) {
             return new QuicDecision(QuicVerdict.RELAY, "an ignored host (SNI " + hello.sni() + ")");
         }
-        if (!hello.offersAlpn(TransparentQuicListener.H3)) {
+        boolean quicHost = server.quicHosts != null && server.quicHosts.matches(target.host(), hello.sni());
+        boolean http3 = !quicHost && hello.offersAlpn(TransparentQuicListener.H3);
+        if (!http3 && !quicHost && server.quicInterceptor == null) {
             return new QuicDecision(QuicVerdict.RELAY, "the client offers no HTTP/3 (ALPN " + hello.alpnProtocols() + ")");
+        }
+        if (hello.sni() == null) {
+            // A flow of a CONNECT-UDP request to an IP address: no name for a certificate.
+            return new QuicDecision(QuicVerdict.RELAY, "a ClientHello without SNI");
         }
         if (!canIntercept) {
             return new QuicDecision(QuicVerdict.RELAY, "no CertificateAuthorityMitmManager to issue a certificate for QUIC");
@@ -3561,7 +3619,57 @@ final class ClientConnection implements Runnable {
             return new QuicDecision(QuicVerdict.RELAY, "the MITM manager declined");
         }
         if (!filters.proxyToServerAllowMitm(hello)) return new QuicDecision(QuicVerdict.RELAY, "a filter declined");
-        return new QuicDecision(QuicVerdict.INTERCEPT, null);
+        if (http3) return new QuicDecision(QuicVerdict.INTERCEPT, null);
+        return new QuicDecision(QuicVerdict.STREAMS, quicHost ? "a QUIC host" : "ALPN " + hello.alpnProtocols());
+    }
+
+    /**
+     * The proxy's QUIC connection to the server of a flow intercepted stream by stream ({@link
+     * QuicVerdict#STREAMS}), made before the client's handshake completes: the client's server name
+     * and ALPN protocols, the server validated with the MITM manager's server trust (as HTTP/3 to
+     * servers is), from a UDP socket of its own. Waits up to {@code timeout} for the handshake.
+     *
+     * @throws IOException if the handshake fails or times out, or the manager's trust cannot be used
+     */
+    QuicSession.Upstream connectQuic(ClientHello hello, HostAndPort destination, InetSocketAddress address,
+            java.time.Duration timeout) throws IOException {
+        String hostAndPort = destination.toString();
+        javax.net.ssl.X509TrustManager trust = connectionMitm.serverTrustManager(hello.sni(), destination.port(),
+                new FullFlowContext(flowContext, hostAndPort, null, address));
+        if (trust == null) {
+            throw new IOException("the MITM manager's server trust cannot validate a QUIC handshake");
+        }
+        quicServerFlow = new FullFlowContext(flowContext, hostAndPort, null, address);
+        return QuicSession.connect(server, hello, trust, address, timeout);
+    }
+
+    /**
+     * Serves a flow intercepted stream by stream once its handshake with the proxy completed: its
+     * streams and datagrams go to {@code upstream} through the QUIC hooks until either side closes.
+     */
+    void serveQuicStreams(io.github.mahmoudimus.quic.QuicConnection quic, QuicSession.Upstream upstream, boolean masque) {
+        FullFlowContext serverFlow = quicServerFlow;
+        boolean completed = false;
+        try {
+            server.trackers.fire(t -> t.serverConnected(serverFlow, serverFlow.getRemoteAddress()));
+            HostAndPort target = HostAndPort.parse(serverFlow.getServerHostAndPort(), 443);
+            QuicSession session = new QuicSession(server.quicInterceptor, quic, upstream.connection(), flowContext,
+                    target, serverFlow.getRemoteAddress(), masque, logPrefix);
+            quicSession = session;
+            if (!closed) session.run();
+            completed = true;
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, logPrefix + "unexpected error relaying QUIC streams", e);
+            server.trackers.fire(t -> t.connectionExceptionCaught(flowContext, e));
+        } finally {
+            closed = true;
+            quic.close();
+            upstream.close();
+            server.trackers.fire(t -> t.serverDisconnected(serverFlow, serverFlow.getRemoteAddress()));
+            endQuicFilters(completed);
+            server.trackers.fire(t -> t.clientDisconnected(flowContext, null));
+            server.unregister(this);
+        }
     }
 
     /**
@@ -3945,6 +4053,11 @@ final class ClientConnection implements Runnable {
         HttpFilters filters = ex.filters;
         HostAndPort target = HostAndPort.parse(hostAndPort, 80);
         InetSocketAddress remote = filters.proxyToServerResolutionStarted(hostAndPort);
+        InetSocketAddress pinned = pinnedServer;
+        if (remote == null && pinned != null && hostAndPort.equalsIgnoreCase(mitmHostAndPort)) {
+            // QUIC intercepted inside a CONNECT-UDP flow: its server is where the flow went.
+            remote = new InetSocketAddress(pinned.getAddress(), target.port());
+        }
         try {
             if (remote == null) {
                 ex.flow.markFirst(ClientFlowContext.DNS_START);

@@ -166,6 +166,8 @@ final class UdpFlow implements UdpContext {
     private final AtomicLong fromClient = new AtomicLong();
     private final AtomicLong fromTarget = new AtomicLong();
     private volatile boolean started;
+    /** The QUIC the client's datagrams carry, decided on as transparent QUIC is; null when relayed as UDP. */
+    private volatile MasqueQuic.Inner quic;
     private Thread receiver;
     private Thread targetSender;
     private Thread clientSender;
@@ -187,6 +189,14 @@ final class UdpFlow implements UdpContext {
         this.idleNanos = idleTimeout.toNanos();
         this.toTarget = new Queue(maxQueued, maxQueuedBytes);
         this.toClient = new Queue(maxQueued, maxQueuedBytes);
+    }
+
+    /**
+     * Has the client's datagrams inspected for QUIC ({@link MasqueQuic}): a flow whose first
+     * datagram is a QUIC Initial is decided on as transparent QUIC is. Called before {@link #run}.
+     */
+    void inspectQuic(MasqueQuic.Inner inner) {
+        this.quic = inner;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -303,7 +313,28 @@ final class UdpFlow implements UdpContext {
         fromClient.incrementAndGet();
         byte[] payload = Arrays.copyOfRange(content, 1, content.length);
         if (payload.length > MAX_PAYLOAD) return;
+        MasqueQuic.Inner inner = quic;
+        if (inner != null && inner.fromClient(payload)) return;
         toTarget.offer(new Item(payload, false, Instant.now()));
+    }
+
+    /**
+     * A datagram for the target from the proxy's inspection of the flow's QUIC: one it held, or
+     * that raced its decision to relay the flow. It goes through the hooks as the client's do.
+     */
+    void toTargetFromProxy(byte[] payload) {
+        if (ended.get()) return;
+        toTarget.offer(new Item(payload, false, Instant.now()));
+    }
+
+    /**
+     * A datagram for the client from the proxy's own QUIC server, which intercepted the flow's
+     * QUIC: it counts as activity, and does not go through the hooks.
+     */
+    void toClientFromProxy(byte[] payload) {
+        if (ended.get()) return;
+        lastActivity.set(System.nanoTime());
+        toClient.offer(new Item(payload, true, Instant.now()));
     }
 
     private void receiveFromTarget() {
@@ -398,6 +429,8 @@ final class UdpFlow implements UdpContext {
             // closing anyway
         }
         client.endFlow(clean);
+        MasqueQuic.Inner inner = quic;
+        if (inner != null) inner.ended();
         long dropped = toTarget.dropped.get() + toClient.dropped.get();
         LOG.log(Level.DEBUG, logPrefix + "UDP flow to " + target + " ended: " + fromClient.get() + " datagrams from the client, "
                 + fromTarget.get() + " from the target, " + dropped + " dropped");

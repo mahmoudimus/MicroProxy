@@ -134,13 +134,15 @@ java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-a
     --http2 --http3 --http3-upstream
 
 # A forward proxy on TLS (8443) that also serves HTTP/3 on UDP 8443: CONNECT, WebSockets and
-# CONNECT-UDP (MASQUE) for HTTP/3 clients:
+# CONNECT-UDP (MASQUE) for HTTP/3 clients, the QUIC inside their UDP flows intercepted too:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8443 \
-    --listener-keystore proxy.p12 --listener-keystore-password secret --http2 --http3
+    --listener-keystore proxy.p12 --listener-keystore-password secret --http2 --http3 \
+    --mitm --masque-intercept-quic
 
-# A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too:
+# A transparent proxy for redirected TCP (8080) and QUIC (UDP 8443), intercepting HTTP/3 too, and
+# other QUIC stream by stream through a script's on_quic_*() hooks:
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --server \
-    --transparent --transparent-quic-port 8443 --mitm --http2 --http3-upstream
+    --transparent --transparent-quic-port 8443 --mitm --http2 --http3-upstream --script quic.star
 ```
 <!-- x-release-please-end -->
 
@@ -224,6 +226,7 @@ Command-line flags override values from the file.
 | `keep_host_header` | in reverse mode, keep the client's `Host` | `false` |
 | `ignore_hosts` / `allow_hosts` | comma-separated regular expressions for `host:port` names (CONNECT target, SNI) whose TLS is tunnelled untouched / the only ones intercepted (see [Ignoring and allowing hosts](#ignoring-and-allowing-hosts)) | none |
 | `tcp_hosts` | comma-separated regular expressions for host names (CONNECT target, SNI) relayed as raw TCP even when they look like HTTP (see [Raw TCP streams](#raw-tcp-streams)) | none |
+| `quic_hosts` | comma-separated regular expressions for host names (server, SNI) whose intercepted QUIC is relayed stream by stream, even HTTP/3 (see [QUIC stream hooks](#quic-stream-hooks)) | none |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
@@ -263,7 +266,9 @@ Command-line flags override values from the file.
 | `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](#connect-udp-masque)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
 | `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
-| `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3` and intercepted `transparent_quic_port` clients; see [Session resumption and 0-RTT](#session-resumption-and-0-rtt)) | `false` |
+| `masque_intercept_quic` | decide on the QUIC inside CONNECT-UDP flows as on transparent QUIC (see [QUIC inside CONNECT-UDP flows](#quic-inside-connect-udp-flows)) | `false` |
+| `masque_quic_ports` | the target ports of the flows `masque_intercept_quic` inspects: comma-separated, or `any` | `443` |
+| `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3`, and HTTP/3 intercepted from `transparent_quic_port` clients or inside CONNECT-UDP flows; see [Session resumption and 0-RTT](#session-resumption-and-0-rtt)) | `false` |
 | `http3_upstream_0rtt` | send requests safe to replay (`GET`, `HEAD`, `OPTIONS` without a body) to HTTP/3 servers as 0-RTT data when resuming | `true` |
 | `quic_congestion` | congestion control of the proxy's QUIC connections, to clients and to servers: `cubic`, `newreno` or `bbr` (experimental; see [Congestion control](#http3-congestion-control)) | `cubic` |
 | `listener_keystore` / `listener_keystore_password` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2 with `http2`, and the certificate `http3` presents) | none / empty |
@@ -710,7 +715,10 @@ intercepted, and the ignore patterns still apply to those.
 On the command line each flag takes one pattern and may be repeated; in a properties file the
 patterns are separated by commas (commas inside `{...}` belong to the pattern). A `CONNECT` whose
 target an ignore pattern finds is tunnelled without reading its ClientHello at all. The rules
-apply to TLS only: plain HTTP requests are proxied as usual.
+apply to TLS and QUIC only: plain HTTP requests are proxied as usual. For QUIC the names are the
+server and the SNI on the server's port: [transparent QUIC](#transparent-quic)'s flows, and, with
+[`--masque-intercept-quic`](#quic-inside-connect-udp-flows), the QUIC inside CONNECT-UDP flows, an
+ignored one being relayed as any UDP flow is.
 
 #### ALPN mirroring
 
@@ -750,10 +758,10 @@ leaving out `Via` and keeping hop-by-hop headers, the listener then accepts:
   connections are tunnelled: an SNI proxy.
 - **Plain HTTP**, routed by its `Host` field, when origin-form requests are allowed
   (`--allow-requests-to-origin-server`, `allow_requests_to_origin_server=true`), as before.
-- **QUIC (HTTP/3)** on a UDP port of its own, with `--transparent-quic-port <port>`
+- **QUIC** on a UDP port of its own, with `--transparent-quic-port <port>`
   (`withTransparentQuicPort`, `transparent_quic_port`): routed by the SNI of the ClientHello in
-  its first packets, then intercepted or relayed by the same rules (see
-  [Transparent QUIC](#transparent-quic)).
+  its first packets, then intercepted (HTTP/3, or other protocols stream by stream) or relayed by
+  the same rules (see [Transparent QUIC](#transparent-quic)).
 
 Java cannot read a redirected connection's original destination (Linux's `SO_ORIGINAL_DST`), so
 the server is the one the SNI or the `Host` field names, not the address the client connected to.
@@ -1381,8 +1389,10 @@ QUIC transport, the [`quic`](quic/README.md) module (ported from quinn and rustl
 [`http3-codec`](http3-codec/README.md) for frames and QPACK. It does so in four places: to the
 clients of a reverse proxy, to the clients of a [forward proxy](#an-http3-forward-proxy-listener)
 that serves it next to its TLS listener (for `CONNECT`, WebSockets and MASQUE), to clients whose
-QUIC is redirected to a [transparent proxy](#transparent-quic), and to origin servers known to
-support it. All need the optional
+QUIC is redirected to a [transparent proxy](#transparent-quic) or carried in a
+[CONNECT-UDP flow](#quic-inside-connect-udp-flows), and to origin servers known to support it. QUIC
+that carries another protocol can be intercepted too, its streams relayed through
+[hooks](#quic-stream-hooks). All need the optional
 `quic` and `http3-codec` jars on the class path (the `microproxy-starlark` `-all` jar bundles
 them); a proxy started with HTTP/3 enabled without them fails at startup with an
 `IllegalStateException` that says so, and without HTTP/3 nothing loads them.
@@ -1582,7 +1592,12 @@ percent-decoded, so an IPv6 address's colons may be encoded).
   so a client that does not read its stream, or a slow target, holds up nothing else.
 - **Hooks.** `withUdpInterceptor(UdpInterceptor)` sees every datagram, both ways: `udpStart`,
   `udpMessage` (return the payload to send, changed or not, or `null` to drop it), `udpEnd`, and
-  `UdpContext.send` to add datagrams; scripts get [`on_udp_message`](#udp-hooks).
+  `UdpContext.send` to add datagrams; scripts get [`on_udp_message`](#udp-hooks). A flow whose
+  QUIC the proxy intercepts ([below](#quic-inside-connect-udp-flows)) shows the hooks no
+  datagrams: its QUIC ends at the proxy.
+- **QUIC.** With `--masque-intercept-quic`, the QUIC inside a flow is decided on as transparent
+  QUIC is ([QUIC inside CONNECT-UDP flows](#quic-inside-connect-udp-flows)); without it, it is
+  relayed like any UDP.
 
 ```java
 bootstrap.withUdpInterceptor((msg, ctx) ->
@@ -1604,12 +1619,15 @@ http.send_datagram(stream_id, b"\x00" + dns_query)
 
 #### Session resumption and 0-RTT
 
-The proxy's QUIC listeners (`--http3` and the clients the [transparent QUIC](#transparent-quic)
-listener intercepts) send each client two TLS session tickets after its handshake, sealed with a
-key of the proxy's that rotates every six hours, and two NEW_TOKEN tokens. A returning client
-resumes its session (no certificate exchange: a fresh key exchange and a PSK) and skips the Retry
-round trip of `--http3-retry`. Tickets work across both listeners of one proxy, but not across
-proxy processes: each has its own key.
+The proxy's QUIC servers that serve HTTP/3 (`--http3`, the clients the [transparent
+QUIC](#transparent-quic) listener intercepts as HTTP/3, and HTTP/3 intercepted inside CONNECT-UDP
+flows with `--masque-intercept-quic`) send each client two TLS session tickets after its
+handshake, sealed with a key of the proxy's that rotates every six hours, and two NEW_TOKEN tokens.
+A returning client resumes its session (no certificate exchange: a fresh key exchange and a PSK)
+and skips the Retry round trip of `--http3-retry`. Tickets work across all the QUIC servers of one
+proxy, but not across proxy processes: each has its own key. QUIC intercepted stream by stream
+(the [QUIC stream hooks](#quic-stream-hooks)) gets no tickets, so no resumption and no 0-RTT: its
+streams are opaque, and the proxy could not tell what in them is safe to replay.
 
 **0-RTT to the proxy** is off by default. `--http3-0rtt` (`Http3Options.zeroRtt(true)`,
 `http3_0rtt=true`) lets a resuming client send its first requests as early data, before its
@@ -1619,12 +1637,13 @@ captures a client's first flight can send it again, and the proxy would act on i
 
 - **The QUIC layer** accepts a ticket's early data at most once, and only while the ticket age the
   client reports agrees with the proxy's within 10 seconds, which a stale capture fails. Its record
-  of used tickets is in memory, per process, and bounded (refusing early data when full);
-  rejected early data costs the client nothing but the round trip, as it sends it again.
+  of used tickets is in memory, one per process that all its QUIC servers share, and bounded
+  (refusing early data when full); rejected early data costs the client nothing but the round
+  trip, as it sends it again.
 - **The proxy** treats a request any part of which arrived as early data as
   [RFC 8470](https://datatracker.ietf.org/doc/html/rfc8470) says. A method that is not safe to
-  repeat (anything but `GET`, `HEAD` and `OPTIONS` without a body) gets `425 Too Early`, and the
-  client sends it again once its handshake completes. Others go on with `Early-Data: 1`, so the
+  repeat (anything but `GET`, `HEAD` and `OPTIONS` without a body, and so any `CONNECT`, extended
+  or not) gets `425 Too Early`, and the client sends it again once its handshake completes. Others go on with `Early-Data: 1`, so the
   server (or another proxy behind) can answer `425` itself, which the proxy relays.
 - **Filters** see `FlowContext.isEarlyData()` (`ctx.early_data` in scripts) and may answer `425`
   to requests they deem unsafe, `GET`s with side effects for instance:
@@ -1699,9 +1718,11 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
 - **Deciding**, as for transparent TLS: a `CONNECT sni:443` is made up for the flow (filters see
   it; `clientToProxyRequest` answering it drops the flow; `proxyToServerAllowMitm()` and
   `allow_mitm` may decline), then the [ignore and allow rules](#ignoring-and-allowing-hosts),
-  the client's ALPN (only `h3` is intercepted), `MitmManager.shouldIntercept(hello, flow)`, and
-  `proxyToServerAllowMitm(hello)` / `on_client_hello`. A redirected client sends no proxy
-  credentials: with an authenticator, it must accept clients without.
+  the client's ALPN (`h3` is served as HTTP/3; other protocols are intercepted
+  [stream by stream](#quic-stream-hooks) with a `QuicInterceptor` or for the `--quic-hosts`, and
+  relayed otherwise), `MitmManager.shouldIntercept(hello, flow)`, and
+  `proxyToServerAllowMitm(hello)` / `on_client_hello` (the table below). A redirected client
+  sends no proxy credentials: with an authenticator, it must accept clients without.
 - **Intercepted** (HTTP/3 with a MITM manager, which must be a `CertificateAuthorityMitmManager`
   to issue QUIC's certificates): the held datagrams go to the proxy's QUIC server, whose handshake
   presents a certificate the CA issues for the SNI, and the connection is served HTTP/3 like a
@@ -1710,11 +1731,15 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
   advertisement, and falls back to TCP if its QUIC handshake fails), else over HTTP/2 or
   HTTP/1.1. Filters, scripts (`on_request`, `on_frame`, ...), logging and trackers see the
   requests, with `FlowContext.isTransparentQuic()` (and `ctx.transparent_quic`) true.
-- **Relayed** (no MITM manager, an ignored or declined host, another ALPN such as DNS over QUIC's
-  `doq`): the datagrams go to the server untouched from a UDP socket of the flow's own, and the
-  server's back to the client from the listener's socket, until the flow is idle for
+- **Intercepted stream by stream** (another ALPN such as DNS over QUIC's `doq` with a
+  `QuicInterceptor`, or a `--quic-hosts` host): the proxy connects to the server first, then
+  completes the client's handshake with the server's choice of ALPN, and relays the two
+  connections' streams and datagrams through the [QUIC stream hooks](#quic-stream-hooks).
+- **Relayed** (no MITM manager, an ignored or declined host, another ALPN without a
+  `QuicInterceptor`): the datagrams go to the server untouched from a UDP socket of the flow's
+  own, and the server's back to the client from the listener's socket, until the flow is idle for
   `--transparent-quic-relay-idle-timeout` (60 s). The client completes its handshake with the
-  real server. Intercepting other QUIC protocols stream by stream is not done yet.
+  real server.
 - **Demultiplexing.** One socket serves every client. Intercepted connections are routed by the
   connection IDs the proxy issued (so they survive the client moving to new ones); relayed flows
   by the client address and the connection IDs seen in their long headers, and otherwise to the
@@ -1724,6 +1749,23 @@ Connection ID of its first Initial packets) is routed by its SNI, to that host's
   relayed flow, other versions are relayed like anything else.
 - **Retry.** `--http3-retry` (`Http3Options.retry`) makes intercepted clients prove their address
   first. Relayed clients never get one: their server would refuse the proxy's token.
+
+The decision, in order; the first row that applies decides:
+
+| The flow | Becomes |
+|---|---|
+| A `clientToProxyRequest` answers the made-up `CONNECT`, or the authenticator refuses a client without credentials | dropped |
+| No MITM manager, or `proxyToServerAllowMitm()` / `allow_mitm` declines | relayed |
+| An [ignore or allow rule](#ignoring-and-allowing-hosts) leaves out the server or the SNI | relayed |
+| ALPN without `h3`, not a `--quic-hosts` host, and no `QuicInterceptor` (`on_quic_*`) | relayed |
+| No SNI (only inside a CONNECT-UDP flow to an IP address), or no `CertificateAuthorityMitmManager` to issue the certificate | relayed |
+| `MitmManager.shouldIntercept(hello, flow)` or `proxyToServerAllowMitm(hello)` / `on_client_hello` declines | relayed |
+| A `--quic-hosts` host (whatever its ALPN, `h3` included) | intercepted [stream by stream](#quic-stream-hooks) |
+| ALPN offering `h3` | intercepted as HTTP/3 |
+| Any other ALPN (`doq`, `hq-interop`, a protocol of its own), with a `QuicInterceptor` | intercepted [stream by stream](#quic-stream-hooks) |
+
+`ActivityTracker.transparentQuicFlowDecided` reports each decision (`intercepted` is true for
+both kinds of interception, the reason saying why for stream by stream).
 - **Bounds** (`Http3Options`): new clients held at once (1024, and 32 per client IP address, each
   holding 16 datagrams and 64 KiB at most, all together 8 MiB), how long one may take to send its
   ClientHello and be decided on (5 s), relayed flows (4096, and 256 per client IP address).
@@ -1764,6 +1806,119 @@ firewall in front of the proxy sees each as a flow of its own. A client that mov
 address (QUIC connection migration) is not followed: its datagrams from the new address belong to
 no flow, and are dropped (intercepted connections drop them too, as the QUIC module does not
 migrate connections yet).
+
+#### QUIC stream hooks
+
+QUIC that does not carry HTTP/3 can be intercepted too, stream by stream:
+`withQuicInterceptor(QuicInterceptor)` (or a script's [`on_quic_*`](#quic-hooks) hooks) makes the
+proxy intercept the [transparent QUIC](#transparent-quic) flows, and the QUIC inside
+[CONNECT-UDP flows](#quic-inside-connect-udp-flows) with `--masque-intercept-quic`, whose ALPN
+offers no `h3` (`doq`, `hq-interop`, a protocol of its own), once the other rules allow it, as the
+[TCP hooks](#raw-tcp-streams) do for TLS that carries no HTTP. `withQuicHosts(...)` (`--quic-hosts`,
+`quic_hosts`) names hosts, by regular expressions searched for in the server's host name and the
+SNI, whose QUIC is relayed this way whatever its ALPN: their HTTP/3 too, which filters and frame
+hooks then do not see, and their other QUIC even without an interceptor.
+
+```java
+MicroProxy.bootstrap()
+        .withTransparent(true)
+        .withTransparentQuicPort(8443)
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withQuicHosts("^quic\\.example\\.com$")                         // --quic-hosts, quic_hosts
+        .withQuicInterceptor(new QuicInterceptor() {
+            @Override
+            public void quicStart(QuicContext ctx) {
+                log("QUIC " + ctx.alpn() + " to " + ctx.host() + ":" + ctx.port() + " (" + ctx.sni() + ")");
+            }
+
+            @Override
+            public byte[] streamData(QuicStreamMessage msg, QuicStreamContext stream) {
+                return stream.clientInitiated() && !msg.fromClient()
+                        ? msg.text().replace("secret", "******").getBytes(UTF_8) : msg.data();
+            }
+
+            @Override
+            public byte[] datagram(QuicDatagram datagram, QuicContext ctx) {
+                return datagram.length() > 1000 ? null : datagram.data();   // drop large ones
+            }
+        })
+        .start();
+```
+
+- **Pairing the connections.** The proxy first connects to the server, from a UDP socket of the
+  flow's own, with the client's SNI and ALPN protocols, validating the server as it validates
+  [HTTP/3 servers](#http3-to-servers) (the MITM manager's server trust). Then it completes the
+  client's handshake with a certificate its CA issues for the SNI, choosing the protocol the
+  server chose, and taking DATAGRAM frames only when the server does. A server that cannot be
+  reached drops the flow, as a relay that cannot be made does.
+- **Streams.** Each stream one side opens, bidirectional or unidirectional, is opened on the
+  other connection when the peers' stream limits allow it, in order, so the stream IDs on both
+  connections are usually the same (`QuicStreamContext.streamId()` is the client's,
+  `serverStreamId()` the server's). The hooks: `quicStart`; `streamOpened`; `streamData` for the
+  bytes of each read, which returns the bytes to pass on (`msg.data()` as it is or changed in
+  place, others, or `null` or an empty array to drop them); `streamFinished` before a FIN is passed
+  on; `streamReset` (RESET_STREAM, passed on with its code) and `streamStopped` (STOP_SENDING:
+  the other side is asked the same, and the stream reset towards the side that asked); `datagram`
+  for each datagram, which returns the payload or `null`; then `quicEnd`, or `quicError` when a
+  connection timed out, was reset or failed with a transport error, never both. When one side
+  closes its connection, the other is closed with the same application error code and reason.
+- **Adding data.** `QuicStreamContext.send(fromClient, bytes)` writes bytes to a stream as if that
+  side had sent them, after the message being handled when called from a `streamData` of the same
+  direction; `QuicContext.sendDatagram(fromClient, bytes)` sends a datagram. Neither passes
+  through the hooks.
+- **Messages.** A stream is a byte stream, as TCP is: a `QuicStreamMessage` is whatever one read
+  returned (at most 16 KiB), so a peer's write may show up in pieces, or joined with the next one.
+  Hooks that look for a protocol's messages keep the start of one until its end arrives.
+- **Flow control.** End to end: each direction of each stream is read only as fast as the other
+  side takes the bytes, so QUIC's flow control holds a fast sender back while a slow receiver
+  reads, and the proxy keeps at most one read per direction. The proxy's receive windows are
+  HTTP/3's (`Http3Options.streamReceiveWindow`, `connectionReceiveWindow`).
+- **Threads.** Each direction of each stream, and of datagrams, has a virtual thread of its own:
+  the interceptor must be thread-safe; within one direction of one stream, calls come in order.
+  The context names the client connection (`connectionId`, `clientAddress`, `flowContext`), the
+  server (`host`, `port`, `serverAddress`), `sni`, `alpn` and `masque()`.
+
+#### QUIC inside CONNECT-UDP flows
+
+With `--masque-intercept-quic` (`Http3Options.Builder.connectUdpInterceptQuic(true)`,
+`masque_intercept_quic=true`), the QUIC that a [MASQUE client](#connect-udp-masque) sends through
+a CONNECT-UDP flow is decided on as [transparent QUIC](#transparent-quic) is, with the flow's
+target as the server, instead of being relayed as any UDP:
+
+- **Which flows.** Those to a UDP port of `--masque-quic-ports` (`connectUdpQuicPorts`,
+  `masque_quic_ports`; 443 by default, `any` for every port) whose first datagram from the client
+  is a QUIC Initial. Other flows, and flows whose first datagram is something else, are relayed as
+  before, through the [UDP hooks](#udp-hooks).
+- **Deciding.** The proxy holds the flow's datagrams, reads the ClientHello from its Initials,
+  and runs the [same decision](#transparent-quic): a `CONNECT target` is made up for it, the
+  [ignore and allow rules](#ignoring-and-allowing-hosts) apply to the target and the SNI, then
+  the ALPN, `shouldIntercept` and `on_client_hello`. The MASQUE client's CONNECT-UDP request was
+  authenticated already, so the inner flow is not asked again, and its client connection has the
+  MASQUE client's address and user.
+- **Intercepted.** HTTP/3 is served as HTTP/3, its requests going to the target (by the SNI's
+  name when the target is an IP address, so that the server's certificate is checked against it,
+  at the target's address): filters, scripts (`on_request`, `on_frame`, ...) and trackers see
+  them, with `FlowContext.isTransparentQuic()` true. Other QUIC goes through the
+  [QUIC stream hooks](#quic-stream-hooks), with `QuicContext.masque()` true. The proxy's
+  replies travel back in the flow, as HTTP Datagrams or capsules.
+- **Relayed.** An ignored or declined host, or QUIC that is not intercepted, goes to the target
+  from the flow's own socket, the held datagrams first, as without the option.
+- **How.** A virtual listener: the transparent listener's per-flow logic (`QuicFlows`) over a
+  QUIC server without a socket (`QuicServer.unbound`), fed the flows' datagrams under addresses
+  it makes up for each flow, and handing its replies back to the flows.
+
+```java
+MicroProxy.bootstrap()
+        .withSslContextSource(new KeyStoreSslContextSource(Path.of("proxy.p12"), password))
+        .withHttp3(true)
+        .withManInTheMiddle(new CertificateAuthorityMitmManager(ca))
+        .withHttp3Options(Http3Options.builder()
+                .connectUdpInterceptQuic(true)                           // --masque-intercept-quic
+                .connectUdpQuicPorts(443, 8443)                          // --masque-quic-ports 443,8443
+                .build())
+        .withIgnoreHosts("\\.bank\\.example:443$")                         // relayed untouched
+        .start();
+```
 
 #### Alt-Svc: which clients may move to HTTP/3
 
@@ -1807,8 +1962,8 @@ HTTP/2 clients only as `Alt-Svc` headers, which are stripped the same way.
 #### HTTP/3 frame interception
 
 The [frame interceptor](#frame-interception) sees HTTP/3 frames live wherever the proxy speaks
-HTTP/3: `FROM_CLIENT` and `TO_CLIENT` on the reverse proxy's HTTP/3 listener and on intercepted
-transparent QUIC, `TO_SERVER` and `FROM_SERVER` on connections to HTTP/3 servers, with the
+HTTP/3: `FROM_CLIENT` and `TO_CLIENT` on the reverse proxy's HTTP/3 listener, on intercepted
+transparent QUIC and on HTTP/3 intercepted inside CONNECT-UDP flows, `TO_SERVER` and `FROM_SERVER` on connections to HTTP/3 servers, with the
 stream's QUIC id and, from a stream's
 first frame on, its exchange's `FlowContext`. `Http3Frame` has `Data`, `Headers`, `Settings`,
 `GoAway`, `CancelPush`, `MaxPushId`, `PushPromise` and `Unknown`. The rules are HTTP/2's,
@@ -1838,14 +1993,19 @@ pipeline.requestStream(0, requestStream, rewritten);      // HEADERS, DATA, trai
 
 #### Limitations and what is next
 
-- **Transparent QUIC** intercepts HTTP/3 only: other QUIC protocols are relayed, and its
-  original destination is the SNI's host (no TPROXY, no `SO_ORIGINAL_DST`). Clients of an
-  explicit proxy are still steered to TCP, unless they use the forward proxy's HTTP/3 listener.
-- **MASQUE.** QUIC inside a CONNECT-UDP flow is relayed, not intercepted (the transparent QUIC
-  machinery would need a flow's datagrams instead of a socket's), so the ignore and allow host
-  rules, which decide interception, do not apply to UDP flows yet. CONNECT-UDP to an upstream
-  MASQUE proxy (HTTP/3 chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are
-  not done.
+- **Transparent QUIC**'s original destination is the SNI's host (no TPROXY, no
+  `SO_ORIGINAL_DST`). Clients of an explicit proxy are still steered to TCP, unless they use the
+  forward proxy's HTTP/3 listener.
+- **QUIC stream hooks.** Streams are paired as they open, so the hooks cannot open streams of
+  their own, nor see QUIC frames (only stream bytes and datagrams). The server's handshake comes
+  before the client's, so a server that is slow to answer delays the client's, which may
+  retransmit its Initials meanwhile; one that cannot be reached drops the flow rather than relay
+  it. 0-RTT is not offered, as the QUIC module has none.
+- **MASQUE.** QUIC inside a CONNECT-UDP flow is intercepted only with `--masque-intercept-quic`,
+  and a flow is inspected from its first datagram: one that starts with anything but a QUIC
+  Initial is relayed as UDP throughout, and once one of its QUIC connections is relayed, so is the
+  rest of the flow. QUIC that moves between flows (connection migration) is not followed. CONNECT-UDP to an upstream MASQUE proxy (HTTP/3
+  chained proxies), CONNECT-UDP over HTTP/2 and HTTP/1.1, and CONNECT-IP are not done.
 - Server push (never requested: the proxy sends no MAX_PUSH_ID).
 - From the QUIC module: 0-RTT and session resumption, connection migration (see its
   [README](quic/README.md)).
@@ -2219,6 +2379,7 @@ bootstrap.start();
 | `on_frame(frame, ctx)` | for each HTTP/2 and HTTP/3 frame, in each direction and on each side, when the script defines it (see [Frames](#frames)); and for HTTP/3 frames run through an `Http3FramePipeline` | `None` (or the frame) to pass the frame on with any changes, `False` to drop it, another frame to replace it, or a list of frames to replace it with |
 | `on_tcp_start(ctx)`, `on_tcp_message(msg, ctx)`, `on_tcp_end(ctx)` | for raw TCP tunnels, when the script defines one of them (see [Raw TCP](#tcp-hooks)): when a tunnel opens, for the bytes of each read, and when it ends | `on_tcp_message`: `None` (or `True`, or the message) to pass the bytes on with any changes, `False` to drop them, or bytes, a string or another message to replace them |
 | `on_udp_start(ctx)`, `on_udp_message(msg, ctx)`, `on_udp_end(ctx)` | for CONNECT-UDP flows, when the script defines one of them (see [UDP](#udp-hooks)): when a flow opens, for each datagram, and when it ends | `on_udp_message`: as `on_tcp_message`, for one datagram |
+| `on_quic_start(ctx)`, `on_quic_stream_data(msg, ctx)`, `on_quic_datagram(msg, ctx)`, `on_quic_end(ctx)` | for QUIC that is not HTTP/3, intercepted stream by stream, when the script defines one of them (see [QUIC](#quic-hooks)): when a connection is intercepted, for the bytes of each read of a stream, for each datagram, and when it ends | `on_quic_stream_data`: as `on_tcp_message`; `on_quic_datagram`: as `on_udp_message` |
 | `authenticate(req, ctx)` | before the other hooks, for requests and `CONNECT`s from clients that have not authenticated (every request with `AUTHENTICATE_EVERY_REQUEST = True`); only when the script is the proxy authenticator | the user name or `True` to accept; `False` or `None` for the default `407`; `response(...)` to reject with that answer |
 
 **Objects.**
@@ -2783,11 +2944,45 @@ def on_udp_message(msg, ctx):
         return msg.text + " (via MicroProxy)"
 ```
 
+<a id="quic-hooks"></a>**QUIC.** A script that defines `on_quic_start(ctx)`, `on_quic_stream_data(msg,
+ctx)`, `on_quic_datagram(msg, ctx)` or `on_quic_end(ctx)` sees the streams and datagrams of QUIC
+that the proxy intercepts without speaking its protocol ([QUIC stream hooks](#quic-stream-hooks)).
+`--script` installs the QUIC interceptor only when the script defines one of these hooks when it
+loads, and only then is QUIC that offers no HTTP/3 intercepted rather than relayed (from Java:
+`bootstrap.withQuicInterceptor(script.quicInterceptor())` when `script.definesQuicHooks()`).
+
+- `msg`: a `QuicMessage`, with the fields, methods and results of a `TcpMessage`: the bytes of
+  one read of a stream for `on_quic_stream_data` (a stream has no message boundaries either), one
+  datagram for `on_quic_datagram`.
+- `ctx`: a `QuicContext`: `connection_id`, `client_ip`, `client_port`, `host`, `port`, `server`,
+  `address` (where the proxy connected), `sni`, `alpn`, `masque` (whether the QUIC came inside a
+  CONNECT-UDP flow), `vars`, a dict that lives as long as the connection and that its streams
+  share, and `error` in `on_quic_end` after a failure. In `on_quic_stream_data`, `stream_id` (on
+  the client's connection), `bidirectional` and `client_initiated` name the stream (`None`
+  elsewhere), and `ctx.send(from_client, data)` adds bytes to it. `ctx.send_datagram(from_client,
+  data)` adds a datagram.
+- The hooks of one connection run one at a time, though its streams are read concurrently. A
+  failing hook is logged and the bytes passed on unchanged.
+
+```python
+def on_quic_start(ctx):
+    log.info("QUIC %s to %s for %s" % (ctx.alpn, ctx.server, ctx.client_ip))
+
+def on_quic_stream_data(msg, ctx):
+    # A stream is a byte stream, as TCP is: a message is whatever one read returned.
+    if not msg.from_client and msg.text != None:
+        return msg.text.replace("secret", "******")
+
+def on_quic_datagram(msg, ctx):
+    if msg.from_client and msg.text == "blocked":
+        return False
+```
+
 **Typed scripts.** Scripts may use Starlark's type annotations, which are checked when the
 script loads and again on each call. Unannotated code is not checked, so annotations can be added
 one function at a time. The proxy's objects are named `Request`, `Response`, `Headers`,
 `Context`, `WebSocketFrame`, `WebSocketMessage`, `Failure`, `Timings`, `Frame`, `FrameContext`,
-`TcpMessage`, `TcpContext`, `UdpMessage` and `UdpContext`:
+`TcpMessage`, `TcpContext`, `UdpMessage`, `UdpContext`, `QuicMessage` and `QuicContext`:
 
 ```python
 ALLOWED: list[str] = ["example.com", "example.org"]
@@ -3093,7 +3288,8 @@ is relayed decrypted. TLS is still intercepted, unlike with `--ignore-hosts`.
 one shared as an HTTP/2 connection, a pooled one or none at all (offline interception) leaves it
 served as HTTP. Bytes added with `send` do not pass through `tcpMessage`, unlike mitmproxy's
 injected messages. UDP flows ([CONNECT-UDP](#connect-udp-masque)) have hooks of their own,
-`withUdpInterceptor`.
+`withUdpInterceptor`, and so do the streams of intercepted QUIC, `withQuicInterceptor`
+([QUIC stream hooks](#quic-stream-hooks)).
 
 ### Access logs
 

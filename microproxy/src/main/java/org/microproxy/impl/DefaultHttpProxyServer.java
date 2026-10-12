@@ -41,6 +41,7 @@ import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.SslContextSource;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
@@ -63,6 +64,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final HostRules hostRules;
     /** Hosts relayed as raw TCP even when they look like HTTP; null when there are none. */
     final TcpHosts tcpHosts;
+    /** Hosts whose intercepted QUIC is relayed stream by stream whatever its ALPN; null when there are none. */
+    final TcpHosts quicHosts;
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     final ReverseProxyMode reverseProxy;
     final boolean keepHostHeader;
@@ -135,6 +138,10 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final TcpInterceptor tcpInterceptor;
     /** The UDP hooks of CONNECT-UDP flows, or null. */
     final UdpInterceptor udpInterceptor;
+    /** The hooks of QUIC intercepted stream by stream (see {@link QuicInterceptor}), or null. */
+    final QuicInterceptor quicInterceptor;
+    /** Decides on the QUIC inside CONNECT-UDP flows; null unless {@link Http3Options#connectUdpInterceptQuic()}. */
+    private volatile MasqueQuic masqueQuic;
     /** The template CONNECT-UDP requests name their targets with; null unless a forward proxy serves HTTP/3. */
     final ConnectUdpTemplate connectUdpTemplate;
     /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
@@ -157,6 +164,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      * Ticketer}, typed so that the class loads without the module), made on first use.
      */
     volatile Object quicTicketer;
+    /**
+     * The anti-replay record of the proxy's QUIC servers (a quic {@code EarlyDataPolicy}), which
+     * all of them share as they share the ticket key, so that a ticket's early data is accepted
+     * once in all; made on first use.
+     */
+    volatile Object quicEarlyDataPolicy;
     /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
     volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -196,6 +209,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparentTlsPort = b.transparentTlsPort;
         this.hostRules = HostRules.of(b.ignoreHosts, b.allowHosts);
         this.tcpHosts = TcpHosts.of(b.tcpHosts);
+        this.quicHosts = TcpHosts.of(b.quicHosts);
         this.reverseProxy = b.reverseProxy;
         this.keepHostHeader = b.keepHostHeader;
         if ((b.socksServer || b.socksDetection) && (b.reverseProxy != null || b.sslContextSource != null)) {
@@ -248,6 +262,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.frameInterceptor = b.frameInterceptor;
         this.tcpInterceptor = b.tcpInterceptor;
         this.udpInterceptor = b.udpInterceptor;
+        this.quicInterceptor = b.quicInterceptor;
         this.connectUdpTemplate = b.http3 && b.reverseProxy == null
                 ? ConnectUdpTemplate.parse(b.http3Options.connectUdpTemplate()) : null;
         // Created only when enabled: the class needs the codec.
@@ -357,6 +372,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
             }
             LOG.log(Level.INFO, "{0} serving HTTP/3 on UDP {1}", name, http3Listener.localAddress());
+            if (connectUdpTemplate != null && http3Options.connectUdpInterceptQuic()) {
+                masqueQuic = new MasqueQuic(this, transparentQuicKeys(mitmManager));
+            }
         }
         if (transparentQuicPort >= 0) {
             InetSocketAddress udp = new InetSocketAddress(boundAddress.getAddress(), transparentQuicPort);
@@ -432,6 +450,28 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             quic.close();
             connection.endTransparentQuic(false);
         }
+    }
+
+    /**
+     * Serves a connection intercepted stream by stream (transparent QUIC, or QUIC inside a
+     * CONNECT-UDP flow), with the client connection that decided on it and its server connection.
+     */
+    void acceptQuicStreams(io.github.mahmoudimus.quic.QuicConnection quic, ClientConnection connection,
+            QuicSession.Upstream upstream, boolean masque) {
+        connections.add(connection);
+        try {
+            executor.execute(() -> connection.serveQuicStreams(quic, upstream, masque));
+        } catch (RuntimeException e) {
+            connections.remove(connection);
+            quic.close();
+            upstream.close();
+            connection.endTransparentQuic(false);
+        }
+    }
+
+    /** What decides on the QUIC inside CONNECT-UDP flows, or null when such QUIC is relayed. */
+    MasqueQuic masqueQuic() {
+        return masqueQuic;
     }
 
     /** The transparent QUIC listener, or null without one (for tests). */
@@ -542,6 +582,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             if (listener != null) listener.close();
             TransparentQuicListener quicListener = transparentQuicListener;
             if (quicListener != null) quicListener.close();
+            MasqueQuic masque = masqueQuic;
+            if (masque != null) masque.close();
             if (http2Origins != null) http2Origins.closeAll();
             if (http3Origins != null) http3Origins.closeAll();
             if (pool != null) pool.closeAll();

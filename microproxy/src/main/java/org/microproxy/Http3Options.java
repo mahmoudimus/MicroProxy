@@ -1,7 +1,10 @@
 package org.microproxy;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Limits and timers for HTTP/3 ({@link HttpProxyServerBootstrap#withHttp3(boolean)} and {@link
@@ -86,6 +89,8 @@ public final class Http3Options {
     private final int connectUdpMaxFlowsPerConnection;
     private final int connectUdpMaxQueued;
     private final long connectUdpMaxQueuedBytes;
+    private final boolean connectUdpInterceptQuic;
+    private final Set<Integer> connectUdpQuicPorts;
     private final QuicCongestionControl quicCongestionControl;
 
     private Http3Options(Builder b) {
@@ -119,6 +124,8 @@ public final class Http3Options {
         connectUdpMaxFlowsPerConnection = b.connectUdpMaxFlowsPerConnection;
         connectUdpMaxQueued = b.connectUdpMaxQueued;
         connectUdpMaxQueuedBytes = b.connectUdpMaxQueuedBytes;
+        connectUdpInterceptQuic = b.connectUdpInterceptQuic;
+        connectUdpQuicPorts = b.connectUdpQuicPorts;
         quicCongestionControl = b.quicCongestionControl;
     }
 
@@ -168,6 +175,8 @@ public final class Http3Options {
         b.connectUdpMaxFlowsPerConnection = connectUdpMaxFlowsPerConnection;
         b.connectUdpMaxQueued = connectUdpMaxQueued;
         b.connectUdpMaxQueuedBytes = connectUdpMaxQueuedBytes;
+        b.connectUdpInterceptQuic = connectUdpInterceptQuic;
+        b.connectUdpQuicPorts = connectUdpQuicPorts;
         b.quicCongestionControl = quicCongestionControl;
         return b;
     }
@@ -337,6 +346,16 @@ public final class Http3Options {
         return connectUdpMaxQueuedBytes;
     }
 
+    /** {@return whether QUIC inside CONNECT-UDP flows is decided on as transparent QUIC is, rather than relayed} */
+    public boolean connectUdpInterceptQuic() {
+        return connectUdpInterceptQuic;
+    }
+
+    /** {@return the target ports of the CONNECT-UDP flows whose QUIC is decided on; empty for every port} */
+    public Set<Integer> connectUdpQuicPorts() {
+        return connectUdpQuicPorts;
+    }
+
     /** {@return the congestion controller of the proxy's QUIC connections, to clients and to servers} */
     public QuicCongestionControl quicCongestionControl() {
         return quicCongestionControl;
@@ -360,7 +379,8 @@ public final class Http3Options {
                 + ", connectUdpTemplate=" + connectUdpTemplate + ", connectUdpIdleTimeout=" + connectUdpIdleTimeout
                 + ", connectUdpMaxFlows=" + connectUdpMaxFlows + ", connectUdpMaxFlowsPerConnection="
                 + connectUdpMaxFlowsPerConnection + ", connectUdpMaxQueued=" + connectUdpMaxQueued
-                + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes
+                + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes + ", connectUdpInterceptQuic="
+                + connectUdpInterceptQuic + ", connectUdpQuicPorts=" + connectUdpQuicPorts
                 + ", quicCongestionControl=" + quicCongestionControl + "]";
     }
 
@@ -396,6 +416,8 @@ public final class Http3Options {
         private int connectUdpMaxFlowsPerConnection = 64;
         private int connectUdpMaxQueued = 128;
         private long connectUdpMaxQueuedBytes = 512 * 1024;
+        private boolean connectUdpInterceptQuic;
+        private Set<Integer> connectUdpQuicPorts = Set.of(443);
         private QuicCongestionControl quicCongestionControl = QuicCongestionControl.CUBIC;
 
         private Builder() {}
@@ -773,6 +795,42 @@ public final class Http3Options {
             connectUdpMaxQueued = positive(datagrams, "connectUdpMaxQueued");
             if (bytes < 65_527) throw new IllegalArgumentException("connectUdpMaxQueuedBytes below 65527: " + bytes);
             connectUdpMaxQueuedBytes = bytes;
+            return this;
+        }
+
+        /**
+         * Whether QUIC inside CONNECT-UDP flows is decided on as {@linkplain
+         * org.microproxy.HttpProxyServerBootstrap#withTransparentQuicPort transparent QUIC} is
+         * (default false: relayed as any UDP). A flow to one of the {@linkplain #connectUdpQuicPorts
+         * QUIC ports} whose first datagram from the client is a QUIC Initial has its ClientHello
+         * read, then goes through the same rules, with the flow's target as the server: HTTP/3 is
+         * served as HTTP/3 (filters and frame hooks see its requests), other protocols through the
+         * {@linkplain org.microproxy.quic.QuicInterceptor QUIC hooks}, and an ignored or declined
+         * host is relayed as before. The ignore and allow host rules then apply to such flows.
+         *
+         * @param intercept whether to decide on QUIC inside CONNECT-UDP flows
+         * @return this builder
+         */
+        public Builder connectUdpInterceptQuic(boolean intercept) {
+            connectUdpInterceptQuic = intercept;
+            return this;
+        }
+
+        /**
+         * The target ports of the CONNECT-UDP flows whose QUIC {@link #connectUdpInterceptQuic} decides
+         * on (default 443); none for every port.
+         *
+         * @param ports the UDP ports, from 1 to 65535
+         * @return this builder
+         * @throws IllegalArgumentException if a port is out of range
+         */
+        public Builder connectUdpQuicPorts(int... ports) {
+            Set<Integer> set = new TreeSet<>();
+            for (int port : ports) {
+                if (port < 1 || port > 65535) throw new IllegalArgumentException("not a UDP port: " + port);
+                set.add(port);
+            }
+            connectUdpQuicPorts = Collections.unmodifiableSet(set);
             return this;
         }
 

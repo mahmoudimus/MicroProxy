@@ -63,6 +63,24 @@ public final class QuicServer implements AutoCloseable {
         boolean filter(InetSocketAddress from, ByteBuffer datagram);
     }
 
+    /**
+     * Where an {@linkplain #unbound unbound} server's datagrams go: the transport it runs over
+     * instead of a socket.
+     */
+    @FunctionalInterface
+    public interface DatagramSink {
+
+        /**
+         * Called for each datagram the server sends, from its connections' threads (several at
+         * once) and from threads that hand it datagrams (its answers, such as Version
+         * Negotiation): it should not block for long.
+         *
+         * @param datagram the datagram, between its position and limit; the sink may keep it
+         * @param to the receiver
+         */
+        void send(ByteBuffer datagram, InetSocketAddress to);
+    }
+
     private final EndpointDriver driver;
 
     private QuicServer(EndpointDriver driver) {
@@ -114,6 +132,40 @@ public final class QuicServer implements AutoCloseable {
     }
 
     /**
+     * A server without a socket, for QUIC over another transport: its owner hands it the
+     * datagrams it receives ({@link #receive}), and it hands those it sends to {@code sink}. It has
+     * no thread of its own besides its connections'. Path MTU discovery stays off.
+     *
+     * @param local the address the server reports as its own ({@link #localAddress()})
+     * @param config how to accept connections
+     * @param endpointConfig the endpoint settings: connection IDs, reset key, versions
+     * @param filter what sees datagrams for no known connection before the endpoint, or null
+     * @param sink where the server's datagrams go
+     * @return the server
+     */
+    public static QuicServer unbound(InetSocketAddress local, ServerConfig config, EndpointConfig endpointConfig,
+            DatagramFilter filter, DatagramSink sink) {
+        Objects.requireNonNull(local, "local");
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(endpointConfig, "endpointConfig");
+        Objects.requireNonNull(sink, "sink");
+        return new QuicServer(new EndpointDriver(local, endpointConfig, config, "quic-server", filter, sink));
+    }
+
+    /**
+     * Hands the server a datagram as if its socket had received it: to the connection it belongs
+     * to, else past the {@linkplain DatagramFilter filter} to the endpoint. For an {@linkplain
+     * #unbound unbound} server, this is how datagrams arrive; datagrams handed over from one thread
+     * are routed in order. Does nothing once the server is closed.
+     *
+     * @param from the datagram's sender
+     * @param datagram the datagram, between its position and limit; the server keeps it
+     */
+    public void receive(InetSocketAddress from, ByteBuffer datagram) {
+        driver.receive(Objects.requireNonNull(from, "from"), Objects.requireNonNull(datagram, "datagram"));
+    }
+
+    /**
      * Routes a datagram the {@linkplain DatagramFilter filter} took as if it had just arrived,
      * without asking the filter again: a client's first Initial starts a connection. Datagrams
      * injected from one thread are routed in order. Does nothing once the server is closed.
@@ -122,12 +174,27 @@ public final class QuicServer implements AutoCloseable {
      * @param datagram the datagram, between its position and limit; the server keeps it
      */
     public void inject(InetSocketAddress from, ByteBuffer datagram) {
-        driver.inject(Objects.requireNonNull(from, "from"), Objects.requireNonNull(datagram, "datagram"));
+        inject(from, datagram, null);
     }
 
     /**
-     * Sends a datagram from the server's socket, as its connections do: for replies on behalf of
-     * other uses of the port.
+     * Routes a datagram the {@linkplain DatagramFilter filter} took, as {@link #inject(InetSocketAddress,
+     * ByteBuffer)} does, accepting a connection it starts with {@code config} instead of the
+     * server's own configuration: its certificates, ALPN, transport parameters and Retry. A
+     * client's datagrams after the first reach the connection by its connection IDs, whatever
+     * configuration they are injected with.
+     *
+     * @param from the datagram's sender
+     * @param datagram the datagram, between its position and limit; the server keeps it
+     * @param config how to accept a connection the datagram starts, or null for the server's own
+     */
+    public void inject(InetSocketAddress from, ByteBuffer datagram, ServerConfig config) {
+        driver.inject(Objects.requireNonNull(from, "from"), Objects.requireNonNull(datagram, "datagram"), config);
+    }
+
+    /**
+     * Sends a datagram from the server's socket (an unbound server's sink), as its connections do:
+     * for replies on behalf of other uses of the port.
      *
      * @param datagram the datagram, between its position and limit
      * @param to the receiver
@@ -162,7 +229,7 @@ public final class QuicServer implements AutoCloseable {
     }
 
     /**
-     * The address the server is bound to.
+     * The address the server is bound to (an unbound server's own address, as given).
      *
      * @return the address, with the actual port
      */

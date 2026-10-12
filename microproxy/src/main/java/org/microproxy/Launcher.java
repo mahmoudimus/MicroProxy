@@ -133,6 +133,9 @@ public final class Launcher {
               --tcp-hosts <regex>          relay matching hosts (target host or SNI) as raw TCP even
                                            when they look like HTTP; TLS is still intercepted;
                                            repeatable
+              --quic-hosts <regex>         relay matching hosts' intercepted QUIC (server host or
+                                           SNI) stream by stream through the QUIC hooks, even
+                                           HTTP/3, and intercept their other QUIC; repeatable
               --http2                      serve HTTP/2 on intercepted TLS and the proxy TLS listener;
                                            needs the http2-codec jar on the class path
               --http2-upstream             speak HTTP/2 to servers that offer it over TLS (ALPN
@@ -166,10 +169,15 @@ public final class Launcher {
               --masque-max-udp-flows <n>   CONNECT-UDP flows at once (default 4096)
               --masque-max-udp-flows-per-connection <n>  CONNECT-UDP flows of one client connection
                                            (default 64)
+              --masque-intercept-quic      decide on QUIC inside CONNECT-UDP flows as on transparent
+                                           QUIC: intercept HTTP/3 (and other QUIC with the QUIC
+                                           hooks) unless the host rules or hooks decline, else relay
+              --masque-quic-ports <list>   the target ports whose flows --masque-intercept-quic
+                                           inspects: comma-separated, or "any" (default 443)
               --http3-0rtt                 accept 0-RTT early data from resuming HTTP/3 clients
-                                           (--http3 and --transparent-quic-port): replayable, so
-                                           unsafe methods get 425 and the rest go on with
-                                           Early-Data: 1
+                                           (--http3, --transparent-quic-port and
+                                           --masque-intercept-quic): replayable, so unsafe methods
+                                           get 425 and the rest go on with Early-Data: 1
               --no-http3-upstream-0rtt     never send requests to HTTP/3 servers as 0-RTT data (by
                                            default GET, HEAD and OPTIONS without a body may go)
               --quic-congestion <name>     congestion control of the proxy's QUIC connections:
@@ -316,6 +324,8 @@ public final class Launcher {
         long masqueIdleSeconds = 0;
         int masqueMaxFlows = 0;
         int masqueMaxFlowsPerConnection = 0;
+        boolean masqueInterceptQuic = false;
+        int[] masqueQuicPorts = null;
         Http3Options.QuicCongestionControl quicCongestion = null;
         List<String> http3UpstreamHosts = new ArrayList<>();
         Path listenerKeystore = null;
@@ -324,6 +334,7 @@ public final class Launcher {
         List<String> ignoreHosts = new ArrayList<>();
         List<String> allowHosts = new ArrayList<>();
         List<String> tcpHosts = new ArrayList<>();
+        List<String> quicHosts = new ArrayList<>();
         String caPassword = "microproxy";
         Path saveHar = null;
         String saveHarFilter = null;
@@ -492,6 +503,7 @@ public final class Launcher {
                 case "--ignore-hosts" -> ignoreHosts.add(value(queue, arg));
                 case "--allow-hosts" -> allowHosts.add(value(queue, arg));
                 case "--tcp-hosts" -> tcpHosts.add(value(queue, arg));
+                case "--quic-hosts" -> quicHosts.add(value(queue, arg));
                 case "--http2" -> bootstrap.withHttp2(true);
                 case "--http2-upstream" -> bootstrap.withHttp2Upstream(true);
                 case "--http2-cleartext" -> bootstrap.withHttp2Cleartext(true);
@@ -506,6 +518,8 @@ public final class Launcher {
                 case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
                 case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
                 case "--masque-max-udp-flows-per-connection" -> masqueMaxFlowsPerConnection = intValue(queue, arg);
+                case "--masque-intercept-quic" -> masqueInterceptQuic = true;
+                case "--masque-quic-ports" -> masqueQuicPorts = ports(value(queue, arg), arg);
                 case "--http3-0rtt" -> http3ZeroRtt = true;
                 case "--no-http3-upstream-0rtt" -> noHttp3UpstreamZeroRtt = true;
                 case "--quic-congestion" -> quicCongestion = Http3Options.QuicCongestionControl.parse(value(queue, arg));
@@ -521,6 +535,7 @@ public final class Launcher {
         if (!ignoreHosts.isEmpty()) bootstrap.withIgnoreHosts(ignoreHosts.toArray(String[]::new));
         if (!allowHosts.isEmpty()) bootstrap.withAllowHosts(allowHosts.toArray(String[]::new));
         if (!tcpHosts.isEmpty()) bootstrap.withTcpHosts(tcpHosts.toArray(String[]::new));
+        if (!quicHosts.isEmpty()) bootstrap.withQuicHosts(quicHosts.toArray(String[]::new));
         if (upstream != null || upstreamHttps != null) {
             bootstrap.withChainProxyManager(
                     new UpstreamProxyManager(upstream, upstreamHttps, NoProxyRules.parse(noProxy)));
@@ -546,8 +561,11 @@ public final class Launcher {
         }
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
                 || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null
-                || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0) {
+                || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0 || masqueInterceptQuic
+                || masqueQuicPorts != null) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
+            if (masqueInterceptQuic) h3.connectUdpInterceptQuic(true);
+            if (masqueQuicPorts != null) h3.connectUdpQuicPorts(masqueQuicPorts);
             if (http3MaxStreams > 0) h3.maxConcurrentStreams(http3MaxStreams);
             if (noHttp3AltSvc) h3.altSvc(false);
             if (http3Retry) h3.retry(true);
@@ -688,6 +706,22 @@ public final class Launcher {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(option + " needs a number, got: " + v);
         }
+    }
+
+    /** UDP ports, comma-separated, or {@code any} for every port (none). */
+    private static int[] ports(String list, String option) {
+        String trimmed = list.strip();
+        if (trimmed.equalsIgnoreCase("any")) return new int[0];
+        String[] parts = trimmed.split(",");
+        int[] ports = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                ports[i] = Integer.parseInt(parts[i].strip());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(option + " needs ports (443,8443) or any, got: " + list);
+            }
+        }
+        return ports;
     }
 
     private static long longValue(Deque<String> queue, String option) {

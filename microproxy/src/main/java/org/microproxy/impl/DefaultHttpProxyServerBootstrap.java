@@ -42,6 +42,7 @@ import org.microproxy.extras.ConcurrencyLimiter;
 import org.microproxy.extras.HttpLogger;
 import org.microproxy.extras.LogFormat;
 import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.quic.QuicInterceptor;
 import org.microproxy.tcp.TcpInterceptor;
 import org.microproxy.udp.UdpInterceptor;
 
@@ -71,6 +72,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     List<String> ignoreHosts = List.of();
     /** Hosts relayed as raw TCP even when they look like HTTP (mitmproxy's tcp_hosts). */
     List<String> tcpHosts = List.of();
+    List<String> quicHosts = List.of();
     List<String> allowHosts = List.of();
     /** The fixed upstream in reverse proxy mode; null for a forward proxy. */
     ReverseProxyMode reverseProxy;
@@ -131,6 +133,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Sees the bytes of raw TCP tunnels; null for none. */
     TcpInterceptor tcpInterceptor;
     UdpInterceptor udpInterceptor;
+    QuicInterceptor quicInterceptor;
 
     DefaultHttpProxyServerBootstrap() {}
 
@@ -153,6 +156,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.transparentQuicPort = transparentQuicPort;
         c.ignoreHosts = ignoreHosts;
         c.tcpHosts = tcpHosts;
+        c.quicHosts = quicHosts;
         c.allowHosts = allowHosts;
         c.reverseProxy = reverseProxy;
         c.keepHostHeader = keepHostHeader;
@@ -199,6 +203,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.frameInterceptor = frameInterceptor;
         c.tcpInterceptor = tcpInterceptor;
         c.udpInterceptor = udpInterceptor;
+        c.quicInterceptor = quicInterceptor;
         return c;
     }
 
@@ -237,6 +242,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         if (p.containsKey("tcp_hosts")) {
             withTcpHosts(HostRules.split(p.getProperty("tcp_hosts")).toArray(String[]::new));
+        }
+        if (p.containsKey("quic_hosts")) {
+            withQuicHosts(HostRules.split(p.getProperty("quic_hosts")).toArray(String[]::new));
         }
         if (p.containsKey("mode")) {
             String mode = p.getProperty("mode").strip();
@@ -347,8 +355,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 || p.containsKey("http3_0rtt") || p.containsKey("http3_upstream_0rtt")
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
                 || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
-                || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection")) {
+                || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
+                || p.containsKey("masque_quic_ports")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
+            if (p.containsKey("masque_intercept_quic")) h3.connectUdpInterceptQuic(bool(p, "masque_intercept_quic"));
+            if (p.containsKey("masque_quic_ports")) h3.connectUdpQuicPorts(parsePorts(p.getProperty("masque_quic_ports")));
             if (p.containsKey("masque_udp_template")) h3.connectUdpTemplate(p.getProperty("masque_udp_template").strip());
             if (p.containsKey("masque_udp_idle_timeout")) {
                 h3.connectUdpIdleTimeout(Duration.ofSeconds(Long.parseLong(p.getProperty("masque_udp_idle_timeout").strip())));
@@ -611,6 +622,35 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withQuicHosts(String... patterns) {
+        List<String> rules = List.of(patterns);
+        HostRules.compile(rules);
+        this.quicHosts = rules;
+        return this;
+    }
+
+    /**
+     * The UDP ports of a comma-separated list ({@code 443,8443}), as {@code masque_quic_ports} and
+     * {@code --masque-quic-ports} give them; {@code any} (or nothing) for every port.
+     *
+     * @throws IllegalArgumentException if an entry is not a port
+     */
+    static int[] parsePorts(String list) {
+        String trimmed = list.strip();
+        if (trimmed.isEmpty() || trimmed.equalsIgnoreCase("any")) return new int[0];
+        String[] parts = trimmed.split(",");
+        int[] ports = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                ports[i] = Integer.parseInt(parts[i].strip());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("not a UDP port: " + parts[i].strip());
+            }
+        }
+        return ports;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withReverseProxy(ReverseProxyMode mode) {
         this.reverseProxy = mode;
         return this;
@@ -818,6 +858,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     @Override
     public UdpInterceptor getUdpInterceptor() {
         return udpInterceptor;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withQuicInterceptor(QuicInterceptor interceptor) {
+        this.quicInterceptor = interceptor;
+        return this;
+    }
+
+    @Override
+    public QuicInterceptor getQuicInterceptor() {
+        return quicInterceptor;
     }
 
     @Override

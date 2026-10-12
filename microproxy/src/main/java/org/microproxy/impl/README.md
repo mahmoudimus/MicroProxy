@@ -10,8 +10,10 @@ ClientConnection.run / serveRequests     HTTP/1 connection loop   (HTTP/1 only)
         │                                └─ plain listener: preface ──► (frame reader, one thread per stream)
         │                                Http3Listener (UDP) ─────────► ClientConnection.serveHttp3
         │                                                                └► Http3Connection (one thread per stream)
-        │                                TransparentQuicListener (UDP) ► decideTransparentQuic, then
-        │                                                                 serveTransparentQuic (as serveHttp3) or a relay
+        │                                TransparentQuicListener (UDP) ┐
+        │                                MasqueQuic (CONNECT-UDP flows)┴► QuicFlows: decideTransparentQuic, then
+        │                                                                 serveTransparentQuic (as serveHttp3),
+        │                                                                 serveQuicStreams (QuicSession), or a relay
         ▼
 ClientConnection.handleRequest(channel, request)   exchange logic   (any transport)
         │  body, interim responses, response head and body, tunnel, close
@@ -531,15 +533,19 @@ and ends it with the FIN; its writes wait for QUIC's flow control and send windo
 - **Graceful stop.** GOAWAY names the first stream not processed; later streams are refused with
   H3_REQUEST_REJECTED, and the connection closes once its streams are done and the client has
   closed it, or after two seconds.
-- **Resumption and early data.** `Http3Listener.serverConfig` gives both QUIC listeners session
+- **Resumption and early data.** `Http3Listener.serverConfig` gives every QUIC server that
+  serves HTTP/3 (the HTTP/3 listener, the transparent QUIC listener and `MasqueQuic`'s) session
   tickets sealed with the proxy's `Ticketer` (one per `DefaultHttpProxyServer`, `quicTicketer`,
-  typed `Object` so the class loads without the module) and, with `Http3Options.zeroRtt`, 0-RTT.
-  A QUIC server hands out a connection that accepted 0-RTT before its handshake completes, so
-  `serveHttp3` may start on one still handshaking. `readRequest` checks the stream's
-  `receivedEarlyData()`: such a request marks its `ClientFlowContext` (`earlyData`, which
-  `FlowContext.isEarlyData()` and `ctx.early_data` report), gets `425` unless `replaySafe`
-  (`GET`, `HEAD` or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any
-  filter runs. Requests are not held for the handshake.
+  typed `Object` so the class loads without the module) and, with `Http3Options.zeroRtt`, 0-RTT
+  under one anti-replay `EarlyDataPolicy` they share (`quicEarlyDataPolicy`), so that a ticket's
+  early data is accepted once in all. `QuicFlows.streamsConfig`, for QUIC intercepted stream by
+  stream, has no ticketer: no resumption, no 0-RTT. A QUIC server hands out a connection that
+  accepted 0-RTT before its handshake completes, so `serveHttp3` may start on one still
+  handshaking. `readRequest` checks the stream's `receivedEarlyData()`: such a request marks its
+  `ClientFlowContext` (`earlyData`, which `FlowContext.isEarlyData()` and `ctx.early_data`
+  report), gets `425` if it is a `CONNECT` (extended or not) or not `replaySafe` (`GET`, `HEAD`
+  or `OPTIONS` without a body), and otherwise gets `Early-Data: 1` before any filter runs.
+  Requests are not held for the handshake.
 
 `Http3StreamChannel` is `Http2StreamChannel` over QUIC: `clientKeepAlive` true, `adaptFraming`
 drops `Transfer-Encoding`, `setKeepAlive` does nothing, `writeContinue` answers only `Expect:
@@ -604,14 +610,23 @@ On a forward proxy's listener, an extended `CONNECT` with `:protocol connect-udp
   failure resets the stream with H3_CONNECT_ERROR. `end` closes the queues and the socket, once,
   calls `udpEnd`, and the flow is detached from the connection.
 
-## Transparent QUIC: `TransparentQuicListener`
+## Transparent QUIC: `TransparentQuicListener` and `QuicFlows`
 
 With `withTransparentQuicPort`, `DefaultHttpProxyServer.start` binds a `TransparentQuicListener`:
 a `QuicServer` (offering `h3`, with `Http3Listener.serverConfig`, whose certificate selector asks
-the `CertificateAuthorityMitmManager` for the SNI's certificate) given a
-`QuicServer.DatagramFilter`. The QUIC server's receiving thread routes the datagrams of its own
-connections first, by the connection IDs it issued; everything else goes to the listener's
-filter, which keeps flows by client address.
+the `CertificateAuthorityMitmManager` for the SNI's certificate) whose `QuicServer.DatagramFilter`
+is a `QuicFlows`'. The QUIC server's receiving thread routes the datagrams of its own connections
+first, by the connection IDs it issued; everything else goes to `QuicFlows.filter`, which keeps
+flows by client address.
+
+`QuicFlows` holds the per-flow logic, apart from any socket, so that the transparent listener and
+QUIC inside CONNECT-UDP flows (`MasqueQuic`, below) share it. Each flow has an `Origin`, which
+says what the flow's server is (`destination`: the SNI's host on the transparent TLS port for the
+listener, the CONNECT-UDP target for a flow), where it is (`address`), which `ClientConnection`
+decides on it (`connection`), and whether it relays a flow itself (`relay`: a CONNECT-UDP flow
+sends the held datagrams to its target and keeps the rest; the listener's flows get a socket of
+their own, here). `QuicFlows` takes the QUIC server it serves in `start`, after the server exists,
+since the server's filter is its own.
 
 - **Pending.** A client's first Initial (a v1 or v2 long header Initial, in a datagram of 1200
   bytes or more) starts a `Flow` keyed by the client address and the Initial's Destination
@@ -622,12 +637,25 @@ filter, which keeps flows by client address.
   and once the first `4 + length` bytes are there, hands the message to `TlsClientHello.parse`.
   Anything unreadable drops the flow. A datagram of another version, or not QUIC, with no flow
   goes back to the QUIC server, which answers Version Negotiation or drops it.
-- **Deciding**, on a virtual thread per flow: a new `ClientConnection(server, clientAddress)`
-  runs `decideTransparentQuic`, which marks its `ClientFlowContext` (`transparentQuic`), records
-  the ClientHello, reports the client and a made-up `CONNECT sni:transparentTlsPort` to trackers,
-  asks the authenticator, makes the filters (kept as `quicFilters` until the flow ends, for
-  `exchangeEnded`) and applies the same checks as `declineReason`, plus ALPN `h3` and whether a
-  certificate can be issued. It answers `INTERCEPT`, `RELAY` or `DROP`, with why.
+- **Deciding**, on a virtual thread per flow: the origin's `ClientConnection` (a new
+  `ClientConnection(server, clientAddress)` for the listener) runs `decideTransparentQuic`, which
+  marks its `ClientFlowContext` (`transparentQuic`), records the ClientHello, reports the client
+  and a made-up `CONNECT` to the origin's destination to trackers, asks the authenticator (unless
+  the connection is authenticated already), makes the filters (kept as `quicFilters` until the
+  flow ends, for `exchangeEnded`) and applies the same checks as `declineReason` (the host rules
+  against the destination and the SNI on its port), then the ALPN: `h3` is `INTERCEPT`; a
+  `quicHosts` host, or another ALPN with a `QuicInterceptor`, is `STREAMS`; another ALPN without
+  one is `RELAY`; then whether a certificate can be issued, `shouldIntercept` and
+  `proxyToServerAllowMitm(hello)`. It answers `INTERCEPT`, `STREAMS`, `RELAY` or `DROP`, with
+  why.
+- **Stream by stream** (`STREAMS`): still on the deciding thread, `ClientConnection.connectQuic`
+  connects to the server (`QuicSession.connect`: a `QuicClient` of the flow's own, the client's
+  SNI and ALPN protocols, the manager's `serverTrustManager`), waiting up to the pending timeout.
+  The client is then accepted with a `ServerConfig` of its own (`streamsConfig`: an ALPN selector
+  answering the server's choice, DATAGRAM frames when the server takes them, room for streams of
+  both kinds), which `QuicServer.inject(from, datagram, config)` gives the connection the held
+  Initials start. The accepted connection and the server's go to
+  `DefaultHttpProxyServer.acceptQuicStreams`, which serves them with `serveQuicStreams`.
 - **Intercepting.** The held datagrams are injected into the QUIC server in order, under the
   listener's lock, and the flow stays (state `INTERCEPTED`) for the pending timeout to inject
   stragglers until the endpoint routes them itself. The deciding `ClientConnection` waits in
@@ -652,8 +680,63 @@ filter, which keeps flows by client address.
   `ClientConnection`s (`endTransparentQuic`: filters' `exchangeEnded`, `clientDisconnected`).
 - **Locks.** One `ReentrantLock` guards the flows, the counts and `accepting`; it is held while
   injecting and while writing to a relay's socket, so datagrams keep their order, and never while
-  deciding, resolving or calling trackers. The QUIC server's endpoint lock is taken under it (by
-  `inject`), never the other way round. No `synchronized`.
+  deciding, resolving, connecting or calling trackers. The QUIC server's endpoint lock is taken
+  under it (by `inject`), never the other way round; so are a CONNECT-UDP flow's queue locks (an
+  origin relaying a flow). No `synchronized`.
+
+### QUIC relayed stream by stream: `QuicSession`
+
+`QuicSession` pairs the client's connection, accepted by the proxy, with the proxy's connection
+to the server, and implements `QuicContext` for the `QuicInterceptor` (when there is none, for a
+`quicHosts` host, it relays without hooks).
+
+- **Threads.** Two virtual threads accept the streams each side opens and open each on the other
+  connection (`openBidirectionalStream` waits while the peer's stream limit is reached, which
+  holds further streams back, and keeps the order, so stream IDs usually match); two relay
+  datagrams, dropping one the receiver does not take or that is too large; and each stream has,
+  per direction, a pump and a watcher.
+- **Pumps.** A pump reads at most 16 KiB (`BUFFER`) from the source, calls `streamData` and
+  writes the result to the sink, blocking while the sink's flow control holds it: nothing is
+  buffered beyond the one read, so flow control is end to end. The source's FIN calls
+  `streamFinished`, then closes the sink's output; a `QuicStreamException` of kind `RESET` calls
+  `streamReset` and resets the sink with the same code; one of kind `STOPPED` (the sink's side
+  asked to stop) is a stop. Each direction's `Direction` has a lock its writes, and
+  `QuicStreamContext.send` from other threads, take; `send` from the hook's own thread queues the
+  bytes until the hook's result is written, as `TcpSession` does.
+- **Watchers.** A sink's STOP_SENDING shows only when a write fails, so a watcher waits for it
+  with `QuicStream.awaitStopped()` and then, once per direction, calls `streamStopped`, asks the
+  source to stop with the same code (which ends the pump's read) and resets the sink.
+- **Ending.** Either accept loop ending (its connection gone) ends the session: the other
+  connection is closed with the same application code and reason (an application close) or with
+  code 0, both are closed, the threads joined, and `quicEnd` or `quicError` called.
+  `ClientConnection.close` closes a session that is running, for the proxy's stop.
+
+### QUIC inside CONNECT-UDP flows: `MasqueQuic`
+
+With `Http3Options.connectUdpInterceptQuic`, a forward proxy serving HTTP/3 makes one `MasqueQuic`:
+a `QuicFlows` over `QuicServer.unbound`, a QUIC server without a socket. `serveUdpFlow` attaches
+each flow to a port of `connectUdpQuicPorts` (`MasqueQuic.attach`), giving it an address of its
+own (an IPv6 unique local address with a counter) and an `Inner`, the flow's `Origin`:
+
+- **The first datagram** the client sends decides (`Inner.fromClient`, called by
+  `UdpFlow.fromClient` before it queues a payload): a QUIC Initial of a version the proxy reads
+  puts the flow in `QUIC` mode, anything else in `RELAYED` mode, for good.
+- **QUIC mode.** Payloads go to the unbound server's `receive` under the flow's address: those of
+  an intercepted connection reach it by connection ID, others go through the server's filter to
+  `QuicFlows.filter`, which holds and decides as for the listener. The server's datagrams for the
+  address go back into the flow (`UdpFlow.toClientFromProxy`), past the UDP hooks.
+- **Relaying.** `Inner.relay`, under the flows' lock, switches the flow to `RELAYED` and queues
+  the held datagrams for the target (`UdpFlow.toTargetFromProxy`, through the UDP hooks); a
+  datagram that raced the switch reaches `QuicFlows.filter` and is handed back
+  (`Origin.takeRelayed`), after them.
+- **Deciding** uses a `ClientConnection(parent, targetAddress)`: the MASQUE client's address,
+  user, PROXY header and MITM manager, authenticated already, and `pinnedServer`, the flow's
+  address, which `resolveServer` returns for the session's server. An intercepted HTTP/3
+  connection's `mitmHostAndPort` is the target, or, for an IP address, the SNI on the target's
+  port, so the server's certificate is checked against the name.
+- **Ending.** `UdpFlow.end` calls `Inner.ended`: the flow's address is forgotten, its pending flows
+  and handshakes too (`QuicFlows.forget(origin)`), an intercepted connection is closed and a
+  relaying client connection is told.
 
 ## HTTP/3 to servers: `Http3UpstreamConnection` and `Http3Origins`
 
@@ -739,10 +822,10 @@ flow control counts what is on the wire, whatever the interceptor makes of it.
 
 ## Notes for later
 
-- CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies), CONNECT-UDP over HTTP/2 and
-  HTTP/1.1 (capsules only), and intercepting the QUIC inside a CONNECT-UDP flow with the
-  transparent QUIC machinery: the flow's socket would go to an internal `TransparentQuicListener`
-  that knows the target, instead of the target itself.
+- CONNECT-UDP to an upstream MASQUE proxy (HTTP/3 chained proxies), and CONNECT-UDP over HTTP/2
+  and HTTP/1.1 (capsules only).
+- QUIC stream hooks that open streams of their own, which `QuicSession` would pair as it pairs the
+  peers' streams.
 - `ALTSVC` frames (RFC 7838 section 4) from HTTP/2 servers are dropped by the frame reader, as a
   frame type the codec does not deliver; forwarding them would need the h3 filtering `Alt-Svc`
   headers get (`AltSvc`).

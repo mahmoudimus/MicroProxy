@@ -44,6 +44,12 @@ final class EchoServer implements AutoCloseable {
         Thread.ofVirtual().name("echo-acceptor").start(this::acceptLoop);
     }
 
+    /** Echoes on the connections {@code server} accepts, such as an unbound server's. */
+    EchoServer(QuicServer server) {
+        this.server = server;
+        Thread.ofVirtual().name("echo-acceptor").start(this::acceptLoop);
+    }
+
     InetSocketAddress address() {
         return server.localAddress();
     }

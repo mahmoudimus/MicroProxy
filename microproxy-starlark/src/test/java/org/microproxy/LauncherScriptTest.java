@@ -96,6 +96,27 @@ class LauncherScriptTest {
     }
 
     @Test
+    void scriptsWithQuicHooksGetTheQuicInterceptorAndOthersDoNot(@TempDir Path dir) throws Exception {
+        Path quic = dir.resolve("quic.star");
+        Files.writeString(quic, """
+                def on_quic_stream_data(msg, ctx):
+                    return None
+                """);
+        Path http = dir.resolve("http.star");
+        Files.writeString(http, """
+                def on_request(req, ctx):
+                    return None
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream console = new PrintStream(out, true, StandardCharsets.UTF_8);
+        assertNull(Launcher.parse(new String[] {"--script", http.toString()}, console).bootstrap().getQuicInterceptor(),
+                "without QUIC hooks, QUIC that is not HTTP/3 is relayed");
+        assertFalse(out.toString(StandardCharsets.UTF_8).contains("on_quic_"), out.toString(StandardCharsets.UTF_8));
+        assertTrue(Launcher.parse(new String[] {"--script", quic.toString()}, console).bootstrap().getQuicInterceptor() != null);
+        assertTrue(out.toString(StandardCharsets.UTF_8).contains("on_quic_*()"), out.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void scriptsWithOnFrameSeeHttp2Frames(@TempDir Path dir) throws Exception {
         Path script = dir.resolve("frames.star");
         Files.writeString(script, """

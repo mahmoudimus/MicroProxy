@@ -197,6 +197,42 @@ public final class AioquicPeers {
         return (Map<String, Object>) json.get("results");
     }
 
+    /**
+     * Runs aioquic's raw QUIC client ({@code interop/quic_echo_client.py}) with {@code alpn},
+     * asking for {@code serverName} and trusting {@code ca}: over UDP to loopback {@code port}, or,
+     * with a {@code masqueTarget}, inside a CONNECT-UDP flow to it, opened on the forward proxy's
+     * HTTP/3 listener at {@code port} (trusted with {@code proxyCa}). Returns what it saw: {@code
+     * alpn}, {@code echoes}, {@code big_ok}, {@code big_length}, {@code uni_reply}, {@code datagram},
+     * {@code reset_stream} and, inside a flow, {@code masque_status}.
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> quicEcho(Path dir, int port, Path ca, String serverName, String alpn,
+            String masqueTarget, Path proxyCa) throws Exception {
+        assumeAvailable();
+        List<String> cmd = new ArrayList<>(List.of(python, script(dir, "quic_echo_client.py").toString(), "127.0.0.1",
+                Integer.toString(port), "--ca", ca.toString(), "--server-name", serverName, "--alpn", alpn));
+        if (masqueTarget != null) cmd.addAll(List.of("--masque-target", masqueTarget, "--proxy-ca", proxyCa.toString()));
+        Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+        StringBuilder output = new StringBuilder();
+        Thread reader = Thread.ofVirtual().start(() -> {
+            try (InputStream in = p.getInputStream()) {
+                output.append(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                // ended
+            }
+        });
+        if (!p.waitFor(150, TimeUnit.SECONDS)) {
+            p.destroyForcibly();
+            throw new AssertionError("the aioquic QUIC client hung");
+        }
+        reader.join();
+        String result = output.toString().lines().filter(l -> l.startsWith("RESULT ")).findFirst()
+                .orElseThrow(() -> new AssertionError("no result from the aioquic QUIC client:\n" + output));
+        Map<String, Object> json = (Map<String, Object>) parseJson(result.substring("RESULT ".length()));
+        assertTrue(Boolean.TRUE.equals(json.get("ok")), "aioquic QUIC client failed: " + json.get("error") + "\n" + output);
+        return (Map<String, Object>) json.get("results");
+    }
+
     /** The value of the first field named {@code name} in a response's [name, value] list, or null. */
     @SuppressWarnings("unchecked")
     public static String field(Map<String, Object> response, String list, String name) {
@@ -248,6 +284,48 @@ public final class AioquicPeers {
         @Override
         public void close() throws IOException {
             process.getOutputStream().close(); // the origin exits when stdin closes
+            try {
+                if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly();
+            } catch (InterruptedException e) {
+                process.destroyForcibly();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** A running aioquic raw QUIC echo server ({@code interop/quic_echo_server.py}). */
+    public static final class QuicEchoServer implements AutoCloseable {
+        private final Process process;
+        private final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<>();
+        public final int port;
+
+        /** Starts the server with {@code certificate} (a PEM chain) and {@code key}, speaking {@code alpn}. */
+        public QuicEchoServer(Path dir, Path certificate, Path key, String alpn) throws Exception {
+            assumeAvailable();
+            process = new ProcessBuilder(python, script(dir, "quic_echo_server.py").toString(), "--certificate",
+                    certificate.toString(), "--private-key", key.toString(), "--alpn", alpn)
+                    .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+            Thread.ofVirtual().start(() -> {
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    for (String line; (line = r.readLine()) != null; ) lines.add(line);
+                } catch (IOException e) {
+                    // the process ended
+                }
+            });
+            String first = lines.poll(30, TimeUnit.SECONDS);
+            assertNotNull(first, "the aioquic QUIC server did not start");
+            assertTrue(first.startsWith("LISTENING "), first);
+            this.port = Integer.parseInt(first.substring("LISTENING ".length()).trim());
+        }
+
+        /** The lines it printed after LISTENING: CONNECTED, RESET and TERMINATED events. */
+        public List<String> events() {
+            return List.copyOf(lines);
+        }
+
+        @Override
+        public void close() throws IOException {
+            process.getOutputStream().close(); // the server exits when stdin closes
             try {
                 if (!process.waitFor(10, TimeUnit.SECONDS)) process.destroyForcibly();
             } catch (InterruptedException e) {
