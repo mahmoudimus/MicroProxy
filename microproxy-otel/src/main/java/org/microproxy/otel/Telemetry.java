@@ -497,13 +497,18 @@ public final class Telemetry implements FlowTracer {
         return new PropagatedTrace(this, high, low, spanId, sampled, parent == null ? "" : parent.traceState(), requestId);
     }
 
-    /** The context the first propagator finds, or {@code null}. */
+    /**
+     * The client's context, as OpenTelemetry's composite propagator extracts it: every propagator
+     * in order, each over the result of the previous ones, so the last valid context wins; {@code
+     * null} when none finds one.
+     */
     SpanContext extract(HttpHeaders headers) {
+        SpanContext found = null;
         for (Propagator p : propagators) {
             SpanContext c = p.extract(headers);
-            if (c != null) return c;
+            if (c != null) found = c;
         }
-        return null;
+        return found;
     }
 
     private String requestId(HttpHeaders headers) {
@@ -965,8 +970,9 @@ public final class Telemetry implements FlowTracer {
         }
 
         /**
-         * The propagators: the first that finds a context in a request gives the parent, and all
-         * write the proxy's context upstream; W3C Trace Context by default.
+         * The propagators, as OpenTelemetry's composite propagator: they extract in order, so the
+         * last that finds a valid context in a request gives the parent, and all write the proxy's
+         * context upstream; W3C Trace Context by default.
          *
          * @param propagators the propagators, possibly none
          * @return this builder

@@ -7,8 +7,9 @@ import org.microproxy.http.HttpHeaders;
  * Reads a trace context from request headers and writes one onto them, in one format: W3C Trace
  * Context ({@link Propagators#TRACE_CONTEXT}), B3 in its single-header and multi-header forms
  * ({@link Propagators#B3}, {@link Propagators#B3_MULTI}) or Jaeger's {@code uber-trace-id} ({@link
- * Propagators#JAEGER}). The proxy extracts the client's context with the first propagator that
- * finds a valid one, and injects its own with every configured propagator.
+ * Propagators#JAEGER}). The configured propagators form OpenTelemetry's composite propagator:
+ * they extract in order, each over what the previous ones found, so the last that finds a valid
+ * context gives the parent; and every one of them injects the proxy's context.
  */
 public interface Propagator {
 

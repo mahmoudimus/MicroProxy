@@ -123,6 +123,31 @@ class TelemetryConfigTest {
     }
 
     @Test
+    void theLastPropagatorWithAValidContextGivesTheParentAsTheCompositeOne() {
+        String w3c = "0af7651916cd43dd8448eb211c80319c";
+        String b3 = "80f198ee56343ba864fe8b2a57d3eff7";
+        String[] both = {"traceparent", "00-" + w3c + "-b7ad6b7169203331-01",
+            "X-B3-TraceId", b3, "X-B3-SpanId", "e457b5a2e4d86bd1", "X-B3-Sampled", "1"};
+        Telemetry b3First = Telemetry.builder().traces(false).metrics(false).logs(false)
+                .propagators(List.of(Propagators.B3_MULTI, Propagators.TRACE_CONTEXT)).build();
+        assertEquals(w3c, b3First.startExchange(FLOW, request(both)).traceId());
+        Telemetry w3cFirst = Telemetry.builder().traces(false).metrics(false).logs(false)
+                .propagators(List.of(Propagators.TRACE_CONTEXT, Propagators.B3_MULTI)).build();
+        assertEquals(b3, w3cFirst.startExchange(FLOW, request(both)).traceId());
+        // A later propagator that finds nothing valid leaves what an earlier one found.
+        assertEquals(w3c, w3cFirst.startExchange(FLOW, request("traceparent", "00-" + w3c + "-b7ad6b7169203331-01",
+                "X-B3-TraceId", "not-hex", "X-B3-SpanId", "e457b5a2e4d86bd1")).traceId());
+        assertEquals(b3, b3First.startExchange(FLOW, request("traceparent", "ff-" + w3c + "-b7ad6b7169203331-01",
+                "X-B3-TraceId", b3, "X-B3-SpanId", "e457b5a2e4d86bd1")).traceId());
+        // Injection writes every propagator's headers.
+        FlowTrace trace = b3First.startExchange(FLOW, request(both));
+        org.microproxy.http.HttpHeaders upstream = new org.microproxy.http.HttpHeaders();
+        trace.injectUpstream(upstream, false);
+        assertEquals(w3c, upstream.get("x-b3-traceid"));
+        assertEquals("00-" + w3c + "-" + trace.spanId() + "-01", upstream.get("traceparent"));
+    }
+
+    @Test
     void unsampledExchangesOnlyPropagate() {
         Telemetry t = Telemetry.builder().sampler(Sampler.alwaysOff()).metrics(false).logs(false).build();
         try {

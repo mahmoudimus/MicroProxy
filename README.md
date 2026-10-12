@@ -4110,9 +4110,12 @@ value)` and `addEvent(name, attributes)` (Starlark's `trace` module); the span l
 past them attributes and events are dropped and counted (`droppedAttributesCount`), and strings
 are cut.
 
-**Propagation.** The first configured propagator that finds a valid context in the request gives
-the parent; every configured propagator writes the proxy's context upstream, replacing the
-client's headers it owns. `tracecontext` follows the W3C specification: version `00` and later
+**Propagation.** The configured propagators work as OpenTelemetry's composite propagator: they
+extract in the configured order, each over what the ones before it found, so when a request
+carries several contexts the last propagator that finds a valid one gives the parent (with
+`OTEL_PROPAGATORS=b3multi,tracecontext`, a valid `traceparent` wins over `X-B3-*`); every
+configured propagator writes the proxy's context upstream, replacing the client's headers it
+owns. `tracecontext` follows the W3C specification: version `00` and later
 versions, lower-case hex only, no all-zero ids, two `traceparent` headers restart the trace, and a
 `tracestate` that is not valid (a bad key or value, a duplicate key, more than 32 members) is
 dropped while the `traceparent` is kept; a valid one is sent on as it came. `b3` is B3's single
@@ -4185,8 +4188,7 @@ thread, and handed to the queue; encoding and sending happen on the exporters' t
 own HTTP/2 client could carry it later); use the collector's OTLP/HTTP receiver. Metrics are
 cumulative only, without exemplars; spans have no links; baggage is passed on, not read. The
 partial-success part of a collector's answer is not read. A span starts when the proxy has read
-the request head, a few microseconds after its first byte. With several propagators, the first
-valid context wins rather than the last.
+the request head, a few microseconds after its first byte.
 
 ### Admin interface
 
