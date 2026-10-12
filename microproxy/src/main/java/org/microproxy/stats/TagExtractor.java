@@ -42,6 +42,10 @@ import java.util.regex.Pattern;
  *   <li>{@code microproxy_reject_reason}: the reason at the end of {@code flow_rejected.<reason>}
  *   <li>{@code microproxy_tunnel_kind}: the kind in {@code tunnel.<kind>.}
  *   <li>{@code microproxy_close_code}: the code at the end of {@code close_codes.<code>}
+ *   <li>{@code microproxy_budget}: the budget at the end of {@code budget_exceeded.<kind>}
+ *       ({@code steps}, {@code memory}, {@code time})
+ *   <li>{@code microproxy_script} and {@code microproxy_script_hook}: the script and the hook
+ *       function in {@code hooks.starlark.<script>.<hook>.<stat>}
  *   <li>{@code microproxy_hook}: the hook family in {@code hooks.<family>.}
  * </ul>
  *
@@ -109,6 +113,9 @@ public final class TagExtractor {
             rule("microproxy_reject_reason", "\\.flow_rejected(\\.([a-z_]+))$"),
             rule("microproxy_tunnel_kind", "^tunnel\\.((h1_connect|h2_connect|h3_connect|socks|forwarded|raw)\\.)"),
             rule("microproxy_close_code", "\\.close_codes(\\.([0-9a-z_]+))$"),
+            rule("microproxy_budget", "\\.budget_exceeded(\\.([a-z]+))$"),
+            rule("microproxy_script", "^hooks\\.starlark(\\.([^.]+))\\.[a-z0-9_]+\\.[a-z_]+$"),
+            rule("microproxy_script_hook", "^hooks\\.starlark(\\.([a-z0-9_]+))\\.[a-z_]+$"),
             rule("microproxy_hook", "^hooks\\.(([a-z0-9_]+)\\.)")));
 
     private static final TagExtractor NONE = new TagExtractor(List.of());
