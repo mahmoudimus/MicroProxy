@@ -988,7 +988,7 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
             QuicConnectionState c = state(context);
             StarlarkScript s = script();
             if (s.defines("on_quic_start")) {
-                call(s, c, "on_quic_start", new ScriptQuicContext(context, null, c.vars, null));
+                call(s, c, context.flowContext(), "on_quic_start", new ScriptQuicContext(context, null, c.vars, null));
             }
         }
 
@@ -1012,7 +1012,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                     timestamp);
             c.lock.lock();
             try {
-                Object r = s.call(hook, c.mu, m, new ScriptQuicContext(context.connection(), stream, c.vars, null));
+                Object r = s.call(context.flowContext(), hook, c.mu, m,
+                        new ScriptQuicContext(context.connection(), stream, c.vars, null));
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return m.data();
                 if (r == Boolean.FALSE) return null;
                 if (r instanceof ScriptQuicMessage other) return other.data();
@@ -1050,14 +1051,14 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                 why = error.getMessage() == null || error.getMessage().isEmpty() ? error.getClass().getSimpleName()
                         : error.getMessage();
             }
-            call(s, c, "on_quic_end", new ScriptQuicContext(context, null, c.vars, why));
+            call(s, c, context.flowContext(), "on_quic_end", new ScriptQuicContext(context, null, c.vars, why));
         }
 
         /** Calls a hook whose result does not matter; a failure is logged. */
-        private void call(StarlarkScript s, QuicConnectionState c, String hook, Object... args) {
+        private void call(StarlarkScript s, QuicConnectionState c, FlowContext flow, String hook, Object... args) {
             c.lock.lock();
             try {
-                s.call(hook, c.mu, args);
+                s.call(flow, hook, c.mu, args);
             } catch (EvalException e) {
                 LOG.log(Level.WARNING, s.name() + ": " + hook + " failed: " + e.getMessageWithStack());
             } catch (InterruptedException e) {
@@ -1080,8 +1081,8 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
                     message.timestamp());
             c.lock.lock();
             try {
-                Object r = s.call("on_quic_message", c.mu, m, new ScriptQuicContext(stream.connection(), stream, c.vars,
-                        null));
+                Object r = s.call(stream.flowContext(), "on_quic_message", c.mu, m,
+                        new ScriptQuicContext(stream.connection(), stream, c.vars, null));
                 if (r == Starlark.NONE || r == Boolean.TRUE || r == m) return List.of(message.withData(m.data()));
                 if (r == Boolean.FALSE) return List.of();
                 if (r instanceof StarlarkList<?> || r instanceof Tuple) {

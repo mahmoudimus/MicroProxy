@@ -22,8 +22,8 @@ public interface ScriptCallObserver {
      * @param hook the function called: {@code on_request}, {@code on_response}, {@code on_frame},
      *     {@code on_tcp_message}, ...
      * @param script the script's name, as its stats are tagged
-     * @param flow the exchange the call is for, or null when the hook has none ({@code upstream},
-     *     QUIC hooks)
+     * @param flow the exchange the call is for (the tunnel's or flow's, for TCP, UDP and QUIC hooks),
+     *     or null when the hook has none ({@code upstream}, a QUIC framer)
      * @return a value handed back to {@link #onCallEnd} (a span, say), or null
      */
     default Object onCallStart(String hook, String script, FlowContext flow) {

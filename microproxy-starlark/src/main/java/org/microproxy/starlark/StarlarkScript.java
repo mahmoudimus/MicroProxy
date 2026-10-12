@@ -47,8 +47,9 @@ import org.microproxy.thirdparty.starlark.syntax.SyntaxError;
  * ({@link StarlarkThread#getAllocatedBytes()}, an estimate of what was made rather than of what
  * stayed in memory) and its time. With metrics they go to {@code
  * hooks.starlark.<script>.<hook>.*}, tagged with the script's {@linkplain #statsName() name} and
- * the hook; they add up per exchange in {@link FlowContext#scriptStats()}; and a {@link
- * ScriptCallObserver} sees each call.
+ * the hook; they add up per exchange in {@link FlowContext#scriptStats()}; a {@link
+ * ScriptCallObserver} sees each call; and a call for an exchange whose trace is sampled gets a
+ * span of its own, a child of the exchange's ({@code starlark <hook>}, see {@link ScriptSpans}).
  *
  * <p>A script may {@code load()} modules of the standard library ported from starlarky ({@link
  * Stdlib}), e.g. {@code load("@stdlib//urllib/parse", "parse")}. Such a script runs with Python's
@@ -537,6 +538,8 @@ public final class StarlarkScript {
         long start = System.nanoTime();
         if (timeoutNanos > 0) thread.setDeadlineNanos(start + timeoutNanos);
         Object token = observer == null ? null : observer.onCallStart(function, statsName, flow);
+        // A sampled exchange's hook calls get spans of their own.
+        Object span = trace.isSampled() ? ScriptSpans.INSTANCE.onCallStart(function, statsName, flow) : null;
         Throwable error = null;
         try {
             return Starlark.call(thread, hook.function(), List.of(args), Map.of());
@@ -550,9 +553,12 @@ public final class StarlarkScript {
             StarlarkThread.Budget exceeded = error == null ? null : thread.exceededBudget();
             if (hookStats != null) hookStats.record(nanos, steps, allocBytes, error != null, exceeded);
             if (flow != null) flow.recordScriptCall(nanos, steps, allocBytes);
+            String budget = budgetName(exceeded);
+            if (span != null) {
+                ScriptSpans.INSTANCE.onCallEnd(span, function, statsName, flow, steps, allocBytes, nanos, budget, error);
+            }
             if (observer != null) {
-                observer.onCallEnd(token, function, statsName, flow, steps, allocBytes, nanos, budgetName(exceeded),
-                        error);
+                observer.onCallEnd(token, function, statsName, flow, steps, allocBytes, nanos, budget, error);
             }
         }
     }
