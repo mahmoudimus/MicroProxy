@@ -472,6 +472,56 @@ class ConnectionTest {
     }
 
     @Test
+    void keyUpdateWaitsThreeCurrentPtosNotThreeHandshakePtos() throws Exception {
+        // The server's first flight reaches the client 900 ms late, as when it is lost on the
+        // loopback and sent again: the client's first RTT sample, and so its PTO, starts out large
+        Pair pair = new Pair();
+        Connection client = pair.beginConnect(Pair.clientConfig());
+        pair.driveClient();
+        pair.server.drive(pair.time);
+        pair.server.delayOutbound();
+        pair.time += 900 * MS;
+        pair.server.finishDelay();
+        pair.drive();
+        Connection server = pair.serverConnection();
+        Pair.assertConnected(client, server);
+        pair.drive();
+        Pair.drainEvents(client);
+        Pair.drainEvents(server);
+        long handshakePto = client.recovery().pto(SpaceId.DATA);
+        assertTrue(handshakePto > 2_000 * MS, "PTO after the handshake " + handshakePto / MS + " ms");
+
+        // A key update is acknowledged at once, and data both ways crosses it on a 1 ms path,
+        // bringing the RTT estimate down
+        pair.latency = MS;
+        assertTrue(client.forceKeyUpdate());
+        byte[] data = new byte[200_000];
+        new Random(5).nextBytes(data);
+        assertArrayEquals(data, transfer(pair, client, server, data));
+        assertArrayEquals(data, transfer(pair, server, client, data));
+        long pto = client.recovery().pto(SpaceId.DATA);
+        assertTrue(pto < 100 * MS, "PTO after the transfer " + pto / MS + " ms");
+
+        // The old keys go, and the next update may start, three PTOs after the update was
+        // acknowledged (RFC 9001 section 6.5): three of the current PTOs, not of the handshake's
+        long limit = pair.time + 3 * pto;
+        for (int i = 0; !client.forceKeyUpdate(); i++) {
+            assertTrue(i < 100_000 && pair.time <= limit, "no key update " + 3 * pto / MS + " ms after the transfer");
+            if (!pair.step()) {
+                // Idle but for the key discard timer, which the pair does not wait for
+                long discard = client.timers().get(Timer.KEY_DISCARD);
+                assertTrue(discard <= limit, "the old keys stay " + (discard - pair.time) / MS
+                        + " ms more, with a PTO of " + pto / MS + " ms");
+                pair.time = Math.max(pair.time, discard);
+            }
+        }
+        assertEquals(2, client.keyUpdates());
+        assertArrayEquals(data, transfer(pair, client, server, data));
+        assertEquals(client.keyPhase(), server.keyPhase());
+        assertEquals(0, client.recovery().lostPackets());
+    }
+
+    @Test
     void routineKeyUpdatesDuringLongTransfer() throws Exception {
         Pair pair = new Pair();
         Connection[] c = connected(pair);
