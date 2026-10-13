@@ -279,7 +279,7 @@ public final class ProxyProcess implements AutoCloseable {
                 "command", command, "cgroup", cgroupProcs == null ? null : cgroupProcs.getParent().toString(),
                 "log", ctx.out.relativize(process.log()).toString(),
                 "gcLog", jvm ? ctx.out.relativize(gcLog).toString() : null,
-                "config", config == null ? null : ctx.out.relativize(config).toString(),
+                "config", config == null ? null : ctx.out.toAbsolutePath().relativize(config).toString(),
                 "jfr", jfr == null ? null : ctx.out.relativize(jfr).toString());
     }
 
