@@ -125,6 +125,9 @@ public final class Recovery {
     private boolean closed;
     private boolean sendingEcn = true;
     private long peerAckDelayExponent = TransportParameters.DEFAULT_ACK_DELAY_EXPONENT;
+    /** When the running {@link Timer#KEY_DISCARD} started, and the space whose PTO times it. */
+    private long keyDiscardStart;
+    private SpaceId keyDiscardSpace = SpaceId.DATA;
 
     private long sentPacketCount;
     private long lostPacketCount;
@@ -654,6 +657,8 @@ public final class Recovery {
                 path.firstAfterRttSamplePacket = space.nextPacketNumber;
             }
         }
+        // The PTO may have changed, with the RTT estimate or the peer's max_ack_delay
+        updateKeyDiscardTimer();
 
         detectLostPackets(now, id, true, listener);
 
@@ -1016,13 +1021,30 @@ public final class Recovery {
 
     /**
      * Sets {@link Timer#KEY_DISCARD} to three PTOs after a start time, when old keys may go (RFC
-     * 9001 sections 4.9.3 and 6.5).
+     * 9001 sections 4.9.3 and 6.5). The timer follows the current PTO: each new RTT estimate moves
+     * it, see {@link #updateKeyDiscardTimer()}.
      *
      * @param start when the timer starts, such as when the key update was acknowledged
      * @param id the space whose PTO applies
      */
     public void setKeyDiscardTimer(long start, SpaceId id) {
+        keyDiscardStart = start;
+        keyDiscardSpace = id;
         timers.set(Timer.KEY_DISCARD, start + 3 * pto(id));
+    }
+
+    /**
+     * Moves a running {@link Timer#KEY_DISCARD} to three of the current PTOs after its start. Old
+     * keys are kept "for no more than three times the current PTO interval" (RFC 9001 section
+     * 6.5), and the next key update waits for them to go. A PTO taken once, when the timer starts,
+     * can be far from current: the first RTT sample of a handshake whose first flight was lost or
+     * late spans the peer's probe timeout, about a second, which makes a PTO of three seconds
+     * that the samples of the following packets bring down to milliseconds.
+     */
+    private void updateKeyDiscardTimer() {
+        if (timers.isSet(Timer.KEY_DISCARD)) {
+            timers.set(Timer.KEY_DISCARD, keyDiscardStart + 3 * pto(keyDiscardSpace));
+        }
     }
 
     // ---------------------------------------------------------------------------------------
