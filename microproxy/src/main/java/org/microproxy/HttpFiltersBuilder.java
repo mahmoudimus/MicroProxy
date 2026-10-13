@@ -74,6 +74,7 @@ public final class HttpFiltersBuilder {
     private int responseBuffer;
     private HttpLogger logger;
     private Duration connectTimeout;
+    private Duration tlsHandshakeTimeout;
 
     HttpFiltersBuilder() {}
 
@@ -244,6 +245,19 @@ public final class HttpFiltersBuilder {
     }
 
     /**
+     * The upstream TLS handshake timeout for these requests' new connections, instead of the
+     * server's (see {@link HttpFilters#proxyToServerTlsHandshakeTimeout()}).
+     *
+     * @param timeout the TLS handshake timeout override, positive
+     * @return this builder
+     */
+    public HttpFiltersBuilder tlsHandshakeTimeout(Duration timeout) {
+        if (timeout == null || !timeout.isPositive()) throw new IllegalArgumentException("must be positive: " + timeout);
+        this.tlsHandshakeTimeout = timeout;
+        return this;
+    }
+
+    /**
      * Buffer request bodies up to {@code maxBytes}, so {@link #onRequest} gets the whole request.
      *
      * @param maxBytes the maximum number of body bytes
@@ -345,6 +359,7 @@ public final class HttpFiltersBuilder {
         private final int responseBuffer;
         private final HttpLogger logger;
         private final Duration connectTimeout;
+        private final Duration tlsHandshakeTimeout;
         /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
         private final SelectiveFilters logged;
         /** Whether these filters belong to one exchange (made by {@link #filterRequest}). */
@@ -369,6 +384,7 @@ public final class HttpFiltersBuilder {
             responseBuffer = b.responseBuffer;
             logger = b.logger;
             connectTimeout = b.connectTimeout;
+            tlsHandshakeTimeout = b.tlsHandshakeTimeout;
             logged = null;
             bound = false;
             unlogged = logger == null ? this : new Built(this, null);
@@ -392,6 +408,7 @@ public final class HttpFiltersBuilder {
             responseBuffer = base.responseBuffer;
             logger = base.logger;
             connectTimeout = base.connectTimeout;
+            tlsHandshakeTimeout = base.tlsHandshakeTimeout;
             this.logged = logged;
             bound = true;
             unlogged = this;
@@ -554,6 +571,11 @@ public final class HttpFiltersBuilder {
         @Override
         public Duration proxyToServerConnectTimeout() {
             return connectTimeout;
+        }
+
+        @Override
+        public Duration proxyToServerTlsHandshakeTimeout() {
+            return tlsHandshakeTimeout;
         }
     }
 }

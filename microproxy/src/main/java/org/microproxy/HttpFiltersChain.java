@@ -24,7 +24,8 @@ import org.microproxy.http.WebSocketMessage;
  *       receiving the previous one's result; {@code null} aborts (or drops the frame or message).
  *       With {@code filterWebSocketMessages}, every message one filter returns goes through the
  *       next, in the direction it now travels.
- *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
+ *   <li>Buffer sizes are the largest any filter asks for; the connect and TLS handshake
+ *       timeouts are the shortest.
  *   <li>Interception needs every filter's consent (both {@code proxyToServerAllowMitm} hooks), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
  *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
@@ -236,6 +237,16 @@ public final class HttpFiltersChain implements HttpFiltersSource {
             Duration shortest = null;
             for (HttpFilters f : members) {
                 Duration d = f.proxyToServerConnectTimeout();
+                if (d != null && d.isPositive() && (shortest == null || d.compareTo(shortest) < 0)) shortest = d;
+            }
+            return shortest;
+        }
+
+        @Override
+        public Duration proxyToServerTlsHandshakeTimeout() {
+            Duration shortest = null;
+            for (HttpFilters f : members) {
+                Duration d = f.proxyToServerTlsHandshakeTimeout();
                 if (d != null && d.isPositive() && (shortest == null || d.compareTo(shortest) < 0)) shortest = d;
             }
             return shortest;
