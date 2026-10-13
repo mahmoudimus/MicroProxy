@@ -240,12 +240,36 @@ public final class TestSupport {
     }
 
     /**
-     * Reserves a loopback port nothing listens on: the socket is bound but not listening, so
-     * connecting to it is refused at once, and no server (such as a proxy started on port 0
-     * afterwards) can take the port until the socket is closed. A port taken from a {@link
-     * ServerSocket} that was then closed could be handed out again.
+     * Reserves a loopback port nothing listens on, so that connecting to it is refused at once.
+     *
+     * <p>Where the system refuses connections to a socket that is bound but not listening (Linux
+     * answers the SYN with a reset), the returned socket is exactly that: it holds the port, so
+     * no server (such as a proxy started on port 0 afterwards) can take it until it is closed.
+     * Other systems (macOS among them) leave such a SYN unanswered, so a connection would hang
+     * until its timeout instead of being refused; there the port is one a closed server socket
+     * left free, which the system refuses at once but could, in principle, hand out again. Which
+     * of the two applies is probed once per JVM. Either way, use the socket's {@code
+     * getLocalPort()} or {@code getLocalSocketAddress()} and close it when done.
      */
     public static Socket refusingPort() {
+        if (BOUND_SOCKETS_REFUSE.get()) return boundUnlistened();
+        return new FreePort(freeLoopbackPort());
+    }
+
+    /**
+     * Whether this system refuses a connection to a bound, non-listening socket at once. {@code
+     * -Dmicroproxy.test.freePorts=true} forces the free-port way, to test it on systems that do.
+     */
+    private static final java.util.function.Supplier<Boolean> BOUND_SOCKETS_REFUSE = memoize(() -> {
+        if (Boolean.getBoolean("microproxy.test.freePorts")) return false;
+        try (Socket bound = boundUnlistened()) {
+            return refusesAtOnce(bound.getLocalPort());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    });
+
+    private static Socket boundUnlistened() {
         Socket s = new Socket();
         try {
             s.bind(new InetSocketAddress(LOOPBACK, 0));
@@ -253,6 +277,70 @@ public final class TestSupport {
             throw new UncheckedIOException(e);
         }
         return s;
+    }
+
+    private static int freeLoopbackPort() {
+        try (ServerSocket server = new ServerSocket(0, 1, LOOPBACK)) {
+            return server.getLocalPort();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** Whether connecting to {@code port} fails within a second (refused), rather than hanging. */
+    private static boolean refusesAtOnce(int port) {
+        try (Socket probe = new Socket()) {
+            probe.connect(new InetSocketAddress(LOOPBACK, port), 1_000);
+            return false; // something answered: not a refusing port
+        } catch (java.net.SocketTimeoutException e) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    private static <T> java.util.function.Supplier<T> memoize(java.util.function.Supplier<T> s) {
+        return new java.util.function.Supplier<>() {
+            private volatile T value;
+
+            @Override
+            public T get() {
+                T v = value;
+                if (v == null) {
+                    v = s.get();
+                    value = v;
+                }
+                return v;
+            }
+        };
+    }
+
+    /**
+     * A loopback port left free, standing in for a bound socket where bound, non-listening
+     * sockets do not refuse connections: it reports the port as its local address, and closing
+     * it does nothing.
+     */
+    private static final class FreePort extends Socket {
+        private final int port;
+
+        FreePort(int port) {
+            this.port = port;
+        }
+
+        @Override
+        public int getLocalPort() {
+            return port;
+        }
+
+        @Override
+        public java.net.SocketAddress getLocalSocketAddress() {
+            return new InetSocketAddress(LOOPBACK, port);
+        }
+
+        @Override
+        public InetAddress getLocalAddress() {
+            return LOOPBACK;
+        }
     }
 
     /**
