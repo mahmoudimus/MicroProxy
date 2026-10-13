@@ -13,8 +13,11 @@ import org.microproxy.loadtest.proc.Sampler;
  * The rate sweep: open-loop load over keep-alive connections with small responses, the rate
  * multiplied at each step, to find the knee. A step is sustainable when its p99 is within the SLO,
  * its error ratio within the tolerance, it achieved at least 95% of its target rate and left
- * almost nothing unsent; the knee is the first step that is not, and the maximum sustainable rate
- * is the achieved rate of the last step before it. A step where the load generator could not keep
+ * almost nothing unsent; the knee is the first step of {@code sweep-knee-confirm} unsustainable
+ * steps in a row (1: the first unsustainable step), and the maximum sustainable rate is the achieved
+ * rate of the highest sustainable step before it. With a confirmation of 2 or more, a lone
+ * unsustainable step that the next step recovers from (a GC pause, or a burst of other work on a
+ * shared machine) is kept in the results as such, but does not end the sweep. A step where the load generator could not keep
  * its own schedule ends the sweep as client-bound: its numbers say nothing about the proxy.
  */
 final class RateSweep extends Scenario {
@@ -55,6 +58,11 @@ final class RateSweep extends Scenario {
             String kneeReason = null;
             String stopReason = "max steps";
             int afterKnee = s.getInt("sweep-steps-after-knee");
+            int confirm = Math.max(1, s.getInt("sweep-knee-confirm"));
+            int streak = 0;
+            int streakStart = -1;
+            String streakReason = null;
+            List<Integer> transients = new ArrayList<>();
             for (int i = 0; i < s.getInt("sweep-max-steps") && rate <= s.getDouble("sweep-max-rate"); i++) {
                 double from = sampler.elapsed();
                 double upFrom = p.uptime();
@@ -108,11 +116,22 @@ final class RateSweep extends Scenario {
                     }
                     break;
                 }
-                if (knee == null && !why.isEmpty()) {
-                    knee = i;
-                    kneeReason = String.join("; ", why);
+                if (knee == null) {
+                    if (why.isEmpty()) {
+                        if (streak > 0) transients.add(streakStart);
+                        streak = 0;
+                    } else {
+                        if (streak++ == 0) {
+                            streakStart = i;
+                            streakReason = String.join("; ", why);
+                        }
+                        if (streak >= confirm) {
+                            knee = streakStart;
+                            kneeReason = streakReason;
+                        }
+                    }
                 }
-                if (knee != null && i - knee >= afterKnee) {
+                if (knee != null && i - knee >= Math.max(afterKnee, confirm - 1)) {
                     stopReason = "past the knee";
                     break;
                 }
@@ -122,9 +141,16 @@ final class RateSweep extends Scenario {
                 }
                 rate *= s.getDouble("sweep-factor");
             }
+            if (knee == null && streak > 0) {
+                // The sweep ended inside an unconfirmed run of unsustainable steps: the knee is its start.
+                knee = streakStart;
+                kneeReason = streakReason;
+            }
             Double max = null;
-            int lastGood = (knee == null ? steps.size() : knee) - 1;
-            if (lastGood >= 0) max = Json.getDouble(steps.get(lastGood), "achievedRate", 0);
+            int bound = knee == null ? steps.size() : knee;
+            for (int j = bound - 1; j >= 0 && max == null; j--) {
+                if (Json.getBool(steps.get(j), "sustainable", false)) max = Json.getDouble(steps.get(j), "achievedRate", 0);
+            }
             result.put("sloP99Ms", sloMs);
             result.put("errorTolerance", tolerance);
             result.put("connections", connections);
@@ -133,6 +159,9 @@ final class RateSweep extends Scenario {
             result.put("kneeStep", knee);
             result.put("kneeReason", kneeReason);
             result.put("kneeFound", knee != null);
+            result.put("kneeConfirm", confirm);
+            // Unsustainable steps before the knee that the next step recovered from.
+            result.put("transientSteps", transients);
             result.put("maxSustainableRate", max);
             result.put("stopReason", stopReason);
             boolean anyOk = steps.stream().anyMatch(st -> Json.getLong(st, "ok", 0) > 0);

@@ -60,6 +60,7 @@ public final class Settings {
         {"sweep-connections", "16", "128", "512", "keep-alive connections the load is spread over"},
         {"sweep-response-bytes", "128", "128", "128", "the response body size"},
         {"sweep-steps-after-knee", "1", "1", "2", "steps to run past the knee, to show the curve"},
+        {"sweep-knee-confirm", "1", "1", "1", "unsustainable steps in a row that make the knee (2 or more lets a lone noisy step pass)"},
         // Connection ramp
         {"ramp-steps", "200,500,1000", "1000,5000,10000,25000,50000", "1000,5000,10000,25000,50000,100000,150000,200000", "idle connections to hold at each step"},
         {"ramp-warm", "true", "true", "true", "send one request on each connection before it idles (so the proxy also holds an upstream connection)"},

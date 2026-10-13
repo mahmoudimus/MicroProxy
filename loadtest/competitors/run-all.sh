@@ -42,9 +42,12 @@ SETTINGS=(
     --external-proxies "$HERE/proxies.json"
     --cpus-proxy "$CPUS_PROXY" --cpus-origin "$CPUS_ORIGIN" --cpus-client "$CPUS_CLIENT"
     # Rate sweep: 128 keep-alive connections, 128-byte responses, x1.25 steps of 8 s from 2,000 req/s
-    # after a 15 s warm-up (JIT compilation for the JVMs), up to one step past the knee (p99 > 50 ms).
+    # after a 15 s warm-up (JIT compilation for the JVMs). The knee is the first of two unsustainable
+    # steps in a row (p99 over 50 ms, errors, or under 95% of the offered rate), so that one noisy
+    # step on a shared machine does not end a sweep; the sweep stops one step past it.
     --sweep-start-rate 2000 --sweep-factor 1.25 --sweep-step-seconds 8 --sweep-warmup-seconds 15
-    --sweep-max-steps 24 --sweep-connections 128 --sweep-steps-after-knee 1 --slo-p99-ms 50
+    --sweep-max-steps 24 --sweep-connections 128 --sweep-knee-confirm 2 --sweep-steps-after-knee 1
+    --slo-p99-ms 50
     # Connection ramp: the container's open-file limit (20,000 per process) bounds the largest step.
     --ramp-steps 1000,2000,4000,6000,8000
     # Memory under adversarial clients: every proxy in a 512 MB memory cgroup (the JVMs also keep the
