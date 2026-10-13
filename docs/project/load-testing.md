@@ -71,17 +71,80 @@ its own CPUs with a configurable split; without `taskset` they run unpinned and 
 
 Each scenario runs once for MicroProxy and once for LittleProxy, each in a fresh proxy JVM.
 
-| Scenario | What it does | What it proves | Pass/fail |
+| Scenario | What it does | What it proves | Verdicts |
 |---|---|---|---|
-| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step |
-| **Connection ramp** | idle keep-alive connections held in steps (1k, 5k, 10k …), from many loopback source addresses | memory per idle connection, the connection limit, and how it is reached | records RSS, NMT, heap-after-GC, fds, threads and a probe's latency; stops at the first step it cannot complete and says how (refused, unresponsive, crashed, OOM) |
-| **Memory under adversarial clients** | the proxy capped in memory, then slowloris, slow readers, parallel large up/down, and an h2c rapid-reset flood | whether backpressure and per-connection caps keep memory bounded | pass is **bounded** (memory levels off) or **shedding** (the proxy refuses or closes the bad connections and stays up); OOM or crash fails |
-| **Soak** | a fixed moderate rate held for a configurable duration | leaks: memory, fds or threads that climb monotonically | a least-squares slope that fits well and grows meaningfully is flagged as a possible leak |
-| **Fault injection** | a Toxiproxy-style TCP relay between proxy and origin adds latency, caps bandwidth, resets mid-response, stalls and blackholes | that the proxy turns faults into sensible errors without leaking connections or memory | pass is bounded: no hang past the request timeout, the relay's connections return to zero, fds return to the baseline, the proxy survives |
+| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step (data). Verdict: the proxy survived, or crashed / ran out of memory |
+| **Connection ramp** | idle keep-alive connections held in steps (1k, 5k, 10k …), from many loopback source addresses | memory per idle connection, the connection limit, and how it is reached | records RSS, NMT, heap-after-GC, fds, threads and a probe's latency; stops at the first step it cannot complete and says how (refused, unresponsive, crashed, OOM, or the client's own limit). The limit is data; the verdict is whether the proxy survived |
+| **Memory under adversarial clients** | the proxy capped in memory, then slowloris, slow readers, parallel large up/down, and an h2c rapid-reset flood | whether backpressure and per-connection caps keep memory bounded | **bounded** or **shedding** pass; **unbounded-growth**, **oom** or **crashed** fail; **inconclusive** when the window is too short (see [below](#how-memory-growth-is-judged)) |
+| **Soak** | a fixed moderate rate held for a configurable duration | leaks: memory, fds or threads that climb monotonically | **possible-leak** (fail) when a series climbs steadily after the warm-up, **no-leak** (pass), or **inconclusive** for a soak too short to judge |
+| **Fault injection** | a Toxiproxy-style TCP relay between proxy and origin adds latency, caps bandwidth, resets mid-response, stalls and blackholes | that the proxy turns faults into sensible errors without leaking connections or memory | per fault, **bounded** (pass): no hang past the request timeout, the relay's connections return to zero, fds return to the baseline, the proxy survives; and across the faults, the heap after GC and NMT total return near the baseline |
 
 The rapid-reset flood needs HTTP/2 over cleartext (h2c), which the harness enables on MicroProxy for
 that workload only (`--http2-cleartext`); LittleProxy serves HTTP/1 only, so it is skipped there and
 the report says so.
+
+### How memory growth is judged
+
+A proxy's memory rises at the start of a workload whatever it does: buffer pools fill, the JIT
+compiles, per-connection state is allocated. A rising peak is therefore not growth. Each workload's
+first 10 s, or its first quarter if that is longer, is a warm-up the verdict ignores. Over the rest,
+a least-squares line is fitted to RSS and to NMT total. The verdict is **unbounded-growth** only if
+one of them climbs steadily: the line fits with R² of at least 0.8, *and* memory grows along it by
+more than 32 MB *and* by more than a quarter of the window's mean. Otherwise the verdict is
+**bounded**. If the proxy closed or refused at least a tenth of the adversarial connections and
+stayed up, the verdict is **shedding**. If fewer than 5 samples or 20 s remain after the warm-up,
+the window cannot tell growth from warm-up, so the verdict is **inconclusive**. An out-of-memory error
+(in the proxy's log, or a cgroup OOM kill) is **oom**, even if the process kept running, and an exit
+is **crashed**.
+
+The smoke preset's workloads last a few seconds, shorter than the warm-up, so its memory verdicts are
+always inconclusive (the same holds for its 10 s soak). They are reported, never gating, and they do
+not flip from run to run. Real growth verdicts come from the standard and full presets.
+
+### What the slow readers show about LittleProxy
+
+The slow-reader workload asks for large responses and reads them a few kilobytes a second, so a
+proxy must either stop reading from the origin (backpressure) or hold the response. Measured with
+this harness, LittleProxy does stop reading: with direct memory uncapped, its NMT "other" section
+(where Netty's pooled direct buffers are counted) rises to a plateau within seconds and stays flat
+while the readers drain. It never comes near holding the whole response. But at that plateau it
+holds a sizeable buffer per slow reader, a little under a megabyte of direct memory in these runs,
+which is consistent with Netty reading a full read loop's worth before writability turns reading off.
+The direct memory LittleProxy needs therefore grows with the number of slow readers. With the
+standard preset's settings (200 readers, a 128 MB direct-memory cap) it exceeds the cap and reports
+out-of-memory ("Cannot reserve … bytes of direct buffer memory"). It keeps running, and honest probes
+time out for a while before they recover. MicroProxy holds no extra direct memory per slow reader,
+and its RSS stays flat. The report's "direct per reader" column shows the figure for each run.
+
+The smoke preset's 20 readers stay well under its 64 MB cap. LittleProxy's RSS there jumps to its
+plateau during the first seconds, which an earlier, naive rule ("the last sample is the peak and still
+rising") misread as unbounded growth on some runs and not on others. The warm-up and fit rules above
+replace that rule.
+
+## Self-checks, verdicts and the gate
+
+Every run keeps two kinds of result apart:
+
+- **Harness self-checks** say the harness itself worked: each scenario ran without error, responses
+  through the proxy validated by status and length, the proxy's metrics were sampled (`/proc` and
+  NMT), and the JSON and Markdown reports were written. A failed self-check always fails the run.
+- **Verdicts** judge the proxy under test: survived, crashed or oom in the sweep and the ramp;
+  bounded, shedding, unbounded-growth, oom or crashed for each memory workload; no-leak or
+  possible-leak in the soak; bounded, leak-or-hang or memory-retained for the faults. A verdict can
+  also be **inconclusive** (or n/a), which never fails a run.
+
+`--gate` decides which failed verdicts fail the run (exit code 1):
+
+| `--gate` | Fails the run on |
+|---|---|
+| `microproxy` (default) | a failed self-check, or a failed verdict on MicroProxy, the system under development |
+| `all` | a failed self-check, or a failed verdict on either proxy |
+| `none` | a failed self-check only |
+
+LittleProxy's verdicts are comparison data. Under the default gate they appear in the report's
+**Verdicts** section, at the top, marked "no (comparison)", and in the CI job summary, but they never
+fail the run. A regression in MicroProxy, such as an out-of-memory, a crash, or a fault that hangs or
+leaks, does fail it.
 
 ## Metrics collected
 
@@ -114,9 +177,9 @@ across heap and native), and shows heap and the NMT "other" (direct) section alo
 idle connection is the slope of RSS and of NMT total against the connection count, which separates
 the proxy's fixed cost from its cost per connection.
 
-Every report ends with the harness's **self-checks**: these verify the harness worked (each scenario
-ran and responses validated), not how well a proxy did. The CI smoke job fails if any self-check
-fails.
+The report opens with the **Verdicts** table, one row per proxy, scenario and subject, saying whether
+each verdict gates the run. It ends with the harness's **self-checks**, which verify that the harness
+worked rather than how well a proxy did (see [Self-checks, verdicts and the gate](#self-checks-verdicts-and-the-gate)).
 
 ## Equal settings, and the ones that cannot be equal
 
@@ -148,8 +211,10 @@ run hits first. The harness reads the limits in effect, reports them, and stops 
 clear message when it reaches the client process's own. Raise them before a large run:
 
 ```bash
-# Open files (per shell; the hard limit may need privileges or /etc/security/limits.conf).
-ulimit -n 1048576
+# Open files, per shell. Raising the soft limit up to the hard one needs no privileges; going past
+# the hard limit does (sudo prlimit, or /etc/security/limits.conf).
+ulimit -n "$(ulimit -Hn)"
+sudo prlimit --pid $$ --nofile=1048576:1048576 && ulimit -n 1048576
 
 # Accept-queue depth, so bursts of connects are not dropped.
 sudo sysctl -w net.core.somaxconn=65535
@@ -172,6 +237,14 @@ the loopback interface, so the load generator binds its connections across `127.
 its own ephemeral-port space. The harness picks the number of addresses from the ramp's largest step
 and the `--ramp-per-source` setting. On a system where this does not hold (not Linux, or a locked-down
 loopback), the ramp is bounded by one address's ports and the report says where it stopped.
+
+**When a limit cannot be raised.** On a hosted CI runner, or in a container without privileges,
+`ulimit -n` cannot exceed the hard limit ("cannot modify limit: Operation not permitted"), and the
+sysctls are read-only. That is fine for the smoke preset, which needs about 2,500 descriptors per
+process. For the larger presets, the harness reads the limits in effect and prints them. The ramp
+then stops gracefully at the first one it meets: when the load generator runs out of descriptors,
+ports or heap, the report says `client-bound` and names the setting to raise, rather than counting
+the limit against the proxy.
 
 ## Running
 
@@ -209,10 +282,14 @@ and observable, for example `--proxy-cgroup-limit 2g` (every scenario) or `--att
 workflow runs on demand (`workflow_dispatch`) with inputs for the preset, the scenarios, the proxies,
 the `runs-on` label (so a bigger or self-hosted runner can be chosen) and extra settings. It raises
 `ulimit -n` and sets the sysctls it is allowed to (the ones above need privileges, which hosted
-runners grant through `sudo` and self-hosted ones may not), runs the harness, appends the report to
-the run summary and uploads the results directory. The [`ci.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/ci.yml)
-`loadtest-smoke` job runs the smoke preset on every push as a check that the harness works; it does
-not check thresholds, since hosted runners are too noisy.
+runners grant through `sudo` and self-hosted ones may not), runs the harness with the chosen `--gate`,
+appends the report to the run summary and uploads the results directory. The [`ci.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/ci.yml)
+`loadtest-smoke` job runs the smoke preset on every push. It raises the open-file limit only as far
+as the hard limit (which needs no privileges), prints the limits, and gates with `--gate microproxy`.
+So it fails on a broken harness, or on a MicroProxy verdict such as an out-of-memory, a crash, or a
+fault that hangs or leaks. It never fails on LittleProxy's verdicts, and it checks no latency or
+throughput thresholds, since hosted runners are too noisy. The report, with its Verdicts table, is
+added to the job summary.
 
 ## The LittleProxy baseline
 
