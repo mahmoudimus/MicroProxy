@@ -71,10 +71,10 @@ public final class HttpBodies {
 
     /**
      * The Brotli quality (0 to 11) that {@link #encode} and rewritten {@code br} bodies use, with
-     * jaybrotli's hash-chain match finder and greedy parsing: HTML and JSON come out about the size
-     * gzip's default level makes, at roughly 10 to 40 MB/s. (jaybrotli's default parsing at quality
-     * 4 and up also searches Brotli's static dictionary, which compresses only slightly better and
-     * runs at about 1 MB/s, too slowly for responses on their way to a client.)
+     * jaybrotli's default strategies: on HTML and JSON of 10 KB to 1 MB it runs at about 10 to 35
+     * MB/s, and its output is mostly 1 to 14% smaller than gzip's default level (at worst 2%
+     * larger). Qualities 4 and 6 come out within 1% of it; the higher qualities and the
+     * alternative strategies trade too much speed for what they save.
      */
     public static final int BROTLI_QUALITY = 5;
 
@@ -559,8 +559,7 @@ public final class HttpBodies {
             Output out = new Output(Math.max(64, data.length / 4));
             EncoderOptions options = EncoderOptions.defaults()
                     .withQuality(BROTLI_QUALITY)
-                    .withWindowBits(windowBits(data.length))
-                    .withStrategies("hash-chain", "greedy");
+                    .withWindowBits(windowBits(data.length));
             Encoder encoder = new Encoder(options).onCompressed(out::append);
             try {
                 encoder.receive(ByteBuffer.wrap(data));
