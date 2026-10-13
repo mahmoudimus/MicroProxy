@@ -31,12 +31,21 @@ public final class HttpConn implements Closeable {
     private final InputStream in;
     private final OutputStream out;
     private boolean usable = true;
-    private final byte[] buf = new byte[64 * 1024];
+    // Allocated on the first body read, so an idle held connection (the ramp holds tens of
+    // thousands) keeps only the small buffered stream, not a 64 KB transfer buffer.
+    private byte[] buf;
 
     private HttpConn(Socket socket) throws IOException {
         this.socket = socket;
-        this.in = new BufferedInputStream(socket.getInputStream(), 16 * 1024);
+        // A small per-connection buffer: the ramp holds many idle connections, and the bodies are
+        // drained through the larger lazy buffer below.
+        this.in = new BufferedInputStream(socket.getInputStream(), 4 * 1024);
         this.out = socket.getOutputStream();
+    }
+
+    private byte[] buf() {
+        if (buf == null) buf = new byte[64 * 1024];
+        return buf;
     }
 
     /** What to send and what to expect back. */
@@ -207,6 +216,7 @@ public final class HttpConn implements Closeable {
     private long skip(long n, long readRate, long deadlineNanos) throws IOException {
         long total = 0;
         long start = System.nanoTime();
+        byte[] buf = buf();
         int chunk = readRate > 0 ? (int) Math.max(256, Math.min(buf.length, readRate / 4)) : buf.length;
         while (total < n) {
             if (System.nanoTime() > deadlineNanos) return total;

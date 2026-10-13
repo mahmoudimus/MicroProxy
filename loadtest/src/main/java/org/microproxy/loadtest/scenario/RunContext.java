@@ -88,9 +88,33 @@ public final class RunContext {
 
     /** A free TCP port on the loopback address. */
     static int freePort() throws IOException {
-        try (ServerSocket s = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
-            return s.getLocalPort();
+        return freePorts(1)[0];
+    }
+
+    /**
+     * {@code n} distinct free TCP ports on the loopback address. The sockets are held open together
+     * so the OS hands out different ports (two sequential binds can otherwise reuse the just-freed
+     * port), then closed before the ports are used.
+     */
+    static int[] freePorts(int n) throws IOException {
+        List<ServerSocket> sockets = new ArrayList<>();
+        int[] ports = new int[n];
+        try {
+            for (int i = 0; i < n; i++) {
+                ServerSocket s = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+                sockets.add(s);
+                ports[i] = s.getLocalPort();
+            }
+        } finally {
+            for (ServerSocket s : sockets) {
+                try {
+                    s.close();
+                } catch (IOException e) {
+                    // Already closed.
+                }
+            }
         }
+        return ports;
     }
 
     /** Waits until {@code port} accepts connections, or the process dies; false on timeout. */

@@ -75,6 +75,13 @@ public final class Holder {
                 while (clientLimit.get() == null && failed.get() <= maxFailures) {
                     int i = next.getAndIncrement();
                     if (i >= count) return;
+                    // Stop before the load generator's own heap runs out, so it reports a client
+                    // limit instead of dying with an OutOfMemoryError mid-step.
+                    if ((i & 0xFF) == 0 && heapNearlyFull()) {
+                        clientLimit.compareAndSet(null, "the load generator is near its heap limit ("
+                                + usedHeapMb() + " MB of " + maxHeapMb() + " MB -Xmx): raise its --client-heap");
+                        return;
+                    }
                     int index = base + i;
                     InetAddress source = sources.isEmpty() ? null : sources.get(Math.min(index / perSource, sources.size() - 1));
                     if (!sources.isEmpty() && index / perSource >= sources.size()) {
@@ -148,6 +155,22 @@ public final class Holder {
         if (clientLimit.get() != null) m.put("clientLimit", clientLimit.get());
         if (firstError.get() != null) m.put("firstError", firstError.get());
         return m;
+    }
+
+    private static boolean heapNearlyFull() {
+        Runtime rt = Runtime.getRuntime();
+        long used = rt.totalMemory() - rt.freeMemory();
+        // maxMemory is the -Xmx ceiling; stop with headroom for the connections already in flight.
+        return used > rt.maxMemory() * 85 / 100;
+    }
+
+    private static long usedHeapMb() {
+        Runtime rt = Runtime.getRuntime();
+        return (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+    }
+
+    private static long maxHeapMb() {
+        return Runtime.getRuntime().maxMemory() / (1024 * 1024);
     }
 
     private void hold(HttpConn conn) {

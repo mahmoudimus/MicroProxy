@@ -70,8 +70,10 @@ public final class ProxyProcess implements AutoCloseable {
         Path logs = ctx.out.resolve("logs");
         Files.createDirectories(logs);
         String base = kind + "-" + label;
-        int port = RunContext.freePort();
-        int adminPort = kind.equals("microproxy") && s.getBool("mp-admin") ? RunContext.freePort() : 0;
+        boolean admin = kind.equals("microproxy") && s.getBool("mp-admin");
+        int[] ports = RunContext.freePorts(admin ? 2 : 1);
+        int port = ports[0];
+        int adminPort = admin ? ports[1] : 0;
         Path gcLog = logs.resolve(base + "-gc.log");
         Path oomFlag = logs.resolve(base + ".oom");
         Files.deleteIfExists(oomFlag);
@@ -111,7 +113,7 @@ public final class ProxyProcess implements AutoCloseable {
             cmd.add("-Djava.util.logging.config.file=" + logging);
             cmd.addAll(List.of("-cp", ctx.microproxyLib.resolve("*").toString(), "org.microproxy.Launcher",
                     "--port", Integer.toString(port), "--idle-timeout", Integer.toString(o.idleTimeoutSeconds()),
-                    "--connect-timeout", s.get("connect-timeout-ms")));
+                    "--connect-timeout", s.get("connect-timeout-ms"), "--proxy-alias", "loadtest"));
             if (adminPort > 0) cmd.addAll(List.of("--admin-port", Integer.toString(adminPort)));
             if (o.h2c()) cmd.add("--http2-cleartext");
             cmd.addAll(s.getArgs("mp-args"));
@@ -121,6 +123,7 @@ public final class ProxyProcess implements AutoCloseable {
             cmd.addAll(List.of("-cp", ctx.harnessJar.toString(), "org.microproxy.loadtest.proxy.LittleProxyLauncher",
                     "--port", Integer.toString(port), "--idle-timeout", Integer.toString(o.idleTimeoutSeconds()),
                     "--connect-timeout", s.get("connect-timeout-ms")));
+            if (s.getInt("lp-workers") > 0) cmd.addAll(List.of("--workers", s.get("lp-workers")));
         } else {
             throw new IllegalArgumentException("unknown proxy " + kind);
         }
