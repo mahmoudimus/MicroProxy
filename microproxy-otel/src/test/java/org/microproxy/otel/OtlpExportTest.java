@@ -147,8 +147,11 @@ class OtlpExportTest {
             for (int i = 0; i < 3; i++) {
                 assertEquals(200, TestSupport.get(TestSupport.client(proxy), TestSupport.url(origin, "/m" + i)).statusCode());
             }
-            TestSupport.eventually("the requests counted",
-                    () -> ((Counter) registry.get("http.edge.downstream_rq_total")).value() == 3);
+            // The request time is recorded once the response's last byte is written, which can be
+            // after the client has read it: wait for both, not only for the request count.
+            TestSupport.eventually("the requests counted and timed",
+                    () -> ((Counter) registry.get("http.edge.downstream_rq_total")).value() == 3
+                            && ((Histogram) registry.get("http.edge.downstream_rq_time")).snapshot().count() == 3);
             assertTrue(telemetry.flush(Duration.ofSeconds(10)));
             exported = collector.metricExports.getLast();
             TestCollector.Metric total = metric(exported, "envoy.http.downstream_rq_total");
