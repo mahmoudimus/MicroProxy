@@ -374,16 +374,10 @@ class Http3MasqueTest {
         H3TestClient other = client(true);
         assertEquals(200, other.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status);
         assertEquals(503, other.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status, "three in total");
-        // A flow that ends makes room.
+        // A flow that ends makes room by the time its client reads the end.
         second.end();
         assertEquals(-1, second.in().read());
-        eventually("room for a flow", () -> {
-            try {
-                return first.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status == 200;
-            } catch (IOException e) {
-                return false;
-            }
-        });
+        assertEquals(200, first.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status);
     }
 
     @Test

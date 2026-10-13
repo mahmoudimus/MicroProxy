@@ -26,7 +26,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -404,17 +406,93 @@ class Http2MasqueTest {
                 "three in total");
         assertEquals(2, value(r, "masque.flow_rejected.limit"));
         assertEquals(3, value(r, "masque.udp_flows_active"));
-        // A flow that ends makes room on its connection.
+        // A flow that ends makes room on its connection by the time its client reads the end.
         second.end();
         assertNull(second.readCapsule());
-        awaitValue(r, "masque.udp_flows_active", 2);
-        eventually("room for a flow", () -> {
-            try {
-                return first.open(first.connectUdp(wellKnown("127.0.0.1", udp.port())), false).status() == 200;
-            } catch (IOException e) {
-                return false;
-            }
-        });
+        H2StreamClient.Stream third = flow(first, udp);
+        assertEquals(2, value(r, "masque.flow_rejected.limit"));
+        // Relaying, so counted as active: the flow that ended no longer is.
+        third.sendDatagramCapsule(utf8("room"));
+        assertEquals("room", next(third));
+        awaitValue(r, "masque.udp_flows_active", 3);
+    }
+
+    /**
+     * A refused flow holds no place by the time its client reads the refusal: one opened at once on
+     * another connection is accepted. A tracker holds the refused exchange just after the refusal
+     * is written, so a place given back only after that would still be taken.
+     */
+    @Test
+    void aRefusedFlowHoldsNoPlaceOnceItsClientReadsTheRefusal() throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        CountDownLatch proceed = new CountDownLatch(1);
+        AtomicBoolean holding = new AtomicBoolean();
+        proxy = h2c().withMetrics(true).withHttp3Options(Http3Options.builder().connectUdpMaxFlows(2, 1).build())
+                .plusActivityTracker(new ActivityTracker() {
+                    @Override
+                    public void responseSentToClient(FlowContext flowContext, HttpResponse httpResponse) {
+                        if (httpResponse.status().code() == 503 && holding.compareAndSet(false, true)) await(proceed);
+                    }
+                }).start();
+        StatsRegistry r = proxy.getStats();
+        try {
+            H2StreamClient first = client();
+            flow(first, udp);
+            assertEquals(503, first.open(first.connectUdp(wellKnown("127.0.0.1", udp.port())), false).status(),
+                    "one per connection");
+            flow(client(), udp);
+        } finally {
+            proceed.countDown();
+        }
+        assertEquals(1, value(r, "masque.flow_rejected.limit"));
+    }
+
+    /**
+     * A flow that ends holds no place by the time its client reads the end: one opened at once on
+     * the same connection is accepted, within its connection's bound and the proxy's. The UDP hooks
+     * hold the ended flow at {@code udpEnd}, so a place given back only after that would still be
+     * taken.
+     */
+    @Test
+    void anEndedFlowHoldsNoPlaceOnceItsClientReadsTheEnd() throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        CountDownLatch proceed = new CountDownLatch(1);
+        AtomicBoolean holding = new AtomicBoolean();
+        proxy = h2c().withMetrics(true).withHttp3Options(Http3Options.builder().connectUdpMaxFlows(2, 1).build())
+                .withUdpInterceptor(new UdpInterceptor() {
+                    @Override
+                    public byte[] udpMessage(UdpMessage message, UdpContext context) {
+                        return message.data();
+                    }
+
+                    @Override
+                    public void udpEnd(UdpContext context) {
+                        if (holding.compareAndSet(false, true)) await(proceed);
+                    }
+                }).start();
+        StatsRegistry r = proxy.getStats();
+        try {
+            flow(client(), udp);
+            H2StreamClient client = client();
+            H2StreamClient.Stream ending = flow(client, udp);
+            ending.end();
+            assertNull(ending.readCapsule());
+            H2StreamClient.Stream next = flow(client, udp);
+            next.sendDatagramCapsule(utf8("next"));
+            assertEquals("next", next(next));
+        } finally {
+            proceed.countDown();
+        }
+        assertEquals(0, value(r, "masque.flow_rejected.limit"));
+    }
+
+    /** Waits for {@code latch}, for as long as a test may take. */
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test

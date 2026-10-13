@@ -89,7 +89,10 @@ final class UdpFlow implements UdpContext {
          */
         boolean attach(UdpFlow flow);
 
-        /** The flow ended: its datagrams go nowhere from now on. */
+        /**
+         * The flow ended: its datagrams go nowhere from now on, and it no longer counts against
+         * the client connection's flows. Called again, it does nothing.
+         */
         void detach(UdpFlow flow);
     }
 
@@ -201,6 +204,8 @@ final class UdpFlow implements UdpContext {
     private long toClientBytes;
     /** The UDP hooks' stats. */
     private final ProtocolStats.HookStats hookStats;
+    /** Gives the flow's place in the proxy's bound on flows back; does nothing when run again. */
+    private final Runnable release;
     private volatile boolean started;
     /** The QUIC the client's datagrams carry, decided on as transparent QUIC is; null when relayed as UDP. */
     private volatile MasqueQuic.Inner quic;
@@ -212,12 +217,15 @@ final class UdpFlow implements UdpContext {
      * @param socket a UDP socket connected to the target, which the flow closes when it ends
      * @param hooks the UDP hooks, or null for none
      * @param hookStats counts the hooks' calls
+     * @param release gives the flow's place in the proxy's bound on flows back, run as the flow
+     *     ends (before its client learns it); it must do nothing when run again
      */
     UdpFlow(Client client, DatagramChannel socket, HostAndPort target, InetSocketAddress targetAddress,
             ClientFlowContext flow, String logPrefix, UdpInterceptor hooks, Duration idleTimeout, int maxQueued,
-            long maxQueuedBytes, ProtocolStats.HookStats hookStats) {
+            long maxQueuedBytes, ProtocolStats.HookStats hookStats, Runnable release) {
         this.client = client;
         this.hookStats = hookStats;
+        this.release = release;
         this.socket = socket;
         this.target = target;
         this.targetAddress = targetAddress;
@@ -471,7 +479,12 @@ final class UdpFlow implements UdpContext {
         }
     }
 
-    /** Ends the flow, once: the queues and the socket close, the stream ends ({@code clean}) or is reset. */
+    /**
+     * Ends the flow, once: the queues and the socket close, the flow's places in the bounds (its
+     * connection's and the proxy's) go back, and then the stream ends ({@code clean}) or is reset.
+     * The places go back first: a client that opens another flow as soon as it reads the end finds
+     * room for it.
+     */
     void end(boolean clean) {
         if (!ended.compareAndSet(false, true)) return;
         toTarget.close();
@@ -481,6 +494,8 @@ final class UdpFlow implements UdpContext {
         } catch (IOException e) {
             // closing anyway
         }
+        client.detach(this);
+        release.run();
         client.endFlow(clean);
         MasqueQuic.Inner inner = quic;
         if (inner != null) inner.ended();
