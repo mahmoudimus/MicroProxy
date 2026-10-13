@@ -21,6 +21,7 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses | the same |
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
+| `proxyToServerTlsIdentity(hostAndPort)` | before a request that reaches its server over TLS chooses a connection | return the server name (SNI) and verification host for it; `builder().tlsIdentity(...)` ([MITM](mitm.md#server-name-and-verification-host)) |
 | `proxyToServerResolutionStarted(hostAndPort)` | before the server's name is resolved | return an address to use instead |
 | `proxyToServerConnectTimeout()` | when a new server connection is needed | shorten the connect timeout ([below](#filters-from-lambdas)) |
 | `requestBufferSizeInBytes(request)`, `responseBufferSizeInBytes(response)` | after a message's head | buffer that message whole ([Rewriting bodies](rewriting-bodies.md)) |

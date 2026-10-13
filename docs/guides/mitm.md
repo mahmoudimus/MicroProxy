@@ -175,6 +175,41 @@ an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the
 The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` is that reason's name and the innermost
 cause's message: `certificate_revoked: Certificate has been revoked, reason: ...`.
 
+### Server name and verification host
+
+The proxy sends the request's host as the server name (SNI) and checks the server's certificate
+against it; for a `CONNECT` to an IP address it sends the server name the client's ClientHello
+named. A route that dials somewhere else than the name the service is known by, an IP address
+or an internal load balancer (`proxyToServerResolutionStarted`, a resolver, a reverse proxy's
+upstream, a chained proxy), can name both itself: `HttpFilters.proxyToServerTlsIdentity` returns
+a `TlsServerIdentity` with the server name and the verification host, `null` keeping the default.
+
+```java
+HttpFilters filters = HttpFilters.builder()
+        .resolveWith(hostAndPort -> hostAndPort.startsWith("api.example.com:")
+                ? new InetSocketAddress("10.0.0.7", 443) : null)
+        .tlsIdentity(hostAndPort -> hostAndPort.startsWith("api.example.com:")
+                ? TlsServerIdentity.of("api.example.com") : null)
+        .build();
+```
+
+`TlsServerIdentity.of(name)` sends `name` and checks the certificate against it;
+`TlsServerIdentity.of(name, verificationHost)` checks it against another host (or IP address)
+than the one sent; `TlsServerIdentity.of(null, verificationHost)` keeps the default server name.
+The certificate is validated with the MITM manager's trust as always; only the names change. When
+the two names differ, the JDK's own check would accept a certificate valid for either, so the
+proxy checks the verification host itself, right after the handshake and before the connection
+is used, against the certificate's subject alternative names (DNS names, or IP addresses for an
+IP address; the common name is not consulted). A context that trusts every server
+(`--mitm-trust-all`) checks no names, as before.
+
+The hook is asked for every request that reaches its server over TLS, before a connection is
+chosen, and for an intercepted `CONNECT` before the proxy's handshake with its target, with the
+server's `host:port`. The identity is part of what keeps server connections apart: one made with
+an identity serves only requests with the same identity, never reused, pooled or coalesced
+([HTTP/2 coalescing](http2.md#connection-coalescing), RFC 9113 section 9.1.1) for another, and requests
+with an identity do not go over HTTP/3. The Starlark scripting layer has no hook for it yet.
+
 ### Ignoring and allowing hosts
 
 `withIgnoreHosts(...)` (`--ignore-hosts`, `ignore_hosts`) and `withAllowHosts(...)`

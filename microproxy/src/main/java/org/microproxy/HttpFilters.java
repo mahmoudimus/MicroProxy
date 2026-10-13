@@ -306,6 +306,30 @@ public interface HttpFilters {
     }
 
     /**
+     * The TLS identity of this request's connection to {@code serverHostAndPort}: the server name
+     * sent as SNI and the host the server's certificate is verified against, when they are not the
+     * request's host, e.g. for a route that dials an IP address or an internal load balancer
+     * ({@link #proxyToServerResolutionStarted}, a resolver, a chained proxy) while the service
+     * presents a certificate for its public name. {@code null} (the default) keeps both derived
+     * from the request's host. The address dialled is not affected, nor is the TLS with a chained
+     * proxy itself ({@link ChainedProxy#requiresEncryption()}).
+     *
+     * <p>Asked for requests that reach the server over TLS (intercepted sessions, TLS origination,
+     * a reverse proxy's {@code https://} upstream) before a server connection is chosen, and for an
+     * intercepted {@code CONNECT} before the proxy's handshake with its target. A connection made
+     * with one identity serves only requests with the same identity: it is never reused, pooled
+     * or coalesced (RFC 9113 section 9.1.1) for another, and a request with an identity does not
+     * go over HTTP/3. The certificate is still validated with the MITM manager's trust; only the
+     * names change. In a {@link HttpFiltersChain} the first member that returns an identity wins.
+     *
+     * @param serverHostAndPort the server's {@code host:port}
+     * @return the identity, or {@code null} for the default
+     */
+    default TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+        return null;
+    }
+
+    /**
      * Called for every WebSocket frame relayed after this request was upgraded ({@code 101
      * Switching Protocols} with {@code Upgrade: websocket}), including inside intercepted TLS
      * sessions. Frames are observed, not modified: they are forwarded unchanged after this returns.

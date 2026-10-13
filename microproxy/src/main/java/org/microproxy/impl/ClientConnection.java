@@ -65,6 +65,7 @@ import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
+import org.microproxy.TlsServerIdentity;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.extras.ServerReplay;
 import org.microproxy.http.DefaultFullHttpRequest;
@@ -561,6 +562,10 @@ final class ClientConnection implements Runnable {
          * for the connection it made ({@link ServerConnection#tlsContext}).
          */
         SSLContext serverTlsContext;
+        /** The server ({@code host:port}) the filters were last asked for a TLS identity for; null before. */
+        String tlsIdentityFor;
+        /** Their answer for {@link #tlsIdentityFor} ({@link HttpFilters#proxyToServerTlsIdentity}); null for the default. */
+        TlsServerIdentity tlsIdentity;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -1959,7 +1964,7 @@ final class ClientConnection implements Runnable {
             // session: the manager's server trust applies, as it does to intercepted requests.
             mitmManager();
         }
-        String key = mode + "|" + hostAndPort;
+        String key = mode + "|" + hostAndPort + tlsIdentityKey(ex, mode, hostAndPort);
         if (ex.proxyForm && (usesPool(mode) || mode == Mode.PLAIN && server.chainProxyManager != null && via == null)) {
             // A proxy request carries the client's credentials for the session's server: it goes on
             // connections of the client's own, never pooled, nor ones that hand an HTTP chained
@@ -1981,7 +1986,7 @@ final class ClientConnection implements Runnable {
         // particular to one client (no tunnel through a hop, no PROXY header), and not for a
         // proxy request. A WebSocket needs the server's extended CONNECT (RFC 9220).
         boolean http3 = server.http3Origins != null && mode == Mode.TLS && via == null && !ex.proxyForm
-                && !server.sendProxyProtocol;
+                && !server.sendProxyProtocol && tlsIdentity(ex, hostAndPort) == null;
         // A server known to speak HTTP/3 gets the exchange over it, even when a TCP connection to
         // it is at hand (the one an intercepted CONNECT made, say), which stays for later.
         ServerConnection conn = http3 && server.http3Origins.http3Port(hostAndPort) >= 0 && directRoute(ex, hostAndPort)
@@ -2065,7 +2070,7 @@ final class ClientConnection implements Runnable {
                     conn = http3Stream(ex, hostAndPort);
                 }
                 // A stream on an HTTP/2 connection to the server, if there is one with room.
-                http2Key = http2 && conn == null ? http2Key(mode, hostAndPort, route.getFirst()) : null;
+                http2Key = http2 && conn == null ? http2Key(ex, mode, hostAndPort, route.getFirst()) : null;
                 if (http2Key != null) {
                     try {
                         Http2Coalescing.Request coalescing =
@@ -2946,7 +2951,7 @@ final class ClientConnection implements Runnable {
 
         // An HTTP/2 connection to the server that the session's requests can share makes connecting
         // now unnecessary, as a pooled connection would.
-        Http2Origins.Key http2Key = mitm && server.http2Origins != null ? http2Key(mode, hostAndPort, route.getFirst())
+        Http2Origins.Key http2Key = mitm && server.http2Origins != null ? http2Key(ex, mode, hostAndPort, route.getFirst())
                 : null;
         SSLSession serverSession = null;
         if (http2Key != null) {
@@ -3266,7 +3271,7 @@ final class ClientConnection implements Runnable {
             SSLSession serverSession, String serverAlpn, HostAndPort target, String hostAndPort,
             List<ChainedProxy> route, Http2Origins.Key http2Key) throws IOException {
         if (conn != null) {
-            conn.key = mode + "|" + hostAndPort;
+            conn.key = mode + "|" + hostAndPort + tlsIdentityKey(ex, mode, hostAndPort);
             recordUpstream(ex, conn);
             try {
                 ex.channel.serverConnectionInUse(conn);
@@ -3389,7 +3394,7 @@ final class ClientConnection implements Runnable {
             Http2Origins.Key http2Key) {
         serverConnections.remove(carrier.key, carrier);
         try {
-            Http2Origins.Key key = http2Key(mode, hostAndPort, carrier.chainedProxy == null
+            Http2Origins.Key key = http2Key(ex, mode, hostAndPort, carrier.chainedProxy == null
                     ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : carrier.chainedProxy);
             server.http2Origins.adopt(carrier, http2Key, key, http2Owner(mode, via), null, hostAndPort, ex.log, false);
         } catch (IOException e) {
@@ -4012,7 +4017,7 @@ final class ClientConnection implements Runnable {
      * that chained proxies open, never as their own requests.
      */
     private ServerConnection proxyConnection(Hop hop, Exchange ex, boolean sessionIdle) throws IOException {
-        String key = hop.mode() + "|" + hop.proxy;
+        String key = hop.mode() + "|" + hop.proxy + (hop.tls ? tlsIdentityKey(ex, Mode.TLS, hop.proxy) : "");
         if (sessionIdle) {
             ServerConnection idle = ex.channel.multiplexed() ? takeStreamConnection(key, ex, hop.proxy)
                     : serverConnections.remove(key);
@@ -4035,7 +4040,7 @@ final class ClientConnection implements Runnable {
             return conn;
         }
         Http2Origins.Key http2Key = server.http2Origins == null ? null
-                : http2Key(Mode.TLS, hop.proxy, route.getFirst(), hop.parent);
+                : http2Key(ex, Mode.TLS, hop.proxy, route.getFirst(), hop.parent);
         if (http2Key != null) {
             // (A proxy's connections are its own: never coalesced with another's.)
             ServerConnection stream = server.http2Origins.stream(http2Key, null, ex.flow, hop.proxy, ex.log, false,
@@ -4052,7 +4057,7 @@ final class ClientConnection implements Runnable {
             if (conn.http2) {
                 ChainedProxy actual = conn.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
                         : conn.chainedProxy;
-                return server.http2Origins.adopt(conn, http2Key, http2Key(Mode.TLS, hop.proxy, actual, hop.parent),
+                return server.http2Origins.adopt(conn, http2Key, http2Key(ex, Mode.TLS, hop.proxy, actual, hop.parent),
                         http2Owner(Mode.TLS, hop.parent), ex.flow, hop.proxy, ex.log, false);
             }
             if (http2Key != null) server.http2Origins.negotiatedHttp1(http2Key);
@@ -4730,7 +4735,8 @@ final class ClientConnection implements Runnable {
     private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
         String hostKey = mode + "|" + hostAndPort;
-        String managerKey = mitmPoolKey(mode);
+        // (The TLS identity keeps connections apart, but the per-host limit counts them all.)
+        String managerKey = mitmPoolKey(mode) + tlsIdentityKey(ex, mode, hostAndPort);
         ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey,
                 Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
@@ -4774,22 +4780,22 @@ final class ClientConnection implements Runnable {
 
     /**
      * The key HTTP/2 connections to servers are shared under ({@link Http2Origins}): the target, and
-     * its isolation: the route, the MITM manager, and the client connection unless it may be shared
-     * with every client.
+     * its isolation: the route, the MITM manager, the TLS identity {@code ex}'s filters chose, and
+     * the client connection unless it may be shared with every client.
      */
-    private Http2Origins.Key http2Key(Mode mode, String hostAndPort, ChainedProxy route) {
-        return http2Key(mode, hostAndPort, route, via);
+    private Http2Origins.Key http2Key(Exchange ex, Mode mode, String hostAndPort, ChainedProxy route) {
+        return http2Key(ex, mode, hostAndPort, route, via);
     }
 
     /**
      * The key of HTTP/2 connections reached through {@code via} (an intercepted proxy's tunnels,
      * private to the hop whatever the route), or by the usual routes when it is null.
      */
-    private Http2Origins.Key http2Key(Mode mode, String hostAndPort, ChainedProxy route, Hop via) {
+    private Http2Origins.Key http2Key(Exchange ex, Mode mode, String hostAndPort, ChainedProxy route, Hop via) {
         String isolation = via != null ? mode + "|via" + via.id + mitmPoolKey(mode)
                 : mode + "|" + routeKey(route) + mitmPoolKey(mode)
                         + (http2Owner(mode, null) == null ? "" : "|conn" + owner.id);
-        return new Http2Origins.Key(isolation, hostAndPort);
+        return new Http2Origins.Key(isolation + tlsIdentityKey(ex, mode, hostAndPort), hostAndPort);
     }
 
     /**
@@ -4803,6 +4809,8 @@ final class ClientConnection implements Runnable {
      */
     private Http2Coalescing.Request coalescing(Exchange ex, Mode mode, String hostAndPort, ChainedProxy route) {
         if (!server.http2Options.coalesceConnections() || mode != Mode.TLS) return null;
+        // A request with a TLS identity of its own goes on a connection made with that identity only.
+        if (tlsIdentity(ex, hostAndPort) != null) return null;
         MitmManager manager = connectionMitm;
         if (manager != null && CONFIGURES_SERVER_SOCKETS.get(manager.getClass())) return null;
         HostAndPort target;
@@ -4859,7 +4867,7 @@ final class ClientConnection implements Runnable {
         ChainedProxy actual = carrier.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION
                 : carrier.chainedProxy;
         LOG.log(Level.DEBUG, ex.log + "HTTP/2 to " + hostAndPort + " (ALPN h2)");
-        return server.http2Origins.adopt(carrier, lookupKey, http2Key(mode, hostAndPort, actual), http2Owner(mode, via),
+        return server.http2Origins.adopt(carrier, lookupKey, http2Key(ex, mode, hostAndPort, actual), http2Owner(mode, via),
                 ex.flow, hostAndPort, ex.log, ProxyUtils.isHEAD(ex.request));
     }
 
@@ -5452,14 +5460,20 @@ final class ClientConnection implements Runnable {
         SSLContext context = serverTlsContext(manager, target, serverContext);
         ex.serverTlsContext = context;
         ProxyStats.ClusterStats cluster = server.stats.cluster(serverContext.getChainedProxy(), hostAndPort);
+        // The filters' identity, if any, over the names derived from the request.
+        TlsServerIdentity identity = tlsIdentity(ex, hostAndPort);
+        String serverName = identity != null && identity.serverName() != null ? identity.serverName() : sniHost;
+        String verifyHost = identity != null && identity.verificationHost() != null ? identity.verificationHost()
+                : serverName;
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
-            SSLSocket tls = Tls.clientHandshake(context, active, sniHost, target.port(), true, server.tlsProtocols,
+            SSLSocket tls = Tls.clientHandshake(context, active, verifyHost, target.port(), serverName, true,
+                    server.tlsProtocols,
                     s -> {
                         if (alpn != null) offerAlpn(s, alpn);
                         if (manager != null) manager.configureServerSocket(s, serverContext);
                     }, server.tlsHandshakeTimeout,
-                    new TlsLog.Peer(ex.log, "server", sniHost));
+                    new TlsLog.Peer(ex.log, "server", verifyHost));
             ex.flow.mark(ClientFlowContext.TLS_END);
             cluster.sslHandshake.inc();
             return tls;
@@ -5472,6 +5486,36 @@ final class ClientConnection implements Runnable {
             server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             throw new TlsHandshakeFailed(e);
         }
+    }
+
+    /**
+     * The TLS identity the filters chose for {@code ex}'s connections to {@code hostAndPort}
+     * ({@link HttpFilters#proxyToServerTlsIdentity}), or null for the default: asked once per
+     * exchange and server.
+     */
+    private TlsServerIdentity tlsIdentity(Exchange ex, String hostAndPort) {
+        if (!hostAndPort.equals(ex.tlsIdentityFor)) {
+            TlsServerIdentity identity = null;
+            try {
+                identity = ex.filters.proxyToServerTlsIdentity(hostAndPort);
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, ex.log + "proxyToServerTlsIdentity threw; using the default identity", e);
+            }
+            ex.tlsIdentity = identity;
+            ex.tlsIdentityFor = hostAndPort;
+        }
+        return ex.tlsIdentity;
+    }
+
+    /**
+     * The part of the keys of {@code ex}'s connections to {@code hostAndPort} in {@code mode} that
+     * keeps those made with a TLS identity apart from all others (and from those with another
+     * identity): empty for the default identity, and outside TLS.
+     */
+    private String tlsIdentityKey(Exchange ex, Mode mode, String hostAndPort) {
+        if (mode != Mode.TLS) return "";
+        TlsServerIdentity identity = tlsIdentity(ex, hostAndPort);
+        return identity == null ? "" : "|sni=" + identity.serverName() + "|verify=" + identity.verificationHost();
     }
 
     /**

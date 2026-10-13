@@ -27,6 +27,7 @@ import org.microproxy.http.WebSocketMessage;
  *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
  *   <li>Interception needs every filter's consent (both {@code proxyToServerAllowMitm} hooks), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
+ *   <li>The first filter that names a TLS identity ({@code proxyToServerTlsIdentity}) sets it.
  *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
  *       one of them throws.
  * </ul>
@@ -283,6 +284,15 @@ public final class HttpFiltersChain implements HttpFiltersSource {
                 if (f.proxyToServerAllowOfflineMitm()) return true;
             }
             return false;
+        }
+
+        @Override
+        public TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+            for (HttpFilters f : members) {
+                TlsServerIdentity identity = f.proxyToServerTlsIdentity(serverHostAndPort);
+                if (identity != null) return identity;
+            }
+            return null;
         }
 
         @Override

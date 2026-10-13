@@ -181,7 +181,9 @@ not change.
   connection for the other name would send that one), the proxy presented no client certificate
   on it (an identity given to one name), and the manager does not configure server sockets itself
   (`configureServerSocket`, whose settings may differ by name). An IP address target is never
-  coalesced.
+  coalesced, nor is a request whose filters chose a TLS identity of its own
+  ([`proxyToServerTlsIdentity`](mitm.md#server-name-and-verification-host)): it goes only on
+  connections made with that identity.
 - **Resolving once.** The address check resolves the name the way connecting would, and a request
   that goes on to make its own connection connects to that address, without resolving it again.
   Names a connection was found to serve are remembered for its lifetime, so later requests take a

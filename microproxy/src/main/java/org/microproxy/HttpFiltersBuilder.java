@@ -70,6 +70,7 @@ public final class HttpFiltersBuilder {
     private Function<String, InetSocketAddress> resolver;
     private BooleanSupplier allowMitm;
     private Predicate<? super ClientHello> allowMitmFor;
+    private Function<String, TlsServerIdentity> tlsIdentity;
     private int requestBuffer;
     private int responseBuffer;
     private HttpLogger logger;
@@ -231,6 +232,19 @@ public final class HttpFiltersBuilder {
     }
 
     /**
+     * The TLS identity (server name and verification host) of these requests' connections to
+     * servers, by the server's {@code host:port}; see {@link HttpFilters#proxyToServerTlsIdentity}.
+     * Return null for the default.
+     *
+     * @param identity the function choosing the identity for a server's {@code host:port}
+     * @return this builder
+     */
+    public HttpFiltersBuilder tlsIdentity(Function<String, TlsServerIdentity> identity) {
+        this.tlsIdentity = Objects.requireNonNull(identity);
+        return this;
+    }
+
+    /**
      * The connect timeout for these requests' new connections, instead of the server's (see
      * {@link HttpFilters#proxyToServerConnectTimeout()}).
      *
@@ -341,6 +355,7 @@ public final class HttpFiltersBuilder {
         private final Function<String, InetSocketAddress> resolver;
         private final BooleanSupplier allowMitm;
         private final Predicate<? super ClientHello> allowMitmFor;
+        private final Function<String, TlsServerIdentity> tlsIdentity;
         private final int requestBuffer;
         private final int responseBuffer;
         private final HttpLogger logger;
@@ -365,6 +380,7 @@ public final class HttpFiltersBuilder {
             resolver = b.resolver;
             allowMitm = b.allowMitm;
             allowMitmFor = b.allowMitmFor;
+            tlsIdentity = b.tlsIdentity;
             requestBuffer = b.requestBuffer;
             responseBuffer = b.responseBuffer;
             logger = b.logger;
@@ -388,6 +404,7 @@ public final class HttpFiltersBuilder {
             resolver = base.resolver;
             allowMitm = base.allowMitm;
             allowMitmFor = base.allowMitmFor;
+            tlsIdentity = base.tlsIdentity;
             requestBuffer = base.requestBuffer;
             responseBuffer = base.responseBuffer;
             logger = base.logger;
@@ -549,6 +566,11 @@ public final class HttpFiltersBuilder {
         @Override
         public boolean proxyToServerAllowMitm(ClientHello clientHello) {
             return allowMitmFor == null || allowMitmFor.test(clientHello);
+        }
+
+        @Override
+        public TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+            return tlsIdentity == null ? null : tlsIdentity.apply(serverHostAndPort);
         }
 
         @Override
