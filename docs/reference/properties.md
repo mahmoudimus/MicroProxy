@@ -49,14 +49,18 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
-| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
+| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none); filters can change it per request for upstream handshakes (`proxyToServerTlsHandshakeTimeout`) | `10000` |
 | `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](../guides/mitm.md#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
+| `tls_retry_without_sni` | retry TLS with a server once, without SNI, when it rejects the name with an `unrecognized_name` alert (see [Server TLS failures](../guides/mitm.md#server-tls-failures)); default `true` with `littleproxy_compatibility` | `false` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
 | `allow_requests_to_origin_server` | accept origin-form requests | `false` |
 | `originate_tls` | fetch `https://` URIs that clients ask a forward proxy for without `CONNECT` over TLS the proxy opens itself; `false` refuses them with `400` (see [TLS origination](../guides/forward-proxy.md#tls-origination-https-uris-without-connect)) | `true` |
 | `allow_proxy_protocol` / `send_proxy_protocol` | PROXY protocol in / out | `false` |
+| `allow_proxy_protocol` = `off` / `required` / `optional` | the incoming mode by name (`required` is `true`); `optional` reads a header only when a connection starts with one, and lets any client name any source address (see [PROXY protocol](../guides/forward-proxy.md#proxy-protocol)). Any value other than these and the booleans is an error | `off` |
+| `proxy_protocol_trusted_sources` | comma-separated IP addresses or CIDR ranges (the load balancers) whose PROXY headers count; a header from another peer closes its connection | any peer |
+| `allow_chunked_length` | accept HTTP/1.1 requests with both `Transfer-Encoding: chunked` and `Content-Length`: the `Content-Length` is removed and the connection closes after the response ([Request parsing](../security.md#request-parsing)) | `false` |
 | `throttle_read_bytes_per_second` / `throttle_write_bytes_per_second` | global server bandwidth | `0` (unlimited) |
 | `use_shared_server_connection_pool` | share server connections between clients | `false` |
 | `server_connection_pool_type` | pool implementation (`CONCURRENT_MAP`) | `CONCURRENT_MAP` |
@@ -68,7 +72,8 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
-| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_jitter` | with `chained_proxy_backoff_initial_ms`: `true` waits a random time up to each doubling wait ("full jitter", `RetryBackoff.exponentialWithJitter`); `false` waits exactly the doubling waits (`RetryBackoff.exponential`) | `true` |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](../guides/forward-proxy.md#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [Alt-Svc](../guides/http3.md#alt-svc-which-clients-may-move-to-http3)) | `true` with interception or `transparent`, except for redirected clients with `transparent_quic_port`; else `false` |
@@ -89,6 +94,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](../guides/masque.md)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
 | `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
+| `masque_release_wait` | milliseconds a CONNECT-UDP request that finds `masque_max_udp_flows` reached waits for flows already ending to give their places back (see [CONNECT-UDP](../guides/masque.md); `0` = none) | `250` |
 | `masque_intercept_quic` | decide on the QUIC inside CONNECT-UDP flows as on transparent QUIC (see [QUIC inside CONNECT-UDP flows](../guides/masque.md#quic-inside-connect-udp-flows)) | `false` |
 | `masque_quic_ports` | the target ports of the flows `masque_intercept_quic` inspects: comma-separated, or `any` | `443` |
 | `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3`, and HTTP/3 intercepted from `transparent_quic_port` clients or inside CONNECT-UDP flows; see [Session resumption and 0-RTT](../guides/http3.md#session-resumption-and-0-rtt)) | `false` |

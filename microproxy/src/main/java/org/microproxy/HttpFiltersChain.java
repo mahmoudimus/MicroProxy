@@ -24,9 +24,11 @@ import org.microproxy.http.WebSocketMessage;
  *       receiving the previous one's result; {@code null} aborts (or drops the frame or message).
  *       With {@code filterWebSocketMessages}, every message one filter returns goes through the
  *       next, in the direction it now travels.
- *   <li>Buffer sizes are the largest any filter asks for; the connect timeout is the shortest.
+ *   <li>Buffer sizes are the largest any filter asks for; the connect and TLS handshake
+ *       timeouts are the shortest; the retry backoff is the first filter's that names one.
  *   <li>Interception needs every filter's consent (both {@code proxyToServerAllowMitm} hooks), while {@code
  *       proxyToServerAllowOfflineMitm} needs any one filter's.
+ *   <li>The first filter that names a TLS identity ({@code proxyToServerTlsIdentity}) sets it.
  *   <li>Notifications go to every filter; {@code exchangeEnded} reaches every filter even when
  *       one of them throws.
  * </ul>
@@ -242,6 +244,25 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
 
         @Override
+        public Duration proxyToServerTlsHandshakeTimeout() {
+            Duration shortest = null;
+            for (HttpFilters f : members) {
+                Duration d = f.proxyToServerTlsHandshakeTimeout();
+                if (d != null && d.isPositive() && (shortest == null || d.compareTo(shortest) < 0)) shortest = d;
+            }
+            return shortest;
+        }
+
+        @Override
+        public RetryBackoff chainedProxyRetryBackoff() {
+            for (HttpFilters f : members) {
+                RetryBackoff backoff = f.chainedProxyRetryBackoff();
+                if (backoff != null) return backoff;
+            }
+            return null;
+        }
+
+        @Override
         public void proxyToServerConnectionStarted() {
             members.forEach(HttpFilters::proxyToServerConnectionStarted);
         }
@@ -283,6 +304,15 @@ public final class HttpFiltersChain implements HttpFiltersSource {
                 if (f.proxyToServerAllowOfflineMitm()) return true;
             }
             return false;
+        }
+
+        @Override
+        public TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+            for (HttpFilters f : members) {
+                TlsServerIdentity identity = f.proxyToServerTlsIdentity(serverHostAndPort);
+                if (identity != null) return identity;
+            }
+            return null;
         }
 
         @Override

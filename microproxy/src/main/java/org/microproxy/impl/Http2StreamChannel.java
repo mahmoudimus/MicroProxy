@@ -105,8 +105,8 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
     volatile boolean tunnelOpen;
     /** The stream, shown as a socket ({@link #tunnelSocket}), was closed: reads fail. */
     private boolean inputClosed;
-    /** The stream carries a CONNECT-UDP flow, counted against the connection's. */
-    boolean udpFlow;
+    /** The CONNECT-UDP flow the stream carries, counted against the connection's; null when none does. */
+    UdpFlow udpFlow;
 
     // The stream thread's own.
     private boolean headersSent;
@@ -489,7 +489,7 @@ final class Http2StreamChannel extends Http2Endpoint.Stream implements ClientCha
 
     @Override
     public boolean attach(UdpFlow flow) {
-        return connection.addUdpFlow(this);
+        return connection.addUdpFlow(this, flow);
     }
 
     @Override

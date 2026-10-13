@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DrainStrategy;
@@ -42,6 +41,8 @@ import org.microproxy.KeyMaterial;
 import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ProxyProtocolMode;
+import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ServerState;
 import org.microproxy.SslContextSource;
@@ -98,8 +99,15 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** Whether clients' own {@code https://} requests are fetched over TLS, or refused. */
     final boolean tlsOrigination;
     final String proxyAlias;
+    /** Whether client connections start with a PROXY header: always, maybe, or never. */
+    final ProxyProtocolMode proxyProtocolMode;
+    /** Whether {@link #proxyProtocolMode} is not {@link ProxyProtocolMode#OFF}. */
     final boolean acceptProxyProtocol;
+    /** The peers whose PROXY headers are honored. */
+    final ProxyProtocol.TrustedSources proxyProtocolTrustedSources;
     final boolean sendProxyProtocol;
+    /** Whether HTTP/1.1 requests with both Transfer-Encoding and Content-Length are accepted (the latter dropped). */
+    final boolean allowChunkedLength;
     final int maxWebSocketFrameBufferSize;
     final int maxWebSocketMessageSize;
     /** Shared server connection pool, or null when connections are kept per client. */
@@ -122,11 +130,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int connectTimeoutMs;
     final Duration tlsHandshakeTimeout;
     final boolean littleProxyCompatibility;
-    /** Backoff between chained proxy attempts, in nanoseconds; 0 when off. */
-    final long backoffInitialNanos;
-    final long backoffMaxNanos;
+    /** Backoff between chained proxy attempts; {@link RetryBackoff#none()} when off. */
+    final RetryBackoff chainedProxyBackoff;
     /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
     final String[] tlsProtocols;
+    /** Retry TLS with a server without SNI after its unrecognized_name alert ({@link org.microproxy.HttpProxyServerBootstrap#withTlsRetryWithoutSni}). */
+    final boolean tlsRetryWithoutSni;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
     /** Whether {@link #strippedRequestHeaders} removes {@code traceparent}, so a tracer injects its own context only. */
@@ -168,7 +177,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      */
     final ConnectUdpTemplate connectUdpTemplate;
     /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
-    final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
+    final UdpFlowBound udpFlows = new UdpFlowBound();
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
     /**
@@ -200,8 +209,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     volatile Object quicEarlyDataPolicy;
     /** The writer of the QUIC connections' qlog files (a {@link QlogWriter}), made on first use; null before, or without qlog. */
     volatile Object qlogWriter;
-    /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
-    volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
+    /** Draws the backoff jitter; null for a {@link ThreadLocalRandom}. Replaceable by tests. */
+    volatile java.util.random.RandomGenerator backoffRandom;
+    /**
+     * Waits out a backoff of the given nanoseconds instead of the real wait, which watches the
+     * client; null for the real wait. Replaceable by tests, so they need not sleep.
+     */
+    volatile java.util.function.LongConsumer backoffSleeper;
 
     private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
     private ServerSocket serverSocket;
@@ -317,8 +331,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
         this.tlsOrigination = b.tlsOrigination;
         this.proxyAlias = Objects.requireNonNullElseGet(b.proxyAlias, ProxyUtils::getHostName);
-        this.acceptProxyProtocol = b.acceptProxyProtocol;
+        this.proxyProtocolMode = b.proxyProtocolMode;
+        this.acceptProxyProtocol = b.proxyProtocolMode != ProxyProtocolMode.OFF;
+        this.proxyProtocolTrustedSources = b.proxyProtocolTrustedSources;
         this.sendProxyProtocol = b.sendProxyProtocol;
+        this.allowChunkedLength = b.allowChunkedLength;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
         this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool
@@ -330,7 +347,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
         this.littleProxyCompatibility = b.littleProxyCompatibility;
-        this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
+        this.chainedProxyBackoff = b.chainedProxyBackoff;
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
         this.stripsTracingHeaders = b.strippedRequestHeaders.containsKey("traceparent");
         this.tracer = b.tracer;
@@ -339,7 +356,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparentQuicPort = b.transparentQuicPort;
         this.transparentQuicKeys = b.transparentQuicPort >= 0 ? transparentQuicKeys(b.mitmManager) : null;
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
-        this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
+        this.tlsRetryWithoutSni = b.retriesTlsWithoutSni();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
@@ -715,10 +732,25 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     public void drain(Duration drainTime) {
         Objects.requireNonNull(drainTime, "drainTime");
         if (stopping.get()) return;
-        if (!drainBegun.compareAndSet(false, true)) {
+        if (beginDrain(drainTime)) {
+            endDrain();
+        } else {
             awaitQuietly(drainDone);
-            return;
         }
+    }
+
+    /**
+     * Begins a drain on the calling thread, unless one has begun already or the proxy is stopping.
+     * When it returns true the state says DRAINING and new requests are told to go elsewhere, and
+     * the caller must see that {@link #endDrain} runs. The admin's graceful
+     * {@code /drain_listeners} begins the drain before it answers, so that {@code /ready} fails
+     * once the client has the answer, and leaves the drain time to a thread of its own.
+     *
+     * @return whether this call began the drain
+     */
+    boolean beginDrain(Duration drainTime) {
+        Objects.requireNonNull(drainTime, "drainTime");
+        if (stopping.get() || !drainBegun.compareAndSet(false, true)) return false;
         try {
             long nanos = drainTime.isNegative() ? 0 : saturatedNanos(drainTime);
             drainNanos = nanos;
@@ -729,9 +761,24 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             LOG.log(Level.INFO, "{0} draining for {1} ({2})", name, drainTime,
                     drainImmediate ? "immediate" : "gradual");
             if (drainImmediate) connections.forEach(ClientConnection::drain);
+            return true;
+        } catch (RuntimeException | Error e) {
+            drainDone.countDown();
+            throw e;
+        }
+    }
+
+    /**
+     * Ends the drain {@link #beginDrain} began: waits out the rest of the drain time, counted from
+     * its beginning, then closes the listeners and every connection still open; at once if the
+     * proxy starts stopping meanwhile.
+     */
+    void endDrain() {
+        try {
             // The listeners keep accepting meanwhile: clients still on their way are served, and
             // told to go elsewhere.
-            if (stopBegun.await(nanos, TimeUnit.NANOSECONDS)) return;
+            long left = drainNanos - (System.nanoTime() - drainStartNanos);
+            if (stopBegun.await(Math.max(0, left), TimeUnit.NANOSECONDS)) return;
             closeListeners();
             for (ClientConnection c : connections) c.close();
             LOG.log(Level.INFO, "{0} drained", name);

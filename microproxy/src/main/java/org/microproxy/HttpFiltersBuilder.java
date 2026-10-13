@@ -70,10 +70,13 @@ public final class HttpFiltersBuilder {
     private Function<String, InetSocketAddress> resolver;
     private BooleanSupplier allowMitm;
     private Predicate<? super ClientHello> allowMitmFor;
+    private Function<String, TlsServerIdentity> tlsIdentity;
     private int requestBuffer;
     private int responseBuffer;
     private HttpLogger logger;
     private Duration connectTimeout;
+    private Duration tlsHandshakeTimeout;
+    private RetryBackoff retryBackoff;
 
     HttpFiltersBuilder() {}
 
@@ -231,6 +234,19 @@ public final class HttpFiltersBuilder {
     }
 
     /**
+     * The TLS identity (server name and verification host) of these requests' connections to
+     * servers, by the server's {@code host:port}; see {@link HttpFilters#proxyToServerTlsIdentity}.
+     * Return null for the default.
+     *
+     * @param identity the function choosing the identity for a server's {@code host:port}
+     * @return this builder
+     */
+    public HttpFiltersBuilder tlsIdentity(Function<String, TlsServerIdentity> identity) {
+        this.tlsIdentity = Objects.requireNonNull(identity);
+        return this;
+    }
+
+    /**
      * The connect timeout for these requests' new connections, instead of the server's (see
      * {@link HttpFilters#proxyToServerConnectTimeout()}).
      *
@@ -240,6 +256,32 @@ public final class HttpFiltersBuilder {
     public HttpFiltersBuilder connectTimeout(Duration timeout) {
         if (timeout == null || !timeout.isPositive()) throw new IllegalArgumentException("must be positive: " + timeout);
         this.connectTimeout = timeout;
+        return this;
+    }
+
+    /**
+     * The upstream TLS handshake timeout for these requests' new connections, instead of the
+     * server's (see {@link HttpFilters#proxyToServerTlsHandshakeTimeout()}).
+     *
+     * @param timeout the TLS handshake timeout override, positive
+     * @return this builder
+     */
+    public HttpFiltersBuilder tlsHandshakeTimeout(Duration timeout) {
+        if (timeout == null || !timeout.isPositive()) throw new IllegalArgumentException("must be positive: " + timeout);
+        this.tlsHandshakeTimeout = timeout;
+        return this;
+    }
+
+    /**
+     * The backoff between these requests' attempts at the routes the {@link ChainedProxyManager}
+     * offered, instead of the server's (see {@link HttpFilters#chainedProxyRetryBackoff()}); {@link
+     * RetryBackoff#none()} retries at once.
+     *
+     * @param backoff the retry backoff override
+     * @return this builder
+     */
+    public HttpFiltersBuilder retryBackoff(RetryBackoff backoff) {
+        this.retryBackoff = Objects.requireNonNull(backoff);
         return this;
     }
 
@@ -341,10 +383,13 @@ public final class HttpFiltersBuilder {
         private final Function<String, InetSocketAddress> resolver;
         private final BooleanSupplier allowMitm;
         private final Predicate<? super ClientHello> allowMitmFor;
+        private final Function<String, TlsServerIdentity> tlsIdentity;
         private final int requestBuffer;
         private final int responseBuffer;
         private final HttpLogger logger;
         private final Duration connectTimeout;
+        private final Duration tlsHandshakeTimeout;
+        private final RetryBackoff retryBackoff;
         /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
         private final SelectiveFilters logged;
         /** Whether these filters belong to one exchange (made by {@link #filterRequest}). */
@@ -365,10 +410,13 @@ public final class HttpFiltersBuilder {
             resolver = b.resolver;
             allowMitm = b.allowMitm;
             allowMitmFor = b.allowMitmFor;
+            tlsIdentity = b.tlsIdentity;
             requestBuffer = b.requestBuffer;
             responseBuffer = b.responseBuffer;
             logger = b.logger;
             connectTimeout = b.connectTimeout;
+            tlsHandshakeTimeout = b.tlsHandshakeTimeout;
+            retryBackoff = b.retryBackoff;
             logged = null;
             bound = false;
             unlogged = logger == null ? this : new Built(this, null);
@@ -388,10 +436,13 @@ public final class HttpFiltersBuilder {
             resolver = base.resolver;
             allowMitm = base.allowMitm;
             allowMitmFor = base.allowMitmFor;
+            tlsIdentity = base.tlsIdentity;
             requestBuffer = base.requestBuffer;
             responseBuffer = base.responseBuffer;
             logger = base.logger;
             connectTimeout = base.connectTimeout;
+            tlsHandshakeTimeout = base.tlsHandshakeTimeout;
+            retryBackoff = base.retryBackoff;
             this.logged = logged;
             bound = true;
             unlogged = this;
@@ -552,8 +603,23 @@ public final class HttpFiltersBuilder {
         }
 
         @Override
+        public TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+            return tlsIdentity == null ? null : tlsIdentity.apply(serverHostAndPort);
+        }
+
+        @Override
         public Duration proxyToServerConnectTimeout() {
             return connectTimeout;
+        }
+
+        @Override
+        public Duration proxyToServerTlsHandshakeTimeout() {
+            return tlsHandshakeTimeout;
+        }
+
+        @Override
+        public RetryBackoff chainedProxyRetryBackoff() {
+            return retryBackoff;
         }
     }
 }

@@ -12,3 +12,6 @@ __pycache__/
 
 # Load-testing harness run outputs (loadtest/, bench profile)
 loadtest/results/
+
+# External proxies for the cross-proxy comparison, downloaded or built by loadtest/competitors/setup.sh
+loadtest/competitors/.tools/

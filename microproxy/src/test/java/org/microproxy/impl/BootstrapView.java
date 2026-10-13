@@ -55,7 +55,7 @@ public record BootstrapView(
         DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
         return new BootstrapView(b.name, b.address(), b.allowLocalOnly, b.transparent, b.idleConnectionTimeout,
                 b.connectTimeoutMs, b.proxyAlias, b.readThrottleBytesPerSecond, b.writeThrottleBytesPerSecond,
-                b.acceptProxyProtocol, b.sendProxyProtocol, b.authenticateSslClients, b.chainProxyManager,
+                b.proxyProtocolMode != org.microproxy.ProxyProtocolMode.OFF, b.sendProxyProtocol, b.authenticateSslClients, b.chainProxyManager,
                 b.mitmManager, b.filtersSource, b.httpCache, b.serverResolver, List.copyOf(b.activityTrackers),
                 b.sharedServerConnectionPool, b.serverConnectionPoolType, b.maxConnectionsPerHost, b.maxConnections,
                 b.poolIdleTimeout, b.poolSharedMitmConnections, b.poolPerRequestInMitm, b.maxInitialLineLength,
@@ -65,6 +65,21 @@ public record BootstrapView(
     /** Whether the listener serves SOCKS clients only ({@code withSocksServer}, {@code socks5} mode). */
     public static boolean socksServer(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).socksServer;
+    }
+
+    /** Whether client connections start with a PROXY header ({@code withAcceptProxyProtocol}). */
+    public static org.microproxy.ProxyProtocolMode proxyProtocolMode(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).proxyProtocolMode;
+    }
+
+    /** The peers whose PROXY headers count ({@code withProxyProtocolTrustedSources}); empty for all. */
+    public static List<String> proxyProtocolTrustedSources(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).proxyProtocolTrustedSources.entries();
+    }
+
+    /** Whether requests with both Transfer-Encoding and Content-Length are accepted ({@code withAllowChunkedLength}). */
+    public static boolean allowChunkedLength(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).allowChunkedLength;
     }
 
     /** Whether the listener serves SOCKS clients besides HTTP ones ({@code withSocksDetection}). */
@@ -167,14 +182,24 @@ public record BootstrapView(
 
     /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServerBootstrap bootstrap) {
-        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
-        return new Duration[] {b.chainedProxyBackoffInitial, b.chainedProxyBackoffMax};
+        org.microproxy.RetryBackoff p = chainedProxyBackoffPolicy(bootstrap);
+        return p.isNone() ? new Duration[] {null, null} : new Duration[] {p.initial(), p.max()};
+    }
+
+    /** The chained proxy retry backoff policy as configured. */
+    public static org.microproxy.RetryBackoff chainedProxyBackoffPolicy(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).chainedProxyBackoff;
     }
 
     /** A running server's chained proxy retry backoff: {initial, max}, both zero when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServer server) {
-        DefaultHttpProxyServer s = (DefaultHttpProxyServer) server;
-        return new Duration[] {Duration.ofNanos(s.backoffInitialNanos), Duration.ofNanos(s.backoffMaxNanos)};
+        org.microproxy.RetryBackoff p = chainedProxyBackoffPolicy(server);
+        return new Duration[] {p.initial(), p.max()};
+    }
+
+    /** A running server's chained proxy retry backoff policy. */
+    public static org.microproxy.RetryBackoff chainedProxyBackoffPolicy(HttpProxyServer server) {
+        return ((DefaultHttpProxyServer) server).chainedProxyBackoff;
     }
 
     /** The host rules as configured: {ignore patterns, allow patterns}. */
@@ -216,6 +241,11 @@ public record BootstrapView(
     /** The transparent QUIC listener's UDP port, -1 for none. */
     public static int transparentQuicPort(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentQuicPort;
+    }
+
+    /** Whether TLS with a server that rejects its SNI is retried without it, defaults applied. */
+    public static boolean retriesTlsWithoutSni(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).retriesTlsWithoutSni();
     }
 
     /** The HTTP/3 options as configured. */

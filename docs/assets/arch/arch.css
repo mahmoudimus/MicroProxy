@@ -1,0 +1,87 @@
+/* The animated diagrams of docs/architecture.md (drawn by arch.js). The color tokens are the
+   performance page's (perf.css, on .mp-perf-root): MicroProxy is slot 0 (blue), LittleProxy slot 1
+   (orange), as on the charts. */
+.mp-arch.mp-perf-root {
+  margin: 1em 0 1.5em;
+  padding: 12px 12px 6px;
+  border-radius: 8px;
+  background: var(--mp-surface);
+  box-shadow: 0 0 0 1px var(--mp-ring);
+  color: var(--mp-text);
+}
+.mp-arch:empty { display: none; }
+.mp-arch h4.mp-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 600; color: var(--mp-text); }
+.mp-arch-ready .mp-arch-static { display: none; }
+.mp-arch .mp-a-count { color: var(--mp-muted); font-variant-numeric: tabular-nums; }
+.mp-arch button.mp-btn:disabled { opacity: 0.4; cursor: default; }
+.mp-a-panels { display: flex; flex-wrap: wrap; gap: 12px; }
+.mp-a-panel { flex: 1 1 300px; margin: 0; min-width: 0; max-width: 560px; }
+.mp-a-panels:not(.mp-a-two) .mp-a-panel { margin: 0 auto; max-width: 480px; }
+.mp-a-panel svg { display: block; width: 100%; height: auto; overflow: visible; }
+.mp-a-panel .mp-a-caption {
+  margin: 6px 2px 4px;
+  font-size: 0.64rem;
+  line-height: 1.5;
+  color: var(--mp-text-2);
+  min-height: 6em;
+  font-style: normal;
+  text-align: left;
+}
+.mp-a-panel .mp-a-caption code { font-size: 0.95em; }
+
+.mp-a-panel text { font-family: inherit; font-size: 10.5px; fill: var(--mp-text); }
+.mp-a-panel .mp-a-title { font-size: 12px; font-weight: 700; }
+.mp-a-panel .mp-a-note { fill: var(--mp-text-2); font-size: 10.5px; }
+.mp-a-panel .mp-a-small { fill: var(--mp-text-2); font-size: 10px; }
+.mp-a-panel .mp-a-code { fill: var(--mp-text); font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.mp-a-box rect { fill: var(--mp-wash); stroke: var(--mp-axis); stroke-width: 1; transition: fill 0.5s, stroke 0.5s; }
+.mp-a-box text { font-size: 10px; }
+.mp-a-box.mp-a-tight text { font-size: 9.5px; }
+.mp-a-box.mp-a-lane rect { fill: transparent; }
+.mp-a-box.mp-a-core rect { stroke-width: 1.5; }
+.mp-a-lp-panel .mp-a-box.mp-a-on rect { stroke: var(--mp-c1); stroke-width: 2; fill: color-mix(in srgb, var(--mp-c1) 14%, transparent); }
+.mp-a-mp-panel .mp-a-box.mp-a-on rect,
+.mp-a-plain-panel .mp-a-box.mp-a-on rect { stroke: var(--mp-c0); stroke-width: 2; fill: color-mix(in srgb, var(--mp-c0) 14%, transparent); }
+.mp-a-box.mp-a-warn rect { stroke: var(--mp-cap); stroke-width: 2; }
+.mp-a-box.mp-a-park rect { stroke: var(--mp-muted); }
+.mp-a-box.mp-a-buf rect { fill: color-mix(in srgb, var(--mp-c2) 30%, transparent); stroke: var(--mp-c2); }
+.mp-a-box.mp-a-relay rect { fill: color-mix(in srgb, var(--mp-c3) 30%, transparent); stroke: var(--mp-c3); }
+
+.mp-a-link, .mp-a-thread { stroke: var(--mp-axis); stroke-width: 1.5; }
+.mp-a-arrow { transition: opacity 0.5s; }
+.mp-a-arrowhead { fill: var(--mp-axis); }
+.mp-a-grid { stroke: var(--mp-grid); stroke-width: 1; }
+.mp-a-mark { stroke: var(--mp-text-2); stroke-width: 1; }
+
+.mp-a-token { transition: transform 0.9s cubic-bezier(0.45, 0, 0.25, 1), opacity 0.5s; }
+.mp-a-token circle, .mp-a-token rect { stroke: var(--mp-surface); stroke-width: 2; transition: fill 0.5s, stroke 0.5s; }
+.mp-a-token text { font-size: 9.5px; font-weight: 700; fill: #fff; }
+.mp-a-token.mp-a-lp circle, .mp-a-token.mp-a-lp rect { fill: var(--mp-c1); }
+.mp-a-token.mp-a-mp circle, .mp-a-token.mp-a-mp rect { fill: var(--mp-c0); }
+.mp-a-token.mp-a-neutral circle { fill: var(--mp-muted); }
+.mp-a-token.mp-a-conn:not(.mp-a-on) circle { fill: var(--mp-surface); stroke: var(--mp-c1); stroke-width: 2; }
+.mp-a-token.mp-a-conn:not(.mp-a-on) text { fill: var(--mp-text); }
+/* A parked virtual thread: hollow, in the series color, with ink text. */
+.mp-a-token.mp-a-park circle { fill: var(--mp-surface); stroke: var(--mp-c0); stroke-width: 2; }
+.mp-a-token.mp-a-park text { fill: var(--mp-text); }
+.mp-a-token.mp-a-buf rect { fill: var(--mp-c2); }
+.mp-a-token.mp-a-relay rect { fill: var(--mp-c3); }
+.mp-a-token.mp-a-buf text { fill: #0b0b0b; font-size: 8.5px; }
+.mp-a-token.mp-a-obj rect { fill: var(--mp-c4); }
+.mp-a-token.mp-a-t1 rect { fill: var(--mp-c0); }
+.mp-a-token.mp-a-t2 rect { fill: var(--mp-c6); }
+.mp-a-token.mp-a-t3 rect { fill: var(--mp-c5); }
+.mp-a-gone { opacity: 0.25; }
+.mp-a-hidden { opacity: 0; }
+
+.mp-a-gauge .mp-a-track { fill: var(--mp-wash); stroke: var(--mp-axis); stroke-width: 1; }
+.mp-a-gauge .mp-a-fill { transform-box: fill-box; transform-origin: left center; transition: transform 1.2s ease, fill 0.5s; }
+.mp-a-gauge.mp-a-lp .mp-a-fill { fill: var(--mp-c1); }
+.mp-a-gauge.mp-a-mp .mp-a-fill { fill: var(--mp-c0); }
+.mp-a-gauge.mp-a-warn .mp-a-fill { fill: var(--mp-cap); }
+
+.mp-a-instant, .mp-a-instant * { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .mp-arch *, .mp-arch *::before { transition: none !important; }
+}

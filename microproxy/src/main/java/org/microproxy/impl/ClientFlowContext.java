@@ -59,6 +59,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile boolean transparentQuic;
     /** Whether this HTTP/3 stream's request arrived as 0-RTT early data. */
     private volatile boolean earlyData;
+    /** Whether the exchange's request had both Transfer-Encoding and Content-Length (withAllowChunkedLength). */
+    private volatile boolean chunkedWithContentLength;
 
     // The outcome of the current exchange, for access logs; reset by startExchange. Tunnel
     // directions and a connection's reader thread write some of it, hence the atomic updates.
@@ -104,6 +106,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile SSLSession upstreamSslSession;
     /** The proxy's end of the client connection, or null. */
     private volatile InetSocketAddress localAddress;
+    /** The TCP peer, when a PROXY header named another client; else null. */
+    private volatile InetSocketAddress directClientAddress;
     private volatile FlowTrace trace = FlowTrace.NONE;
 
     ClientFlowContext(
@@ -128,12 +132,14 @@ final class ClientFlowContext extends FlowContext {
         clientTlsStart = connection.clientTlsStart;
         clientTlsEnd = connection.clientTlsEnd;
         localAddress = connection.localAddress;
+        directClientAddress = connection.directClientAddress;
     }
 
     /** Forgets the previous exchange: the first byte of a new request has arrived. */
     void startExchange() {
         Arrays.fill(marks, 0);
         upstreamStatus = 0;
+        chunkedWithContentLength = false;
         FLAGS.setVolatile(this, 0L);
         BYTES_RECEIVED.setVolatile(this, 0L);
         BYTES_SENT.setVolatile(this, 0L);
@@ -260,6 +266,16 @@ final class ClientFlowContext extends FlowContext {
         return earlyData;
     }
 
+    /** Records that the request had both framings, and its {@code Content-Length} was dropped. */
+    void chunkedWithContentLength() {
+        chunkedWithContentLength = true;
+    }
+
+    @Override
+    public boolean isChunkedWithContentLength() {
+        return chunkedWithContentLength;
+    }
+
     /** Records that the exchange failed with {@code failure}, and the flag and details it means. */
     void failure(ProxyFailure failure) {
         this.failure = failure;
@@ -271,7 +287,7 @@ final class ClientFlowContext extends FlowContext {
             case ProxyFailure.ConnectFailed f -> addResponseFlag(ResponseFlag.UPSTREAM_CONNECTION_FAILURE);
             case ProxyFailure.TlsFailed f -> {
                 addResponseFlag(ResponseFlag.UPSTREAM_CONNECTION_FAILURE);
-                if (transportFailure == null && f.cause() != null) transportFailure = reason(f.cause());
+                if (transportFailure == null && f.cause() != null) transportFailure = tlsReason(f.cause());
             }
             case ProxyFailure.ServerTimeout f -> addResponseFlag(ResponseFlag.UPSTREAM_REQUEST_TIMEOUT);
             case ProxyFailure.BadServerResponse f -> addResponseFlag(serverClosedEarly(f.cause())
@@ -395,7 +411,16 @@ final class ClientFlowContext extends FlowContext {
 
     /** Records why the TLS handshake with the server failed. */
     void transportFailure(Throwable cause) {
-        transportFailure = reason(cause);
+        transportFailure = tlsReason(cause);
+    }
+
+    /**
+     * Why a TLS handshake failed, for {@code %UPSTREAM_TRANSPORT_FAILURE_REASON%}: its class
+     * ({@link ProxyFailure.TlsFailed.Reason#code()}), then the innermost cause's message, as in
+     * {@code certificate_revoked: Certificate has been revoked, ...}.
+     */
+    static String tlsReason(Throwable cause) {
+        return ProxyFailure.TlsFailed.Reason.of(cause).code() + ": " + reason(cause);
     }
 
     String transportFailure() {
@@ -451,6 +476,22 @@ final class ClientFlowContext extends FlowContext {
 
     InetSocketAddress localAddress() {
         return localAddress;
+    }
+
+    /** Records the TCP peer of a client connection whose PROXY header named another client. */
+    void directClientAddress(InetSocketAddress address) {
+        directClientAddress = address;
+    }
+
+    /** The TCP peer recorded by {@link #directClientAddress(InetSocketAddress)}, or null. */
+    InetSocketAddress directClientAddressOrNull() {
+        return directClientAddress;
+    }
+
+    @Override
+    public InetSocketAddress getDirectClientAddress() {
+        InetSocketAddress direct = directClientAddress;
+        return direct != null ? direct : getClientAddress();
     }
 
     void addBytesReceived(long n) {

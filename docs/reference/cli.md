@@ -32,6 +32,8 @@ See [Quick start](../getting-started/quick-start.md), [configuration properties]
 | `--connect-timeout <millis>` | outbound connect timeout (default 40000) | `connect_timeout` |
 | `--tls-handshake-timeout <millis>` | longest TLS handshake (default 10000, 0 = none) | `tls_handshake_timeout` |
 | `--tls-protocols <list>` | TLS versions allowed on every TLS connection (default TLSv1.3,TLSv1.2; "" = JDK defaults) | `tls_protocols` |
+| `--tls-retry-without-sni` | retry TLS with a server once without SNI when it rejects the name (unrecognized_name alert); default with --littleproxy-compat | `tls_retry_without_sni=true` |
+| `--no-tls-retry-without-sni` | never retry without SNI, even with --littleproxy-compat | `tls_retry_without_sni=false` |
 | `--littleproxy-compat` | behave like LittleProxy where MicroProxy differs | `littleproxy_compatibility` |
 | `--proxy-alias <alias>` | name used in Via headers | `proxy_alias` |
 | `--listener-keystore <file>` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2, and the certificate --http3 presents) | `listener_keystore` |
@@ -49,6 +51,7 @@ See [Transparent mode](../guides/transparent-mode.md), [Reverse proxy](../guides
 | `--transparent` | do not add Via / strip hop-by-hop headers, and route TLS that arrives without CONNECT by its SNI | `transparent` |
 | `--transparent-tls-port <port>` | port SNI-routed TLS and QUIC go to (default 443) | `transparent_tls_port` |
 | `--allow-requests-to-origin-server` | accept origin-form requests, routed by Host (for transparent HTTP) | `allow_requests_to_origin_server` |
+| `--allow-chunked-length` | accept HTTP/1.1 requests with both Transfer-Encoding and Content-Length (the Content-Length is dropped and the connection closes after the response) | `allow_chunked_length` |
 | `--reverse <spec>` | reverse proxy to one upstream: [scheme://]host[:port] | `mode=reverse:...` |
 | `--keep-host-header` | in reverse mode, keep the client's Host | `keep_host_header` |
 | `--socks` | also serve SOCKS5 and SOCKS4(a) clients on the listener, told apart by their first byte | `socks` |
@@ -65,11 +68,14 @@ See [Chained proxies](../guides/chained-proxies.md), [DNSSEC](../guides/dnssec.m
 | `--upstream-https-proxy <url>` | different upstream for HTTPS / CONNECT | `upstream_https_proxy` |
 | `--no-proxy <list>` | hosts to reach directly (NO_PROXY syntax) | `no_proxy` |
 | `--env-proxy` | take upstream proxies from http_proxy/https_proxy/no_proxy | `use_env_proxy` |
-| `--chained-proxy-backoff` | <initial>[:<max>]  millis to wait between failed chained proxy attempts, doubling up to max (default 8 x initial; 0 = no waiting, the default) | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms` |
+| `--chained-proxy-backoff` | <initial>[:<max>]  millis to wait between failed chained proxy attempts, doubling up to max (default 8 x initial; 0 = no waiting, the default), with full jitter | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms` |
+| `--chained-proxy-backoff-deterministic` | <initial>[:<max>]  the same, without jitter: exactly initial, 2 x initial, 4 x initial, ... up to max | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms`, `chained_proxy_backoff_jitter=false` |
 | `--dnssec` | resolve server names with DNSSEC validation | `dnssec` |
 | `--dnssec-resolver <spec>` | DoH URL or comma-separated resolver IPs for --dnssec | `dnssec_resolver` |
 | `--shared-pool` | share server connections between clients | `use_shared_server_connection_pool` |
 | `--accept-proxy-protocol` | require a PROXY protocol header on inbound connections | `allow_proxy_protocol` |
+| `--proxy-protocol-mode <mode>` | `off`, `required` or `optional` (a header is read if one comes; any client can then claim any address) | `allow_proxy_protocol` |
+| `--proxy-protocol-trusted-sources <list>` | IP addresses or CIDR ranges whose PROXY headers count | `proxy_protocol_trusted_sources` |
 | `--send-proxy-protocol` | send a PROXY protocol v1 header upstream | `send_proxy_protocol` |
 | `--throttle <read> <write>` | global server bandwidth limits in bytes/s | `throttle_read_bytes_per_second`, `throttle_write_bytes_per_second` |
 | `--max-concurrent-per-client <n>` | exchanges each client IP may run at once; more get 429 (CONNECT tunnels count while open) | `max_concurrent_per_client` |
@@ -129,6 +135,7 @@ See [HTTP/3 and QUIC](../guides/http3.md), [Transparent QUIC](../guides/transpar
 | `--masque-udp-idle-timeout <seconds>` | close a CONNECT-UDP flow after this long without a datagram either way (default 60) | `masque_udp_idle_timeout` |
 | `--masque-max-udp-flows <n>` | CONNECT-UDP flows at once (default 4096) | `masque_max_udp_flows` |
 | `--masque-max-udp-flows-per-connection <n>` | CONNECT-UDP flows of one client connection (default 64) | `masque_max_udp_flows_per_connection` |
+| `--masque-release-wait <millis>` | how long a CONNECT-UDP request that finds --masque-max-udp-flows reached waits for flows already ending to give their places back (default 250, 0 = none) | `masque_release_wait` |
 | `--masque-intercept-quic` | decide on QUIC inside CONNECT-UDP flows as on transparent QUIC: intercept HTTP/3 (and other QUIC with the QUIC hooks) unless the host rules or hooks decline, else relay | `masque_intercept_quic` |
 | `--masque-quic-ports <list>` | the target ports whose flows --masque-intercept-quic inspects: comma-separated, or "any" (default 443) | `masque_quic_ports` |
 | `--quic-hosts <regex>` | relay matching hosts' intercepted QUIC (server host or SNI) stream by stream through the QUIC hooks, even HTTP/3, and intercept their other QUIC; repeatable | `quic_hosts` |

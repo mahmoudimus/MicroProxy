@@ -61,10 +61,40 @@ MicroProxy.bootstrap()
 
 ## PROXY protocol
 
-`--accept-proxy-protocol` (`allow_proxy_protocol`, `withAcceptProxyProtocol(true)`) requires a
-PROXY protocol header (v1 or v2) on every inbound connection, read before TLS on a TLS listener;
-access logs and traces then report the source it names as the client
-(`%DOWNSTREAM_REMOTE_ADDRESS%`, `client.address`).
+`--accept-proxy-protocol` (`allow_proxy_protocol=true`, `withAcceptProxyProtocol(true)`) requires a
+PROXY protocol header (v1 or v2) on every inbound connection, read before anything else: before
+TLS on a TLS listener, and before SOCKS, HTTP/2 prior knowledge or transparent TLS are told apart.
+The source it names is the client from then on: `FlowContext.getClientAddress()`, `ClientDetails`,
+access logs and traces (`%DOWNSTREAM_REMOTE_ADDRESS%`, `client.address`), and the header sent on
+with `--send-proxy-protocol`. The load balancer's own address stays in
+`%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` (`FlowContext.getDirectClientAddress()`). A v1 `UNKNOWN`
+header, and a v2 `LOCAL` one or one without addresses, leave the TCP peer as the client.
+
+`--proxy-protocol-mode optional` (`allow_proxy_protocol=optional`,
+`withAcceptProxyProtocol(ProxyProtocolMode.OPTIONAL)`) reads a header only when the connection
+starts with one, for a listener that load balancers and clients reach directly, or during a
+migration. The proxy looks at the first bytes without consuming them: `PROXY ` starts a v1
+header and the 12-byte v2 signature a v2 one; anything else (an HTTP request, a TLS ClientHello, a
+SOCKS greeting) is served as if PROXY protocol were off, its bytes untouched. A request is told
+apart by its first byte or few, so it is not delayed.
+
+> **Optional PROXY protocol lets any client choose its address.** In optional mode any client
+> that can reach the listener can send a header and be logged, rate-limited and authorized as
+> whatever address it names. Use it only where the clients that can connect directly are trusted
+> (behind a load balancer, on a private network), and name the load balancers with
+> `--proxy-protocol-trusted-sources 10.0.0.0/8,192.0.2.10` (`proxy_protocol_trusted_sources`,
+> `withProxyProtocolTrustedSources(...)`).
+
+With trusted sources, only those peers' headers count. A connection from another peer that starts
+with a header is closed rather than served (with its header ignored, a misrouted or forged header
+would go unnoticed, and the client would still get through); with a required header, every
+connection from another peer is closed. Without trusted sources, every peer's header counts.
+
+Once a connection's first byte has come (which may take the idle timeout, as a request's would),
+the rest of the header must arrive within 5 seconds, or the idle timeout if that is shorter,
+however slowly it trickles in; a connection that sends part of a signature or header and stalls is
+closed then. The `proxy_proto.*` [stats](../reference/stats.md) count the headers read, the
+connections without one, malformed headers and untrusted peers.
 `--send-proxy-protocol` (`send_proxy_protocol`, `withSendProxyProtocol(true)`) sends a PROXY
 protocol v1 header to the final server: first on a direct connection, or through the tunnel once
 an HTTP chained proxy has accepted the `CONNECT`. It is not sent where there is no tunnel to the
@@ -94,8 +124,11 @@ that it opens to the server itself, as it does for the requests of an intercepte
   trust store when there is no manager. A failed handshake is `ProxyFailure.TlsFailed`: a `502`
   from the [failure responder](filters.md#failure-responses), the `UF` response flag with
   `proxy_failure:tls_failed` details, the handshake's error in `%UPSTREAM_TRANSPORT_FAILURE_REASON%`
-  (an untrusted issuer, a name the certificate does not cover), `on_failure` in scripts, and the
-  cluster's `ssl.connection_error`, as for an intercepted session's server.
+  (an untrusted issuer, a name the certificate does not cover; see
+  [Server TLS failures](mitm.md#server-tls-failures)), `on_failure` in scripts, and the
+  cluster's `ssl.connection_error`, as for an intercepted session's server. The server name and
+  verification host can differ from the URI's host
+  ([Server name and verification host](mitm.md#server-name-and-verification-host)).
 - **Connections.** They are the same kind of connection an intercepted session's requests use, and
   pooled with them under the same keys, kept apart by target, route (direct, or which chained
   proxy) and MITM manager: a client connection keeps its own, or, with the [shared

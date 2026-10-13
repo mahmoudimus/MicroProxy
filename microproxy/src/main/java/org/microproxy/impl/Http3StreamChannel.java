@@ -387,6 +387,11 @@ final class Http3StreamChannel implements ClientChannel, StreamSocket.Stream, Ud
     }
 
     @Override
+    public void releaseEnded() {
+        connection.releaseEndedFlows();
+    }
+
+    @Override
     public InputStream capsules() {
         return reader.body().asInputStream();
     }

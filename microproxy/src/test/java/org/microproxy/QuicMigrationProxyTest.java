@@ -10,6 +10,7 @@ import io.github.mahmoudimus.quic.QuicClient;
 import io.github.mahmoudimus.quic.QuicConnection;
 import io.github.mahmoudimus.quic.QuicStream;
 import io.github.mahmoudimus.quic.connection.ClientConfig;
+import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,11 +89,18 @@ class QuicMigrationProxyTest {
     }
 
     private QuicConnection connect(X509Certificate anchor) throws IOException {
+        return connect(anchor, null);
+    }
+
+    /** Connects through the proxy, sending a PING after {@code keepAlive} without sending, if not null. */
+    private QuicConnection connect(X509Certificate anchor, Duration keepAlive) throws IOException {
         ClientConfig config = ClientConfig.builder(TlsConfig.builder()
-                .alpnProtocols(ALPN)
-                .serverName(HOST)
-                .trustManager(H3TestClient.trusting(anchor))
-                .build()).build();
+                        .alpnProtocols(ALPN)
+                        .serverName(HOST)
+                        .trustManager(H3TestClient.trusting(anchor))
+                        .build())
+                .transport(TransportConfig.defaults().toBuilder().keepAliveInterval(keepAlive).build())
+                .build();
         QuicClient client = QuicClient.create(config);
         closeables.add(client);
         return client.connect(quicAddress(), HOST, Duration.ofSeconds(10));
@@ -181,15 +189,24 @@ class QuicMigrationProxyTest {
         c.close(0, "");
     }
 
+    /**
+     * The record comes when the relay ends, once the flow has been idle for the relay's idle
+     * timeout, shorter than the default so that it comes soon after the client closes. Until then
+     * the flow must not go idle, or the relay ends under the transfer, which then never finishes:
+     * a connection is quiet at times while it lives, while an endpoint computes its handshake
+     * flight (a second on a starved CPU), before the echo starts, between probes as it recovers
+     * from loss. Once connected the client sends a PING after 100 ms without sending; the timeout
+     * leaves the handshake a few seconds.
+     */
     @Test
     void aRelayedFlowWhoseClientMovedIsOneRecordWhenItEnds() throws Exception {
         QuicEchoOrigin origin = new QuicEchoOrigin(originCa, ALPN);
         closeables.add(origin);
         RecordedFlows flows = new RecordedFlows();
         proxy = transparent(origin.port()).plusActivityTracker(flows)
-                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(Duration.ofMillis(500)).build())
+                .withHttp3Options(Http3Options.builder().transparentRelayIdleTimeout(Duration.ofSeconds(3)).build())
                 .start();
-        QuicConnection c = connect(originCa.getCertificate());
+        QuicConnection c = connect(originCa.getCertificate(), Duration.ofMillis(100));
         echoWhileMoving(c);
         c.close(0, "");
         FlowRecord r = flows.await(FlowRecord.Kind.QUIC_RELAY);

@@ -298,6 +298,36 @@ class LoopbackTest {
         }
     }
 
+    /**
+     * {@link QuicStream#peerDone} tells, on the thread reading another stream, what the peer sent
+     * on this one before what that thread reads: its FIN, a reset or STOP_SENDING, read or not.
+     */
+    @Test
+    void peerDoneFollowsTheOrderFramesArrivedIn() throws Exception {
+        try (QuicServer plain = QuicServer.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                        serverConfig(fastTransport()));
+                QuicConnection c = client.connect(plain.localAddress(), "localhost", Duration.ofSeconds(10))) {
+            QuicConnection served = plain.accept();
+            for (String end : List.of("fin", "reset", "stop")) {
+                QuicStream ours = c.openBidirectionalStream();
+                ours.getOutputStream().write(1);
+                QuicStream theirs = served.acceptStream();
+                assertEquals(1, theirs.getInputStream().read());
+                assertFalse(theirs.peerDone(), end);
+                switch (end) {
+                    case "fin" -> ours.getOutputStream().close();
+                    case "reset" -> ours.reset(5);
+                    default -> ours.stopSending(9);
+                }
+                c.openBidirectionalStream().getOutputStream().write(2);
+                QuicStream after = served.acceptStream();
+                assertEquals(2, after.getInputStream().read());
+                assertTrue(theirs.peerDone(), end);
+                assertFalse(after.peerDone(), end);
+            }
+        }
+    }
+
     @Test
     void keyUpdateDuringTransfer() throws Exception {
         try (QuicConnection c = connect()) {

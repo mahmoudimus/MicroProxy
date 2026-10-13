@@ -20,13 +20,15 @@ public final class Settings {
     /** Every setting: name, then its smoke, standard and full values, then what it means. */
     private static final String[][] TABLE = {
         // General
-        {"proxies", "microproxy,littleproxy", "microproxy,littleproxy", "microproxy,littleproxy", "the proxies to test, in order"},
+        {"proxies", "microproxy,littleproxy", "microproxy,littleproxy", "microproxy,littleproxy", "the proxies to test, in order: microproxy, littleproxy, or a name from external-proxies"},
+        {"external-proxies", "", "", "", "a JSON file of external (non-JVM) proxies to test, such as loadtest/competitors/proxies.json; empty for none"},
         {"scenarios", "sweep,ramp,memory,soak,faults", "sweep,ramp,memory,soak,faults", "sweep,ramp,memory,soak,faults", "the scenarios to run, in order"},
         {"gate", "microproxy", "microproxy", "microproxy", "whose failed verdicts fail the run: microproxy (the system under development), all, or none; harness self-checks always do"},
         {"pin", "auto", "auto", "auto", "auto: pin each process to its own CPUs with taskset when present; off: never"},
         {"cpus-proxy", "auto", "auto", "auto", "CPU list for the proxy under test (taskset -c syntax), auto splits the allowed CPUs"},
         {"cpus-origin", "auto", "auto", "auto", "CPU list for the origin"},
         {"cpus-client", "auto", "auto", "auto", "CPU list for the load generator (and jcmd)"},
+        {"nice", "", "", "", "a nice value (e.g. -20) for the proxy, origin and load generator, so that other work on a shared machine yields to them; empty for none"},
         {"proxy-heap", "512m", "1g", "2g", "the proxy's -Xmx"},
         {"proxy-direct", "", "", "", "the proxy's -XX:MaxDirectMemorySize, empty for the JVM default"},
         {"proxy-max-ram", "", "", "", "the proxy's -XX:MaxRAM, empty for none"},
@@ -58,6 +60,7 @@ public final class Settings {
         {"sweep-connections", "16", "128", "512", "keep-alive connections the load is spread over"},
         {"sweep-response-bytes", "128", "128", "128", "the response body size"},
         {"sweep-steps-after-knee", "1", "1", "2", "steps to run past the knee, to show the curve"},
+        {"sweep-knee-confirm", "1", "1", "1", "unsustainable steps in a row that make the knee (2 or more lets a lone noisy step pass)"},
         // Connection ramp
         {"ramp-steps", "200,500,1000", "1000,5000,10000,25000,50000", "1000,5000,10000,25000,50000,100000,150000,200000", "idle connections to hold at each step"},
         {"ramp-warm", "true", "true", "true", "send one request on each connection before it idles (so the proxy also holds an upstream connection)"},

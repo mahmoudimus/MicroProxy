@@ -28,6 +28,8 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ProxyProtocolMode;
+import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ScriptCallObserver;
 import org.microproxy.NoProxyRules;
@@ -105,8 +107,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Fetch clients' own {@code https://} requests over TLS (forward proxy). */
     boolean tlsOrigination = true;
     String proxyAlias;
-    boolean acceptProxyProtocol;
+    ProxyProtocolMode proxyProtocolMode = ProxyProtocolMode.OFF;
+    /** The peers whose PROXY headers are honored; empty for every peer. */
+    ProxyProtocol.TrustedSources proxyProtocolTrustedSources = ProxyProtocol.TrustedSources.ALL;
     boolean sendProxyProtocol;
+    /** Accept requests with both Transfer-Encoding and Content-Length (dropping the latter). */
+    boolean allowChunkedLength;
     int maxWebSocketFrameBufferSize = 1 << 20;
     int maxWebSocketMessageSize = 16 << 20;
     boolean sharedServerConnectionPool;
@@ -116,11 +122,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Duration poolIdleTimeout;
     boolean poolSharedMitmConnections;
     boolean poolPerRequestInMitm;
-    /** Backoff between chained proxy attempts; null when off. */
-    Duration chainedProxyBackoffInitial;
-    Duration chainedProxyBackoffMax;
+    /** Backoff between chained proxy attempts; {@link RetryBackoff#none()} when off. */
+    RetryBackoff chainedProxyBackoff = RetryBackoff.none();
     /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
     List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
+    /** Retry a server's TLS without SNI after its unrecognized_name alert; null for the default ({@link #retriesTlsWithoutSni()}). */
+    Boolean tlsRetryWithoutSni;
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
     /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
@@ -211,8 +218,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.allowRequestToOriginServer = allowRequestToOriginServer;
         c.tlsOrigination = tlsOrigination;
         c.proxyAlias = proxyAlias;
-        c.acceptProxyProtocol = acceptProxyProtocol;
+        c.proxyProtocolMode = proxyProtocolMode;
+        c.proxyProtocolTrustedSources = proxyProtocolTrustedSources;
         c.sendProxyProtocol = sendProxyProtocol;
+        c.allowChunkedLength = allowChunkedLength;
         c.maxWebSocketFrameBufferSize = maxWebSocketFrameBufferSize;
         c.maxWebSocketMessageSize = maxWebSocketMessageSize;
         c.sharedServerConnectionPool = sharedServerConnectionPool;
@@ -222,10 +231,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.poolIdleTimeout = poolIdleTimeout;
         c.poolSharedMitmConnections = poolSharedMitmConnections;
         c.poolPerRequestInMitm = poolPerRequestInMitm;
-        c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
-        c.chainedProxyBackoffMax = chainedProxyBackoffMax;
+        c.chainedProxyBackoff = chainedProxyBackoff;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
+        c.tlsRetryWithoutSni = tlsRetryWithoutSni;
         c.altSvcH3Stripping = altSvcH3Stripping;
         c.http2 = http2;
         c.http2Upstream = http2Upstream;
@@ -319,6 +328,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("tls_protocols")) {
             withTlsProtocols(p.getProperty("tls_protocols").split(","));
         }
+        if (p.containsKey("tls_retry_without_sni")) withTlsRetryWithoutSni(bool(p, "tls_retry_without_sni"));
         if (p.containsKey("tls_handshake_timeout")) {
             withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
         }
@@ -337,8 +347,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withAllowRequestToOriginServer(bool(p, "allow_requests_to_origin_server"));
         }
         if (p.containsKey("originate_tls")) withTlsOrigination(bool(p, "originate_tls"));
-        if (p.containsKey("allow_proxy_protocol")) withAcceptProxyProtocol(bool(p, "allow_proxy_protocol"));
+        if (p.containsKey("allow_proxy_protocol")) {
+            withAcceptProxyProtocol(ProxyProtocolMode.parse(p.getProperty("allow_proxy_protocol")));
+        }
+        if (p.containsKey("proxy_protocol_trusted_sources")) {
+            withProxyProtocolTrustedSources(p.getProperty("proxy_protocol_trusted_sources").split(","));
+        }
         if (p.containsKey("send_proxy_protocol")) withSendProxyProtocol(bool(p, "send_proxy_protocol"));
+        if (p.containsKey("allow_chunked_length")) withAllowChunkedLength(bool(p, "allow_chunked_length"));
         if (p.containsKey("use_shared_server_connection_pool")) {
             withSharedServerConnectionPool(bool(p, "use_shared_server_connection_pool"));
         }
@@ -374,9 +390,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             Duration max = p.containsKey("chained_proxy_backoff_max_ms")
                     ? Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_max_ms").strip()))
                     : initial.multipliedBy(8);
-            withChainedProxyRetryBackoff(initial, max);
-        } else if (p.containsKey("chained_proxy_backoff_max_ms")) {
-            throw new IllegalArgumentException("chained_proxy_backoff_max_ms needs chained_proxy_backoff_initial_ms");
+            withChainedProxyRetryBackoff(!p.containsKey("chained_proxy_backoff_jitter") || bool(p, "chained_proxy_backoff_jitter")
+                    ? RetryBackoff.exponentialWithJitter(initial, max) : RetryBackoff.exponential(initial, max));
+        } else if (p.containsKey("chained_proxy_backoff_max_ms") || p.containsKey("chained_proxy_backoff_jitter")) {
+            throw new IllegalArgumentException((p.containsKey("chained_proxy_backoff_max_ms")
+                    ? "chained_proxy_backoff_max_ms" : "chained_proxy_backoff_jitter")
+                    + " needs chained_proxy_backoff_initial_ms");
         }
         if (bool(p, "strip_tracing_headers")) withoutTracingHeadersUpstream();
         if (p.containsKey("strip_request_headers")) {
@@ -413,6 +432,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
                 || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
                 || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
+                || p.containsKey("masque_release_wait")
                 || p.containsKey("masque_quic_ports") || p.containsKey("qlog_dir") || p.containsKey("qlog_max_files")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("qlog_dir")) h3.qlogDirectory(Path.of(p.getProperty("qlog_dir").strip()));
@@ -428,6 +448,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                         Integer.parseInt(p.getProperty("masque_max_udp_flows", Integer.toString(http3Options.connectUdpMaxFlows())).strip()),
                         Integer.parseInt(p.getProperty("masque_max_udp_flows_per_connection",
                                 Integer.toString(http3Options.connectUdpMaxFlowsPerConnection())).strip()));
+            }
+            if (p.containsKey("masque_release_wait")) {
+                h3.connectUdpReleaseWait(Duration.ofMillis(Long.parseLong(p.getProperty("masque_release_wait").strip())));
             }
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));
@@ -831,21 +854,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
-    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
-        if (initial == null) {
-            chainedProxyBackoffInitial = null;
-            chainedProxyBackoffMax = null;
-            return this;
-        }
-        if (initial.isNegative() || initial.isZero()) {
-            throw new IllegalArgumentException("the initial backoff must be positive: " + initial);
-        }
-        Duration cap = max == null ? initial : max;
-        if (cap.compareTo(initial) < 0) {
-            throw new IllegalArgumentException("the maximum backoff " + cap + " is below the initial " + initial);
-        }
-        chainedProxyBackoffInitial = initial;
-        chainedProxyBackoffMax = cap;
+    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(RetryBackoff backoff) {
+        chainedProxyBackoff = backoff == null ? RetryBackoff.none() : backoff;
         return this;
     }
 
@@ -1059,6 +1069,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
+    public HttpProxyServerBootstrap withTlsRetryWithoutSni(boolean retry) {
+        this.tlsRetryWithoutSni = retry;
+        return this;
+    }
+
+    /** Whether TLS with a server that rejects its SNI is retried without it: as set, else with LittleProxy compatibility. */
+    boolean retriesTlsWithoutSni() {
+        return tlsRetryWithoutSni != null ? tlsRetryWithoutSni : littleProxyCompatibility;
+    }
+
+    @Override
     public HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver) {
         this.serverResolver = Objects.requireNonNull(serverResolver);
         return this;
@@ -1121,13 +1142,31 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
 
     @Override
     public HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol) {
-        this.acceptProxyProtocol = acceptProxyProtocol;
+        this.proxyProtocolMode = acceptProxyProtocol ? ProxyProtocolMode.REQUIRED : ProxyProtocolMode.OFF;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAcceptProxyProtocol(ProxyProtocolMode mode) {
+        this.proxyProtocolMode = Objects.requireNonNull(mode, "mode");
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withProxyProtocolTrustedSources(String... sources) {
+        this.proxyProtocolTrustedSources = ProxyProtocol.TrustedSources.parse(List.of(sources));
         return this;
     }
 
     @Override
     public HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol) {
         this.sendProxyProtocol = sendProxyProtocol;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAllowChunkedLength(boolean allow) {
+        this.allowChunkedLength = allow;
         return this;
     }
 

@@ -31,6 +31,10 @@ scheme `https` by default, the port 443 for `https` and 80 for `http`.
 - `https://` upstreams are reached over TLS, validated with the MITM manager's server context
   when one is configured (`--mitm-trust-all` works too) and the JVM's trust store otherwise, and
   over HTTP/2 when the upstream offers it (unless `--no-http2-upstream`). `http://` upstreams get plain HTTP.
+  An upstream named by its IP address (`reverse:https://10.0.0.7`) gets no SNI and its
+  certificate is checked against that address; a filter's `proxyToServerTlsIdentity` can send the
+  service's name and check the certificate against it instead
+  ([Server name and verification host](mitm.md#server-name-and-verification-host)).
 - `tcp://host:port` relays each client connection to the upstream as raw bytes.
 - With a TLS listener (`withSslContextSource`, `--listener-keystore`), the proxy terminates TLS,
   and serves HTTP/2 to clients that offer it (unless `--no-http2`). With `--http3`, it serves HTTP/3 on

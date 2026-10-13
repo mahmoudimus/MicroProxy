@@ -2479,6 +2479,16 @@ public final class Connection {
     }
 
     /**
+     * The state of a stream's receiving side.
+     *
+     * @param id the stream
+     * @return the state, or null if the stream has no receiving side or it was released
+     */
+    public RecvState recvState(StreamId id) {
+        return streams.recvState(id);
+    }
+
+    /**
      * Sets a stream's send priority; higher goes first.
      *
      * @param id the stream

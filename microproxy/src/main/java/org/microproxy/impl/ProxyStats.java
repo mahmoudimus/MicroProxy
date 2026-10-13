@@ -49,6 +49,8 @@ final class ProxyStats {
     private volatile ListenerStats listener;
     /** {@code tls_inspector.*}: what the ClientHellos the proxy reads before deciding on a session offer. */
     final TlsInspectorStats tlsInspector;
+    /** {@code proxy_proto.*}: the PROXY protocol headers clients' connections start with. */
+    final ProxyProtocolStats proxyProtocol;
     final ClusterStats direct;
     final ClusterStats cache;
     final ClusterStats replay;
@@ -80,6 +82,7 @@ final class ProxyStats {
         this.http = new HttpStats(registry, TagExtractor.sanitize(listenerName));
         this.listener = new ListenerStats(StatsRegistry.NOOP, "-");
         this.tlsInspector = new TlsInspectorStats(registry);
+        this.proxyProtocol = new ProxyProtocolStats(registry);
         this.direct = new ClusterStats(registry, "direct");
         this.cache = new ClusterStats(registry, "cache");
         this.replay = new ClusterStats(registry, "replay");
@@ -258,6 +261,7 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter rqTxReset;
         final Counter rqTooLarge;
+        final Counter rqChunkedLength;
         /** {@code downstream_rq_response_flag.<flag>}, by flag ordinal, made on first use. */
         private final AtomicReferenceArray<Counter> rqFlags = new AtomicReferenceArray<>(FLAGS.length);
         final Counter cxTotal;
@@ -292,6 +296,8 @@ final class ProxyStats {
             rqTxReset = registry.counter(prefix + "downstream_rq_tx_reset",
                     "Requests the proxy reset (or closed the connection of) after its response started");
             rqTooLarge = registry.counter(prefix + "downstream_rq_too_large", "Requests answered 413 by the proxy");
+            rqChunkedLength = registry.counter(prefix + "downstream_rq_chunked_length",
+                    "HTTP/1.1 requests with both Transfer-Encoding and Content-Length, accepted with the Content-Length dropped");
             cxTotal = registry.counter(prefix + "downstream_cx_total", "Client connections");
             cxActive = registry.gauge(prefix + "downstream_cx_active", "Client connections open");
             cxHttp1 = registry.counter(prefix + "downstream_cx_http1_total", "Client connections that carried HTTP/1");
@@ -412,6 +418,30 @@ final class ProxyStats {
         }
     }
 
+    /** {@code proxy_proto.*}: the PROXY protocol headers read, as Envoy's PROXY protocol listener filter counts them. */
+    static final class ProxyProtocolStats {
+        final Counter v1Found;
+        final Counter v2Found;
+        final Counter v1Error;
+        final Counter v2Error;
+        final Counter notFoundAllowed;
+        final Counter notFoundDisallowed;
+        final Counter untrustedSource;
+
+        ProxyProtocolStats(StatsRegistry registry) {
+            v1Found = registry.counter("proxy_proto.v1.found", "PROXY protocol v1 headers read");
+            v2Found = registry.counter("proxy_proto.v2.found", "PROXY protocol v2 headers read");
+            v1Error = registry.counter("proxy_proto.v1.error", "Malformed or incomplete PROXY protocol v1 headers");
+            v2Error = registry.counter("proxy_proto.v2.error", "Malformed or incomplete PROXY protocol v2 headers");
+            notFoundAllowed = registry.counter("proxy_proto.not_found_allowed",
+                    "Connections served without a PROXY protocol header (optional mode)");
+            notFoundDisallowed = registry.counter("proxy_proto.not_found_disallowed",
+                    "Connections closed for want of a PROXY protocol header");
+            untrustedSource = registry.counter("proxy_proto.untrusted_source",
+                    "Connections closed for a PROXY protocol header (or, when required, any) from a peer not trusted");
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // cluster.<name>.*
     // ---------------------------------------------------------------------------------------
@@ -445,6 +475,7 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter sslHandshake;
         final Counter sslConnectionError;
+        final Counter sslRetryWithoutSni;
         final Counter cxRxBytes;
         final Counter cxTxBytes;
         final Counter backoffEngaged;
@@ -487,6 +518,8 @@ final class ProxyStats {
             rqRxReset = counter(p + "upstream_rq_rx_reset", "Requests the server reset or closed the connection of");
             sslHandshake = counter(p + "ssl.handshake", "TLS handshakes with the cluster that succeeded");
             sslConnectionError = counter(p + "ssl.connection_error", "TLS handshakes with the cluster that failed");
+            sslRetryWithoutSni = counter(p + "ssl.retry_without_sni",
+                    "TLS handshakes tried again without SNI after the server's unrecognized_name alert");
             cxRxBytes = counter(p + "upstream_cx_rx_bytes_total", "Bytes read from the cluster (decrypted, over TLS)");
             cxTxBytes = counter(p + "upstream_cx_tx_bytes_total", "Bytes written to the cluster (before encryption, over TLS)");
             backoffEngaged = counter(p + "backoff_engaged", "Waits before trying the cluster after earlier attempts failed");

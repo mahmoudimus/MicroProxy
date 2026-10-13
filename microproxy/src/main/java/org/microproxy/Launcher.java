@@ -69,6 +69,8 @@ public final class Launcher {
                                            long without a datagram (default 60)
               --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
                                            transparent HTTP)
+              --allow-chunked-length       accept HTTP/1.1 requests with both Transfer-Encoding and
+                                           Content-Length (dropped; the connection then closes)
               --no-originate-tls           refuse https:// requests sent without CONNECT (absolute
                                            URIs over plain HTTP, :scheme https on h2c) instead of
                                            opening TLS to the server for them, which
@@ -85,13 +87,22 @@ public final class Launcher {
               --tls-handshake-timeout <millis>  longest TLS handshake (default 10000, 0 = none)
               --tls-protocols <list>       TLS versions allowed on every TLS connection
                                            (default TLSv1.3,TLSv1.2; "" = JDK defaults)
+              --tls-retry-without-sni      retry TLS with a server once without SNI when it
+                                           rejects the name (unrecognized_name alert); default
+                                           with --littleproxy-compat
+              --no-tls-retry-without-sni   never retry without SNI, even with --littleproxy-compat
               --littleproxy-compat         behave like LittleProxy where MicroProxy differs
               --proxy-alias <alias>        name used in Via headers
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --chained-proxy-backoff <initial>[:<max>]  millis to wait between failed chained
                                            proxy attempts, doubling up to max (default 8 x initial;
-                                           0 = no waiting, the default)
+                                           0 = no waiting, the default), with full jitter
+              --chained-proxy-backoff-deterministic <initial>[:<max>]  the same, without jitter:
+                                           exactly initial, 2 x initial, 4 x initial, ... up to max
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
+              --proxy-protocol-mode <mode> off, required or optional (a header is read if one
+                                           comes; any client can then claim any address)
+              --proxy-protocol-trusted-sources <list>  IPs/CIDRs whose PROXY headers count
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
               --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
                                            h2://... (TLS, ALPN h2) or h2c://... (prior knowledge)
@@ -239,6 +250,9 @@ public final class Launcher {
               --masque-max-udp-flows <n>   CONNECT-UDP flows at once (default 4096)
               --masque-max-udp-flows-per-connection <n>  CONNECT-UDP flows of one client connection
                                            (default 64)
+              --masque-release-wait <millis>  how long a CONNECT-UDP request that finds
+                                           --masque-max-udp-flows reached waits for flows already
+                                           ending to give their places back (default 250, 0 = none)
               --masque-intercept-quic      decide on QUIC inside CONNECT-UDP flows as on transparent
                                            QUIC: intercept HTTP/3 (and other QUIC with the QUIC
                                            hooks) unless the host rules or hooks decline, else relay
@@ -433,6 +447,7 @@ public final class Launcher {
         long masqueIdleSeconds = 0;
         int masqueMaxFlows = 0;
         int masqueMaxFlowsPerConnection = 0;
+        Long masqueReleaseWaitMillis = null;
         boolean masqueInterceptQuic = false;
         int[] masqueQuicPorts = null;
         Http3Options.QuicCongestionControl quicCongestion = null;
@@ -496,6 +511,7 @@ public final class Launcher {
                 case "--transparent-quic-port" -> bootstrap.withTransparentQuicPort(intValue(queue, arg));
                 case "--transparent-quic-relay-idle-timeout" -> quicRelayIdleSeconds = longValue(queue, arg);
                 case "--allow-requests-to-origin-server" -> bootstrap.withAllowRequestToOriginServer(true);
+                case "--allow-chunked-length" -> bootstrap.withAllowChunkedLength(true);
                 case "--originate-tls" -> bootstrap.withTlsOrigination(true);
                 case "--no-originate-tls" -> bootstrap.withTlsOrigination(false);
                 case "--mode" -> {
@@ -514,11 +530,18 @@ public final class Launcher {
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
                 case "--littleproxy-compat" -> bootstrap.withLittleProxyCompatibility(true);
                 case "--tls-protocols" -> bootstrap.withTlsProtocols(value(queue, arg).split(","));
+                case "--tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(true);
+                case "--no-tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(false);
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));
-                case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg);
+                case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, true);
+                case "--chained-proxy-backoff-deterministic" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, false);
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
+                case "--proxy-protocol-mode" -> bootstrap.withAcceptProxyProtocol(
+                        ProxyProtocolMode.parse(value(queue, arg)));
+                case "--proxy-protocol-trusted-sources" ->
+                        bootstrap.withProxyProtocolTrustedSources(value(queue, arg).split(","));
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
                 case "--upstream-https-proxy" -> upstreamHttps = value(queue, arg);
@@ -669,6 +692,7 @@ public final class Launcher {
                 case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
                 case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
                 case "--masque-max-udp-flows-per-connection" -> masqueMaxFlowsPerConnection = intValue(queue, arg);
+                case "--masque-release-wait" -> masqueReleaseWaitMillis = longValue(queue, arg);
                 case "--masque-intercept-quic" -> masqueInterceptQuic = true;
                 case "--masque-quic-ports" -> masqueQuicPorts = ports(value(queue, arg), arg);
                 case "--http3-0rtt" -> http3ZeroRtt = true;
@@ -723,7 +747,7 @@ public final class Launcher {
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
                 || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null
                 || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0 || masqueInterceptQuic
-                || masqueQuicPorts != null || qlogDir != null || qlogMaxFiles > 0) {
+                || masqueReleaseWaitMillis != null || masqueQuicPorts != null || qlogDir != null || qlogMaxFiles > 0) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
             if (qlogDir != null) h3.qlogDirectory(qlogDir);
             if (qlogMaxFiles > 0) h3.qlogMaxFiles(qlogMaxFiles);
@@ -742,6 +766,7 @@ public final class Launcher {
                 h3.connectUdpMaxFlows(masqueMaxFlows > 0 ? masqueMaxFlows : current.connectUdpMaxFlows(),
                         masqueMaxFlowsPerConnection > 0 ? masqueMaxFlowsPerConnection : current.connectUdpMaxFlowsPerConnection());
             }
+            if (masqueReleaseWaitMillis != null) h3.connectUdpReleaseWait(Duration.ofMillis(masqueReleaseWaitMillis));
             if (quicCongestion != null) h3.quicCongestionControl(quicCongestion);
             bootstrap.withHttp3Options(h3.build());
         }
@@ -951,20 +976,23 @@ public final class Launcher {
     }
 
     /**
-     * Applies {@code --chained-proxy-backoff <initial-ms>[:<max-ms>]}: the maximum defaults to 8 x
-     * the initial wait, as {@code chained_proxy_backoff_max_ms} does, and 0 turns waiting off.
+     * Applies {@code --chained-proxy-backoff <initial-ms>[:<max-ms>]} (with full jitter) or {@code
+     * --chained-proxy-backoff-deterministic} (without): the maximum defaults to 8 x the initial
+     * wait, as {@code chained_proxy_backoff_max_ms} does, and 0 turns waiting off.
      */
-    private static void chainedProxyBackoff(HttpProxyServerBootstrap bootstrap, String v, String option) {
+    private static void chainedProxyBackoff(HttpProxyServerBootstrap bootstrap, String v, String option, boolean jitter) {
         int colon = v.indexOf(':');
         long initial = millis(colon < 0 ? v : v.substring(0, colon), v, option);
         long max = colon < 0 ? initial * 8 : millis(v.substring(colon + 1), v, option);
         if (initial == 0) {
             if (colon >= 0) throw new IllegalArgumentException(option + " 0 turns the backoff off and takes no maximum, got: " + v);
-            bootstrap.withChainedProxyRetryBackoff(null, null);
+            bootstrap.withChainedProxyRetryBackoff(RetryBackoff.none());
         } else if (max < initial) {
             throw new IllegalArgumentException(option + " maximum " + max + " ms is below the initial " + initial + " ms");
         } else {
-            bootstrap.withChainedProxyRetryBackoff(Duration.ofMillis(initial), Duration.ofMillis(max));
+            bootstrap.withChainedProxyRetryBackoff(jitter
+                    ? RetryBackoff.exponentialWithJitter(Duration.ofMillis(initial), Duration.ofMillis(max))
+                    : RetryBackoff.exponential(Duration.ofMillis(initial), Duration.ofMillis(max)));
         }
     }
 

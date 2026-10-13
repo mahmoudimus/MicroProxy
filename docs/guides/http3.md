@@ -145,6 +145,7 @@ MicroProxy.bootstrap()
         .withHttp3Options(Http3Options.builder()
                 .connectUdpIdleTimeout(Duration.ofSeconds(30))             // --masque-udp-idle-timeout 30
                 .connectUdpMaxFlows(4096, 64)                              // --masque-max-udp-flows(-per-connection)
+                .connectUdpReleaseWait(Duration.ofMillis(250))             // --masque-release-wait 250
                 .build())
         .start();
 ```

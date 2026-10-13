@@ -63,6 +63,7 @@ final class AdminConfigDump {
         timeouts.put("tls_handshake", duration(b.tlsHandshakeTimeout));
         boot.put("timeouts", timeouts);
         boot.put("tls_protocols", b.tlsProtocols);
+        boot.put("tls_retry_without_sni", b.retriesTlsWithoutSni());
         Map<String, Object> limits = new LinkedHashMap<>();
         limits.put("max_initial_line_length", b.maxInitialLineLength);
         limits.put("max_header_size", b.maxHeaderSize);
@@ -73,9 +74,15 @@ final class AdminConfigDump {
         boot.put("network_interface", AdminServer.hostPort(b.localAddress));
         boot.put("proxy_alias", server.proxyAlias);
         boot.put("allow_requests_to_origin_server", b.allowRequestToOriginServer);
+        boot.put("allow_chunked_length", b.allowChunkedLength);
         boot.put("originate_tls", b.tlsOrigination);
         boot.put("littleproxy_compatibility", b.littleProxyCompatibility);
-        boot.put("proxy_protocol", Map.of("accept", b.acceptProxyProtocol, "send", b.sendProxyProtocol));
+        Map<String, Object> proxyProtocol = new LinkedHashMap<>();
+        proxyProtocol.put("accept", b.proxyProtocolMode != org.microproxy.ProxyProtocolMode.OFF);
+        proxyProtocol.put("mode", b.proxyProtocolMode.name().toLowerCase(java.util.Locale.ROOT));
+        proxyProtocol.put("trusted_sources", b.proxyProtocolTrustedSources.entries());
+        proxyProtocol.put("send", b.sendProxyProtocol);
+        boot.put("proxy_protocol", proxyProtocol);
         boot.put("throttle", Map.of("read_bytes_per_second", server.readLimiter.rate(),
                 "write_bytes_per_second", server.writeLimiter.rate()));
         Map<String, Object> pool = new LinkedHashMap<>();
@@ -96,8 +103,10 @@ final class AdminConfigDump {
             if (b.chainProxyManager instanceof org.microproxy.UpstreamProxyManager) {
                 chained.put("proxies", redactUrls(b.chainProxyManager.toString()).replace("***@", REDACTED + "@"));
             }
-            chained.put("backoff_initial", duration(b.chainedProxyBackoffInitial));
-            chained.put("backoff_max", duration(b.chainedProxyBackoffMax));
+            boolean backoff = !b.chainedProxyBackoff.isNone();
+            chained.put("backoff_initial", backoff ? duration(b.chainedProxyBackoff.initial()) : null);
+            chained.put("backoff_max", backoff ? duration(b.chainedProxyBackoff.max()) : null);
+            chained.put("backoff_jitter", backoff ? b.chainedProxyBackoff.jittered() : null);
         }
         boot.put("chained_proxy", chained);
         boot.put("stripped_request_headers", List.copyOf(b.strippedRequestHeaders.values()));

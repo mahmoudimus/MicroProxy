@@ -46,7 +46,7 @@ LittleProxy's options are underscore-separated and take `true` for booleans
 | `--send_certs true`, `--ssl_client_keystore_path`, `--ssl_client_keystore_alias`, `--ssl_client_keystore_password` | no flags: an upstream context with a key, `SslContexts.withKey(key, chain, trustManagers)`, presents a client certificate ([Interception per client connection](guides/mitm.md#interception-per-client-connection)) |
 | `--throttle_read_bytes_per_second <n>`, `--throttle_write_bytes_per_second <n>` | `--throttle <read> <write>` |
 | `--allow_request_to_origin_server true` | `--allow-requests-to-origin-server` |
-| `--allow_proxy_protocol true` | `--accept-proxy-protocol` |
+| `--allow_proxy_protocol true` | `--accept-proxy-protocol`; `--proxy-protocol-mode optional` reads a header only when a connection starts with one, as some LittleProxy forks did ([PROXY protocol](guides/forward-proxy.md#proxy-protocol)) |
 | `--send_proxy_protocol true` | `--send-proxy-protocol` |
 | `--client_to_proxy_worker_threads`, `--proxy_to_server_worker_threads`, `--acceptor_threads` | none: virtual threads replace event-loop sizing |
 | `--help` | `--help` |
@@ -65,6 +65,7 @@ MicroProxy reads the same kind of properties file, and most of LittleProxy's key
 | `idleConnectionTimeout` | `idle_connection_timeout` (seconds; default 70) |
 | `connect_timeout` | `connect_timeout`, in milliseconds (default 40000) |
 | `allow_local_only` (default `false`) | the same key, default `true` |
+| `allow_proxy_protocol` | the same key; it also takes `optional` (and `required`, `off`), and any value other than those and the booleans is an error |
 | `nic` (an interface name) | a local address to connect from |
 | `authenticate_ssl_clients`, `ssl_clients_trust_all_servers`, `ssl_clients_send_certs`, `ssl_clients_key_store_file_path`, `ssl_clients_key_store_alias`, `ssl_clients_key_store_password` | not read: use `listener_keystore` for a TLS listener, `--mitm-trust-all`, and the Java API for client certificates |
 
@@ -105,7 +106,9 @@ HttpResponseStatus.OK, "<html>...</html>")`, with `Content-Length` set when it i
 - **Direct requests to the proxy:** an origin-form request (no scheme, host or port) is answered
   `400` unless `--allow-requests-to-origin-server` is given; a filter can answer it from
   `clientToProxyRequest`, as in LittleProxy.
-- **New hooks:** lambdas (`HttpFilters.builder()`), failure answers, per-request connect timeouts,
+- **New hooks:** lambdas (`HttpFilters.builder()`), failure answers, per-request connect and
+  upstream TLS handshake timeouts (`proxyToServerConnectTimeout`,
+  `proxyToServerTlsHandshakeTimeout`), a per-request retry backoff (`chainedProxyRetryBackoff`),
   WebSocket frames and messages: see [Filters and failure responses](guides/filters.md).
 
 ## MITM
@@ -115,6 +118,31 @@ LittleProxy's `SelfSignedMitmManager` (and the LittleProxy-mitm extension) becom
 whose SANs copy the real server's names, a bounded certificate cache, and upstream trust of your
 choice. `MitmManager.serverSslEngine` / `clientSslEngineFor` become `serverSslContext` /
 `clientSslContextFor`, returning an `SSLContext`. See [MITM, certificates and TLS](guides/mitm.md).
+
+## TLS to servers
+
+LittleProxy forks commonly patched how the proxy's own TLS with servers behaves. MicroProxy has
+these as options:
+
+- **Retry without SNI.** Some servers answer a server name (SNI) they do not recognize with a
+  fatal `unrecognized_name` alert. Forks retried the handshake once without SNI, as the JDK's
+  `HttpsURLConnection` once did. `withTlsRetryWithoutSni(true)` (`--tls-retry-without-sni`,
+  `tls_retry_without_sni=true`) does the same, on a new connection; it is on by default with
+  `withLittleProxyCompatibility()`, and `withTlsRetryWithoutSni(false)` keeps it off there too.
+  The certificate is still checked against the host the request is for. See
+  [Server TLS failures](guides/mitm.md#server-tls-failures).
+- **SNI and verification host apart from the address.** Forks that connected to an IP address or
+  an internal load balancer patched the SSL engine to send another server name. Override
+  `HttpFilters.proxyToServerTlsIdentity(serverHostAndPort)` (or
+  `HttpFilters.builder().tlsIdentity(...)`) to return a `TlsServerIdentity` with the SNI name and
+  the host the certificate is checked against; see
+  [Server name and verification host](guides/mitm.md#server-name-and-verification-host).
+- **Why a handshake failed.** `ProxyFailure.TlsFailed.cause()` is the JDK's own exception with its
+  whole cause chain (for a revoked certificate, the `CertPathValidatorException` with reason
+  `REVOKED` is in it), and `TlsFailed.reason()` classifies it: `CERTIFICATE_REVOKED`,
+  `CERTIFICATE_EXPIRED`, `CERTIFICATE_UNTRUSTED`, `HOSTNAME_MISMATCH`, `ALERT_RECEIVED` (with
+  `alert()`), ... The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` starts with the same
+  name.
 
 ## Activity logging
 
@@ -173,8 +201,17 @@ it; see that method's Javadoc for the list:
   the client connected to as its destination. LittleProxy (and compatibility mode) names the
   server connection's remote address, and sends none when the client and that address are of
   different address families.
+- The proxy's `200 Connection established` answer to a `CONNECT` goes through
+  `serverToProxyResponse` and `proxyToClientResponse`, so a filter can see it or turn it into a
+  refusal. LittleProxy writes it straight to the client (`RespondCONNECTSuccessful`): no response
+  filter runs, and only trackers hear of it (`responseSentToClient`). Compatibility mode does the
+  same, sparing a filter call (and whatever a filter logs) per `CONNECT`; trackers and the hooks
+  LittleProxy does not have (`proxyToClientResponseSent`, `exchangeEnded`) still run. An HTTP
+  chained proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
+  `serverToProxyResponse`, reaches no filter in MicroProxy in either mode.
 
-Compatibility mode covers the two items above. Security fixes (strict request parsing, error
+Compatibility mode covers the three items above, and the retry without SNI described under
+[TLS to servers](#tls-to-servers). Security fixes (strict request parsing, error
 pages that do not echo the request) are not affected by it, and the following differences remain
 either way:
 
@@ -187,6 +224,18 @@ either way:
   unaffected. `--no-http2` and `--no-http2-upstream` (`http2=false`, `http2_upstream=false`,
   `withHttp2(false)`, `withHttp2Upstream(false)`) keep HTTP/1.1 on both sides, as in LittleProxy;
   compatibility mode leaves HTTP/2 as configured.
+- Chained proxy retries: LittleProxy 2.9.1 tries the next chained proxy as soon as one fails,
+  without waiting, and so does MicroProxy by default (`RetryBackoff.none()`); compatibility mode
+  leaves the backoff as configured. Forks of LittleProxy that added a wait between attempts
+  doubled it without jitter; `withChainedProxyRetryBackoff(RetryBackoff.exponential(initial,
+  max))` (`chained_proxy_backoff_jitter=false`, `--chained-proxy-backoff-deterministic`) waits the
+  same exact times, while the `withChainedProxyRetryBackoff(initial, max)` shorthand and
+  `--chained-proxy-backoff` add full jitter (see
+  [Retries and backoff](guides/chained-proxies.md#retries-and-backoff)). A filter can choose the
+  backoff per request with `chainedProxyRetryBackoff()`.
+- TLS handshakes are bounded by `withTlsHandshakeTimeout` (10 s by default, the same as Netty's
+  `SslHandler` default that LittleProxy left in place); a filter can change it per request for the
+  upstream handshakes with `proxyToServerTlsHandshakeTimeout()`.
 - The proxy does not fill `FlowContext`'s string-keyed timing map (LittleProxy's
   `dns_resolution_*_time_ms`); `FlowContext.timings()` has typed timings for every phase instead
   (see [Observability](observability/activity-tracking.md#observability)).
@@ -204,6 +253,14 @@ either way:
   `withAllowLocalOnly(false)`) is given; LittleProxy's `allow_local_only` defaults to `false`.
 - When the shared server connection pool is full, a request waits up to the connect timeout for a
   connection, then gets `503`; LittleProxy returned `502` immediately.
+- A request with both `Transfer-Encoding` and `Content-Length` gets `400`, as from LittleProxy
+  2.9 (Netty rejects it); some LittleProxy forks accepted it. `--allow-chunked-length`
+  (`allow_chunked_length`, `withAllowChunkedLength(true)`) accepts it as RFC 9112 allows, and closes
+  the connection after the response; compatibility mode leaves it off (see
+  [Security](security.md#request-parsing)).
+- PROXY protocol headers can be optional (`--proxy-protocol-mode optional`), for a listener that
+  load balancers and clients both reach; LittleProxy only requires them. Read the warning in
+  [PROXY protocol](guides/forward-proxy.md#proxy-protocol) first.
 - The `org.microproxy.http` message types are a sealed hierarchy. Filters create (and may subclass)
   the `Default*` classes but cannot implement `HttpRequest` and the other interfaces from scratch,
   and a `switch` over them can be exhaustive (see `HttpObject`).

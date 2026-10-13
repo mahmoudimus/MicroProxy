@@ -18,6 +18,57 @@ Each connection gets one cheap virtual thread, so blocking calls only park that 
 peer applies backpressure simply by blocking a write. The CONNECT tunnel is two loops copying
 bytes, one per direction. Tens of thousands of concurrent connections are fine.
 
+The diagrams below step through the difference; each has play, pause and step controls, and
+names the classes and methods involved: MicroProxy's in
+[`org.microproxy.impl`](https://github.com/mahmoudimus/MicroProxy/blob/main/microproxy/src/main/java/org/microproxy/impl/README.md),
+LittleProxy's in `org.littleshoot.proxy.impl` of `io.github.littleproxy:littleproxy` 2.9.1.
+
+<div class="mp-arch" data-scene="concurrency" data-perf-src="../assets/perf/results.json"></div>
+
+<div class="mp-arch-static" markdown>
+
+![LittleProxy's event-loop callbacks next to MicroProxy's virtual thread per connection](assets/arch/concurrency.svg)
+
+</div>
+
+In LittleProxy, each client connection is a Netty channel registered with one of a few
+event-loop threads (by default 8 for clients and 8 for servers), which run every connection's
+callbacks in turn. A request is decoded by `HttpRequestDecoder` and handled in
+`ClientToProxyConnection.read()` according to the connection's `ConnectionState`;
+`ProxyToServerConnection.write()` starts a `ConnectionFlow` (`connectAndWrite()`) when no server
+connection exists, and the flow's steps advance from `ChannelFuture` listeners; the response comes
+back through `ProxyToServerConnection.readHTTPInitial()` and `readHTTPChunk()`, which call
+`ClientToProxyConnection.respond()`. In MicroProxy the same work is the loop above, in
+`ClientConnection.serveRequests()` and `handleRequest()`: a connect, a read or a write that has to
+wait parks the virtual thread, and the JDK's few carrier threads run the others meanwhile. Envoy
+is event-driven like LittleProxy (an event loop per worker thread); Go's `net/http`, and so
+goproxy, runs a goroutine per connection like MicroProxy.
+
+<div class="mp-arch" data-scene="backpressure"></div>
+
+<div class="mp-arch-static" markdown>
+
+![A slow reader: LittleProxy's writability callbacks next to MicroProxy's blocking write](assets/arch/backpressure.svg)
+
+</div>
+
+When a client reads slowly, LittleProxy keeps reading the server until the client channel's
+outbound buffer passes Netty's high water mark (64 KiB by default). Then `isWritable()` turns
+false, `channelWritabilityChanged()` calls `becameSaturated()`, and `ClientToProxyConnection`
+stops reading its server connections (`stopReading()`, `setAutoRead(false)`) until the buffer
+drains below the low water mark (32 KiB) and `becameWritable()` resumes them. What was read before
+the stop stays queued in direct memory. In MicroProxy, `relayResponseBody()` reads a piece of the
+body into its 64 KiB relay buffer and writes it; when the client's socket is full the write blocks
+and the virtual thread parks, so it reads no more, the bytes in flight wait in the kernel's socket
+buffers, and TCP flow control slows the server. The cost per slow reader is measured on
+[Performance against other proxies](project/performance.md#adversarial-clients-under-a-memory-cap).
+<!-- perf:arch-slowread -->
+
+Measured with 200 slow readers and each proxy capped at 512 MB, RSS rose by about 1,037 (1,023–1,092) KB per reader for LittleProxy and 190 (170–191) KB for MicroProxy (median of 3 runs, lowest–highest in parentheses).
+
+<!-- /perf:arch-slowread -->
+
+
 Bodies that no filter inspects skip the message objects entirely. They are copied between the
 sockets through one reusable 64 KiB buffer per connection, re-framed only when one side uses
 chunked coding, and flushed only when no more input is buffered. A filter that overrides a
@@ -27,11 +78,35 @@ well, gets every piece as before. On loopback with a 256 MiB body this relays ab
 with `Content-Length` and 0.6 GB/s chunked, against 0.47 and 0.25 GB/s through per-chunk
 objects, and allocates under 3 MB instead of about 270 MB.
 
+<div class="mp-arch" data-scene="fastpath"></div>
+
+<div class="mp-arch-static" markdown>
+
+![Bodies no filter reads: one reused 64 KiB buffer instead of an HttpContent per piece](assets/arch/fastpath.svg)
+
+</div>
+
 Idle connections hold almost no memory. Socket buffers are lent from a bounded per-server
 pool only while bytes are moving. Between requests, a connection waits for the next byte without
 a buffer, and tunnels give theirs back whenever the peer goes quiet. With 2,000 idle keep-alive
 connections, each client and server connection pair costs about 11 KiB of heap, down from 141
 KiB. An idle `CONNECT` tunnel costs about 15 KiB, down from 113 KiB.
+
+Before this design, each client and server connection pair kept four 16 KiB stream buffers and a
+64 KiB relay buffer for its whole life. Now `ByteReader` takes a buffer from the server's
+`ioBuffers` pool when bytes arrive and gives it back once they are consumed (`release()`),
+`ByteReader.awaitNext()` waits for the next request with a one-byte read and no buffer,
+`PooledOutputStream` gives its buffer back on every flush, and a body borrows a 64 KiB buffer from
+`relayBuffers` only while it is relayed. Each pool keeps a bounded number of free buffers (512 and
+64) and leaves the rest to the garbage collector.
+
+<div class="mp-arch" data-scene="buffers"></div>
+
+<div class="mp-arch-static" markdown>
+
+![Buffers owned for a connection's life, next to buffers lent by BufferPool only while bytes move](assets/arch/buffers.svg)
+
+</div>
 
 Per request, header handling avoids throwaway objects:
 
@@ -45,6 +120,9 @@ A small keep-alive GET through the proxy now allocates about 4.7 KB, down from 1
 10-20% higher throughput. Both figures include the benchmark client's own allocations.
 [Benchmarks against LittleProxy](project/benchmarks.md) measures throughput, latency,
 allocation and idle footprint against LittleProxy itself, through the same origin and client.
+[Performance against other proxies](project/performance.md) measures the proxy as a separate
+process against LittleProxy, Envoy, a Go and a Rust proxy and Squid: sustainable rate, latency
+under load, and memory when idle, with many connections and under adversarial clients.
 
 A few rules keep this safe on JDK 21, where a virtual thread that blocks inside `synchronized`
 pins its carrier thread:
@@ -79,6 +157,14 @@ exchange logic (`ClientConnection.handleRequest`), which runs the filters, conne
 connection), relays the request and response, and opens tunnels. On the server side,
 `ServerConnection` is an HTTP/1.1 connection, or one stream of a shared HTTP/2 or HTTP/3
 connection to the server.
+
+<div class="mp-arch" data-scene="transports"></div>
+
+<div class="mp-arch-static" markdown>
+
+![One exchange logic, ClientConnection.handleRequest, over HTTP/1, HTTP/2 and HTTP/3 transports and server connections](assets/arch/transports.svg)
+
+</div>
 
 The package's design notes, kept next to the code in
 [`microproxy/src/main/java/org/microproxy/impl/README.md`](https://github.com/mahmoudimus/MicroProxy/blob/main/microproxy/src/main/java/org/microproxy/impl/README.md), describe how a request flows

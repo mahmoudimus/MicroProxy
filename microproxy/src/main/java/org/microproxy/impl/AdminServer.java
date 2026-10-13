@@ -362,8 +362,11 @@ final class AdminServer {
 
     private Reply drainListeners(Map<String, String> params) {
         if (params.containsKey("graceful")) {
-            // drain() lasts the drain time: the answer does not wait for it.
-            Thread.ofVirtual().name(server.name + "-drain").start(() -> server.drain(server.drainTime));
+            // Begun before the answer, so that /ready fails once the client has it; the drain time
+            // is not waited for.
+            if (server.beginDrain(server.drainTime)) {
+                Thread.ofVirtual().name(server.name + "-drain").start(server::endDrain);
+            }
         } else {
             server.stopListeners();
         }
@@ -508,7 +511,9 @@ final class AdminServer {
             if (server.socksDetection) tcp.addAll(List.of("socks5", "socks4"));
             if (server.transparent) tcp.add("transparent_tls");
         }
-        if (server.acceptProxyProtocol) tcp.add("proxy_protocol");
+        if (server.acceptProxyProtocol) {
+            tcp.add(server.proxyProtocolMode == org.microproxy.ProxyProtocolMode.OPTIONAL ? "proxy_protocol_optional" : "proxy_protocol");
+        }
         list.add(listener(server.name, "tcp", addresses[0], tcp, accepting));
         if (addresses[1] != null) {
             List<String> h3 = new ArrayList<>(List.of("quic", "h3"));

@@ -114,7 +114,7 @@ class LauncherTest {
         String usage = console.toString(StandardCharsets.UTF_8);
         for (String flag : List.of("--config", "--port", "--address", "--server", "--name", "--transparent",
                 "--idle-timeout", "--connect-timeout", "--tls-handshake-timeout", "--tls-protocols", "--littleproxy-compat", "--proxy-alias",
-                "--throttle", "--chained-proxy-backoff",
+                "--throttle", "--chained-proxy-backoff", "--chained-proxy-backoff-deterministic",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
@@ -126,8 +126,8 @@ class LauncherTest {
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
                 "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion",
                 "--qlog-dir", "--qlog-max-files", "--masque", "--masque-udp-template", "--masque-udp-idle-timeout",
-                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
-                "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
+                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-release-wait",
+                "--masque-intercept-quic", "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
                 "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
@@ -235,16 +235,19 @@ class LauncherTest {
     void masqueFlagsAndProperties() throws IOException {
         HttpProxyServerBootstrap b = parse("--masque-udp-template", "/udp?h={target_host}&p={target_port}",
                 "--masque-udp-idle-timeout", "20", "--masque-max-udp-flows", "100",
-                "--masque-max-udp-flows-per-connection", "4").bootstrap();
+                "--masque-max-udp-flows-per-connection", "4", "--masque-release-wait", "0").bootstrap();
         Http3Options h3 = BootstrapView.http3Options(b);
         assertEquals("/udp?h={target_host}&p={target_port}", h3.connectUdpTemplate());
         assertEquals(java.time.Duration.ofSeconds(20), h3.connectUdpIdleTimeout());
         assertEquals(100, h3.connectUdpMaxFlows());
         assertEquals(4, h3.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ZERO, h3.connectUdpReleaseWait());
+        assertThrows(IllegalArgumentException.class, () -> parse("--masque-release-wait", "-1"));
         Http3Options defaults = BootstrapView.http3Options(parse("--masque-max-udp-flows", "10").bootstrap());
         assertEquals("/.well-known/masque/udp/{target_host}/{target_port}/", defaults.connectUdpTemplate());
         assertEquals(10, defaults.connectUdpMaxFlows());
         assertEquals(64, defaults.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ofMillis(250), defaults.connectUdpReleaseWait());
         assertThrows(IllegalArgumentException.class, () -> parse("--masque-udp-template", "/udp/{target_host}/"));
         assertFalse(BootstrapView.connectUdp(b), "CONNECT-UDP on the TCP listener is off by default");
         assertTrue(BootstrapView.connectUdp(parse("--masque").bootstrap()));
@@ -256,11 +259,13 @@ class LauncherTest {
         p.setProperty("masque_udp_template", "/m/{target_host}/{target_port}");
         p.setProperty("masque_udp_idle_timeout", "5");
         p.setProperty("masque_max_udp_flows_per_connection", "8");
+        p.setProperty("masque_release_wait", "1000");
         Http3Options fromFile = BootstrapView.http3Options(BootstrapView.fromProperties(p));
         assertEquals("/m/{target_host}/{target_port}", fromFile.connectUdpTemplate());
         assertEquals(java.time.Duration.ofSeconds(5), fromFile.connectUdpIdleTimeout());
         assertEquals(4096, fromFile.connectUdpMaxFlows());
         assertEquals(8, fromFile.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ofSeconds(1), fromFile.connectUdpReleaseWait());
         assertFalse(fromFile.connectUdpInterceptQuic());
         assertEquals(java.util.Set.of(443), fromFile.connectUdpQuicPorts());
     }
@@ -492,7 +497,7 @@ class LauncherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
-        "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
+        "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--chained-proxy-backoff-deterministic", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
         "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format", "--access-log-json",
         "--access-log-filter", "--statsd", "--dogstatsd", "--stats-prefix", "--stats-max-clusters",
         "--log-http", "--log-http-view", "--proto-descriptors",
@@ -665,6 +670,35 @@ class LauncherTest {
         assertEquals("--chained-proxy-backoff 0 turns the backoff off and takes no maximum, got: 0:500",
                 assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "0:500"))
                         .getMessage());
+    }
+
+    @Test
+    void deterministicChainedProxyBackoffHasNoJitter(@TempDir Path dir) throws IOException {
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "100:2000"));
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(250), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "250"));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff", "100:2000"));
+        assertEquals(RetryBackoff.none(), backoffPolicy("--chained-proxy-backoff-deterministic", "0"));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(5), Duration.ofMillis(40)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "100", "--chained-proxy-backoff", "5"),
+                "the last flag wins");
+        assertEquals("--chained-proxy-backoff-deterministic maximum 100 ms is below the initial 500 ms",
+                assertThrows(IllegalArgumentException.class,
+                        () -> parse("--chained-proxy-backoff-deterministic", "500:100")).getMessage());
+
+        Path props = dir.resolve("backoff.properties");
+        Files.writeString(props, "chained_proxy_backoff_initial_ms=50\nchained_proxy_backoff_jitter=false\n");
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(50), Duration.ofMillis(400)),
+                backoffPolicy("--config", props.toString()));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(10), Duration.ofMillis(80)),
+                backoffPolicy("--config", props.toString(), "--chained-proxy-backoff", "10"),
+                "the flag overrides the file's jitter setting too");
+    }
+
+    private RetryBackoff backoffPolicy(String... args) throws IOException {
+        return BootstrapView.chainedProxyBackoffPolicy(parse(args).bootstrap());
     }
 
     private List<Duration> backoff(String... args) throws IOException {

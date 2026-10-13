@@ -8,6 +8,7 @@ import org.microproxy.http.HttpMethod;
 import org.microproxy.http.HttpRequest;
 import org.microproxy.http.HttpResponse;
 import org.microproxy.http.HttpResponseStatus;
+import org.microproxy.http.HttpVersion;
 
 /** How the end of a message body is determined (RFC 9112 section 6). */
 // @value-candidate: becomes a value class in the valhalla build profile
@@ -38,12 +39,42 @@ record Framing(Kind kind, long length) {
      * other than a final {@code chunked} are rejected, closing the usual request smuggling holes.
      */
     static Framing forRequest(HttpRequest request) throws HttpParseException {
+        return forRequest(request, false);
+    }
+
+    /**
+     * {@link #forRequest(HttpRequest)}, except that with {@code allowChunkedLength} an HTTP/1.1
+     * request with both {@code Transfer-Encoding} and {@code Content-Length} is accepted as RFC
+     * 9112 section 6.1 allows, if its transfer coding is otherwise sound: {@code chunked} once,
+     * last; a {@code Content-Length} that would be valid on its own (no conflicting values); and
+     * neither a {@code CONNECT} nor an {@code Upgrade}, whose connection would not close.
+     * The {@code Content-Length} is removed, and the body is framed by the chunked coding alone;
+     * the caller closes the connection after the response, as the RFC requires.
+     */
+    static Framing forRequest(HttpRequest request, boolean allowChunkedLength) throws HttpParseException {
         HttpHeaders headers = request.headers();
         if (headers.contains(HttpHeaderNames.TRANSFER_ENCODING)) {
-            if (headers.contains(HttpHeaderNames.CONTENT_LENGTH)) {
-                throw new HttpParseException("both Transfer-Encoding and Content-Length present");
-            }
             List<String> codings = headers.getAllElements(HttpHeaderNames.TRANSFER_ENCODING);
+            if (headers.contains(HttpHeaderNames.CONTENT_LENGTH)) {
+                if (!allowChunkedLength) {
+                    throw new HttpParseException("both Transfer-Encoding and Content-Length present");
+                }
+                if (!HttpVersion.HTTP_1_1.equals(request.protocolVersion())) {
+                    throw new HttpParseException("Transfer-Encoding in a request older than HTTP/1.1");
+                }
+                if (request.method().equals(HttpMethod.CONNECT) || headers.contains(HttpHeaderNames.UPGRADE)) {
+                    // The connection would go on as a tunnel rather than close after the response.
+                    throw new HttpParseException("both Transfer-Encoding and Content-Length on a tunnel or upgrade");
+                }
+                // A malformed or conflicting length is refused even though it is about to be dropped.
+                contentLength(request);
+                long chunked = codings.stream().filter(c -> c.equalsIgnoreCase("chunked")).count();
+                if (chunked != 1 || !codings.getLast().equalsIgnoreCase("chunked")) {
+                    throw new HttpParseException("Transfer-Encoding with Content-Length must end with a single chunked");
+                }
+                headers.remove(HttpHeaderNames.CONTENT_LENGTH);
+                return CHUNKED;
+            }
             if (codings.isEmpty() || !codings.getLast().equalsIgnoreCase("chunked")) {
                 throw new HttpParseException("request transfer coding must end with chunked");
             }

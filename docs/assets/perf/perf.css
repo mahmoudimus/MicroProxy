@@ -1,0 +1,181 @@
+/* The interactive charts of docs/project/performance.md (drawn by perf.js from results.json).
+   Colors are tokens, redefined for Material's dark (slate) scheme; the categorical slots are a
+   validated colorblind-safe order (adjacent pairs clear a CVD delta E of 8 in both schemes), and every
+   series also carries a legend entry, a marker shape and a table row, so color never carries identity
+   alone. */
+.mp-perf-root {
+  --mp-surface: #fcfcfb;
+  --mp-text: #0b0b0b;
+  --mp-text-2: #52514e;
+  --mp-muted: #6f6d68;
+  --mp-grid: #e1e0d9;
+  --mp-axis: #c3c2b7;
+  --mp-ring: rgba(11, 11, 11, 0.10);
+  --mp-wash: rgba(11, 11, 11, 0.04);
+  --mp-cap: #d03b3b;
+  --mp-c0: #2a78d6;
+  --mp-c1: #eb6834;
+  --mp-c2: #1baf7a;
+  --mp-c3: #eda100;
+  --mp-c4: #e87ba4;
+  --mp-c5: #008300;
+  --mp-c6: #6250d6;
+  --mp-c7: #e34948;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+[data-md-color-scheme="slate"] .mp-perf-root {
+  --mp-surface: #1a1a19;
+  --mp-text: #f0efec;
+  --mp-text-2: #c3c2b7;
+  --mp-muted: #9a988f;
+  --mp-grid: #2c2c2a;
+  --mp-axis: #45453f;
+  --mp-ring: rgba(255, 255, 255, 0.10);
+  --mp-wash: rgba(255, 255, 255, 0.05);
+  --mp-cap: #e66767;
+  --mp-c0: #3987e5;
+  --mp-c1: #d95926;
+  --mp-c2: #199e70;
+  --mp-c3: #c98500;
+  --mp-c4: #d55181;
+  --mp-c5: #008300;
+  --mp-c6: #9085e9;
+  --mp-c7: #e66767;
+}
+
+/* With the charts drawn, the static fallbacks give way to them (the tables stay). */
+.mp-perf-ready .mp-perf-static { display: none; }
+
+.mp-perf-root.mp-perf-chart {
+  position: relative;
+  margin: 1em 0 1.5em;
+  padding: 12px 12px 8px;
+  border-radius: 8px;
+  background: var(--mp-surface);
+  box-shadow: 0 0 0 1px var(--mp-ring);
+  color: var(--mp-text);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.mp-perf-chart:empty { display: none; }
+.mp-perf-chart h4.mp-title {
+  margin: 0 0 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mp-text);
+}
+.mp-perf-chart .mp-sub {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--mp-text-2);
+}
+.mp-perf-chart .mp-note {
+  margin: 6px 0 0;
+  font-size: 0.64rem;
+  line-height: 1.4;
+  color: var(--mp-muted);
+}
+
+/* Controls: one wrapping row of standard controls. */
+.mp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 0 8px;
+  font-size: 0.66rem;
+  color: var(--mp-text-2);
+}
+.mp-row label { display: inline-flex; align-items: center; gap: 6px; }
+.mp-perf-root button.mp-btn,
+.mp-perf-root select.mp-select {
+  font: inherit;
+  font-size: 0.66rem;
+  color: var(--mp-text);
+  background: transparent;
+  border: 1px solid var(--mp-axis);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.mp-perf-root select.mp-select { border-radius: 6px; padding: 2px 6px; }
+.mp-perf-root button.mp-btn:hover { background: var(--mp-wash); }
+.mp-perf-root button.mp-btn[aria-pressed="true"] { border-color: var(--mp-text-2); font-weight: 600; }
+.mp-perf-root button:focus-visible,
+.mp-perf-root select:focus-visible,
+.mp-perf-root input:focus-visible,
+.mp-perf-root [tabindex]:focus-visible {
+  outline: 2px solid var(--mp-c0);
+  outline-offset: 2px;
+}
+.mp-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+/* Legend entries are the proxy toggles: a line key (or swatch) in the series color, text in ink. */
+.mp-legend { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 6px; }
+.mp-perf-root button.mp-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.66rem;
+  color: var(--mp-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.mp-perf-root button.mp-key:hover { background: var(--mp-wash); }
+.mp-perf-root button.mp-key[aria-pressed="false"] { color: var(--mp-muted); text-decoration: line-through; }
+.mp-perf-root button.mp-key[aria-pressed="false"] svg { opacity: 0.35; }
+.mp-key.mp-main { font-weight: 700; }
+
+.mp-plot { position: relative; width: 100%; }
+.mp-plot svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.mp-plot text { font-family: inherit; }
+.mp-plot .mp-tick { fill: var(--mp-muted); font-size: 11px; }
+.mp-plot .mp-axis-title { fill: var(--mp-text-2); font-size: 11px; }
+.mp-plot .mp-label { fill: var(--mp-text); font-size: 11px; font-weight: 600; }
+.mp-plot .mp-value { fill: var(--mp-text-2); font-size: 11px; }
+.mp-plot .mp-grid { stroke: var(--mp-grid); stroke-width: 1; fill: none; shape-rendering: crispEdges; }
+.mp-plot .mp-axis { stroke: var(--mp-axis); stroke-width: 1; fill: none; shape-rendering: crispEdges; }
+.mp-plot .mp-cross { stroke: var(--mp-muted); stroke-width: 1; }
+.mp-plot .mp-capline { stroke: var(--mp-cap); stroke-width: 1.5; }
+.mp-plot .mp-cap-text { fill: var(--mp-cap); font-size: 11px; font-weight: 600; }
+.mp-plot .mp-badge { fill: var(--mp-text); font-size: 11px; font-weight: 700; }
+.mp-plot [tabindex]:focus { outline: none; }
+.mp-plot [tabindex]:focus-visible .mp-hit { stroke: var(--mp-text); stroke-width: 1.5; }
+
+/* Tooltip: values lead (strong), labels follow; line keys, not boxes. */
+.mp-tip {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  min-width: 150px;
+  max-width: min(300px, calc(100% - 8px));
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--mp-surface);
+  color: var(--mp-text);
+  box-shadow: 0 0 0 1px var(--mp-ring), 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+.mp-tip[hidden] { display: none; }
+.mp-tip .mp-tip-h { color: var(--mp-text-2); margin-bottom: 2px; }
+.mp-tip .mp-tip-r { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.mp-tip .mp-tip-r b { font-variant-numeric: tabular-nums; }
+.mp-tip .mp-tip-r span { color: var(--mp-text-2); overflow: hidden; text-overflow: ellipsis; }
+.mp-tip .mp-lk { display: inline-block; width: 12px; height: 3px; border-radius: 2px; flex: none; transform: translateY(-2px); }
+
+/* The load dial and its readout. */
+.mp-dial { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 4px 0 6px; font-size: 0.66rem; color: var(--mp-text-2); }
+.mp-dial input[type="range"] { flex: 1 1 160px; min-width: 120px; accent-color: var(--mp-c0); }
+.mp-dial output { font-weight: 600; color: var(--mp-text); font-variant-numeric: tabular-nums; min-width: 9ch; }
+.mp-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 12px; margin: 0 0 6px; font-size: 0.64rem; }
+.mp-board div { display: flex; align-items: baseline; gap: 6px; }
+.mp-board b { font-variant-numeric: tabular-nums; color: var(--mp-text); white-space: nowrap; }
+.mp-board span { color: var(--mp-text-2); }
+.mp-board .mp-rank { color: var(--mp-muted); min-width: 1.4em; }
