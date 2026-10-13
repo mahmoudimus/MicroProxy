@@ -1,0 +1,3 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/** Internal ir stage; concealed by JPMS. */
+package org.microproxy.thirdparty.jaybrotli.internal.ir;
