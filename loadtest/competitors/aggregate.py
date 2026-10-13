@@ -184,6 +184,11 @@ def host_load(runs_dir, runs):
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             samples = [json.loads(line) for line in f if line.strip()]
+    winsamples = []
+    wpath = os.path.join(runs_dir, "winmon.jsonl")
+    if os.path.exists(wpath):
+        with open(wpath, encoding="utf-8") as f:
+            winsamples = [json.loads(line) for line in f if line.strip()]
     out = {}
     for r in runs:
         win = [x for x in samples if r["start"] <= x["t"] <= r["end"]]
@@ -199,7 +204,21 @@ def host_load(runs_dir, runs):
         top = sorted(procs.items(), key=lambda kv: -kv[1])[:5]
         mean = statistics.mean(foreign)
         p95 = foreign[min(len(foreign) - 1, int(len(foreign) * 0.95))]
+        # On WSL2 the Windows host's own work (winmon.py) competes for the same cores without showing
+        # in the Linux VM's /proc: it counts against the run as well.
+        wwin = [x for x in winsamples if r["start"] <= x["t"] <= r["end"]]
+        windows = None
+        if winsamples:
+            if not wwin:
+                out[r["id"]] = {"samples": len(win), "accepted": None, "note": "no Windows host monitor samples for this run"}
+                continue
+            wf = sorted(x["windowsForeignCpuPct"] for x in wwin)
+            wmean, wp95 = statistics.mean(wf), wf[min(len(wf) - 1, int(len(wf) * 0.95))]
+            # The Windows processes stay in the local log: they are the person's own desktop.
+            windows = {"samples": len(wwin), "foreignCpuPct": {"mean": rnd(wmean, 1), "p95": rnd(wp95, 1), "max": rnd(wf[-1], 1)}}
+            mean, p95 = mean + wmean, p95 + wp95
         out[r["id"]] = {"samples": len(win), "foreignCpuPct": {"mean": rnd(mean, 1), "p95": rnd(p95, 1), "max": rnd(foreign[-1], 1)},
+                        "windowsHost": windows,
                         "loadavg1": {"mean": rnd(statistics.mean(x["loadavg"][0] for x in win), 2),
                                      "max": rnd(max(x["loadavg"][0] for x in win), 2)},
                         "interruptCpuPct": rnd(statistics.mean(x.get("interruptCpuPct", 0) for x in win), 1),
@@ -1328,6 +1347,15 @@ def publish_raw(runs_dir, assets):
                 x["topForeign"] = [{"cpuPct": p["cpuPct"], "program": p.get("program") or program(p.get("cmd"))}
                                    for p in x.get("topForeign", [])]
                 fout.write(json.dumps(x, separators=(",", ":")) + "\n")
+    # The Windows host's log on WSL2: its totals only (the processes of the person's own desktop are
+    # not this page's to publish).
+    win_src = os.path.join(runs_dir, "winmon.jsonl")
+    if os.path.exists(win_src):
+        with open(win_src, encoding="utf-8") as fin, open(os.path.join(assets, "raw", "winmon.jsonl"), "w", encoding="utf-8") as fout:
+            for line in fin:
+                if line.strip():
+                    x = json.loads(line)
+                    fout.write(json.dumps({"t": x["t"], "windowsForeignCpuPct": x["windowsForeignCpuPct"]}, separators=(",", ":")) + "\n")
 
 
 if __name__ == "__main__":

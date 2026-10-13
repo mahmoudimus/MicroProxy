@@ -78,6 +78,10 @@ cat > "$OUT/run-info.json" <<JSON
 JSON
 # The contamination guard's log: load average and foreign CPU every 5 s, until this script exits.
 python3 -I "$HERE/hostmon.py" $$ "$OUT/hostmon.jsonl" 5 &
+# On WSL2, also what the Windows host runs: it shares the cores but is invisible to hostmon.py.
+if grep -qi microsoft /proc/version && command -v powershell.exe >/dev/null; then
+    python3 -I "$HERE/winmon.py" $$ "$OUT/winmon.jsonl" 5 &
+fi
 for ((rep = 1; rep <= REPS; rep++)); do
     # Rotate the order, so no proxy always runs first (or last) in a repetition.
     shift_by=$(( (rep - 1) % ${#list[@]} ))

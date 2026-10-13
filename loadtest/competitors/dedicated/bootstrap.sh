@@ -21,8 +21,9 @@ log() { printf '[bootstrap] %s\n' "$*" >&2; }
 CPUS=$(nproc)
 VIRT=$(systemd-detect-virt 2>/dev/null || echo unknown)
 if grep -qi microsoft /proc/version; then
-    log "WARNING: WSL2 is a virtual machine and the guard cannot see work on the Windows side:"
-    log "         results from here are diagnostic only, not for publication"
+    log "WSL2: the Windows host shares these cores; run-all.sh also logs its load (winmon.py) and the guard"
+    log "      rejects runs it disturbed. Keep the Windows side idle, on a High/Ultimate performance power plan."
+    command -v powershell.exe >/dev/null || { log "powershell.exe is not on the PATH (WSL interop off?): the Windows side cannot be monitored"; exit 1; }
 elif [ "$VIRT" != none ] && [ "$VIRT" != unknown ]; then
     log "WARNING: running under $VIRT: use a dedicated-core instance, and check the guard's foreign-CPU record"
 fi
