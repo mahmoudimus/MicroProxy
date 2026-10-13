@@ -30,6 +30,12 @@ on:
         required: false
         type: string
         default: 'ubuntu-24.04'
+      gate:
+        description: 'Whose failed verdicts fail the run: microproxy, all or none (self-checks always do)'
+        required: false
+        type: choice
+        options: [microproxy, all, none]
+        default: microproxy
       extra-args:
         description: 'More harness settings (e.g. "--soak-seconds 3600 --ramp-steps 1000,10000,50000")'
         required: false
@@ -55,16 +61,16 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Tune the OS for high connection counts
-        # ulimit -n needs no privileges; the sysctls do, and are skipped where they are not granted
-        # (hosted runners allow sysctl via sudo; self-hosted runners may not). The harness reads the
-        # limits in effect and reports them, and stops gracefully when it hits the client's own.
+        # The sysctls need privileges and are skipped where they are not granted (hosted runners
+        # allow them through sudo; self-hosted runners may not). The open-file limit is raised in the
+        # run step's own shell, since each step starts a new one. The harness reads the limits in
+        # effect, reports them, and stops gracefully when it hits the client's own.
         run: |
           sudo sysctl -w net.core.somaxconn=65535 || echo "somaxconn: needs privileges, left as is"
           sudo sysctl -w net.ipv4.ip_local_port_range="1024 65535" || echo "port range: needs privileges, left as is"
           sudo sysctl -w net.ipv4.tcp_tw_reuse=1 || echo "tcp_tw_reuse: needs privileges, left as is"
           sudo sysctl -w fs.file-max=2097152 || echo "file-max: needs privileges, left as is"
           sudo sysctl -w net.ipv4.tcp_max_syn_backlog=65535 || echo "syn backlog: needs privileges, left as is"
-          sudo prlimit --pid $$ --nofile=1048576:1048576 || echo "hard nofile: needs privileges"
       - name: Build the harness
         run: mvn --batch-mode -Pbench -DskipTests package -pl loadtest -am
       - name: Run the harness
@@ -72,12 +78,18 @@ jobs:
           PRESET: ${{ inputs.preset }}
           SCENARIOS: ${{ inputs.scenarios }}
           PROXIES: ${{ inputs.proxies }}
+          GATE: ${{ inputs.gate }}
           EXTRA: ${{ inputs.extra-args }}
         run: |
           # The settings are split on spaces, never expanded as file names.
           set -f
-          ulimit -n 1048576 || ulimit -n "$(ulimit -Hn)" || true
-          args=(run --preset "$PRESET" --proxies "$PROXIES")
+          # Raise this shell's open-file limit: past the hard limit needs privileges (sudo prlimit,
+          # granted on hosted runners), up to it never does. The harness reports what it got, and
+          # stops the connection ramp gracefully at the client's own limit.
+          sudo -n prlimit --pid $$ --nofile=1048576:1048576 2>/dev/null || true
+          ulimit -n 1048576 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+          echo "Open-file limit: soft $(ulimit -n), hard $(ulimit -Hn)"
+          args=(run --preset "$PRESET" --proxies "$PROXIES" --gate "$GATE")
           [ -n "$SCENARIOS" ] && args+=(--scenarios "$SCENARIOS")
           # shellcheck disable=SC2206
           [ -n "$EXTRA" ] && args+=($EXTRA)

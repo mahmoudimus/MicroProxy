@@ -146,8 +146,9 @@ jobs:
     # The system-level load and capacity harness (loadtest/, built only with -Pbench) run with its
     # smoke preset against both proxies: a check that every scenario runs, responses validate and
     # the JSON and Markdown reports are produced. Thresholds are not checked here; GitHub runners
-    # are too noisy (see docs/project/load-testing.md). The harness exits non-zero if any of its own
-    # self-checks fail, which fails this job.
+    # are too noisy (see docs/project/load-testing.md). The job fails on a failed harness self-check,
+    # or on a failed verdict on MicroProxy (out of memory, a crash, a fault that hung or leaked);
+    # the smoke windows are too short for growth or leak verdicts, which are inconclusive here.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
@@ -159,10 +160,20 @@ jobs:
       - name: Build the harness
         run: mvn --batch-mode -Pbench -DskipTests package -pl loadtest -am
       - name: Run the smoke preset against both proxies
-        # Raise the open-file limit in the same shell, so the connection ramp is not fd-bound.
+        # The smoke preset needs about 2,500 descriptors per process, under a hosted runner's
+        # default. Raising the soft limit to the hard one never needs privileges; going past the
+        # hard limit does, and is not attempted. The exit code gates on the harness's self-checks
+        # and MicroProxy's verdicts (--gate microproxy, the default); LittleProxy's verdicts are
+        # comparison data and appear in the summary below.
         run: |
-          ulimit -n 1048576 || ulimit -n "$(ulimit -Hn)" || true
-          java -jar loadtest/target/microproxy-loadtest.jar run --preset smoke
+          ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+          echo "Open-file limit: soft $(ulimit -n), hard $(ulimit -Hn)"
+          java -jar loadtest/target/microproxy-loadtest.jar run --preset smoke --gate microproxy
+      - name: Add the report to the job summary
+        if: always()
+        run: |
+          report=loadtest/results/latest/report.md
+          if [ -f "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
