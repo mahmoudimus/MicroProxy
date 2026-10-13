@@ -16,9 +16,11 @@ profile the benchmarks use): a normal `mvn verify` neither compiles it nor downl
 LittleProxy or Netty, and the module is never installed, deployed or published. The published
 modules stay dependency-free.
 
-No numbers are published here. Shared CI runners and development containers are too noisy for them,
-so results worth quoting come from a manual run on a quiet machine, with the command line and the
-JSON alongside.
+This page publishes no numbers of its own, and CI checks none: shared CI runners are too noisy for
+them. The one published set is [Performance against other proxies](performance.md): a dated
+snapshot from one stated machine, with the raw JSON, every command line and every configuration
+beside it. Read it as relative, not absolute (the same proxies on other hardware will post other
+numbers, and their order can change), and reproduce it with the commands on that page.
 
 ## The two layers
 
@@ -77,11 +79,38 @@ Each scenario runs once for MicroProxy and once for LittleProxy, each in a fresh
 | **Connection ramp** | idle keep-alive connections held in steps (1k, 5k, 10k …), from many loopback source addresses | memory per idle connection, the connection limit, and how it is reached | records RSS, NMT, heap-after-GC, fds, threads and a probe's latency; stops at the first step it cannot complete and says how (refused, unresponsive, crashed, OOM, or the client's own limit). The limit is data; the verdict is whether the proxy survived |
 | **Memory under adversarial clients** | the proxy capped in memory, then slowloris, slow readers, parallel large up/down, and an h2c rapid-reset flood | whether backpressure and per-connection caps keep memory bounded | **bounded** or **shedding** pass; **unbounded-growth**, **oom** or **crashed** fail; **inconclusive** when the window is too short (see [below](#how-memory-growth-is-judged)) |
 | **Soak** | a fixed moderate rate held for a configurable duration | leaks: memory, fds or threads that climb monotonically | **possible-leak** (fail) when a series climbs steadily after the warm-up, **no-leak** (pass), or **inconclusive** for a soak too short to judge |
-| **Fault injection** | a Toxiproxy-style TCP relay between proxy and origin adds latency, caps bandwidth, resets mid-response, stalls and blackholes | that the proxy turns faults into sensible errors without leaking connections or memory | per fault, **bounded** (pass): no hang past the request timeout, the relay's connections return to zero, fds return to the baseline, the proxy survives; and across the faults, the heap after GC and NMT total return near the baseline |
+| **Fault injection** | a Toxiproxy-style TCP relay between proxy and origin adds latency, caps bandwidth, resets mid-response, stalls and blackholes | that the proxy turns faults into sensible errors without leaking connections or memory | per fault, **bounded** (pass): no hang past the request timeout, the relay's connections return to zero and fds to the baseline within the proxy's idle timeout (a proxy that pools upstream connections may keep one until then), the proxy survives; and across the faults, the heap after GC and NMT total return near the baseline |
 
 The rapid-reset flood needs HTTP/2 over cleartext (h2c), which the harness enables on MicroProxy for
 that workload only (`--http2-cleartext`); LittleProxy serves HTTP/1 only, so it is skipped there and
 the report says so.
+
+## External proxies
+
+Besides MicroProxy and LittleProxy, the harness can test any proxy that runs as its own process: a
+native binary such as Envoy, or a proxy written in Go or Rust. A JSON file named by
+`--external-proxies` describes each one: its command line, an optional configuration template, its
+environment, a command that prints its version, and the scenarios or workloads it cannot run.
+Placeholders in the command and the template (`{{port}}`, `{{idleSeconds}}`, `{{connectTimeoutMs}}`,
+`{{connectTimeoutSeconds}}`, `{{workers}}`, `{{config}}`, `{{logs}}`, `{{name}}`, `{{home}}` and
+`{{tools}}`) are filled in per run, so every proxy gets the same port handling, timeouts and worker
+count (`{{workers}}` is the number of CPUs the proxy is pinned to).
+
+An external proxy is started like the JVM proxies: pinned to the proxy's CPUs, inside the memory
+cgroup when a scenario caps memory, and ready once its port accepts connections. Its memory comes
+from `/proc` only, so RSS, file descriptors, threads and CPU time are measured as for the JVMs, while
+the JVM-only figures (NMT, the heap after a forced GC, the GC log) are n/a. Of the memory caps, only
+the cgroup limit applies to it; the fault scenario's retained-memory verdict uses RSS for it. A
+scenario or workload the proxy cannot run is reported as not supported, never dropped.
+[`loadtest/competitors/`](https://github.com/mahmoudimus/MicroProxy/blob/main/loadtest/competitors/proxies.json)
+defines Envoy, goproxy, g3proxy and Squid this way, with a setup script that downloads or builds
+them; see [Performance against other proxies](performance.md).
+
+```bash
+loadtest/competitors/setup.sh            # the external proxies, into loadtest/competitors/.tools/
+java -jar loadtest/target/microproxy-loadtest.jar run --preset smoke \
+    --external-proxies loadtest/competitors/proxies.json --proxies microproxy,envoy,goproxy
+```
 
 ### How memory growth is judged
 
@@ -277,6 +306,16 @@ and observable, for example `--proxy-cgroup-limit 2g` (every scenario) or `--att
 (the adversarial scenario); where no writable cgroup is available the harness falls back to
 `-XX:MaxRAM` and notes it. The proxy's heap and direct-memory caps are `--proxy-heap`, `--proxy-direct`,
 `--attack-heap` and `--attack-direct`.
+
+**On a shared machine.** Other work on the same machine competes for the CPUs the harness pins its
+processes to. Every sample records each CPU's busy time and the *foreign* CPU, the machine's busy
+time beyond the proxy, origin and load generator, and the rate sweep reports it per step, so a run
+shows when something else interfered. `--nice -20` runs the proxy, origin and load generator at that
+nice value, and also sets the harness's scheduling autogroup to it: with autogroup scheduling (the
+default of most Linux kernels) the CPU is first shared equally between sessions, so a per-process
+nice value alone does not make other sessions yield. A single noisy step can still spike a step's
+p99; `--sweep-knee-confirm 2` makes the knee the first of two unsustained steps in a row, so one
+step that the next recovers from is recorded as unsustained but does not end the sweep.
 
 **On a big runner.** The [`loadtest.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/loadtest.yml)
 workflow runs on demand (`workflow_dispatch`) with inputs for the preset, the scenarios, the proxies,

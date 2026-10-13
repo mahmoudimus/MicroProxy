@@ -98,6 +98,9 @@ Each feature links to the guide that describes it.
   [access-log operators](reference/access-log-format.md), [response flags](reference/response-flags.md)
   and [admin endpoints](reference/admin-api.md).
 - **Operate it:** [Observability](observability/access-logs.md) and [Security](security.md).
+- **Compare it:** [Performance against other proxies](project/performance.md) measures MicroProxy
+  against LittleProxy, Envoy, a Go and a Rust proxy and Squid, with interactive charts and the raw
+  data.
 - **For AI coding agents:** [`llms.txt`](https://mahmoudimus.github.io/MicroProxy/llms.txt) lists
   every page with a one-line description, and
   [`llms-full.txt`](https://mahmoudimus.github.io/MicroProxy/llms-full.txt) is the whole site as
