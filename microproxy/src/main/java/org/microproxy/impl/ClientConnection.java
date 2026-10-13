@@ -1776,7 +1776,7 @@ final class ClientConnection implements Runnable {
         InetSocketAddress local = null;
         SSLSession session = null;
         if (socket != null) {
-            if (socket.getLocalSocketAddress() instanceof InetSocketAddress address) local = address;
+            local = conn.localAddress();
             if (socket instanceof SSLSocket tls) session = tls.getSession();
         }
         ChainedProxy proxy = conn.chainedProxy;
