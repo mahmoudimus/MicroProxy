@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.extras.RewriteRules;
+import org.microproxy.http.HttpBodies;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -50,6 +51,10 @@ class RewriteRulesTest {
                 body = java.util.HexFormat.of().parseHex("28b52ffd04582901003c68746d6c3e3c626f64793e48656c6c6f20576f726c64"
                         + "3c2f626f64793e3c2f68746d6c3e29bceed1");
                 exchange.getResponseHeaders().set("Content-Encoding", "zstd");
+            } else if (path.equals("/br")) {
+                // PAGE compressed by the reference Brotli encoder (quality 11).
+                body = java.util.HexFormat.of().parseHex("1b2400f81da9559f3ab8e6b9427b537274ed43c6d62607a1459dcc04987d428fd850e392");
+                exchange.getResponseHeaders().set("Content-Encoding", "br");
             }
             exchange.getResponseHeaders().set("X-Accept-Encoding",
                     String.valueOf(exchange.getRequestHeaders().getFirst("Accept-Encoding")));
@@ -58,7 +63,7 @@ class RewriteRulesTest {
             exchange.close();
         });
         proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(RewriteRules.builder()
-                .add(RewriteRules.Rule.matching("http://127\\.0\\.0\\.1:\\d+/(page|gzip|zstd|image|big).*")
+                .add(RewriteRules.Rule.matching("http://127\\.0\\.0\\.1:\\d+/(page|gzip|zstd|br|image|big).*")
                         .replaceInBody("W(o)rld", "W$1rld!")
                         .replaceLiteralInBody("Hello", "Howdy")
                         .removeResponseHeader("Content-Security-Policy")
@@ -101,6 +106,18 @@ class RewriteRulesTest {
         assertEquals("<html><body>Howdy World!</body></html>", body);
         // The server was only offered codings the rules can read.
         assertEquals("zstd, gzip", r.headers().firstValue("x-accept-encoding").orElseThrow());
+    }
+
+    @Test
+    void decodesBrotliAndReencodesItAsBrotli() throws Exception {
+        HttpResponse<byte[]> r = client(proxy).send(HttpRequest.newBuilder(URI.create(url(origin, "/br")))
+                        .header("Accept-Encoding", "br, dcb").build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals("br", r.headers().firstValue("content-encoding").orElseThrow());
+        String body = new String(HttpBodies.decode("br", r.body(), 1 << 20), StandardCharsets.UTF_8);
+        assertEquals("<html><body>Howdy World!</body></html>", body);
+        assertEquals(String.valueOf(r.body().length), r.headers().firstValue("content-length").orElseThrow());
+        assertEquals("br", r.headers().firstValue("x-accept-encoding").orElseThrow());
     }
 
     @Test

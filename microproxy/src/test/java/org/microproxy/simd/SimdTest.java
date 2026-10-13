@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
+import org.microproxy.thirdparty.jaybrotli.internal.match.ByteComparisons;
 
 /**
  * The scalar and (when the JVM has the Vector API module) SIMD implementations agree with naive
@@ -30,6 +31,13 @@ class SimdTest {
         } else if (Simd.vector() == null) {
             assertEquals("scalar", Simd.ops().description());
         }
+    }
+
+    @Test
+    void theBrotliEncoderFollowsTheSameChoice() {
+        // The vendored Brotli encoder's match comparisons (unless jaybrotli.simd overrides them).
+        String brotli = ByteComparisons.selected().description();
+        assertEquals(Simd.isVectorized(), brotli.startsWith("vector"), brotli);
     }
 
     @Test

@@ -16,7 +16,7 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
   the `quic` and `http3-codec` jars for [HTTP/3](guides/http3.md) to clients of a reverse proxy
   and to servers (`http3-codec` alone runs [frame interceptors over HTTP/3 streams](guides/frame-interception.md#http3-frames)).
 - **Size:** about 10k lines of main code (including Javadoc and a DNSSEC resolver) plus a vendored
-  Brotli decoder, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
+  Brotli codec, compared with LittleProxy's 11k lines plus Netty and dnssec4j.
 - **Scripting (optional):** the `microproxy-starlark` module drives the proxy from a
   [Starlark](https://github.com/bazelbuild/starlark) script (see [Scripting](guides/scripting.md)).
 - **OpenTelemetry (optional):** the `microproxy-otel` module traces exchanges and exports traces,

@@ -152,7 +152,7 @@ changing the docs. Releases are cut by release-please; Maven Central publishing 
 
 ## Acknowledgements
 
-MicroProxy is derived from LittleProxy. It vendors Google's Brotli decoder and Bazel's Starlark
+MicroProxy is derived from LittleProxy. It vendors the jaybrotli Brotli codec and Bazel's Starlark
 interpreter as extended by starlarky, and ports logic from mitmproxy and mitmproxy_rs; their
 licenses and changes are listed in [NOTICE](NOTICE). The full list, including the projects that
 contributed ideas, is in [Acknowledgements and license](docs/project/acknowledgements.md).

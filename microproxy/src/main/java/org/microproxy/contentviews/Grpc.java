@@ -139,7 +139,7 @@ public final class Grpc {
      * Compresses one message's payload.
      *
      * @param payload the payload
-     * @param encoding {@code gzip} or {@code deflate}
+     * @param encoding {@code gzip}, {@code deflate} or {@code br}
      * @return the compressed payload
      * @throws IllegalArgumentException if the proxy cannot compress with {@code encoding}
      */
@@ -150,7 +150,7 @@ public final class Grpc {
             return HttpBodies.encode(coding, payload);
         } catch (IOException e) {
             throw new IllegalArgumentException("cannot compress with grpc-encoding " + encoding
-                    + "; gzip and deflate can be produced");
+                    + "; gzip, deflate and br can be produced");
         }
     }
 
@@ -158,8 +158,8 @@ public final class Grpc {
      * Decompresses one message's payload.
      *
      * @param payload the compressed payload
-     * @param encoding the {@code grpc-encoding}: {@code gzip}, {@code deflate}, {@code identity},
-     *     and {@code zstd} with the zstd-decoder module
+     * @param encoding the {@code grpc-encoding}: {@code gzip}, {@code deflate}, {@code br}, {@code
+     *     identity}, and {@code zstd} with the zstd-decoder module
      * @param maxBytes the largest the result may be
      * @return the payload, uncompressed
      * @throws DecodeException if the encoding is missing or unsupported, or the data corrupt or too large

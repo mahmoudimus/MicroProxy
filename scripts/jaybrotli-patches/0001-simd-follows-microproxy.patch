@@ -1,0 +1,18 @@
+--- a/microproxy/src/main/java/org/microproxy/thirdparty/jaybrotli/internal/match/ByteComparisons.java
++++ b/microproxy/src/main/java/org/microproxy/thirdparty/jaybrotli/internal/match/ByteComparisons.java
+@@ -70,7 +70,14 @@
+   }
+ 
+   private static Ops choose() {
+-    String setting = System.getProperty("jaybrotli.simd", "false").strip().toLowerCase(Locale.ROOT);
++    String property = System.getProperty("jaybrotli.simd");
++    if (property == null) {
++      // MicroProxy: without jaybrotli.simd, follow MicroProxy's own choice (the microproxy.simd
++      // property and whether the JVM has the Vector API module; see org.microproxy.simd.Simd).
++      Ops vector = org.microproxy.simd.Simd.isVectorized() ? vector() : null;
++      return vector != null ? vector : SCALAR;
++    }
++    String setting = property.strip().toLowerCase(Locale.ROOT);
+     switch (setting) {
+       case "false":
+         return SCALAR;

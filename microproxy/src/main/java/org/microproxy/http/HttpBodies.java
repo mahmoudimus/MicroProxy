@@ -7,18 +7,30 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-import org.microproxy.thirdparty.brotli.BrotliInputStream;
+import org.microproxy.thirdparty.jaybrotli.BrotliContentHandler;
+import org.microproxy.thirdparty.jaybrotli.BrotliException;
+import org.microproxy.thirdparty.jaybrotli.Decoder;
+import org.microproxy.thirdparty.jaybrotli.Encoder;
+import org.microproxy.thirdparty.jaybrotli.LimitExceededException;
+import org.microproxy.thirdparty.jaybrotli.config.DecoderOptions;
+import org.microproxy.thirdparty.jaybrotli.config.EncoderOptions;
+import org.microproxy.thirdparty.jaybrotli.config.Limits;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 
 /**
  * Reads and rewrites the bodies of buffered messages ({@link FullHttpMessage}) in filters,
@@ -32,14 +44,14 @@ import org.microproxy.thirdparty.brotli.BrotliInputStream;
  * }</pre>
  *
  * <p>{@code gzip}, {@code x-gzip}, {@code deflate} (zlib-wrapped or raw) and {@code br} (with a
- * bundled copy of Google's pure-Java Brotli decoder) can be decoded, and so can {@code zstd} when
- * the optional {@code zstd-decoder} module is on the class path. Others, such as dictionary
+ * bundled copy of the pure-Java Brotli codec jaybrotli) can be decoded, and so can {@code zstd}
+ * when the optional {@code zstd-decoder} module is on the class path. Others, such as dictionary
  * codings ({@code dcb}, {@code dcz}), are reported by {@link #canDecode}, and {@link
  * #restrictAcceptEncoding} keeps servers from choosing them. Decoding is capped (64 MiB by
  * default) to defuse compression bombs. Rewriting a body re-applies the original coding (Brotli
- * and zstd bodies are re-encoded as gzip, since there are no pure-Java encoders for them) and
- * drops validators ({@code ETag}, {@code Content-MD5}) that no longer match; {@code
- * Content-Length} is fixed when the message is written.
+ * at quality {@value #BROTLI_QUALITY}; zstd bodies are re-encoded as gzip, since there is no
+ * pure-Java zstd encoder) and drops validators ({@code ETag}, {@code Content-MD5}) that no longer
+ * match; {@code Content-Length} is fixed when the message is written.
  */
 public final class HttpBodies {
 
@@ -55,7 +67,16 @@ public final class HttpBodies {
             : Set.of("gzip", "x-gzip", "deflate", "br");
 
     /** Codings that can be decoded but not produced; rewritten bodies use gzip instead. */
-    private static final Set<String> DECODE_ONLY = Set.of("br", "zstd");
+    private static final Set<String> DECODE_ONLY = Set.of("zstd");
+
+    /**
+     * The Brotli quality (0 to 11) that {@link #encode} and rewritten {@code br} bodies use, with
+     * jaybrotli's default strategies: on HTML and JSON of 10 KB to 1 MB it runs at about 10 to 35
+     * MB/s, and its output is mostly 1 to 14% smaller than gzip's default level (at worst 2%
+     * larger). Qualities 4 and 6 come out within 1% of it; the higher qualities and the
+     * alternative strategies trade too much speed for what they save.
+     */
+    public static final int BROTLI_QUALITY = 5;
 
     private HttpBodies() {}
 
@@ -131,21 +152,27 @@ public final class HttpBodies {
         InputStream in = new ByteArrayInputStream(message.content());
         try {
             for (int i = codings.size() - 1; i >= 0; i--) {
-                in = decoding(codings.get(i), in, inflaters);
+                // The last stage needs only maxBytes; one below it, as much as decoded() allows.
+                in = decoding(codings.get(i), in, inflaters, i == 0 ? Math.max(0, maxBytes) : DEFAULT_MAX_DECODED_BYTES);
             }
             try (InputStream decoded = in) {
                 return decoded.readNBytes(Math.max(0, maxBytes));
             }
         } catch (RuntimeException e) {
-            // The Brotli decoder reports corrupt data unchecked.
+            // Decoders can report corrupt data unchecked.
             throw new IOException("corrupt " + String.join(", ", codings) + " data", e);
         } finally {
             inflaters.forEach(Inflater::end);
         }
     }
 
-    /** A stream that removes {@code coding} from {@code in}. */
-    private static InputStream decoding(String coding, InputStream in, List<Inflater> inflaters) throws IOException {
+    /**
+     * A stream that removes {@code coding} from {@code in}. Brotli decoding stops once {@code
+     * needed} bytes are out (the decoder is pushed input rather than pulled for output, so this is
+     * what keeps a prefix of a compression bomb cheap).
+     */
+    private static InputStream decoding(String coding, InputStream in, List<Inflater> inflaters, int needed)
+            throws IOException {
         return switch (coding) {
             case "gzip", "x-gzip" -> new GZIPInputStream(in);
             case "deflate" -> {
@@ -159,7 +186,7 @@ public final class HttpBodies {
                 inflaters.add(inflater);
                 yield new InflaterInputStream(buffered, inflater);
             }
-            case "br" -> new BrotliInputStream(in);
+            case "br" -> BrotliCoding.decoding(in, needed);
             case "zstd" -> {
                 if (!ZstdSupport.AVAILABLE) throw new IOException("unsupported content coding: zstd");
                 yield ZstdSupport.open(in);
@@ -179,7 +206,7 @@ public final class HttpBodies {
     public static void setDecoded(FullHttpMessage message, byte[] decodedBody) throws IOException {
         List<String> codings = contentEncodings(message);
         if (codings.stream().anyMatch(DECODE_ONLY::contains)) {
-            // There is no encoder for these; gzip is understood by every client that sends them.
+            // There is no encoder for zstd; gzip is understood by every client that accepts it.
             codings = codings.stream().map(c -> DECODE_ONLY.contains(c) ? "gzip" : c).toList();
             message.headers().set(HttpHeaderNames.CONTENT_ENCODING, String.join(", ", codings));
         }
@@ -318,13 +345,7 @@ public final class HttpBodies {
         return switch (coding) {
             case "gzip", "x-gzip" -> readCapped(new GZIPInputStream(new ByteArrayInputStream(data)), max);
             case "deflate" -> inflate(data, max);
-            case "br" -> {
-                try {
-                    yield readCapped(new BrotliInputStream(new ByteArrayInputStream(data)), max);
-                } catch (RuntimeException e) {
-                    throw new IOException("corrupt brotli data", e);
-                }
-            }
+            case "br" -> BrotliCoding.decode(data, max);
             case "zstd" -> {
                 if (!ZstdSupport.AVAILABLE) throw new IOException("unsupported content coding: zstd");
                 yield readCapped(ZstdSupport.open(new ByteArrayInputStream(data)), max);
@@ -374,8 +395,9 @@ public final class HttpBodies {
     }
 
     /**
-     * Applies one content coding to {@code data}: {@code gzip} (or {@code x-gzip}) or {@code
-     * deflate} (zlib-wrapped), the codings this class can produce.
+     * Applies one content coding to {@code data}: {@code gzip} (or {@code x-gzip}), {@code
+     * deflate} (zlib-wrapped) or {@code br} (at {@link #BROTLI_QUALITY}), the codings this class
+     * can produce.
      *
      * @param coding the coding, in lower case
      * @param data the bytes to encode
@@ -383,6 +405,7 @@ public final class HttpBodies {
      * @throws IOException if the coding is not one of those
      */
     public static byte[] encode(String coding, byte[] data) throws IOException {
+        if (coding.equals("br")) return BrotliCoding.encode(data);
         ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, data.length / 2));
         OutputStream encoder = switch (coding) {
             case "gzip", "x-gzip" -> new GZIPOutputStream(out);
@@ -393,6 +416,169 @@ public final class HttpBodies {
             encoder.write(data);
         }
         return out.toByteArray();
+    }
+
+    /** {@code br}, with the vendored jaybrotli codec. */
+    private static final class BrotliCoding {
+
+        /** Thrown by a content callback to stop decoding once enough is out. */
+        private static final class Enough extends RuntimeException {
+            Enough() {
+                super(null, null, false, false);
+            }
+        }
+
+        private BrotliCoding() {}
+
+        /**
+         * A decoder for one RFC 7932 stream (no large-window extension, so at most a 16 MiB
+         * window) whose output may total {@code max} bytes; the decoder checks that limit before it
+         * writes anything, so a compression bomb stops there. Like the reference decoder, it
+         * rejects commands that run past the end of their meta-block and any byte after the end of
+         * the stream (or non-zero bits padding its last byte), so a body's end is never ambiguous.
+         */
+        private static Decoder decoder(long max, BrotliContentHandler content) {
+            DecoderOptions options = DecoderOptions.defaults()
+                    .withLimits(Limits.defaults().withMaxTotalOutput(max))
+                    .withTrailingData(TrailingData.REJECT);
+            return new Decoder(options).onContent(content);
+        }
+
+        static byte[] decode(byte[] data, int max) throws IOException {
+            int cap = Math.max(0, max);
+            Output out = new Output(Math.min(cap, Math.max(64, data.length * 4)));
+            Decoder decoder = decoder(cap, (b, last) -> out.append(b));
+            try {
+                decoder.receive(ByteBuffer.wrap(data));
+                decoder.close();
+            } catch (LimitExceededException e) {
+                throw new IOException("decoded body exceeds " + max + " bytes", e);
+            } catch (BrotliException | RuntimeException e) {
+                throw new IOException("corrupt brotli data", e);
+            } finally {
+                decoder.abort();
+            }
+            return out.toByteArray();
+        }
+
+        /** A growable byte array, without {@link ByteArrayOutputStream}'s locking. */
+        private static final class Output {
+            byte[] bytes;
+            int size;
+
+            Output(int initial) {
+                bytes = new byte[Math.max(16, initial)];
+            }
+
+            void append(ByteBuffer b) {
+                int n = b.remaining();
+                if (n > bytes.length - size) {
+                    bytes = Arrays.copyOf(bytes, (int) Math.min(Integer.MAX_VALUE - 8, Math.max(2L * bytes.length, (long) size + n)));
+                }
+                b.get(bytes, size, n);
+                size += n;
+            }
+
+            byte[] toByteArray() {
+                return Arrays.copyOf(bytes, size);
+            }
+        }
+
+        /**
+         * A stream of the first {@code needed} decoded bytes of {@code in}: decoding stops there,
+         * and the stream ends. Shorter output is read to the end of {@code in}, so a truncated
+         * stream or bytes after its end are still an error.
+         */
+        static InputStream decoding(InputStream in, int needed) {
+            return new InputStream() {
+                private final byte[] chunk = new byte[8192];
+                private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
+                private long produced;
+                private boolean done;
+                // Output is capped here, exactly at needed bytes, rather than by the decoder's limit.
+                private final Decoder decoder = decoder(Long.MAX_VALUE, (b, last) -> {
+                    int n = (int) Math.min(b.remaining(), needed - produced);
+                    if (n > 0) {
+                        byte[] copy = new byte[n];
+                        b.get(copy);
+                        queue.add(ByteBuffer.wrap(copy));
+                        produced += n;
+                    }
+                    if (produced >= needed) throw new Enough();
+                });
+
+                @Override
+                public int read() throws IOException {
+                    byte[] one = new byte[1];
+                    return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+                }
+
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException {
+                    Objects.checkFromIndexSize(off, len, b.length);
+                    if (len == 0) return 0;
+                    while (queue.isEmpty() && !done) fill();
+                    ByteBuffer head = queue.peek();
+                    if (head == null) return -1;
+                    int n = Math.min(len, head.remaining());
+                    head.get(b, off, n);
+                    if (!head.hasRemaining()) queue.remove();
+                    return n;
+                }
+
+                private void fill() throws IOException {
+                    int n = in.read(chunk);
+                    try {
+                        if (n < 0) {
+                            done = true;
+                            decoder.close();
+                        } else if (n == 0) {
+                            throw new IOException("compressed input made no progress");
+                        } else {
+                            decoder.receive(ByteBuffer.wrap(chunk, 0, n));
+                        }
+                    } catch (Enough e) {
+                        done = true;
+                    } catch (BrotliException | RuntimeException e) {
+                        done = true;
+                        throw new IOException("corrupt brotli data", e);
+                    }
+                }
+
+                @Override
+                public void close() throws IOException {
+                    done = true;
+                    queue.clear();
+                    decoder.abort();
+                    in.close();
+                }
+            };
+        }
+
+        static byte[] encode(byte[] data) throws IOException {
+            Output out = new Output(Math.max(64, data.length / 4));
+            EncoderOptions options = EncoderOptions.defaults()
+                    .withQuality(BROTLI_QUALITY)
+                    .withWindowBits(windowBits(data.length));
+            Encoder encoder = new Encoder(options).onCompressed(out::append);
+            try {
+                encoder.receive(ByteBuffer.wrap(data));
+                encoder.close();
+            } catch (BrotliException | RuntimeException e) {
+                throw new IOException("cannot encode brotli data", e);
+            }
+            return out.toByteArray();
+        }
+
+        /**
+         * The smallest window (10 to 22 bits, the latter what reference encoders use by default)
+         * that spans {@code length} bytes: a smaller window costs the client's decoder less memory.
+         */
+        static int windowBits(int length) {
+            int bits = 10;
+            while (bits < 22 && (1 << bits) - 16 < length) bits++;
+            return bits;
+        }
     }
 
     private static byte[] readCapped(InputStream in, int max) throws IOException {

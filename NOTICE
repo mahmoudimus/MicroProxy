@@ -8,9 +8,14 @@ API and proxying behaviour follow LittleProxy's design.
 
 This product includes third-party software:
 
-- A Brotli decoder (microproxy/src/main/java/org/microproxy/thirdparty/brotli), from
-  https://github.com/google/brotli. Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
-  Licensed under the MIT License; see META-INF/LICENSE-brotli.txt.
+- The Brotli encoder and decoder jaybrotli
+  (microproxy/src/main/java/org/microproxy/thirdparty/jaybrotli, and its dictionary in
+  microproxy/src/main/resources/org/microproxy/thirdparty/jaybrotli), from
+  https://github.com/mahmoudimus/jaybrotli. Licensed under the Apache License, Version 2.0.
+  Changes are listed in the README.md next to the Java code. Its NOTICE reads: the Brotli static
+  dictionary and the material derived from the Brotli reference implementation are Copyright (c)
+  2009, 2010, 2013-2016 by the Brotli Authors, licensed under the MIT License; see
+  META-INF/LICENSE-brotli.txt.
 
 - The Starlark interpreter (microproxy-starlark/src/main/java/org/microproxy/thirdparty/starlark),
   from Bazel (https://github.com/bazelbuild/bazel), Copyright The Bazel Authors, with additions

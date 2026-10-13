@@ -8,7 +8,8 @@ The Zstandard decoder in `zstd-decoder` was written from RFC 8878 and is tested 
 reference `zstd` tool. Vendored code, with licenses and changes listed in [NOTICE](https://github.com/mahmoudimus/MicroProxy/blob/main/NOTICE) and
 the `README.md` next to each copy:
 
-- Google's [Brotli](https://github.com/google/brotli) decoder (MIT), in the core.
+- [jaybrotli](https://github.com/mahmoudimus/jaybrotli), a Brotli encoder and decoder
+  (Apache-2.0; its static dictionary is the Brotli Authors', MIT), in the core.
 - The Java [Starlark](https://github.com/bazelbuild/bazel) interpreter from Bazel, as extended by
   [starlarky](https://github.com/verygoodsecurity/starlarky) (Apache-2.0), in
   `microproxy-starlark`.
