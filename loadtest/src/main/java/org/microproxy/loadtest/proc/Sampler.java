@@ -94,9 +94,10 @@ public final class Sampler implements AutoCloseable {
     }
 
     /**
-     * The machine's per-CPU busy percentages since the last sample, and the foreign CPU: the busy
-     * time of every CPU together, less the sampled processes' own (in percent of one CPU; jcmd and
-     * the orchestrator itself count as foreign, a few percent).
+     * The machine's per-CPU busy percentages since the last sample (time charged to processes), the
+     * interrupt time apart, and the foreign CPU: the busy time of every CPU together, less the
+     * sampled processes' own (in percent of one CPU; jcmd and the orchestrator itself count as
+     * foreign, a few percent).
      */
     private void sampleSystem(double t, double ownPct) {
         Map<Integer, long[]> now = ProcStats.cpuJiffies();
@@ -108,6 +109,7 @@ public final class Sampler implements AutoCloseable {
         m.put("t", Math.round(t * 10) / 10.0);
         List<Double> perCpu = new ArrayList<>();
         double busySum = 0;
+        double interruptSum = 0;
         for (Map.Entry<Integer, long[]> e : now.entrySet()) {
             long[] p = prev.get(e.getKey());
             if (p == null) continue;
@@ -115,9 +117,11 @@ public final class Sampler implements AutoCloseable {
             double busy = total <= 0 ? 0 : 100.0 * (e.getValue()[0] - p[0]) / total;
             perCpu.add(Math.round(busy * 10) / 10.0);
             busySum += busy;
+            if (total > 0) interruptSum += 100.0 * (e.getValue()[2] - p[2]) / total;
         }
         m.put("cpuBusyPct", perCpu);
         m.put("busyPct", Math.round(busySum * 10) / 10.0);
+        m.put("interruptPct", Math.round(interruptSum * 10) / 10.0);
         m.put("foreignCpuPct", Math.round(Math.max(0, busySum - ownPct) * 10) / 10.0);
         lock.lock();
         try {

@@ -2,7 +2,8 @@
 # Runs the cross-proxy comparison published on docs/project/performance.md: the load-testing
 # harness against MicroProxy, LittleProxy and the external proxies of proxies.json, REPS times, each
 # repetition a separate harness run with the proxies in a rotated order, then aggregates the runs
-# into docs/assets/perf/ (the page's data, charts and tables).
+# into docs/assets/perf/ (the page's data, charts and tables). While it runs, hostmon.py logs what
+# else uses the machine; aggregate.py publishes only runs that pass that contamination guard.
 #
 #   loadtest/competitors/setup.sh            # once: the external proxies, into .tools/
 #   loadtest/competitors/run-all.sh          # about three hours on a 4-vCPU machine
@@ -61,6 +62,18 @@ SETTINGS=(
 
 IFS=, read -r -a list <<< "$PROXIES"
 mkdir -p "$OUT"
+# What was run, from which commit; aggregate.py copies it into the page's data.
+dirty=$(git status --porcelain -- loadtest | grep -c . || true)
+cat > "$OUT/run-info.json" <<JSON
+{
+ "commit": "$(git rev-parse HEAD)",
+ "uncommittedLoadtestChanges": $dirty,
+ "command": "REPS=$REPS PROXIES=$PROXIES SCENARIOS=$SCENARIOS loadtest/competitors/run-all.sh $*",
+ "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+JSON
+# The contamination guard's log: load average and foreign CPU every 5 s, until this script exits.
+python3 -I "$HERE/hostmon.py" $$ "$OUT/hostmon.jsonl" 5 &
 for ((rep = 1; rep <= REPS; rep++)); do
     # Rotate the order, so no proxy always runs first (or last) in a repetition.
     shift_by=$(( (rep - 1) % ${#list[@]} ))
