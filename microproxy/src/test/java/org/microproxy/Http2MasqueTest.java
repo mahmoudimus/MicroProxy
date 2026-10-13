@@ -11,6 +11,7 @@ import static org.microproxy.MetricsAssertions.value;
 import static org.microproxy.TestSupport.eventually;
 
 import io.github.mahmoudimus.http2.ErrorCode;
+import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Settings;
 import io.github.mahmoudimus.http3.QuicVarInt;
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -484,6 +486,172 @@ class Http2MasqueTest {
             proceed.countDown();
         }
         assertEquals(0, value(r, "masque.flow_rejected.limit"));
+    }
+
+    /**
+     * A flow the client resets gives its places back as the proxy reads the reset, before it reads
+     * on: a CONNECT-UDP stream opened right behind it, in the same write, is accepted every time,
+     * at the connection's bound. So is one right behind a flow the client ends (END_STREAM). The
+     * proxy's wait for ending flows is off: nothing but the order of the frames makes room.
+     */
+    @Test
+    void aFlowRightBehindTheClientsEndOfAnotherFindsRoomOnTheConnection() throws Exception {
+        assertRoomRightBehindEachEnd(4096, 2);
+    }
+
+    /** As {@link #aFlowRightBehindTheClientsEndOfAnotherFindsRoomOnTheConnection}, at the proxy's bound. */
+    @Test
+    void aFlowRightBehindTheClientsEndOfAnotherFindsRoomInTheProxysBound() throws Exception {
+        assertRoomRightBehindEachEnd(2, 64);
+    }
+
+    private void assertRoomRightBehindEachEnd(int total, int perConnection) throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        proxy = h2c().withMetrics(true).withHttp2Options(Http2Options.builder().maxConcurrentStreams(1000).build())
+                .withHttp3Options(Http3Options.builder().connectUdpMaxFlows(total, perConnection)
+                        .connectUdpReleaseWait(Duration.ZERO).build())
+                .start();
+        H2StreamClient client = client();
+        List<HeaderField> request = client.connectUdp(wellKnown("127.0.0.1", udp.port()));
+        H2StreamClient.Stream kept = flow(client, udp);
+        H2StreamClient.Stream ending = flow(client, udp);
+        for (int i = 0; i < 200; i++) {
+            H2StreamClient.Stream next = i % 4 == 3 ? ending.endAndOpen(request)
+                    : ending.resetAndOpen(ErrorCode.CANCEL, request);
+            assertEquals(200, next.status(), "the flow opened after " + i + " ended");
+            ending = next;
+        }
+        kept.sendDatagramCapsule(utf8("kept"));
+        assertEquals("kept", next(kept));
+        ending.sendDatagramCapsule(utf8("last"));
+        assertEquals("last", next(ending));
+        assertEquals(0, value(proxy.getStats(), "masque.flow_rejected.limit"));
+    }
+
+    /**
+     * A client that closes its connection gives its flows' places back as the proxy reads the
+     * close, before the flows' own threads notice (held here at {@code udpStart}, so they cannot):
+     * a flow opened on a new connection once the proxy has seen the close is accepted at the
+     * proxy's bound, with its wait for ending flows off.
+     */
+    @Test
+    void aClosedConnectionsFlowsHoldNoPlaceOnceTheProxyReadsTheClose() throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch disconnected = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
+        AtomicBoolean holding = new AtomicBoolean();
+        proxy = h2c().withMetrics(true)
+                .withHttp3Options(Http3Options.builder().connectUdpMaxFlows(1, 64).connectUdpReleaseWait(Duration.ZERO).build())
+                .withUdpInterceptor(new UdpInterceptor() {
+                    @Override
+                    public void udpStart(UdpContext context) {
+                        if (!holding.compareAndSet(false, true)) return;
+                        started.countDown();
+                        await(proceed);
+                    }
+
+                    @Override
+                    public byte[] udpMessage(UdpMessage message, UdpContext context) {
+                        return message.data();
+                    }
+                })
+                .plusActivityTracker(new ActivityTracker() {
+                    @Override
+                    public void clientDisconnected(FlowContext flowContext, SSLSession sslSession) {
+                        disconnected.countDown();
+                    }
+                }).start();
+        StatsRegistry r = proxy.getStats();
+        try {
+            H2StreamClient first = client();
+            flow(first, udp);
+            assertTrue(started.await(30, TimeUnit.SECONDS), "the flow started");
+            first.close();
+            assertTrue(disconnected.await(30, TimeUnit.SECONDS), "the proxy saw the close");
+            H2StreamClient.Stream next = flow(client(), udp);
+            proceed.countDown();
+            next.sendDatagramCapsule(utf8("next"));
+            assertEquals("next", next(next));
+        } finally {
+            proceed.countDown();
+        }
+        assertEquals(0, value(r, "masque.flow_rejected.limit"));
+    }
+
+    /**
+     * A full proxy whose flows are all relaying, none ending, refuses another at once, however
+     * long it would wait for an ending flow's place.
+     */
+    @Test
+    void aFullProxyWithNoFlowEndingRefusesAtOnce() throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        proxy = h2c().withMetrics(true).withHttp3Options(Http3Options.builder().connectUdpMaxFlows(1, 64)
+                .connectUdpReleaseWait(Duration.ofSeconds(30)).build()).start();
+        flow(client(), udp);
+        H2StreamClient other = client();
+        long start = System.nanoTime();
+        assertEquals(503, other.open(other.connectUdp(wellKnown("127.0.0.1", udp.port())), false).status());
+        long elapsed = System.nanoTime() - start;
+        assertTrue(elapsed < TimeUnit.SECONDS.toNanos(10), "refused after " + elapsed / 1_000_000 + " ms");
+        assertEquals(1, value(proxy.getStats(), "masque.flow_rejected.limit"));
+    }
+
+    /**
+     * Over HTTP/1.1 the flow's thread is its connection's reader: a client that drops its
+     * connection has the flow's place back as that thread reads the reset, before the flow's
+     * teardown, held here at {@code udpEnd}, is done.
+     */
+    @Test
+    void anHttp11FlowWhoseClientDropsItsConnectionHoldsNoPlace() throws Exception {
+        Http3MasqueTest.UdpEcho udp = echo();
+        CountDownLatch ending = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
+        AtomicBoolean holding = new AtomicBoolean();
+        proxy = MicroProxy.bootstrap().withPort(0).withConnectUdp(true).withMetrics(true)
+                .withHttp3Options(Http3Options.builder().connectUdpMaxFlows(1, 1).connectUdpReleaseWait(Duration.ZERO).build())
+                .withUdpInterceptor(new UdpInterceptor() {
+                    @Override
+                    public byte[] udpMessage(UdpMessage message, UdpContext context) {
+                        return message.data();
+                    }
+
+                    @Override
+                    public void udpEnd(UdpContext context) {
+                        if (!holding.compareAndSet(false, true)) return;
+                        ending.countDown();
+                        await(proceed);
+                    }
+                }).start();
+        try {
+            try (Socket dropped = http11Flow(udp)) {
+                dropped.setSoLinger(true, 0);
+            }
+            assertTrue(ending.await(30, TimeUnit.SECONDS), "the flow ended");
+            try (Socket s = http11Flow(udp)) {
+                OutputStream out = s.getOutputStream();
+                out.write(H3TestClient.capsule(0, H3TestClient.contextZero(utf8("again"))));
+                out.flush();
+                assertEquals("again", new String(readDatagram(s.getInputStream()), StandardCharsets.UTF_8));
+            }
+        } finally {
+            proceed.countDown();
+        }
+        assertEquals(0, value(proxy.getStats(), "masque.flow_rejected.limit"));
+    }
+
+    /** A connection to the proxy whose HTTP/1.1 CONNECT-UDP request to {@code udp} it accepted. */
+    private Socket http11Flow(Http3MasqueTest.UdpEcho udp) throws IOException {
+        Socket s = new Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort());
+        s.setSoTimeout(10_000);
+        TestSupport.write(s.getOutputStream(), "GET " + wellKnown("127.0.0.1", udp.port()) + " HTTP/1.1\r\n"
+                + "Host: localhost\r\nConnection: Upgrade\r\nUpgrade: connect-udp\r\nCapsule-Protocol: ?1\r\n\r\n");
+        String head = TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+        if (!head.startsWith("HTTP/1.1 101 ")) {
+            s.close();
+            throw new AssertionError("not accepted: " + head);
+        }
+        return s;
     }
 
     /** Waits for {@code latch}, for as long as a test may take. */

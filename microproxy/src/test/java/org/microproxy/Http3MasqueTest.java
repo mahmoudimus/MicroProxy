@@ -23,7 +23,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -378,6 +380,95 @@ class Http3MasqueTest {
         second.end();
         assertEquals(-1, second.in().read());
         assertEquals(200, first.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status);
+    }
+
+    /**
+     * A flow the client resets or ends gives its places back by the time a request on a stream it
+     * opens right after is handled, at the connection's bound and the proxy's, every time, with the
+     * wait for ending flows off. The old stream's reader may not have read the reset yet, each
+     * stream being read on a thread of its own, but QUIC received it first, and a request that finds
+     * a bound full asks QUIC.
+     */
+    @Test
+    void aFlowRightAfterTheClientsEndOfAnotherFindsRoom() throws Exception {
+        UdpEcho udp = echo();
+        proxy = forwardProxy().withHttp3Options(Http3Options.builder().maxConcurrentStreams(1000)
+                .connectUdpMaxFlows(3, 2).connectUdpReleaseWait(Duration.ZERO).build()).start();
+        H3TestClient client = client(true);
+        H3TestClient other = client(true);
+        H3TestClient.Tunnel elsewhere = other.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+        assertEquals(200, elsewhere.status);
+        H3TestClient.Tunnel kept = client.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+        assertEquals(200, kept.status);
+        H3TestClient.Tunnel ending = client.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+        assertEquals(200, ending.status);
+        for (int i = 0; i < 200; i++) {
+            if (i % 4 == 3) {
+                ending.end();
+            } else {
+                ending.reset(Http3ErrorCode.H3_REQUEST_CANCELLED.code());
+            }
+            ending = client.open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+            assertEquals(200, ending.status, "the flow opened after " + i + " ended");
+        }
+        for (H3TestClient.Tunnel flow : List.of(kept, ending, elsewhere)) {
+            flow.sendDatagram(utf8("still"));
+            assertEquals("still", nextDatagram(flow));
+        }
+    }
+
+    /**
+     * A client that closes its QUIC connection gives its flows' places back as the proxy sees the
+     * close, before the flows' own threads notice (held here at {@code udpStart}, so they cannot):
+     * a flow opened on a new connection once the proxy has seen the close is accepted at the
+     * proxy's bound, with its wait for ending flows off.
+     */
+    @Test
+    void aClosedConnectionsFlowsHoldNoPlaceOnceTheProxySeesTheClose() throws Exception {
+        UdpEcho udp = echo();
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch disconnected = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
+        AtomicBoolean holding = new AtomicBoolean();
+        proxy = forwardProxy()
+                .withHttp3Options(Http3Options.builder().connectUdpMaxFlows(1, 64).connectUdpReleaseWait(Duration.ZERO).build())
+                .withUdpInterceptor(new UdpInterceptor() {
+                    @Override
+                    public void udpStart(UdpContext context) {
+                        if (!holding.compareAndSet(false, true)) return;
+                        started.countDown();
+                        try {
+                            proceed.await(60, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+
+                    @Override
+                    public byte[] udpMessage(UdpMessage message, UdpContext context) {
+                        return message.data();
+                    }
+                })
+                .plusActivityTracker(new ActivityTracker() {
+                    @Override
+                    public void clientDisconnected(FlowContext flowContext, javax.net.ssl.SSLSession sslSession) {
+                        disconnected.countDown();
+                    }
+                }).start();
+        try {
+            H3TestClient first = client(true);
+            assertEquals(200, first.open(connectUdp(wellKnown("127.0.0.1", udp.port()))).status);
+            assertTrue(started.await(30, TimeUnit.SECONDS), "the flow started");
+            first.close();
+            assertTrue(disconnected.await(30, TimeUnit.SECONDS), "the proxy saw the close");
+            H3TestClient.Tunnel next = client(true).open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+            assertEquals(200, next.status);
+            proceed.countDown();
+            next.sendDatagram(utf8("next"));
+            assertEquals("next", nextDatagram(next));
+        } finally {
+            proceed.countDown();
+        }
     }
 
     @Test
