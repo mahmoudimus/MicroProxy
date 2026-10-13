@@ -28,11 +28,16 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 /**
- * Incremental bit reader for Brotli bitstreams (RFC 7932 §1.5.1).
+ * Resumable LSB-first bit reader over pushed input chunks.
  *
- * <p>Integers and extra bits are read LSB-first. Prefix-code bits are obtained by reading LSB-first
- * then reversing (MSB-first interpretation). On underflow try-methods return {@code false} so the
- * decoder can pause and resume.
+ * <p>Input is read from a byte array: the caller's own array for writable heap buffers, otherwise
+ * a staging copy (direct and read-only buffers, or input merged with bytes carried over from the
+ * previous chunk). After {@link #savePending()} the caller's buffer is fully consumed; unread bytes
+ * are carried into the next {@link #setInput}.
+ *
+ * <p>Besides the checked {@code try*} reads, the {@code fast*} accessors let a decoder loop keep
+ * the accumulator in local variables while enough input is buffered, then {@link #fastCommit} the
+ * state back.
  */
 public class BitReader implements BitSource {
   public long byteOffset() {
@@ -48,7 +53,10 @@ public class BitReader implements BitSource {
   }
 
   private static final VarHandle LONG_LE =
-      MethodHandles.byteBufferViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+      MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+  private static final VarHandle INT_LE =
+      MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
   /** Accumulator holding up to 64 bits, least-significant bits first. */
   private long accumulator;
@@ -59,114 +67,148 @@ public class BitReader implements BitSource {
   /** Bytes pulled from the compressed stream into the accumulator. */
   private long bytesPulled;
 
-  /** Current input chunk (read mode). */
+  /** Current input bytes are {@code buf[pos..end)}; null when no input is attached. */
+  private byte[] buf;
+
+  private int pos;
+  private int end;
+
+  /** The caller's buffer when {@link #buf} is its backing array; its position is set on save. */
   private ByteBuffer input;
+
+  /** Staging array for copied or merged input. */
+  private byte[] stage;
+
+  /** Unconsumed bytes carried across {@code receive()} calls. */
+  private byte[] carry;
+
+  private int carryLen;
 
   /** True after {@link #markEof()}. */
   private boolean eof;
 
-  /**
-   * Unconsumed input bytes carried across {@code receive()} when the caller passes a fresh,
-   * non-overlapping buffer.
-   */
-  private ByteBuffer pending;
-
-  /** Reused when {@link #pending} and a new chunk must be merged. */
-  private ByteBuffer mergeBuf;
-
-  /** Checkpoint for resumable multi-field reads (e.g. prefix codes). */
+  /** Checkpoint generation for resumable multi-field reads (e.g. prefix codes). */
   private long generation;
 
   public BitReader() {
-    reset();
+    clear();
+  }
+
+  /** Creates a reader over {@code input}, as {@link #setInput} would supply it. */
+  protected BitReader(ByteBuffer input) {
+    clear();
+    attachInput(input);
   }
 
   public void reset() {
+    clear();
+  }
+
+  private void clear() {
     generation++;
     accumulator = 0L;
     bitCount = 0;
     bytesPulled = 0L;
+    buf = null;
+    pos = 0;
+    end = 0;
     input = null;
     eof = false;
-    pending = null;
-    mergeBuf = null;
+    carryLen = 0;
+    carry = null;
+    stage = null;
   }
 
   /** Saves bit-reader position so a multi-step read can rewind on underflow. */
   public BitCursor mark() {
-
     return new BitCursor(
-        this,
-        generation,
-        accumulator,
-        bitCount,
-        bytesPulled,
-        input != null ? input.position() : -1);
+        this, generation, accumulator, bitCount, bytesPulled, buf != null ? pos : -1);
   }
 
-  /** Restores the position saved by {@link #mark()}. */
+  /** Returns the number of bits consumed from the stream. */
   public long consumedBits() {
     return bytesPulled * 8 - bitCount;
   }
 
+  /** Restores the position saved by {@link #mark()}. */
   public void resetTo(BitCursor cursor) {
     if (cursor.owner() != this || cursor.generation() != generation)
       throw new IllegalArgumentException("Cursor belongs to another source or input generation");
     accumulator = cursor.accumulator();
     bitCount = cursor.bitCount();
     bytesPulled = cursor.bytesPulled();
-    if (input != null && cursor.inputPosition() >= 0) input.position(cursor.inputPosition());
+    if (buf != null && cursor.inputPosition() >= 0) pos = cursor.inputPosition();
   }
 
   /**
-   * Supplies the next chunk. Prepends any pending leftover from a prior underflow. When pending is
-   * used, the caller's buffer is fully consumed.
+   * Supplies the next chunk. Prepends any bytes carried over from a prior underflow; then, as for
+   * direct or read-only buffers, the chunk is copied and the caller's buffer is consumed at once.
    */
-  public void setInput(ByteBuffer data) {
+  public final void setInput(ByteBuffer data) {
+    attachInput(data);
+  }
+
+  private void attachInput(ByteBuffer data) {
     generation++;
-    if (pending != null && pending.hasRemaining()) {
-      int need = pending.remaining() + data.remaining();
-      if (mergeBuf == null || mergeBuf.capacity() < need) {
-        int cap = mergeBuf != null ? mergeBuf.capacity() * 2 : 64;
-        while (cap < need) {
-          cap *= 2;
-        }
-        mergeBuf = ByteBuffer.allocate(cap);
-      }
-      mergeBuf.clear();
-      mergeBuf.put(pending);
-      mergeBuf.put(data);
-      mergeBuf.flip();
-      data.position(data.limit());
-      input = mergeBuf;
-      pending = null;
+    int n = data.remaining();
+    if (carryLen > 0) {
+      byte[] target = stage(carryLen + n);
+      System.arraycopy(carry, 0, target, 0, carryLen);
+      data.get(target, carryLen, n);
+      attach(target, 0, carryLen + n, null);
+      carryLen = 0;
+    } else if (data.hasArray()) {
+      int offset = data.arrayOffset();
+      attach(data.array(), offset + data.position(), offset + data.limit(), data);
     } else {
-      input = data;
+      byte[] target = stage(n);
+      data.get(target, 0, n);
+      attach(target, 0, n, null);
     }
   }
 
-  /** Stashes unconsumed input bytes into pending after an underflow return. */
+  private void attach(byte[] array, int from, int to, ByteBuffer owner) {
+    buf = array;
+    pos = from;
+    end = to;
+    input = owner;
+  }
+
+  private byte[] stage(int size) {
+    if (stage == null || stage.length < size) {
+      int capacity = stage == null ? 64 : stage.length;
+      while (capacity < size) capacity = Math.max(capacity * 2, size);
+      stage = new byte[capacity];
+    }
+    return stage;
+  }
+
+  /** Carries unconsumed input bytes over to the next chunk and releases the current one. */
   public void savePending() {
-    if (input == null) {
+    if (buf == null) {
       return;
     }
-    if (input.hasRemaining()) {
-      int rem = input.remaining();
-      if (pending == null || pending.capacity() < rem) {
-        pending = ByteBuffer.allocate(Math.max(rem, 64));
-      } else {
-        pending.clear();
+    int rem = end - pos;
+    if (rem > 0) {
+      if (carry == null || carry.length < rem) {
+        carry = new byte[Math.max(rem, 64)];
       }
-      pending.put(input);
-      pending.flip();
+      System.arraycopy(buf, pos, carry, 0, rem);
+      carryLen = rem;
     }
+    if (input != null) {
+      input.position(input.limit());
+    }
+    buf = null;
     input = null;
+    pos = 0;
+    end = 0;
   }
 
   public void markEof() {
-    // A rolled-back read can leave the final bytes in pending rather than
+    // A rolled-back read can leave the final bytes carried over rather than in
     // the accumulator. They must be consumed before EOF lookahead padding.
-    if (pending != null && pending.hasRemaining()) {
+    if (carryLen > 0) {
       setInput(ByteBuffer.allocate(0));
     }
     eof = true;
@@ -195,10 +237,7 @@ public class BitReader implements BitSource {
   public boolean ensureBits(int n) {
     while (bitCount < n) {
       if (!refillSafe()) {
-        if (eof) {
-          return true;
-        }
-        return false;
+        return eof;
       }
     }
     return true;
@@ -206,32 +245,27 @@ public class BitReader implements BitSource {
 
   /** Adds whole bytes into the accumulator without exceeding 64 bits. */
   private boolean refillSafe() {
-    if (input == null || !input.hasRemaining()) {
+    if (buf == null || pos >= end) {
       return false;
     }
     int freeBits = 64 - bitCount;
     if (freeBits < 8) {
       return true;
     }
-    int freeBytes = freeBits >> 3;
-    int avail = input.remaining();
-
+    int avail = end - pos;
     if (bitCount == 0 && avail >= 8) {
-      long word = (long) LONG_LE.get(input, input.position());
-      input.position(input.position() + 8);
-      accumulator = word;
+      accumulator = (long) LONG_LE.get(buf, pos);
+      pos += 8;
       bitCount = 64;
       bytesPulled += 8;
       return true;
     }
-
-    int take = freeBytes < avail ? freeBytes : avail;
+    int take = Math.min(freeBits >> 3, avail);
     for (int i = 0; i < take; i++) {
-      int b = input.get() & 0xff;
-      accumulator |= ((long) b) << bitCount;
+      accumulator |= ((long) (buf[pos++] & 0xff)) << bitCount;
       bitCount += 8;
-      bytesPulled++;
     }
+    bytesPulled += take;
     return true;
   }
 
@@ -295,6 +329,14 @@ public class BitReader implements BitSource {
     }
   }
 
+  /**
+   * Returns whether whole bytes remain beyond the current position: prefetched into the
+   * accumulator, left in the current input, or carried over from an earlier input.
+   */
+  public boolean hasUnconsumedInput() {
+    return bitCount >= 8 || (buf != null && pos < end) || carryLen > 0;
+  }
+
   /** After the last metablock, verify remaining bits in the accumulator are zero. */
   public void verifyTrailingBitsZero() throws BrotliException {
     if (bitCount > 0) {
@@ -318,16 +360,63 @@ public class BitReader implements BitSource {
       bitCount -= 8;
       copied++;
     }
-    if (input != null && copied < length) {
-      int need = length - copied;
-      int avail = input.remaining();
-      int take = need < avail ? need : avail;
+    if (buf != null && copied < length) {
+      int take = Math.min(length - copied, end - pos);
       if (take > 0) {
-        input.get(dest, destPos + copied, take);
+        System.arraycopy(buf, pos, dest, destPos + copied, take);
+        pos += take;
         bytesPulled += take;
         copied += take;
       }
     }
     return copied;
+  }
+
+  // ---- Unchecked access for decoder hot loops ----
+
+  /** Current input array, or null; valid until the next {@link #setInput} or save. */
+  public final byte[] fastBuffer() {
+    return buf;
+  }
+
+  /** Index of the next unread input byte in {@link #fastBuffer()}. */
+  public final int fastPosition() {
+    return pos;
+  }
+
+  /** End (exclusive) of the input in {@link #fastBuffer()}. */
+  public final int fastLimit() {
+    return buf == null ? 0 : end;
+  }
+
+  public final long fastAccumulator() {
+    return accumulator;
+  }
+
+  public final int fastBitCount() {
+    return bitCount;
+  }
+
+  /**
+   * Stores state advanced by a hot loop: the loop consumed input up to {@code position} and holds
+   * {@code bits} valid bits in {@code acc}.
+   */
+  public final void fastCommit(long acc, int bits, int position) {
+    bytesPulled += position - pos;
+    // A hot loop may hold the next stream bits above the counted ones; drop them, since the
+    // bytes they came from are still unconsumed.
+    accumulator = bits >= 64 ? acc : acc & ((1L << bits) - 1);
+    bitCount = bits;
+    pos = position;
+  }
+
+  /** Reads eight input bytes as a little-endian long; the caller guarantees they exist. */
+  public static long longAt(byte[] array, int index) {
+    return (long) LONG_LE.get(array, index);
+  }
+
+  /** Reads four input bytes as a little-endian int; the caller guarantees they exist. */
+  public static int intAt(byte[] array, int index) {
+    return (int) INT_LE.get(array, index);
   }
 }

@@ -10,20 +10,28 @@ public record CodeBook(int[] codes, byte[] lengths, int maxLength, int singleSym
     if (codes.length == 0 || codes.length != lengths.length || maxLength < 0 || maxLength > 15)
       throw new IllegalArgumentException("Invalid code book");
     int maximum = 0, used = 0;
-    int[] lookup = new int[1 << maxLength];
+    // Each code covers [start, start + 2^(maxLength - length)) of the maxLength-bit code space.
+    // Sorted by start, the intervals of a valid book never overlap; a complete one has no gaps.
+    long[] intervals = new long[lengths.length];
     for (int symbol = 0; symbol < lengths.length; symbol++) {
       int length = lengths[symbol] & 255;
       if (length > maxLength) throw new IllegalArgumentException("Code length exceeds maximum");
       if (length == 0) continue;
-      used++;
       maximum = Math.max(maximum, length);
       if (codes[symbol] < 0 || codes[symbol] >= (1 << length))
         throw new IllegalArgumentException("Code outside bit width");
-      int start = codes[symbol] << (maxLength - length), end = start + (1 << (maxLength - length));
-      for (int i = start; i < end; i++) {
-        if (lookup[i] != 0) throw new IllegalArgumentException("Overlapping prefix codes");
-        lookup[i] = symbol + 1;
-      }
+      long start = (long) codes[symbol] << (maxLength - length);
+      intervals[used++] = start << 20 | (long) (maxLength - length) << 16 | symbol;
+    }
+    Arrays.sort(intervals, 0, used);
+    long covered = 0;
+    boolean gap = false;
+    for (int i = 0; i < used; i++) {
+      long start = intervals[i] >>> 20;
+      int width = (int) (intervals[i] >>> 16) & 15;
+      if (start < covered) throw new IllegalArgumentException("Overlapping prefix codes");
+      if (start > covered) gap = true;
+      covered = start + (1L << width);
     }
     if (singleSymbol >= 0) {
       if (singleSymbol >= lengths.length || used != 0 || maxLength != 0)
@@ -31,8 +39,8 @@ public record CodeBook(int[] codes, byte[] lengths, int maxLength, int singleSym
     } else {
       if (used == 0 || maximum != maxLength)
         throw new IllegalArgumentException("Invalid maximum code length");
-      for (int value : lookup)
-        if (value == 0) throw new IllegalArgumentException("Incomplete prefix code");
+      if (gap || covered != 1L << maxLength)
+        throw new IllegalArgumentException("Incomplete prefix code");
     }
   }
 

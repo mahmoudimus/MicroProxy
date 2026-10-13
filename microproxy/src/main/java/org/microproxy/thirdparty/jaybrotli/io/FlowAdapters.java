@@ -9,6 +9,7 @@ import org.microproxy.thirdparty.jaybrotli.config.EncoderOptions;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.Flow;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** Unicast, demand-driven processors. Each output buffer owns its bytes. */
 public final class FlowAdapters {
@@ -37,6 +38,10 @@ public final class FlowAdapters {
     private final Decoder decoder;
     private final long maxBuffered;
     private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
+    // A ReentrantLock rather than monitors: a virtual thread that blocks in a subscriber callback
+    // while holding it does not pin its carrier on JDK 21. It is reentrant because downstream
+    // callbacks may call request/cancel from inside drain().
+    private final ReentrantLock lock = new ReentrantLock();
     private Flow.Subscriber<? super ByteBuffer> downstream;
     private Flow.Subscription upstream;
     private long demand, buffered;
@@ -62,104 +67,139 @@ public final class FlowAdapters {
       buffered += n;
     }
 
-    public synchronized void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
-      Objects.requireNonNull(subscriber);
-      if (downstream != null) {
+    public void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
+      lock.lock();
+      try {
+        Objects.requireNonNull(subscriber);
+        if (downstream != null) {
+          subscriber.onSubscribe(
+              new Flow.Subscription() {
+                public void request(long n) {}
+
+                public void cancel() {}
+              });
+          subscriber.onError(new IllegalStateException("Only one subscriber is supported"));
+          return;
+        }
+        downstream = subscriber;
         subscriber.onSubscribe(
             new Flow.Subscription() {
-              public void request(long n) {}
+              public void request(long n) {
+                Processor.this.request(n);
+              }
 
-              public void cancel() {}
+              public void cancel() {
+                Processor.this.cancel();
+              }
             });
-        subscriber.onError(new IllegalStateException("Only one subscriber is supported"));
-        return;
-      }
-      downstream = subscriber;
-      subscriber.onSubscribe(
-          new Flow.Subscription() {
-            public void request(long n) {
-              Processor.this.request(n);
-            }
-
-            public void cancel() {
-              Processor.this.cancel();
-            }
-          });
-      drain();
-    }
-
-    private synchronized void request(long n) {
-      if (cancelled || terminal) return;
-      if (n <= 0) {
-        fail(new IllegalArgumentException("Demand must be positive"));
         drain();
-        return;
+      } finally {
+        lock.unlock();
       }
-      demand = n > Long.MAX_VALUE - demand ? Long.MAX_VALUE : demand + n;
-      drain();
     }
 
-    private synchronized void cancel() {
-      if (cancelled) return;
-      cancelled = true;
-      queue.clear();
-      buffered = 0;
-      if (upstream != null) upstream.cancel();
-      release();
-    }
-
-    public synchronized void onSubscribe(Flow.Subscription subscription) {
-      Objects.requireNonNull(subscription);
-      if (upstream != null || cancelled || finished || failure != null) {
-        subscription.cancel();
-        return;
-      }
-      upstream = subscription;
-      drain();
-    }
-
-    public synchronized void onNext(ByteBuffer item) {
-      Objects.requireNonNull(item);
-      if (cancelled || finished || failure != null) return;
-      if (!awaiting) {
-        fail(new IllegalStateException("Upstream delivered without demand"));
+    private void request(long n) {
+      lock.lock();
+      try {
+        if (cancelled || terminal) return;
+        if (n <= 0) {
+          fail(new IllegalArgumentException("Demand must be positive"));
+          drain();
+          return;
+        }
+        demand = n > Long.MAX_VALUE - demand ? Long.MAX_VALUE : demand + n;
         drain();
-        return;
-      }
-      awaiting = false;
-      processing = true;
-      try {
-        if (encoder != null) encoder.receive(item);
-        else decoder.receive(item);
-      } catch (Throwable t) {
-        fail(t);
       } finally {
-        processing = false;
+        lock.unlock();
       }
-      drain();
     }
 
-    public synchronized void onError(Throwable error) {
-      Objects.requireNonNull(error);
-      if (cancelled || finished || failure != null) return;
-      fail(error);
-      drain();
+    private void cancel() {
+      lock.lock();
+      try {
+        if (cancelled) return;
+        cancelled = true;
+        queue.clear();
+        buffered = 0;
+        if (upstream != null) upstream.cancel();
+        release();
+      } finally {
+        lock.unlock();
+      }
     }
 
-    public synchronized void onComplete() {
-      if (cancelled || finished || failure != null) return;
-      awaiting = false;
-      processing = true;
+    public void onSubscribe(Flow.Subscription subscription) {
+      lock.lock();
       try {
-        if (encoder != null) encoder.close();
-        else decoder.close();
-        finished = true;
-      } catch (Throwable t) {
-        fail(t);
+        Objects.requireNonNull(subscription);
+        if (upstream != null || cancelled || finished || failure != null) {
+          subscription.cancel();
+          return;
+        }
+        upstream = subscription;
+        drain();
       } finally {
-        processing = false;
+        lock.unlock();
       }
-      drain();
+    }
+
+    public void onNext(ByteBuffer item) {
+      lock.lock();
+      try {
+        Objects.requireNonNull(item);
+        if (cancelled || finished || failure != null) return;
+        if (!awaiting) {
+          fail(new IllegalStateException("Upstream delivered without demand"));
+          drain();
+          return;
+        }
+        awaiting = false;
+        processing = true;
+        try {
+          if (encoder != null) encoder.receive(item);
+          else decoder.receive(item);
+        } catch (Throwable t) {
+          fail(t);
+        } finally {
+          processing = false;
+        }
+        drain();
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    public void onError(Throwable error) {
+      lock.lock();
+      try {
+        Objects.requireNonNull(error);
+        if (cancelled || finished || failure != null) return;
+        fail(error);
+        drain();
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    public void onComplete() {
+      lock.lock();
+      try {
+        if (cancelled || finished || failure != null) return;
+        awaiting = false;
+        processing = true;
+        try {
+          if (encoder != null) encoder.close();
+          else decoder.close();
+          finished = true;
+        } catch (Throwable t) {
+          fail(t);
+        } finally {
+          processing = false;
+        }
+        drain();
+      } finally {
+        lock.unlock();
+      }
     }
 
     private void release() {

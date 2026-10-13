@@ -10,7 +10,7 @@ public class ArrayBitSource extends BitReader implements BitSource {
   }
 
   public ArrayBitSource(java.nio.ByteBuffer input) {
-    setInput(input);
+    super(input);
   }
 
   public long byteOffset() {

@@ -150,20 +150,34 @@ public final class ByteComparisons {
     int matched = 0;
     if (candAbs < histUse) {
       int historyLength = Math.min(limit, histUse - candAbs);
-      int base = histStart + candAbs;
-      while (matched < historyLength && block[pos + matched] == history[base + matched]) {
-        matched++;
-      }
+      matched = wordPrefix(block, pos, history, histStart + candAbs, historyLength);
       if (matched < historyLength || matched == limit) return matched;
     }
     int blockOffset = candAbs + matched - histUse;
     int remaining = Math.min(limit - matched, blockLen - blockOffset);
     if (remaining <= 0) return matched;
-    int b = pos + matched;
+    return matched + wordPrefix(block, pos + matched, block, blockOffset, remaining);
+  }
+
+  private static final java.lang.invoke.VarHandle LONGS =
+      java.lang.invoke.MethodHandles.byteArrayViewVarHandle(
+          long[].class, java.nio.ByteOrder.LITTLE_ENDIAN);
+
+  /**
+   * Common prefix length, eight bytes at a time (plain scalar code, no vector API): the first
+   * differing byte is the lowest set byte of the XOR of two little-endian words.
+   */
+  private static int wordPrefix(byte[] a, int ao, byte[] b, int bo, int length) {
     int i = 0;
-    while (i < remaining && block[b + i] == block[blockOffset + i]) {
+    for (; i + 8 <= length; i += 8) {
+      long diff = (long) LONGS.get(a, ao + i) ^ (long) LONGS.get(b, bo + i);
+      if (diff != 0) {
+        return i + (Long.numberOfTrailingZeros(diff) >>> 3);
+      }
+    }
+    while (i < length && a[ao + i] == b[bo + i]) {
       i++;
     }
-    return matched + i;
+    return i;
   }
 }

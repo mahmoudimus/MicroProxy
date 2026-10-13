@@ -261,16 +261,12 @@ public final class PrefixCode {
     int kraft = 0;
     int used = 0;
     int only = -1;
-    int maxLength = 0;
     for (int i = 0; i < lengths.length; i++) {
       int len = lengths[i];
       if (len > 0) {
         kraft += 1 << (maxBits - len);
         used++;
         only = i;
-        if (len > maxLength) {
-          maxLength = len;
-        }
       }
     }
     if (used == 0) {
@@ -283,35 +279,8 @@ public final class PrefixCode {
       throw new CorruptStreamException("Invalid code-length Huffman lengths (Kraft=" + kraft + ")");
     }
 
-    int[] blCount = new int[16];
-    for (int i = 0; i < lengths.length; i++) {
-      if (lengths[i] > 0) {
-        blCount[lengths[i]]++;
-      }
-    }
-    int[] nextCode = new int[16];
-    int code = 0;
-    blCount[0] = 0;
-    for (int bits = 1; bits <= maxLength; bits++) {
-      code = (code + blCount[bits - 1]) << 1;
-      nextCode[bits] = code;
-    }
-    int tableSize = 1 << maxLength;
-    int[] table = new int[tableSize];
-    for (int sym = 0; sym < lengths.length; sym++) {
-      int len = lengths[sym];
-      if (len > 0) {
-        int symbolCode = nextCode[len];
-        nextCode[len]++;
-        int step = 1 << (maxLength - len);
-        int start = symbolCode << (maxLength - len);
-        int entry = (sym << 16) | len;
-        for (int j = 0; j < step; j++) {
-          table[start + j] = entry;
-        }
-      }
-    }
-    return HuffmanTable.fromPrebuilt(table, maxLength);
+    // A complete canonical code: the same table the symbol-length codes use.
+    return HuffmanTable.fromLengths(lengths);
   }
 
   public static int log2Ceil(int n) {

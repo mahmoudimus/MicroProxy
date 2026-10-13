@@ -26,8 +26,10 @@ import org.microproxy.thirdparty.jaybrotli.BrotliException;
 import org.microproxy.thirdparty.jaybrotli.BrotliHandler;
 import org.microproxy.thirdparty.jaybrotli.BrotliLocator;
 import org.microproxy.thirdparty.jaybrotli.CorruptStreamException;
+import org.microproxy.thirdparty.jaybrotli.LimitExceededException;
 import org.microproxy.thirdparty.jaybrotli.MetablockKind;
 import org.microproxy.thirdparty.jaybrotli.config.Limits;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 import org.microproxy.thirdparty.jaybrotli.internal.bits.ArrayBitSource;
 import org.microproxy.thirdparty.jaybrotli.internal.bits.BitCursor;
 import org.microproxy.thirdparty.jaybrotli.internal.bits.BitReader;
@@ -37,6 +39,7 @@ import org.microproxy.thirdparty.jaybrotli.internal.history.DistanceRing;
 import org.microproxy.thirdparty.jaybrotli.internal.history.Histories;
 import org.microproxy.thirdparty.jaybrotli.internal.history.History;
 import org.microproxy.thirdparty.jaybrotli.internal.history.HistoryReplayer;
+import org.microproxy.thirdparty.jaybrotli.internal.history.RingBuffer;
 import org.microproxy.thirdparty.jaybrotli.internal.huffman.HuffmanTable;
 import org.microproxy.thirdparty.jaybrotli.internal.huffman.PrefixCode;
 import org.microproxy.thirdparty.jaybrotli.internal.ir.Command;
@@ -47,9 +50,9 @@ import java.nio.ByteBuffer;
 /**
  * Event-driven Brotli decoder (RFC 7932), with optional large-window support.
  *
- * <p>Feed compressed bytes with {@link #receive(ByteBuffer)}; reconstructed output and optional
- * LZ77 events are delivered through a {@link BrotliHandler}. Decoding is incremental and resumes
- * mid-symbol across buffer boundaries.
+ * <p>Feed compressed bytes with {@link StreamDecoder#receive(ByteBuffer)}; reconstructed output
+ * and optional LZ77 events are delivered through a {@link BrotliHandler}. Decoding is incremental
+ * and resumes mid-symbol across buffer boundaries.
  */
 public abstract class MetablockDecoder {
   protected abstract void clearCompressedState();
@@ -105,6 +108,13 @@ public abstract class MetablockDecoder {
       };
 
   protected Limits limits = new Limits();
+  protected TrailingData trailingData = TrailingData.REJECT;
+
+  /** True once the last meta-block has been decoded and its padding verified. */
+  protected boolean finished;
+
+  /** Compressed length of the stream in bytes once {@link #finished}; -1 before. */
+  protected long streamLength = -1L;
   protected boolean handlerBound;
   protected boolean needsCommands;
 
@@ -175,6 +185,46 @@ public abstract class MetablockDecoder {
   protected byte[] insertAccum;
   protected int insertAccumLen;
   protected ByteBuffer insertView;
+
+  // Lookup tables of the current meta-block's prefix codes, for the fast command loop.
+  protected int[][] lutL;
+  protected int[][] lutI;
+  protected int[][] lutD;
+
+  /**
+   * Input bytes the fast command loop needs before it starts a command: enough for the worst-case
+   * command header (block switches, symbol and extra bits, about 140 bits) and its distance, so it
+   * never has to check for underflow. Per literal it needs {@link #FAST_LITERAL_MARGIN}.
+   */
+  protected static final int FAST_COMMAND_MARGIN = 64;
+
+  protected static final int FAST_LITERAL_MARGIN = 16;
+
+  /**
+   * Ring bytes kept free of output that has not been emitted yet: a short copy may write up to 16
+   * bytes past its end (see {@link RingBuffer#copyWithin}), which must never overwrite output the
+   * content callback has not seen. Brotli keeps the same 16 bytes out of its window.
+   */
+  protected static final int RING_SLACK = 16;
+
+  /** Per insert-and-copy symbol: insert base | insert extra bits << 24. */
+  private static final int[] CMD_INSERT = new int[704];
+
+  /** Per insert-and-copy symbol: copy base | copy extra bits << 24 | implicit distance << 31. */
+  private static final int[] CMD_COPY = new int[704];
+
+  static {
+    int[] unpacked = new int[3];
+    for (int sym = 0; sym < 704; sym++) {
+      LengthCoder.unpack(sym, unpacked);
+      CMD_INSERT[sym] =
+          LengthCoder.INSERT_BASE[unpacked[0]] | LengthCoder.INSERT_EXTRA_BITS[unpacked[0]] << 24;
+      CMD_COPY[sym] =
+          LengthCoder.COPY_BASE[unpacked[1]]
+              | LengthCoder.COPY_EXTRA_BITS[unpacked[1]] << 24
+              | unpacked[2] << 31;
+    }
+  }
 
   protected final class LocatorImpl implements BrotliLocator {
     @Override
@@ -379,6 +429,7 @@ public abstract class MetablockDecoder {
       state = DecoderState.METABLOCK_UNCOMPRESSED_BIT;
     } else {
       kind = MetablockKind.COMPRESSED;
+      reserveRing();
       handler.startMetablock(mlen, true, kind);
       headerCategory = 0;
       headerPhase = 0;
@@ -387,12 +438,25 @@ public abstract class MetablockDecoder {
     return true;
   }
 
+  /**
+   * Grows the ring once for the meta-block about to be decoded, rather than by doubling. Never
+   * beyond the output the limits still allow, so a header cannot make the decoder allocate more
+   * than the output it would be permitted to write.
+   */
+  private void reserveRing() {
+    if (ring instanceof RingBuffer rb) {
+      long budget = limits.enabled() ? limits.maxTotalOutput() - rb.getTotalWritten() : mlen;
+      rb.reserve((int) Math.max(0, Math.min(mlen, budget)));
+    }
+  }
+
   protected boolean readUncompressedBit() throws BrotliException {
     if (!br.tryReadBits(1, tmpBits)) {
       return false;
     }
     if (tmpBits[0] != 0) {
       kind = MetablockKind.UNCOMPRESSED;
+      reserveRing();
       handler.startMetablock(mlen, isLast, kind);
       try {
         br.jumpToByteBoundary(true);
@@ -406,6 +470,7 @@ public abstract class MetablockDecoder {
       state = DecoderState.METABLOCK_UNCOMPRESSED_DATA;
     } else {
       kind = MetablockKind.COMPRESSED;
+      reserveRing();
       handler.startMetablock(mlen, isLast, kind);
       headerCategory = 0;
       headerPhase = 0;
@@ -681,6 +746,9 @@ public abstract class MetablockDecoder {
         htreeD[treesRead] = t;
         treesRead++;
       }
+      lutL = luts(htreeL);
+      lutI = luts(htreeI);
+      lutD = luts(htreeD);
       // Ready for commands
       literalsRemaining = 0;
       distanceResolved = false;
@@ -689,6 +757,12 @@ public abstract class MetablockDecoder {
     }
 
     return true;
+  }
+
+  private static int[][] luts(HuffmanTable[] tables) {
+    int[][] luts = new int[tables.length][];
+    for (int i = 0; i < tables.length; i++) luts[i] = tables[i].lut();
+    return luts;
   }
 
   protected boolean readBlockTypeGroup(int category) throws BrotliException {
@@ -881,7 +955,14 @@ public abstract class MetablockDecoder {
   }
 
   protected boolean processCommands() throws BrotliException {
+    boolean fastEligible = !needsCommands && ring instanceof RingBuffer;
     while (metablockWritten < mlen) {
+      if (fastEligible && br.fastLimit() - br.fastPosition() >= FAST_COMMAND_MARGIN) {
+        fastCommands();
+        if (metablockWritten >= mlen) {
+          break;
+        }
+      }
       // Start of new command if no literals remaining mid-insert
       if (literalsRemaining == 0 && !distanceResolved && insertLen == 0 && copyLen == 0) {
         if (!readNextCommand()) {
@@ -918,6 +999,12 @@ public abstract class MetablockDecoder {
       distanceResolved = false;
     }
 
+    if (literalsRemaining != 0 || metablockWritten != mlen) {
+      // Unreachable while inserts are bounded above; kept as a guard so that no path can end a
+      // meta-block with a different length than its header declares.
+      throw new CorruptStreamException("Meta-block length mismatch");
+    }
+
     // Emit any pending insert command event
     flushContentEmit();
     flushInsertEvent();
@@ -930,6 +1017,386 @@ public abstract class MetablockDecoder {
       state = DecoderState.METABLOCK_BEGIN;
     }
     return true;
+  }
+
+  /**
+   * Decodes commands while plenty of input is buffered, with the bit accumulator, ring position and
+   * output counters in locals and without per-symbol underflow checks. Returns at a command or
+   * literal boundary when input runs low or the meta-block is complete, leaving the same state the
+   * checked path ({@link #readNextCommand}, {@link #readOneLiteral}, {@link #resolveDistance},
+   * {@link #applyCopy}) would have, so decoding resumes there.
+   *
+   * <p>Output is written straight into the ring buffer and handed to the content callback in
+   * batches of the emit threshold, never more than the ring holds.
+   */
+  protected void fastCommands() throws BrotliException {
+    if (distanceResolved) {
+      return; // Mid-copy state belongs to the checked path.
+    }
+    final byte[] in = br.fastBuffer();
+    final int inEnd = br.fastLimit();
+    int ip = br.fastPosition();
+    long acc = br.fastAccumulator();
+    int bits = br.fastBitCount();
+
+    final RingBuffer rb = (RingBuffer) ring;
+    if (literalsRemaining > 0) {
+      rb.reserve(literalsRemaining); // Resuming an insert the checked path started.
+    }
+    byte[] rd = rb.array();
+    int rmask = rd.length - 1;
+    long rpos = rb.getPos();
+    int pending = contentEmitPending;
+    int emitLimit = Math.min(contentEmitThreshold, rd.length - RING_SLACK);
+    final long maxOut = limits.enabled() ? limits.maxTotalOutput() : Long.MAX_VALUE;
+    final long end = mlen;
+    long written = metablockWritten;
+
+    final int[] lookup = Context.lookupTable();
+    final boolean trivialLiterals = ntreesL == 1;
+    int[] lut0 = lutL[0];
+    int typeL = btype[BLOCK_CATEGORY_L];
+    int modeOffset = contextModes[typeL] << 9;
+    int cmapOffset = typeL << 6;
+    int c1 = p1;
+    int c2 = p2;
+    int[] lutCommand = lutI[btype[BLOCK_CATEGORY_I]];
+    int distanceMapOffset = btype[BLOCK_CATEGORY_D] << 2;
+    // Once the ring has its final size, writes never need to grow it.
+    boolean growable = rb.canGrow();
+    // Hot per-literal counters live in locals; the finally block stores them back.
+    int lits = literalsRemaining;
+    int blenL = blen[BLOCK_CATEGORY_L];
+
+    try {
+      while (written < end) {
+        if (lits == 0 && copyLen == 0) {
+          // ---- Command header ----
+          if (inEnd - ip < FAST_COMMAND_MARGIN) {
+            return;
+          }
+          if (blen[BLOCK_CATEGORY_I] == 0 && nbltypes[BLOCK_CATEGORY_I] >= 2) {
+            br.fastCommit(acc, bits, ip);
+            boolean switched = ensureBlockSwitch(BLOCK_CATEGORY_I);
+            acc = br.fastAccumulator();
+            bits = br.fastBitCount();
+            ip = br.fastPosition();
+            if (!switched) {
+              return; // Not reachable with the margin checked above; resume on the checked path.
+            }
+            lutCommand = lutI[btype[BLOCK_CATEGORY_I]];
+          }
+          blen[BLOCK_CATEGORY_I]--;
+          if (bits < 15) {
+            acc |= BitReader.longAt(in, ip) << bits;
+            ip += (63 - bits) >>> 3;
+            bits |= 56;
+          }
+          int[] lut = lutCommand;
+          int e = lut[(int) acc & HuffmanTable.ROOT_MASK];
+          if ((e & HuffmanTable.LINK) != 0) {
+            e = lut[(e >>> 16) + ((int) (acc >>> HuffmanTable.ROOT_BITS) & ((1 << (e & 0xff)) - 1))];
+          }
+          if (e == HuffmanTable.INVALID) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Invalid insert-and-copy symbol");
+          }
+          acc >>>= e & 0xff;
+          bits -= e & 0xff;
+          int sym = e >>> 16;
+          int insert = CMD_INSERT[sym];
+          int copy = CMD_COPY[sym];
+          if (bits < 24) {
+            acc |= BitReader.longAt(in, ip) << bits;
+            ip += (63 - bits) >>> 3;
+            bits |= 56;
+          }
+          int n = insert >>> 24;
+          int insertLength = (insert & 0xffffff) + (int) (acc & ((1L << n) - 1));
+          acc >>>= n;
+          bits -= n;
+          if (bits < 24) {
+            acc |= BitReader.longAt(in, ip) << bits;
+            ip += (63 - bits) >>> 3;
+            bits |= 56;
+          }
+          n = (copy >>> 24) & 0x7f;
+          copyLen = (copy & 0xffffff) + (int) (acc & ((1L << n) - 1));
+          acc >>>= n;
+          bits -= n;
+          implicitDistance0 = copy < 0;
+          // RFC 7932 section 9.3: literals must fit in the rest of the meta-block.
+          if (insertLength > end - written) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Insert length exceeds remaining MLEN");
+          }
+          if (rpos + insertLength > maxOut) {
+            br.fastCommit(acc, bits, ip);
+            throw new LimitExceededException(
+                "Total output " + (rpos + insertLength) + " exceeds limit " + maxOut);
+          }
+          insertLen = insertLength;
+          lits = insertLength;
+          distanceResolved = false;
+          if (growable && insertLength > 0) {
+            rb.advance((int) (rpos - rb.getPos()));
+            rb.reserve(insertLength);
+            if (rb.array() != rd) {
+              rd = rb.array();
+              rmask = rd.length - 1;
+              emitLimit = Math.min(contentEmitThreshold, rd.length - RING_SLACK);
+            }
+            growable = rb.canGrow();
+          }
+        }
+
+        // ---- Literals ----
+        while (lits > 0) {
+          if (inEnd - ip < FAST_LITERAL_MARGIN) {
+            return;
+          }
+          if (blenL == 0 && nbltypes[BLOCK_CATEGORY_L] >= 2) {
+            br.fastCommit(acc, bits, ip);
+            blen[BLOCK_CATEGORY_L] = blenL;
+            boolean switched = ensureBlockSwitch(BLOCK_CATEGORY_L);
+            blenL = blen[BLOCK_CATEGORY_L];
+            acc = br.fastAccumulator();
+            bits = br.fastBitCount();
+            ip = br.fastPosition();
+            if (!switched) {
+              return; // Not reachable with the margin checked above; resume on the checked path.
+            }
+            typeL = btype[BLOCK_CATEGORY_L];
+            modeOffset = contextModes[typeL] << 9;
+            cmapOffset = typeL << 6;
+          }
+          blenL--;
+          if (bits < 15) {
+            acc |= BitReader.longAt(in, ip) << bits;
+            ip += (63 - bits) >>> 3;
+            bits |= 56;
+          }
+          int[] lut =
+              trivialLiterals
+                  ? lut0
+                  : lutL[
+                      cmapL[
+                          cmapOffset
+                              + (lookup[modeOffset + c1] | lookup[modeOffset + 256 + c2])]];
+          int e = lut[(int) acc & HuffmanTable.ROOT_MASK];
+          if ((e & HuffmanTable.LINK) != 0) {
+            e = lut[(e >>> 16) + ((int) (acc >>> HuffmanTable.ROOT_BITS) & ((1 << (e & 0xff)) - 1))];
+          }
+          if (e == HuffmanTable.INVALID) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Invalid literal symbol");
+          }
+          acc >>>= e & 0xff;
+          bits -= e & 0xff;
+          int literal = e >>> 16;
+          rd[(int) rpos & rmask] = (byte) literal;
+          rpos++;
+          c2 = c1;
+          c1 = literal;
+          lits--;
+          written++;
+          if (++pending >= emitLimit) {
+            rb.advance((int) (rpos - rb.getPos()));
+            contentEmitPending = pending;
+            flushContentEmit();
+            pending = 0;
+          }
+        }
+
+        if (written >= end) {
+          // The literals completed the meta-block: the copy part is ignored.
+          insertLen = 0;
+          copyLen = 0;
+          break;
+        }
+
+        // ---- Distance ----
+        if (inEnd - ip < FAST_COMMAND_MARGIN / 2) {
+          return;
+        }
+        int dist;
+        if (implicitDistance0) {
+          distanceCode = 0;
+          dist = distRing.get(0);
+        } else {
+          if (blen[BLOCK_CATEGORY_D] == 0 && nbltypes[BLOCK_CATEGORY_D] >= 2) {
+            br.fastCommit(acc, bits, ip);
+            boolean switched = ensureBlockSwitch(BLOCK_CATEGORY_D);
+            acc = br.fastAccumulator();
+            bits = br.fastBitCount();
+            ip = br.fastPosition();
+            if (!switched) {
+              return; // Not reachable with the margin checked above; resume on the checked path.
+            }
+            distanceMapOffset = btype[BLOCK_CATEGORY_D] << 2;
+          }
+          blen[BLOCK_CATEGORY_D]--;
+          if (bits < 15) {
+            acc |= BitReader.longAt(in, ip) << bits;
+            ip += (63 - bits) >>> 3;
+            bits |= 56;
+          }
+          int cid = copyLen > 4 ? 3 : copyLen - 2;
+          int[] lut = lutD[cmapD[distanceMapOffset + cid]];
+          int e = lut[(int) acc & HuffmanTable.ROOT_MASK];
+          if ((e & HuffmanTable.LINK) != 0) {
+            e = lut[(e >>> 16) + ((int) (acc >>> HuffmanTable.ROOT_BITS) & ((1 << (e & 0xff)) - 1))];
+          }
+          int dsym = e >>> 16;
+          if (e == HuffmanTable.INVALID || dsym >= distanceAlphabetLimit) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Invalid distance symbol");
+          }
+          acc >>>= e & 0xff;
+          bits -= e & 0xff;
+          distanceCode = dsym;
+          if (dsym < 16) {
+            dist = distRing.resolveShort(dsym);
+            if (dist < 1) {
+              br.fastCommit(acc, bits, ip);
+              throw new CorruptStreamException("Invalid short distance");
+            }
+          } else if (dsym < 16 + ndirect) {
+            dist = dsym - 15;
+          } else {
+            int code = dsym - ndirect - 16;
+            int ndistbits = 1 + (code >> (npostfix + 1));
+            long extra = 0;
+            int got = 0;
+            while (got < ndistbits) {
+              // At most 24 bits per read keeps the accumulator from running dry.
+              int take = Math.min(24, ndistbits - got);
+              if (bits < 24) {
+                acc |= BitReader.longAt(in, ip) << bits;
+                ip += (63 - bits) >>> 3;
+                bits |= 56;
+              }
+              extra |= (acc & ((1L << take) - 1)) << got;
+              acc >>>= take;
+              bits -= take;
+              got += take;
+            }
+            int hcode = code >> npostfix;
+            int lcode = code & ((1 << npostfix) - 1);
+            long offset = ((2L + (hcode & 1)) << ndistbits) - 4;
+            long decoded = ((offset + extra) << npostfix) + lcode + ndirect + 1;
+            if (decoded > DistanceCoding.MAX_SUPPORTED_DISTANCE) {
+              br.fastCommit(acc, bits, ip);
+              throw new CorruptStreamException("Distance exceeds supported integer range");
+            }
+            dist = (int) decoded;
+          }
+        }
+        distance = dist;
+
+        // ---- Copy ----
+        long maxDistance = Math.min(rpos, windowSize);
+        if (dist <= maxDistance) {
+          if (copyLen > end - written) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Copy length exceeds remaining MLEN");
+          }
+          if (distanceCode != 0) {
+            distRing.push(dist);
+          }
+          if (rpos + copyLen > maxOut) {
+            br.fastCommit(acc, bits, ip);
+            throw new LimitExceededException(
+                "Total output " + (rpos + copyLen) + " exceeds limit " + maxOut);
+          }
+          int left = copyLen;
+          while (left > 0) {
+            if (growable) {
+              rb.advance((int) (rpos - rb.getPos()));
+              rb.reserve(left);
+              if (rb.array() != rd) {
+                rd = rb.array();
+                rmask = rd.length - 1;
+                emitLimit = Math.min(contentEmitThreshold, rd.length - RING_SLACK);
+              }
+              growable = rb.canGrow();
+            }
+            int room = rd.length - RING_SLACK - pending;
+            if (room <= 0) {
+              contentEmitPending = pending;
+              flushContentEmit();
+              pending = 0;
+              room = rd.length - RING_SLACK;
+            }
+            int chunk = Math.min(left, room);
+            RingBuffer.copyWithin(rd, rmask, rpos, dist, chunk);
+            rpos += chunk;
+            pending += chunk;
+            written += chunk;
+            left -= chunk;
+            if (pending >= emitLimit) {
+              rb.advance((int) (rpos - rb.getPos()));
+              contentEmitPending = pending;
+              flushContentEmit();
+              pending = 0;
+            }
+          }
+        } else {
+          // Static dictionary reference; the distance is not pushed.
+          rb.advance((int) (rpos - rb.getPos()));
+          int outLen = Dictionary.lookup(copyLen, dist, (int) maxDistance, dictScratch);
+          if (outLen < 0) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Invalid dictionary reference");
+          }
+          if (outLen > end - written) {
+            br.fastCommit(acc, bits, ip);
+            throw new CorruptStreamException("Dictionary word exceeds remaining MLEN");
+          }
+          if (rpos + outLen > maxOut) {
+            br.fastCommit(acc, bits, ip);
+            throw new LimitExceededException(
+                "Total output " + (rpos + outLen) + " exceeds limit " + maxOut);
+          }
+          rb.reserve(outLen);
+          if (rb.array() != rd) {
+            rd = rb.array();
+            rmask = rd.length - 1;
+            emitLimit = Math.min(contentEmitThreshold, rd.length - RING_SLACK);
+          }
+          growable = rb.canGrow();
+          if (pending + outLen > rd.length - RING_SLACK) {
+            contentEmitPending = pending;
+            flushContentEmit();
+            pending = 0;
+          }
+          rb.writeBytes(dictScratch, 0, outLen);
+          rpos += outLen;
+          pending += outLen;
+          written += outLen;
+          if (pending >= emitLimit) {
+            contentEmitPending = pending;
+            flushContentEmit();
+            pending = 0;
+          }
+        }
+        c1 = rd[(int) (rpos - 1) & rmask] & 0xff;
+        c2 = rd[(int) (rpos - 2) & rmask] & 0xff;
+        insertLen = 0;
+        copyLen = 0;
+        distanceResolved = false;
+      }
+    } finally {
+      // Hand every local back, on normal exit and before an exception propagates.
+      br.fastCommit(acc, bits, ip);
+      rb.advance((int) (rpos - rb.getPos()));
+      contentEmitPending = pending;
+      metablockWritten = written;
+      literalsRemaining = lits;
+      blen[BLOCK_CATEGORY_L] = blenL;
+      p1 = c1;
+      p2 = c2;
+    }
   }
 
   protected boolean readNextCommand() throws BrotliException {
@@ -964,6 +1431,13 @@ public abstract class MetablockDecoder {
       return false;
     }
     int decodedCopy = LengthCoder.COPY_BASE[copyCode] + tmpBits[0];
+
+    // RFC 7932 section 9.3: a command's literals must fit in what remains of the meta-block.
+    // The copy part is checked once its distance is known (it is skipped entirely when the
+    // literals end the meta-block).
+    if (decodedInsert > mlen - metablockWritten) {
+      throw new CorruptStreamException("Insert length exceeds remaining MLEN");
+    }
 
     insertLen = decodedInsert;
     copyLen = decodedCopy;
@@ -1011,14 +1485,15 @@ public abstract class MetablockDecoder {
         throw new CorruptStreamException("Block type out of range");
       }
     }
-    btypePrev[category] = btype[category];
-    btype[category] = newType;
-
     int len = readBlockLengthAfterMark(category);
     if (len < 0) {
+      // Nothing is committed until the whole switch command has been read: the retry decodes
+      // the type symbol again, relative to the same previous types.
       br.resetTo(checkpoint);
       return false;
     }
+    btypePrev[category] = btype[category];
+    btype[category] = newType;
     blen[category] = len;
 
     return true;
@@ -1073,8 +1548,8 @@ public abstract class MetablockDecoder {
     LimitChecks.checkTotalOutput(limits, ring.getTotalWritten() + 1);
     ring.writeByte(b);
     contentEmitPending++;
-    if (literalsRemaining == 1
-        || contentEmitPending >= Math.min(contentEmitThreshold, ring.getSize())) {
+    if ((needsCommands && literalsRemaining == 1)
+        || contentEmitPending >= Math.min(contentEmitThreshold, ring.getSize() - RING_SLACK)) {
       flushContentEmit();
     }
     metablockWritten++;
@@ -1154,8 +1629,11 @@ public abstract class MetablockDecoder {
   }
 
   protected boolean applyCopy() throws BrotliException {
-    flushContentEmit();
-    flushInsertEvent();
+    if (needsCommands) {
+      // Command events interleave with content: deliver this command's literals first.
+      flushContentEmit();
+      flushInsertEvent();
+    }
 
     long maxAllowed = ring.getTotalWritten();
     if (maxAllowed > windowSize) {
@@ -1177,10 +1655,22 @@ public abstract class MetablockDecoder {
       LimitChecks.checkTotalOutput(limits, ring.getTotalWritten() + copyLen);
       int remainingCopy = copyLen;
       while (remainingCopy > 0) {
-        int chunk = Math.min(remainingCopy, ring.getSize());
-        HistoryReplayer.copy(ring, new Command.Copy(distance, copyLen), chunk);
-        ring.emitContent(contentDispatcher, chunk);
+        // Output is batched across commands; never let unemitted bytes be overwritten.
+        int room = ring.getSize() - RING_SLACK - contentEmitPending;
+        if (room <= 0) {
+          flushContentEmit();
+          room = ring.getSize() - RING_SLACK;
+        }
+        int chunk = Math.min(remainingCopy, room);
+        ring.copyBackward(distance, chunk);
+        contentEmitPending += chunk;
         remainingCopy -= chunk;
+        if (contentEmitPending >= Math.min(contentEmitThreshold, ring.getSize() - RING_SLACK)) {
+          flushContentEmit();
+        }
+      }
+      if (needsCommands) {
+        flushContentEmit();
       }
       p1 = ring.recent(1) & 0xff;
       p2 = ring.recent(2) & 0xff;
@@ -1206,9 +1696,16 @@ public abstract class MetablockDecoder {
       handler.dictionary(copyLen, wordIndex, transformId);
     }
     LimitChecks.checkTotalOutput(limits, ring.getTotalWritten() + outLen);
+    if (contentEmitPending + outLen > ring.getSize() - RING_SLACK) {
+      flushContentEmit();
+    }
     HistoryReplayer.dictionary(
         ring, new Command.DictionaryCopy(distance, copyLen, outLen), dictScratch);
-    ring.emitContent(contentDispatcher, outLen);
+    contentEmitPending += outLen;
+    if (needsCommands
+        || contentEmitPending >= Math.min(contentEmitThreshold, ring.getSize() - RING_SLACK)) {
+      flushContentEmit();
+    }
     p1 = ring.recent(1) & 0xff;
     p2 = ring.recent(2) & 0xff;
     metablockWritten += outLen;
@@ -1232,8 +1729,13 @@ public abstract class MetablockDecoder {
 
   protected void finishStream() throws BrotliException {
     flushContentEmit();
+    // RFC 7932 section 9.2: the bits that pad the last meta-block to a byte boundary are zero.
     br.jumpToByteBoundary(true);
-    br.verifyTrailingBitsZero();
+    streamLength = br.byteOffset();
+    if (trailingData == TrailingData.REJECT && br.hasUnconsumedInput()) {
+      throw new CorruptStreamException("Trailing bytes after the end of the stream");
+    }
+    finished = true;
     if (endStreamCallback != null) {
       endStreamCallback.endStream();
     } else {

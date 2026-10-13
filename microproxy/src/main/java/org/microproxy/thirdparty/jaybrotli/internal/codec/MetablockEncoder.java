@@ -22,11 +22,13 @@ package org.microproxy.thirdparty.jaybrotli.internal.codec;
 import org.microproxy.thirdparty.jaybrotli.BrotliEndStreamHandler;
 import org.microproxy.thirdparty.jaybrotli.BrotliException;
 import org.microproxy.thirdparty.jaybrotli.BrotliSink;
+import org.microproxy.thirdparty.jaybrotli.internal.bits.BitSink;
 import org.microproxy.thirdparty.jaybrotli.internal.bits.BitWriter;
 import org.microproxy.thirdparty.jaybrotli.internal.history.DistanceRing;
 import org.microproxy.thirdparty.jaybrotli.internal.huffman.HuffmanEncoder;
 import org.microproxy.thirdparty.jaybrotli.internal.huffman.HuffmanTable;
 import org.microproxy.thirdparty.jaybrotli.internal.ir.CommandBuffer;
+import org.microproxy.thirdparty.jaybrotli.internal.metablock.MetablockPlan;
 import org.microproxy.thirdparty.jaybrotli.internal.metablock.MetablockPlanner;
 import org.microproxy.thirdparty.jaybrotli.internal.metablock.MetablockWriter;
 import org.microproxy.thirdparty.jaybrotli.internal.parse.Lz77Encoder;
@@ -37,8 +39,8 @@ import java.nio.ByteBuffer;
 /**
  * Push-model Brotli encoder.
  *
- * <p>Quality 0 emits uncompressed metablocks. Qualities 1–11 use LZ77 with Huffman coding. Quality
- * 2+ uses the static dictionary; 3+ deepens LZ search; 4+ matches transformed dictionary words; 5+
+ * <p>All qualities use LZ77 with Huffman coding; quality 0 probes one hash candidate per position
+ * and skips ahead through literal runs. Quality 2+ uses the static dictionary; 3+ deepens LZ search; 4+ matches transformed dictionary words; 5+
  * uses literal context maps; 6 adds a literal block split and distance context trees; 7 tunes
  * NPOSTFIX/NDIRECT; 8 uses up to four literal trees and an insert-and-copy block split; 9 uses
  * larger metablocks and a distance block split; 10 uses Zopfli command selection with bounded block
@@ -46,7 +48,9 @@ import java.nio.ByteBuffer;
  * samples.
  */
 public abstract class MetablockEncoder {
-  private final MetablockPlanner planner = new MetablockPlanner(this);
+  // Created on first use: handing out `this` from a field initializer would let the planner see a
+  // partly constructed encoder.
+  private MetablockPlanner planner;
   private final MetablockWriter writer = new MetablockWriter();
 
   public static final int MAX_METABLOCK = 1 << 24;
@@ -95,6 +99,9 @@ public abstract class MetablockEncoder {
   public int historyLen;
 
   public final DistanceRing distRing = new DistanceRing();
+
+  /** Hash chains of the standard LZ77 parser, kept across this stream's meta-blocks. */
+  public final Lz77Encoder.Index lz77Index = new Lz77Encoder.Index();
 
   public void ensureHeader() throws BrotliException {
     if (sink == null) {
@@ -147,9 +154,7 @@ public abstract class MetablockEncoder {
     while (remaining > 0) {
       int n = remaining < copyBuf.length ? remaining : copyBuf.length;
       data.get(copyBuf, 0, n);
-      for (int i = 0; i < n; i++) {
-        bw.writeBits(copyBuf[i] & 0xff, 8);
-      }
+      bw.writeBytesAligned(copyBuf, 0, n);
       remaining -= n;
     }
   }
@@ -203,11 +208,26 @@ public abstract class MetablockEncoder {
     } else if (mode.zopfli) {
       ZopfliParser.encode(pending, length, history, historyLen, windowSize, distRing, quality, box);
     } else {
-      Lz77Encoder.encode(pending, length, history, historyLen, windowSize, mode, box);
+      Lz77Encoder.encode(
+          pending, length, history, historyLen, windowSize, mode, box, lz77Index);
     }
     CommandBuffer commandBuffer = CommandBuffer.fromEntries(box[0]);
+    if (planner == null) planner = new MetablockPlanner(this);
+    var ringBefore = distRing.snapshot();
     var plan = planner.plan(commandBuffer.snapshot(), pending, length);
-    writer.write(plan, bw, last);
+    if (quality == 0
+        && mostlyLiterals(box[0], length)
+        && packedBits(plan, last) > 8L * length + 40) {
+      // Quality 0 never expands incompressible input by more than a header: store the block.
+      distRing.restore(ringBefore);
+      writeUncompressedMetablock(ByteBuffer.wrap(pending, 0, length), length, false);
+      if (last) {
+        bw.writeBits(1, 1); // ISLAST
+        bw.writeBits(1, 1); // ISLASTEMPTY
+      }
+    } else {
+      writer.write(plan, bw, last);
+    }
 
     // Append encoded bytes to history
     appendHistory(pending, length, windowSize);
@@ -218,6 +238,36 @@ public abstract class MetablockEncoder {
       System.arraycopy(pending, length, pending, 0, remain);
     }
     pendingLen = remain;
+  }
+
+  /**
+   * Whether at least 90% of the block is literals: only then can packing fail to shrink it, so
+   * only then is the packed size measured (which costs a second packing pass).
+   */
+  private static boolean mostlyLiterals(CommandBuffer.Entry[] commands, int length) {
+    long literals = 0;
+    for (CommandBuffer.Entry command : commands) literals += command.insertLen;
+    return literals * 10 >= 9L * length;
+  }
+
+  /** Size of a packed plan in bits, without writing it. */
+  private long packedBits(MetablockPlan plan, boolean last) throws BrotliException {
+    long[] bits = {0};
+    writer.write(
+        plan,
+        new BitSink() {
+          public void writeBits(int value, int n) {
+            bits[0] += n;
+          }
+
+          public void alignToByte() {
+            bits[0] = (bits[0] + 7) & ~7L;
+          }
+
+          public void flush() {}
+        },
+        last);
+    return bits[0];
   }
 
   public int historyByte(int distance) {

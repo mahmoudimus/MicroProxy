@@ -3,6 +3,7 @@ package org.microproxy.thirdparty.jaybrotli;
 
 import org.microproxy.thirdparty.jaybrotli.config.DecoderOptions;
 import org.microproxy.thirdparty.jaybrotli.config.Limits;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 import org.microproxy.thirdparty.jaybrotli.internal.codec.StreamDecoder;
 import java.nio.ByteBuffer;
 
@@ -16,6 +17,13 @@ import java.nio.ByteBuffer;
  * checks and emissions; previously accepted headers and output are not revalidated. {@link #reset}
  * preserves the latest settings and callbacks. Instances are single-owner and must not be
  * configured concurrently with decoding.
+ *
+ * <p>The decoder accepts exactly one stream. By default ({@link TrailingData#REJECT}) any byte
+ * after the end of the stream, in the buffer that completes it or in a later {@link #receive}, is
+ * a {@link CorruptStreamException}, as are non-zero bits padding the last byte of the stream. With
+ * {@link TrailingData#ALLOW} decoding stops at the end of the stream and the buffer that completes
+ * it is left positioned at the first byte after it; {@link #streamLength()} reports where the
+ * stream ended in either mode.
  */
 public final class Decoder implements AutoCloseable {
   private final StreamDecoder engine = new StreamDecoder();
@@ -32,6 +40,7 @@ public final class Decoder implements AutoCloseable {
     engine.setLimits(options.limits());
     engine.setContentEmitThreshold(options.emitThreshold());
     engine.setOffHeap(options.offHeap());
+    engine.setTrailingData(options.trailingData());
   }
 
   public void setHandler(BrotliHandler handler) {
@@ -80,6 +89,40 @@ public final class Decoder implements AutoCloseable {
    */
   public void setContentEmitThreshold(int bytes) {
     engine.setContentEmitThreshold(bytes);
+  }
+
+  /**
+   * Replaces the trailing-data policy; survives reset.
+   *
+   * @param policy what to do with bytes after the end of the stream, or null for {@link
+   *     TrailingData#REJECT}
+   * @since 1.2
+   */
+  public void setTrailingData(TrailingData policy) {
+    engine.setTrailingData(policy);
+  }
+
+  /**
+   * Returns whether the end of the stream has been decoded (the final meta-block and its zero
+   * padding). Completion is reported before {@link #close()}; {@link #reset()} clears it.
+   *
+   * @return true once the stream is complete
+   * @since 1.2
+   */
+  public boolean isFinished() {
+    return engine.isFinished();
+  }
+
+  /**
+   * Returns the number of compressed bytes, counted from the first byte passed to {@link #receive}
+   * since construction or {@link #reset()}, that make up the stream. Any input from that offset on
+   * is trailing data. Equals {@link BrotliLocator#getByteOffset()} at end-of-stream.
+   *
+   * @return stream length in bytes, or -1 until the end of the stream has been decoded
+   * @since 1.2
+   */
+  public long streamLength() {
+    return engine.streamLength();
   }
 
   public void receive(ByteBuffer input) throws BrotliException {

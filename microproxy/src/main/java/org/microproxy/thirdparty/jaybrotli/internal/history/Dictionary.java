@@ -20,6 +20,7 @@
 package org.microproxy.thirdparty.jaybrotli.internal.history;
 
 import org.microproxy.thirdparty.jaybrotli.BrotliException;
+import org.microproxy.thirdparty.jaybrotli.CorruptStreamException;
 
 /** RFC 7932 static dictionary and 121 word transforms (§8, Appendices A/B). */
 public final class Dictionary {
@@ -35,28 +36,59 @@ public final class Dictionary {
 
   private static final int[] DOFFSET = new int[25];
 
-  private static final int DICT_HASH_BITS = 12;
-  private static final int DICT_HASH_SIZE = 1 << DICT_HASH_BITS;
-  private static final int[][] DICT_HASH_HEAD = new int[25][];
-  private static final int[][] DICT_HASH_CHAIN = new int[25][];
+  /*
+   * Encoder indexes. Both are bucketed hash tables stored as flat arrays (compressed sparse rows):
+   * bucket b's entries are [START[b], START[b + 1]), each with its full 32-bit hash in HASH and a
+   * packed description in ENTRY. A lookup reads one short contiguous run instead of chasing a chain
+   * through several large arrays, and filters on the full hash before touching dictionary bytes.
+   * Within a bucket, entries keep the order in which earlier versions of the index visited them,
+   * so matches (and therefore compressed output) are unchanged.
+   */
+
+  /** Identity words, keyed by the hash of their first four bytes. */
+  private static final int ID_BUCKET_BITS = 14;
+
+  private static int[] ID_START;
+  private static int[] ID_HASH;
+
+  /** Word length &lt;&lt; 16 | word index; longest words first, then highest index first. */
+  private static int[] ID_ENTRY;
+
+  /** A bit per identity hash ({@code hash >>> 15}): skips the table for most positions. */
+  private static final long[] ID_FILTER = new long[1 << 11];
 
   /**
-   * Hash of transformed dictionary outputs for encoder quality 4. Indexed transforms: identity
-   * (with affixes), omit-last-1, uppercase-first, uppercase-all. Pure identity (empty affixes)
-   * stays on {@link #DICT_HASH_HEAD}.
+   * Transformed words for encoder quality 4 and up. Indexed transforms: identity (with affixes),
+   * omit-last-1, uppercase-first, uppercase-all. Pure identity (empty affixes) is in the identity
+   * index. Three tiers by output length (4-7, 8-11, 12+) hash 4, 8 and 12 leading bytes.
    */
-  private static final int XFORM_HASH_BITS = 14;
 
-  private static final int XFORM_HASH_SIZE = 1 << XFORM_HASH_BITS;
+  private static final int XFORM_BUCKET_BITS = 16;
+
   private static final int[] XFORM_PREFIX_LENGTHS = {4, 8, 12};
-  private static int[][] XFORM_HEAD;
-  private static int[] XFORM_NEXT;
-  // Five low bits hold word length; upper bits hold the hash bits absent
-  // from the bucket index. This filters collisions without another array.
-  private static int[] XFORM_WORD_META;
-  private static int[] XFORM_WORD_INDEX;
-  private static int[] XFORM_TRANSFORM_ID;
-  private static int[] XFORM_OUT_LEN;
+
+  /** Longest output in each tier. */
+  private static final int[] XFORM_TIER_MAX = {7, 11, MAX_TRANSFORMED_WORD_LENGTH};
+  private static int[][] XFORM_START;
+  /**
+   * One long per entry, so a lookup reads one contiguous run: bits 0-28 the entry (output length
+   * | word length &lt;&lt; 6 | word index &lt;&lt; 11 | transform id &lt;&lt; 22), bits 29-36 the
+   * output's last byte (a cheap test before the output is built), bits 37-52 the high half of the
+   * hash, offset to be unsigned (the bucket fixes the low half). Within a bucket, entries are
+   * ordered by hash and, within a hash group, by output length (longest first) and then by the
+   * order earlier versions visited them (transform id, word length and index descending), so the
+   * first match in a group is the one those versions chose.
+   */
+  private static long[][] XFORM_ENTRY;
+
+  /**
+   * Per tier, a bit for every hash present ({@code hash >>> (32 - XFORM_FILTER_BITS)}). Most
+   * positions match no transformed word; this fits in cache, unlike the tables, so a miss costs
+   * one probe instead of two cache misses per tier.
+   */
+  private static final int XFORM_FILTER_BITS = 21;
+
+  private static long[][] XFORM_FILTER;
 
   // Transform types (Google / wire numbering used in transforms table)
   private static final int IDENTITY = 0;
@@ -117,26 +149,44 @@ public final class Dictionary {
   }
 
   private static void buildDictionaryHashIndex() {
-    for (int len = 4; len <= 24; len++) {
-      int nw = nwords(len);
-      if (nw == 0) {
-        continue;
-      }
-      int[] head = new int[DICT_HASH_SIZE];
-      for (int i = 0; i < DICT_HASH_SIZE; i++) {
-        head[i] = -1;
-      }
-      int[] chain = new int[nw];
+    int count = 0;
+    for (int len = 4; len <= 24; len++) count += nwords(len);
+    int[] hashes = new int[count];
+    int[] entries = new int[count];
+    int n = 0;
+    for (int len = 24; len >= 4; len--) {
       int base = DOFFSET[len];
-      for (int idx = 0; idx < nw; idx++) {
-        int woff = base + idx * len;
-        int h = dictHash4(DICT, woff) & (DICT_HASH_SIZE - 1);
-        chain[idx] = head[h];
-        head[h] = idx;
+      for (int idx = nwords(len) - 1; idx >= 0; idx--) {
+        hashes[n] = dictHash4(DICT, base + idx * len);
+        entries[n] = len << 16 | idx;
+        n++;
       }
-      DICT_HASH_HEAD[len] = head;
-      DICT_HASH_CHAIN[len] = chain;
     }
+    for (int i = 0; i < n; i++) ID_FILTER[hashes[i] >>> 21] |= 1L << (hashes[i] >>> 15);
+    int[][] table = bucketize(hashes, entries, n, ID_BUCKET_BITS);
+    ID_START = table[0];
+    ID_HASH = table[1];
+    ID_ENTRY = table[2];
+  }
+
+  /**
+   * Stable counting sort of {@code n} (hash, entry) pairs into {@code 1 << bits} buckets by the low
+   * hash bits. Returns {start, hashes, entries}.
+   */
+  private static int[][] bucketize(int[] hashes, int[] entries, int n, int bits) {
+    int mask = (1 << bits) - 1;
+    int[] start = new int[(1 << bits) + 1];
+    for (int i = 0; i < n; i++) start[(hashes[i] & mask) + 1]++;
+    for (int b = 0; b < 1 << bits; b++) start[b + 1] += start[b];
+    int[] fill = java.util.Arrays.copyOf(start, 1 << bits);
+    int[] sortedHashes = new int[n];
+    int[] sortedEntries = new int[n];
+    for (int i = 0; i < n; i++) {
+      int at = fill[hashes[i] & mask]++;
+      sortedHashes[at] = hashes[i];
+      sortedEntries[at] = entries[i];
+    }
+    return new int[][] {start, sortedHashes, sortedEntries};
   }
 
   private static boolean isIndexedTransformType(int type) {
@@ -153,73 +203,90 @@ public final class Dictionary {
   }
 
   private static void buildTransformHashIndex() {
-    // Count entries first
-    int count = 0;
+    int tiers = XFORM_PREFIX_LENGTHS.length;
+    int[] counts = new int[tiers];
+    int[][] hashes = new int[tiers][];
+    int[][] entries = new int[tiers][];
+    byte[][] lasts = new byte[tiers][];
     byte[] tmp = new byte[MAX_TRANSFORMED_WORD_LENGTH];
-    for (int tid = 0; tid < NUM_TRANSFORMS; tid++) {
-      int type = TRANSFORM_RECORDS[tid].type();
-      if (!isIndexedTransformType(type)) {
-        continue;
+    for (int pass = 0; pass < 2; pass++) {
+      if (pass == 1) {
+        for (int t = 0; t < tiers; t++) {
+          hashes[t] = new int[counts[t]];
+          entries[t] = new int[counts[t]];
+          lasts[t] = new byte[counts[t]];
+          counts[t] = 0;
+        }
       }
-      int prefixId = TRANSFORM_RECORDS[tid].prefixId();
-      int suffixId = TRANSFORM_RECORDS[tid].suffixId();
-      // Pure identity (empty affixes) is covered by DICT_HASH_HEAD
-      if (type == IDENTITY && prefixSuffixLen(prefixId) == 0 && prefixSuffixLen(suffixId) == 0) {
-        continue;
-      }
-      for (int len = 4; len <= 24; len++) {
-        int nw = nwords(len);
-        int base = DOFFSET[len];
-        for (int idx = 0; idx < nw; idx++) {
-          int outLen = transform(DICT, base + idx * len, len, tid, tmp);
-          if (outLen >= 4) {
-            count++;
+      // Reverse insertion order: the order in which lookups visit candidates.
+      for (int tid = NUM_TRANSFORMS - 1; tid >= 0; tid--) {
+        int type = TRANSFORM_RECORDS[tid].type();
+        if (!isIndexedTransformType(type)) {
+          continue;
+        }
+        int prefixId = TRANSFORM_RECORDS[tid].prefixId();
+        int suffixId = TRANSFORM_RECORDS[tid].suffixId();
+        // Pure identity (empty affixes) is in the identity index.
+        if (type == IDENTITY && prefixSuffixLen(prefixId) == 0 && prefixSuffixLen(suffixId) == 0) {
+          continue;
+        }
+        for (int len = 24; len >= 4; len--) {
+          int base = DOFFSET[len];
+          for (int idx = nwords(len) - 1; idx >= 0; idx--) {
+            int outLen = transform(DICT, base + idx * len, len, tid, tmp);
+            if (outLen < 4) {
+              continue;
+            }
+            int tier = outLen >= 12 ? 2 : outLen >= 8 ? 1 : 0;
+            int at = counts[tier]++;
+            if (pass == 1) {
+              hashes[tier][at] = transformedHash(tmp, 0, XFORM_PREFIX_LENGTHS[tier]);
+              entries[tier][at] = outLen | len << 6 | idx << 11 | tid << 22;
+              lasts[tier][at] = tmp[outLen - 1];
+            }
           }
         }
       }
     }
-
-    XFORM_HEAD = new int[XFORM_PREFIX_LENGTHS.length][XFORM_HASH_SIZE];
-    for (int[] heads : XFORM_HEAD) {
-      java.util.Arrays.fill(heads, -1);
-    }
-    XFORM_NEXT = new int[count];
-    XFORM_WORD_META = new int[count];
-    XFORM_WORD_INDEX = new int[count];
-    XFORM_TRANSFORM_ID = new int[count];
-    XFORM_OUT_LEN = new int[count];
-
-    int slot = 0;
-    for (int tid = 0; tid < NUM_TRANSFORMS; tid++) {
-      int type = TRANSFORM_RECORDS[tid].type();
-      if (!isIndexedTransformType(type)) {
-        continue;
+    XFORM_START = new int[tiers][];
+    XFORM_ENTRY = new long[tiers][];
+    XFORM_FILTER = new long[tiers][1 << (XFORM_FILTER_BITS - 6)];
+    for (int t = 0; t < tiers; t++) {
+      for (int i = 0; i < counts[t]; i++) {
+        int bit = hashes[t][i] >>> (32 - XFORM_FILTER_BITS);
+        XFORM_FILTER[t][bit >>> 6] |= 1L << bit;
       }
-      int prefixId = TRANSFORM_RECORDS[tid].prefixId();
-      int suffixId = TRANSFORM_RECORDS[tid].suffixId();
-      if (type == IDENTITY && prefixSuffixLen(prefixId) == 0 && prefixSuffixLen(suffixId) == 0) {
-        continue;
-      }
-      for (int len = 4; len <= 24; len++) {
-        int nw = nwords(len);
-        int base = DOFFSET[len];
-        for (int idx = 0; idx < nw; idx++) {
-          int outLen = transform(DICT, base + idx * len, len, tid, tmp);
-          if (outLen < 4) {
-            continue;
+      // Carry the last byte through the bucket sort inside the entry's spare high bits.
+      int n = counts[t];
+      long[] packed = new long[n];
+      for (int i = 0; i < n; i++) packed[i] = (long) (lasts[t][i] & 0xff) << 32 | entries[t][i];
+      int[] order = new int[n];
+      for (int i = 0; i < n; i++) order[i] = i;
+      int[][] table = bucketize(hashes[t], order, n, XFORM_BUCKET_BITS);
+      int[] start = table[0], hash = table[1], index = table[2];
+      // Within each bucket: by hash, then longest output first; insertion sort keeps it stable.
+      for (int b = 0; b + 1 < start.length; b++) {
+        for (int i = start[b] + 1; i < start[b + 1]; i++) {
+          int h = hash[i], x = index[i];
+          int len = (int) packed[x] & 63;
+          int j = i - 1;
+          while (j >= start[b]
+              && (hash[j] > h || hash[j] == h && ((int) packed[index[j]] & 63) < len)) {
+            hash[j + 1] = hash[j];
+            index[j + 1] = index[j];
+            j--;
           }
-          int tier = outLen >= 12 ? 2 : outLen >= 8 ? 1 : 0;
-          int hash = transformedHash(tmp, 0, XFORM_PREFIX_LENGTHS[tier]);
-          int h = hash & (XFORM_HASH_SIZE - 1);
-          XFORM_NEXT[slot] = XFORM_HEAD[tier][h];
-          XFORM_HEAD[tier][h] = slot;
-          XFORM_WORD_META[slot] = len | ((hash >>> XFORM_HASH_BITS) << 5);
-          XFORM_WORD_INDEX[slot] = idx;
-          XFORM_TRANSFORM_ID[slot] = tid;
-          XFORM_OUT_LEN[slot] = outLen;
-          slot++;
+          hash[j + 1] = h;
+          index[j + 1] = x;
         }
       }
+      long[] sorted = new long[n];
+      for (int i = 0; i < n; i++) {
+        long v = packed[index[i]];
+        sorted[i] = (long) ((hash[i] >> 16) + 32768) << 37 | (v >>> 32) << 29 | (v & 0x1fffffffL);
+      }
+      XFORM_START[t] = start;
+      XFORM_ENTRY[t] = sorted;
     }
   }
 
@@ -277,17 +344,17 @@ public final class Dictionary {
   public static int lookup(int copyLength, int distance, int maxDistance, byte[] out)
       throws BrotliException {
     if (copyLength < 4 || copyLength > 24) {
-      throw new BrotliException("Dictionary copy length out of range: " + copyLength);
+      throw new CorruptStreamException("Dictionary copy length out of range: " + copyLength);
     }
     long wordId = (long) distance - ((long) maxDistance + 1L);
     int nw = nwords(copyLength);
     if (nw == 0) {
-      throw new BrotliException("No dictionary words of length " + copyLength);
+      throw new CorruptStreamException("No dictionary words of length " + copyLength);
     }
-    int index = (int) (wordId % nw);
+    int index = (int) (wordId & (nw - 1)); // nw is a power of two
     int transformId = (int) (wordId >> NDBITS[copyLength]);
     if (transformId < 0 || transformId >= NUM_TRANSFORMS) {
-      throw new BrotliException("Invalid transform id " + transformId);
+      throw new CorruptStreamException("Invalid transform id " + transformId);
     }
     int wordOffset = DOFFSET[copyLength] + index * copyLength;
     return transform(DICT, wordOffset, copyLength, transformId, out);
@@ -316,9 +383,8 @@ public final class Dictionary {
     }
 
     int wordStart = idx;
-    for (int i = 0; i < len; i++) {
-      dst[idx++] = dict[srcOff + i];
-    }
+    System.arraycopy(dict, srcOff, dst, idx, len);
+    idx += len;
 
     if (type == UPPERCASE_FIRST) {
       toUpperCase(dst, wordStart);
@@ -338,9 +404,7 @@ public final class Dictionary {
 
   private static int copyPrefixed(byte[] blob, int mapOffset, byte[] dst, int dstOff) {
     int len = blob[mapOffset] & 0xff;
-    for (int i = 0; i < len; i++) {
-      dst[dstOff + i] = blob[mapOffset + 1 + i];
-    }
+    System.arraycopy(blob, mapOffset + 1, dst, dstOff, len);
     return len;
   }
 
@@ -430,104 +494,144 @@ public final class Dictionary {
       int[] outCovered,
       int[] outTransformId,
       int[] outWordIndex) {
-    int bestCovered = 0;
+    return findMatch(
+        data, offset, available, useTransforms, 0, outLength, outCovered, outTransformId,
+        outWordIndex);
+  }
+
+  /**
+   * Like {@link #findMatch(byte[], int, int, boolean, int[], int[], int[], int[])}, but only
+   * reports matches covering more than {@code floor} bytes; a caller that already has a match of
+   * {@code floor} bytes skips candidates that could not replace it. Whenever the best match covers
+   * more than {@code floor}, the result is the same as without a floor.
+   *
+   * @param floor covered length a match must exceed, at least 0
+   * @return covered length on success, or -1
+   */
+  public static int findMatch(
+      byte[] data,
+      int offset,
+      int available,
+      boolean useTransforms,
+      int floor,
+      int[] outLength,
+      int[] outCovered,
+      int[] outTransformId,
+      int[] outWordIndex) {
+    if (available < 4 || floor >= MAX_TRANSFORMED_WORD_LENGTH) {
+      return -1;
+    }
+    int bestCovered = floor;
     int bestWireLen = 0;
     int bestTransform = 0;
     int bestIndex = 0;
-    if (available < 4) {
-      return -1;
-    }
     int key = dictHash4(data, offset);
 
-    for (int len = 24; len >= 4; len--) {
+    // Identity words, longest first: the first one that matches is the longest.
+    int bucket = key & ((1 << ID_BUCKET_BITS) - 1);
+    boolean identity = (ID_FILTER[key >>> 21] & 1L << (key >>> 15)) != 0;
+    for (int i = identity ? ID_START[bucket] : 0, last = identity ? ID_START[bucket + 1] : 0;
+        i < last;
+        i++) {
+      if (ID_HASH[i] != key) {
+        continue;
+      }
+      int entry = ID_ENTRY[i];
+      int len = entry >>> 16;
+      if (len <= bestCovered && len < 24) {
+        break;
+      }
       if (len > available) {
         continue;
       }
-      int[] head = DICT_HASH_HEAD[len];
-      if (head == null) {
-        continue;
-      }
-      int h = key & (DICT_HASH_SIZE - 1);
-      int base = DOFFSET[len];
-      int[] chain = DICT_HASH_CHAIN[len];
-      for (int idx = head[h]; idx != -1; idx = chain[idx]) {
-        int woff = base + idx * len;
-        boolean match = true;
-        for (int i = 0; i < len; i++) {
-          if (DICT[woff + i] != data[offset + i]) {
-            match = false;
-            break;
-          }
+      int idx = entry & 0xffff;
+      int woff = DOFFSET[len] + idx * len;
+      if (java.util.Arrays.equals(DICT, woff, woff + len, data, offset, offset + len)) {
+        if (len <= floor) {
+          return -1; // A 24-byte identity word ends the search, even below the floor.
         }
-        if (match && len > bestCovered) {
-          bestCovered = len;
-          bestWireLen = len;
-          bestTransform = 0;
-          bestIndex = idx;
-          if (bestCovered >= 24) {
-            outLength[0] = bestWireLen;
-            outCovered[0] = bestCovered;
-            outTransformId[0] = bestTransform;
-            outWordIndex[0] = bestIndex;
-            return bestCovered;
-          }
+        bestCovered = len;
+        bestWireLen = len;
+        bestTransform = 0;
+        bestIndex = idx;
+        if (bestCovered >= 24) {
+          // A 24-byte identity word ends the search, as it always has.
+          outLength[0] = bestWireLen;
+          outCovered[0] = bestCovered;
+          outTransformId[0] = bestTransform;
+          outWordIndex[0] = bestIndex;
+          return bestCovered;
         }
-      }
-      if (bestCovered >= len) {
         break;
       }
     }
 
-    if (useTransforms) {
-      byte[] tmp = new byte[MAX_TRANSFORMED_WORD_LENGTH];
+    if (useTransforms && bestCovered < MAX_TRANSFORMED_WORD_LENGTH) {
       // Long affixes make even an exact four-byte key highly ambiguous.
       // Separate length ranges let longer words use more prefix bytes
       // without losing shorter matches near the end of the input.
-      // Equal-length candidates stay in one tier and retain insertion order.
-      for (int tier = 0; tier < XFORM_PREFIX_LENGTHS.length; tier++) {
-        int prefixLength = XFORM_PREFIX_LENGTHS[tier];
-        if (available < prefixLength) {
+      // Tiers hold disjoint output lengths, so the longest tier with a match decides: search
+      // from the longest down and stop at the first match.
+      int tiers = 1;
+      int[] tierHash = new int[XFORM_PREFIX_LENGTHS.length];
+      tierHash[0] = key;
+      while (tiers < XFORM_PREFIX_LENGTHS.length && available >= XFORM_PREFIX_LENGTHS[tiers]) {
+        int prefixLength = XFORM_PREFIX_LENGTHS[tiers];
+        tierHash[tiers] = mixHash(tierHash[tiers - 1] ^ readWord4(data, offset + prefixLength - 4));
+        tiers++;
+      }
+      byte[] tmp = null;
+      search:
+      for (int tier = tiers - 1; tier >= 0; tier--) {
+        if (XFORM_TIER_MAX[tier] <= bestCovered) {
+          break; // This and shorter tiers cannot beat what is already found.
+        }
+        int hash = tierHash[tier];
+        int bit = hash >>> (32 - XFORM_FILTER_BITS);
+        if ((XFORM_FILTER[tier][bit >>> 6] & 1L << bit) == 0) {
           continue;
         }
-        int hash = transformedHash(data, offset, prefixLength);
-        int h = hash & (XFORM_HASH_SIZE - 1);
-        for (int slot = XFORM_HEAD[tier][h]; slot != -1; slot = XFORM_NEXT[slot]) {
-          int outLen = XFORM_OUT_LEN[slot];
-          if (outLen > available || outLen <= bestCovered) {
-            continue;
-          }
-          int wordMeta = XFORM_WORD_META[slot];
-          if ((wordMeta >>> 5) != (hash >>> XFORM_HASH_BITS)) {
-            continue;
-          }
-          int wordLen = wordMeta & 31;
-          int wordIndex = XFORM_WORD_INDEX[slot];
-          int tid = XFORM_TRANSFORM_ID[slot];
-          int produced = transform(DICT, DOFFSET[wordLen] + wordIndex * wordLen, wordLen, tid, tmp);
-          if (produced != outLen) {
-            continue;
-          }
-          boolean match = true;
-          for (int i = 0; i < outLen; i++) {
-            if (tmp[i] != data[offset + i]) {
-              match = false;
-              break;
+        int[] start = XFORM_START[tier];
+        long[] entries = XFORM_ENTRY[tier];
+        int high = (hash >> 16) + 32768;
+        int b = hash & (start.length - 2); // start has 2^bits + 1 entries
+        for (int i = start[b], last = start[b + 1]; i < last; i++) {
+          long packed = entries[i];
+          int h = (int) (packed >>> 37);
+          if (h != high) {
+            if (h > high) {
+              break; // Sorted by hash: this hash's group is behind us or absent.
             }
+            continue;
           }
-          if (match) {
+          int entry = (int) packed & 0x1fffffff;
+          int outLen = entry & 63;
+          if (outLen <= bestCovered) {
+            break; // Longest first: nothing further in this group can be better.
+          }
+          if (outLen > available || (byte) (packed >>> 29) != data[offset + outLen - 1]) {
+            continue;
+          }
+          int wordLen = (entry >>> 6) & 31;
+          int wordIndex = (entry >>> 11) & 2047;
+          int tid = entry >>> 22;
+          if (tmp == null) {
+            tmp = new byte[MAX_TRANSFORMED_WORD_LENGTH];
+          }
+          int produced = transform(DICT, DOFFSET[wordLen] + wordIndex * wordLen, wordLen, tid, tmp);
+          if (produced == outLen
+              && java.util.Arrays.equals(tmp, 0, outLen, data, offset, offset + outLen)) {
             bestCovered = outLen;
             bestWireLen = wordLen;
             bestTransform = tid;
             bestIndex = wordIndex;
-            if (bestCovered >= MAX_TRANSFORMED_WORD_LENGTH) {
-              break;
-            }
+            break search;
           }
         }
       }
     }
 
-    if (bestCovered >= 4) {
+    if (bestCovered > floor && bestCovered >= 4) {
       outLength[0] = bestWireLen;
       outCovered[0] = bestCovered;
       outTransformId[0] = bestTransform;

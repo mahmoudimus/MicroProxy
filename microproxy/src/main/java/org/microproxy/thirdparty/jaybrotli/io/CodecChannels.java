@@ -6,6 +6,7 @@ import org.microproxy.thirdparty.jaybrotli.Decoder;
 import org.microproxy.thirdparty.jaybrotli.Encoder;
 import org.microproxy.thirdparty.jaybrotli.config.DecoderOptions;
 import org.microproxy.thirdparty.jaybrotli.config.EncoderOptions;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
@@ -30,6 +31,19 @@ public final class CodecChannels {
     encoder.close();
   }
 
+  /**
+   * Decodes one Brotli stream from {@code input} to {@code output}. With the default {@link
+   * TrailingData#REJECT} policy the channel is read to end-of-stream and any byte after the Brotli
+   * stream is a {@link org.microproxy.thirdparty.jaybrotli.CorruptStreamException}; with {@link
+   * TrailingData#ALLOW} reading stops once the stream is complete (bytes already read past its end
+   * are discarded).
+   *
+   * @param input blocking compressed input, caller-owned
+   * @param output blocking decoded output, caller-owned
+   * @param options decoder settings
+   * @throws IOException on channel failure or interruption
+   * @throws BrotliException on a malformed stream or exceeded limit
+   */
   public static void decode(
       ReadableByteChannel input, WritableByteChannel output, DecoderOptions options)
       throws IOException, BrotliException {
@@ -38,7 +52,8 @@ public final class CodecChannels {
     Decoder decoder = new Decoder(options).onContent((buffer, end) -> sink.write(buffer));
     try {
       ByteBuffer buffer = ByteBuffer.allocateDirect(65536);
-      while (read(input, buffer) != -1) {
+      boolean stopAtEnd = options.trailingData() == TrailingData.ALLOW;
+      while (!(stopAtEnd && decoder.isFinished()) && read(input, buffer) != -1) {
         buffer.flip();
         decoder.receive(buffer);
         buffer.clear();

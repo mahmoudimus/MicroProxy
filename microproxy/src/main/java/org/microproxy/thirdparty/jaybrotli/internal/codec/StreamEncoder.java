@@ -29,8 +29,8 @@ import java.nio.ByteBuffer;
 /**
  * Push-model Brotli encoder.
  *
- * <p>Quality 0 emits uncompressed metablocks. Qualities 1–11 use LZ77 with Huffman coding. Quality
- * 2+ uses the static dictionary; 3+ deepens LZ search; 4+ matches transformed dictionary words; 5+
+ * <p>All qualities use LZ77 with Huffman coding; quality 0 probes one hash candidate per position
+ * and skips ahead through literal runs. Quality 2+ uses the static dictionary; 3+ deepens LZ search; 4+ matches transformed dictionary words; 5+
  * uses literal context maps; 6 adds a literal block split and distance context trees; 7 tunes
  * NPOSTFIX/NDIRECT; 8 uses up to four literal trees and an insert-and-copy block split; 9 uses
  * larger metablocks and a distance block split; 10 uses Zopfli command selection with bounded block
@@ -201,16 +201,6 @@ public final class StreamEncoder extends MetablockEncoder {
       throw new BrotliException("Encoder already finished");
     }
     ensureHeader();
-    if (quality == 0) {
-      while (data.hasRemaining()) {
-        int chunk = data.remaining();
-        if (chunk > MAX_METABLOCK) {
-          chunk = MAX_METABLOCK;
-        }
-        writeUncompressedMetablock(data, chunk, false);
-      }
-      return;
-    }
     int flushAt = metablockFlushSize();
     while (data.hasRemaining()) {
       ensurePendingCapacity(pendingLen + 1);
@@ -257,13 +247,6 @@ public final class StreamEncoder extends MetablockEncoder {
       return;
     }
     ensureHeader();
-    if (quality == 0) {
-      bw.writeBits(1, 1);
-      bw.writeBits(1, 1);
-      bw.finish();
-      completeStream();
-      return;
-    }
     if (pendingLen > 0) {
       flushCompressedMetablock(pendingLen, true);
     } else {
@@ -300,5 +283,6 @@ public final class StreamEncoder extends MetablockEncoder {
     pendingLen = 0;
     historyLen = 0;
     distRing.reset();
+    lz77Index.reset();
   }
 }

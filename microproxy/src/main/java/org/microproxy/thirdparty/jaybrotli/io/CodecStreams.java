@@ -6,6 +6,7 @@ import org.microproxy.thirdparty.jaybrotli.Decoder;
 import org.microproxy.thirdparty.jaybrotli.Encoder;
 import org.microproxy.thirdparty.jaybrotli.config.DecoderOptions;
 import org.microproxy.thirdparty.jaybrotli.config.EncoderOptions;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -71,12 +72,23 @@ public final class CodecStreams {
     };
   }
 
+  /**
+   * Returns a stream of the data decoded from {@code input}, which must hold one Brotli stream.
+   * With the default {@link TrailingData#REJECT} policy the input is read to its end and any byte
+   * after the Brotli stream fails the read; with {@link TrailingData#ALLOW} reading stops once the
+   * stream is complete (bytes already buffered past its end are discarded).
+   *
+   * @param input compressed input, owned by the returned stream
+   * @param options decoder settings
+   * @return decoded stream
+   */
   public static InputStream decoding(InputStream input, DecoderOptions options) {
     Objects.requireNonNull(input);
     return new InputStream() {
       boolean closed, eof;
       final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
       final byte[] compressed = new byte[8192];
+      final boolean stopAtEnd = options.trailingData() == TrailingData.ALLOW;
       final Decoder decoder =
           new Decoder(options)
               .onContent(
@@ -99,6 +111,12 @@ public final class CodecStreams {
         if (length == 0) return 0;
         try {
           while (queue.isEmpty() && !eof) {
+            if (stopAtEnd && decoder.isFinished()) {
+              // Trailing data is allowed: leave the rest of the input unread.
+              eof = true;
+              decoder.close();
+              break;
+            }
             int n = input.read(compressed);
             if (n < 0) {
               eof = true;

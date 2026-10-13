@@ -29,6 +29,7 @@ import org.microproxy.thirdparty.jaybrotli.LimitExceededException;
 import org.microproxy.thirdparty.jaybrotli.MetablockKind;
 import org.microproxy.thirdparty.jaybrotli.TruncatedStreamException;
 import org.microproxy.thirdparty.jaybrotli.config.Limits;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 import java.nio.ByteBuffer;
 
 /**
@@ -39,6 +40,9 @@ import java.nio.ByteBuffer;
  * mid-symbol across buffer boundaries.
  */
 public final class StreamDecoder extends MetablockDecoder {
+  /** Compressed bytes passed to {@link #receive} since the stream started. */
+  private long received;
+
   /** Creates a decoder with default limits and a no-op handler. */
   public StreamDecoder() {
     reset();
@@ -115,6 +119,37 @@ public final class StreamDecoder extends MetablockDecoder {
   }
 
   /**
+   * Sets what happens to bytes after the end of the stream. {@link TrailingData#REJECT} (the
+   * default) fails on any such byte; {@link TrailingData#ALLOW} stops at the end of the stream and
+   * leaves them unconsumed. Survives reset.
+   *
+   * @param policy trailing-data policy (null restores {@link TrailingData#REJECT})
+   */
+  public void setTrailingData(TrailingData policy) {
+    this.trailingData = (policy != null) ? policy : TrailingData.REJECT;
+  }
+
+  /**
+   * Returns whether the complete stream, including its final padding, has been decoded.
+   *
+   * @return true once the end of the stream has been reached
+   */
+  public boolean isFinished() {
+    return finished;
+  }
+
+  /**
+   * Returns the compressed length of the stream: the number of input bytes, counted from the first
+   * byte passed to {@link #receive}, that make up the stream. Bytes from that offset on are
+   * trailing data.
+   *
+   * @return the stream length in bytes, or -1 before the end of the stream has been decoded
+   */
+  public long streamLength() {
+    return streamLength;
+  }
+
+  /**
    * Sets how many literal bytes may accumulate in the ring before {@link BrotliHandler#content} is
    * invoked. Smaller values increase callback frequency; {@code 1} emits after every literal. The
    * default is 4096. Pending output is always flushed at literal-run boundaries, before copies, and
@@ -140,15 +175,29 @@ public final class StreamDecoder extends MetablockDecoder {
       throw new NullPointerException("data");
     }
     if (state == DecoderState.DONE) {
-      throw new BrotliException("Decoder already finished");
+      if (!finished) {
+        throw new BrotliException("Decoder already finished");
+      }
+      if (data.hasRemaining() && trailingData == TrailingData.REJECT) {
+        throw located(new CorruptStreamException("Trailing bytes after the end of the stream"));
+      }
+      return;
     }
     bindHandler();
+    long base = received;
+    int start = data.position();
+    received += data.remaining();
     br.setInput(data);
     try {
       process();
       if (state != DecoderState.DONE) {
         flushContentEmit();
         br.savePending();
+      } else {
+        // Leave the caller's buffer at the first byte after the stream. Bytes this buffer
+        // contributes beyond that point are trailing data (rejected unless allowed).
+        long used = Math.max(0L, Math.min(streamLength - base, (long) data.limit() - start));
+        data.position(start + (int) used);
       }
     } catch (BrotliException e) {
       abort();
@@ -206,6 +255,9 @@ public final class StreamDecoder extends MetablockDecoder {
   public void reset() {
     if (ring != null) ring.close();
     br.reset();
+    finished = false;
+    streamLength = -1L;
+    received = 0L;
     distRing.reset();
     state = DecoderState.WINDOW_BITS;
     wbits = 0;
@@ -259,6 +311,9 @@ public final class StreamDecoder extends MetablockDecoder {
     htreeL = null;
     htreeI = null;
     htreeD = null;
+    lutL = null;
+    lutI = null;
+    lutD = null;
     headerCategory = 0;
     headerPhase = 0;
     treesRead = 0;

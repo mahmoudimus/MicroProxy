@@ -46,6 +46,16 @@ public final class Context {
 
   private Context() {}
 
+  /**
+   * The packed context lookup: for mode {@code m}, {@code table[(m << 9) + p1] | table[(m << 9) +
+   * 256 + p2]} is the literal context id. Callers must not modify it.
+   *
+   * @return the lookup table
+   */
+  public static int[] lookupTable() {
+    return LOOKUP;
+  }
+
   public static int literalContextId(int mode, int p1, int p2) {
     p1 &= 0xff;
     p2 &= 0xff;
