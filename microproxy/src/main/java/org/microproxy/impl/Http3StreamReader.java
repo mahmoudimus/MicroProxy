@@ -85,6 +85,11 @@ final class Http3StreamReader {
      * waiting on the stream are.
      */
     private final Runnable onReset;
+    /**
+     * Told when the peer's FIN has been read, everything before it queued (a client ending its
+     * request), before the exchange can read the end.
+     */
+    private final Runnable onEnd;
 
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition changed = lock.newCondition();
@@ -120,12 +125,18 @@ final class Http3StreamReader {
     private final Body body = new Body();
 
     Http3StreamReader(Http3Endpoint endpoint, QuicStream stream, boolean response, IntConsumer onBytes, Runnable onReset) {
+        this(endpoint, stream, response, onBytes, onReset, null);
+    }
+
+    Http3StreamReader(Http3Endpoint endpoint, QuicStream stream, boolean response, IntConsumer onBytes, Runnable onReset,
+            Runnable onEnd) {
         this.endpoint = endpoint;
         this.stream = stream;
         this.id = stream.id();
         this.response = response;
         this.onBytes = onBytes;
         this.onReset = onReset;
+        this.onEnd = onEnd;
         this.rules = Http3StreamValidator.forRequestStream(id,
                 response ? Http3StreamValidator.Role.CLIENT : Http3StreamValidator.Role.SERVER);
     }
@@ -154,6 +165,7 @@ final class Http3StreamReader {
             rules.onEndOfStream();
             if (!noContent) Http3Headers.checkContentLength(id, declaredLength, received, true);
             clean = true;
+            if (onEnd != null) onEnd.run();
             lock.lock();
             try {
                 ended = true;

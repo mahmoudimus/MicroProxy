@@ -126,8 +126,8 @@ class LauncherTest {
                 "--http2-max-streams", "--http3", "--http3-upstream", "--http3-upstream-hosts", "--http3-max-streams",
                 "--no-http3-alt-svc", "--http3-retry", "--http3-0rtt", "--no-http3-upstream-0rtt", "--quic-congestion",
                 "--qlog-dir", "--qlog-max-files", "--masque", "--masque-udp-template", "--masque-udp-idle-timeout",
-                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-intercept-quic",
-                "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
+                "--masque-max-udp-flows", "--masque-max-udp-flows-per-connection", "--masque-release-wait",
+                "--masque-intercept-quic", "--masque-quic-ports", "--quic-hosts", "--quic-framing", "--quic-max-message-size",
                 "--quic-message-error-code", "--listener-keystore", "--listener-keystore-password", "--ignore-hosts", "--allow-hosts", "--tcp-hosts", "--transparent-tls-port",
                 "--transparent-quic-port", "--transparent-quic-relay-idle-timeout", "--mode", "--socks",
                 "--reverse",
@@ -235,16 +235,19 @@ class LauncherTest {
     void masqueFlagsAndProperties() throws IOException {
         HttpProxyServerBootstrap b = parse("--masque-udp-template", "/udp?h={target_host}&p={target_port}",
                 "--masque-udp-idle-timeout", "20", "--masque-max-udp-flows", "100",
-                "--masque-max-udp-flows-per-connection", "4").bootstrap();
+                "--masque-max-udp-flows-per-connection", "4", "--masque-release-wait", "0").bootstrap();
         Http3Options h3 = BootstrapView.http3Options(b);
         assertEquals("/udp?h={target_host}&p={target_port}", h3.connectUdpTemplate());
         assertEquals(java.time.Duration.ofSeconds(20), h3.connectUdpIdleTimeout());
         assertEquals(100, h3.connectUdpMaxFlows());
         assertEquals(4, h3.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ZERO, h3.connectUdpReleaseWait());
+        assertThrows(IllegalArgumentException.class, () -> parse("--masque-release-wait", "-1"));
         Http3Options defaults = BootstrapView.http3Options(parse("--masque-max-udp-flows", "10").bootstrap());
         assertEquals("/.well-known/masque/udp/{target_host}/{target_port}/", defaults.connectUdpTemplate());
         assertEquals(10, defaults.connectUdpMaxFlows());
         assertEquals(64, defaults.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ofMillis(250), defaults.connectUdpReleaseWait());
         assertThrows(IllegalArgumentException.class, () -> parse("--masque-udp-template", "/udp/{target_host}/"));
         assertFalse(BootstrapView.connectUdp(b), "CONNECT-UDP on the TCP listener is off by default");
         assertTrue(BootstrapView.connectUdp(parse("--masque").bootstrap()));
@@ -256,11 +259,13 @@ class LauncherTest {
         p.setProperty("masque_udp_template", "/m/{target_host}/{target_port}");
         p.setProperty("masque_udp_idle_timeout", "5");
         p.setProperty("masque_max_udp_flows_per_connection", "8");
+        p.setProperty("masque_release_wait", "1000");
         Http3Options fromFile = BootstrapView.http3Options(BootstrapView.fromProperties(p));
         assertEquals("/m/{target_host}/{target_port}", fromFile.connectUdpTemplate());
         assertEquals(java.time.Duration.ofSeconds(5), fromFile.connectUdpIdleTimeout());
         assertEquals(4096, fromFile.connectUdpMaxFlows());
         assertEquals(8, fromFile.connectUdpMaxFlowsPerConnection());
+        assertEquals(java.time.Duration.ofSeconds(1), fromFile.connectUdpReleaseWait());
         assertFalse(fromFile.connectUdpInterceptQuic());
         assertEquals(java.util.Set.of(443), fromFile.connectUdpQuicPorts());
     }

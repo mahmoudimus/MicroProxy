@@ -496,6 +496,51 @@ public final class H2StreamClient implements AutoCloseable {
         }
 
         /**
+         * Resets the stream and opens another with a HEADERS frame of {@code fields}, both frames in
+         * one write: the proxy reads them back to back.
+         */
+        public Stream resetAndOpen(ErrorCode code, List<HeaderField> fields) throws IOException {
+            return thenOpen(true, code, fields);
+        }
+
+        /**
+         * Ends the stream's output (an empty DATA frame with END_STREAM) and opens another stream
+         * with a HEADERS frame of {@code fields}, both frames in one write.
+         */
+        public Stream endAndOpen(List<HeaderField> fields) throws IOException {
+            return thenOpen(false, null, fields);
+        }
+
+        private Stream thenOpen(boolean resetting, ErrorCode code, List<HeaderField> fields) throws IOException {
+            Stream next;
+            writeLock.lock();
+            try {
+                lock.lock();
+                try {
+                    if (localEnded || reset != null) throw new IOException("stream " + id + " already ended");
+                    localEnded = true;
+                    if (resetting) reset = code;
+                    next = new Stream(nextStreamId, initialSendWindow);
+                    nextStreamId += 2;
+                    streams.put(next.id, next);
+                    changed.signalAll();
+                } finally {
+                    lock.unlock();
+                }
+                if (resetting) {
+                    writer.writeRstStream(id, code);
+                } else {
+                    writer.writeData(id, new byte[0], 0, 0, true);
+                }
+                writer.writeHeaders(next.id, encoder.encode(fields), false);
+                writer.flush();
+            } finally {
+                writeLock.unlock();
+            }
+            return next;
+        }
+
+        /**
          * Waits until the proxy ends the stream (END_STREAM) or resets it; returns the reset's code,
          * or null if the stream ended first.
          */

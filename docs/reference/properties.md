@@ -89,6 +89,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `masque_udp_template` | the URI template CONNECT-UDP requests name their target with (see [CONNECT-UDP](../guides/masque.md)) | `/.well-known/masque/udp/{target_host}/{target_port}/` |
 | `masque_udp_idle_timeout` | seconds a CONNECT-UDP flow lives without a datagram either way | `60` |
 | `masque_max_udp_flows` / `masque_max_udp_flows_per_connection` | CONNECT-UDP flows at once, and per client connection | `4096` / `64` |
+| `masque_release_wait` | milliseconds a CONNECT-UDP request that finds `masque_max_udp_flows` reached waits for flows already ending to give their places back (see [CONNECT-UDP](../guides/masque.md); `0` = none) | `250` |
 | `masque_intercept_quic` | decide on the QUIC inside CONNECT-UDP flows as on transparent QUIC (see [QUIC inside CONNECT-UDP flows](../guides/masque.md#quic-inside-connect-udp-flows)) | `false` |
 | `masque_quic_ports` | the target ports of the flows `masque_intercept_quic` inspects: comma-separated, or `any` | `443` |
 | `http3_0rtt` | accept 0-RTT early data from resuming HTTP/3 clients (`http3`, and HTTP/3 intercepted from `transparent_quic_port` clients or inside CONNECT-UDP flows; see [Session resumption and 0-RTT](../guides/http3.md#session-resumption-and-0-rtt)) | `false` |

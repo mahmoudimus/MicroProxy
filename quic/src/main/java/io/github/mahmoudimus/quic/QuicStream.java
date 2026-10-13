@@ -2,6 +2,7 @@ package io.github.mahmoudimus.quic;
 
 import io.github.mahmoudimus.quic.connection.Connection;
 import io.github.mahmoudimus.quic.connection.Dir;
+import io.github.mahmoudimus.quic.connection.RecvState;
 import io.github.mahmoudimus.quic.connection.StreamException;
 import io.github.mahmoudimus.quic.connection.StreamId;
 import java.io.Closeable;
@@ -203,6 +204,44 @@ public final class QuicStream implements Closeable {
                 }
                 connection.await();
             }
+        } finally {
+            driver.lock.unlock();
+        }
+    }
+
+    /**
+     * Whether the peer is done with the stream, as far as this side has received, read or not: its
+     * FIN or a RESET_STREAM arrived, or it asked this side to stop sending (STOP_SENDING); or the
+     * connection is gone. The connection's frames are processed in the order they arrive, before
+     * any thread reads them: an application that reads each stream on a thread of its own learns
+     * here, on another stream's thread, what the peer sent on this one before what it is reading.
+     *
+     * @return true once the peer ended, reset or stopped the stream
+     */
+    public boolean peerDone() {
+        driver.lock.lock();
+        try {
+            if (driver.lostReason() != null) {
+                return true;
+            }
+            if (input != null) {
+                if (input.eof || input.reset != null) {
+                    return true;
+                }
+                // Null once the receiving side is released: read to its end, or reset.
+                RecvState state = conn.recvState(id);
+                if (state != RecvState.RECV) {
+                    return true;
+                }
+            }
+            if (output != null) {
+                try {
+                    return conn.stopped(id) >= 0;
+                } catch (StreamException e) {
+                    return false; // this side finished or reset its output, and that is done with
+                }
+            }
+            return false;
         } finally {
             driver.lock.unlock();
         }

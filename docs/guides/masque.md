@@ -55,6 +55,17 @@ is the same whichever transport carries the flow.
   datagrams and 512 KiB (`connectUdpQueue`); past that datagrams are dropped, as a network drops
   what it cannot carry, so a client that does not read its stream, or a slow target, holds up
   nothing else.
+- **Room after an end.** A flow holds its places in the bounds until the proxy has seen it end,
+  and no longer: the proxy gives them back before it tells the client of an end of its own (a
+  refusal, the idle timeout), and as soon as it reads the client's (a reset, the end of its
+  stream, the close of its connection), before it reads anything after it. A request the client
+  sends right after ending a flow on the same connection finds room for it: over HTTP/2 in the
+  order of the frames, over HTTP/3 in the order QUIC received them. Across connections there is
+  no such order, and a client that ends a flow on one and opens one on another may have the new
+  request read first: a request that finds the proxy's bound full waits, for at most
+  `--masque-release-wait` (250 ms), while flows whose end the proxy has seen are still closing,
+  and is refused at once when none are. A client that has read the proxy's end of a flow (its
+  reset or its own end of the stream) always finds that flow's places free.
 - **Flow control.** A capsule to the client is stream data: over HTTP/2 it waits for the
   stream's and the connection's send window (over HTTP/3 for QUIC's, over HTTP/1.1 for TCP's),
   as any DATA does. While it waits, the target's later datagrams queue up to the bounds above

@@ -87,6 +87,7 @@ public final class Http3Options {
     private final Duration connectUdpIdleTimeout;
     private final int connectUdpMaxFlows;
     private final int connectUdpMaxFlowsPerConnection;
+    private final Duration connectUdpReleaseWait;
     private final int connectUdpMaxQueued;
     private final long connectUdpMaxQueuedBytes;
     private final boolean connectUdpInterceptQuic;
@@ -125,6 +126,7 @@ public final class Http3Options {
         connectUdpIdleTimeout = b.connectUdpIdleTimeout;
         connectUdpMaxFlows = b.connectUdpMaxFlows;
         connectUdpMaxFlowsPerConnection = b.connectUdpMaxFlowsPerConnection;
+        connectUdpReleaseWait = b.connectUdpReleaseWait;
         connectUdpMaxQueued = b.connectUdpMaxQueued;
         connectUdpMaxQueuedBytes = b.connectUdpMaxQueuedBytes;
         connectUdpInterceptQuic = b.connectUdpInterceptQuic;
@@ -179,6 +181,7 @@ public final class Http3Options {
         b.connectUdpIdleTimeout = connectUdpIdleTimeout;
         b.connectUdpMaxFlows = connectUdpMaxFlows;
         b.connectUdpMaxFlowsPerConnection = connectUdpMaxFlowsPerConnection;
+        b.connectUdpReleaseWait = connectUdpReleaseWait;
         b.connectUdpMaxQueued = connectUdpMaxQueued;
         b.connectUdpMaxQueuedBytes = connectUdpMaxQueuedBytes;
         b.connectUdpInterceptQuic = connectUdpInterceptQuic;
@@ -345,6 +348,14 @@ public final class Http3Options {
         return connectUdpMaxFlowsPerConnection;
     }
 
+    /**
+     * {@return how long a CONNECT-UDP request that finds the proxy's bound on flows full waits for
+     * flows already ending to give their places back}
+     */
+    public Duration connectUdpReleaseWait() {
+        return connectUdpReleaseWait;
+    }
+
     /** {@return the datagrams a CONNECT-UDP flow queues in each direction, beyond which it drops them} */
     public int connectUdpMaxQueued() {
         return connectUdpMaxQueued;
@@ -402,7 +413,8 @@ public final class Http3Options {
                 + transparentMaxRelayFlowsPerSource + ", transparentMaxBufferedBytes=" + transparentMaxBufferedBytes
                 + ", connectUdpTemplate=" + connectUdpTemplate + ", connectUdpIdleTimeout=" + connectUdpIdleTimeout
                 + ", connectUdpMaxFlows=" + connectUdpMaxFlows + ", connectUdpMaxFlowsPerConnection="
-                + connectUdpMaxFlowsPerConnection + ", connectUdpMaxQueued=" + connectUdpMaxQueued
+                + connectUdpMaxFlowsPerConnection + ", connectUdpReleaseWait=" + connectUdpReleaseWait
+                + ", connectUdpMaxQueued=" + connectUdpMaxQueued
                 + ", connectUdpMaxQueuedBytes=" + connectUdpMaxQueuedBytes + ", connectUdpInterceptQuic="
                 + connectUdpInterceptQuic + ", connectUdpQuicPorts=" + connectUdpQuicPorts
                 + ", quicCongestionControl=" + quicCongestionControl + ", qlogDirectory=" + qlogDirectory
@@ -439,6 +451,7 @@ public final class Http3Options {
         private Duration connectUdpIdleTimeout = Duration.ofSeconds(60);
         private int connectUdpMaxFlows = 4096;
         private int connectUdpMaxFlowsPerConnection = 64;
+        private Duration connectUdpReleaseWait = Duration.ofMillis(250);
         private int connectUdpMaxQueued = 128;
         private long connectUdpMaxQueuedBytes = 512 * 1024;
         private boolean connectUdpInterceptQuic;
@@ -807,6 +820,25 @@ public final class Http3Options {
         public Builder connectUdpMaxFlows(int total, int perConnection) {
             connectUdpMaxFlows = positive(total, "connectUdpMaxFlows");
             connectUdpMaxFlowsPerConnection = positive(perConnection, "connectUdpMaxFlowsPerConnection");
+            return this;
+        }
+
+        /**
+         * How long a CONNECT-UDP request that finds the proxy's bound on flows ({@link
+         * #connectUdpMaxFlows}) full waits for a place, while flows that are already ending still
+         * hold theirs (default 250 ms; zero refuses at once). A flow's places go back as soon as
+         * the proxy reads that its client ended it, so a request that follows the end on the same
+         * connection always finds room; a client that ends a flow on one connection and opens one
+         * on another may have the new request read first, and this wait covers flows whose end
+         * the proxy has seen but not finished. Without such flows a full bound refuses at once.
+         *
+         * @param wait the longest wait, zero or more
+         * @return this builder
+         */
+        public Builder connectUdpReleaseWait(Duration wait) {
+            Objects.requireNonNull(wait, "connectUdpReleaseWait");
+            if (wait.isNegative()) throw new IllegalArgumentException("connectUdpReleaseWait must not be negative: " + wait);
+            connectUdpReleaseWait = wait;
             return this;
         }
 

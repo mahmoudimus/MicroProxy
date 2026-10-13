@@ -129,6 +129,7 @@ See [HTTP/3 and QUIC](../guides/http3.md), [Transparent QUIC](../guides/transpar
 | `--masque-udp-idle-timeout <seconds>` | close a CONNECT-UDP flow after this long without a datagram either way (default 60) | `masque_udp_idle_timeout` |
 | `--masque-max-udp-flows <n>` | CONNECT-UDP flows at once (default 4096) | `masque_max_udp_flows` |
 | `--masque-max-udp-flows-per-connection <n>` | CONNECT-UDP flows of one client connection (default 64) | `masque_max_udp_flows_per_connection` |
+| `--masque-release-wait <millis>` | how long a CONNECT-UDP request that finds --masque-max-udp-flows reached waits for flows already ending to give their places back (default 250, 0 = none) | `masque_release_wait` |
 | `--masque-intercept-quic` | decide on QUIC inside CONNECT-UDP flows as on transparent QUIC: intercept HTTP/3 (and other QUIC with the QUIC hooks) unless the host rules or hooks decline, else relay | `masque_intercept_quic` |
 | `--masque-quic-ports <list>` | the target ports whose flows --masque-intercept-quic inspects: comma-separated, or "any" (default 443) | `masque_quic_ports` |
 | `--quic-hosts <regex>` | relay matching hosts' intercepted QUIC (server host or SNI) stream by stream through the QUIC hooks, even HTTP/3, and intercept their other QUIC; repeatable | `quic_hosts` |
