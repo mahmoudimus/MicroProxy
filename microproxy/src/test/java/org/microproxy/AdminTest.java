@@ -31,6 +31,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -577,6 +578,39 @@ class AdminTest {
         assertEquals(200, post("/quitquitquit").statusCode());
         eventually("stopped", () -> proxy.state() == ServerState.STOPPED);
         eventually("the admin listener closed with the proxy", () -> proxy.getAdminAddress() == null);
+    }
+
+    /**
+     * A graceful drain has begun by the time the admin answers it: {@code /ready} fails right after,
+     * whenever the thread that waits out the drain time gets to run. Every carrier thread of the
+     * virtual threads is kept busy across the request, so a drain begun only on a virtual thread
+     * of its own would not have begun yet.
+     */
+    @Test
+    void aGracefulDrainHasBegunWhenTheAdminAnswers() throws Exception {
+        proxy = withAdmin().withDrainTime(Duration.ofSeconds(30)).start();
+        int carriers = Integer.getInteger("jdk.virtualThreadScheduler.parallelism",
+                Runtime.getRuntime().availableProcessors());
+        CountDownLatch busy = new CountDownLatch(carriers);
+        AtomicBoolean spin = new AtomicBoolean(true);
+        List<Thread> spinners = new ArrayList<>();
+        try {
+            for (int i = 0; i < carriers; i++) {
+                spinners.add(Thread.ofVirtual().start(() -> {
+                    busy.countDown();
+                    while (spin.get()) Thread.onSpinWait();
+                }));
+            }
+            assertTrue(busy.await(10, TimeUnit.SECONDS), "every carrier busy");
+            assertEquals(200, post("/drain_listeners?graceful").statusCode());
+            assertEquals(ServerState.DRAINING, proxy.state());
+            HttpResponse<String> ready = get("/ready");
+            assertEquals(503, ready.statusCode());
+            assertEquals("DRAINING\n", ready.body());
+        } finally {
+            spin.set(false);
+            for (Thread t : spinners) t.join();
+        }
     }
 
     @Test

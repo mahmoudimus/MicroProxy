@@ -362,8 +362,11 @@ final class AdminServer {
 
     private Reply drainListeners(Map<String, String> params) {
         if (params.containsKey("graceful")) {
-            // drain() lasts the drain time: the answer does not wait for it.
-            Thread.ofVirtual().name(server.name + "-drain").start(() -> server.drain(server.drainTime));
+            // Begun before the answer, so that /ready fails once the client has it; the drain time
+            // is not waited for.
+            if (server.beginDrain(server.drainTime)) {
+                Thread.ofVirtual().name(server.name + "-drain").start(server::endDrain);
+            }
         } else {
             server.stopListeners();
         }
