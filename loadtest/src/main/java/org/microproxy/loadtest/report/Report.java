@@ -39,6 +39,7 @@ public final class Report {
         StringBuilder md = new StringBuilder();
         Md w = new Md(md);
         header(w, top);
+        verdicts(w, top, Report.strings(top.get("proxies")));
         Map<String, Object> results = Json.getObject(top, "results");
         List<String> proxies = strings(top.get("proxies"));
         for (String scenario : strings(top.get("scenarios"))) {
@@ -86,6 +87,46 @@ public final class Report {
         for (Object note : asList(top.get("notes"))) w.line("- Note: " + note);
         boolean ok = Boolean.TRUE.equals(top.get("harnessOk"));
         w.line("- Harness self-checks: " + (ok ? "all passed" : "**SOME FAILED** (see the end)"));
+        w.line("- Gate: `" + top.getOrDefault("gate", "microproxy") + "`; gated verdicts failed: "
+                + num(top.getOrDefault("gatedFailures", 0)));
+        w.blank();
+    }
+
+    // --- Verdicts ---
+
+    private static void verdicts(Md w, Map<String, Object> top, List<String> proxies) {
+        List<Map<String, Object>> all = Json.getObjects(top, "verdicts");
+        if (all.isEmpty()) return;
+        String gate = String.valueOf(top.getOrDefault("gate", "microproxy"));
+        w.h2("Verdicts");
+        w.line("Judgements on each proxy under test, kept apart from the harness's own self-checks. **pass** and"
+                + " **FAIL** are verdicts; **inconclusive** means the window was too short to tell (the smoke preset's"
+                + " memory and soak windows are), and never fails a run; real verdicts come from the standard and full"
+                + " presets. Under the gate `" + gate + "`, "
+                + switch (gate) {
+                    case "all" -> "a failed verdict on either proxy fails the run.";
+                    case "none" -> "no verdict fails the run; only harness self-checks do.";
+                    default -> "only MicroProxy's failed verdicts fail the run: MicroProxy is the system under"
+                            + " development, and LittleProxy's verdicts are comparison data.";
+                });
+        w.blank();
+        w.row("Proxy", "Scenario", "Subject", "Verdict", "Result", "Gates the run", "Detail");
+        w.rule(7);
+        for (String p : proxies) {
+            for (Map<String, Object> v : all) {
+                if (!p.equals(v.get("proxy"))) continue;
+                Object pass = v.get("pass");
+                boolean gates = switch (gate) {
+                    case "all" -> true;
+                    case "none" -> false;
+                    default -> "microproxy".equals(p);
+                };
+                String result = pass == null ? "inconclusive" : Boolean.TRUE.equals(pass) ? "pass" : "**FAIL**";
+                if ("not-applicable".equals(v.get("verdict"))) result = "n/a";
+                w.row(p, String.valueOf(v.get("scenario")), String.valueOf(v.get("subject")), String.valueOf(v.get("verdict")),
+                        result, gates ? "yes" : "no (comparison)", trunc(String.valueOf(v.get("detail")), 140));
+            }
+        }
         w.blank();
     }
 
@@ -197,11 +238,18 @@ public final class Report {
         w.h2("Memory under adversarial clients");
         w.line("The proxy runs with its memory capped (small heap and direct-memory ceiling, plus a cgroup limit"
                 + " where available). Each workload runs while the harness samples memory; a normal client probes"
-                + " throughout. Pass condition: **bounded** (memory levels off) or **shedding** (the proxy refuses or"
-                + " closes the adversarial connections and stays up). An out-of-memory or crash fails.");
+                + " throughout. Verdicts: **bounded** (memory levels off) or **shedding** (the proxy closes or refuses"
+                + " the adversarial connections and stays up) pass; **unbounded-growth** (RSS or NMT total climbs"
+                + " steadily after the warm-up: a least-squares line with R² ≥ 0.8 along which it grows by more than"
+                + " 32 MB and a quarter of its mean), an out-of-memory or a crash fail. A rising peak alone is not"
+                + " growth: pooled buffers warm up and then stay flat. When too little of the window is left after the"
+                + " warm-up (10 s or a quarter of the workload) to tell, the verdict is **inconclusive**. NMT \"other\""
+                + " is where direct (off-heap) buffers are counted; for the slow readers, \"direct per reader\" is that"
+                + " section's peak over the baseline, divided by the readers: what the proxy holds for each one.");
         w.blank();
-        w.row("Workload", "Proxy", "Outcome", "Pass", "Peak RSS MB", "Peak NMT MB", "Peak heap(GC) MB", "Peak other MB", "Proxy end");
-        w.rule(9);
+        w.row("Workload", "Proxy", "Verdict", "Result", "Peak RSS MB", "Peak NMT MB", "Peak heap(GC) MB", "Peak other MB",
+                "Direct per reader KB", "Proxy end");
+        w.rule(10);
         // Collect every workload name across proxies.
         List<String> attackNames = new ArrayList<>();
         for (String p : proxies) {
@@ -214,17 +262,29 @@ public final class Report {
             for (String p : proxies) {
                 Map<String, Object> rec = findAttack(Json.getObject(perProxy, p), attack);
                 if (rec == null) {
-                    w.row(attack, p, "-", "-", "-", "-", "-", "-", "-");
+                    w.row(attack, p, "-", "-", "-", "-", "-", "-", "-", "-");
                 } else if (rec.containsKey("skipped")) {
-                    w.row(attack, p, "skipped", "-", "-", "-", "-", "-", trunc(Json.getString(rec, "skipped", ""), 40));
+                    w.row(attack, p, "not-applicable", "n/a", "-", "-", "-", "-", "-", trunc(Json.getString(rec, "skipped", ""), 40));
                 } else {
-                    w.row(attack, p, Json.getString(rec, "outcome", "-"), yes(rec.get("pass")), mb(rec.get("peakRssKb")),
+                    Object pass = rec.get("pass");
+                    String result = pass == null ? "inconclusive" : Boolean.TRUE.equals(pass) ? "pass" : "**FAIL**";
+                    w.row(attack, p, Json.getString(rec, "outcome", "-"), result, mb(rec.get("peakRssKb")),
                             mb(rec.get("peakNmtTotalKb")), mb(rec.get("peakHeapAfterGcKb")), mb(rec.get("peakOtherKb")),
-                            Json.getString(rec, "proxyState", "-"));
+                            directPerReader(rec), Json.getString(rec, "proxyState", "-"));
                 }
             }
         }
         w.blank();
+    }
+
+    /** For slow readers: NMT "other" (direct memory) above the baseline per reader, in KB. */
+    private static String directPerReader(Map<String, Object> rec) {
+        if (!"slowread".equals(rec.get("attack"))) return "-";
+        long readers = Json.getLong(Json.getObject(rec, "workload"), "connections", 0);
+        long peak = Json.getLong(rec, "peakOtherKb", -1);
+        long base = Json.getLong(Json.getObject(Json.getObject(rec, "baseline"), "nmt"), "otherKb", 0);
+        if (readers <= 0 || peak < 0) return "-";
+        return num(Math.round(Math.max(0, peak - base) / (double) readers));
     }
 
     private static Map<String, Object> findAttack(Map<String, Object> r, String name) {
@@ -239,10 +299,11 @@ public final class Report {
     private static void soak(Md w, Map<String, Object> perProxy, List<String> proxies) {
         w.h2("Soak");
         w.line("A fixed moderate rate held for the configured duration, with RSS, heap-after-GC, file descriptors and"
-                + " threads tracked over time. A least-squares slope that fits well and grows meaningfully is flagged"
-                + " as a possible leak.");
+                + " threads tracked over time. After a warm-up (a fifth of the soak, at least 30 s), a least-squares"
+                + " slope with R² ≥ 0.8 that grows by more than a threshold is flagged as a possible leak. A soak too"
+                + " short to judge (under 60 s left after the warm-up, as in the smoke preset) is inconclusive.");
         w.blank();
-        w.row("Proxy", "Requests", "Errors", "Leak suspected", "RSS slope (KB/h)", "heap(GC) slope (KB/h)", "fd slope (/h)", "Proxy end");
+        w.row("Proxy", "Requests", "Errors", "Leak verdict", "RSS slope (KB/h)", "heap(GC) slope (KB/h)", "fd slope (/h)", "Proxy end");
         w.rule(8);
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
@@ -251,7 +312,9 @@ public final class Report {
                 continue;
             }
             Map<String, Object> leak = Json.getObject(r, "leakCheck");
-            w.row(p, num(r.get("totalRequests")), num(r.get("totalErrors")), yes(r.get("leakSuspected")),
+            String leakVerdict = !Boolean.TRUE.equals(r.get("leakWindowConclusive")) ? "inconclusive (window too short)"
+                    : Boolean.TRUE.equals(r.get("leakSuspected")) ? "**possible leak**" : "no leak";
+            w.row(p, num(r.get("totalRequests")), num(r.get("totalErrors")), leakVerdict,
                     slopeHour(leak, "rssKb"), slopeHour(leak, "heapAfterGcKb"), slopeHour(leak, "fds"),
                     Json.getString(r, "proxyState", "-"));
         }
@@ -296,7 +359,9 @@ public final class Report {
 
     private static void checks(Md w, Map<String, Object> top) {
         w.h2("Harness self-checks");
-        w.line("These verify the harness worked, not how well a proxy did. A CI smoke run fails if any failed.");
+        w.line("These verify the harness worked (each scenario ran, responses validated, metrics were sampled, the"
+                + " report was written), not how well a proxy did. Any failure here fails the run, whichever proxy it"
+                + " concerns.");
         w.blank();
         w.row("Proxy", "Scenario", "Check", "OK", "Detail");
         w.rule(5);

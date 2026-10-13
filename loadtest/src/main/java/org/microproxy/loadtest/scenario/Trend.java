@@ -19,6 +19,12 @@ final class Trend {
      * {@code minAbsolute} (in the series' unit) and {@code minRelative} of the mean, with R² ≥ 0.5.
      */
     static Map<String, Object> fit(List<Map<String, Object>> samples, String key, double minAbsolute, double minRelative) {
+        return fit(samples, key, minAbsolute, minRelative, 0.5);
+    }
+
+    /** As {@link #fit(List, String, double, double)}, flagging only fits with R² of at least {@code minR2}. */
+    static Map<String, Object> fit(List<Map<String, Object>> samples, String key, double minAbsolute, double minRelative,
+            double minR2) {
         double n = 0;
         double sx = 0;
         double sy = 0;
@@ -50,10 +56,25 @@ final class Trend {
         double r2 = vx == 0 || vy == 0 ? 0 : Math.pow(n * sxy - sx * sy, 2) / (vx * vy);
         double mean = sy / n;
         double growth = slope * (t1 - t0);
-        boolean flagged = slope > 0 && r2 >= 0.5 && growth > minAbsolute && growth > minRelative * mean;
+        boolean flagged = slope > 0 && r2 >= minR2 && growth > minAbsolute && growth > minRelative * mean;
         return Json.obj("key", key, "samples", (long) n, "windowS", round(t1 - t0), "mean", round(mean),
                 "slopePerS", round(slope), "slopePerHour", round(slope * 3600), "growth", round(growth),
                 "growthPct", mean == 0 ? 0.0 : round(100 * growth / mean), "r2", round(r2), "flagged", flagged);
+    }
+
+    /** The samples at or after {@code fromT}. */
+    static List<Map<String, Object>> after(List<Map<String, Object>> samples, double fromT) {
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> m : samples) {
+            if (m.get("t") instanceof Number n && n.doubleValue() >= fromT) out.add(m);
+        }
+        return out;
+    }
+
+    /** The span in seconds between the first and last sample. */
+    static double span(List<Map<String, Object>> samples) {
+        if (samples.size() < 2) return 0;
+        return ((Number) samples.get(samples.size() - 1).get("t")).doubleValue() - ((Number) samples.get(0).get("t")).doubleValue();
     }
 
     static double round(double v) {

@@ -40,6 +40,7 @@ public final class RunContext {
     final Map<String, Object> environment;
     final Properties versions = new Properties();
     final List<Map<String, Object>> checks = new ArrayList<>();
+    final List<Map<String, Object>> verdicts = new ArrayList<>();
     final List<String> notes = new ArrayList<>();
     ManagedProcess origin;
     int originPort;
@@ -192,10 +193,27 @@ public final class RunContext {
         return c;
     }
 
-    /** Records a check of the harness itself: a failed one fails the run. */
+    /**
+     * Records a self-check of the harness (a scenario ran, responses validated, metrics were
+     * sampled, a report was written): a failed one fails the run, whichever proxy it concerns.
+     */
     void check(String proxy, String scenario, String what, boolean ok, String detail) {
         checks.add(Json.obj("proxy", proxy, "scenario", scenario, "check", what, "ok", ok, "detail", detail));
         if (!ok) System.err.println("[loadtest] harness check failed: " + proxy + "/" + scenario + ": " + what + ": " + detail);
+    }
+
+    /**
+     * Records a verdict on the proxy under test, such as bounded, unbounded-growth or oom for a
+     * memory workload, a leak flag, or a fault's outcome. {@code pass} is true, false, or null for
+     * inconclusive (the window was too short to tell), which never fails a run. Whether a failed
+     * verdict fails the run depends on the {@code gate} setting (see {@link Orchestrator}).
+     */
+    void verdict(String proxy, String scenario, String subject, String verdict, Boolean pass, String detail) {
+        verdicts.add(Json.obj("proxy", proxy, "scenario", scenario, "subject", subject, "verdict", verdict, "pass", pass,
+                "detail", detail));
+        if (Boolean.FALSE.equals(pass)) {
+            System.err.println("[loadtest] verdict: " + proxy + "/" + scenario + "/" + subject + " = " + verdict + ": " + detail);
+        }
     }
 
     /** Logs progress to standard error. */

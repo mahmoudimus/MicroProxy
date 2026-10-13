@@ -52,6 +52,9 @@ public final class MemoryWorkloads {
     /** A workload that tracks its threads and sockets so {@link #stop()} can unblock them. */
     private abstract static class Base implements Handle {
         final AtomicBoolean stop = new AtomicBoolean();
+        // Connections the proxy ended (closed or reset) while the workload was still running: the
+        // shedding signal.
+        final AtomicLong closedByProxy = new AtomicLong();
         final CopyOnWriteArrayList<Thread> threads = new CopyOnWriteArrayList<>();
         final CopyOnWriteArrayList<Socket> sockets = new CopyOnWriteArrayList<>();
 
@@ -117,7 +120,8 @@ public final class MemoryWorkloads {
         Base h = new Base() {
             @Override
             public Map<String, Object> progress() {
-                return Json.obj("connectionsActive", active.get(), "headerLinesSent", headersSent.get());
+                return Json.obj("connectionsActive", active.get(), "headerLinesSent", headersSent.get(),
+                        "closedByProxy", closedByProxy.get(), "connections", connections);
             }
         };
         h.run(connections, () -> {
@@ -137,8 +141,11 @@ public final class MemoryWorkloads {
                     out.write(("X-Pad-" + headersSent.incrementAndGet() + ": keep-waiting\r\n").getBytes(StandardCharsets.US_ASCII));
                     out.flush();
                 }
-            } catch (IOException | InterruptedException e) {
-                // Refused, closed by the proxy (it capped the header size or timed out), or stopped.
+            } catch (IOException e) {
+                // Refused or closed by the proxy (it capped the header size or timed out).
+                if (!h.stop.get()) h.closedByProxy.incrementAndGet();
+            } catch (InterruptedException e) {
+                // Stopped.
             } finally {
                 active.decrementAndGet();
                 closeQuietly(s);
@@ -150,10 +157,12 @@ public final class MemoryWorkloads {
     private static Handle slowread(InetSocketAddress proxy, int connections, String url, long rate) {
         AtomicLong active = new AtomicLong();
         AtomicLong bytesRead = new AtomicLong();
+        AtomicLong completed = new AtomicLong();
         Base h = new Base() {
             @Override
             public Map<String, Object> progress() {
-                return Json.obj("connectionsActive", active.get(), "bytesRead", bytesRead.get());
+                return Json.obj("connectionsActive", active.get(), "bytesRead", bytesRead.get(),
+                        "completed", completed.get(), "closedByProxy", closedByProxy.get(), "connections", connections);
             }
         };
         HttpConn.Target t = HttpConn.Target.of(url, 200, -1, 0);
@@ -163,11 +172,13 @@ public final class MemoryWorkloads {
                 Socket sock = null;
                 try (HttpConn c = HttpConn.open(proxy, null, 5000, 600_000, 8192)) {
                     sock = h.track(c.socket());
+                    c.countBodyInto(bytesRead);
                     active.incrementAndGet();
                     HttpConn.Result r = c.exchange(t, rate, System.nanoTime() + 3_600_000_000_000L);
-                    bytesRead.addAndGet(r.bodyBytes());
+                    if (r.outcome() == Outcome.OK) completed.incrementAndGet();
+                    else if (!h.stop.get()) h.closedByProxy.incrementAndGet();
                 } catch (IOException e) {
-                    // Reconnect.
+                    if (!h.stop.get()) h.closedByProxy.incrementAndGet();
                 } finally {
                     active.decrementAndGet();
                     if (sock != null) h.untrack(sock);
@@ -184,7 +195,8 @@ public final class MemoryWorkloads {
         Base h = new Base() {
             @Override
             public Map<String, Object> progress() {
-                return Json.obj("uploads", uploads.get(), "downloads", downloads.get());
+                return Json.obj("uploads", uploads.get(), "downloads", downloads.get(), "errors", closedByProxy.get(),
+                        "connections", 2 * connections);
             }
         };
         HttpConn.Target down = HttpConn.Target.of(downUrl, 200, bytes, 0);
@@ -201,7 +213,9 @@ public final class MemoryWorkloads {
                 sock = h.track(c.socket());
                 HttpConn.Result r = c.exchange(t);
                 if (r.outcome() == Outcome.OK) count.incrementAndGet();
+                else if (!h.stop.get()) h.closedByProxy.incrementAndGet();
             } catch (IOException e) {
+                if (!h.stop.get()) h.closedByProxy.incrementAndGet();
                 sleepUnlessStopped(h, 50);
             } finally {
                 if (sock != null) h.untrack(sock);
@@ -220,7 +234,8 @@ public final class MemoryWorkloads {
         Base h = new Base() {
             @Override
             public Map<String, Object> progress() {
-                return Json.obj("connectionsActive", active.get(), "streamsSent", streams.get());
+                return Json.obj("connectionsActive", active.get(), "streamsSent", streams.get(),
+                        "closedByProxy", closedByProxy.get(), "connections", connections);
             }
         };
         h.run(connections, () -> {
@@ -255,6 +270,7 @@ public final class MemoryWorkloads {
                     writer.flush();
                 } catch (IOException e) {
                     // The proxy closed the connection (it limited reset streams): reconnect.
+                    if (!h.stop.get()) h.closedByProxy.incrementAndGet();
                 } catch (InterruptedException e) {
                     return;
                 } finally {

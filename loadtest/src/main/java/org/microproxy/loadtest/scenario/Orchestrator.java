@@ -20,8 +20,15 @@ import org.microproxy.loadtest.report.Report;
 /**
  * Drives a whole run: starts the shared origin, then runs each scenario against each proxy in a
  * fresh proxy JVM, writes one JSON file per proxy-and-scenario plus a combined {@code results.json},
- * and renders the Markdown report and charts. Returns 0 only if every harness check passed, so a
- * CI smoke run fails when the harness itself did not work.
+ * and renders the Markdown report and charts.
+ *
+ * <p>Two kinds of result are kept apart. <b>Harness self-checks</b> say the harness worked: each
+ * scenario ran, responses validated, metrics were sampled, the report was written. <b>Verdicts</b>
+ * judge the proxy under test: bounded, shedding, unbounded-growth, oom or crashed, leak flags, fault
+ * outcomes; a verdict can also be inconclusive, which never fails a run. The exit code is 0 unless a
+ * self-check failed or a verdict the {@code gate} setting covers failed: by default MicroProxy's
+ * only, the system under development; LittleProxy's verdicts are comparison data, reported but not
+ * gating ({@code --gate all} gates both, {@code --gate none} neither).
  */
 public final class Orchestrator {
 
@@ -83,6 +90,10 @@ public final class Orchestrator {
                         RunContext.log("scenario " + scenarioName + "/" + proxy + " threw: " + e);
                         e.printStackTrace();
                     }
+                    if (!r.containsKey("error")) {
+                        ctx.check(proxy, scenarioName, "proxy metrics were sampled (/proc and NMT)", sampled(r),
+                                sampled(r) ? "per-second /proc samples and NMT present" : "no /proc series or no NMT figures");
+                    }
                     perProxy.put(proxy, r);
                     writeJson(out.resolve(scenarioName + "-" + proxy + ".json"), r);
                 }
@@ -93,13 +104,21 @@ public final class Orchestrator {
             if (ctx.origin != null) ctx.origin.stop(Duration.ofSeconds(3));
         }
 
-        boolean allChecksPassed = ctx.checks.stream().allMatch(c -> Boolean.TRUE.equals(c.get("ok")));
-        top.put("checks", ctx.checks);
+        String gate = settings.get("gate");
+        if (!List.of("microproxy", "all", "none").contains(gate)) {
+            throw new IllegalArgumentException("--gate must be microproxy, all or none, not " + gate);
+        }
+        top.put("gate", gate);
+        top.put("verdicts", ctx.verdicts);
         top.put("notes", ctx.notes);
-        top.put("harnessOk", allChecksPassed);
-        writeJson(out.resolve("results.json"), top);
+        writeAndRender(out, top, ctx, settings);
+        // The report is part of the harness's own job: check it was written, then record that check.
+        Path report = out.resolve("report.md");
+        boolean reported = Files.isRegularFile(report) && Files.size(report) > 0
+                && Files.isRegularFile(out.resolve("results.json"));
+        ctx.check("all", "report", "JSON results and the Markdown report were written", reported, report.toString());
+        writeAndRender(out, top, ctx, settings);
 
-        Report.write(out, top, settings.getBool("charts"));
         // Keep the newest run easy to find.
         try {
             Path latest = baseDir.resolve("latest");
@@ -108,15 +127,82 @@ public final class Orchestrator {
         } catch (IOException | UnsupportedOperationException e) {
             // Symlinks may be unavailable; the timestamp directory is enough.
         }
+        boolean harnessOk = ctx.checks.stream().allMatch(c -> Boolean.TRUE.equals(c.get("ok")));
+        List<Map<String, Object>> gatedFailures = gatedFailures(ctx.verdicts, gate);
         System.out.println("Results: " + out.toAbsolutePath());
-        System.out.println("Report:  " + out.resolve("report.md").toAbsolutePath());
-        System.out.println("Harness checks: " + (allChecksPassed ? "all passed" : "SOME FAILED"));
+        System.out.println("Report:  " + report.toAbsolutePath());
+        System.out.println("Harness self-checks: " + (harnessOk ? "all passed" : "SOME FAILED"));
         for (Map<String, Object> c : ctx.checks) {
             if (!Boolean.TRUE.equals(c.get("ok"))) {
                 System.out.println("  FAIL " + c.get("proxy") + "/" + c.get("scenario") + ": " + c.get("check") + " -> " + c.get("detail"));
             }
         }
-        return allChecksPassed ? 0 : 1;
+        System.out.println("Verdicts (gate: " + gate + "):");
+        for (Map<String, Object> v : ctx.verdicts) {
+            Object pass = v.get("pass");
+            String mark = pass == null ? "    " : Boolean.TRUE.equals(pass) ? "  ok" : gates(gate, v) ? "FAIL" : "note";
+            System.out.println("  " + mark + " " + v.get("proxy") + "/" + v.get("scenario") + "/" + v.get("subject") + ": "
+                    + v.get("verdict"));
+        }
+        if (!gatedFailures.isEmpty()) {
+            System.out.println(gatedFailures.size() + " gated verdict(s) failed.");
+        }
+        return harnessOk && gatedFailures.isEmpty() ? 0 : 1;
+    }
+
+    /** Writes results.json (with the checks so far) and renders the report. */
+    private static void writeAndRender(Path out, Map<String, Object> top, RunContext ctx, Settings settings) throws IOException {
+        boolean harnessOk = ctx.checks.stream().allMatch(c -> Boolean.TRUE.equals(c.get("ok")));
+        top.put("checks", ctx.checks);
+        top.put("harnessOk", harnessOk);
+        top.put("gatedFailures", gatedFailures(ctx.verdicts, settings.get("gate")).size());
+        writeJson(out.resolve("results.json"), top);
+        Report.write(out, top, settings.getBool("charts"));
+    }
+
+    /** Whether a failed verdict on this proxy fails the run under {@code gate}. */
+    static boolean gates(String gate, Map<String, Object> verdict) {
+        return switch (gate) {
+            case "all" -> true;
+            case "none" -> false;
+            default -> "microproxy".equals(verdict.get("proxy"));
+        };
+    }
+
+    /** The failed verdicts the gate counts; inconclusive verdicts never count. */
+    static List<Map<String, Object>> gatedFailures(List<Map<String, Object>> verdicts, String gate) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> v : verdicts) {
+            if (Boolean.FALSE.equals(v.get("pass")) && gates(gate, v)) out.add(v);
+        }
+        return out;
+    }
+
+    /** Whether a scenario's results hold per-second /proc samples of the proxy and some NMT figure. */
+    static boolean sampled(Object node) {
+        return hasProcSeries(node) && hasNmt(node);
+    }
+
+    private static boolean hasProcSeries(Object node) {
+        if (node instanceof Map<?, ?> m) {
+            if (m.get("series") instanceof Map<?, ?> series && series.get("proxy") instanceof List<?> l && !l.isEmpty()) return true;
+            for (Object v : m.values()) if (hasProcSeries(v)) return true;
+        } else if (node instanceof List<?> l) {
+            for (Object v : l) if (hasProcSeries(v)) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasNmt(Object node) {
+        if (node instanceof Map<?, ?> m) {
+            for (String k : List.of("totalKb", "nmtTotalKb")) {
+                if (m.get(k) instanceof Number n && n.longValue() > 0) return true;
+            }
+            for (Object v : m.values()) if (hasNmt(v)) return true;
+        } else if (node instanceof List<?> l) {
+            for (Object v : l) if (hasNmt(v)) return true;
+        }
+        return false;
     }
 
     private static Scenario scenario(String name, RunContext ctx) {

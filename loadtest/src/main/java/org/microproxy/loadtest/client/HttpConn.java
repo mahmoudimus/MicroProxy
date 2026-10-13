@@ -31,6 +31,7 @@ public final class HttpConn implements Closeable {
     private final InputStream in;
     private final OutputStream out;
     private boolean usable = true;
+    private java.util.concurrent.atomic.AtomicLong progress;
     // Allocated on the first body read, so an idle held connection (the ramp holds tens of
     // thousands) keeps only the small buffered stream, not a 64 KB transfer buffer.
     private byte[] buf;
@@ -92,6 +93,11 @@ public final class HttpConn implements Closeable {
             }
             throw e;
         }
+    }
+
+    /** Counts every body byte read into {@code counter} as it arrives (for slow readers' progress). */
+    public void countBodyInto(java.util.concurrent.atomic.AtomicLong counter) {
+        this.progress = counter;
     }
 
     /** The socket, for attacks that write by hand. */
@@ -226,6 +232,7 @@ public final class HttpConn implements Closeable {
                 throw new EOFException("connection closed after " + total + " body bytes");
             }
             total += r;
+            if (progress != null) progress.addAndGet(r);
             if (readRate > 0) {
                 long due = start + total * 1_000_000_000L / readRate;
                 long wait = Math.min(due, deadlineNanos) - System.nanoTime();

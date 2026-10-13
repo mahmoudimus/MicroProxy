@@ -149,6 +149,7 @@ final class RateSweep extends Scenario {
             result.put("series", sampler.toMap());
             result.put("gcEvents", GcLog.toList(p.gcEvents()));
             result.put("proxyState", p.state());
+            survival(proxy, p, max == null ? "no step sustained" : "max sustainable " + max + " req/s");
         }
         // h2load needs h2c, which only MicroProxy offers: a separate proxy started with it.
         if (proxy.equals("microproxy") && ExternalTools.available(ctx).contains("h2load")) {

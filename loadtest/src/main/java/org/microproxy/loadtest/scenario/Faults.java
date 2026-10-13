@@ -51,6 +51,9 @@ final class Faults extends Scenario {
             long baseFds = ProcStats.sample(p.pid()).fds();
             long baseRss = ProcStats.sample(p.pid()).rssKb();
             result.put("baseline", Json.obj("fds", baseFds, "rssKb", baseRss));
+            // Heap after a forced GC and NMT before the faults, to check none of them leaves memory behind.
+            Map<String, Object> memBefore = p.memorySnapshot(true);
+            result.put("memoryBefore", memBefore);
 
             // name -> [relay, path, longest acceptable ms, what a good proxy does]
             Object[][] faults = {
@@ -114,22 +117,43 @@ final class Faults extends Scenario {
                     if (!fdsReturned) detail.append("fds ").append(fdsNow).append(" vs ").append(baseFds).append("; ");
                     if (!alive) detail.append("proxy ").append(p.state()).append("; ");
                 }
+                String why = (noHang ? "" : "hung to " + Math.round(maxMs) + " ms; ")
+                        + (relayDrained ? "" : relayOpen + " relay connections left open; ")
+                        + (fdsReturned ? "" : "fds " + fdsNow + " vs baseline " + baseFds + "; ")
+                        + (alive ? "" : "proxy " + p.state() + "; ");
+                ctx.verdict(proxy, name(), (String) f[0], bounded ? "bounded" : (alive ? "leak-or-hang" : "crashed"), bounded,
+                        r.get("outcomes") + ", max " + Math.round(maxMs) + " ms" + (bounded ? "" : "; " + why));
                 RunContext.log(proxy + " fault " + f[0] + ": " + r.get("outcomes") + " max " + Math.round(maxMs)
                         + " ms, relay open after " + relayOpen + ", fds " + fdsNow + " (base " + baseFds + ")"
                         + (bounded ? " ok" : " LEAK/HANG"));
                 if (!p.alive()) break;
             }
             result.put("faults", results);
+            if (p.alive()) {
+                Map<String, Object> memAfter = p.memorySnapshot(true);
+                result.put("memoryAfter", memAfter);
+                long heapDelta = num(memAfter.get("heapAfterGcKb")) - num(memBefore.get("heapAfterGcKb"));
+                long nmtDelta = num(Json.getObject(memAfter, "nmt").get("totalKb")) - num(Json.getObject(memBefore, "nmt").get("totalKb"));
+                // Retained after every fault: more than 16 MB of live heap, or 32 MB of committed memory.
+                boolean retained = heapDelta > 16 * 1024 || nmtDelta > 32 * 1024;
+                ctx.verdict(proxy, name(), "memory", retained ? "memory-retained" : "bounded", !retained,
+                        "heap after GC " + (heapDelta >= 0 ? "+" : "") + heapDelta + " KB, NMT total "
+                                + (nmtDelta >= 0 ? "+" : "") + nmtDelta + " KB across the faults");
+            }
             result.put("allBounded", allBounded);
             result.put("series", sampler.toMap());
             result.put("proxyState", p.state());
-            ctx.check(proxy, name(), "faults ran and the proxy survived them", p.alive() && !results.isEmpty(),
-                    "ran " + results.size() + " faults, proxy " + p.state());
+            // Harness self-check: the faults ran (each one's outcome is a verdict above).
+            ctx.check(proxy, name(), "faults ran", !results.isEmpty(), "ran " + results.size() + " faults, proxy " + p.state());
             // The pass condition is that every fault was bounded (no hang, no leak); reported, not a harness check.
             result.put("pass", allBounded);
             result.put("failDetail", detail.toString());
         }
         return result;
+    }
+
+    private static long num(Object o) {
+        return o instanceof Number n ? n.longValue() : 0;
     }
 
     private Map<String, Object> originStats() {

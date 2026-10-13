@@ -31,6 +31,15 @@ abstract class Scenario {
     /** Runs the scenario against {@code proxy}. */
     abstract Map<String, Object> run(String proxy) throws Exception;
 
+    /**
+     * Records whether the proxy came through the scenario: {@code survived} (pass), or {@code oom}
+     * or {@code crashed} (fail). Limits reached and rates are data, not verdicts.
+     */
+    void survival(String proxy, ProxyProcess p, String detail) {
+        String state = p.oom() ? "oom" : p.alive() ? "survived" : "crashed";
+        ctx.verdict(proxy, name(), "survival", state, state.equals("survived"), detail + "; proxy " + p.state());
+    }
+
     /** A command timeout: {@code seconds} plus slack for the load generator's own work. */
     static Duration timeout(double seconds) {
         return Duration.ofMillis((long) (seconds * 1000) + 60_000);

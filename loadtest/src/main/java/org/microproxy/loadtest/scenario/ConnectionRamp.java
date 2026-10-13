@@ -147,6 +147,7 @@ final class ConnectionRamp extends Scenario {
                     "held up to " + held + (failure != null ? "; stopped: " + failure : ""));
             result.put("series", sampler.toMap());
             result.put("proxyState", p.state());
+            survival(proxy, p, "held up to " + held + "; " + (failure == null ? "limit not reached" : failure));
             result.put("clientNofile", clientNofile);
         }
         return result;

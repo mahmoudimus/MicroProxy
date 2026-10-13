@@ -91,27 +91,45 @@ final class Soak extends Scenario {
 
             result.put("windows", windows);
             result.put("memSeries", memSeries);
+            // The first fifth of the soak (at least 30 s) is warm-up: pools fill and the JIT settles.
+            double warmup = Math.max(30, total * 0.2);
+            List<Map<String, Object>> leakWindow = Trend.after(memSeries, warmup);
+            boolean conclusive = leakWindow.size() >= 6 && Trend.span(leakWindow) >= 60;
             Map<String, Object> leak = new LinkedHashMap<>();
-            // A leak must grow by at least 16 MB and 10% of its own mean, fitting a line (R^2>=0.5).
-            leak.put("rssKb", Trend.fit(memSeries, "rssKb", 16 * 1024, 0.10));
-            leak.put("heapAfterGcKb", Trend.fit(memSeries, "heapAfterGcKb", 16 * 1024, 0.10));
-            leak.put("nmtTotalKb", Trend.fit(memSeries, "nmtTotalKb", 16 * 1024, 0.10));
-            leak.put("fds", Trend.fit(memSeries, "fds", 100, 0.20));
-            leak.put("threads", Trend.fit(memSeries, "threads", 50, 0.20));
-            boolean flagged = false;
-            for (Object v : leak.values()) {
-                if (v instanceof Map<?, ?> fit && Boolean.TRUE.equals(fit.get("flagged"))) flagged = true;
+            // A leak must grow by at least 16 MB and 10% of its own mean, along a line with R^2 >= 0.8.
+            leak.put("rssKb", Trend.fit(leakWindow, "rssKb", 16 * 1024, 0.10, 0.8));
+            leak.put("heapAfterGcKb", Trend.fit(leakWindow, "heapAfterGcKb", 16 * 1024, 0.10, 0.8));
+            leak.put("nmtTotalKb", Trend.fit(leakWindow, "nmtTotalKb", 16 * 1024, 0.10, 0.8));
+            leak.put("fds", Trend.fit(leakWindow, "fds", 100, 0.20, 0.8));
+            leak.put("threads", Trend.fit(leakWindow, "threads", 50, 0.20, 0.8));
+            List<String> flaggedKeys = new ArrayList<>();
+            for (Map.Entry<String, Object> e : leak.entrySet()) {
+                if (e.getValue() instanceof Map<?, ?> fit && Boolean.TRUE.equals(fit.get("flagged"))) flaggedKeys.add(e.getKey());
             }
+            boolean flagged = conclusive && !flaggedKeys.isEmpty();
+            result.put("leakWarmupS", warmup);
+            result.put("leakWindowConclusive", conclusive);
             result.put("leakCheck", leak);
             result.put("leakSuspected", flagged);
+            if (!p.alive()) {
+                ctx.verdict(proxy, name(), "leak", p.oom() ? "oom" : "crashed", false, "proxy " + p.state());
+            } else if (!conclusive) {
+                ctx.verdict(proxy, name(), "leak", "inconclusive", null, "window too short for a leak check: "
+                        + leakWindow.size() + " samples over " + Trend.round(Trend.span(leakWindow)) + " s after a "
+                        + Trend.round(warmup) + " s warm-up; needs 6 over 60 s");
+            } else {
+                ctx.verdict(proxy, name(), "leak", flagged ? "possible-leak" : "no-leak", !flagged,
+                        flagged ? "steady growth in " + flaggedKeys : "no series grew steadily");
+            }
             result.put("totalRequests", requests);
             result.put("totalErrors", errors);
             result.put("windowCount", w);
             result.put("series", sampler.toMap());
             result.put("gcEvents", GcLog.toList(p.gcEvents()));
             result.put("proxyState", p.state());
-            ctx.check(proxy, name(), "soak ran its full duration serving requests", p.alive() && requests > 0 && w > 0,
-                    "ran " + w + " windows, " + requests + " requests, proxy " + p.state());
+            // Harness self-check: the soak ran and memory was sampled (the proxy's survival is a verdict above).
+            ctx.check(proxy, name(), "soak ran and memory was sampled", w > 0 && !memSeries.isEmpty(),
+                    "ran " + w + " windows, " + requests + " requests, " + memSeries.size() + " memory samples");
         }
         return result;
     }
