@@ -38,7 +38,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%UPSTREAM_HOST%`, `%UPSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`) | the server or chained proxy connected to |
 | `%UPSTREAM_CLUSTER%` | the chained proxy's `host:port`, else the server's |
 | `%UPSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`) | the proxy's end of that connection |
-| `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | why the TLS handshake with the server failed |
+| `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | why the TLS handshake with the server failed: the [reason](../guides/mitm.md#server-tls-failures) and the innermost cause's message (`certificate_revoked: Certificate has been revoked, ...`, `hostname_mismatch: No subject alternative ...`) |
 | `%UPSTREAM_TLS_VERSION%`, `%UPSTREAM_TLS_CIPHER%`, `%UPSTREAM_PEER_SUBJECT%`, `%UPSTREAM_PEER_ISSUER%` | the TLS session with the server |
 | `%DOWNSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_REMOTE_PORT%` | the client (the PROXY protocol's source, when one was accepted) |
 | `%DOWNSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_LOCAL_PORT%` | the proxy's end of the client connection |

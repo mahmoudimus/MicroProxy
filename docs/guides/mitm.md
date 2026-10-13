@@ -157,6 +157,24 @@ filters, `proxyToServerConnectionSSLHandshakeStarted` comes after the `CONNECT`'
 `CONNECT` exchange completes (`proxyToClientResponseSent`, `responseCompleted`) once the server
 handshake is over, so its timings include that handshake.
 
+Every server TLS failure reaches filters, the `FailureResponder` and the access log as a
+`ProxyFailure.TlsFailed` whose `cause()` is the JDK's own exception with its whole cause chain:
+for a revoked certificate, the `CertPathValidatorException` with reason `REVOKED` is in it, for
+an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the chain:
+
+| `reason()` | When |
+|---|---|
+| `CERTIFICATE_REVOKED`, `REVOCATION_STATUS_UNKNOWN` | revocation checking (a `PKIXRevocationChecker` in the trust manager's parameters) found the certificate revoked, or could not tell |
+| `CERTIFICATE_EXPIRED`, `CERTIFICATE_NOT_YET_VALID` | a certificate of the chain is out of its validity period |
+| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed |
+| `HOSTNAME_MISMATCH` | the certificate is trusted but not valid for the host it was checked against |
+| `ALERT_RECEIVED` | the server ended the handshake with an alert; `alert()` names it (`handshake_failure`, `unrecognized_name`, ...) |
+| `TIMEOUT` | the handshake overran `--tls-handshake-timeout` |
+| `OTHER` | anything else (no common version or cipher suite, the connection closed, ...) |
+
+The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` is that reason's name and the innermost
+cause's message: `certificate_revoked: Certificate has been revoked, reason: ...`.
+
 ### Ignoring and allowing hosts
 
 `withIgnoreHosts(...)` (`--ignore-hosts`, `ignore_hosts`) and `withAllowHosts(...)`

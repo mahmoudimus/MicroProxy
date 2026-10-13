@@ -271,7 +271,7 @@ final class ClientFlowContext extends FlowContext {
             case ProxyFailure.ConnectFailed f -> addResponseFlag(ResponseFlag.UPSTREAM_CONNECTION_FAILURE);
             case ProxyFailure.TlsFailed f -> {
                 addResponseFlag(ResponseFlag.UPSTREAM_CONNECTION_FAILURE);
-                if (transportFailure == null && f.cause() != null) transportFailure = reason(f.cause());
+                if (transportFailure == null && f.cause() != null) transportFailure = tlsReason(f.cause());
             }
             case ProxyFailure.ServerTimeout f -> addResponseFlag(ResponseFlag.UPSTREAM_REQUEST_TIMEOUT);
             case ProxyFailure.BadServerResponse f -> addResponseFlag(serverClosedEarly(f.cause())
@@ -395,7 +395,16 @@ final class ClientFlowContext extends FlowContext {
 
     /** Records why the TLS handshake with the server failed. */
     void transportFailure(Throwable cause) {
-        transportFailure = reason(cause);
+        transportFailure = tlsReason(cause);
+    }
+
+    /**
+     * Why a TLS handshake failed, for {@code %UPSTREAM_TRANSPORT_FAILURE_REASON%}: its class
+     * ({@link ProxyFailure.TlsFailed.Reason#code()}), then the innermost cause's message, as in
+     * {@code certificate_revoked: Certificate has been revoked, ...}.
+     */
+    static String tlsReason(Throwable cause) {
+        return ProxyFailure.TlsFailed.Reason.of(cause).code() + ": " + reason(cause);
     }
 
     String transportFailure() {
