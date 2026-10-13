@@ -1,5 +1,97 @@
 # Changelog
 
+## [0.3.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.2.0...v0.3.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **launcher:** java -jar microproxy.jar serves HTTP/2 to clients that offer h2 and speaks it to servers that pick h2, where it used to need --http2 and --http2-upstream (with the http2-codec jar, which the -all jar bundles). Pass --no-http2 --no-http2-upstream to keep HTTP/1.1.
+* **core:** HTTP/2 is on by default to clients and to servers. Clients that offer h2 on intercepted TLS or the proxy's TLS listener now get HTTP/2, and servers that pick h2 when the proxy reaches them over TLS are spoken to in HTTP/2, where both used to get HTTP/1.1. Filters see such requests with version HTTP/2.0, and the streams of one client connection run concurrently. To keep HTTP/1.1, call withHttp2(false) and withHttp2Upstream(false) (properties http2=false and http2_upstream=false). Without the http2-codec module nothing changes.
+
+### Features
+
+* a switch for TLS origination of clients' https:// requests, and fix their scheme in later script hooks ([fdad513](https://github.com/mahmoudimus/MicroProxy/commit/fdad513444ccbd415c0d1137265ab07d29b043dd))
+* **core:** add an h2c-only listener ([921c47a](https://github.com/mahmoudimus/MicroProxy/commit/921c47a40b0080ac051aa648adbcde9cd3b2d5a5))
+* **core:** coalesce HTTP/2 connections to servers across names ([dc8e7b2](https://github.com/mahmoudimus/MicroProxy/commit/dc8e7b268af2055f7dc8119e4bc699c476bee1b3))
+* **core:** make TLS origination for clients' https:// requests a switch ([9a466ee](https://github.com/mahmoudimus/MicroProxy/commit/9a466eeb3dd18c374bd8c842b9c63118d1a2606c))
+* **core:** per-request upstream TLS handshake timeout ([d558eef](https://github.com/mahmoudimus/MicroProxy/commit/d558eeffee43971da9839b7cb8d78875c350acb5))
+* **core:** speak HTTP/2 to chained proxies ([5d95e13](https://github.com/mahmoudimus/MicroProxy/commit/5d95e134d04571df5bd7e498bdd6b60611278bfb))
+* **core:** turn HTTP/2 to clients and servers on by default ([302ee02](https://github.com/mahmoudimus/MicroProxy/commit/302ee023264b313dabd6260d8c08f19ac5ba76aa))
+* HTTP/2 connection coalescing to servers ([a7c25a6](https://github.com/mahmoudimus/MicroProxy/commit/a7c25a69088afa1ee13b4a9fa3f82573f7c5f662))
+* HTTP/2 to chained proxies ([69a33f5](https://github.com/mahmoudimus/MicroProxy/commit/69a33f5990370ea196719536377622986a87144b))
+* **http1:** opt-in acceptance of Transfer-Encoding with Content-Length ([fcb5a6d](https://github.com/mahmoudimus/MicroProxy/commit/fcb5a6d376100deee6292a3d0e74fe83718a3a9f))
+* **http2-codec:** read and write the ORIGIN frame (RFC 8336) ([8be1a6f](https://github.com/mahmoudimus/MicroProxy/commit/8be1a6f30b54f21c62d60755f23cd4102d99391f))
+* **http:** decode Brotli with jaybrotli, and keep br when rewriting bodies ([c60bffe](https://github.com/mahmoudimus/MicroProxy/commit/c60bffe35c60a0c9b0f10bef6c0478af413243b4))
+* **launcher:** add --http2-coalesce ([b761042](https://github.com/mahmoudimus/MicroProxy/commit/b761042cf6b2aca345cc449fbcce94ba09e0a109))
+* **launcher:** add --no-http2 and --no-http2-upstream ([48d7e71](https://github.com/mahmoudimus/MicroProxy/commit/48d7e71ede7692c3788fa9ec142e211eab0213eb))
+* **launcher:** add --no-originate-tls ([1184080](https://github.com/mahmoudimus/MicroProxy/commit/1184080fe46b76e249c3abd8c19c500fa13b0f53))
+* **launcher:** describe h2:// and h2c:// upstream proxies in --help ([1719beb](https://github.com/mahmoudimus/MicroProxy/commit/1719bebea75e68e045b8b1ca50cbce3a27f1e69b))
+* **loadtest:** Envoy, goproxy, g3proxy and Squid as comparison proxies ([ffac523](https://github.com/mahmoudimus/MicroProxy/commit/ffac523a9036975c82f987e1b0ba984f08fb4062))
+* **loadtest:** guard the cross-proxy runs against other work on the machine ([10f0f99](https://github.com/mahmoudimus/MicroProxy/commit/10f0f9931fd3d22edf99fed888e4ffe7f72f1e12))
+* **loadtest:** keep verdicts apart from self-checks, and gate on MicroProxy ([ece760b](https://github.com/mahmoudimus/MicroProxy/commit/ece760bc8798fbd5a9be9beeb659e4b21a984bad))
+* **loadtest:** let a lone noisy step pass the rate sweep ([f846796](https://github.com/mahmoudimus/MicroProxy/commit/f846796325f2ad167d1035d0351550cd22e6c419))
+* **loadtest:** match the benchmarks' equal-settings choices ([475268b](https://github.com/mahmoudimus/MicroProxy/commit/475268bd6b612dd85049839fca5660ebcbabbd84))
+* **loadtest:** system-level load and capacity harness ([72ade9a](https://github.com/mahmoudimus/MicroProxy/commit/72ade9a7b5d394084143c70b372fef8d8406c41f))
+* **loadtest:** system-level load and capacity harness, MicroProxy vs LittleProxy ([8cc5928](https://github.com/mahmoudimus/MicroProxy/commit/8cc59281946251d4d1ac8f79f9aa0dd1e7a9c86b))
+* **loadtest:** test external proxies, and record what else used the CPU ([175448d](https://github.com/mahmoudimus/MicroProxy/commit/175448dc9fdb9188ad248dd9d9e59652594c6a1c))
+* **masque:** CONNECT-UDP over HTTP/2 and HTTP/1.1 ([34bf2d1](https://github.com/mahmoudimus/MicroProxy/commit/34bf2d149e20be043364388ab871fb49d6ccfd55))
+* **masque:** serve CONNECT-UDP over HTTP/2 and HTTP/1.1 ([2183d96](https://github.com/mahmoudimus/MicroProxy/commit/2183d960f33d6afbf526efe446b2bcc0dd2175d6))
+* optional PROXY protocol, LittleProxy-faithful CONNECT 200, opt-in chunked+Content-Length ([8a193c3](https://github.com/mahmoudimus/MicroProxy/commit/8a193c3ad789165d282c25d4c805c093ab60a65a))
+* **otel:** add microproxy.upstream_protocol to spans and log records ([ad9dab0](https://github.com/mahmoudimus/MicroProxy/commit/ad9dab02c8c9c8d9884ce1764f921600c37b1e07))
+* per-request TLS handshake timeout and RetryBackoff policies ([0a03ff1](https://github.com/mahmoudimus/MicroProxy/commit/0a03ff1ece797f9c0330c6c7adc0b07a165570a5))
+* **proxy-protocol:** optional PROXY protocol, trusted sources, bounded header reads ([cc91e95](https://github.com/mahmoudimus/MicroProxy/commit/cc91e95de794358b527726c47198e7019cd32d99))
+* **quic:** tell whether the peer is done with a stream, read or not ([fc70132](https://github.com/mahmoudimus/MicroProxy/commit/fc70132a59d7a296da69382ca974025741f891c1))
+* **tls:** choose the server name and verification host per request ([94b658f](https://github.com/mahmoudimus/MicroProxy/commit/94b658f4e383f0ecc0906ab0c16eab502066a932))
+* **tls:** classify server TLS failures by their cause chain ([92cb50e](https://github.com/mahmoudimus/MicroProxy/commit/92cb50e52893706ca04fb69dfad3bce0139bad89))
+* **tls:** retry a server's handshake without SNI after unrecognized_name ([0b3e7cc](https://github.com/mahmoudimus/MicroProxy/commit/0b3e7ccf6223f096485912e0e0bab25589c815a4))
+* **tls:** TLS failure reasons, per-request SNI/verification host, retry without SNI ([ddb1744](https://github.com/mahmoudimus/MicroProxy/commit/ddb1744ef82ac617c54e700c21c8bf9de72c8937))
+
+
+### Bug Fixes
+
+* admin graceful drain race, stats double-read, QUIC relay test idle timeout ([4729e21](https://github.com/mahmoudimus/MicroProxy/commit/4729e21db9ef0009c1ba76258bb4722014a157e4))
+* **admin:** begin a graceful drain before answering /drain_listeners ([4e66595](https://github.com/mahmoudimus/MicroProxy/commit/4e665954f6595213a6d9e98b378d768bbb39418c))
+* **compat:** write the CONNECT 200 without response filters in LittleProxy mode ([42e95d2](https://github.com/mahmoudimus/MicroProxy/commit/42e95d2585c2423e65158fe427cc4c46f8cf5d3d))
+* **loadtest:** correct OOM detection, port allocation and client memory ([123aeec](https://github.com/mahmoudimus/MicroProxy/commit/123aeec080ed257b1c74b97c65fe171960511264))
+* **loadtest:** publish perf results with repository-relative paths ([7e253c1](https://github.com/mahmoudimus/MicroProxy/commit/7e253c1d70f77f685e6acd0291f01a3767b40545))
+* **loadtest:** record an external proxy's config under a relative results directory ([acf503e](https://github.com/mahmoudimus/MicroProxy/commit/acf503ec9850c408a65b2be8504262db1394ad3f))
+* **masque:** give a CONNECT-UDP flow's places back before the client learns it ended ([2698998](https://github.com/mahmoudimus/MicroProxy/commit/26989981977fe3cfa54b787c0cf897b0f0f71080))
+* **masque:** give a CONNECT-UDP flow's places back before the client learns it ended ([cfa529b](https://github.com/mahmoudimus/MicroProxy/commit/cfa529b392257c52dd7d9fc5bef3a4f8575532d5))
+* **masque:** give a flow's places back as the proxy reads the client's end of it ([15ad370](https://github.com/mahmoudimus/MicroProxy/commit/15ad370fa3b6860ffd626d4d9c928802d8273feb))
+* **masque:** give a flow's places back as the proxy reads the client's end of it ([0a4ecb2](https://github.com/mahmoudimus/MicroProxy/commit/0a4ecb26c2ed56f5a443509183c5aa4fe241cf77))
+* **masque:** read a datagram's context ID in whichever length it is encoded ([0f6413c](https://github.com/mahmoudimus/MicroProxy/commit/0f6413cda26cceeec9c8c619cf8afad862f475a2))
+* **quic:** time the key discard by the current PTO ([c404880](https://github.com/mahmoudimus/MicroProxy/commit/c4048804abe158a8b2175beb69767ee827fd17de))
+* **quic:** time the key discard by the current PTO ([2342732](https://github.com/mahmoudimus/MicroProxy/commit/234273202501c48c3e1d1ca868469943124c10a1))
+* **starlark:** keep an absolute request's scheme for later hooks ([6538727](https://github.com/mahmoudimus/MicroProxy/commit/6538727fe7aefdceee9e6e4cfca95f6a1be5175a))
+* **stats:** read each metric once when dumping the stats ([965b3ba](https://github.com/mahmoudimus/MicroProxy/commit/965b3bac0bdc98d4257d792bf721aaeea62ef5d1))
+
+
+### Performance Improvements
+
+* **http:** encode br with jaybrotli's default strategies ([f744200](https://github.com/mahmoudimus/MicroProxy/commit/f7442000ed9098666669086ecdc1b3d2a5a01d35))
+
+
+### Documentation
+
+* add the load-testing page and link it with the benchmarks page ([caae6ae](https://github.com/mahmoudimus/MicroProxy/commit/caae6ae8d3bdf5c909e973635215512ecbc9c12c))
+* animate how the architecture differs from LittleProxy's ([f82b005](https://github.com/mahmoudimus/MicroProxy/commit/f82b0054750f8136c54153e1f7819e589e8784ba))
+* Brotli stream bounds, and its measured speed and size ([b0f4a78](https://github.com/mahmoudimus/MicroProxy/commit/b0f4a78ce91d00f5844a5c795b7c47c898df9471))
+* describe HTTP/2 on by default ([0ca2013](https://github.com/mahmoudimus/MicroProxy/commit/0ca2013b6fa237c577a782528551b1028681d8b4))
+* describe load-test verdicts, the gate, and LittleProxy's slow readers ([b524af5](https://github.com/mahmoudimus/MicroProxy/commit/b524af50c78f70c847633e53331b6c6bab3804c3))
+* describe the benchmarks against LittleProxy ([1781512](https://github.com/mahmoudimus/MicroProxy/commit/17815124b8009a9d33fcec4492142a24346b0e3b))
+* describe the jaybrotli Brotli codec and br rewriting ([d39cef4](https://github.com/mahmoudimus/MicroProxy/commit/d39cef4e8bc4b14e3ff3da4a4f69304696e57adc))
+* document HTTP/2 connection coalescing to servers ([6a6f829](https://github.com/mahmoudimus/MicroProxy/commit/6a6f8293f767787dcc0ef476dad20b0005aabc9d))
+* document HTTP/2 to chained proxies ([74091ca](https://github.com/mahmoudimus/MicroProxy/commit/74091cab0dffe83cbd4f3197da5c578b0835b1a0))
+* document TLS origination for https:// proxy requests ([1dede4e](https://github.com/mahmoudimus/MicroProxy/commit/1dede4e4620f2deaa46fac4235ed7f85715eb2a0))
+* drop the in-flight list from the docs contribution guide ([aa7e58f](https://github.com/mahmoudimus/MicroProxy/commit/aa7e58f7ce13812bf03731baf17d0791a03a4b6a))
+* link the README's gRPC claim to the grpcio interop tests ([f77acb6](https://github.com/mahmoudimus/MicroProxy/commit/f77acb6abfcfe6f2efe8aaebed8c206a321c7bb3))
+* list the retry without SNI among the compatibility-mode differences ([7ac7470](https://github.com/mahmoudimus/MicroProxy/commit/7ac74704bf5a79805dd8acd5f4cb9326a8879a5d))
+* **masque:** document CONNECT-UDP over HTTP/2 and HTTP/1.1 ([02a8046](https://github.com/mahmoudimus/MicroProxy/commit/02a804609e7491c58f902617c36314653bce02eb))
+* measured comparison with Envoy, Go, Rust and Squid proxies; animated architecture page ([478d93e](https://github.com/mahmoudimus/MicroProxy/commit/478d93ed4966ac10dcb39d2f63e1939d7f012cf7))
+* per-request TLS handshake timeout and retry backoff policies ([11abde1](https://github.com/mahmoudimus/MicroProxy/commit/11abde1504aeb0307fad0b796f8a15fe2c1e7a79))
+* publish a measured comparison with Envoy, Go, Rust and Squid proxies ([460d5db](https://github.com/mahmoudimus/MicroProxy/commit/460d5db13ce5397eaeda58fcfe626f4ee6fb9318))
+* split the README into a documentation site ([48ca28a](https://github.com/mahmoudimus/MicroProxy/commit/48ca28aef552a6970bbda96c1fcc5d5712339efa))
+
 ## [0.2.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.1.1...v0.2.0) (2026-10-12)
 
 
