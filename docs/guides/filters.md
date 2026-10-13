@@ -117,6 +117,10 @@ HttpFilters.builder()
         .build();
 ```
 
+The policy carries the budget for all of the request's waits too: by default the connect timeout,
+at most 30 seconds; `.withBudget(Duration)` sets another, and `.unbudgeted()` waits every time the
+policy names (see [Retries and backoff](chained-proxies.md#retries-and-backoff)).
+
 Bodies and frames are only split into pieces when a body or frame hook is registered; otherwise they
 take the fast path, as they do for a filters class that doesn't override those hooks. A filters
 class that overrides `clientToProxyRequest` or `serverToProxyResponse` only to read heads can say so

@@ -2,6 +2,7 @@ package org.microproxy;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
@@ -26,12 +27,25 @@ import java.util.random.RandomGenerator;
  * </ul>
  *
  * <p>Attempts are counted from the first: the wait before attempt {@code n + 1} is {@link
- * #delay(int) delay(n)}, where {@code n} attempts have failed. Instances are immutable and
- * thread-safe, and equal when they wait the same way.
+ * #delay(int) delay(n)}, where {@code n} attempts have failed.
+ *
+ * <p>The waits of one request add up to at most a budget; once it is spent, the remaining routes
+ * are tried without waiting. By default the budget is the request's connect timeout, at most 30
+ * seconds, so a long route list cannot hold a request for minutes. {@link #withBudget(Duration)}
+ * sets another total, and {@link #unbudgeted()} lifts it: every wait the policy names is then
+ * waited, as LittleProxy forks that added a backoff did. Either way a client that leaves ends the
+ * wait.
+ *
+ * <p>Instances are immutable and thread-safe, and equal when they wait the same way.
  */
 public final class RetryBackoff {
 
-    private static final RetryBackoff NONE = new RetryBackoff(0, 0, false);
+    /** {@link #budgetNanos} for the default budget: the connect timeout, at most 30 seconds. */
+    private static final long DEFAULT_BUDGET = -1;
+    /** {@link #budgetNanos} for no budget at all. */
+    private static final long UNBUDGETED = Long.MAX_VALUE;
+
+    private static final RetryBackoff NONE = new RetryBackoff(0, 0, false, DEFAULT_BUDGET);
 
     /** A {@link ThreadLocalRandom} for whichever thread draws from it. */
     private static final RandomGenerator THREAD_LOCAL = new RandomGenerator() {
@@ -49,11 +63,14 @@ public final class RetryBackoff {
     private final long initialNanos;
     private final long maxNanos;
     private final boolean jitter;
+    /** The most all waits of one request may add up to: {@link #DEFAULT_BUDGET}, {@link #UNBUDGETED} or a positive budget. */
+    private final long budgetNanos;
 
-    private RetryBackoff(long initialNanos, long maxNanos, boolean jitter) {
+    private RetryBackoff(long initialNanos, long maxNanos, boolean jitter, long budgetNanos) {
         this.initialNanos = initialNanos;
         this.maxNanos = maxNanos;
         this.jitter = jitter;
+        this.budgetNanos = budgetNanos;
     }
 
     /**
@@ -120,10 +137,84 @@ public final class RetryBackoff {
             throw new IllegalArgumentException("the maximum backoff " + max + " is below the initial " + initial);
         }
         try {
-            return new RetryBackoff(initial.toNanos(), max.toNanos(), jitter);
+            return new RetryBackoff(initial.toNanos(), max.toNanos(), jitter, DEFAULT_BUDGET);
         } catch (ArithmeticException e) {
             throw new IllegalArgumentException("the maximum backoff is too long: " + max, e);
         }
+    }
+
+    /**
+     * This policy with {@code total} as the most that all waits of one request may add up to, in
+     * place of the default (the request's connect timeout, at most 30 seconds). Once the budget is
+     * spent, the remaining routes are tried without waiting; the wait that would overrun it is
+     * shortened to what is left. A budget too long to count in nanoseconds (about 292 years) is
+     * no budget, as {@link #unbudgeted()}. {@link #none()} never waits, and stays as it is.
+     *
+     * @param total the budget for all waits of one request, positive
+     * @return the policy with that budget
+     * @throws IllegalArgumentException if {@code total} is not positive
+     * @throws NullPointerException if {@code total} is null
+     */
+    public RetryBackoff withBudget(Duration total) {
+        Objects.requireNonNull(total, "total");
+        if (!total.isPositive()) {
+            throw new IllegalArgumentException("the backoff budget must be positive: " + total);
+        }
+        long nanos;
+        try {
+            nanos = total.toNanos();
+        } catch (ArithmeticException e) {
+            nanos = UNBUDGETED;
+        }
+        return withBudgetNanos(nanos);
+    }
+
+    /**
+     * This policy without a budget: every wait it names is waited, however long they add up to
+     * (the route list and each wait's {@link #max()} still bound them), as LittleProxy forks that
+     * added a backoff did. A client that leaves still ends the wait. {@link #none()} never waits,
+     * and stays as it is.
+     *
+     * @return the policy without a budget
+     */
+    public RetryBackoff unbudgeted() {
+        return withBudgetNanos(UNBUDGETED);
+    }
+
+    /**
+     * This policy with the default budget again: the request's connect timeout, at most 30
+     * seconds.
+     *
+     * @return the policy with the default budget
+     */
+    public RetryBackoff withDefaultBudget() {
+        return withBudgetNanos(DEFAULT_BUDGET);
+    }
+
+    private RetryBackoff withBudgetNanos(long nanos) {
+        if (isNone() || nanos == budgetNanos) return this;
+        return new RetryBackoff(initialNanos, maxNanos, jitter, nanos);
+    }
+
+    /**
+     * The budget set with {@link #withBudget(Duration)}: the most all waits of one request may add
+     * up to. Empty when the default budget applies (the request's connect timeout, at most 30
+     * seconds) and when there is none ({@link #isUnbudgeted()}).
+     *
+     * @return the policy's own budget, or empty
+     */
+    public Optional<Duration> budget() {
+        return budgetNanos == DEFAULT_BUDGET || budgetNanos == UNBUDGETED ? Optional.empty()
+                : Optional.of(Duration.ofNanos(budgetNanos));
+    }
+
+    /**
+     * Whether the waits of one request have no budget ({@link #unbudgeted()}).
+     *
+     * @return whether every wait the policy names is waited
+     */
+    public boolean isUnbudgeted() {
+        return budgetNanos == UNBUDGETED;
     }
 
     /**
@@ -212,19 +303,24 @@ public final class RetryBackoff {
     @Override
     public boolean equals(Object o) {
         return o instanceof RetryBackoff other && initialNanos == other.initialNanos && maxNanos == other.maxNanos
-                && jitter == other.jitter;
+                && jitter == other.jitter && budgetNanos == other.budgetNanos;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(initialNanos, maxNanos, jitter);
+        return Objects.hash(initialNanos, maxNanos, jitter, budgetNanos);
     }
 
-    /** {@return how the policy is made, such as {@code exponential(PT0.1S, PT2S)}} */
+    /**
+     * {@return how the policy is made, such as {@code exponential(PT0.1S, PT2S)} or {@code
+     * fixed(PT1S).unbudgeted()}}
+     */
     @Override
     public String toString() {
         if (isNone()) return "none()";
-        if (!jitter && initialNanos == maxNanos) return "fixed(" + initial() + ")";
-        return (jitter ? "exponentialWithJitter(" : "exponential(") + initial() + ", " + max() + ")";
+        String made = !jitter && initialNanos == maxNanos ? "fixed(" + initial() + ")"
+                : (jitter ? "exponentialWithJitter(" : "exponential(") + initial() + ", " + max() + ")";
+        if (budgetNanos == UNBUDGETED) return made + ".unbudgeted()";
+        return budgetNanos == DEFAULT_BUDGET ? made : made + ".withBudget(" + Duration.ofNanos(budgetNanos) + ")";
     }
 }

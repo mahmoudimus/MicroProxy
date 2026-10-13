@@ -280,8 +280,9 @@ public interface HttpFilters {
      * {@code null} (the default) keeps the server's; {@link RetryBackoff#none()} tries the next
      * route at once. Asked when an attempt has failed and another route remains, so a request that
      * connects on its first attempt never asks. The server's limits apply to it too: no wait before
-     * the first attempt or after the last, at most 30 seconds or the connect timeout of waiting in
-     * all, and a client that leaves ends the wait. In a {@link HttpFiltersChain} the first filter
+     * the first attempt or after the last, the policy's budget of waiting in all (by default at
+     * most 30 seconds or the connect timeout; see {@link RetryBackoff#withBudget} and {@link
+     * RetryBackoff#unbudgeted()}), and a client that leaves ends the wait. In a {@link HttpFiltersChain} the first filter
      * that returns a backoff wins.
      *
      * @return the retry backoff override, or {@code null} for the server setting

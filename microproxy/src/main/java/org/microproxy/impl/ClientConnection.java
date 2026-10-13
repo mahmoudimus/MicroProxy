@@ -5040,7 +5040,7 @@ final class ClientConnection implements Runnable {
             if (failedCluster != null) failedCluster.failover.inc();
             if (failures > 0 && backoff == null) {
                 backoff = retryBackoff(ex);
-                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex);
+                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex, backoff);
             }
             if (failures > 0 && backoffBudget > 0) {
                 backoffBudget -= backOff(ex, backoff, failures, backoffBudget, hostAndPort, proxy);
@@ -5105,10 +5105,18 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
     }
 
-    /** The longest all backoff waits of one request may add up to: 30 s or the connect timeout. */
+    /** The longest all backoff waits of one request may add up to by default: 30 s or the connect timeout. */
     private static final long MAX_BACKOFF_TOTAL_NANOS = TimeUnit.SECONDS.toNanos(30);
 
-    private long backoffBudgetNanos(Exchange ex) {
+    /**
+     * The most all backoff waits of {@code ex}'s request may add up to: {@code backoff}'s own
+     * budget ({@link RetryBackoff#withBudget}), none ({@link RetryBackoff#unbudgeted()}), else the
+     * connect timeout, at most 30 s.
+     */
+    private long backoffBudgetNanos(Exchange ex, RetryBackoff backoff) {
+        if (backoff.isUnbudgeted()) return Long.MAX_VALUE;
+        java.util.Optional<java.time.Duration> own = backoff.budget();
+        if (own.isPresent()) return own.get().toNanos();
         long connectTimeout = TimeUnit.MILLISECONDS.toNanos(connectTimeoutMillis(ex));
         return connectTimeout > 0 ? Math.min(connectTimeout, MAX_BACKOFF_TOTAL_NANOS) : MAX_BACKOFF_TOTAL_NANOS;
     }

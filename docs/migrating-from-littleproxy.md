@@ -231,8 +231,12 @@ either way:
   max))` (`chained_proxy_backoff_jitter=false`, `--chained-proxy-backoff-deterministic`) waits the
   same exact times, while the `withChainedProxyRetryBackoff(initial, max)` shorthand and
   `--chained-proxy-backoff` add full jitter (see
-  [Retries and backoff](guides/chained-proxies.md#retries-and-backoff)). A filter can choose the
-  backoff per request with `chainedProxyRetryBackoff()`.
+  [Retries and backoff](guides/chained-proxies.md#retries-and-backoff)). MicroProxy also caps the
+  waits of one request at the connect timeout (at most 30 s) by default, where those forks waited
+  every time; `RetryBackoff.exponential(initial, max).unbudgeted()`
+  (`chained_proxy_backoff_budget_ms=unlimited`) lifts the cap, and `withBudget(Duration)` sets
+  another. Compatibility mode leaves the budget alone too, since LittleProxy itself never waits.
+  A filter can choose the backoff per request with `chainedProxyRetryBackoff()`.
 - TLS handshakes are bounded by `withTlsHandshakeTimeout` (10 s by default, the same as Netty's
   `SslHandler` default that LittleProxy left in place); a filter can change it per request for the
   upstream handshakes with `proxyToServerTlsHandshakeTimeout()`.

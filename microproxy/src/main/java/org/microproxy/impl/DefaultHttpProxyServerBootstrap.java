@@ -390,12 +390,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             Duration max = p.containsKey("chained_proxy_backoff_max_ms")
                     ? Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_max_ms").strip()))
                     : initial.multipliedBy(8);
-            withChainedProxyRetryBackoff(!p.containsKey("chained_proxy_backoff_jitter") || bool(p, "chained_proxy_backoff_jitter")
-                    ? RetryBackoff.exponentialWithJitter(initial, max) : RetryBackoff.exponential(initial, max));
-        } else if (p.containsKey("chained_proxy_backoff_max_ms") || p.containsKey("chained_proxy_backoff_jitter")) {
-            throw new IllegalArgumentException((p.containsKey("chained_proxy_backoff_max_ms")
-                    ? "chained_proxy_backoff_max_ms" : "chained_proxy_backoff_jitter")
-                    + " needs chained_proxy_backoff_initial_ms");
+            RetryBackoff backoff = !p.containsKey("chained_proxy_backoff_jitter") || bool(p, "chained_proxy_backoff_jitter")
+                    ? RetryBackoff.exponentialWithJitter(initial, max) : RetryBackoff.exponential(initial, max);
+            if (p.containsKey("chained_proxy_backoff_budget_ms")) {
+                backoff = backoffBudget(backoff, p.getProperty("chained_proxy_backoff_budget_ms"));
+            }
+            withChainedProxyRetryBackoff(backoff);
+        } else {
+            for (String key : List.of("chained_proxy_backoff_max_ms", "chained_proxy_backoff_jitter",
+                    "chained_proxy_backoff_budget_ms")) {
+                if (p.containsKey(key)) throw new IllegalArgumentException(key + " needs chained_proxy_backoff_initial_ms");
+            }
         }
         if (bool(p, "strip_tracing_headers")) withoutTracingHeadersUpstream();
         if (p.containsKey("strip_request_headers")) {
@@ -838,6 +843,26 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withConnectTimeout(int connectTimeoutMs) {
         this.connectTimeoutMs = connectTimeoutMs;
         return this;
+    }
+
+    /**
+     * {@code backoff} with the budget {@code chained_proxy_backoff_budget_ms} names: a positive
+     * number of milliseconds, or {@code unlimited} for none ({@link RetryBackoff#unbudgeted()}).
+     */
+    static RetryBackoff backoffBudget(RetryBackoff backoff, String value) {
+        String v = value.strip();
+        if (v.equalsIgnoreCase("unlimited")) return backoff.unbudgeted();
+        long ms;
+        try {
+            ms = Long.parseLong(v);
+        } catch (NumberFormatException e) {
+            ms = 0;
+        }
+        if (ms <= 0) {
+            throw new IllegalArgumentException(
+                    "chained_proxy_backoff_budget_ms needs a positive number of milliseconds or unlimited, got: " + value);
+        }
+        return backoff.withBudget(Duration.ofMillis(ms));
     }
 
     @Override

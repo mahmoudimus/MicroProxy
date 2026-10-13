@@ -107,6 +107,9 @@ final class AdminConfigDump {
             chained.put("backoff_initial", backoff ? duration(b.chainedProxyBackoff.initial()) : null);
             chained.put("backoff_max", backoff ? duration(b.chainedProxyBackoff.max()) : null);
             chained.put("backoff_jitter", backoff ? b.chainedProxyBackoff.jittered() : null);
+            // "default": the connect timeout, at most 30 s.
+            chained.put("backoff_budget", !backoff ? null : b.chainedProxyBackoff.isUnbudgeted() ? "unlimited"
+                    : b.chainedProxyBackoff.budget().map(AdminConfigDump::duration).orElse("default"));
         }
         boot.put("chained_proxy", chained);
         boot.put("stripped_request_headers", List.copyOf(b.strippedRequestHeaders.values()));

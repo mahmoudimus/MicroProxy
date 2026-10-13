@@ -225,6 +225,72 @@ class ChainedProxyBackoffTest {
     }
 
     @Test
+    void anUnbudgetedPolicyWaitsTheWholeDoublingSequence() throws Exception {
+        // As LittleProxy forks that added a backoff: 3.1 s of waits with a 2 s connect timeout.
+        start(MicroProxy.bootstrap().withConnectTimeout(2000)
+                        .withChainedProxyRetryBackoff(
+                                RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(5)).unbudgeted()),
+                refused(), refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        proxy.backoffRandom = null;
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(100, 200, 400, 800, 1600), waits);
+    }
+
+    @Test
+    void theSameWaitsAreCutAtTheDefaultBudget() throws Exception {
+        start(MicroProxy.bootstrap().withConnectTimeout(2000)
+                        .withChainedProxyRetryBackoff(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(5))),
+                refused(), refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        // 2 s in all: 100 + 200 + 400 + 800, then the 500 ms left.
+        assertEquals(millis(100, 200, 400, 800, 500), waits);
+    }
+
+    @Test
+    void aPolicysOwnBudgetReplacesTheDefault() throws Exception {
+        start(MicroProxy.bootstrap().withConnectTimeout(60_000)
+                        .withFiltersSource(HttpFilters.builder().retryBackoff(
+                                RetryBackoff.fixed(Duration.ofMillis(400)).withBudget(Duration.ofMillis(1000))).build()),
+                refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(400, 400, 200), waits);
+    }
+
+    @Test
+    void aClientThatLeavesStopsAnUnbudgetedWait() throws Exception {
+        AtomicInteger reached = new AtomicInteger();
+        TestSupport.RawServer second = TestSupport.rawServer(s -> reached.incrementAndGet());
+        closeables.add(second);
+        CountDownLatch firstFailed = new CountDownLatch(1);
+        CountDownLatch ended = new CountDownLatch(1);
+        start(MicroProxy.bootstrap()
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMinutes(10)).unbudgeted())
+                        .withFiltersSource((request, flow) -> new HttpFilters() {
+                            @Override
+                            public void exchangeEnded(boolean completed) {
+                                ended.countDown();
+                            }
+                        })
+                        .plusActivityTracker(new ActivityTrackerAdapter() {
+                            @Override
+                            public void serverConnectionExceptionCaught(FullFlowContext serverContext, Throwable cause) {
+                                firstFailed.countDown();
+                            }
+                        }),
+                refused(), second::address);
+        try (Socket client = new Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort())) {
+            TestSupport.write(client.getOutputStream(), "GET " + origin() + " HTTP/1.1\r\nHost: x\r\n\r\n");
+            assertTrue(firstFailed.await(10, TimeUnit.SECONDS));
+        }
+        // A ten-minute wait, ended by the client leaving.
+        assertTrue(ended.await(30, TimeUnit.SECONDS));
+        assertEquals(0, reached.get(), "the next candidate was not tried for a client that left");
+    }
+
+    @Test
     void chainsUseTheFirstFilterThatNamesABackoff() {
         var request = new org.microproxy.http.DefaultHttpRequest(org.microproxy.http.HttpVersion.HTTP_1_1,
                 org.microproxy.http.HttpMethod.GET, "http://example.com/");
@@ -375,6 +441,18 @@ class ChainedProxyBackoffTest {
         assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
                 DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff);
         p.remove("chained_proxy_backoff_jitter");
+
+        p.setProperty("chained_proxy_backoff_budget_ms", "unlimited");
+        assertTrue(DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.isUnbudgeted());
+        p.setProperty("chained_proxy_backoff_budget_ms", "5000");
+        assertEquals(java.util.Optional.of(Duration.ofSeconds(5)),
+                DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.budget());
+        p.setProperty("chained_proxy_backoff_budget_ms", "0");
+        assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(p));
+        p.remove("chained_proxy_backoff_budget_ms");
+        Properties budgetOnly = new Properties();
+        budgetOnly.setProperty("chained_proxy_backoff_budget_ms", "unlimited");
+        assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(budgetOnly));
 
         p.remove("chained_proxy_backoff_max_ms");
         assertEquals(Duration.ofMillis(800), DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.max(),

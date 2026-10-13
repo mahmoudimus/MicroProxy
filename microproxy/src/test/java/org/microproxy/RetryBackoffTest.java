@@ -155,4 +155,36 @@ class RetryBackoffTest {
         assertEquals("exponential(PT0.1S, PT2S)", RetryBackoff.exponential(a, b).toString());
         assertEquals("exponentialWithJitter(PT0.1S, PT2S)", RetryBackoff.exponentialWithJitter(a, b).toString());
     }
+
+    @Test
+    void theBudgetIsPartOfThePolicy() {
+        RetryBackoff base = RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(1));
+        assertEquals(java.util.Optional.empty(), base.budget(), "the default budget");
+        assertFalse(base.isUnbudgeted());
+
+        RetryBackoff budgeted = base.withBudget(Duration.ofSeconds(10));
+        assertEquals(java.util.Optional.of(Duration.ofSeconds(10)), budgeted.budget());
+        assertFalse(budgeted.isUnbudgeted());
+        assertEquals(delays(base, 6, NEVER), delays(budgeted, 6, NEVER), "the waits are the same");
+        assertNotEquals(base, budgeted);
+        assertEquals(budgeted, RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(1))
+                .withBudget(Duration.ofSeconds(10)));
+        assertEquals("exponential(PT0.1S, PT1S).withBudget(PT10S)", budgeted.toString());
+
+        RetryBackoff unbudgeted = budgeted.unbudgeted();
+        assertTrue(unbudgeted.isUnbudgeted());
+        assertEquals(java.util.Optional.empty(), unbudgeted.budget());
+        assertEquals("exponential(PT0.1S, PT1S).unbudgeted()", unbudgeted.toString());
+        assertEquals(unbudgeted.hashCode(), base.unbudgeted().hashCode());
+        assertEquals(base, unbudgeted.withDefaultBudget());
+        assertEquals("fixed(PT1S).unbudgeted()", RetryBackoff.fixed(Duration.ofSeconds(1)).unbudgeted().toString());
+
+        assertTrue(base.withBudget(Duration.ofSeconds(Long.MAX_VALUE)).isUnbudgeted(), "too long to count");
+        assertThrows(IllegalArgumentException.class, () -> base.withBudget(Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> base.withBudget(Duration.ofMillis(-1)));
+        assertThrows(NullPointerException.class, () -> base.withBudget(null));
+
+        assertEquals(RetryBackoff.none(), RetryBackoff.none().unbudgeted(), "none() never waits");
+        assertEquals(RetryBackoff.none(), RetryBackoff.none().withBudget(Duration.ofSeconds(1)));
+    }
 }

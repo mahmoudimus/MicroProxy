@@ -73,6 +73,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
 | `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_budget_ms` | with `chained_proxy_backoff_initial_ms`: the most all waits of one request may add up to, in milliseconds, or `unlimited` for no limit (`RetryBackoff.withBudget`, `RetryBackoff.unbudgeted`) | the connect timeout, at most 30000 |
 | `chained_proxy_backoff_jitter` | with `chained_proxy_backoff_initial_ms`: `true` waits a random time up to each doubling wait ("full jitter", `RetryBackoff.exponentialWithJitter`); `false` waits exactly the doubling waits (`RetryBackoff.exponential`) | `true` |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](../guides/forward-proxy.md#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |

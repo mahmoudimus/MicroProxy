@@ -564,8 +564,11 @@ public interface HttpProxyServerBootstrap {
      * RetryBackoff#exponentialWithJitter} for random ones ("full jitter"), {@link
      * RetryBackoff#fixed} for the same wait every time. It never waits before the first attempt or
      * after the last, stops waiting (and gives up on the request) when the client disconnects
-     * meanwhile, and waits at most 30 seconds or the connect timeout in total per request,
-     * whichever is less; once that is spent, the remaining candidates are tried without waiting.
+     * meanwhile, and by default waits at most 30 seconds or the connect timeout in total per
+     * request, whichever is less; once that is spent, the remaining candidates are tried without
+     * waiting. The policy can set another budget ({@link RetryBackoff#withBudget}) or none ({@link
+     * RetryBackoff#unbudgeted()}), to wait every time it names as LittleProxy forks that added a
+     * backoff did.
      * The wait counts towards the connect phase of {@link FlowContext#timings()}. A request's
      * filters can choose another backoff ({@link HttpFilters#chainedProxyRetryBackoff()}). Off
      * ({@link RetryBackoff#none()}) by default, as in LittleProxy, which tries the next chained
