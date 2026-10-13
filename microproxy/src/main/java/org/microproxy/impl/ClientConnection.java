@@ -31,6 +31,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -62,6 +63,7 @@ import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.MitmManager;
+import org.microproxy.MitmServerHandshake;
 import org.microproxy.ProxyFailure;
 import org.microproxy.ProxyProtocolDestination;
 import org.microproxy.ProxyProtocolMode;
@@ -595,6 +597,16 @@ final class ClientConnection implements Runnable {
         TlsServerIdentity tlsIdentity;
         /** The exchange's next TLS handshake with a server sends no SNI: it was rejected ({@link #retryWithoutSni}). */
         boolean omitSni;
+        /**
+         * The client's ClientHello that this exchange's TLS handshakes with the server mirror (its
+         * ALPN protocols, and its SNI for a {@code CONNECT} to an IP address), once read, while
+         * a deferred handshake fails over to the next routes ({@link #failOverDeferredTls}).
+         */
+        ClientHello mirrorHello;
+        /** The ALPN protocols the exchange's latest TLS handshake with a server offered; null for none. */
+        List<String> offeredAlpn;
+        /** How many attempts failed before the connect loop's last connection was made. */
+        int failedAttempts;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -833,6 +845,12 @@ final class ClientConnection implements Runnable {
      * filters give one an absolute URI of its own ({@link #redirected}).
      */
     private String mitmHostAndPort;
+    /**
+     * Why the server's deferred TLS handshake for the intercepted session failed on every route
+     * ({@link #failOverDeferredTls}): the session's first request that needs its server is
+     * answered with it, and later ones try the server again. Null otherwise.
+     */
+    private final AtomicReference<SessionFailure> sessionFailure = new AtomicReference<>();
     /**
      * The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked.
      * Guarded by {@link #mitmLock}.
@@ -2118,6 +2136,13 @@ final class ClientConnection implements Runnable {
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
+        SessionFailure unreached = conn == null ? sessionFailure.get() : null;
+        if (unreached != null && unreached.hostAndPort().equalsIgnoreCase(hostAndPort)
+                && sessionFailure.compareAndSet(unreached, null)) {
+            // Every route to the session's server failed its TLS handshake when the session began.
+            if (unreached.retried()) ex.flow.addResponseFlag(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED);
+            return respondFailure(ex, unreached.failure(), false);
+        }
 
         boolean replayable = ex.request instanceof FullHttpRequest || !ex.body.hasBody();
         // A request a coalesced HTTP/2 connection answered 421 goes again on one of its own.
@@ -3004,8 +3029,9 @@ final class ClientConnection implements Runnable {
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
         // The session's requests may take streams on an HTTP/2 connection made now.
         ex.offerHttp2 = server.http2Origins != null;
-        // TLS with the server waits for the client's ClientHello, whose protocols and name it mirrors.
-        ex.deferServerTls = mitm;
+        // TLS with the server waits for the client's ClientHello, whose protocols and name it
+        // mirrors, unless it runs before the CONNECT is answered (MitmServerHandshake.EAGER).
+        ex.deferServerTls = mitm && mitmServerHandshake(ex) == MitmServerHandshake.DEFERRED;
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
@@ -3100,6 +3126,23 @@ final class ClientConnection implements Runnable {
         } finally {
             releaseHttp2Claim(ex);
         }
+    }
+
+    /**
+     * When the server's TLS handshake runs for {@code ex}, a {@code CONNECT} to intercept: as its
+     * filters say ({@link HttpFilters#proxyToServerMitmHandshake()}), else as its protocol's
+     * policy does. A transparent TLS connection's is always deferred: its ClientHello is read
+     * already, and it gets no answer in HTTP.
+     */
+    private MitmServerHandshake mitmServerHandshake(Exchange ex) {
+        if (ex.implicit && ex.socks == 0) return MitmServerHandshake.DEFERRED;
+        MitmServerHandshake own = null;
+        try {
+            own = ex.filters.proxyToServerMitmHandshake();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "proxyToServerMitmHandshake threw; using the policy's", e);
+        }
+        return own != null ? own : ex.policy.mitmServerHandshake();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -3740,13 +3783,29 @@ final class ClientConnection implements Runnable {
                 // The client speaks TLS, the server does not: relay what the client sends, as is.
                 conn.close();
                 return tunnelAfterPeek(ex, null, hostAndPort, route, e.getMessage());
+            } catch (ClientFailure e) {
+                throw e;
             } catch (IOException e) {
-                // Intercept anyway: the session's requests try the server again, and are answered
-                // with the failure (a 502 for a TLS failure) through the usual filters and responder.
-                LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort + " failed (" + unwrap(e).getMessage()
-                        + "); intercepting without a server connection");
-                conn.close();
-                conn = null;
+                // The route's handshake failed: the next routes, after the backoff, as any failed
+                // attempt. Without one that works, intercept anyway: the client's handshake
+                // completes, and its first request is answered with the failure.
+                conn = failOverDeferredTls(ex, conn, e, hello, hostAndPort, route);
+                if (conn != null) {
+                    SSLSocket tls = (SSLSocket) conn.socket;
+                    serverSession = tls.getSession();
+                    List<String> offered = ex.offeredAlpn;
+                    serverAlpn = offered != null && (offered.contains(ClientHello.H2) || offersNoHttp(hello))
+                            ? tls.getApplicationProtocol() : null;
+                    if (conn.http2) {
+                        ServerConnection carrier = conn;
+                        conn = null;
+                        adoptForSession(ex, carrier, Mode.TLS, hostAndPort, http2Key);
+                        ex.http2Claim = null;
+                    } else if (ex.http2Claim != null && offered != null && offered.contains(ClientHello.H2)) {
+                        server.http2Origins.negotiatedHttp1(ex.http2Claim);
+                        ex.http2Claim = null;
+                    }
+                }
             }
         }
         releaseHttp2Claim(ex);
@@ -3798,6 +3857,78 @@ final class ClientConnection implements Runnable {
         return !hello.alpnProtocols().isEmpty() && hello.httpAlpnProtocols(true).isEmpty();
     }
 
+    /** Why an intercepted session's server could not be reached, for its first request; see {@link #sessionFailure}. */
+    private record SessionFailure(String hostAndPort, ProxyFailure failure, boolean retried) {}
+
+    /**
+     * After the deferred TLS handshake on {@code failed}, the connection one of {@code route} made,
+     * failed with {@code e}: counts that as a failed attempt at the route, and tries the routes
+     * after it, after the backoff wait, each with the handshake mirroring {@code hello} (as {@link
+     * #connect} tries them). Returns the new connection, kept as {@code failed} was, or null when
+     * none worked (or the connection came another way, through a session's server), having
+     * recorded the failure for the session's first request ({@link #sessionFailure}).
+     *
+     * @throws ClientFailure if the client left meanwhile
+     */
+    private ServerConnection failOverDeferredTls(Exchange ex, ServerConnection failed, IOException e,
+            ClientHello hello, String hostAndPort, List<ChainedProxy> route) throws IOException {
+        IOException cause = unwrap(e);
+        LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort
+                + (failed.chainedProxy != null ? " via " + failed.chainedProxy.getChainedProxyAddress() : "")
+                + " failed: " + cause.getMessage());
+        // (Kept by this connection unless an intercepted stream's session holds it.)
+        boolean kept = serverConnections.remove(failed.key, failed);
+        failed.close();
+        if (failed.chainedProxy != null) failed.chainedProxy.connectionFailed(cause);
+        reportServerFailure(failed.flowContext, cause);
+        traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
+        List<ChainedProxy> rest = List.of();
+        if (via == null && route != null) {
+            int index = route.indexOf(failed.chainedProxy == null
+                    ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : failed.chainedProxy);
+            if (index >= 0) rest = route.subList(index + 1, route.size());
+        }
+        if (rest.isEmpty()) {
+            ex.filters.proxyToServerConnectionFailed();
+            return sessionFailed(ex, hostAndPort, e, ex.failedAttempts > 0);
+        }
+        if (failed.cluster != null) failed.cluster.failover.inc();
+        ClientHello mirrored = ex.mirrorHello;
+        boolean defer = ex.deferServerTls;
+        ex.mirrorHello = hello;
+        ex.deferServerTls = false;
+        ServerConnection fresh;
+        try {
+            fresh = connect(hostAndPort, ex, rest, Mode.TLS, null, ex.failedAttempts + 1, e);
+        } catch (ClientFailure client) {
+            throw client;
+        } catch (IOException last) {
+            return sessionFailed(ex, hostAndPort, last, true);
+        } finally {
+            ex.mirrorHello = mirrored;
+            ex.deferServerTls = defer;
+        }
+        fresh.key = failed.key;
+        try {
+            ex.channel.serverConnectionInUse(fresh);
+        } catch (IOException inUse) {
+            fresh.close();
+            throw inUse;
+        }
+        if (kept) serverConnections.put(fresh.key, fresh);
+        return fresh;
+    }
+
+    /** Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null. */
+    private ServerConnection sessionFailed(Exchange ex, String hostAndPort, IOException e, boolean retried) {
+        ProxyFailure failure = connectFailure(hostAndPort, e);
+        LOG.log(Level.DEBUG, ex.log + "no route reached " + hostAndPort + " (" + unwrap(e).getMessage()
+                + "); intercepting without a server connection, the first request to be answered "
+                + failure.status().code());
+        sessionFailure.set(new SessionFailure(hostAndPort, failure, retried));
+        return null;
+    }
+
     /**
      * A new connection to {@code hostAndPort} in place of {@code old}, whose deferred TLS handshake
      * failed, made as {@code old} was (by {@code route}, directly or through chained proxies), its
@@ -3839,10 +3970,37 @@ final class ClientConnection implements Runnable {
      */
     private List<String> startServerTls(Exchange ex, ServerConnection conn, ClientHello hello, HostAndPort target,
             String hostAndPort) throws IOException {
-        String sniHost = Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
-        List<String> alpn = offersNoHttp(hello) ? hello.alpnProtocols() : upstreamAlpn(ex.offerHttp2, hello);
-        layerServerTls(ex, conn, target, sniHost, hostAndPort, alpn);
+        List<String> alpn = mirroredAlpn(ex, hello);
+        layerServerTls(ex, conn, target, mirroredSni(target, hello), hostAndPort, alpn);
         return alpn;
+    }
+
+    /** The server name a handshake that mirrors {@code hello} sends: its SNI for a {@code CONNECT} to an IP address. */
+    private static String mirroredSni(HostAndPort target, ClientHello hello) {
+        return Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
+    }
+
+    /**
+     * The ALPN protocols a handshake that mirrors {@code hello} offers: those the proxy speaks,
+     * or all of them when none is HTTP (the session is then relayed as raw TCP).
+     */
+    private static List<String> mirroredAlpn(Exchange ex, ClientHello hello) {
+        return offersNoHttp(hello) ? hello.alpnProtocols() : upstreamAlpn(ex.offerHttp2, hello);
+    }
+
+    /**
+     * Runs the TLS handshake with the server over {@code active} for a connection the connect
+     * loop makes: mirroring the client's ClientHello when one is at hand ({@link
+     * Exchange#mirrorHello}), else with the {@code CONNECT}'s host and the protocols the proxy
+     * offers on its own.
+     */
+    private SSLSocket loopServerTls(Exchange ex, Socket active, HostAndPort target, String hostAndPort,
+            FullFlowContext serverContext) throws IOException {
+        ClientHello hello = ex.mirrorHello;
+        List<String> alpn = hello != null ? mirroredAlpn(ex, hello) : upstreamAlpn(ex.offerHttp2, sessionHello());
+        ex.offeredAlpn = alpn;
+        return serverTls(ex, active, target, hello != null ? mirroredSni(target, hello) : target.host(), hostAndPort,
+                serverContext, alpn);
     }
 
     /**
@@ -5055,6 +5213,16 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via)
             throws IOException {
+        return connect(hostAndPort, ex, route, mode, via, 0, null);
+    }
+
+    /**
+     * Connects as {@link #connect(String, Exchange, List, Mode, Hop)} does, after {@code
+     * priorFailures} attempts at the routes before {@code route} failed, the last with {@code
+     * prior}: the first of {@code route} is then a retry, after the backoff wait, and counts them.
+     */
+    private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via,
+            int priorFailures, IOException prior) throws IOException {
         if (via != null) {
             try {
                 return connectThrough(via, hostAndPort, ex, mode);
@@ -5062,9 +5230,9 @@ final class ClientConnection implements Runnable {
                 return retryWithoutSni(ex, hostAndPort, rejected, () -> connectThrough(via, hostAndPort, ex, mode));
             }
         }
-        IOException last = null;
-        boolean connecting = false;
-        int failures = 0;
+        IOException last = prior;
+        boolean connecting = prior != null;
+        int failures = priorFailures;
         // Which backoff applies is asked only once an attempt has failed (null before).
         RetryBackoff backoff = null;
         long backoffBudget = 0;
@@ -5096,6 +5264,7 @@ final class ClientConnection implements Runnable {
                 if (proxy != null) {
                     proxy.connectionSucceeded();
                 }
+                ex.failedAttempts = failures;
                 connected(ex, conn);
                 return conn;
             } catch (NotTlsServer e) {
@@ -5418,8 +5587,7 @@ final class ClientConnection implements Runnable {
                 if (reader.buffered() > 0) {
                     throw new ProtocolException("unexpected data from server before TLS handshake");
                 }
-                active = serverTls(ex, active, target, target.host(), hostAndPort, serverContext,
-                        upstreamAlpn(ex.offerHttp2, sessionHello()));
+                active = loopServerTls(ex, active, target, hostAndPort, serverContext);
                 reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             }
@@ -5597,8 +5765,7 @@ final class ClientConnection implements Runnable {
             boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
             if (mode == Mode.TLS && !deferTls) {
                 HostAndPort target = HostAndPort.parse(hostAndPort, 80);
-                active = serverTls(ex, tunnel, target, target.host(), hostAndPort, serverContext,
-                        upstreamAlpn(ex.offerHttp2, sessionHello()));
+                active = loopServerTls(ex, tunnel, target, hostAndPort, serverContext);
             }
             ByteReader reader = new ByteReader(trackedInput(active.getInputStream(), currentContext), server.ioBuffers);
             OutputStream output = new PooledOutputStream(trackedOutput(active.getOutputStream(), currentContext),

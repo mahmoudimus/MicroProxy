@@ -99,7 +99,8 @@ public final class Launcher {
                                            filter_connect_answer, serve_plain_http_after_connect,
                                            proxy_protocol_destination (local_address,
                                            server_address), tls_retry_without_sni,
-                                           generated_responses (replaceable, in_place, skip)
+                                           generated_responses (replaceable, in_place, skip),
+                                           mitm_server_handshake (deferred, eager)
               --http1-policy <field=value,...>  the same for HTTP/1.x clients only, which also
                                            take allow_chunked_length
               --http2-policy <field=value,...>  the same for HTTP/2 clients only

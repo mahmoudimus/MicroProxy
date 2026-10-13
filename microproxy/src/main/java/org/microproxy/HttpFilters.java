@@ -301,6 +301,23 @@ public interface HttpFilters {
     }
 
     /**
+     * When the proxy runs its TLS handshake with the server for this {@code CONNECT}, which it
+     * intercepts, instead of what the {@link ProtocolPolicy} of the client's protocol says ({@link
+     * ProtocolPolicy#mitmServerHandshake()}): {@link MitmServerHandshake#DEFERRED} after
+     * answering it and reading the client's ClientHello, {@link MitmServerHandshake#EAGER} before
+     * answering it. {@code null} (the default) keeps the policy's. Asked once the proxy has
+     * decided to intercept the {@code CONNECT}, after proxy authentication, {@link
+     * #clientToProxyRequest} and {@link #proxyToServerAllowMitm()}, so the choice can depend on the
+     * authenticated user ({@link FlowContext#getClientDetails()}) or anything the request says. In
+     * a {@link HttpFiltersChain} the first filter that returns a choice wins.
+     *
+     * @return when the server's handshake runs, or {@code null} for the policy's choice
+     */
+    default MitmServerHandshake proxyToServerMitmHandshake() {
+        return null;
+    }
+
+    /**
      * Called before an upstream TCP connection attempt starts.
      */
     default void proxyToServerConnectionStarted() {}

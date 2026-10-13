@@ -152,6 +152,30 @@ class AlpnMirroringTest {
         assertEquals(List.of(List.of("http/1.1")), offered, "h2 is offered only with HTTP/2 upstream");
     }
 
+    @Test
+    void anEagerHandshakeOffersTheProxysOwnProtocolsAndTakesHttp2() throws Exception {
+        // The server's handshake runs before the client's ClientHello: nothing to mirror.
+        H2TestOrigin origin = h2AndHttp1Origin();
+        HttpProxyServer proxy = proxies.start(mitm().onAllProtocols(p -> p.mitmServerHandshake(MitmServerHandshake.EAGER)));
+        try (SSLSocket tls = TlsHellos.throughConnect(proxy, "localhost:" + origin.port(), "localhost",
+                proxyCa.clientContext(), "http/1.1")) {
+            assertEquals("http/1.1", tls.getApplicationProtocol(), "what the client offered");
+            String response = TlsHellos.get(tls, "localhost:" + origin.port(), "/");
+            assertTrue(response.startsWith("HTTP/1.1 200"), response);
+            // A client that wants HTTP/1.1 still never gets HTTP/2 upstream: its requests take a
+            // connection of their own, which mirrors what it offered.
+            assertTrue(response.endsWith("http1 alpn=http/1.1"), response);
+        }
+        assertEquals(List.of(List.of("h2", "http/1.1"), List.of("http/1.1")), origin.offeredAlpn,
+                "the proxy's own protocols first, before the ClientHello");
+        assertEquals(1, origin.connections.size(), "the server chose HTTP/2 on the eager connection");
+
+        // A client that offers h2 gets HTTP/2 end to end.
+        HttpResponse<String> h2 = h2Get(proxy, origin.url("/"));
+        assertEquals(HttpClient.Version.HTTP_2, h2.version());
+        assertEquals("h2", h2.body());
+    }
+
     /** HTTP/2 both ways is the default: the same as {@link #aClientOfferingHttp2GetsItEndToEnd}, with no option. */
     @Test
     void byDefaultAClientOfferingHttp2GetsItEndToEnd() throws Exception {

@@ -15,7 +15,8 @@ record EffectivePolicy(
         ProxyProtocolDestination proxyProtocolDestination,
         boolean tlsRetryWithoutSni,
         boolean allowChunkedLength,
-        org.microproxy.GeneratedResponses generatedResponses) {
+        org.microproxy.GeneratedResponses generatedResponses,
+        org.microproxy.MitmServerHandshake mitmServerHandshake) {
 
     /** Resolves {@code policy}, which sets every field (but HTTP/1's for other protocols). */
     static EffectivePolicy of(ProtocolPolicy policy) {
@@ -26,6 +27,7 @@ record EffectivePolicy(
                 policy.proxyProtocolDestination().orElseThrow(),
                 policy.tlsRetryWithoutSni().orElseThrow(),
                 policy.allowChunkedLength().orElse(false),
-                policy.generatedResponses().orElseThrow());
+                policy.generatedResponses().orElseThrow(),
+                policy.mitmServerHandshake().orElseThrow());
     }
 }

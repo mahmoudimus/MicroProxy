@@ -14,6 +14,7 @@ behaviour while others keep MicroProxy's, or to change one such behaviour on its
 | `servePlainHttpAfterConnect` / `serve_plain_http_after_connect`: whether plain HTTP sent after a `CONNECT` that could be intercepted (a `ws://` WebSocket, say) is served as HTTP, through the filters | `true` | `false`: relayed as raw bytes |
 | `proxyProtocolDestination` / `proxy_protocol_destination`: the destination a PROXY header sent to a server names, when the client brought none ([PROXY protocol](forward-proxy.md#proxy-protocol)) | `LOCAL_ADDRESS` (`local_address`): the address the client connected to | `SERVER_ADDRESS` (`server_address`): the server connection's remote address, and no header when the families differ |
 | `generatedResponses` / `generated_responses`: what `proxyToClientResponse` may do with the responses the proxy answers with itself, its error responses and filters' short-circuit responses ([The proxy's responses in proxyToClientResponse](filters.md#the-proxys-responses-in-proxytoclientresponse)) | `REPLACEABLE` (`replaceable`): replace them | `REPLACEABLE`, as LittleProxy 2.x; LittleProxy 1.x and its forks: `IN_PLACE` (`in_place`), change them in place only. `SKIP` (`skip`) keeps them from the hook |
+| `mitmServerHandshake` / `mitm_server_handshake`: when the proxy runs its TLS handshake with the server for an intercepted `CONNECT` ([Server TLS failures](mitm.md#server-tls-failures)); `HttpFilters.proxyToServerMitmHandshake()` overrides it per request | `DEFERRED` (`deferred`): after the `CONNECT` is answered and the ClientHello read, mirroring it; a failure answers the session's first request `502` | `EAGER` (`eager`): before answering, so a failure answers the `CONNECT` `502` |
 | `tlsRetryWithoutSni` / `tls_retry_without_sni`: whether a server that rejects the server name with an `unrecognized_name` alert is tried once more without SNI ([Server TLS failures](mitm.md#server-tls-failures)) | `false` | `true` |
 | HTTP/1 only: `allowChunkedLength` / `allow_chunked_length`: whether a request with both `Transfer-Encoding` and `Content-Length` is accepted ([Security](../security.md#request-parsing)) | `withAllowChunkedLength` (`false`) | not part of the preset: LittleProxy refuses such requests too |
 
@@ -60,7 +61,8 @@ java -jar microproxy.jar --mitm --http1-policy preset=littleproxy,filter_connect
 
 A field's value for an exchange is, from the first that sets it:
 
-1. the request's filters, for a field a hook decides per request;
+1. the request's filters, for a field a hook decides per request (`mitm_server_handshake`:
+   `proxyToServerMitmHandshake()`);
 2. the policy of the client's protocol (`onHttp1`, `policy.http1.*`, ...);
 3. the policy of every protocol (`onAllProtocols`, `policy.*`, and the bootstrap's own setters
    for those fields, such as `withTlsRetryWithoutSni`);

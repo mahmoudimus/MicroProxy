@@ -252,6 +252,20 @@ class TlsRetryWithoutSniTest {
     }
 
     @Test
+    void anEagerHandshakeSendsTheConnectsHostAndIsRetriedToo() throws Exception {
+        // The server's handshake runs before the CONNECT is answered: the retry without SNI happens
+        // then too, and the CONNECT is answered once it worked.
+        PickyOrigin origin = pickyOrigin();
+        proxy = forward().withTlsRetryWithoutSni(true)
+                .onAllProtocols(p -> p.mitmServerHandshake(MitmServerHandshake.EAGER)).start();
+        HttpResponse<String> r = TestSupport.get(TestSupport.client(proxy, proxyCa.clientContext()), url(origin));
+        assertEquals(200, r.statusCode(), r.body());
+        assertEquals("none", r.headers().firstValue("X-Sni").orElseThrow());
+        assertEquals(1, origin.rejected.get(), "the first handshake sent the CONNECT's host");
+        assertEquals(1, stat("cluster.direct.ssl.retry_without_sni"));
+    }
+
+    @Test
     void configuredFromTheBootstrapPropertiesAndCommandLine() throws IOException {
         assertFalse(BootstrapView.retriesTlsWithoutSni(MicroProxy.bootstrap()));
         assertTrue(BootstrapView.retriesTlsWithoutSni(MicroProxy.bootstrap().withLittleProxyCompatibility()));

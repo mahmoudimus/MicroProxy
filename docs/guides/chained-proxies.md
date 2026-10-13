@@ -39,7 +39,9 @@ context, or as a chained proxy's.
 ### Retries and backoff
 
 When a connection through one chained proxy fails (refused, timed out, its name does not resolve,
-its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
+its TLS handshake or `CONNECT` fails, or, for an intercepted `CONNECT`, the TLS handshake with the
+server through it fails, [before or after](mitm.md#server-tls-failures) the `CONNECT` is
+answered), the proxy tries the next candidate the
 `ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once,
 as LittleProxy does. `withChainedProxyRetryBackoff(RetryBackoff)` waits in between, so a flapping
 upstream is not hammered. `RetryBackoff` has these policies:

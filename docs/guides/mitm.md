@@ -148,16 +148,44 @@ its ClientHello, unless the host rules ignore its target.
 
 ### Server TLS failures
 
-As the server handshake waits for the ClientHello, it now happens after
-the `CONNECT` is answered. A server whose certificate fails validation, or that refuses the
-proxy's TLS versions, no longer fails the `CONNECT` with `502`. The client's handshake completes
-with a certificate made from the host name, and each request inside the session is answered
-`502` (`ProxyFailure.TlsFailed`, through `proxyToServerFailure` and the `FailureResponder`), as
-mitmproxy answers. A server that turns out not to speak TLS gets the client's bytes tunnelled.
-Unreachable servers still fail the `CONNECT`, since it is connected before it is answered. For
-filters, `proxyToServerConnectionSSLHandshakeStarted` comes after the `CONNECT`'s `200`, and the
-`CONNECT` exchange completes (`proxyToClientResponseSent`, `responseCompleted`) once the server
-handshake is over, so its timings include that handshake.
+When the proxy runs its handshake with the server is the [protocol policy](protocol-policies.md)
+field `mitm_server_handshake` (`MitmServerHandshake`), which a request's filters can override
+(`HttpFilters.proxyToServerMitmHandshake()`, `HttpFilters.builder().mitmServerHandshake(...)`),
+after proxy authentication and `clientToProxyRequest` on the `CONNECT`, so the choice can depend
+on the authenticated user:
+
+| `MitmServerHandshake` | The server's handshake | When every route's handshake fails |
+|---|---|---|
+| `DEFERRED` (the default) | after the `CONNECT` is answered and the client's ClientHello read, mirroring its ALPN protocols (and its SNI for a `CONNECT` to an IP address); the ClientHello also decides first whether to intercept at all | the client's handshake completes with a certificate made from the host name, and its first request in the session is answered `502` (`ProxyFailure.TlsFailed`, through `proxyToServerFailure` and the `FailureResponder`), as mitmproxy answers; a client whose handshake cannot complete is disconnected |
+| `EAGER` (LittleProxy's) | before the `CONNECT` is answered, sending the `CONNECT`'s host (or the request's `TlsServerIdentity`) as SNI and offering the proxy's own ALPN protocols (`h2` and `http/1.1` with HTTP/2 to servers), since the ClientHello has not come yet | the `CONNECT` is answered `502` (`ProxyFailure.TlsFailed`), and no tunnel opens |
+
+Either way a failed handshake is a failed attempt at its route: the next chained proxy (or the
+direct fallback) the `ChainedProxyManager` offered is tried, after the
+[backoff](chained-proxies.md#retries-and-backoff) wait, as when the connection itself fails;
+only the last failure is answered, with `UF` and, after several routes, `URX` among the
+[response flags](../reference/response-flags.md#response-flags-and-details). The retry without
+SNI below and the request's handshake timeout (`proxyToServerTlsHandshakeTimeout`) apply to
+each attempt.
+
+`EAGER` trades the mirroring away. The server's handshake offers the proxy's own protocols: when
+the server chooses HTTP/2 and the client then offers only HTTP/1.1, the client's requests go on a
+second connection that offers what it offered (the first is kept for HTTP/2 requests). A
+server is never offered the protocols of a client that speaks no HTTP, nor the SNI of a client
+that `CONNECT`s to an IP address, and a server that speaks no TLS and never answers the proxy's
+ClientHello holds the `CONNECT` until the TLS handshake timeout, then answers it `502` (as in
+LittleProxy). A session that the
+ClientHello then decides not to intercept (host rules, `MitmManager.shouldIntercept`,
+`proxyToServerAllowMitm(ClientHello)`) is tunnelled over a new connection; the one made for the
+handshake is closed. LittleProxy runs the handshake first because its
+`MitmManager.clientSslEngineFor(HttpRequest, SSLSession)` makes the client's certificate from the
+server's session; proxy authentication happens on the `CONNECT` in both modes. Transparent TLS
+connections, whose ClientHello the proxy has read already, are always deferred.
+
+A server that turns out not to speak TLS gets the client's bytes tunnelled, in both modes.
+Unreachable servers fail the `CONNECT` with `502` in both, since it is connected before it is
+answered. With `DEFERRED`, `proxyToServerConnectionSSLHandshakeStarted` comes after the
+`CONNECT`'s `200`, and the `CONNECT` exchange completes (`proxyToClientResponseSent`,
+`responseCompleted`) once the server handshake is over, so its timings include that handshake.
 
 Every server TLS failure reaches filters, the `FailureResponder` and the access log as a
 `ProxyFailure.TlsFailed` whose `cause()` is the JDK's own exception with its whole cause chain:

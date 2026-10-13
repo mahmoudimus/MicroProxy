@@ -36,6 +36,8 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(ProxyProtocolDestination.LOCAL_ADDRESS), defaults.proxyProtocolDestination());
         assertEquals(Optional.of(false), defaults.tlsRetryWithoutSni());
         assertEquals(Optional.empty(), defaults.allowChunkedLength(), "decided by withAllowChunkedLength");
+        assertEquals(Optional.of(GeneratedResponses.REPLACEABLE), defaults.generatedResponses());
+        assertEquals(Optional.of(MitmServerHandshake.DEFERRED), defaults.mitmServerHandshake());
 
         ProtocolPolicy littleProxy = ProtocolPolicy.littleProxy();
         assertEquals(Optional.of(true), littleProxy.resolveBeforeProxyToServerRequest());
@@ -44,6 +46,8 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(ProxyProtocolDestination.SERVER_ADDRESS), littleProxy.proxyProtocolDestination());
         assertEquals(Optional.of(true), littleProxy.tlsRetryWithoutSni());
         assertEquals(Optional.empty(), littleProxy.allowChunkedLength());
+        assertEquals(Optional.of(GeneratedResponses.REPLACEABLE), littleProxy.generatedResponses(), "as LittleProxy 2.x");
+        assertEquals(Optional.of(MitmServerHandshake.EAGER), littleProxy.mitmServerHandshake());
 
         assertEquals(littleProxy, ProtocolPolicy.preset("LittleProxy"));
         assertEquals(defaults, ProtocolPolicy.preset("microproxy"));
@@ -78,13 +82,18 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(true), p.filterConnectAnswer());
         assertEquals(Optional.of(ProxyProtocolDestination.LOCAL_ADDRESS), p.proxyProtocolDestination());
         assertEquals(Optional.of(true), p.tlsRetryWithoutSni());
+        assertEquals(Optional.of(GeneratedResponses.IN_PLACE),
+                ProtocolPolicy.builder().set("generated_responses", "in-place").build().generatedResponses());
+        assertEquals(Optional.of(MitmServerHandshake.EAGER),
+                ProtocolPolicy.builder().set("mitm_server_handshake", "EAGER").build().mitmServerHandshake());
+        assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("mitm_server_handshake", "now"));
         assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("no_such_field", "true"));
         assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("tls_retry_without_sni", "yes"));
         assertThrows(IllegalArgumentException.class,
                 () -> ProtocolPolicy.builder().set("allow_chunked_length", "true"), "HTTP/1 only");
         assertEquals(Optional.of(true), new Http1PolicyBuilder().set("allow_chunked_length", "true").build()
                 .allowChunkedLength());
-        assertEquals(7, ProtocolPolicy.configurationNames().size());
+        assertEquals(8, ProtocolPolicy.configurationNames().size());
     }
 
     @Test

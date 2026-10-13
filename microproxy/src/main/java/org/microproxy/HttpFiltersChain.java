@@ -254,6 +254,15 @@ public final class HttpFiltersChain implements HttpFiltersSource {
         }
 
         @Override
+        public MitmServerHandshake proxyToServerMitmHandshake() {
+            for (HttpFilters f : members) {
+                MitmServerHandshake handshake = f.proxyToServerMitmHandshake();
+                if (handshake != null) return handshake;
+            }
+            return null;
+        }
+
+        @Override
         public RetryBackoff chainedProxyRetryBackoff() {
             for (HttpFilters f : members) {
                 RetryBackoff backoff = f.chainedProxyRetryBackoff();

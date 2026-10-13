@@ -54,6 +54,7 @@ public final class ProtocolPolicy {
             .proxyProtocolDestination(ProxyProtocolDestination.LOCAL_ADDRESS)
             .tlsRetryWithoutSni(false)
             .generatedResponses(GeneratedResponses.REPLACEABLE)
+            .mitmServerHandshake(MitmServerHandshake.DEFERRED)
             .build();
 
     private static final ProtocolPolicy LITTLE_PROXY = new Builder()
@@ -63,6 +64,7 @@ public final class ProtocolPolicy {
             .proxyProtocolDestination(ProxyProtocolDestination.SERVER_ADDRESS)
             .tlsRetryWithoutSni(true)
             .generatedResponses(GeneratedResponses.REPLACEABLE)
+            .mitmServerHandshake(MitmServerHandshake.EAGER)
             .build();
 
     private final Boolean resolveBeforeProxyToServerRequest;
@@ -72,6 +74,7 @@ public final class ProtocolPolicy {
     private final Boolean tlsRetryWithoutSni;
     private final Boolean allowChunkedLength;
     private final GeneratedResponses generatedResponses;
+    private final MitmServerHandshake mitmServerHandshake;
 
     private ProtocolPolicy(Builder b) {
         resolveBeforeProxyToServerRequest = b.resolveBeforeProxyToServerRequest;
@@ -81,6 +84,7 @@ public final class ProtocolPolicy {
         tlsRetryWithoutSni = b.tlsRetryWithoutSni;
         allowChunkedLength = b.allowChunkedLength;
         generatedResponses = b.generatedResponses;
+        mitmServerHandshake = b.mitmServerHandshake;
     }
 
     /**
@@ -108,7 +112,9 @@ public final class ProtocolPolicy {
      *   <li>{@link #proxyProtocolDestination()}: {@link ProxyProtocolDestination#LOCAL_ADDRESS};
      *   <li>{@link #tlsRetryWithoutSni()}: {@code false};
      *   <li>{@link #generatedResponses()}: {@link GeneratedResponses#REPLACEABLE}, so a filter can
-     *       brand the proxy's own responses.
+     *       brand the proxy's own responses;
+     *   <li>{@link #mitmServerHandshake()}: {@link MitmServerHandshake#DEFERRED}, so the server's
+     *       handshake can mirror the client's ClientHello.
      * </ul>
      *
      * @return MicroProxy's default policy
@@ -150,6 +156,11 @@ public final class ProtocolPolicy {
      *       proxyToClientResponse} and writes the response it returns. (LittleProxy 1.x wrote the
      *       response it was given instead, which forks of it kept: {@link
      *       GeneratedResponses#IN_PLACE}.)
+     *   <li>{@link #mitmServerHandshake()}: {@link MitmServerHandshake#EAGER}. {@code
+     *       ProxyToServerConnection.initializeConnectionFlow} runs the server's {@code
+     *       EncryptChannel} step before {@code RespondCONNECTSuccessful}, so a server TLS failure
+     *       answers the {@code CONNECT} with {@code 502}, after the next chained proxy was tried as
+     *       for any connection failure ({@code connectionFailed}).
      * </ul>
      *
      * @return LittleProxy's policy
@@ -261,6 +272,21 @@ public final class ProtocolPolicy {
     }
 
     /**
+     * When the proxy runs its TLS handshake with the server for an intercepted {@code CONNECT}:
+     * after answering it and reading the client's ClientHello, which it can then mirror ({@link
+     * MitmServerHandshake#DEFERRED}), or before answering, so that a failure answers the {@code
+     * CONNECT} itself ({@link MitmServerHandshake#EAGER}). A request's filters can choose for it
+     * ({@link HttpFilters#proxyToServerMitmHandshake()}). Transparent TLS connections, whose
+     * ClientHello the proxy has read before it routes them, and which get no answer in HTTP, are
+     * always deferred.
+     *
+     * @return the field's value, or empty when this policy leaves it unset
+     */
+    public Optional<MitmServerHandshake> mitmServerHandshake() {
+        return Optional.ofNullable(mitmServerHandshake);
+    }
+
+    /**
      * HTTP/1 only: whether an HTTP/1.1 request with both {@code Transfer-Encoding} and {@code
      * Content-Length} is accepted (see {@link HttpProxyServerBootstrap#withAllowChunkedLength}).
      * Set with {@link Http1PolicyBuilder#allowChunkedLength}; a policy for other protocols
@@ -295,13 +321,15 @@ public final class ProtocolPolicy {
                 && proxyProtocolDestination == p.proxyProtocolDestination
                 && Objects.equals(tlsRetryWithoutSni, p.tlsRetryWithoutSni)
                 && Objects.equals(allowChunkedLength, p.allowChunkedLength)
-                && generatedResponses == p.generatedResponses;
+                && generatedResponses == p.generatedResponses
+                && mitmServerHandshake == p.mitmServerHandshake;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(resolveBeforeProxyToServerRequest, filterConnectAnswer, servePlainHttpAfterConnect,
-                proxyProtocolDestination, tlsRetryWithoutSni, allowChunkedLength, generatedResponses);
+                proxyProtocolDestination, tlsRetryWithoutSni, allowChunkedLength, generatedResponses,
+                mitmServerHandshake);
     }
 
     /**
@@ -320,6 +348,8 @@ public final class ProtocolPolicy {
         field(s, "allow_chunked_length", allowChunkedLength);
         field(s, "generated_responses",
                 generatedResponses == null ? null : generatedResponses.name().toLowerCase(Locale.ROOT));
+        field(s, "mitm_server_handshake",
+                mitmServerHandshake == null ? null : mitmServerHandshake.name().toLowerCase(Locale.ROOT));
         if (s.charAt(s.length() - 1) == ',') s.setLength(s.length() - 1);
         return s.append(']').toString();
     }
@@ -346,6 +376,7 @@ public final class ProtocolPolicy {
         Boolean tlsRetryWithoutSni;
         Boolean allowChunkedLength;
         GeneratedResponses generatedResponses;
+        MitmServerHandshake mitmServerHandshake;
 
         Builder() {}
 
@@ -371,6 +402,7 @@ public final class ProtocolPolicy {
             if (p.proxyProtocolDestination != null) proxyProtocolDestination = p.proxyProtocolDestination;
             if (p.tlsRetryWithoutSni != null) tlsRetryWithoutSni = p.tlsRetryWithoutSni;
             if (p.generatedResponses != null) generatedResponses = p.generatedResponses;
+            if (p.mitmServerHandshake != null) mitmServerHandshake = p.mitmServerHandshake;
             if (http1Fields && p.allowChunkedLength != null) allowChunkedLength = p.allowChunkedLength;
         }
 
@@ -441,12 +473,24 @@ public final class ProtocolPolicy {
         }
 
         /**
+         * Sets {@link ProtocolPolicy#mitmServerHandshake()}.
+         *
+         * @param value when the server's handshake runs
+         * @return this builder
+         */
+        public Builder mitmServerHandshake(MitmServerHandshake value) {
+            mitmServerHandshake = Objects.requireNonNull(value, "mitmServerHandshake");
+            return this;
+        }
+
+        /**
          * Sets a field by its configuration name, as the properties file and the command line
          * name them: {@code preset} ({@link ProtocolPolicy#preset(String)}), {@code
          * resolve_before_proxy_to_server_request}, {@code filter_connect_answer}, {@code
          * serve_plain_http_after_connect}, {@code proxy_protocol_destination} ({@code
          * local_address} or {@code server_address}), {@code tls_retry_without_sni} and {@code
-         * generated_responses} ({@link GeneratedResponses#parse}), and for
+         * generated_responses} ({@link GeneratedResponses#parse}), {@code mitm_server_handshake}
+         * ({@link MitmServerHandshake#parse}), and for
          * HTTP/1 {@code allow_chunked_length}. Booleans are {@code true} or {@code false}.
          *
          * @param name the field's name ({@code -} may stand for {@code _})
@@ -465,6 +509,7 @@ public final class ProtocolPolicy {
                 case "proxy_protocol_destination" -> proxyProtocolDestination(ProxyProtocolDestination.parse(value));
                 case "tls_retry_without_sni" -> tlsRetryWithoutSni(bool(name, value));
                 case "generated_responses" -> generatedResponses(GeneratedResponses.parse(value));
+                case "mitm_server_handshake" -> mitmServerHandshake(MitmServerHandshake.parse(value));
                 default -> throw new IllegalArgumentException("unknown protocol policy field: " + name.strip()
                         + (token(name).equals("allow_chunked_length") ? " (HTTP/1 only)" : ""));
             }
@@ -491,7 +536,7 @@ public final class ProtocolPolicy {
 
     private static final List<String> NAMES = List.of("preset", "resolve_before_proxy_to_server_request",
             "filter_connect_answer", "serve_plain_http_after_connect", "proxy_protocol_destination",
-            "tls_retry_without_sni", "generated_responses");
+            "tls_retry_without_sni", "generated_responses", "mitm_server_handshake");
 
     /**
      * The configuration names {@link Builder#set} takes, {@code preset} first; {@link

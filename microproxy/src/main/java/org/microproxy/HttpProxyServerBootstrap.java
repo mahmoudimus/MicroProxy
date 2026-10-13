@@ -520,8 +520,16 @@ public interface HttpProxyServerBootstrap {
      *       connected to, and none is sent when the client and that address are of different
      *       address families;
      *   <li>a server that rejects the server name the proxy sends with an {@code unrecognized_name}
-     *       alert is tried again without SNI ({@link #withTlsRetryWithoutSni}).
+     *       alert is tried again without SNI ({@link #withTlsRetryWithoutSni});
+     *   <li>the TLS handshake with the server of an intercepted {@code CONNECT} runs before the
+     *       {@code CONNECT} is answered ({@link MitmServerHandshake#EAGER}), so a failure answers it
+     *       {@code 502}.
      * </ul>
+     *
+     * <p>{@link HttpFilters#proxyToClientResponse} may replace the proxy's own responses, as in
+     * LittleProxy 2.x and by default ({@link GeneratedResponses#REPLACEABLE}); forks of LittleProxy
+     * 1.x let it change them in place only, which {@code onHttp1(p ->
+     * p.generatedResponses(GeneratedResponses.IN_PLACE))} restores.
      *
      * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not
      * affected. Off by default.

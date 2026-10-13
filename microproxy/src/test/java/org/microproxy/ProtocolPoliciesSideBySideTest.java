@@ -146,8 +146,10 @@ class ProtocolPoliciesSideBySideTest {
         HttpServer origin = origin();
         String target = authority(origin);
         for (UnaryOperator<HttpProxyServerBootstrap> how : LITTLE_PROXY_FOR_HTTP1) {
+            // (The preset's eager handshake would wait for a TLS answer the plain server never sends:
+            // this field is about what the client's first bytes decide.)
             proxy = h2c(how).withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
-                    .start();
+                    .onHttp1(p -> p.mitmServerHandshake(MitmServerHandshake.DEFERRED)).start();
             try (Socket s = new Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort())) {
                 s.setSoTimeout(20_000);
                 write(s.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
@@ -221,6 +223,30 @@ class ProtocolPoliciesSideBySideTest {
                         + "\r\nConnection: close\r\n\r\n");
                 assertTrue(fromHttp1.startsWith("HTTP/1.1 200"), fromHttp1);
                 assertTrue(fromHttp1.contains("X-Sni: none"), fromHttp1);
+            }
+        }
+    }
+
+    @Test
+    void mitmServerHandshake() throws Exception {
+        // A server whose certificate the proxy does not trust: its handshake fails.
+        CertificateAuthority stranger = CertificateAuthority.generate("Policies Stranger CA");
+        com.sun.net.httpserver.HttpsServer untrusted = TestSupport.httpsOrigin(
+                stranger.serverContext("localhost", "127.0.0.1"), TestSupport.fixed(200, "stranger"));
+        closeables.add(() -> untrusted.stop(0));
+        String target = "localhost:" + untrusted.getAddress().getPort();
+        for (UnaryOperator<HttpProxyServerBootstrap> how : LITTLE_PROXY_FOR_HTTP1) {
+            proxy = h2c(how).withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                    .start();
+            // HTTP/1: LittleProxy's eager handshake fails the CONNECT itself.
+            String fromHttp1 = http1("CONNECT " + target + " HTTP/1.1\r\nHost: " + target
+                    + "\r\nConnection: close\r\n\r\n");
+            assertTrue(fromHttp1.startsWith("HTTP/1.1 502"), fromHttp1);
+            // HTTP/2: deferred, the CONNECT stream is answered 200 before the server's handshake.
+            try (H2StreamClient c = H2StreamClient.cleartext(proxy.getListenAddress(), "unused:1")) {
+                H2StreamClient.Stream tunnel = c.open(H2StreamClient.connect(target), false);
+                assertEquals(200, tunnel.status());
+                tunnel.end();
             }
         }
     }

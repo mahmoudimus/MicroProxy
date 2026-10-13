@@ -51,6 +51,12 @@ public final class Http1PolicyBuilder extends ProtocolPolicy.Builder {
         return this;
     }
 
+    @Override
+    public Http1PolicyBuilder mitmServerHandshake(MitmServerHandshake value) {
+        super.mitmServerHandshake(value);
+        return this;
+    }
+
     /**
      * Sets {@link ProtocolPolicy#allowChunkedLength()}: whether an HTTP/1.1 request with both
      * {@code Transfer-Encoding} and {@code Content-Length} is accepted, its {@code Content-Length}
