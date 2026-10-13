@@ -18,10 +18,32 @@ TOOLS="$HERE/../.tools"
 log() { printf '[bootstrap] %s\n' "$*" >&2; }
 
 [ "$(id -u)" = 0 ] || { log "run as root (sysctl, CPU governor, apt)"; exit 1; }
-CORES=$(lscpu -p=CORE | grep -v '^#' | sort -u | wc -l)
 CPUS=$(nproc)
-[ "$CORES" -ge 8 ] || log "WARNING: $CORES physical cores; 8 or more keep the proxy, origin and load generator apart"
-[ "$CPUS" -eq "$CORES" ] || log "WARNING: $CPUS CPUs on $CORES cores: SMT is on, so pinned processes can share a core; turn it off (BIOS, 'echo off > /sys/devices/system/cpu/smt/control', or threads-per-core=1 on cloud instances)"
+VIRT=$(systemd-detect-virt 2>/dev/null || echo unknown)
+if grep -qi microsoft /proc/version; then
+    log "WARNING: WSL2 is a virtual machine and the guard cannot see work on the Windows side:"
+    log "         results from here are diagnostic only, not for publication"
+elif [ "$VIRT" != none ] && [ "$VIRT" != unknown ]; then
+    log "WARNING: running under $VIRT: use a dedicated-core instance, and check the guard's foreign-CPU record"
+fi
+
+# The CPUs to measure on: one hardware thread per physical core (the first of its siblings, so no two
+# pinned processes share a core), and on hybrid processors (Intel's performance + efficiency cores)
+# only the performance cores, which /sys/devices/cpu_core/cpus lists.
+expand() { local r out=(); for r in ${1//,/ }; do if [[ $r == *-* ]]; then out+=($(seq "${r%-*}" "${r#*-}")); else out+=("$r"); fi; done; echo "${out[@]}"; }
+pool=$(expand "$(cat /sys/devices/system/cpu/online)")
+[ -r /sys/devices/cpu_core/cpus ] && pool=$(expand "$(cat /sys/devices/cpu_core/cpus)") && log "hybrid processor: using only performance cores ($(cat /sys/devices/cpu_core/cpus))"
+CORE_CPUS=()
+for c in $pool; do
+    sib=$(cut -d, -f1 "/sys/devices/system/cpu/cpu$c/topology/thread_siblings_list" | cut -d- -f1)
+    [ "$sib" = "$c" ] && CORE_CPUS+=("$c")
+done
+CORES=${#CORE_CPUS[@]}
+# The first core is left for interrupts and housekeeping; then the proxy, the origin, and at least two
+# cores for the load generator.
+[ "$CORES" -ge 5 ] || { log "need at least 5 usable physical cores (housekeeping, proxy, origin, 2 for the load generator); found $CORES: ${CORE_CPUS[*]}"; exit 1; }
+[ "$CORES" -ge 8 ] || log "WARNING: $CORES usable physical cores; 8 or more give the load generator room"
+[ "$CPUS" -eq "$(lscpu -p=CORE | grep -v '^#' | sort -u | wc -l)" ] || log "note: SMT is on; only one thread per core is used, and the idle siblings can still disturb it: turning SMT off is better"
 
 # Packages: build tools, Maven, Python, the g3proxy build's needs, Squid.
 export DEBIAN_FRONTEND=noninteractive
@@ -62,12 +84,12 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -w "$g" ] &
 "$HERE/../setup.sh"
 (cd "$ROOT" && mvn --batch-mode -q -Pbench -DskipTests package -pl loadtest -am)
 
-# A CPU split that keeps CPU 0 (interrupts, housekeeping) out of the measurement: proxy on CPU 2,
-# origin on CPU 3, the load generator on the rest (at most 8 CPUs).
-last=$((CPUS - 1)); [ "$last" -gt 11 ] && last=11
-export CPUS_PROXY=${CPUS_PROXY:-2} CPUS_ORIGIN=${CPUS_ORIGIN:-3} CPUS_CLIENT=${CPUS_CLIENT:-4-$last}
+# The split over the usable cores: the first left for housekeeping, then the proxy, the origin, and up
+# to six for the load generator.
+client=$(IFS=,; echo "${CORE_CPUS[*]:3:6}")
+export CPUS_PROXY=${CPUS_PROXY:-${CORE_CPUS[1]}} CPUS_ORIGIN=${CPUS_ORIGIN:-${CORE_CPUS[2]}} CPUS_CLIENT=${CPUS_CLIENT:-$client}
 
-log "machine: $(lscpu | sed -n 's/^Model name: *//p'), $CORES cores, $CPUS CPUs, $(free -g | awk '/Mem/{print $2}') GB, kernel $(uname -r)"
+log "machine: $(lscpu | sed -n 's/^Model name: *//p'), $CORES usable cores, $CPUS CPUs, virtualization $VIRT, $(free -g | awk '/Mem/{print $2}') GB, kernel $(uname -r)"
 log "java: $(java -version 2>&1 | head -1); governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
 log "split: proxy $CPUS_PROXY, origin $CPUS_ORIGIN, load generator $CPUS_CLIENT"
 log "load now: $(cat /proc/loadavg) (should be near 0: stop everything else on the machine)"

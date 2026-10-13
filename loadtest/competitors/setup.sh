@@ -113,7 +113,14 @@ setup_squid() {
     # Install without starting the service: the harness starts its own Squid per run.
     printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
     trap 'rm -f /usr/sbin/policy-rc.d' RETURN
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "squid=$SQUID_APT_VERSION" >&2
+    # The pinned package exists only on the distribution it was published for (Ubuntu 24.04); elsewhere
+    # install the distribution's Squid and say so (the harness records every proxy's version per run).
+    if apt-cache madison squid 2>/dev/null | grep -q "| $SQUID_APT_VERSION |"; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "squid=$SQUID_APT_VERSION" >&2
+    else
+        log "squid $SQUID_APT_VERSION is not available here; installing this distribution's squid instead"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends squid >&2
+    fi
     /usr/sbin/squid -v | head -1
 }
 

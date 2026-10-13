@@ -12,6 +12,11 @@ machine.
 - At least 8 physical cores, 16 preferred; SMT (hyper-threading) off, so pinned processes never share
   a core: bare metal, or a cloud instance with dedicated cores and one thread per core (for example
   AWS c7i.4xlarge with "threads per core = 1", or a Google Cloud C3 instance with threads-per-core=1).
+- Native Linux, not a virtual machine on a workstation: WSL2 is a VM whose Windows-side work the
+  guard cannot see, so results from it are diagnostic only (the script says so). A desktop can boot an
+  Ubuntu 24.04 live USB for the campaign without installing anything.
+- On hybrid processors (Intel's performance + efficiency cores) the script uses only the performance
+  cores, one thread per core; turning SMT off and leaving the efficiency cores idle is still best.
 - 16 GB of memory or more, and nothing else running for the campaign's duration (about 5 hours for
   five repetitions of all six proxies, plus about 30 minutes of setup).
 
