@@ -9,3 +9,6 @@ h2spec-report.xml
 # The documentation site, built by mkdocs (see docs/CONTRIBUTING-DOCS.md)
 site/
 __pycache__/
+
+# Load-testing harness run outputs (loadtest/, bench profile)
+loadtest/results/
