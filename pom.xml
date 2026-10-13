@@ -191,6 +191,15 @@
 
     <profiles>
         <profile>
+            <!-- The JMH benchmarks against LittleProxy (mvn -Pbench -DskipTests package), which
+                 bring JMH, LittleProxy and Netty: never part of a normal build, never published.
+                 See docs/project/benchmarks.md. -->
+            <id>bench</id>
+            <modules>
+                <module>benchmarks</module>
+            </modules>
+        </profile>
+        <profile>
             <!-- Opt in only when checking or publishing Central artifacts. -->
             <id>central</id>
             <build>

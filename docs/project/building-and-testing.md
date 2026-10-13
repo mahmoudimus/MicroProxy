@@ -20,6 +20,9 @@ the same exchange logic concurrently, is described in
 [`microproxy/src/main/java/org/microproxy/impl/README.md`](https://github.com/mahmoudimus/MicroProxy/blob/main/microproxy/src/main/java/org/microproxy/impl/README.md).
 `AllocationTest` fails if a small keep-alive request starts allocating much more than it does now.
 
+The JMH benchmarks against LittleProxy are a separate module built only with `-Pbench`; see
+[Benchmarks against LittleProxy](benchmarks.md).
+
 ## Releases
 
 Releases are cut by [release-please](https://github.com/googleapis/release-please). It reads

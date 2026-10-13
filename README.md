@@ -135,6 +135,7 @@ jar.
 | [Security](docs/security.md) | exposure, hardening limits, SSRF, trust settings |
 | [Migrating from LittleProxy](docs/migrating-from-littleproxy.md) | the command line, config file, API and behaviour, mapped |
 | [Architecture](docs/architecture.md) | why virtual threads instead of Netty, and the internals |
+| [Benchmarks](docs/project/benchmarks.md) | JMH benchmarks against LittleProxy: what they measure, how fairly, how to run them |
 
 ## Building and testing
 
