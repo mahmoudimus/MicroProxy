@@ -73,14 +73,19 @@ cat > "$OUT/run-info.json" <<JSON
  "commit": "$(git rev-parse HEAD)",
  "uncommittedLoadtestChanges": $dirty,
  "command": "REPS=$REPS PROXIES=$PROXIES SCENARIOS=$SCENARIOS loadtest/competitors/run-all.sh $*",
- "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+ "wsl": $(grep -qi microsoft /proc/version && echo true || echo false)
 }
 JSON
 # The contamination guard's log: load average and foreign CPU every 5 s, until this script exits.
 python3 -I "$HERE/hostmon.py" $$ "$OUT/hostmon.jsonl" 5 &
 # On WSL2, also what the Windows host runs: it shares the cores but is invisible to hostmon.py.
-if grep -qi microsoft /proc/version && command -v powershell.exe >/dev/null; then
+# Without it every run is rejected (aggregate.py), so refuse to start rather than run for hours.
+if grep -qi microsoft /proc/version; then
+    command -v powershell.exe >/dev/null || { echo "WSL2 without powershell.exe: the Windows host cannot be monitored" >&2; exit 1; }
     python3 -I "$HERE/winmon.py" $$ "$OUT/winmon.jsonl" 5 &
+    sleep 15
+    [ -s "$OUT/winmon.jsonl" ] || { echo "the Windows host monitor wrote nothing in 15 s (see winmon.py)" >&2; exit 1; }
 fi
 for ((rep = 1; rep <= REPS; rep++)); do
     # Rotate the order, so no proxy always runs first (or last) in a repetition.

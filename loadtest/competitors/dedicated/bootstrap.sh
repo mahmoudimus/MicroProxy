@@ -71,9 +71,23 @@ jdk temurin-25 https://github.com/adoptium/temurin25-binaries/releases/download/
 export JAVA_HOME="$TOOLS/temurin-${JDK:-21}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
-# Kernel settings the connection ramp and slow-reader scenarios need.
-sysctl -q -w net.ipv4.ip_local_port_range="1024 65535" net.core.somaxconn=65535 \
-    net.ipv4.tcp_max_syn_backlog=65535 fs.file-max=2097152 fs.nr_open=2097152
+# Kernel settings the connection ramp and slow-reader scenarios need, restored when this script
+# exits. The largest ramp step (8,000 connections) needs 16,000 local ports (client to proxy, proxy to
+# origin), which the default range (32768-60999, 28,232 ports) already has, and TIME_WAIT reuse keeps
+# them free between scenarios; the range is widened only where nothing else shares it: under WSL2 the
+# Linux and Windows port spaces interact, and a range down to 1024 broke the host's own downloads.
+KEYS=(net.ipv4.ip_local_port_range net.core.somaxconn net.ipv4.tcp_max_syn_backlog net.ipv4.tcp_tw_reuse fs.file-max fs.nr_open)
+declare -A ORIG
+for k in "${KEYS[@]}"; do ORIG[$k]=$(sysctl -n "$k" | tr '\t' ' '); done
+restore() { for k in "${KEYS[@]}"; do sysctl -q -w "$k=${ORIG[$k]}" || true; done; log "kernel settings restored"; }
+trap restore EXIT
+sysctl -q -w net.core.somaxconn=65535 net.ipv4.tcp_max_syn_backlog=65535 net.ipv4.tcp_tw_reuse=1 \
+    fs.file-max=2097152 fs.nr_open=2097152
+if ! grep -qi microsoft /proc/version && [ -z "${KEEP_PORT_RANGE:-}" ]; then
+    sysctl -q -w net.ipv4.ip_local_port_range="15000 64999"
+fi
+read -r lo hi <<< "$(sysctl -n net.ipv4.ip_local_port_range)"
+[ $((hi - lo + 1)) -ge 20000 ] || { log "only $((hi - lo + 1)) local ports ($lo-$hi); the 8,000-connection ramp needs about 16,000"; exit 1; }
 ulimit -n 1048576 || ulimit -n "$(ulimit -Hn)"
 
 # Steady CPU clocks: performance governor, and no turbo where the driver exposes it.
@@ -94,6 +108,7 @@ log "machine: $(lscpu | sed -n 's/^Model name: *//p'), $CORES usable cores, $CPU
 log "java: $(java -version 2>&1 | head -1); governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
 log "split: proxy $CPUS_PROXY, origin $CPUS_ORIGIN, load generator $CPUS_CLIENT"
 log "load now: $(cat /proc/loadavg) (should be near 0: stop everything else on the machine)"
+log "local ports: $(sysctl -n net.ipv4.ip_local_port_range | tr '\t' ' '); prepare-only runs restore the kernel settings on exit"
 
 if [ "${RUN:-0}" = 1 ]; then
     cd "$ROOT"

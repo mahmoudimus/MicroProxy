@@ -184,6 +184,8 @@ def host_load(runs_dir, runs):
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             samples = [json.loads(line) for line in f if line.strip()]
+    # A campaign run on WSL2 must have the Windows host's log: without it a run cannot be judged.
+    wsl = bool(run_info(runs_dir).get("wsl"))
     winsamples = []
     wpath = os.path.join(runs_dir, "winmon.jsonl")
     if os.path.exists(wpath):
@@ -208,7 +210,7 @@ def host_load(runs_dir, runs):
         # in the Linux VM's /proc: it counts against the run as well.
         wwin = [x for x in winsamples if r["start"] <= x["t"] <= r["end"]]
         windows = None
-        if winsamples:
+        if wsl or winsamples:
             if not wwin:
                 out[r["id"]] = {"samples": len(win), "accepted": None, "note": "no Windows host monitor samples for this run"}
                 continue
