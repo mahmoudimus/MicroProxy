@@ -607,6 +607,17 @@ final class ClientConnection implements Runnable {
         List<String> offeredAlpn;
         /** How many attempts failed before the connect loop's last connection was made. */
         int failedAttempts;
+        /**
+         * The backoff between the exchange's connection attempts, once an attempt has failed
+         * ({@link #retryBackoff}, asked once); null before.
+         */
+        RetryBackoff backoff;
+        /**
+         * What is left of the exchange's backoff budget, in nanoseconds, once {@link #backoff} is
+         * known: the waits of every pass of the connect loop for the exchange (a deferred
+         * handshake's failover is another) draw on it.
+         */
+        long backoffBudget;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -3876,52 +3887,42 @@ final class ClientConnection implements Runnable {
         LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort
                 + (failed.chainedProxy != null ? " via " + failed.chainedProxy.getChainedProxyAddress() : "")
                 + " failed: " + cause.getMessage());
-        // (Kept by this connection unless an intercepted stream's session holds it.)
-        boolean kept = serverConnections.remove(failed.key, failed);
-        failed.close();
+        // The same account of a failed attempt as the connect loop keeps for one.
+        if (failed.cluster != null) failed.cluster.connectFailed(cause);
         if (failed.chainedProxy != null) failed.chainedProxy.connectionFailed(cause);
         reportServerFailure(failed.flowContext, cause);
         traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
+        int failures = ex.failedAttempts + 1;
         List<ChainedProxy> rest = List.of();
         if (via == null && route != null) {
-            int index = route.indexOf(failed.chainedProxy == null
-                    ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : failed.chainedProxy);
+            int index = route.indexOf(routeOf(failed));
             if (index >= 0) rest = route.subList(index + 1, route.size());
         }
         if (rest.isEmpty()) {
+            serverConnections.remove(failed.key, failed);
+            failed.close();
             ex.filters.proxyToServerConnectionFailed();
-            return sessionFailed(ex, hostAndPort, e, ex.failedAttempts > 0);
+            if (failures > 1) ex.flow.addResponseFlag(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED);
+            return sessionFailed(ex, hostAndPort, e, failures > 1);
         }
         if (failed.cluster != null) failed.cluster.failover.inc();
         ClientHello mirrored = ex.mirrorHello;
-        boolean defer = ex.deferServerTls;
         ex.mirrorHello = hello;
-        ex.deferServerTls = false;
-        ServerConnection fresh;
         try {
-            fresh = connect(hostAndPort, ex, rest, Mode.TLS, null, ex.failedAttempts + 1, e);
+            return replace(ex, failed, hostAndPort, rest, failures, e, false);
         } catch (ClientFailure client) {
             throw client;
         } catch (IOException last) {
             return sessionFailed(ex, hostAndPort, last, true);
         } finally {
             ex.mirrorHello = mirrored;
-            ex.deferServerTls = defer;
         }
-        fresh.key = failed.key;
-        try {
-            ex.channel.serverConnectionInUse(fresh);
-        } catch (IOException inUse) {
-            fresh.close();
-            throw inUse;
-        }
-        if (kept) serverConnections.put(fresh.key, fresh);
-        return fresh;
     }
 
     /** Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null. */
     private ServerConnection sessionFailed(Exchange ex, String hostAndPort, IOException e, boolean retried) {
-        ProxyFailure failure = connectFailure(hostAndPort, e);
+        ProxyFailure failure = e instanceof SharedConnectionPool.PoolExhaustedException
+                ? new ProxyFailure.NoConnectionAvailable(hostAndPort) : connectFailure(hostAndPort, e);
         LOG.log(Level.DEBUG, ex.log + "no route reached " + hostAndPort + " (" + unwrap(e).getMessage()
                 + "); intercepting without a server connection, the first request to be answered "
                 + failure.status().code());
@@ -3931,25 +3932,55 @@ final class ClientConnection implements Runnable {
 
     /**
      * A new connection to {@code hostAndPort} in place of {@code old}, whose deferred TLS handshake
-     * failed, made as {@code old} was (by {@code route}, directly or through chained proxies), its
-     * TLS pending too; null when {@code old} came another way (a tunnel through a session's
-     * server), which this does not redo: the session's requests connect anew instead.
+     * the server ended by rejecting the name it was sent, made by the same route as {@code old}
+     * (directly or through the same chained proxy), its TLS pending too, for the retry without
+     * SNI: the same attempt again, so it is not counted as a failed one, and no backoff is waited.
+     * Null when {@code old} came another way (a tunnel through a session's server), which this does
+     * not redo: the session's requests connect anew instead.
      */
     private ServerConnection redialForTls(Exchange ex, ServerConnection old, String hostAndPort,
             List<ChainedProxy> route) throws IOException {
         if (via != null || route == null) return null;
+        int failedBefore = ex.failedAttempts;
+        ServerConnection fresh = replace(ex, old, hostAndPort, List.of(routeOf(old)), 0, null, true);
+        ex.failedAttempts = failedBefore;
+        return fresh;
+    }
+
+    /** The route that made {@code conn}: its chained proxy, or the direct connection. */
+    private static ChainedProxy routeOf(ServerConnection conn) {
+        return conn.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : conn.chainedProxy;
+    }
+
+    /**
+     * Closes {@code failed}, a connection (with its TLS pending) whose attempt failed, and makes
+     * another to {@code hostAndPort} by {@code routes}, after {@code priorFailures} failed attempts
+     * (the last with {@code prior}), as the connect loop would: with the backoff, the request's
+     * remaining budget and its client-departure checks. A pooled {@code failed} hands its place in
+     * the pool's limits over to the new connection, which is leased and registered as the first
+     * one was; one that could not keep its place (it was handed over already) leases a new one.
+     * The new connection is kept by this client connection as {@code failed} was.
+     *
+     * @param deferTls whether the new connection's TLS waits too (for a retry without SNI), or
+     *     its handshake mirrors the ClientHello in the loop ({@link Exchange#mirrorHello})
+     */
+    private ServerConnection replace(Exchange ex, ServerConnection failed, String hostAndPort,
+            List<ChainedProxy> routes, int priorFailures, IOException prior, boolean deferTls) throws IOException {
         // (Kept by this connection unless an intercepted stream's session holds it.)
-        boolean kept = serverConnections.remove(old.key, old);
-        old.close();
+        boolean kept = serverConnections.remove(failed.key, failed);
+        SharedConnectionPool pool = failed.pool;
+        boolean reserved = pool != null && pool.handOver(failed);
+        failed.close();
         boolean defer = ex.deferServerTls;
-        ex.deferServerTls = true;
+        ex.deferServerTls = deferTls;
         ServerConnection fresh;
         try {
-            fresh = connect(hostAndPort, ex, route, Mode.TLS);
+            fresh = usesPool(Mode.TLS) ? lease(hostAndPort, ex, routes, Mode.TLS, priorFailures, prior, reserved)
+                    : connect(hostAndPort, ex, routes, Mode.TLS, via, priorFailures, prior);
         } finally {
             ex.deferServerTls = defer;
         }
-        fresh.key = old.key;
+        fresh.key = failed.key;
         try {
             ex.channel.serverConnectionInUse(fresh);
         } catch (IOException e) {
@@ -5020,11 +5051,23 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
+        return lease(hostAndPort, ex, route, mode, 0, null, false);
+    }
+
+    /**
+     * Leases as {@link #lease(String, Exchange, List, Mode)} does, after {@code priorFailures}
+     * failed attempts (the last with {@code prior}) at the routes before {@code route}, as {@link
+     * #connect(String, Exchange, List, Mode, Hop, int, IOException)} counts them. With {@code
+     * reserved}, the caller holds a reservation for the host already, handed over from a failed
+     * attempt ({@link SharedConnectionPool#handOver}): the new connection takes it.
+     */
+    private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode,
+            int priorFailures, IOException prior, boolean reserved) throws IOException {
         String hostKey = mode + "|" + hostAndPort;
         // (The TLS identity keeps connections apart, but the per-host limit counts them all.)
         String managerKey = mitmPoolKey(mode) + tlsIdentityKey(ex, mode, hostAndPort);
-        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey,
-                Math.max(1000, server.getConnectTimeout()));
+        ServerConnection conn = reserved ? null : server.pool.acquire(
+                hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey, Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
             if (LOG.isLoggable(Level.DEBUG)) {
                 LOG.log(Level.DEBUG, ex.log + "reusing pooled " + conn);
@@ -5032,7 +5075,7 @@ final class ClientConnection implements Runnable {
             conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress);
         } else {
             try {
-                conn = connect(hostAndPort, ex, route, mode);
+                conn = connect(hostAndPort, ex, route, mode, via, priorFailures, prior);
             } catch (IOException | RuntimeException e) {
                 server.pool.cancel(hostKey);
                 throw e;
@@ -5233,20 +5276,19 @@ final class ClientConnection implements Runnable {
         IOException last = prior;
         boolean connecting = prior != null;
         int failures = priorFailures;
-        // Which backoff applies is asked only once an attempt has failed (null before).
-        RetryBackoff backoff = null;
-        long backoffBudget = 0;
+        // Which backoff applies is asked only once an attempt has failed (null before), once per
+        // exchange: its budget is the exchange's, whatever passes of this loop draw on it.
         ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
             // The last attempt failed and this one takes over from it.
             if (failedCluster != null) failedCluster.failover.inc();
-            if (failures > 0 && backoff == null) {
-                backoff = retryBackoff(ex);
-                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex, backoff);
+            if (failures > 0 && ex.backoff == null) {
+                ex.backoff = retryBackoff(ex);
+                ex.backoffBudget = ex.backoff.isNone() ? 0 : backoffBudgetNanos(ex, ex.backoff);
             }
-            if (failures > 0 && backoffBudget > 0) {
-                backoffBudget -= backOff(ex, backoff, failures, backoffBudget, hostAndPort, proxy);
+            if (failures > 0 && ex.backoffBudget > 0) {
+                ex.backoffBudget -= backOff(ex, ex.backoff, failures, ex.backoffBudget, hostAndPort, proxy);
             }
             ex.attempt = null;
             if (ex.trace != FlowTrace.NONE) {

@@ -102,10 +102,14 @@ class MitmServerHandshakeTest {
 
     /** The intercepting proxy, its routes {@code route}, a fixed 100 ms backoff, the waits recorded. */
     private void start(HttpProxyServerBootstrap bootstrap, ChainedProxy... route) {
+        start(bootstrap, RetryBackoff.fixed(Duration.ofMillis(100)), route);
+    }
+
+    private void start(HttpProxyServerBootstrap bootstrap, RetryBackoff backoff, ChainedProxy... route) {
         proxy = (DefaultHttpProxyServer) bootstrap.withPort(0)
                 .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
                 .withChainProxyManager((request, queue, details) -> queue.addAll(List.of(route)))
-                .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMillis(100)))
+                .withChainedProxyRetryBackoff(backoff)
                 .withFailureResponder((request, failure) -> {
                     failures.add(failure);
                     return null;
@@ -312,5 +316,152 @@ class MitmServerHandshakeTest {
         TestSupport.eventually("the 502's record", () -> sent.stream().anyMatch(r -> r.startsWith("502")));
         String record = sent.stream().filter(r -> r.startsWith("502")).findFirst().orElseThrow();
         assertTrue(!record.contains(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED.name()), record);
+    }
+
+    /** A route whose connection is refused at once. */
+    private ChainedProxy refused() {
+        Socket refusing = TestSupport.refusingPort();
+        closeables.add(refusing);
+        InetSocketAddress address = new InetSocketAddress(TestSupport.LOOPBACK, refusing.getLocalPort());
+        return () -> address;
+    }
+
+    @Test
+    void theBudgetCarriesAcrossADeferredFailover() throws Exception {
+        // A refused connection, then a handshake that fails, then one that works: 150 ms of
+        // budget for two 100 ms waits, whichever mode runs the handshakes.
+        RetryBackoff backoff = RetryBackoff.fixed(Duration.ofMillis(100)).withBudget(Duration.ofMillis(150));
+        for (HttpProxyServerBootstrap mode : List.of(MicroProxy.bootstrap(), eager())) {
+            if (proxy != null) proxy.abort();
+            waits.clear();
+            start(mode, backoff, refused(), untrusted(), trusted());
+            Outcome outcome = connectAndGet(null);
+            assertEquals(200, outcome.connectStatus());
+            assertTrue(outcome.inside().endsWith("trusted"), outcome.inside());
+            assertEquals(millis(100, 50), waits);
+        }
+    }
+
+    @Test
+    void theRetryBackoffIsAskedOncePerExchange() throws Exception {
+        java.util.concurrent.atomic.AtomicInteger asked = new java.util.concurrent.atomic.AtomicInteger();
+        start(MicroProxy.bootstrap().withFiltersSource((request, ctx) -> new HttpFilters() {
+            @Override
+            public RetryBackoff chainedProxyRetryBackoff() {
+                if ("CONNECT".equals(request.method().name())) asked.incrementAndGet();
+                return null;
+            }
+        }), refused(), untrusted(), trusted());
+        assertEquals(200, connectAndGet(null).connectStatus());
+        assertEquals(millis(100, 100), waits);
+        assertEquals(1, asked.get(), "the CONNECT's filters were asked once, for both passes");
+    }
+
+    /** A client session left open after one exchange inside it, so its server connection stays leased. */
+    private Socket openSession() throws IOException {
+        Socket raw = new Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort());
+        raw.setSoTimeout(20_000);
+        TestSupport.write(raw.getOutputStream(), "CONNECT localhost:443 HTTP/1.1\r\nHost: localhost:443\r\n\r\n");
+        String head = TestSupport.readUntil(raw.getInputStream(), "\r\n\r\n");
+        assertTrue(head.startsWith("HTTP/1.1 200"), head);
+        SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory().createSocket(raw, "localhost", 443, true);
+        SSLParameters params = tls.getSSLParameters();
+        params.setApplicationProtocols(new String[] {"http/1.1"});
+        tls.setSSLParameters(params);
+        tls.startHandshake();
+        TestSupport.write(tls.getOutputStream(), "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        InputStream in = tls.getInputStream();
+        String response = TestSupport.readUntil(in, "\r\n\r\n");
+        assertTrue(response.startsWith("HTTP/1.1 200"), response);
+        int length = Integer.parseInt(response.replaceAll("(?is).*content-length: *(\\d+).*", "$1"));
+        assertEquals("trusted", new String(in.readNBytes(length), StandardCharsets.ISO_8859_1));
+        return tls;
+    }
+
+    @Test
+    void aDeferredFailoverKeepsThePoolsLimits() throws Exception {
+        start(MicroProxy.bootstrap().withSharedServerConnectionPool(true).withPoolSharedMitmConnections(true)
+                .withMaxConnectionsPerHost(1).withMaxConnections(1).withConnectTimeout(1000), untrusted(), trusted());
+        try (Socket session = openSession()) {
+            // The failed attempt's place went to its replacement, which the session holds.
+            org.microproxy.PoolMetrics held = proxy.getServerConnectionPoolMetrics();
+            assertEquals(1, held.totalConnections(), held.toString());
+            assertEquals(1, held.activeConnections(), held.toString());
+            assertEquals(503, connectAndGet(null).connectStatus(), "no room for another connection to the host");
+        }
+        TestSupport.eventually("the session's connection back in the pool",
+                () -> proxy.getServerConnectionPoolMetrics().activeConnections() == 0);
+        org.microproxy.PoolMetrics after = proxy.getServerConnectionPoolMetrics();
+        assertEquals(1, after.totalConnections(), after.toString());
+        assertEquals(1, after.idleConnections(), after.toString());
+        // The place can be had again, through the same failover; still one connection at most.
+        try (Socket again = openSession()) {
+            assertEquals(1, proxy.getServerConnectionPoolMetrics().totalConnections());
+        }
+    }
+
+    /**
+     * An HTTPS server, trusted by the proxy, that answers the name {@code localhost} with a fatal
+     * {@code unrecognized_name} alert (it recognizes only {@code known.test}) and accepts a
+     * ClientHello without SNI.
+     */
+    private int pickyOrigin() throws IOException {
+        javax.net.ssl.SSLServerSocket socket = (javax.net.ssl.SSLServerSocket) originCa.serverContext("localhost")
+                .getServerSocketFactory().createServerSocket(0, 50, TestSupport.LOOPBACK);
+        SSLParameters params = socket.getSSLParameters();
+        params.setSNIMatchers(List.of(javax.net.ssl.SNIHostName.createSNIMatcher("known\\.test")));
+        socket.setSSLParameters(params);
+        closeables.add(socket);
+        Thread.ofVirtual().start(() -> {
+            while (!socket.isClosed()) {
+                try {
+                    SSLSocket client = (SSLSocket) socket.accept();
+                    Thread.ofVirtual().start(() -> {
+                        try (client) {
+                            client.startHandshake();
+                            TestSupport.readUntil(client.getInputStream(), "\r\n\r\n");
+                            TestSupport.write(client.getOutputStream(),
+                                    "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\npicky");
+                        } catch (IOException e) {
+                            // the handshake was refused, or the client left
+                        }
+                    });
+                } catch (IOException e) {
+                    return;
+                }
+            }
+        });
+        return socket.getLocalPort();
+    }
+
+    @Test
+    void aDeferredRetryWithoutSniRedialsTheSameRoute() throws Exception {
+        // A refused route, then one to a server that rejects the name: the retry without SNI goes
+        // by that same route again, neither the refused one nor another wait.
+        int picky = pickyOrigin();
+        InetSocketAddress target = new InetSocketAddress(TestSupport.LOOPBACK, picky);
+        HttpProxyServer chained = MicroProxy.bootstrap().withPort(0)
+                .withFiltersSource(HttpFilters.builder().resolveWith(h -> target).build()).start();
+        closeables.add(chained::abort);
+        InetSocketAddress toPicky = new InetSocketAddress(TestSupport.LOOPBACK, chained.getListenAddress().getPort());
+        ChainedProxy refused = refused();
+        java.util.concurrent.atomic.AtomicInteger refusedTried = new java.util.concurrent.atomic.AtomicInteger();
+        ChainedProxy counting = new ChainedProxy() {
+            @Override
+            public InetSocketAddress getChainedProxyAddress() {
+                return refused.getChainedProxyAddress();
+            }
+
+            @Override
+            public void connectionFailed(Throwable cause) {
+                refusedTried.incrementAndGet();
+            }
+        };
+        start(MicroProxy.bootstrap().withTlsRetryWithoutSni(true), counting, () -> toPicky);
+        Outcome outcome = connectAndGet(null);
+        assertEquals(200, outcome.connectStatus());
+        assertTrue(outcome.inside().endsWith("picky"), outcome.inside());
+        assertEquals(millis(100), waits);
+        assertEquals(1, refusedTried.get(), "the refused route failed once: it was not tried again");
     }
 }
