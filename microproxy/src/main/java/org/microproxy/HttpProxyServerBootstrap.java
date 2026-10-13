@@ -1012,12 +1012,56 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withProxyAlias(String alias);
 
     /**
-     * Require a PROXY protocol (v1 or v2) header on every inbound connection.
+     * Require a PROXY protocol (v1 or v2) header on every inbound connection: the same as {@link
+     * #withAcceptProxyProtocol(ProxyProtocolMode)} with {@link ProxyProtocolMode#REQUIRED}, or
+     * {@link ProxyProtocolMode#OFF} for {@code false}.
      *
      * @param acceptProxyProtocol whether to accept PROXY protocol on client connections
      * @return this bootstrap
      */
     HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol);
+
+    /**
+     * Whether client connections start with a PROXY protocol header (v1 or v2), read before
+     * anything else on the connection (before TLS on a TLS listener, before SOCKS or HTTP/2
+     * detection). The source it names is the client from then on: {@link
+     * FlowContext#getClientAddress()}, {@link ClientDetails}, access logs ({@code
+     * %DOWNSTREAM_REMOTE_ADDRESS%}) and the header sent on with {@link #withSendProxyProtocol}.
+     * Once a connection's first byte has come, the rest of a header must arrive within 5 seconds
+     * (or the idle timeout, if shorter), or the connection is closed.
+     *
+     * <p>{@link ProxyProtocolMode#OPTIONAL} lets any client that can reach the listener claim any
+     * source address: use it only behind a load balancer on a trusted network, ideally with
+     * {@link #withProxyProtocolTrustedSources} naming the load balancers.
+     *
+     * @param mode {@link ProxyProtocolMode#OFF} (the default), {@link ProxyProtocolMode#REQUIRED}
+     *     or {@link ProxyProtocolMode#OPTIONAL}
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withAcceptProxyProtocol(ProxyProtocolMode mode) {
+        return switch (java.util.Objects.requireNonNull(mode, "mode")) {
+            case OFF -> withAcceptProxyProtocol(false);
+            case REQUIRED -> withAcceptProxyProtocol(true);
+            case OPTIONAL -> throw new UnsupportedOperationException(
+                    getClass().getName() + " does not support optional PROXY protocol");
+        };
+    }
+
+    /**
+     * The peers whose PROXY protocol headers are honored, as IP addresses or CIDR ranges ({@code
+     * 10.0.0.0/8}, {@code 192.0.2.10}, {@code fd00::/8}): the load balancers in front of the
+     * proxy. A connection from another peer that starts with a PROXY header is closed, whichever
+     * the mode; with {@link ProxyProtocolMode#REQUIRED} every connection from another peer is
+     * closed, and with {@link ProxyProtocolMode#OPTIONAL} one without a header is served as it
+     * came. None (the default) honors headers from every peer.
+     *
+     * @param sources IP addresses or CIDR ranges; none to trust every peer
+     * @return this bootstrap
+     * @throws IllegalArgumentException if an entry is not an IP literal or a CIDR range
+     */
+    default HttpProxyServerBootstrap withProxyProtocolTrustedSources(String... sources) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support PROXY protocol trusted sources");
+    }
 
     /**
      * Send a PROXY protocol v1 header to the final server: first on a direct connection, or

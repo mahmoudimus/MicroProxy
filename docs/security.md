@@ -18,6 +18,13 @@ guide with the details.
   ([Authenticating clients](guides/scripting.md#authenticating-clients)).
 - **Concurrency limits** keep one client, user or target from taking every connection:
   `--max-concurrent-per-client` or a [`ConcurrencyLimiter`](guides/concurrency-limiting.md).
+- **PROXY protocol** makes the address a header names the client's, for logs, authorization and
+  limits alike. Required mode (`--accept-proxy-protocol`) is safe when only load balancers can
+  reach the listener. Optional mode (`--proxy-protocol-mode optional`) lets any client that can
+  connect claim any address by sending a header: use it only behind a load balancer on a trusted
+  network, and name the load balancers with `--proxy-protocol-trusted-sources`, so that a header
+  from any other peer closes its connection. `%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` logs the TCP
+  peer either way ([PROXY protocol](guides/forward-proxy.md#proxy-protocol)).
 - **The admin API** can drain and stop the proxy. It listens on `127.0.0.1` unless told otherwise,
   takes a token (`--admin-token`, `--admin-token-file`), answers on loopback only to `Host`s that
   are loopback names (against DNS rebinding), refuses `POST`s that carry an `Origin`, and redacts

@@ -41,6 +41,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | why the TLS handshake with the server failed |
 | `%UPSTREAM_TLS_VERSION%`, `%UPSTREAM_TLS_CIPHER%`, `%UPSTREAM_PEER_SUBJECT%`, `%UPSTREAM_PEER_ISSUER%` | the TLS session with the server |
 | `%DOWNSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_REMOTE_PORT%` | the client (the PROXY protocol's source, when one was accepted) |
+| `%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` (`_WITHOUT_PORT`) | the peer of the client's TCP connection: the load balancer when a PROXY protocol header was accepted, else the client |
 | `%DOWNSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_LOCAL_PORT%` | the proxy's end of the client connection |
 | `%DOWNSTREAM_TLS_VERSION%`, `%DOWNSTREAM_TLS_CIPHER%`, `%DOWNSTREAM_PEER_SUBJECT%`, `%DOWNSTREAM_PEER_ISSUER%`, `%DOWNSTREAM_PEER_FINGERPRINT_256%` | the TLS session with the client (listener or interception) and its certificate |
 | `%REQUESTED_SERVER_NAME%` | the SNI the client sent |

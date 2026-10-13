@@ -75,7 +75,12 @@ final class AdminConfigDump {
         boot.put("allow_requests_to_origin_server", b.allowRequestToOriginServer);
         boot.put("originate_tls", b.tlsOrigination);
         boot.put("littleproxy_compatibility", b.littleProxyCompatibility);
-        boot.put("proxy_protocol", Map.of("accept", b.acceptProxyProtocol, "send", b.sendProxyProtocol));
+        Map<String, Object> proxyProtocol = new LinkedHashMap<>();
+        proxyProtocol.put("accept", b.proxyProtocolMode != org.microproxy.ProxyProtocolMode.OFF);
+        proxyProtocol.put("mode", b.proxyProtocolMode.name().toLowerCase(java.util.Locale.ROOT));
+        proxyProtocol.put("trusted_sources", b.proxyProtocolTrustedSources.entries());
+        proxyProtocol.put("send", b.sendProxyProtocol);
+        boot.put("proxy_protocol", proxyProtocol);
         boot.put("throttle", Map.of("read_bytes_per_second", server.readLimiter.rate(),
                 "write_bytes_per_second", server.writeLimiter.rate()));
         Map<String, Object> pool = new LinkedHashMap<>();

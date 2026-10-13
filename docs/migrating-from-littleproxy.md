@@ -46,7 +46,7 @@ LittleProxy's options are underscore-separated and take `true` for booleans
 | `--send_certs true`, `--ssl_client_keystore_path`, `--ssl_client_keystore_alias`, `--ssl_client_keystore_password` | no flags: an upstream context with a key, `SslContexts.withKey(key, chain, trustManagers)`, presents a client certificate ([Interception per client connection](guides/mitm.md#interception-per-client-connection)) |
 | `--throttle_read_bytes_per_second <n>`, `--throttle_write_bytes_per_second <n>` | `--throttle <read> <write>` |
 | `--allow_request_to_origin_server true` | `--allow-requests-to-origin-server` |
-| `--allow_proxy_protocol true` | `--accept-proxy-protocol` |
+| `--allow_proxy_protocol true` | `--accept-proxy-protocol`; `--proxy-protocol-mode optional` reads a header only when a connection starts with one, as some LittleProxy forks did ([PROXY protocol](guides/forward-proxy.md#proxy-protocol)) |
 | `--send_proxy_protocol true` | `--send-proxy-protocol` |
 | `--client_to_proxy_worker_threads`, `--proxy_to_server_worker_threads`, `--acceptor_threads` | none: virtual threads replace event-loop sizing |
 | `--help` | `--help` |
@@ -65,6 +65,7 @@ MicroProxy reads the same kind of properties file, and most of LittleProxy's key
 | `idleConnectionTimeout` | `idle_connection_timeout` (seconds; default 70) |
 | `connect_timeout` | `connect_timeout`, in milliseconds (default 40000) |
 | `allow_local_only` (default `false`) | the same key, default `true` |
+| `allow_proxy_protocol` | the same key; it also takes `optional` (and `required`, `off`), and any value other than those and the booleans is an error |
 | `nic` (an interface name) | a local address to connect from |
 | `authenticate_ssl_clients`, `ssl_clients_trust_all_servers`, `ssl_clients_send_certs`, `ssl_clients_key_store_file_path`, `ssl_clients_key_store_alias`, `ssl_clients_key_store_password` | not read: use `listener_keystore` for a TLS listener, `--mitm-trust-all`, and the Java API for client certificates |
 
@@ -212,6 +213,9 @@ either way:
   `withAllowLocalOnly(false)`) is given; LittleProxy's `allow_local_only` defaults to `false`.
 - When the shared server connection pool is full, a request waits up to the connect timeout for a
   connection, then gets `503`; LittleProxy returned `502` immediately.
+- PROXY protocol headers can be optional (`--proxy-protocol-mode optional`), for a listener that
+  load balancers and clients both reach; LittleProxy only requires them. Read the warning in
+  [PROXY protocol](guides/forward-proxy.md#proxy-protocol) first.
 - The `org.microproxy.http` message types are a sealed hierarchy. Filters create (and may subclass)
   the `Default*` classes but cannot implement `HttpRequest` and the other interfaces from scratch,
   and a `switch` over them can be exhaustive (see `HttpObject`).

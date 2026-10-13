@@ -92,6 +92,9 @@ public final class Launcher {
                                            proxy attempts, doubling up to max (default 8 x initial;
                                            0 = no waiting, the default)
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
+              --proxy-protocol-mode <mode> off, required or optional (a header is read if one
+                                           comes; any client can then claim any address)
+              --proxy-protocol-trusted-sources <list>  IPs/CIDRs whose PROXY headers count
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
               --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
                                            h2://... (TLS, ALPN h2) or h2c://... (prior knowledge)
@@ -523,6 +526,10 @@ public final class Launcher {
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));
                 case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg);
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
+                case "--proxy-protocol-mode" -> bootstrap.withAcceptProxyProtocol(
+                        ProxyProtocolMode.parse(value(queue, arg)));
+                case "--proxy-protocol-trusted-sources" ->
+                        bootstrap.withProxyProtocolTrustedSources(value(queue, arg).split(","));
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
                 case "--upstream-https-proxy" -> upstreamHttps = value(queue, arg);

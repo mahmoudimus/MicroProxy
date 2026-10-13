@@ -62,6 +62,7 @@ import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ProxyProtocolMode;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
 import org.microproxy.SelectiveFilters;
@@ -875,6 +876,7 @@ final class ClientConnection implements Runnable {
         this.authenticated = true;
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         parent.flowContext.socksVersion().ifPresent(flowContext::socksVersion);
+        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
         this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
@@ -902,6 +904,7 @@ final class ClientConnection implements Runnable {
         this(parent.server, parent.clientDetails.getClientAddress());
         clientDetails.setUserName(parent.clientDetails.getUserName());
         this.proxyHeader = parent.proxyHeader;
+        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
         if (server.mitmManager != null) {
             this.connectionMitm = parent.mitmManager();
             this.mitmChosen = true;
@@ -1073,10 +1076,7 @@ final class ClientConnection implements Runnable {
             if (cxStart != 0) http1.countBytes(server.stats.http.cxRxBytes, server.stats.http.cxTxBytes);
             http1.attach(rawSocket);
             if (server.acceptProxyProtocol) {
-                proxyHeader = http1.readProxyHeader();
-                if (proxyHeader.source() != null) {
-                    clientDetails.setClientAddress(proxyHeader.source());
-                }
+                readProxyHeader();
             }
             server.trackers.fire(t -> t.clientConnected(flowContext));
             connectedFired = true;
@@ -1152,6 +1152,29 @@ final class ClientConnection implements Runnable {
                 server.trackers.fire(t -> t.clientDisconnected(flowContext, session));
             }
             server.unregister(this);
+        }
+    }
+
+    /** How long the rest of a PROXY header may take once the connection's first byte has come, at most. */
+    private static final int PROXY_HEADER_TIMEOUT_MILLIS = 5_000;
+
+    /**
+     * Reads the PROXY header the connection starts with ({@link DefaultHttpProxyServer#proxyProtocolMode}),
+     * if it does, from a trusted peer: its source is the client from then on. Without one (when
+     * optional), the connection goes on with its first bytes unread.
+     */
+    private void readProxyHeader() throws IOException {
+        boolean optional = server.proxyProtocolMode == ProxyProtocolMode.OPTIONAL;
+        InetSocketAddress peer = clientDetails.getClientAddress();
+        boolean trusted = server.proxyProtocolTrustedSources.trusts(peer);
+        int idle = server.idleTimeoutMillis();
+        int timeout = idle > 0 ? Math.min(idle, PROXY_HEADER_TIMEOUT_MILLIS) : PROXY_HEADER_TIMEOUT_MILLIS;
+        ProxyProtocol.Header header = http1.readProxyHeader(optional, trusted, timeout, server.stats.proxyProtocol);
+        if (header == null) return;
+        proxyHeader = header;
+        if (header.source() != null) {
+            flowContext.directClientAddress(peer);
+            clientDetails.setClientAddress(header.source());
         }
     }
 

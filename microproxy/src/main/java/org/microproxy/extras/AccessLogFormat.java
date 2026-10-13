@@ -560,10 +560,11 @@ public final class AccessLogFormat {
                         : r.upstreamSslSession().getCipherSuite());
                 case "UPSTREAM_PEER_SUBJECT" -> text(r -> peer(r.upstreamSslSession(), false));
                 case "UPSTREAM_PEER_ISSUER" -> text(r -> peer(r.upstreamSslSession(), true));
-                case "DOWNSTREAM_REMOTE_ADDRESS", "DOWNSTREAM_DIRECT_REMOTE_ADDRESS" ->
-                        text(r -> address(r.context().getClientAddress(), true));
-                case "DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT", "DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT" ->
-                        text(r -> address(r.context().getClientAddress(), false));
+                case "DOWNSTREAM_REMOTE_ADDRESS" -> text(r -> address(r.context().getClientAddress(), true));
+                case "DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT" -> text(r -> address(r.context().getClientAddress(), false));
+                case "DOWNSTREAM_DIRECT_REMOTE_ADDRESS" -> text(r -> address(r.context().getDirectClientAddress(), true));
+                case "DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT" ->
+                        text(r -> address(r.context().getDirectClientAddress(), false));
                 case "DOWNSTREAM_REMOTE_PORT" -> number(r -> r.context().getClientAddress() == null ? -1
                         : r.context().getClientAddress().getPort());
                 case "DOWNSTREAM_LOCAL_ADDRESS" -> text(r -> address(r.downstreamLocalAddress(), true));

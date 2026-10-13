@@ -210,6 +210,19 @@ public class FlowContext {
     }
 
     /**
+     * The peer of the client's TCP connection: the load balancer that sent a PROXY protocol header
+     * when one was accepted ({@link HttpProxyServerBootstrap#withAcceptProxyProtocol(ProxyProtocolMode)}),
+     * where {@link #getClientAddress()} is the client that header named; otherwise the same as
+     * {@link #getClientAddress()}. Access logs render it with {@code
+     * %DOWNSTREAM_DIRECT_REMOTE_ADDRESS%}.
+     *
+     * @return the address the client connection came from
+     */
+    public InetSocketAddress getDirectClientAddress() {
+        return root != this ? root.getDirectClientAddress() : getClientAddress();
+    }
+
+    /**
      * The TLS session with the client, or {@code null}. This is the proxy's own TLS listener
      * session, or the intercepted session while a CONNECT is being man-in-the-middled.
      *

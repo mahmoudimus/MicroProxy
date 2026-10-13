@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -102,9 +104,108 @@ final class Http1ClientChannel implements ClientChannel {
         writer = new HttpCodec.HttpWriter(out);
     }
 
-    /** Reads the PROXY protocol header that starts the connection. */
-    ProxyProtocol.Header readProxyHeader() throws IOException {
-        return ProxyProtocol.read(in);
+    /**
+     * Reads the PROXY protocol header that starts the connection, if it starts with one. The
+     * first byte may take the idle timeout, as a request's would; the rest of the signature and
+     * the header must have come by {@code timeoutMillis} after it, or the read fails with a {@link
+     * SocketTimeoutException}. Nothing is consumed unless a header is read.
+     *
+     * @param optional whether the connection may start without a header (it is then served as it
+     *     came); otherwise one without fails with a {@link ProtocolException}
+     * @param trusted whether the peer's headers are honored: a header from another peer fails
+     *     with a {@link ProtocolException}, and so does any connection from it when not {@code
+     *     optional} (once its first bytes are read, so that closing it does not reset it)
+     * @return the header, or null for a connection that does not start with one ({@code
+     *     optional}), or that ended before its first byte
+     */
+    ProxyProtocol.Header readProxyHeader(boolean optional, boolean trusted, int timeoutMillis,
+            ProxyStats.ProxyProtocolStats stats) throws IOException {
+        in.awaitNext();
+        if (in.buffered() == 0) {
+            if (optional) return null;
+            throw new ProtocolException("missing PROXY protocol header");
+        }
+        if (!trusted && !optional) {
+            // A header is required, and this peer's would not count.
+            stats.untrustedSource.inc();
+            throw new ProtocolException("PROXY protocol header required, and the peer is not a trusted source");
+        }
+        Socket client = socket;
+        int original = client.getSoTimeout();
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        ProxyProtocol.Start start = ProxyProtocol.Start.OTHER;
+        try {
+            // Enough bytes to tell a signature apart: the first that matches none decides.
+            boolean ended = false;
+            while ((start = ProxyProtocol.start(in.peekBuffered(PROXY_SIGNATURE_LENGTH))) == ProxyProtocol.Start.PARTIAL) {
+                if (!bufferAtLeast(client, in.buffered() + 1, deadline, original)) {
+                    ended = true;
+                    break;
+                }
+            }
+            if (start == ProxyProtocol.Start.OTHER || ended) {
+                if (optional) {
+                    stats.notFoundAllowed.inc();
+                    return null;
+                }
+                stats.notFoundDisallowed.inc();
+                throw new ProtocolException("missing PROXY protocol header");
+            }
+            if (!trusted) {
+                stats.untrustedSource.inc();
+                throw new ProtocolException("PROXY protocol header from a peer that is not a trusted source");
+            }
+            int length;
+            while ((length = ProxyProtocol.headerLength(start, in.peekBuffered(ProxyProtocol.V1_MAX_LENGTH))) < 0) {
+                if (!bufferAtLeast(client, in.buffered() + 1, deadline, original)) {
+                    throw new EOFException("connection closed in the PROXY protocol header");
+                }
+            }
+            if (!bufferAtLeast(client, length, deadline, original)) {
+                throw new EOFException("connection closed in the PROXY protocol header");
+            }
+            // The whole header is buffered: parsing it reads nothing more.
+            ProxyProtocol.Header header = ProxyProtocol.read(in);
+            (start == ProxyProtocol.Start.V1 ? stats.v1Found : stats.v2Found).inc();
+            return header;
+        } catch (IOException e) {
+            if (start == ProxyProtocol.Start.V1 || start == ProxyProtocol.Start.V2) {
+                if (trusted) (start == ProxyProtocol.Start.V1 ? stats.v1Error : stats.v2Error).inc();
+            } else if (e instanceof SocketTimeoutException) {
+                // A signature begun and not finished in time.
+                stats.notFoundDisallowed.inc();
+            }
+            throw e;
+        } finally {
+            if (!client.isClosed()) {
+                try {
+                    client.setSoTimeout(original);
+                } catch (IOException ignored) {
+                    // the connection is failing anyway
+                }
+            }
+        }
+    }
+
+    /** The longest PROXY protocol signature: v2's 12 bytes. */
+    private static final int PROXY_SIGNATURE_LENGTH = 12;
+
+    /**
+     * Reads until at least {@code n} bytes are buffered, each read waiting at most until {@code
+     * deadline} (and the idle timeout, {@code idleMillis}, when shorter), however slowly the
+     * bytes come.
+     *
+     * @return whether they are (false if the stream ended first)
+     */
+    private boolean bufferAtLeast(Socket client, int n, long deadline, int idleMillis) throws IOException {
+        while (in.buffered() < n) {
+            long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+            if (remaining <= 0) throw new SocketTimeoutException("PROXY protocol header not complete in time");
+            client.setSoTimeout((int) Math.max(1, idleMillis > 0 ? Math.min(idleMillis, remaining)
+                    : Math.min(Integer.MAX_VALUE, remaining)));
+            if (!in.ensureBuffered(in.buffered() + 1)) return false;
+        }
+        return true;
     }
 
     /**

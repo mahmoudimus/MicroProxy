@@ -104,6 +104,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile SSLSession upstreamSslSession;
     /** The proxy's end of the client connection, or null. */
     private volatile InetSocketAddress localAddress;
+    /** The TCP peer, when a PROXY header named another client; else null. */
+    private volatile InetSocketAddress directClientAddress;
     private volatile FlowTrace trace = FlowTrace.NONE;
 
     ClientFlowContext(
@@ -128,6 +130,7 @@ final class ClientFlowContext extends FlowContext {
         clientTlsStart = connection.clientTlsStart;
         clientTlsEnd = connection.clientTlsEnd;
         localAddress = connection.localAddress;
+        directClientAddress = connection.directClientAddress;
     }
 
     /** Forgets the previous exchange: the first byte of a new request has arrived. */
@@ -451,6 +454,22 @@ final class ClientFlowContext extends FlowContext {
 
     InetSocketAddress localAddress() {
         return localAddress;
+    }
+
+    /** Records the TCP peer of a client connection whose PROXY header named another client. */
+    void directClientAddress(InetSocketAddress address) {
+        directClientAddress = address;
+    }
+
+    /** The TCP peer recorded by {@link #directClientAddress(InetSocketAddress)}, or null. */
+    InetSocketAddress directClientAddressOrNull() {
+        return directClientAddress;
+    }
+
+    @Override
+    public InetSocketAddress getDirectClientAddress() {
+        InetSocketAddress direct = directClientAddress;
+        return direct != null ? direct : getClientAddress();
     }
 
     void addBytesReceived(long n) {

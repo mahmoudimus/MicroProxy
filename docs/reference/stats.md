@@ -44,6 +44,9 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `cluster.<cluster>.failover` | counter | connection attempts through the cluster that failed and moved on to the route's next choice |
 | `cluster.<cluster>.backoff_engaged` | counter | waits ([retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) before trying the cluster after earlier choices failed |
 | `cluster.<cluster>.backoff_active` | gauge | requests waiting to try the cluster now: a lighter kind of outlier detection |
+| `proxy_proto.v1.found`, `v2.found` / `v1.error`, `v2.error` | counter | [PROXY protocol](../guides/forward-proxy.md#proxy-protocol) headers read / malformed, or not complete in time |
+| `proxy_proto.not_found_allowed`, `not_found_disallowed` | counter | connections without a PROXY header: served (optional mode) / closed (required mode, or a signature begun and not finished) |
+| `proxy_proto.untrusted_source` | counter | MicroProxy's: connections closed because a PROXY header (or, when one is required, the connection) came from a peer outside `--proxy-protocol-trusted-sources` |
 | `tls_inspector.tls_found`, `tls_not_found`, `sni_found`, `sni_not_found`, `alpn_found`, `alpn_not_found`, `client_hello_too_large` | counter | the ClientHellos the proxy reads to decide on a session (transparent TLS, interception) |
 | `cache.hits`, `misses`, `stores`, `revalidations`, `stale_served` | counter | the [HTTP cache](../guides/caching.md)'s counts (`HttpCache.stats()`) |
 | `concurrency_limit.in_use`, `waiting` / `acquired`, `rq_blocked`, `reclaimed` | gauge / counter | the [concurrency limiter](../guides/concurrency-limiting.md) among the filters |
