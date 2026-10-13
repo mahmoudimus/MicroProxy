@@ -239,6 +239,9 @@ public final class Launcher {
               --masque-max-udp-flows <n>   CONNECT-UDP flows at once (default 4096)
               --masque-max-udp-flows-per-connection <n>  CONNECT-UDP flows of one client connection
                                            (default 64)
+              --masque-release-wait <millis>  how long a CONNECT-UDP request that finds
+                                           --masque-max-udp-flows reached waits for flows already
+                                           ending to give their places back (default 250, 0 = none)
               --masque-intercept-quic      decide on QUIC inside CONNECT-UDP flows as on transparent
                                            QUIC: intercept HTTP/3 (and other QUIC with the QUIC
                                            hooks) unless the host rules or hooks decline, else relay
@@ -433,6 +436,7 @@ public final class Launcher {
         long masqueIdleSeconds = 0;
         int masqueMaxFlows = 0;
         int masqueMaxFlowsPerConnection = 0;
+        Long masqueReleaseWaitMillis = null;
         boolean masqueInterceptQuic = false;
         int[] masqueQuicPorts = null;
         Http3Options.QuicCongestionControl quicCongestion = null;
@@ -669,6 +673,7 @@ public final class Launcher {
                 case "--masque-udp-idle-timeout" -> masqueIdleSeconds = longValue(queue, arg);
                 case "--masque-max-udp-flows" -> masqueMaxFlows = intValue(queue, arg);
                 case "--masque-max-udp-flows-per-connection" -> masqueMaxFlowsPerConnection = intValue(queue, arg);
+                case "--masque-release-wait" -> masqueReleaseWaitMillis = longValue(queue, arg);
                 case "--masque-intercept-quic" -> masqueInterceptQuic = true;
                 case "--masque-quic-ports" -> masqueQuicPorts = ports(value(queue, arg), arg);
                 case "--http3-0rtt" -> http3ZeroRtt = true;
@@ -723,7 +728,7 @@ public final class Launcher {
         if (http3MaxStreams > 0 || noHttp3AltSvc || http3Retry || http3ZeroRtt || noHttp3UpstreamZeroRtt
                 || quicRelayIdleSeconds > 0 || quicCongestion != null || masqueTemplate != null
                 || masqueIdleSeconds > 0 || masqueMaxFlows > 0 || masqueMaxFlowsPerConnection > 0 || masqueInterceptQuic
-                || masqueQuicPorts != null || qlogDir != null || qlogMaxFiles > 0) {
+                || masqueReleaseWaitMillis != null || masqueQuicPorts != null || qlogDir != null || qlogMaxFiles > 0) {
             Http3Options.Builder h3 = bootstrap.getHttp3Options().toBuilder();
             if (qlogDir != null) h3.qlogDirectory(qlogDir);
             if (qlogMaxFiles > 0) h3.qlogMaxFiles(qlogMaxFiles);
@@ -742,6 +747,7 @@ public final class Launcher {
                 h3.connectUdpMaxFlows(masqueMaxFlows > 0 ? masqueMaxFlows : current.connectUdpMaxFlows(),
                         masqueMaxFlowsPerConnection > 0 ? masqueMaxFlowsPerConnection : current.connectUdpMaxFlowsPerConnection());
             }
+            if (masqueReleaseWaitMillis != null) h3.connectUdpReleaseWait(Duration.ofMillis(masqueReleaseWaitMillis));
             if (quicCongestion != null) h3.quicCongestionControl(quicCongestion);
             bootstrap.withHttp3Options(h3.build());
         }

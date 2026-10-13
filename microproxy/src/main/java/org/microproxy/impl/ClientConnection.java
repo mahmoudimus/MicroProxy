@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.lang.System.Logger.Level;
 import java.net.ConnectException;
@@ -29,7 +30,6 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -3063,8 +3063,10 @@ final class ClientConnection implements Runnable {
      * the flow relays datagrams ({@link UdpFlow}) on this exchange's thread until it ends.
      *
      * <p>The flow's places in the bounds, the proxy's and its connection's, go back before the
-     * client can learn that the request ended (a refusal, or the end of the flow): a client that
-     * opens another flow as soon as it reads that finds room for it.
+     * client can learn that the request ended (a refusal, or the end of the flow), and as soon as
+     * the connection's reader sees the client end the flow itself (a reset, its stream's end, the
+     * connection's close): a client that opens another flow as soon as it reads the end, or right
+     * after it ended one, finds room for it ({@link UdpFlowBound}).
      */
     private boolean handleConnectUdp(Exchange ex) throws IOException {
         ex.kind = FlowRecord.Kind.UDP;
@@ -3092,42 +3094,58 @@ final class ClientConnection implements Runnable {
             server.stats.masque.rejectedPolicy.inc();
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
         }
-        if (server.udpFlows.incrementAndGet() > server.http3Options.connectUdpMaxFlows()) {
-            server.udpFlows.decrementAndGet();
+        UdpFlowBound.Place place = takeUdpPlace(client);
+        if (place == null) {
             server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + server.http3Options.connectUdpMaxFlows() + " flows open");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows"), true, ResponseSource.PROXY);
         }
-        AtomicBoolean held = new AtomicBoolean(true);
-        Runnable release = () -> {
-            if (held.compareAndSet(true, false)) server.udpFlows.decrementAndGet();
-        };
         try {
-            return serveUdpFlow(ex, client, target, hostAndPort, release);
+            return serveUdpFlow(ex, client, target, hostAndPort, place);
         } finally {
-            release.run();
+            place.release();
+        }
+    }
+
+    /**
+     * A place in the proxy's bound on CONNECT-UDP flows, or null if it is full. A full bound first
+     * has the client's connection give back the places of the flows it has seen the client end
+     * without reading it yet ({@link UdpFlow.Client#releaseEnded}), then waits for flows already
+     * ending, for at most {@link Http3Options#connectUdpReleaseWait()}: their places are about to
+     * come back, and the client may have ended one on another connection just before this request.
+     */
+    private UdpFlowBound.Place takeUdpPlace(UdpFlow.Client client) throws IOException {
+        Http3Options options = server.http3Options;
+        try {
+            UdpFlowBound.Place place = server.udpFlows.take(options.connectUdpMaxFlows(), 0);
+            if (place != null) return place;
+            client.releaseEnded();
+            return server.udpFlows.take(options.connectUdpMaxFlows(), options.connectUdpReleaseWait().toNanos());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("interrupted waiting for a CONNECT-UDP flow to end");
         }
     }
 
     /**
      * Opens the socket of a CONNECT-UDP flow, accepts it, and relays it until it ends.
      *
-     * @param release gives the flow's place in the proxy's bound back (once): run before any
-     *     answer that ends the request, and by the flow as it ends, before its client learns it
+     * @param place the flow's place in the proxy's bound, given back (once) before any answer that
+     *     ends the request, and by the flow as it ends, before its client learns it
      */
     private boolean serveUdpFlow(Exchange ex, UdpFlow.Client client, HostAndPort target, String hostAndPort,
-            Runnable release) throws IOException {
+            UdpFlowBound.Place place) throws IOException {
         InetSocketAddress address;
         try {
             address = resolveServer(hostAndPort, ex);
         } catch (UnknownHostException e) {
-            release.run();
+            place.release();
             return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort, e), false);
         }
         if (address.isUnresolved()) {
-            release.run();
+            place.release();
             return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort,
                     new UnknownHostException(address.getHostString())), false);
         }
@@ -3146,24 +3164,25 @@ final class ClientConnection implements Runnable {
             }
         } catch (IOException e) {
             LOG.log(Level.DEBUG, ex.log + "no UDP socket to " + hostAndPort + ": " + e);
-            release.run();
+            place.release();
             return respondFailure(ex, connectFailure(hostAndPort, e), false);
         }
         Http3Options options = server.http3Options;
         UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
                 options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes(),
-                server.stats.hooks.udp, release);
+                server.stats.hooks.udp, place);
         // Before the answer: the client may send datagrams as soon as it reads it.
         if (!client.attach(flow)) {
             socket.close();
-            release.run();
+            place.release();
             server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows on this connection"), true, ResponseSource.PROXY);
         }
-        // From here the flow's end (UdpFlow.end) gives its places back, whatever happens.
+        // From here the flow's end (UdpFlow.end) gives its places back, whatever happens, unless
+        // the connection's reader saw the client end it first (UdpFlow.endSeen).
         try {
             MasqueQuic masque = server.masqueQuic();
             if (masque != null && masque.inspects(target.port())) {
@@ -3189,7 +3208,7 @@ final class ClientConnection implements Runnable {
                 // holds no place.
                 server.stats.masque.rejectedPolicy.inc();
                 client.detach(flow);
-                release.run();
+                place.release();
                 writeToClient(() -> ex.channel.writeComplete(response, true));
                 countFull(ex, response, true);
                 sent(ex, response, source);

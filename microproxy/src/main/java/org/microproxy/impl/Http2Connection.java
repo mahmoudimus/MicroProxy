@@ -62,7 +62,9 @@ import org.microproxy.http.HttpVersion;
  *       the socket. Nothing else is locked while writing.
  *   <li>{@link #stateLock} guards the streams, flow-control windows and buffered request data.
  *       It is never held while writing and never taken while {@link #writeLock} is held. Stream
- *       threads wait on its conditions: for request data, and for send window.
+ *       threads wait on its conditions: for request data, and for send window. A CONNECT-UDP
+ *       flow's place in the proxy's bound ({@link UdpFlowBound}) may be given back under it: that
+ *       bound's lock is taken last.
  *   <li>A shared timer checks each connection for idleness, a missing SETTINGS acknowledgement,
  *       and writes stalled by a client that stopped reading; it never blocks.
  * </ul>
@@ -139,6 +141,8 @@ final class Http2Connection extends Http2Endpoint {
     private int pendingConnectionCredit;
     /** The CONNECT-UDP flows open on the connection. */
     private int udpFlows;
+    /** The connection is ending: its flows gave their places back, and it opens no more. */
+    private boolean udpFlowsOver;
     private boolean goAwaySent;
     private boolean peerGoingAway;
 
@@ -305,6 +309,8 @@ final class Http2Connection extends Http2Endpoint {
             readFrames();
         } catch (Http2Exception e) {
             LOG.log(Level.DEBUG, logPrefix + "HTTP/2 " + e.getMessage());
+            // Before GOAWAY, which may wait for the client, and the draining after it.
+            udpFlowsEnded();
             goAway(e.errorCode(), e.getMessage());
             drainInput();
         } catch (SocketTimeoutException e) {
@@ -625,6 +631,7 @@ final class Http2Connection extends Http2Endpoint {
             stats.trailers.inc();
             s.trailers = trailers;
             s.remoteClosed = true;
+            udpFlowEnded(s);
             s.changed.signalAll();
         } finally {
             stateLock.unlock();
@@ -677,7 +684,11 @@ final class Http2Connection extends Http2Endpoint {
                     s.inbound.addLast(data);
                     s.buffered += data.length;
                 }
-                if (endStream) s.remoteClosed = true;
+                if (endStream) {
+                    s.remoteClosed = true;
+                    // The client's END_STREAM ends a CONNECT-UDP flow (RFC 9298 section 3).
+                    udpFlowEnded(s);
+                }
                 s.changed.signalAll();
                 // Bytes the stream will not read are credited back without waiting for its reads,
                 // which may never come (when an interceptor emptied its DATA, say).
@@ -738,6 +749,8 @@ final class Http2Connection extends Http2Endpoint {
             if ((id & 1) == 0 || id > lastStreamId) throw idleStream("RST_STREAM", id);
             s = streams.get(id);
             recentlyClosed.putIfAbsent(id, s == null || !s.reset ? RESET_BY_CLIENT : CLOSED_HERE);
+            // A reset is how a client ends a CONNECT-UDP flow: its places go back before the next frame is read.
+            if (s != null) udpFlowEnded(s);
             if (s != null && !s.reset) {
                 // Resetting an open tunnel is how a client ends it: not a rapid reset.
                 early = !s.responseEnded && !s.tunnelOpen;
@@ -946,6 +959,8 @@ final class Http2Connection extends Http2Endpoint {
             if (s != null) {
                 // Already reset (by either side): no second RST_STREAM.
                 if (s.reset) return;
+                // A CONNECT-UDP flow's places go back before the client can read the reset.
+                udpFlowEnded(s);
                 s.markReset(cause != null ? cause : new IOException("stream " + id + " reset: " + code));
                 serverConnection = s.cancelServer();
                 windowOpened.signalAll();
@@ -993,15 +1008,19 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     /**
-     * A CONNECT-UDP flow opens on stream {@code s}; false if the connection has as many flows as it
-     * may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}).
+     * CONNECT-UDP flow {@code f} opens on stream {@code s}; false if the connection has as many
+     * flows as it may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}), or
+     * none any more (it is ending, or the stream was reset).
      */
-    boolean addUdpFlow(Http2StreamChannel s) {
+    boolean addUdpFlow(Http2StreamChannel s, UdpFlow f) {
         stateLock.lock();
         try {
-            if (closed || s.reset || udpFlows >= server.http3Options.connectUdpMaxFlowsPerConnection()) return false;
-            if (!s.udpFlow) {
-                s.udpFlow = true;
+            if (closed || udpFlowsOver || s.reset
+                    || udpFlows >= server.http3Options.connectUdpMaxFlowsPerConnection()) {
+                return false;
+            }
+            if (s.udpFlow == null) {
+                s.udpFlow = f;
                 udpFlows++;
             }
             return true;
@@ -1010,14 +1029,45 @@ final class Http2Connection extends Http2Endpoint {
         }
     }
 
-    /** The CONNECT-UDP flow on stream {@code s} ended. */
+    /** The CONNECT-UDP flow on stream {@code s} ended; does nothing if it was taken out of the count already. */
     void removeUdpFlow(Http2StreamChannel s) {
         stateLock.lock();
         try {
-            if (s.udpFlow) {
-                s.udpFlow = false;
+            if (s.udpFlow != null) {
+                s.udpFlow = null;
                 udpFlows--;
             }
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * The reader has seen the CONNECT-UDP flow of stream {@code s} end, if the stream carries one:
+     * the client reset or ended the stream, or the connection is ending. The flow leaves the
+     * connection's count and gives its place in the proxy's back now ({@link UdpFlow#endSeen}),
+     * before the reader reads the next frame, so a request that follows it on the connection finds
+     * room for its flow. The rest of the flow's end is its own threads'. Holds stateLock.
+     */
+    private void udpFlowEnded(Http2StreamChannel s) {
+        UdpFlow f = s.udpFlow;
+        if (f == null) return;
+        s.udpFlow = null;
+        udpFlows--;
+        f.endSeen();
+    }
+
+    /**
+     * The connection is ending (the client closed it, or broke the protocol): its CONNECT-UDP flows
+     * give their places back now, and it takes no more, before the client could open another flow
+     * elsewhere having seen it end.
+     */
+    private void udpFlowsEnded() {
+        stateLock.lock();
+        try {
+            udpFlowsOver = true;
+            if (udpFlows == 0) return;
+            for (Http2StreamChannel s : streams.values()) udpFlowEnded(s);
         } finally {
             stateLock.unlock();
         }
@@ -1085,12 +1135,14 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     /**
-     * The client connection is closing: every stream fails at its next wait or write, and their
-     * server connections close with the client's.
+     * The client connection is closing: its CONNECT-UDP flows give their places back at once, every
+     * stream fails at its next wait or write, and their server connections close with the
+     * client's. When the client closed it, this runs on the reader as soon as it reads the end.
      */
     void closed() {
         if (closed) return;
         closed = true;
+        udpFlowsEnded();
         ScheduledFuture<?> w = watchdog;
         if (w != null) w.cancel(false);
         List<Http2StreamChannel> open;

@@ -145,15 +145,13 @@ final class Http3Connection extends Http3Endpoint {
     /**
      * Routes the HTTP Datagrams of {@code streamId} to {@code flow}, starting the thread that
      * receives the connection's QUIC DATAGRAM frames; false if the connection has as many flows as
-     * it may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}).
+     * it may ({@link org.microproxy.Http3Options#connectUdpMaxFlowsPerConnection()}), once the
+     * flows the client has already ended have given their places back ({@link #releaseEndedFlows}).
      */
     boolean addUdpFlow(long streamId, UdpFlow flow) {
-        stateLock.lock();
-        try {
-            if (closed || udpFlows.size() >= options.connectUdpMaxFlowsPerConnection()) return false;
-            udpFlows.put(streamId, flow);
-        } finally {
-            stateLock.unlock();
+        if (!putUdpFlow(streamId, flow)) {
+            releaseEndedFlows();
+            if (!putUdpFlow(streamId, flow)) return false;
         }
         if (receivingDatagrams.compareAndSet(false, true)) {
             Thread.ofVirtual().name(server.name + "-h3-datagrams-" + connectionFlow.getConnectionId())
@@ -162,11 +160,75 @@ final class Http3Connection extends Http3Endpoint {
         return true;
     }
 
-    /** The flow of {@code streamId} ended. */
+    private boolean putUdpFlow(long streamId, UdpFlow flow) {
+        stateLock.lock();
+        try {
+            if (closed || udpFlows.size() >= options.connectUdpMaxFlowsPerConnection()) return false;
+            udpFlows.put(streamId, flow);
+            return true;
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /** The flow of {@code streamId} ended; does nothing if it was taken out of the count already. */
     void removeUdpFlow(long streamId, UdpFlow flow) {
         stateLock.lock();
         try {
             udpFlows.remove(streamId, flow);
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * The client ended the CONNECT-UDP flow of {@code streamId}, if there is one, as the stream's
+     * reader saw it (a reset, or the end of the stream) or QUIC received it: the flow leaves the
+     * connection's count and gives its place in the proxy's back now ({@link UdpFlow#endSeen}).
+     * The rest of its end is its own threads'. The bound's lock is taken under stateLock, last.
+     */
+    private void udpFlowEnded(long streamId) {
+        // Most streams carry no flow: their requests' ends take no lock here.
+        if (!udpFlows.containsKey(streamId)) return;
+        stateLock.lock();
+        try {
+            UdpFlow flow = udpFlows.remove(streamId);
+            if (flow != null) flow.endSeen();
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
+     * Gives back the places of the flows whose streams QUIC has received the client's end of (its
+     * FIN, RESET_STREAM or STOP_SENDING) though their readers may not have read it yet: called
+     * when a CONNECT-UDP request finds a bound full. QUIC processes a connection's frames in the
+     * order they arrive, but each stream is read on a thread of its own, so a request on a new
+     * stream can be read and handled before the reset of an older one that came first; asking
+     * QUIC orders the two as the client sent them.
+     */
+    void releaseEndedFlows() {
+        List<Http3StreamChannel> flows = new ArrayList<>();
+        stateLock.lock();
+        try {
+            for (Long id : udpFlows.keySet()) {
+                Http3StreamChannel s = streams.get(id);
+                if (s != null) flows.add(s);
+            }
+        } finally {
+            stateLock.unlock();
+        }
+        // Outside stateLock: QUIC's state is under its connection's lock.
+        for (Http3StreamChannel s : flows) {
+            if (s.reader.stream.peerDone()) udpFlowEnded(s.id);
+        }
+    }
+
+    /** The connection is ending: its CONNECT-UDP flows give their places back now. */
+    private void udpFlowsEnded() {
+        stateLock.lock();
+        try {
+            for (Long id : List.copyOf(udpFlows.keySet())) udpFlowEnded(id);
         } finally {
             stateLock.unlock();
         }
@@ -267,7 +329,7 @@ final class Http3Connection extends Http3Endpoint {
         Http3StreamChannel[] channel = new Http3StreamChannel[1];
         Http3StreamReader reader = new Http3StreamReader(this, s, false,
                 server.trackers.isEmpty() ? null : n -> server.trackers.fire(t -> t.bytesReceivedFromClient(connectionFlow, n)),
-                () -> clientReset(channel[0]));
+                () -> clientReset(channel[0]), () -> udpFlowEnded(id));
         Http3MessageWriter writer = new Http3MessageWriter(this, s, true,
                 server.trackers.isEmpty() ? null : n -> server.trackers.fire(t -> t.bytesSentToClient(connectionFlow, n)));
         Http3StreamChannel stream = new Http3StreamChannel(this, reader, writer, flow);
@@ -437,9 +499,13 @@ final class Http3Connection extends Http3Endpoint {
         s.writeComplete(response, true);
     }
 
-    /** The client reset its request stream: the exchange stops waiting on its server. */
+    /**
+     * The client reset its request stream: a CONNECT-UDP flow's places go back, and the exchange
+     * stops waiting on its server.
+     */
     private void clientReset(Http3StreamChannel s) {
         if (s == null) return;
+        udpFlowEnded(s.id);
         ServerConnection serverConnection = null;
         boolean early;
         stateLock.lock();
@@ -567,13 +633,14 @@ final class Http3Connection extends Http3Endpoint {
     }
 
     /**
-     * The client connection is closing: the QUIC connection closes, and every stream fails at its
-     * next wait or write.
+     * The client connection is closing: its CONNECT-UDP flows give their places back at once, the
+     * QUIC connection closes, and every stream fails at its next wait or write.
      */
     @Override
     void closed() {
         super.closed();
         if (!shutDown.compareAndSet(false, true)) return;
+        udpFlowsEnded();
         List<Http3StreamChannel> open;
         stateLock.lock();
         try {

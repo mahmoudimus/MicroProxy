@@ -168,7 +168,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
      */
     final ConnectUdpTemplate connectUdpTemplate;
     /** The CONNECT-UDP flows open now, against {@link Http3Options#connectUdpMaxFlows()}. */
-    final java.util.concurrent.atomic.AtomicInteger udpFlows = new java.util.concurrent.atomic.AtomicInteger();
+    final UdpFlowBound udpFlows = new UdpFlowBound();
     /** The HTTP/2 connections to servers; null without {@link #http2Upstream}. */
     final Http2Origins http2Origins;
     /**

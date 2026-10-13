@@ -413,6 +413,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                 || p.containsKey("transparent_quic_relay_idle_timeout") || p.containsKey("quic_congestion")
                 || p.containsKey("masque_udp_template") || p.containsKey("masque_udp_idle_timeout")
                 || p.containsKey("masque_max_udp_flows") || p.containsKey("masque_max_udp_flows_per_connection") || p.containsKey("masque_intercept_quic")
+                || p.containsKey("masque_release_wait")
                 || p.containsKey("masque_quic_ports") || p.containsKey("qlog_dir") || p.containsKey("qlog_max_files")) {
             Http3Options.Builder h3 = http3Options.toBuilder();
             if (p.containsKey("qlog_dir")) h3.qlogDirectory(Path.of(p.getProperty("qlog_dir").strip()));
@@ -428,6 +429,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
                         Integer.parseInt(p.getProperty("masque_max_udp_flows", Integer.toString(http3Options.connectUdpMaxFlows())).strip()),
                         Integer.parseInt(p.getProperty("masque_max_udp_flows_per_connection",
                                 Integer.toString(http3Options.connectUdpMaxFlowsPerConnection())).strip()));
+            }
+            if (p.containsKey("masque_release_wait")) {
+                h3.connectUdpReleaseWait(Duration.ofMillis(Long.parseLong(p.getProperty("masque_release_wait").strip())));
             }
             if (p.containsKey("http3_max_concurrent_streams")) {
                 h3.maxConcurrentStreams(Integer.parseInt(p.getProperty("http3_max_concurrent_streams").strip()));

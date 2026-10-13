@@ -616,8 +616,9 @@ or the template. The flow's client (`UdpFlow.Client`) is the transport's: `Http3
   is a `400`. The route is looked up as for `CONNECT host:port` (`lookupRoute(connectRequest(..))`):
   chained proxies carry no UDP, so a route without the direct fallback is refused (`502`).
   `proxyToServerRequest` may answer; the bounds (`connectUdpMaxFlows`, in total in
-  `DefaultHttpProxyServer.udpFlows`, and per connection in `Http3Connection.addUdpFlow` and
-  `Http2Connection.addUdpFlow`; an HTTP/1.1 connection has one) give `503`; `resolveServer`
+  `DefaultHttpProxyServer.udpFlows`, a `UdpFlowBound`, and per connection in
+  `Http3Connection.addUdpFlow` and `Http2Connection.addUdpFlow`; an HTTP/1.1 connection has one)
+  give `503`; `resolveServer`
   resolves the name with the filters' resolution hooks and the server's `HostResolver`; a
   `DatagramChannel` is connected to the address.
 - **Accepting.** The flow is attached to the connection (its datagrams are routed from then on),
@@ -648,8 +649,23 @@ or the template. The flow's client (`UdpFlow.Client`) is the transport's: `Http3
   a capsule write is blocked: over HTTP/2 and HTTP/1.1 after waiting briefly for the capsule
   being written, which the client may have read before it ended its side); so does the idle
   timeout (`connectUdpIdleTimeout`). A socket failure resets the stream with H3_CONNECT_ERROR
-  (HTTP/2: `CANCEL`; HTTP/1.1: the connection closes). `end` closes the queues and the socket,
-  once, calls `udpEnd`, and the flow is detached from the connection.
+  (HTTP/2: `CANCEL`; HTTP/1.1: the connection closes). `end`, once, marks the flow's place
+  ending (`UdpFlowBound.Place.ending`), closes the queues and the socket, detaches the flow from
+  the connection and gives its place in `udpFlows` back, then ends the stream and calls `udpEnd`.
+- **Places.** A request's place in `udpFlows` (`UdpFlowBound.Place`) goes back once, whichever
+  comes first: before a refusal is written, in `end`, or on the connection's reader as soon as it
+  sees the client end the flow (`UdpFlow.endSeen`), the connection's count with it, before it
+  reads on. `Http2Connection` does it in `onRstStream`, for END_STREAM in `onData` and
+  `onTrailers`, in `resetStream`, and for all its flows in `closed` and on a connection error
+  (`udpFlowsEnded`), under `stateLock` (the bound's lock is taken last). `Http3Connection` does it
+  on a stream's reset (`clientReset`) and end (the reader's `onEnd`), and in `closed`; since its
+  streams are read each on a thread of its own, a request that finds a bound full first asks QUIC
+  which flows' streams the client already ended, reset or stopped (`releaseEndedFlows`,
+  `QuicStream.peerDone`), so a request on the same connection finds room in the order QUIC
+  received the frames. Over HTTP/1.1 the flow's thread is the connection's reader. A request that
+  still finds the total full waits on `UdpFlowBound`'s condition, at most
+  `connectUdpReleaseWait`, while some flow holding a place is ending: across connections nothing
+  orders a client's end of one flow before its next request.
 
 ## Transparent QUIC: `TransparentQuicListener` and `QuicFlows`
 

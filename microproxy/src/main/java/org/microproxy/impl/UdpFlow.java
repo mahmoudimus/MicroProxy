@@ -94,6 +94,14 @@ final class UdpFlow implements UdpContext {
          * the client connection's flows. Called again, it does nothing.
          */
         void detach(UdpFlow flow);
+
+        /**
+         * Gives back, now, the places of the client connection's flows whose end it has received
+         * but not read yet ({@link UdpFlow#endSeen}): called when a request finds a bound full. Only
+         * HTTP/3 has such flows, whose streams are read each on a thread of its own; an HTTP/2
+         * connection reads its frames in order, and an HTTP/1.1 connection carries one flow.
+         */
+        default void releaseEnded() {}
     }
 
     /**
@@ -204,8 +212,8 @@ final class UdpFlow implements UdpContext {
     private long toClientBytes;
     /** The UDP hooks' stats. */
     private final ProtocolStats.HookStats hookStats;
-    /** Gives the flow's place in the proxy's bound on flows back; does nothing when run again. */
-    private final Runnable release;
+    /** The flow's place in the proxy's bound on flows. */
+    private final UdpFlowBound.Place place;
     private volatile boolean started;
     /** The QUIC the client's datagrams carry, decided on as transparent QUIC is; null when relayed as UDP. */
     private volatile MasqueQuic.Inner quic;
@@ -217,15 +225,15 @@ final class UdpFlow implements UdpContext {
      * @param socket a UDP socket connected to the target, which the flow closes when it ends
      * @param hooks the UDP hooks, or null for none
      * @param hookStats counts the hooks' calls
-     * @param release gives the flow's place in the proxy's bound on flows back, run as the flow
-     *     ends (before its client learns it); it must do nothing when run again
+     * @param place the flow's place in the proxy's bound on flows, given back as the flow ends
+     *     (before its client learns it), or as soon as its client is seen to end it
      */
     UdpFlow(Client client, DatagramChannel socket, HostAndPort target, InetSocketAddress targetAddress,
             ClientFlowContext flow, String logPrefix, UdpInterceptor hooks, Duration idleTimeout, int maxQueued,
-            long maxQueuedBytes, ProtocolStats.HookStats hookStats, Runnable release) {
+            long maxQueuedBytes, ProtocolStats.HookStats hookStats, UdpFlowBound.Place place) {
         this.client = client;
         this.hookStats = hookStats;
-        this.release = release;
+        this.place = place;
         this.socket = socket;
         this.target = target;
         this.targetAddress = targetAddress;
@@ -480,13 +488,27 @@ final class UdpFlow implements UdpContext {
     }
 
     /**
+     * The flow's connection saw its end before the flow did: the client reset or ended its stream,
+     * closed its connection, or broke the protocol on it, as the connection's reader read it. The
+     * flow's place in the proxy's bound goes back now, on that thread, before it reads on (the
+     * connection has taken the flow out of its own count). The flow's threads end it once they
+     * notice, and {@link #end} gives nothing back twice; until then they may still be relaying,
+     * which is safe: only the place has changed hands, under the bound's lock.
+     */
+    void endSeen() {
+        place.release();
+    }
+
+    /**
      * Ends the flow, once: the queues and the socket close, the flow's places in the bounds (its
      * connection's and the proxy's) go back, and then the stream ends ({@code clean}) or is reset.
      * The places go back first: a client that opens another flow as soon as it reads the end finds
-     * room for it.
+     * room for it. Meanwhile the flow is ending: a request that finds the proxy's bound full waits
+     * for its place ({@link UdpFlowBound}).
      */
     void end(boolean clean) {
         if (!ended.compareAndSet(false, true)) return;
+        place.ending();
         toTarget.close();
         toClient.close();
         try {
@@ -495,7 +517,7 @@ final class UdpFlow implements UdpContext {
             // closing anyway
         }
         client.detach(this);
-        release.run();
+        place.release();
         client.endFlow(clean);
         MasqueQuic.Inner inner = quic;
         if (inner != null) inner.ended();
