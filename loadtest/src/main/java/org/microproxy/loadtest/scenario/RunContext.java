@@ -28,7 +28,7 @@ import org.microproxy.loadtest.proc.ManagedProcess;
  */
 public final class RunContext {
 
-    /** The proxies the harness can test. */
+    /** The built-in proxies, each run in a JVM of its own; others come from {@code external-proxies}. */
     public static final List<String> PROXIES = List.of("microproxy", "littleproxy");
 
     final Settings settings;
@@ -42,6 +42,8 @@ public final class RunContext {
     final List<Map<String, Object>> checks = new ArrayList<>();
     final List<Map<String, Object>> verdicts = new ArrayList<>();
     final List<String> notes = new ArrayList<>();
+    /** The external (non-JVM) proxies the {@code external-proxies} file defines, by name. */
+    final Map<String, ExternalProxy> externals;
     ManagedProcess origin;
     int originPort;
     List<String> originAddresses = List.of("127.0.0.1");
@@ -53,6 +55,7 @@ public final class RunContext {
         this.harnessJar = harnessJar;
         this.microproxyLib = microproxyLib;
         this.environment = Environment.describe();
+        this.externals = ExternalProxy.load(settings.get("external-proxies"));
         try (InputStream in = RunContext.class.getResourceAsStream("/org/microproxy/loadtest/versions.properties")) {
             if (in != null) versions.load(in);
         }
@@ -73,12 +76,52 @@ public final class RunContext {
                     : "Processes ran unpinned: taskset is not on the PATH, so the proxy, origin and load generator shared every CPU.");
         }
         this.jcmd = new Jcmd(pinPrefix("client"));
+        String nice = settings.get("nice").trim();
+        if (!nice.isEmpty()) {
+            // With autogroup scheduling (Linux's default for desktop and many cloud kernels), the CPU is
+            // shared between sessions before nice values count, so nice alone does not make other
+            // sessions yield; the session's own autogroup nice does. Every child inherits it.
+            notes.add(Environment.setAutogroupNice(nice)
+                    ? "Ran at nice " + nice + ", with the harness's scheduling autogroup at nice " + nice + "."
+                    : "Ran at nice " + nice + "; the scheduling autogroup's nice could not be set (no autogroup, or no"
+                            + " privilege), so other sessions on the machine competed at equal weight.");
+        }
     }
 
-    /** The {@code taskset -c} prefix for {@code role}, or nothing when unpinned. */
+    /** Whether {@code proxy} is a built-in or an external proxy this run knows. */
+    boolean knows(String proxy) {
+        return PROXIES.contains(proxy) || externals.containsKey(proxy);
+    }
+
+    /** Whether {@code proxy} runs in a JVM (and so has NMT, a GC log and a heap to measure). */
+    boolean isJvm(String proxy) {
+        return PROXIES.contains(proxy);
+    }
+
+    /** Every proxy name this run can test. */
+    List<String> knownProxies() {
+        List<String> all = new ArrayList<>(PROXIES);
+        all.addAll(externals.keySet());
+        return all;
+    }
+
+    /** The number of CPUs {@code role} is pinned to, or every allowed CPU when unpinned. */
+    int cpuCount(String role) {
+        if (cpus == null || cpus.get(role) == null) return Environment.allowedCpus().size();
+        return Environment.parseCpuList(cpus.get(role)).size();
+    }
+
+    /**
+     * The prefix for {@code role}'s command: {@code nice -n <nice>} when the {@code nice} setting is
+     * set, then {@code taskset -c <cpus>} when pinned; empty otherwise. Both exec the command, so the
+     * process id is the command's own.
+     */
     List<String> pinPrefix(String role) {
-        if (cpus == null || cpus.get(role) == null) return List.of();
-        return List.of("taskset", "-c", cpus.get(role));
+        List<String> out = new ArrayList<>();
+        String nice = settings.get("nice").trim();
+        if (!nice.isEmpty()) out.addAll(List.of("nice", "-n", nice));
+        if (cpus != null && cpus.get(role) != null) out.addAll(List.of("taskset", "-c", cpus.get(role)));
+        return out;
     }
 
     /** The java executable running the harness. */

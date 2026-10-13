@@ -43,6 +43,23 @@ public final class Histograms {
         return m;
     }
 
+    /** The percentiles of {@link #spectrum}, for latency-by-percentile (HDR) plots. */
+    static final double[] SPECTRUM = {0, 10, 25, 50, 75, 90, 95, 99, 99.5, 99.9, 99.95, 99.99, 99.999, 100};
+
+    /**
+     * The latency at each of {@link #SPECTRUM}'s percentiles, as {@code [percentile, ms]} pairs (100
+     * is the maximum); empty for an empty histogram.
+     */
+    public static java.util.List<java.util.List<Double>> spectrum(Histogram h) {
+        java.util.List<java.util.List<Double>> out = new java.util.ArrayList<>();
+        if (h.getTotalCount() == 0) return out;
+        for (double p : SPECTRUM) {
+            long v = p >= 100 ? h.getMaxValue() : p <= 0 ? h.getMinValue() : h.getValueAtPercentile(p);
+            out.add(java.util.List.of(p, ms(v)));
+        }
+        return out;
+    }
+
     private static double ms(long micros) {
         return micros / 1000.0;
     }

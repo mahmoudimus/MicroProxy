@@ -101,7 +101,7 @@ final class ConnectionRamp extends Scenario {
                 step.put("open", open);
                 step.put("memory", mem);
                 step.put("rssPerConnKb", held > 0 ? Trend.round((toLong(mem.get("rssKb")) - baseRss) / (double) held) : 0.0);
-                step.put("nmtTotalPerConnKb", held > 0 ? perConn(baseline, mem, held) : 0.0);
+                step.put("nmtTotalPerConnKb", held > 0 ? perConn(baseline, mem, held) : null);
                 step.put("probe", Json.obj("outcomes", probe.get("outcomes"), "durationMs", probe.get("durationMs"),
                         "statuses", probe.get("statuses"), "details", probe.get("details")));
                 if (p.adminPort > 0) step.put("microproxyStats", p.adminStats());
@@ -157,10 +157,11 @@ final class ConnectionRamp extends Scenario {
         return o instanceof Number n ? n.longValue() : -1;
     }
 
-    private static double perConn(Map<String, Object> baseline, Map<String, Object> mem, long held) {
+    /** NMT total per connection over the baseline, or null where there is no NMT (an external proxy). */
+    private static Double perConn(Map<String, Object> baseline, Map<String, Object> mem, long held) {
         long base = toLong(Json.getObject(baseline, "nmt").get("totalKb"));
         long now = toLong(Json.getObject(mem, "nmt").get("totalKb"));
-        return base < 0 || now < 0 ? 0 : Trend.round((now - base) / (double) held);
+        return base < 0 || now < 0 ? null : Trend.round((now - base) / (double) held);
     }
 
     /** Fits RSS, NMT total, heap-after-GC and threads against the connection count. */

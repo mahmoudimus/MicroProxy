@@ -163,6 +163,7 @@ public final class OpenLoop {
         m.put("behind", all.behind);
         m.put("achievedRate", Math.round(ok * 1e10 / Math.max(durationNanos, 1)) / 10.0);
         m.put("latencyMs", Histograms.summary(all.latency));
+        m.put("percentilesMs", Histograms.spectrum(all.latency));
         m.put("hist", Histograms.encode(all.latency));
         Map<String, Object> lag = Histograms.summary(all.lag);
         lag.put("late", all.late);

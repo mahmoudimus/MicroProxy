@@ -137,11 +137,13 @@ final class Soak extends Scenario {
     private Map<String, Object> memSample(ProxyProcess p, double t) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("t", Trend.round(t));
-        m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(p.pid()));
-        Map<String, Object> nmt = ctx.jcmd.nmt(p.pid());
-        m.put("nmtTotalKb", nmt.get("totalKb"));
-        m.put("threadKb", nmt.get("threadKb"));
-        m.put("otherKb", nmt.get("otherKb"));
+        if (p.jvm) {
+            m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(p.pid()));
+            Map<String, Object> nmt = ctx.jcmd.nmt(p.pid());
+            m.put("nmtTotalKb", nmt.get("totalKb"));
+            m.put("threadKb", nmt.get("threadKb"));
+            m.put("otherKb", nmt.get("otherKb"));
+        }
         ProcStats.Sample s = ProcStats.sample(p.pid());
         if (s != null) {
             m.put("rssKb", s.rssKb());

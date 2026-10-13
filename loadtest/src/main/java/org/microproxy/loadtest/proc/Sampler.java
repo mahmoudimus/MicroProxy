@@ -10,13 +10,20 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Samples the harness's processes every second from {@code /proc} (see {@link ProcStats}): the
  * full series of the proxy under test, and the CPU use of the origin and the load generator, so
- * that a saturated client or origin shows in the results.
+ * that a saturated client or origin shows in the results. It also samples the whole machine (the
+ * {@value #SYSTEM} series): each CPU's busy percentage, and the <em>foreign</em> CPU, what the
+ * machine was busy with beyond the sampled processes, so a run on a shared machine shows when
+ * something else competed for its CPUs.
  */
 public final class Sampler implements AutoCloseable {
+
+    /** The name of the machine-wide series. */
+    public static final String SYSTEM = "system";
 
     private final Map<String, Long> pids = new LinkedHashMap<>();
     private final Map<String, List<Map<String, Object>>> series = new LinkedHashMap<>();
     private final Map<String, long[]> lastCpu = new LinkedHashMap<>();
+    private Map<Integer, long[]> lastJiffies;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition stopped = lock.newCondition();
     private final long startNanos = System.nanoTime();
@@ -29,6 +36,7 @@ public final class Sampler implements AutoCloseable {
         this.pids.putAll(pids);
         this.intervalMs = intervalMs;
         for (String name : pids.keySet()) series.put(name, new ArrayList<>());
+        series.put(SYSTEM, new ArrayList<>());
         sampleOnce();
         this.thread = Thread.ofPlatform().daemon().name("sampler").start(this::loop);
     }
@@ -61,6 +69,7 @@ public final class Sampler implements AutoCloseable {
     private void sampleOnce() {
         double t = elapsed();
         long now = System.nanoTime();
+        double ownPct = 0;
         for (Map.Entry<String, Long> e : pids.entrySet()) {
             ProcStats.Sample s = ProcStats.sample(e.getValue());
             if (s == null) continue;
@@ -71,6 +80,7 @@ public final class Sampler implements AutoCloseable {
             if (prev != null && s.cpuMs() >= 0 && now > prev[1]) {
                 double pct = (s.cpuMs() - prev[0]) * 1e8 / (now - prev[1]);
                 m.put("cpuPct", Math.round(pct * 10) / 10.0);
+                ownPct += pct;
             }
             lastCpu.put(e.getKey(), new long[] {s.cpuMs(), now});
             lock.lock();
@@ -79,6 +89,45 @@ public final class Sampler implements AutoCloseable {
             } finally {
                 lock.unlock();
             }
+        }
+        sampleSystem(t, ownPct);
+    }
+
+    /**
+     * The machine's per-CPU busy percentages since the last sample (time charged to processes), the
+     * interrupt time apart, and the foreign CPU: the busy time of every CPU together, less the
+     * sampled processes' own (in percent of one CPU; jcmd and the orchestrator itself count as
+     * foreign, a few percent).
+     */
+    private void sampleSystem(double t, double ownPct) {
+        Map<Integer, long[]> now = ProcStats.cpuJiffies();
+        if (now == null) return;
+        Map<Integer, long[]> prev = lastJiffies;
+        lastJiffies = now;
+        if (prev == null) return;
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("t", Math.round(t * 10) / 10.0);
+        List<Double> perCpu = new ArrayList<>();
+        double busySum = 0;
+        double interruptSum = 0;
+        for (Map.Entry<Integer, long[]> e : now.entrySet()) {
+            long[] p = prev.get(e.getKey());
+            if (p == null) continue;
+            long total = e.getValue()[1] - p[1];
+            double busy = total <= 0 ? 0 : 100.0 * (e.getValue()[0] - p[0]) / total;
+            perCpu.add(Math.round(busy * 10) / 10.0);
+            busySum += busy;
+            if (total > 0) interruptSum += 100.0 * (e.getValue()[2] - p[2]) / total;
+        }
+        m.put("cpuBusyPct", perCpu);
+        m.put("busyPct", Math.round(busySum * 10) / 10.0);
+        m.put("interruptPct", Math.round(interruptSum * 10) / 10.0);
+        m.put("foreignCpuPct", Math.round(Math.max(0, busySum - ownPct) * 10) / 10.0);
+        lock.lock();
+        try {
+            series.get(SYSTEM).add(m);
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -129,6 +178,7 @@ public final class Sampler implements AutoCloseable {
     public Map<String, Object> toMap() {
         Map<String, Object> m = new LinkedHashMap<>();
         for (String name : pids.keySet()) m.put(name, series(name));
+        m.put(SYSTEM, series(SYSTEM));
         return m;
     }
 
