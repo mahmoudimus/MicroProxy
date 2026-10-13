@@ -1076,6 +1076,31 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 
     /**
+     * Accept HTTP/1.1 requests that carry both {@code Transfer-Encoding} and {@code
+     * Content-Length}, as RFC 9112 section 6.1 allows a server to: the {@code Content-Length} is
+     * removed, the body is read by its chunked coding alone, and the client connection is closed
+     * after the response, so that whatever follows the body is never read as another request.
+     * Only a sound transfer coding qualifies: {@code chunked} exactly once, as the final coding,
+     * with a {@code Content-Length} that is valid on its own, on a request that is neither a {@code
+     * CONNECT} nor an {@code Upgrade}. Anything else, and every such request from an HTTP/1.0
+     * client, is still answered {@code 400}. Accepted requests are flagged: {@link
+     * FlowContext#isChunkedWithContentLength()}, {@code %MP_CHUNKED_LENGTH%} in access logs, and the
+     * {@code downstream_rq_chunked_length} counter.
+     *
+     * <p>Off by default, with LittleProxy compatibility too (LittleProxy answers such requests
+     * {@code 400}): a request with both framings is the classic request smuggling vector, and
+     * rejecting it is the safe answer. Turn it on only for clients known to send such requests.
+     *
+     * @param allow whether to accept requests with both {@code Transfer-Encoding} and {@code
+     *     Content-Length}
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withAllowChunkedLength(boolean allow) {
+        if (!allow) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " cannot accept requests with both framings");
+    }
+
+    /**
      * Largest WebSocket frame payload buffered for {@link
      * HttpFilters#webSocketFrameReceived(org.microproxy.http.WebSocketFrame, boolean)}; larger
      * frames are streamed and reported as truncated. Default 1 MiB.

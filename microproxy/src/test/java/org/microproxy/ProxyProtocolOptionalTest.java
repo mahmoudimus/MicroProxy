@@ -435,7 +435,8 @@ class ProxyProtocolOptionalTest {
     @Test
     void adminShowsTheModeAndTrustedSources() throws Exception {
         start(MicroProxy.bootstrap().withAdmin(new InetSocketAddress(TestSupport.LOOPBACK, 0))
-                .withAcceptProxyProtocol(ProxyProtocolMode.OPTIONAL).withProxyProtocolTrustedSources("10.0.0.0/8"));
+                .withAcceptProxyProtocol(ProxyProtocolMode.OPTIONAL).withProxyProtocolTrustedSources("10.0.0.0/8")
+                .withAllowChunkedLength(true));
         java.net.http.HttpClient http = java.net.http.HttpClient.newHttpClient();
         String admin = "http://127.0.0.1:" + proxy.getAdminAddress().getPort();
         String dump = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(admin + "/config_dump")).build(),
@@ -446,21 +447,24 @@ class ProxyProtocolOptionalTest {
         assertEquals(true, proxyProtocol.get("accept"));
         assertEquals("optional", proxyProtocol.get("mode"));
         assertEquals(List.of("10.0.0.0/8"), proxyProtocol.get("trusted_sources"));
+        assertEquals(true, bootstrap.get("allow_chunked_length"));
         String listeners = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(admin + "/listeners")).build(),
                 java.net.http.HttpResponse.BodyHandlers.ofString()).body();
         assertTrue(listeners.contains("proxy_protocol_optional"), listeners);
     }
 
     @Test
-    void launcherFlagsSetTheModeAndTrustedSources() throws Exception {
+    void launcherFlagsSetTheModeTrustedSourcesAndChunkedLength() throws Exception {
         java.io.PrintStream quiet = new java.io.PrintStream(OutputStream.nullOutputStream());
         HttpProxyServerBootstrap b = Launcher.parse(new String[] {"--port", "0", "--proxy-protocol-mode", "optional",
-            "--proxy-protocol-trusted-sources", "10.0.0.0/8,192.0.2.1"}, quiet).bootstrap();
+            "--proxy-protocol-trusted-sources", "10.0.0.0/8,192.0.2.1", "--allow-chunked-length"}, quiet).bootstrap();
         assertEquals(ProxyProtocolMode.OPTIONAL, org.microproxy.impl.BootstrapView.proxyProtocolMode(b));
         assertEquals(List.of("10.0.0.0/8", "192.0.2.1"), org.microproxy.impl.BootstrapView.proxyProtocolTrustedSources(b));
+        assertTrue(org.microproxy.impl.BootstrapView.allowChunkedLength(b));
         b = Launcher.parse(new String[] {"--port", "0", "--accept-proxy-protocol"}, quiet).bootstrap();
         assertEquals(ProxyProtocolMode.REQUIRED, org.microproxy.impl.BootstrapView.proxyProtocolMode(b));
         assertTrue(org.microproxy.impl.BootstrapView.proxyProtocolTrustedSources(b).isEmpty());
+        assertTrue(!org.microproxy.impl.BootstrapView.allowChunkedLength(b));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> Launcher.parse(
                 new String[] {"--proxy-protocol-mode", "sometimes"}, quiet));
     }

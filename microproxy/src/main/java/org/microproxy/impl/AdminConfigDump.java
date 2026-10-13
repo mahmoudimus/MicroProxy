@@ -73,6 +73,7 @@ final class AdminConfigDump {
         boot.put("network_interface", AdminServer.hostPort(b.localAddress));
         boot.put("proxy_alias", server.proxyAlias);
         boot.put("allow_requests_to_origin_server", b.allowRequestToOriginServer);
+        boot.put("allow_chunked_length", b.allowChunkedLength);
         boot.put("originate_tls", b.tlsOrigination);
         boot.put("littleproxy_compatibility", b.littleProxyCompatibility);
         Map<String, Object> proxyProtocol = new LinkedHashMap<>();

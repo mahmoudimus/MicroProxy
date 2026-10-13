@@ -40,6 +40,21 @@ against CR/LF injection; and `Host` is replaced by the absolute-form authority. 
 plain-text body never echoes the request ([Failure responses](guides/filters.md#failure-responses)).
 `withLittleProxyCompatibility()` does not relax any of this.
 
+A request with both `Transfer-Encoding` and `Content-Length` is the classic request smuggling
+vector: two hops that frame it differently disagree on where the next request starts. RFC 9112
+section 6.1 lets a server reject it, which MicroProxy does (`400`), as LittleProxy does through
+Netty's decoder. Some LittleProxy forks accepted such requests; for clients that send them,
+`--allow-chunked-length` (`allow_chunked_length`, `withAllowChunkedLength(true)`) accepts them as
+the RFC describes, and only when the rest of the framing is sound: `chunked` exactly once, as the
+final coding, a `Content-Length` valid on its own, HTTP/1.1, and neither a `CONNECT` nor an
+`Upgrade`. The `Content-Length` is removed
+before filters see the request, the body is read by its chunked coding, and the client connection
+is closed after the response, so whatever followed the body is never read as a request. Accepted
+requests are flagged (`FlowContext.isChunkedWithContentLength()`, `%MP_CHUNKED_LENGTH%`, the
+`downstream_rq_chunked_length` counter) so they can be watched. A server's response with both
+headers is always framed by its transfer coding, its `Content-Length` dropped, as RFC 9112
+section 6.3 requires of an intermediary.
+
 ## Denial of service
 
 Every input has a bound, and a peer that exceeds it loses its stream or connection, not the proxy:

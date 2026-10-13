@@ -20,6 +20,7 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `http.<name>.downstream_rq_http1_total`, `_http2_total`, `_http3_total` | counter | requests by protocol |
 | `http.<name>.downstream_rq_rx_reset` / `_tx_reset` | counter | requests the client reset (`DR`) / the proxy reset or cut off after its response started |
 | `http.<name>.downstream_rq_too_large` | counter | requests the proxy answered `413` |
+| `http.<name>.downstream_rq_chunked_length` | counter | MicroProxy's: HTTP/1.1 requests with both `Transfer-Encoding` and `Content-Length` accepted by `--allow-chunked-length` (a request smuggling signal) |
 | `http.<name>.downstream_rq_response_flag.<flag>` | counter | MicroProxy's: requests that ended with a 4xx or 5xx response, or none, by [response flag](response-flags.md#response-flags-and-details) (tag `microproxy_response_flag`: `UF`, `UT`, `DC`, ...) |
 | `http.<name>.downstream_cx_total`, `_active` | counter, gauge | client connections (TCP, and QUIC connections of the HTTP/3 listener) |
 | `http.<name>.downstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by the protocols they carried (once each) |

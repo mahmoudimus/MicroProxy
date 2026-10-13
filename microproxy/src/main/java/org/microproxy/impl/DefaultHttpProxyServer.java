@@ -106,6 +106,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** The peers whose PROXY headers are honored. */
     final ProxyProtocol.TrustedSources proxyProtocolTrustedSources;
     final boolean sendProxyProtocol;
+    /** Whether HTTP/1.1 requests with both Transfer-Encoding and Content-Length are accepted (the latter dropped). */
+    final boolean allowChunkedLength;
     final int maxWebSocketFrameBufferSize;
     final int maxWebSocketMessageSize;
     /** Shared server connection pool, or null when connections are kept per client. */
@@ -327,6 +329,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.acceptProxyProtocol = b.proxyProtocolMode != ProxyProtocolMode.OFF;
         this.proxyProtocolTrustedSources = b.proxyProtocolTrustedSources;
         this.sendProxyProtocol = b.sendProxyProtocol;
+        this.allowChunkedLength = b.allowChunkedLength;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
         this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool

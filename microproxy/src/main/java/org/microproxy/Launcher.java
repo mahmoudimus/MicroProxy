@@ -69,6 +69,8 @@ public final class Launcher {
                                            long without a datagram (default 60)
               --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
                                            transparent HTTP)
+              --allow-chunked-length       accept HTTP/1.1 requests with both Transfer-Encoding and
+                                           Content-Length (dropped; the connection then closes)
               --no-originate-tls           refuse https:// requests sent without CONNECT (absolute
                                            URIs over plain HTTP, :scheme https on h2c) instead of
                                            opening TLS to the server for them, which
@@ -503,6 +505,7 @@ public final class Launcher {
                 case "--transparent-quic-port" -> bootstrap.withTransparentQuicPort(intValue(queue, arg));
                 case "--transparent-quic-relay-idle-timeout" -> quicRelayIdleSeconds = longValue(queue, arg);
                 case "--allow-requests-to-origin-server" -> bootstrap.withAllowRequestToOriginServer(true);
+                case "--allow-chunked-length" -> bootstrap.withAllowChunkedLength(true);
                 case "--originate-tls" -> bootstrap.withTlsOrigination(true);
                 case "--no-originate-tls" -> bootstrap.withTlsOrigination(false);
                 case "--mode" -> {

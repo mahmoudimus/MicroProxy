@@ -59,6 +59,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile boolean transparentQuic;
     /** Whether this HTTP/3 stream's request arrived as 0-RTT early data. */
     private volatile boolean earlyData;
+    /** Whether the exchange's request had both Transfer-Encoding and Content-Length (withAllowChunkedLength). */
+    private volatile boolean chunkedWithContentLength;
 
     // The outcome of the current exchange, for access logs; reset by startExchange. Tunnel
     // directions and a connection's reader thread write some of it, hence the atomic updates.
@@ -137,6 +139,7 @@ final class ClientFlowContext extends FlowContext {
     void startExchange() {
         Arrays.fill(marks, 0);
         upstreamStatus = 0;
+        chunkedWithContentLength = false;
         FLAGS.setVolatile(this, 0L);
         BYTES_RECEIVED.setVolatile(this, 0L);
         BYTES_SENT.setVolatile(this, 0L);
@@ -261,6 +264,16 @@ final class ClientFlowContext extends FlowContext {
     @Override
     public boolean isEarlyData() {
         return earlyData;
+    }
+
+    /** Records that the request had both framings, and its {@code Content-Length} was dropped. */
+    void chunkedWithContentLength() {
+        chunkedWithContentLength = true;
+    }
+
+    @Override
+    public boolean isChunkedWithContentLength() {
+        return chunkedWithContentLength;
     }
 
     /** Records that the exchange failed with {@code failure}, and the flag and details it means. */

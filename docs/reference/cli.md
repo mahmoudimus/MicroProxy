@@ -49,6 +49,7 @@ See [Transparent mode](../guides/transparent-mode.md), [Reverse proxy](../guides
 | `--transparent` | do not add Via / strip hop-by-hop headers, and route TLS that arrives without CONNECT by its SNI | `transparent` |
 | `--transparent-tls-port <port>` | port SNI-routed TLS and QUIC go to (default 443) | `transparent_tls_port` |
 | `--allow-requests-to-origin-server` | accept origin-form requests, routed by Host (for transparent HTTP) | `allow_requests_to_origin_server` |
+| `--allow-chunked-length` | accept HTTP/1.1 requests with both Transfer-Encoding and Content-Length (the Content-Length is dropped and the connection closes after the response) | `allow_chunked_length` |
 | `--reverse <spec>` | reverse proxy to one upstream: [scheme://]host[:port] | `mode=reverse:...` |
 | `--keep-host-header` | in reverse mode, keep the client's Host | `keep_host_header` |
 | `--socks` | also serve SOCKS5 and SOCKS4(a) clients on the listener, told apart by their first byte | `socks` |

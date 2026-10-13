@@ -59,6 +59,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `allow_proxy_protocol` / `send_proxy_protocol` | PROXY protocol in / out | `false` |
 | `allow_proxy_protocol` = `off` / `required` / `optional` | the incoming mode by name (`required` is `true`); `optional` reads a header only when a connection starts with one, and lets any client name any source address (see [PROXY protocol](../guides/forward-proxy.md#proxy-protocol)). Any value other than these and the booleans is an error | `off` |
 | `proxy_protocol_trusted_sources` | comma-separated IP addresses or CIDR ranges (the load balancers) whose PROXY headers count; a header from another peer closes its connection | any peer |
+| `allow_chunked_length` | accept HTTP/1.1 requests with both `Transfer-Encoding: chunked` and `Content-Length`: the `Content-Length` is removed and the connection closes after the response ([Request parsing](../security.md#request-parsing)) | `false` |
 | `throttle_read_bytes_per_second` / `throttle_write_bytes_per_second` | global server bandwidth | `0` (unlimited) |
 | `use_shared_server_connection_pool` | share server connections between clients | `false` |
 | `server_connection_pool_type` | pool implementation (`CONCURRENT_MAP`) | `CONCURRENT_MAP` |

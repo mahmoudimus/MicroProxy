@@ -308,6 +308,21 @@ public class FlowContext {
     }
 
     /**
+     * Whether the HTTP/1.1 request of the exchange in progress (or the last one) arrived with both
+     * {@code Transfer-Encoding: chunked} and {@code Content-Length}, and was accepted because
+     * {@link HttpProxyServerBootstrap#withAllowChunkedLength(boolean)} is on: its {@code
+     * Content-Length} was removed before filters saw it, its body was read as chunked, and the
+     * client connection closes after the response (RFC 9112 section 6.1). Such requests are a
+     * request smuggling signal. False for every other request, and for contexts made outside the
+     * proxy.
+     *
+     * @return whether the request had both framings, and its {@code Content-Length} was dropped
+     */
+    public boolean isChunkedWithContentLength() {
+        return root != this && root.isChunkedWithContentLength();
+    }
+
+    /**
      * Why the proxy had to answer the exchange in progress on this connection (or the last one)
      * itself, or abandon it: the failure handed to {@link HttpFilters#proxyToServerFailure}, set
      * before the filters see it. Empty when there was none, and for contexts made outside the

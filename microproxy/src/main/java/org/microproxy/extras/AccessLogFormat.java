@@ -590,6 +590,7 @@ public final class AccessLogFormat {
                         : TlsFingerprints.ja4(r.context().getClientHello(), r.context().isTransparentQuic()));
                 case "MP_RESPONSE_SOURCE" -> text(r -> r.source() == null ? null : r.source().name());
                 case "MP_EARLY_DATA" -> bool(r -> r.context().isEarlyData());
+                case "MP_CHUNKED_LENGTH" -> bool(r -> r.context().isChunkedWithContentLength());
                 case "MP_TRANSPARENT_QUIC" -> bool(r -> r.context().isTransparentQuic());
                 case "MP_SOCKS_VERSION" -> number(r -> r.context().socksVersion().orElse(-1));
                 case "MP_FORWARDED_VIA" -> text(r -> r.context().forwardedVia().orElse(null));

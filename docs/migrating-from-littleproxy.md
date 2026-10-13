@@ -213,6 +213,11 @@ either way:
   `withAllowLocalOnly(false)`) is given; LittleProxy's `allow_local_only` defaults to `false`.
 - When the shared server connection pool is full, a request waits up to the connect timeout for a
   connection, then gets `503`; LittleProxy returned `502` immediately.
+- A request with both `Transfer-Encoding` and `Content-Length` gets `400`, as from LittleProxy
+  2.9 (Netty rejects it); some LittleProxy forks accepted it. `--allow-chunked-length`
+  (`allow_chunked_length`, `withAllowChunkedLength(true)`) accepts it as RFC 9112 allows, and closes
+  the connection after the response; compatibility mode leaves it off (see
+  [Security](security.md#request-parsing)).
 - PROXY protocol headers can be optional (`--proxy-protocol-mode optional`), for a listener that
   load balancers and clients both reach; LittleProxy only requires them. Read the warning in
   [PROXY protocol](guides/forward-proxy.md#proxy-protocol) first.

@@ -261,6 +261,7 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter rqTxReset;
         final Counter rqTooLarge;
+        final Counter rqChunkedLength;
         /** {@code downstream_rq_response_flag.<flag>}, by flag ordinal, made on first use. */
         private final AtomicReferenceArray<Counter> rqFlags = new AtomicReferenceArray<>(FLAGS.length);
         final Counter cxTotal;
@@ -295,6 +296,8 @@ final class ProxyStats {
             rqTxReset = registry.counter(prefix + "downstream_rq_tx_reset",
                     "Requests the proxy reset (or closed the connection of) after its response started");
             rqTooLarge = registry.counter(prefix + "downstream_rq_too_large", "Requests answered 413 by the proxy");
+            rqChunkedLength = registry.counter(prefix + "downstream_rq_chunked_length",
+                    "HTTP/1.1 requests with both Transfer-Encoding and Content-Length, accepted with the Content-Length dropped");
             cxTotal = registry.counter(prefix + "downstream_cx_total", "Client connections");
             cxActive = registry.gauge(prefix + "downstream_cx_active", "Client connections open");
             cxHttp1 = registry.counter(prefix + "downstream_cx_http1_total", "Client connections that carried HTTP/1");

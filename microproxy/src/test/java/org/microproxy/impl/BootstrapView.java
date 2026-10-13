@@ -77,6 +77,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).proxyProtocolTrustedSources.entries();
     }
 
+    /** Whether requests with both Transfer-Encoding and Content-Length are accepted ({@code withAllowChunkedLength}). */
+    public static boolean allowChunkedLength(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).allowChunkedLength;
+    }
+
     /** Whether the listener serves SOCKS clients besides HTTP ones ({@code withSocksDetection}). */
     public static boolean socksDetection(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).socksDetection;

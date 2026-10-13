@@ -60,6 +60,11 @@ final class Http1ClientChannel implements ClientChannel {
      * chunked bodies.
      */
     private HttpVersion requestVersion = HttpVersion.HTTP_1_1;
+    /**
+     * A request arrived with both {@code Transfer-Encoding} and {@code Content-Length} ({@link
+     * DefaultHttpProxyServer#allowChunkedLength}): the connection closes after its response.
+     */
+    private boolean closeAfterResponse;
     /** What counts the bytes read from and written to the client, or null when nothing does. */
     private java.util.function.IntConsumer rxBytes;
     private java.util.function.IntConsumer txBytes;
@@ -321,12 +326,24 @@ final class Http1ClientChannel implements ClientChannel {
     @Override
     public MessageBody requestBody(HttpRequest request) throws HttpParseException {
         requestVersion = request.protocolVersion();
-        return new HttpCodec.BodyReader(in, Framing.forRequest(request), server.limits);
+        HttpHeaders headers = request.headers();
+        boolean chunkedLength = server.allowChunkedLength && headers.contains(HttpHeaderNames.TRANSFER_ENCODING)
+                && headers.contains(HttpHeaderNames.CONTENT_LENGTH);
+        Framing framing = Framing.forRequest(request, server.allowChunkedLength);
+        if (chunkedLength) {
+            // Accepted as RFC 9112 section 6.1 allows, its Content-Length gone: the connection
+            // closes after the response, whatever the client asked, so that bytes another hop may
+            // have framed differently are never read as a request.
+            closeAfterResponse = true;
+            flowContext.chunkedWithContentLength();
+            server.stats.http.rqChunkedLength.inc();
+        }
+        return new HttpCodec.BodyReader(in, framing, server.limits);
     }
 
     @Override
     public boolean clientKeepAlive(HttpRequest request) {
-        return ProxyUtils.isClientKeepAlive(request);
+        return !closeAfterResponse && ProxyUtils.isClientKeepAlive(request);
     }
 
     /**
