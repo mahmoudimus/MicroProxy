@@ -124,8 +124,11 @@ that it opens to the server itself, as it does for the requests of an intercepte
   trust store when there is no manager. A failed handshake is `ProxyFailure.TlsFailed`: a `502`
   from the [failure responder](filters.md#failure-responses), the `UF` response flag with
   `proxy_failure:tls_failed` details, the handshake's error in `%UPSTREAM_TRANSPORT_FAILURE_REASON%`
-  (an untrusted issuer, a name the certificate does not cover), `on_failure` in scripts, and the
-  cluster's `ssl.connection_error`, as for an intercepted session's server.
+  (an untrusted issuer, a name the certificate does not cover; see
+  [Server TLS failures](mitm.md#server-tls-failures)), `on_failure` in scripts, and the
+  cluster's `ssl.connection_error`, as for an intercepted session's server. The server name and
+  verification host can differ from the URI's host
+  ([Server name and verification host](mitm.md#server-name-and-verification-host)).
 - **Connections.** They are the same kind of connection an intercepted session's requests use, and
   pooled with them under the same keys, kept apart by target, route (direct, or which chained
   proxy) and MITM manager: a client connection keeps its own, or, with the [shared

@@ -15,7 +15,7 @@ as it did; trackers, filters, scripts (`ctx.failure`, `ctx.response_flags`,
 |---|---|---|
 | connection refused, unreachable or timed out (`ConnectFailed`) | `UF` | `proxy_failure:connect_failed` |
 | the server's name did not resolve (`UnresolvedHost`) | `DF` | `proxy_failure:unresolved_host` |
-| TLS with the server or a chained proxy failed (`TlsFailed`) | `UF`, and `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | `proxy_failure:tls_failed` |
+| TLS with the server or a chained proxy failed (`TlsFailed`) | `UF`, and `%UPSTREAM_TRANSPORT_FAILURE_REASON%` (`TlsFailed.reason()`: `certificate_revoked: ...`) | `proxy_failure:tls_failed` |
 | the server did not answer in time (`ServerTimeout`) | `UT` | `proxy_failure:server_timeout` (`upstream_response_timeout` mid-response) |
 | a malformed response (`BadServerResponse`) | `UPE` | `proxy_failure:bad_server_response` |
 | the server closed before its response head was complete | `UC` | `proxy_failure:bad_server_response` |

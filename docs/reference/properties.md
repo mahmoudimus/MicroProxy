@@ -51,6 +51,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none); filters can change it per request for upstream handshakes (`proxyToServerTlsHandshakeTimeout`) | `10000` |
 | `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](../guides/mitm.md#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
+| `tls_retry_without_sni` | retry TLS with a server once, without SNI, when it rejects the name with an `unrecognized_name` alert (see [Server TLS failures](../guides/mitm.md#server-tls-failures)); default `true` with `littleproxy_compatibility` | `false` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |

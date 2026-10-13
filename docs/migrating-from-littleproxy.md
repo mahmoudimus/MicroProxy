@@ -119,6 +119,31 @@ whose SANs copy the real server's names, a bounded certificate cache, and upstre
 choice. `MitmManager.serverSslEngine` / `clientSslEngineFor` become `serverSslContext` /
 `clientSslContextFor`, returning an `SSLContext`. See [MITM, certificates and TLS](guides/mitm.md).
 
+## TLS to servers
+
+LittleProxy forks commonly patched how the proxy's own TLS with servers behaves. MicroProxy has
+these as options:
+
+- **Retry without SNI.** Some servers answer a server name (SNI) they do not recognize with a
+  fatal `unrecognized_name` alert. Forks retried the handshake once without SNI, as the JDK's
+  `HttpsURLConnection` once did. `withTlsRetryWithoutSni(true)` (`--tls-retry-without-sni`,
+  `tls_retry_without_sni=true`) does the same, on a new connection; it is on by default with
+  `withLittleProxyCompatibility()`, and `withTlsRetryWithoutSni(false)` keeps it off there too.
+  The certificate is still checked against the host the request is for. See
+  [Server TLS failures](guides/mitm.md#server-tls-failures).
+- **SNI and verification host apart from the address.** Forks that connected to an IP address or
+  an internal load balancer patched the SSL engine to send another server name. Override
+  `HttpFilters.proxyToServerTlsIdentity(serverHostAndPort)` (or
+  `HttpFilters.builder().tlsIdentity(...)`) to return a `TlsServerIdentity` with the SNI name and
+  the host the certificate is checked against; see
+  [Server name and verification host](guides/mitm.md#server-name-and-verification-host).
+- **Why a handshake failed.** `ProxyFailure.TlsFailed.cause()` is the JDK's own exception with its
+  whole cause chain (for a revoked certificate, the `CertPathValidatorException` with reason
+  `REVOKED` is in it), and `TlsFailed.reason()` classifies it: `CERTIFICATE_REVOKED`,
+  `CERTIFICATE_EXPIRED`, `CERTIFICATE_UNTRUSTED`, `HOSTNAME_MISMATCH`, `ALERT_RECEIVED` (with
+  `alert()`), ... The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` starts with the same
+  name.
+
 ## Activity logging
 
 `org.littleshoot.proxy.extras.ActivityLogger` and `LogFormat` are
@@ -185,7 +210,8 @@ it; see that method's Javadoc for the list:
   chained proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
   `serverToProxyResponse`, reaches no filter in MicroProxy in either mode.
 
-Compatibility mode covers the three items above. Security fixes (strict request parsing, error
+Compatibility mode covers the three items above, and the retry without SNI described under
+[TLS to servers](#tls-to-servers). Security fixes (strict request parsing, error
 pages that do not echo the request) are not affected by it, and the following differences remain
 either way:
 

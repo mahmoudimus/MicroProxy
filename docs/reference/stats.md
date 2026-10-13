@@ -41,6 +41,7 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `cluster.<cluster>.upstream_rq_1xx` ... `_5xx`, `upstream_rq_time` | counter, histogram | the server's responses by class, and request time |
 | `cluster.<cluster>.upstream_rq_retry`, `_timeout`, `_rx_reset` | counter | requests sent again after a stale keep-alive connection (or a `421` on a coalesced HTTP/2 connection); that timed out (`UT`); that the server reset or cut off (`UR`, `UC`) |
 | `cluster.<cluster>.ssl.handshake`, `ssl.connection_error` | counter | TLS handshakes with servers and TLS chained proxies |
+| `cluster.<cluster>.ssl.retry_without_sni` | counter | TLS handshakes with servers tried again without SNI after the server's `unrecognized_name` alert ([`--tls-retry-without-sni`](../guides/mitm.md#server-tls-failures)) |
 | `cluster.<cluster>.upstream_cx_rx_bytes_total`, `_tx_bytes_total` | counter | bytes read from / written to the cluster (decrypted over TLS, as the downstream ones; tunnels included; over QUIC, the datagrams' bytes, added when the connection closes) |
 | `cluster.<cluster>.failover` | counter | connection attempts through the cluster that failed and moved on to the route's next choice |
 | `cluster.<cluster>.backoff_engaged` | counter | waits ([retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) before trying the cluster after earlier choices failed |

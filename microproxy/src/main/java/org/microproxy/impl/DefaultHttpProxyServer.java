@@ -134,6 +134,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     final RetryBackoff chainedProxyBackoff;
     /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
     final String[] tlsProtocols;
+    /** Retry TLS with a server without SNI after its unrecognized_name alert ({@link org.microproxy.HttpProxyServerBootstrap#withTlsRetryWithoutSni}). */
+    final boolean tlsRetryWithoutSni;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
     /** Whether {@link #strippedRequestHeaders} removes {@code traceparent}, so a tracer injects its own context only. */
@@ -354,6 +356,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparentQuicPort = b.transparentQuicPort;
         this.transparentQuicKeys = b.transparentQuicPort >= 0 ? transparentQuicKeys(b.mitmManager) : null;
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
+        this.tlsRetryWithoutSni = b.retriesTlsWithoutSni();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);

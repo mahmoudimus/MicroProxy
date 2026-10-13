@@ -5,6 +5,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -14,11 +17,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
+import org.microproxy.ProxyFailure;
+import org.microproxy.tls.SslContexts;
 
 /** Layers TLS over already-connected sockets. */
 final class Tls {
@@ -26,7 +32,8 @@ final class Tls {
     private Tls() {}
 
     /**
-     * Starts a client handshake over {@code plain}.
+     * Starts a client handshake over {@code plain}, sending {@code host} as SNI when it is a name
+     * SNI can carry.
      *
      * @param verifyHostname enable HTTPS endpoint identification against {@code host}
      * @param protocols the TLS versions to enable before {@code configurer} runs, or null for the
@@ -44,19 +51,48 @@ final class Tls {
             Duration deadline,
             TlsLog.Peer peer)
             throws IOException {
+        return clientHandshake(context, plain, host, port, host, verifyHostname, protocols, configurer, deadline, peer);
+    }
+
+    /**
+     * Starts a client handshake over {@code plain}, with a server name (SNI) that may differ from
+     * the host the certificate is checked against.
+     *
+     * <p>The JDK's HTTPS endpoint identification accepts a certificate valid for either the SNI
+     * name or the session's peer host, so when the two differ it is turned off and {@code host}
+     * alone is checked once the handshake is done, before the socket is used ({@link
+     * #checkServerName}). A configurer that turns endpoint identification off checks no name
+     * either way.
+     *
+     * @param host the session's peer host: the host name (or IP address) the certificate must be
+     *     valid for
+     * @param serverName the name sent as SNI, or null to send none; an IP address or a name SNI
+     *     cannot carry (an underscore, say) is not sent either
+     * @param verifyHostname enable HTTPS endpoint identification against {@code host}
+     * @param protocols the TLS versions to enable before {@code configurer} runs, or null for the
+     *     context's defaults (see {@link #pinProtocols})
+     * @param peer who the handshake is with, for the log lines ({@link TlsLog})
+     */
+    static SSLSocket clientHandshake(
+            SSLContext context,
+            Socket plain,
+            String host,
+            int port,
+            String serverName,
+            boolean verifyHostname,
+            String[] protocols,
+            Consumer<SSLSocket> configurer,
+            Duration deadline,
+            TlsLog.Peer peer)
+            throws IOException {
         long start = System.nanoTime();
         SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket(plain, host, port, true);
         try {
             socket.setUseClientMode(true);
             pinProtocols(socket, protocols);
             SSLParameters params = socket.getSSLParameters();
-            if (!isIpLiteral(host)) {
-                try {
-                    params.setServerNames(List.of(new SNIHostName(host)));
-                } catch (IllegalArgumentException ignored) {
-                    // Not a valid SNI name (e.g. contains an underscore); send no SNI.
-                }
-            }
+            SNIHostName sni = sniName(serverName);
+            params.setServerNames(sni == null ? List.of() : List.of(sni));
             if (verifyHostname) {
                 params.setEndpointIdentificationAlgorithm("HTTPS");
             }
@@ -64,8 +100,10 @@ final class Tls {
             if (configurer != null) {
                 configurer.accept(socket);
             }
+            String checkAfter = verifyHostname ? separateNameCheck(socket, host) : null;
             TlsLog.started(peer, plain, true, false);
             handshake(socket, plain, deadline);
+            if (checkAfter != null) checkServerName(socket, checkAfter, context);
             TlsLog.succeeded(peer, plain, socket, true, start);
             return socket;
         } catch (IOException e) {
@@ -156,6 +194,74 @@ final class Tls {
                 || message.contains("connection reset")
                 || e.getCause() instanceof java.io.EOFException
                 || e.getCause() instanceof java.net.SocketException;
+    }
+
+    /** {@code name} as SNI, or null when SNI cannot carry it (null, an IP address, an invalid name). */
+    static SNIHostName sniName(String name) {
+        if (name == null || isIpLiteral(name)) return null;
+        try {
+            return new SNIHostName(name);
+        } catch (IllegalArgumentException e) {
+            // Not a valid SNI name (e.g. contains an underscore); send no SNI.
+            return null;
+        }
+    }
+
+    /** The host name {@code socket} sends as SNI, or null. */
+    static String sentServerName(SSLSocket socket) {
+        List<SNIServerName> names = socket.getSSLParameters().getServerNames();
+        if (names == null) return null;
+        for (SNIServerName name : names) {
+            if (name instanceof SNIHostName host) return host.getAsciiName();
+        }
+        return null;
+    }
+
+    /**
+     * When {@code socket}'s HTTPS endpoint identification would check a certificate against an
+     * SNI name other than {@code host}: turns it off and returns {@code host}, which {@link
+     * #checkServerName} then checks; otherwise null, and the JDK checks {@code host} itself.
+     */
+    private static String separateNameCheck(SSLSocket socket, String host) {
+        SSLParameters params = socket.getSSLParameters();
+        if (!"HTTPS".equalsIgnoreCase(params.getEndpointIdentificationAlgorithm())) return null;
+        String sent = sentServerName(socket);
+        if (sent == null || sent.equalsIgnoreCase(host)) return null;
+        params.setEndpointIdentificationAlgorithm(null);
+        socket.setSSLParameters(params);
+        return host;
+    }
+
+    /**
+     * Checks that the certificate of {@code socket}'s server is valid for {@code host}, as HTTPS
+     * endpoint identification does but with no fallback to the subject's common name ({@link
+     * Http2Coalescing#certificateCovers}): its DNS (or, for an IP address, IP address) subject
+     * alternative names. Contexts that trust every server ({@link SslContexts#trustAll()}) check no
+     * names, as the JDK does not for them.
+     *
+     * @throws SSLHandshakeException if it is not, caused by a {@link CertificateException} as the
+     *     JDK's own check throws one
+     */
+    static void checkServerName(SSLSocket socket, String host, SSLContext context) throws IOException {
+        if (SslContexts.trustsAll(SslContexts.trustManagerOf(context))) return;
+        Certificate[] chain = socket.getSession().getPeerCertificates();
+        if (chain.length > 0 && chain[0] instanceof X509Certificate leaf && Http2Coalescing.certificateCovers(leaf, host)) {
+            return;
+        }
+        CertificateException mismatch = new CertificateException("No subject alternative names matching "
+                + (isIpLiteral(host) ? "IP address " : "DNS name ") + host + " found");
+        SSLHandshakeException e = new SSLHandshakeException("the server's certificate is not valid for the verification host "
+                + host + " (SNI " + sentServerName(socket) + ")");
+        e.initCause(mismatch);
+        throw e;
+    }
+
+    /**
+     * Whether a failed client handshake ended with the server's {@code unrecognized_name} alert
+     * (RFC 6066 section 3): its answer to a server name it does not recognize.
+     */
+    static boolean serverRejectedName(IOException e) {
+        return "unrecognized_name".equals(ProxyFailure.TlsFailed.Reason.alertOf(e));
     }
 
     static boolean isIpLiteral(String host) {

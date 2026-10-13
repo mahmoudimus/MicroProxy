@@ -63,6 +63,7 @@ final class AdminConfigDump {
         timeouts.put("tls_handshake", duration(b.tlsHandshakeTimeout));
         boot.put("timeouts", timeouts);
         boot.put("tls_protocols", b.tlsProtocols);
+        boot.put("tls_retry_without_sni", b.retriesTlsWithoutSni());
         Map<String, Object> limits = new LinkedHashMap<>();
         limits.put("max_initial_line_length", b.maxInitialLineLength);
         limits.put("max_header_size", b.maxHeaderSize);

@@ -157,6 +157,73 @@ filters, `proxyToServerConnectionSSLHandshakeStarted` comes after the `CONNECT`'
 `CONNECT` exchange completes (`proxyToClientResponseSent`, `responseCompleted`) once the server
 handshake is over, so its timings include that handshake.
 
+Every server TLS failure reaches filters, the `FailureResponder` and the access log as a
+`ProxyFailure.TlsFailed` whose `cause()` is the JDK's own exception with its whole cause chain:
+for a revoked certificate, the `CertPathValidatorException` with reason `REVOKED` is in it, for
+an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the chain:
+
+| `reason()` | When |
+|---|---|
+| `CERTIFICATE_REVOKED`, `REVOCATION_STATUS_UNKNOWN` | revocation checking (a `PKIXRevocationChecker` in the trust manager's parameters) found the certificate revoked, or could not tell |
+| `CERTIFICATE_EXPIRED`, `CERTIFICATE_NOT_YET_VALID` | a certificate of the chain is out of its validity period |
+| `CERTIFICATE_UNTRUSTED` | no path to a trusted anchor, or another validation check failed |
+| `HOSTNAME_MISMATCH` | the certificate is trusted but not valid for the host it was checked against |
+| `ALERT_RECEIVED` | the server ended the handshake with an alert; `alert()` names it (`handshake_failure`, `unrecognized_name`, ...) |
+| `TIMEOUT` | the handshake overran `--tls-handshake-timeout` |
+| `OTHER` | anything else (no common version or cipher suite, the connection closed, ...) |
+
+The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` is that reason's name and the innermost
+cause's message: `certificate_revoked: Certificate has been revoked, reason: ...`.
+
+Some servers answer a server name (SNI) they do not recognize with a fatal `unrecognized_name`
+alert (RFC 6066 section 3), even for names they serve. `withTlsRetryWithoutSni(true)`
+(`--tls-retry-without-sni`, `tls_retry_without_sni=true`) tries such a server once more, on a new
+connection, without SNI, as the JDK's `HttpsURLConnection` once did and LittleProxy forks still
+do. It is off by default, so that the misconfiguration shows (browsers and the JDK's `HttpClient`
+do not retry), and on by default with `withLittleProxyCompatibility()`. The retry leaves out the
+SNI extension only: the certificate is validated with the same trust and checked against the same
+host, so leaving out a name that authenticates nothing weakens no check; a server that then
+presents a certificate for another name still fails, with `HOSTNAME_MISMATCH`. Each retry is
+logged at `INFO` and counted in the cluster's `ssl.retry_without_sni` (the rejected handshake in
+its `ssl.connection_error`). Nothing is remembered: each new connection to such a server pays for
+the extra handshake. It applies to servers (intercepted sessions, TLS origination, a reverse
+proxy's `https://` upstream), not to TLS chained proxies, and not to HTTP/3.
+
+### Server name and verification host
+
+The proxy sends the request's host as the server name (SNI) and checks the server's certificate
+against it; for a `CONNECT` to an IP address it sends the server name the client's ClientHello
+named. A route that dials somewhere else than the name the service is known by, an IP address
+or an internal load balancer (`proxyToServerResolutionStarted`, a resolver, a reverse proxy's
+upstream, a chained proxy), can name both itself: `HttpFilters.proxyToServerTlsIdentity` returns
+a `TlsServerIdentity` with the server name and the verification host, `null` keeping the default.
+
+```java
+HttpFilters filters = HttpFilters.builder()
+        .resolveWith(hostAndPort -> hostAndPort.startsWith("api.example.com:")
+                ? new InetSocketAddress("10.0.0.7", 443) : null)
+        .tlsIdentity(hostAndPort -> hostAndPort.startsWith("api.example.com:")
+                ? TlsServerIdentity.of("api.example.com") : null)
+        .build();
+```
+
+`TlsServerIdentity.of(name)` sends `name` and checks the certificate against it;
+`TlsServerIdentity.of(name, verificationHost)` checks it against another host (or IP address)
+than the one sent; `TlsServerIdentity.of(null, verificationHost)` keeps the default server name.
+The certificate is validated with the MITM manager's trust as always; only the names change. When
+the two names differ, the JDK's own check would accept a certificate valid for either, so the
+proxy checks the verification host itself, right after the handshake and before the connection
+is used, against the certificate's subject alternative names (DNS names, or IP addresses for an
+IP address; the common name is not consulted). A context that trusts every server
+(`--mitm-trust-all`) checks no names, as before.
+
+The hook is asked for every request that reaches its server over TLS, before a connection is
+chosen, and for an intercepted `CONNECT` before the proxy's handshake with its target, with the
+server's `host:port`. The identity is part of what keeps server connections apart: one made with
+an identity serves only requests with the same identity, never reused, pooled or coalesced
+([HTTP/2 coalescing](http2.md#connection-coalescing), RFC 9113 section 9.1.1) for another, and requests
+with an identity do not go over HTTP/3. The Starlark scripting layer has no hook for it yet.
+
 ### Ignoring and allowing hosts
 
 `withIgnoreHosts(...)` (`--ignore-hosts`, `ignore_hosts`) and `withAllowHosts(...)`

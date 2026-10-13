@@ -22,6 +22,7 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with LittleProxy compatibility, neither hook sees it) | the same |
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
+| `proxyToServerTlsIdentity(hostAndPort)` | before a request that reaches its server over TLS chooses a connection | return the server name (SNI) and verification host for it; `builder().tlsIdentity(...)` ([MITM](mitm.md#server-name-and-verification-host)) |
 | `proxyToServerResolutionStarted(hostAndPort)` | before the server's name is resolved | return an address to use instead |
 | `proxyToServerConnectTimeout()` | when a new server connection is needed | change the connect timeout ([below](#per-request-connect-timeout)) |
 | `proxyToServerTlsHandshakeTimeout()` | when a new server connection is needed | change the upstream TLS handshake timeout ([below](#per-request-tls-handshake-timeout)) |

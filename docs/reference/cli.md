@@ -32,6 +32,8 @@ See [Quick start](../getting-started/quick-start.md), [configuration properties]
 | `--connect-timeout <millis>` | outbound connect timeout (default 40000) | `connect_timeout` |
 | `--tls-handshake-timeout <millis>` | longest TLS handshake (default 10000, 0 = none) | `tls_handshake_timeout` |
 | `--tls-protocols <list>` | TLS versions allowed on every TLS connection (default TLSv1.3,TLSv1.2; "" = JDK defaults) | `tls_protocols` |
+| `--tls-retry-without-sni` | retry TLS with a server once without SNI when it rejects the name (unrecognized_name alert); default with --littleproxy-compat | `tls_retry_without_sni=true` |
+| `--no-tls-retry-without-sni` | never retry without SNI, even with --littleproxy-compat | `tls_retry_without_sni=false` |
 | `--littleproxy-compat` | behave like LittleProxy where MicroProxy differs | `littleproxy_compatibility` |
 | `--proxy-alias <alias>` | name used in Via headers | `proxy_alias` |
 | `--listener-keystore <file>` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2, and the certificate --http3 presents) | `listener_keystore` |

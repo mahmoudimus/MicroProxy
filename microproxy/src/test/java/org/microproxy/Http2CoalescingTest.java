@@ -247,6 +247,31 @@ class Http2CoalescingTest {
     }
 
     @Test
+    void neverAcrossTlsIdentities() throws Exception {
+        origin = origin(new H2TestOrigin.Options(), "a.test", "b.test");
+        // Requests with X-Tls name the server name (and verification host) of their connection.
+        proxy = coalescing(mitm()).withFiltersSource((request, flow) -> new HttpFilters() {
+            @Override
+            public TlsServerIdentity proxyToServerTlsIdentity(String serverHostAndPort) {
+                String name = request.headers().get("X-Tls");
+                return name == null ? null : TlsServerIdentity.of(name);
+            }
+        }).start();
+        HttpClient client = client();
+        assertEquals(answered("a.test", 0), get(client, "a.test"));
+        // With an identity of its own, b.test gets a connection of its own, made with that name,
+        // though a.test's certificate and address would have let it coalesce.
+        HttpRequest withIdentity = request("b.test", "/").header("X-Tls", "d.test").build();
+        assertEquals(answered("b.test", 1), TestSupport.send(client, withIdentity).body());
+        assertEquals("d.test", origin.connections.get(1).sni());
+        // Without one, it coalesces onto a.test's connection, never the one made with d.test.
+        assertEquals(answered("b.test", 0), get(client, "b.test"));
+        // With it again, the connection made with it.
+        assertEquals(answered("b.test", 1), TestSupport.send(client, withIdentity).body());
+        assertEquals(2, origin.accepts.get());
+    }
+
+    @Test
     void neverAcrossMitmManagers() throws Exception {
         origin = origin(new H2TestOrigin.Options(), "a.test", "b.test");
         // Each client connection gets the other manager than the one before.
