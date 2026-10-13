@@ -203,7 +203,7 @@
  "settings": {
   "preset": "standard",
   "proxies": "littleproxy,envoy,goproxy,g3proxy,squid,microproxy",
-  "external-proxies": "/home/user/mp-viz/loadtest/competitors/proxies.json",
+  "external-proxies": "loadtest/competitors/proxies.json",
   "scenarios": "sweep,ramp,memory,faults,soak",
   "gate": "none",
   "pin": "auto",

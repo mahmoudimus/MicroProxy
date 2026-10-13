@@ -175,6 +175,11 @@ def usable(r):
     return r is not None and "error" not in r and "unsupported" not in r
 
 
+def strip_root(text):
+    """Makes paths under the repository relative in published JSON text."""
+    return text.replace(ROOT + "/", "").replace(ROOT, ".")
+
+
 def sanitize(text):
     """Replaces machine-specific paths in a command line with placeholders."""
     if not isinstance(text, str):
@@ -997,7 +1002,7 @@ def main(argv):
         for v in per.values():
             v.pop("allSeries", None)
     with open(os.path.join(out, "results.json"), "w", encoding="utf-8") as f:
-        json.dump(page, f, indent=1, ensure_ascii=False)
+        f.write(strip_root(json.dumps(page, indent=1, ensure_ascii=False)))
         f.write("\n")
     for name, svg in svgs.items():
         with open(os.path.join(out, name), "w", encoding="utf-8") as f:
@@ -1016,7 +1021,7 @@ def main(argv):
             with open(r["file"], encoding="utf-8") as f:
                 raw = json.load(f)
             with open(os.path.join(assets, "raw", r["id"] + ".json"), "w", encoding="utf-8") as f:
-                json.dump(raw, f, separators=(",", ":"), ensure_ascii=False)
+                f.write(strip_root(json.dumps(raw, separators=(",", ":"), ensure_ascii=False)))
                 f.write("\n")
         # The guard's evidence and what was run, beside the raw results.
         info_src = os.path.join(runs_dir, "run-info.json")
