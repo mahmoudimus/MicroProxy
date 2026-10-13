@@ -132,6 +132,79 @@ pins its carrier thread:
 - On JDK 24+ (JEP 491), `synchronized` no longer pins, so user filters written with
   `synchronized` are fine there too.
 
+## What a request costs on one core
+
+Virtual threads make each connection a straight-line loop, but every wait for a socket still
+goes through the JDK's scheduler, and on a busy core that is where the proxy's time goes besides
+the system calls themselves. Netty's event loops, which LittleProxy runs on, do not pay it: one
+thread calls `epoll_wait`, gets every ready socket, reads each one only once it is ready, and
+runs its callbacks right there.
+
+When a virtual thread's socket read finds nothing to read (`EAGAIN`), the thread parks and
+registers the socket with a poller (`epoll_ctl`, one-shot). When bytes arrive, the poller wakes,
+unparks the thread, and a carrier thread runs it again, which reads again. A keep-alive request
+makes two such waits: the client connection's for the request, and the server connection's for
+the response. On JDK 21 each wait also passes through two platform threads: an "updater" thread
+that makes the `epoll_ctl` call for the waiting thread (unless `jdk.useDirectRegister` is set)
+and the poller thread, which preempts the carrier on one core every time a socket becomes ready.
+A read with a timeout (`SO_TIMEOUT`, the idle timeout) also arms a timer for each park and
+cancels it; on JDK 25 that wakes the scheduler's delay thread both times.
+
+Measured at a fixed 9,537 requests a second offered, one CPU per proxy, with the
+[comparison's](project/performance.md#methodology) harness and settings, on 2026-10-13 on a
+4-vCPU cloud VM that was slower than the one of the published comparison. CPU, rate and latency
+are medians of three interleaved runs; the system calls and thread switches were counted over
+two seconds of one run on the proxy's core (`sys_enter` and `sched_switch` trace events), per
+request served:
+
+| | LittleProxy, JDK 21 | MicroProxy before, JDK 21 | MicroProxy after, JDK 21 | MicroProxy before, JDK 25 | MicroProxy after, JDK 25 |
+|---|---|---|---|---|---|
+| Proxy CPU per request (µs) | 103.6 | 117.6 | 97.3 | 97.5 | 83.0 |
+| of which in the kernel, loopback TCP included (µs) | 49 | 87 | 82 | 69 | 61 |
+| Requests served per second | 9,537 | 8,293 | 9,537 | 9,537 | 9,537 |
+| p99 latency (ms) | 267 | 5,304 | 150 | 115 | 14 |
+| System calls | 9.6 | 17.4 | 12.3 | 25.9 | 15.7 |
+| of which `epoll_ctl` / `futex` | 0 / 0.03 | 1.8 / 2.7 | 1.9 / 0.01 | 2.1 / 10.3 | 2.4 / 1.3 |
+| of which writes | 4.4 | 2.8 | 1.9 | 3.0 | 2.0 |
+| of which reads that found nothing | 0.1 | 1.8 | 1.9 | 2.0 | 2.0 |
+| Thread switches | 0.9 | 3.3 | 1.6 | 6.9 | 0.9 |
+
+"Before" is release 0.3.0; "after" adds the three changes below. LittleProxy was at its limit
+here too: its p99 is from a backlog that built up, not from slow requests.
+
+MicroProxy's own code is the cheaper of the two (its user time is about half of LittleProxy's),
+so what LittleProxy saved was the scheduling. Its cost per request also keeps falling as the load
+rises: the busier its event loops, the more sockets each `epoll_wait` returns and the less often
+a loop thread sleeps. JDK 21's poller has no such economy of scale, since every wait still makes
+the same calls and the same thread switches, which is why, in the published runs, MicroProxy was
+cheaper per request than LittleProxy below about 12,000 requests a second and LittleProxy above.
+
+Three changes take most of that cost out:
+
+- **One write per small response.** The response head was flushed on its own before the body,
+  so a small response went to the client in two writes and two TCP segments. When the body is
+  delimited by `Content-Length` and already buffered, the head now waits for it in the output
+  buffer (`ClientChannel.writeHead(response, bodyAllowed, bodyFollows)`).
+- **Idle timeouts without a timer per wait.** The two waits read without `SO_TIMEOUT`;
+  `IdleWaits` keeps their deadlines on one thread that sleeps until the earliest is due, and
+  shuts the input of a socket whose wait passed it (see the
+  [design notes](https://github.com/mahmoudimus/MicroProxy/blob/main/microproxy/src/main/java/org/microproxy/impl/README.md#the-server-side-serverconnection)).
+- **Direct registration on JDK 21.** The launcher sets `jdk.useDirectRegister=true` on JDK 21,
+  as JDK 22 and later always behave, which removes the updater thread from every wait.
+
+What remains on JDK 21 is the poller thread's wake-up for every ready socket. JDK 25 removes it:
+its pollers are virtual threads that poll between other work on the carriers, so a loaded core
+reads many ready sockets per `epoll_wait` and seldom switches threads. With the changes, JDK 25's
+cost per request falls with the load as LittleProxy's does. At 11,921 requests a second offered,
+MicroProxy on JDK 25 served them all at 73 µs a request (p99 32 ms), while LittleProxy served
+10,992 at 90 µs and MicroProxy on JDK 21 10,977 at 89 µs, both past their limit (medians of three
+runs). That is why JDK 25 is the JDK to run for throughput (see
+[Performance options](guides/performance.md#the-jdk-25-for-throughput)).
+
+Garbage collection is not part of the difference: in these runs MicroProxy's young collections
+paused it about 0.05% of the time (at most 2 to 4 ms each), against 0.2% for LittleProxy, which
+allocates about twice as much per request.
+
 ## Modules
 
 The proxy is the `microproxy` module; everything else is optional, and the standalone modules
