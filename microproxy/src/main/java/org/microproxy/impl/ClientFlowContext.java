@@ -108,6 +108,8 @@ final class ClientFlowContext extends FlowContext {
     private volatile InetSocketAddress localAddress;
     /** The TCP peer, when a PROXY header named another client; else null. */
     private volatile InetSocketAddress directClientAddress;
+    /** The destination of the PROXY header the connection started with, or null. */
+    private volatile InetSocketAddress proxyProtocolDestination;
     private volatile FlowTrace trace = FlowTrace.NONE;
 
     ClientFlowContext(
@@ -133,6 +135,7 @@ final class ClientFlowContext extends FlowContext {
         clientTlsEnd = connection.clientTlsEnd;
         localAddress = connection.localAddress;
         directClientAddress = connection.directClientAddress;
+        proxyProtocolDestination = connection.proxyProtocolDestination;
     }
 
     /** Forgets the previous exchange: the first byte of a new request has arrived. */
@@ -476,6 +479,21 @@ final class ClientFlowContext extends FlowContext {
 
     InetSocketAddress localAddress() {
         return localAddress;
+    }
+
+    @Override
+    public InetSocketAddress getLocalAddress() {
+        return localAddress;
+    }
+
+    /** Records the destination of the PROXY header the client connection started with. */
+    void proxyProtocolDestination(InetSocketAddress address) {
+        proxyProtocolDestination = address;
+    }
+
+    @Override
+    public InetSocketAddress getProxyProtocolDestinationAddress() {
+        return proxyProtocolDestination;
     }
 
     /** Records the TCP peer of a client connection whose PROXY header named another client. */

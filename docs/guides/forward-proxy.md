@@ -67,7 +67,10 @@ TLS on a TLS listener, and before SOCKS, HTTP/2 prior knowledge or transparent T
 The source it names is the client from then on: `FlowContext.getClientAddress()`, `ClientDetails`,
 access logs and traces (`%DOWNSTREAM_REMOTE_ADDRESS%`, `client.address`), and the header sent on
 with `--send-proxy-protocol`. The load balancer's own address stays in
-`%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` (`FlowContext.getDirectClientAddress()`). A v1 `UNKNOWN`
+`%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` (`FlowContext.getDirectClientAddress()`), and the header's
+destination, the address the client reached at the load balancer, in
+`FlowContext.getProxyProtocolDestinationAddress()` (the proxy's own address stays in
+`getLocalAddress()`; see [Addresses of a flow](filters.md#addresses-of-a-flow)). A v1 `UNKNOWN`
 header, and a v2 `LOCAL` one or one without addresses, leave the TCP peer as the client.
 
 `--proxy-protocol-mode optional` (`allow_proxy_protocol=optional`,

@@ -905,7 +905,7 @@ final class ClientConnection implements Runnable {
         this.authenticated = true;
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         parent.flowContext.socksVersion().ifPresent(flowContext::socksVersion);
-        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        copyAddresses(parent);
         this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
@@ -933,13 +933,24 @@ final class ClientConnection implements Runnable {
         this(parent.server, parent.clientDetails.getClientAddress());
         clientDetails.setUserName(parent.clientDetails.getUserName());
         this.proxyHeader = parent.proxyHeader;
-        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        copyAddresses(parent);
         if (server.mitmManager != null) {
             this.connectionMitm = parent.mitmManager();
             this.mitmChosen = true;
         }
         this.authenticated = true;
         this.pinnedServer = address;
+    }
+
+    /**
+     * Gives this connection, which runs inside {@code parent}'s (an intercepted stream, a
+     * CONNECT-UDP flow), the addresses of {@code parent}'s: its TCP peer, its local address and its
+     * PROXY header's destination.
+     */
+    private void copyAddresses(ClientConnection parent) {
+        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        flowContext.localAddress(parent.flowContext.localAddress());
+        flowContext.proxyProtocolDestination(parent.flowContext.getProxyProtocolDestinationAddress());
     }
 
     /** The connection's own flow context (not one of its streams'). */
@@ -1201,6 +1212,7 @@ final class ClientConnection implements Runnable {
         ProxyProtocol.Header header = http1.readProxyHeader(optional, trusted, timeout, server.stats.proxyProtocol);
         if (header == null) return;
         proxyHeader = header;
+        flowContext.proxyProtocolDestination(header.destination());
         if (header.source() != null) {
             flowContext.directClientAddress(peer);
             clientDetails.setClientAddress(header.source());
@@ -4482,6 +4494,8 @@ final class ClientConnection implements Runnable {
      * QUIC flow, decided on before its handshake).
      */
     private void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic, boolean connected) {
+        // (A transparent QUIC flow's was recorded when it was decided on.)
+        if (flowContext.localAddress() == null) flowContext.localAddress(quic.localAddress());
         try {
             if (connected) {
                 cxOpened(null);
@@ -4558,6 +4572,10 @@ final class ClientConnection implements Runnable {
      */
     QuicDecision decideTransparentQuic(ClientHello hello, String hostAndPort, boolean canIntercept, boolean masque) {
         idle = false;
+        if (!masque && flowContext.localAddress() == null) {
+            TransparentQuicListener listener = server.transparentQuicListener();
+            if (listener != null) flowContext.localAddress(listener.localAddress());
+        }
         flowContext.transparentQuic();
         flowContext.clientHello(hello);
         flowContext.startExchange();

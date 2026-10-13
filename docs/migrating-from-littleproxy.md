@@ -178,6 +178,8 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 | `HttpFiltersSource.filterRequest(req, ChannelHandlerContext)` | `filterRequest(req, FlowContext)` |
 | `HttpFiltersAdapter(req, ctx)` | `HttpFiltersAdapter(req, flowContext)` |
 | `proxyToServerConnectionSucceeded(ChannelHandlerContext)` | `proxyToServerConnectionSucceeded(FullFlowContext)` |
+| `ctx.channel().localAddress()` (the proxy's address the client connected to) | `FlowContext.getLocalAddress()` ([Addresses of a flow](guides/filters.md#addresses-of-a-flow)) |
+| `ClientToProxyConnection.getHaProxyMessage()` destination | `FlowContext.getProxyProtocolDestinationAddress()`; its source is `getClientAddress()`, the TCP peer `getDirectClientAddress()` |
 | `SslEngineSource` (`SSLEngine`) | `SslContextSource` (`SSLContext`, plus a `configure(SSLSocket, clientMode)` hook) |
 | `MitmManager.serverSslEngine / clientSslEngineFor` | `serverSslContext / clientSslContextFor` (return `SSLContext`) |
 | `withSslEngineSource` | `withSslContextSource` |

@@ -42,6 +42,24 @@ A source can ask for whole messages with `getMaximumRequestBufferSizeInBytes()` 
 pieces. Bodies that no filter inspects skip the message objects entirely (see
 [Architecture](../architecture.md#why-virtual-threads-instead-of-netty)).
 
+### Addresses of a flow
+
+The `FlowContext` a source and its filters get names four addresses of the client connection,
+for logging, or for a filter that answers or resolves a request by the address the client came
+in on:
+
+| Method | The address |
+|---|---|
+| `getClientAddress()` | the client: the PROXY protocol header's source when one was accepted, else the TCP peer |
+| `getDirectClientAddress()` | the TCP peer: the load balancer that sent the PROXY header, or the client |
+| `getLocalAddress()` | the proxy's own address that the client connected to: the TCP socket's local address on every TCP listener (plain, TLS, h2c, SOCKS, transparent, reverse), the UDP address for HTTP/3 and transparent QUIC, the outer connection's inside an intercepted `CONNECT` stream |
+| `getProxyProtocolDestinationAddress()` | the PROXY header's destination, the address the client reached at the load balancer; `null` without a header |
+
+A `FullFlowContext` has the same, plus the server side (`getRemoteAddress()`, the server or
+chained proxy connected to). In LittleProxy the local address came from the
+`ChannelHandlerContext` (`ctx.channel().localAddress()`) and the PROXY header's destination from
+`ClientToProxyConnection.getHaProxyMessage()`.
+
 ## Filters from lambdas
 
 `HttpFilters` keeps LittleProxy's shape: a class that overrides the hooks it needs. For small

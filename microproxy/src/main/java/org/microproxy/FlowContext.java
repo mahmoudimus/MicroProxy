@@ -223,6 +223,41 @@ public class FlowContext {
     }
 
     /**
+     * The proxy's own address on the client connection: the local socket address of the
+     * listener's TCP connection the client made (the TLS, SOCKS, transparent and reverse proxy
+     * listeners' too), or, for HTTP/3 and transparent QUIC, the UDP address the QUIC connection
+     * is served on (which may be the listener's wildcard address). A connection redirected to the
+     * proxy (transparent mode) has the proxy's address here, not the one the client meant to reach.
+     * A request inside an intercepted {@code CONNECT} stream of an HTTP/2 or HTTP/3 connection, or
+     * inside a CONNECT-UDP flow, has that connection's. It is what the client connected to, as
+     * against {@link #getClientAddress()} (the client, from the PROXY protocol header when one
+     * was accepted), {@link #getDirectClientAddress()} (the TCP peer, a load balancer when it sent
+     * that header) and {@link #getProxyProtocolDestinationAddress()} (the address that header says
+     * the client connected to, at the load balancer). Access logs render it with {@code
+     * %DOWNSTREAM_LOCAL_ADDRESS%}. {@code null} for contexts made outside the proxy.
+     *
+     * @return the address the client connected to, or {@code null}
+     */
+    public InetSocketAddress getLocalAddress() {
+        return root != this ? root.getLocalAddress() : null;
+    }
+
+    /**
+     * The destination address of the PROXY protocol header the client connection started with
+     * ({@link HttpProxyServerBootstrap#withAcceptProxyProtocol(ProxyProtocolMode)}): the address
+     * the original client connected to, at the load balancer that sent the header, where {@link
+     * #getLocalAddress()} is the proxy's own. Load balancers that serve several addresses or ports
+     * through one proxy listener tell them apart by it. {@code null} without a header, for a
+     * header without addresses ({@code UNKNOWN}, {@code LOCAL}), and for contexts made outside the
+     * proxy.
+     *
+     * @return the PROXY header's destination address, or {@code null}
+     */
+    public InetSocketAddress getProxyProtocolDestinationAddress() {
+        return root != this ? root.getProxyProtocolDestinationAddress() : null;
+    }
+
+    /**
      * The TLS session with the client, or {@code null}. This is the proxy's own TLS listener
      * session, or the intercepted session while a CONNECT is being man-in-the-middled.
      *
