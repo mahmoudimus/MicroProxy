@@ -442,6 +442,12 @@ final class Http1ClientChannel implements ClientChannel {
         writer.writeHead(response, bodyAllowed);
     }
 
+    @Override
+    public void writeHead(HttpResponse response, boolean bodyAllowed, boolean bodyFollows) throws IOException {
+        hop(response);
+        writer.writeHead(response, bodyAllowed, !bodyFollows);
+    }
+
     /** A response from an HTTP/2 server goes to an HTTP/1 client with this hop's version, 1.1. */
     private static void hop(HttpResponse response) {
         if (response.protocolVersion().majorVersion() >= 2) response.setProtocolVersion(HttpVersion.HTTP_1_1);
