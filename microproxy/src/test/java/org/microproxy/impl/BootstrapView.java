@@ -167,14 +167,24 @@ public record BootstrapView(
 
     /** The chained proxy retry backoff as configured: {initial, max}, both null when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServerBootstrap bootstrap) {
-        DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
-        return new Duration[] {b.chainedProxyBackoffInitial, b.chainedProxyBackoffMax};
+        org.microproxy.RetryBackoff p = chainedProxyBackoffPolicy(bootstrap);
+        return p.isNone() ? new Duration[] {null, null} : new Duration[] {p.initial(), p.max()};
+    }
+
+    /** The chained proxy retry backoff policy as configured. */
+    public static org.microproxy.RetryBackoff chainedProxyBackoffPolicy(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).chainedProxyBackoff;
     }
 
     /** A running server's chained proxy retry backoff: {initial, max}, both zero when off. */
     public static Duration[] chainedProxyBackoff(HttpProxyServer server) {
-        DefaultHttpProxyServer s = (DefaultHttpProxyServer) server;
-        return new Duration[] {Duration.ofNanos(s.backoffInitialNanos), Duration.ofNanos(s.backoffMaxNanos)};
+        org.microproxy.RetryBackoff p = chainedProxyBackoffPolicy(server);
+        return new Duration[] {p.initial(), p.max()};
+    }
+
+    /** A running server's chained proxy retry backoff policy. */
+    public static org.microproxy.RetryBackoff chainedProxyBackoffPolicy(HttpProxyServer server) {
+        return ((DefaultHttpProxyServer) server).chainedProxyBackoff;
     }
 
     /** The host rules as configured: {ignore patterns, allow patterns}. */

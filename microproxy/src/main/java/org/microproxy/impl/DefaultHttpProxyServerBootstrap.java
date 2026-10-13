@@ -28,6 +28,7 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ScriptCallObserver;
 import org.microproxy.NoProxyRules;
@@ -116,9 +117,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Duration poolIdleTimeout;
     boolean poolSharedMitmConnections;
     boolean poolPerRequestInMitm;
-    /** Backoff between chained proxy attempts; null when off. */
-    Duration chainedProxyBackoffInitial;
-    Duration chainedProxyBackoffMax;
+    /** Backoff between chained proxy attempts; {@link RetryBackoff#none()} when off. */
+    RetryBackoff chainedProxyBackoff = RetryBackoff.none();
     /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
     List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
@@ -222,8 +222,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.poolIdleTimeout = poolIdleTimeout;
         c.poolSharedMitmConnections = poolSharedMitmConnections;
         c.poolPerRequestInMitm = poolPerRequestInMitm;
-        c.chainedProxyBackoffInitial = chainedProxyBackoffInitial;
-        c.chainedProxyBackoffMax = chainedProxyBackoffMax;
+        c.chainedProxyBackoff = chainedProxyBackoff;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
         c.altSvcH3Stripping = altSvcH3Stripping;
@@ -374,9 +373,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             Duration max = p.containsKey("chained_proxy_backoff_max_ms")
                     ? Duration.ofMillis(Long.parseLong(p.getProperty("chained_proxy_backoff_max_ms").strip()))
                     : initial.multipliedBy(8);
-            withChainedProxyRetryBackoff(initial, max);
-        } else if (p.containsKey("chained_proxy_backoff_max_ms")) {
-            throw new IllegalArgumentException("chained_proxy_backoff_max_ms needs chained_proxy_backoff_initial_ms");
+            withChainedProxyRetryBackoff(!p.containsKey("chained_proxy_backoff_jitter") || bool(p, "chained_proxy_backoff_jitter")
+                    ? RetryBackoff.exponentialWithJitter(initial, max) : RetryBackoff.exponential(initial, max));
+        } else if (p.containsKey("chained_proxy_backoff_max_ms") || p.containsKey("chained_proxy_backoff_jitter")) {
+            throw new IllegalArgumentException((p.containsKey("chained_proxy_backoff_max_ms")
+                    ? "chained_proxy_backoff_max_ms" : "chained_proxy_backoff_jitter")
+                    + " needs chained_proxy_backoff_initial_ms");
         }
         if (bool(p, "strip_tracing_headers")) withoutTracingHeadersUpstream();
         if (p.containsKey("strip_request_headers")) {
@@ -835,21 +837,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     }
 
     @Override
-    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
-        if (initial == null) {
-            chainedProxyBackoffInitial = null;
-            chainedProxyBackoffMax = null;
-            return this;
-        }
-        if (initial.isNegative() || initial.isZero()) {
-            throw new IllegalArgumentException("the initial backoff must be positive: " + initial);
-        }
-        Duration cap = max == null ? initial : max;
-        if (cap.compareTo(initial) < 0) {
-            throw new IllegalArgumentException("the maximum backoff " + cap + " is below the initial " + initial);
-        }
-        chainedProxyBackoffInitial = initial;
-        chainedProxyBackoffMax = cap;
+    public HttpProxyServerBootstrap withChainedProxyRetryBackoff(RetryBackoff backoff) {
+        chainedProxyBackoff = backoff == null ? RetryBackoff.none() : backoff;
         return this;
     }
 

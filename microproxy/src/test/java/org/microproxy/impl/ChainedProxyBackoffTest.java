@@ -11,10 +11,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.ActivityTrackerAdapter;
@@ -26,10 +28,15 @@ import org.microproxy.FullFlowContext;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MicroProxy;
+import org.microproxy.RetryBackoff;
 import org.microproxy.TestSupport;
 import org.microproxy.http.HttpResponse;
 
-/** {@link HttpProxyServerBootstrap#withChainedProxyRetryBackoff}: waits between chained proxy attempts. */
+/**
+ * {@link HttpProxyServerBootstrap#withChainedProxyRetryBackoff} and {@link
+ * HttpFilters#chainedProxyRetryBackoff()}: waits between chained proxy attempts. Tests of which
+ * waits are chosen record them ({@link DefaultHttpProxyServer#backoffSleeper}) instead of timing them.
+ */
 class ChainedProxyBackoffTest {
 
     private final List<AutoCloseable> closeables = new ArrayList<>();
@@ -61,7 +68,7 @@ class ChainedProxyBackoffTest {
                 })
                 .start();
         // The longest wait every time, so the timings are predictable.
-        proxy.backoffJitter = () -> 1.0;
+        proxy.backoffRandom = LONGEST;
         return proxy;
     }
 
@@ -78,17 +85,157 @@ class ChainedProxyBackoffTest {
         return new long[] {status, Duration.ofNanos(System.nanoTime() - start).toMillis()};
     }
 
+    /** Jitter that always draws {@code fraction}. */
+    private static RandomGenerator jitter(double fraction) {
+        return new RandomGenerator() {
+            @Override
+            public long nextLong() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public double nextDouble() {
+                return fraction;
+            }
+        };
+    }
+
+    /** Jitter that always draws the longest wait. */
+    private static final RandomGenerator LONGEST = jitter(1.0);
+
+    private static long jitteredNanos(int failures, long initial, long max, double fraction) {
+        return RetryBackoff.exponentialWithJitter(Duration.ofNanos(initial), Duration.ofNanos(max))
+                .delay(failures, jitter(fraction)).toNanos();
+    }
+
     @Test
     void backoffGrowsExponentiallyUpToTheMaximum() {
-        assertEquals(100, ClientConnection.backoffNanos(1, 100, 1000, 1.0));
-        assertEquals(200, ClientConnection.backoffNanos(2, 100, 1000, 1.0));
-        assertEquals(400, ClientConnection.backoffNanos(3, 100, 1000, 1.0));
-        assertEquals(1000, ClientConnection.backoffNanos(5, 100, 1000, 1.0));
-        assertEquals(1000, ClientConnection.backoffNanos(64, 100, 1000, 1.0), "no overflow");
+        assertEquals(100, jitteredNanos(1, 100, 1000, 1.0));
+        assertEquals(200, jitteredNanos(2, 100, 1000, 1.0));
+        assertEquals(400, jitteredNanos(3, 100, 1000, 1.0));
+        assertEquals(1000, jitteredNanos(5, 100, 1000, 1.0));
+        assertEquals(1000, jitteredNanos(64, 100, 1000, 1.0), "no overflow");
         long day = TimeUnit.DAYS.toNanos(1);
-        assertEquals(day, ClientConnection.backoffNanos(40, TimeUnit.SECONDS.toNanos(1), day, 1.0));
-        assertEquals(200, ClientConnection.backoffNanos(3, 100, 1000, 0.5), "full jitter scales the ceiling");
-        assertEquals(0, ClientConnection.backoffNanos(3, 100, 1000, 0.0));
+        assertEquals(day, jitteredNanos(40, TimeUnit.SECONDS.toNanos(1), day, 1.0));
+        assertEquals(200, jitteredNanos(3, 100, 1000, 0.5), "full jitter scales the ceiling");
+        assertEquals(0, jitteredNanos(3, 100, 1000, 0.0));
+    }
+
+    /** Starts the proxy with the waits recorded instead of waited out. */
+    private List<Duration> recordWaits() {
+        List<Duration> waits = new CopyOnWriteArrayList<>();
+        proxy.backoffSleeper = nanos -> waits.add(Duration.ofNanos(nanos));
+        return waits;
+    }
+
+    private static List<Duration> millis(long... values) {
+        return java.util.Arrays.stream(values).mapToObj(Duration::ofMillis).toList();
+    }
+
+    @Test
+    void deterministicBackoffWaitsExactlyDoublingTimes() throws Exception {
+        start(MicroProxy.bootstrap().withChainedProxyRetryBackoff(
+                        RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofMillis(300))),
+                refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        proxy.backoffRandom = null;
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(100, 200, 300, 300), waits);
+    }
+
+    @Test
+    void aFilterBackoffWinsOverTheServers() throws Exception {
+        start(MicroProxy.bootstrap()
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofSeconds(5)))
+                        .withFiltersSource((request, flow) -> new HttpFilters() {
+                            @Override
+                            public RetryBackoff chainedProxyRetryBackoff() {
+                                return RetryBackoff.exponential(Duration.ofMillis(10), Duration.ofMillis(25));
+                            }
+                        }),
+                refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(10, 20, 25), waits);
+    }
+
+    @Test
+    void aFilterBackoffAppliesWhenTheServerHasNone() throws Exception {
+        start(MicroProxy.bootstrap().withFiltersSource(
+                        HttpFilters.builder().retryBackoff(RetryBackoff.fixed(Duration.ofMillis(7))).build()),
+                refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(7, 7), waits);
+        assertThrows(NullPointerException.class, () -> HttpFilters.builder().retryBackoff(null));
+    }
+
+    @Test
+    void aFilterCanTurnTheServersBackoffOff() throws Exception {
+        start(MicroProxy.bootstrap().withMetrics(true)
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofSeconds(5)))
+                        .withFiltersSource(HttpFilters.builder().retryBackoff(RetryBackoff.none()).build()),
+                refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(List.of(), waits);
+        assertEquals(0, ((org.microproxy.stats.Counter) proxy.getStats().get("cluster.direct.backoff_engaged")).value());
+    }
+
+    @Test
+    void theFilterBackoffIsAskedOnlyAfterAFailure() throws Exception {
+        AtomicInteger asked = new AtomicInteger();
+        start(MicroProxy.bootstrap().withFiltersSource((request, flow) -> new HttpFilters() {
+            @Override
+            public RetryBackoff chainedProxyRetryBackoff() {
+                asked.incrementAndGet();
+                return RetryBackoff.fixed(Duration.ofMillis(1));
+            }
+        }), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(0, asked.get(), "a request that connects at once never asks");
+    }
+
+    @Test
+    void aFilterThatThrowsGetsTheServersBackoff() throws Exception {
+        start(MicroProxy.bootstrap()
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMillis(3)))
+                        .withFiltersSource((request, flow) -> new HttpFilters() {
+                            @Override
+                            public RetryBackoff chainedProxyRetryBackoff() {
+                                throw new IllegalStateException("broken filter");
+                            }
+                        }),
+                refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(3), waits);
+    }
+
+    @Test
+    void theWaitsAreCappedByTheBudgetExactly() throws Exception {
+        start(MicroProxy.bootstrap().withConnectTimeout(600)
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMillis(500))),
+                refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        // 600 ms in all: one whole wait, what is left of the budget, then none.
+        assertEquals(millis(500, 100), waits);
+    }
+
+    @Test
+    void chainsUseTheFirstFilterThatNamesABackoff() {
+        var request = new org.microproxy.http.DefaultHttpRequest(org.microproxy.http.HttpVersion.HTTP_1_1,
+                org.microproxy.http.HttpMethod.GET, "http://example.com/");
+        RetryBackoff first = RetryBackoff.fixed(Duration.ofSeconds(1));
+        org.microproxy.HttpFiltersSource none = (r, f) -> new HttpFilters() {};
+        org.microproxy.HttpFiltersSource chain = org.microproxy.HttpFiltersChain.of(none,
+                HttpFilters.builder().retryBackoff(first).build(),
+                HttpFilters.builder().retryBackoff(RetryBackoff.none()).build());
+        assertEquals(first, chain.filterRequest(request, null).chainedProxyRetryBackoff());
+        assertEquals(null, org.microproxy.HttpFiltersChain.of(none, none).filterRequest(request, null)
+                .chainedProxyRetryBackoff());
     }
 
     /** The stat {@code name} of the cluster of chained proxy {@code proxy}. */
@@ -217,12 +364,20 @@ class ChainedProxyBackoffTest {
         p.setProperty("chained_proxy_backoff_initial_ms", "100");
         p.setProperty("chained_proxy_backoff_max_ms", "2000");
         DefaultHttpProxyServerBootstrap b = DefaultHttpProxyServerBootstrap.fromProperties(p);
-        assertEquals(Duration.ofMillis(100), b.chainedProxyBackoffInitial);
-        assertEquals(Duration.ofMillis(2000), b.chainedProxyBackoffMax);
-        assertEquals(Duration.ofMillis(2000), b.copy().chainedProxyBackoffMax);
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                b.chainedProxyBackoff, "jittered by default");
+        assertEquals(b.chainedProxyBackoff, b.copy().chainedProxyBackoff);
+
+        p.setProperty("chained_proxy_backoff_jitter", "false");
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff);
+        p.setProperty("chained_proxy_backoff_jitter", "true");
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff);
+        p.remove("chained_proxy_backoff_jitter");
 
         p.remove("chained_proxy_backoff_max_ms");
-        assertEquals(Duration.ofMillis(800), DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoffMax,
+        assertEquals(Duration.ofMillis(800), DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.max(),
                 "the maximum defaults to eight times the initial wait");
 
         p.setProperty("chained_proxy_backoff_max_ms", "50");
@@ -230,11 +385,22 @@ class ChainedProxyBackoffTest {
         Properties maxOnly = new Properties();
         maxOnly.setProperty("chained_proxy_backoff_max_ms", "50");
         assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(maxOnly));
+        Properties jitterOnly = new Properties();
+        jitterOnly.setProperty("chained_proxy_backoff_jitter", "false");
+        assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(jitterOnly));
         assertThrows(IllegalArgumentException.class,
                 () -> MicroProxy.bootstrap().withChainedProxyRetryBackoff(Duration.ZERO, Duration.ofSeconds(1)));
         DefaultHttpProxyServerBootstrap off = (DefaultHttpProxyServerBootstrap) MicroProxy.bootstrap()
                 .withChainedProxyRetryBackoff(Duration.ofMillis(1), Duration.ofMillis(2))
                 .withChainedProxyRetryBackoff(null, null);
-        assertEquals(null, off.chainedProxyBackoffInitial);
+        assertEquals(RetryBackoff.none(), off.chainedProxyBackoff);
+        assertEquals(RetryBackoff.none(), new DefaultHttpProxyServerBootstrap().chainedProxyBackoff, "off by default");
+        assertEquals(RetryBackoff.none(), ((DefaultHttpProxyServerBootstrap) MicroProxy.bootstrap()
+                .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMillis(1)))
+                .withChainedProxyRetryBackoff((RetryBackoff) null)).chainedProxyBackoff);
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(5), Duration.ofMillis(5)),
+                ((DefaultHttpProxyServerBootstrap) MicroProxy.bootstrap()
+                        .withChainedProxyRetryBackoff(Duration.ofMillis(5), null)).chainedProxyBackoff,
+                "a missing maximum is the initial wait");
     }
 }

@@ -64,6 +64,7 @@ import org.microproxy.MitmManager;
 import org.microproxy.ProxyFailure;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
+import org.microproxy.RetryBackoff;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.extras.ServerReplay;
@@ -4925,14 +4926,20 @@ final class ClientConnection implements Runnable {
         IOException last = null;
         boolean connecting = false;
         int failures = 0;
-        long backoffBudget = server.backoffInitialNanos > 0 ? backoffBudgetNanos(ex) : 0;
+        // Which backoff applies is asked only once an attempt has failed (null before).
+        RetryBackoff backoff = null;
+        long backoffBudget = 0;
         ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
             // The last attempt failed and this one takes over from it.
             if (failedCluster != null) failedCluster.failover.inc();
+            if (failures > 0 && backoff == null) {
+                backoff = retryBackoff(ex);
+                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex);
+            }
             if (failures > 0 && backoffBudget > 0) {
-                backoffBudget -= backOff(ex, failures, backoffBudget, hostAndPort, proxy);
+                backoffBudget -= backOff(ex, backoff, failures, backoffBudget, hostAndPort, proxy);
             }
             ex.attempt = null;
             if (ex.trace != FlowTrace.NONE) {
@@ -5033,26 +5040,31 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * The backoff before the attempt that follows {@code failures} failed ones: a random time
-     * up to {@code initial * 2^(failures-1)}, capped at the maximum.
+     * The backoff between {@code ex}'s connection attempts: the filters' ({@link
+     * HttpFilters#chainedProxyRetryBackoff()}), else the server's.
      */
-    static long backoffNanos(int failures, long initialNanos, long maxNanos, double jitter) {
-        int doublings = Math.min(failures - 1, 62);
-        long ceiling = initialNanos > (maxNanos >> doublings) ? maxNanos : Math.min(maxNanos, initialNanos << doublings);
-        return (long) (ceiling * Math.min(1.0, Math.max(0.0, jitter)));
+    private RetryBackoff retryBackoff(Exchange ex) {
+        RetryBackoff own = null;
+        try {
+            own = ex.filters.chainedProxyRetryBackoff();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "chainedProxyRetryBackoff threw; using the server's", e);
+        }
+        return own != null ? own : server.chainedProxyBackoff;
     }
 
     /**
-     * Waits before trying the next candidate after {@code failures} failed attempts, at most
-     * {@code budget} nanoseconds, while watching for the client to leave. Returns how long it
-     * waited.
+     * Waits before trying the next candidate after {@code failures} failed attempts, as {@code
+     * backoff} says but at most {@code budget} nanoseconds, while watching for the client to
+     * leave. Returns how long it waited.
      *
      * @throws ClientFailure if the client disconnected meanwhile
      */
-    private long backOff(Exchange ex, int failures, long budget, String hostAndPort, ChainedProxy next)
-            throws IOException {
+    private long backOff(Exchange ex, RetryBackoff backoff, int failures, long budget, String hostAndPort,
+            ChainedProxy next) throws IOException {
+        java.util.random.RandomGenerator random = server.backoffRandom;
         long wait = Math.min(budget,
-                backoffNanos(failures, server.backoffInitialNanos, server.backoffMaxNanos, server.backoffJitter.getAsDouble()));
+                (random == null ? backoff.delay(failures) : backoff.delay(failures, random)).toNanos());
         if (wait <= 0) return 0;
         if (LOG.isLoggable(Level.DEBUG)) {
             LOG.log(Level.DEBUG, ex.log + "waiting " + TimeUnit.NANOSECONDS.toMillis(wait) + " ms before trying "
@@ -5063,8 +5075,13 @@ final class ClientConnection implements Runnable {
                 : ProxyStats.ClusterStats.NOOP;
         cluster.backoffEngaged.inc();
         cluster.backoffActive.inc();
+        java.util.function.LongConsumer sleeper = server.backoffSleeper;
         long start = System.nanoTime();
         try {
+            if (sleeper != null) {
+                sleeper.accept(wait);
+                return wait;
+            }
             ex.channel.awaitUnlessClientLeaves(start + wait);
         } finally {
             cluster.backoffActive.dec();
