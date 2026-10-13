@@ -124,6 +124,7 @@ nav:
   - Project:
       - Building and testing: project/building-and-testing.md
       - Benchmarks against LittleProxy: project/benchmarks.md
+      - Load and capacity testing: project/load-testing.md
       - Writing documentation: CONTRIBUTING-DOCS.md
       - Publishing to Maven Central: PUBLISHING.md
       - Acknowledgements and license: project/acknowledgements.md

@@ -1,0 +1,104 @@
+name: Load test
+
+# Runs the system-level load and capacity harness (loadtest/, see docs/project/load-testing.md)
+# against MicroProxy and LittleProxy on demand, and uploads the JSON results, the Markdown report
+# and the SVG charts as an artifact. A hosted runner is shared and noisy: treat its numbers as a
+# smoke test of the harness, and publish only numbers from a manual run on a quiet machine. Pick a
+# bigger or self-hosted runner for the standard and full presets.
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'smoke (~2 min), standard, or full (long, big numbers)'
+        required: true
+        type: choice
+        options: [smoke, standard, full]
+        default: standard
+      scenarios:
+        description: 'Scenarios, comma-separated (sweep,ramp,memory,soak,faults); empty for all'
+        required: false
+        type: string
+        default: ''
+      proxies:
+        description: 'Proxies, comma-separated (microproxy,littleproxy)'
+        required: false
+        type: string
+        default: 'microproxy,littleproxy'
+      runs-on:
+        description: 'Runner label (a bigger or self-hosted runner for standard/full)'
+        required: false
+        type: string
+        default: 'ubuntu-24.04'
+      gate:
+        description: 'Whose failed verdicts fail the run: microproxy, all or none (self-checks always do)'
+        required: false
+        type: choice
+        options: [microproxy, all, none]
+        default: microproxy
+      extra-args:
+        description: 'More harness settings (e.g. "--soak-seconds 3600 --ramp-steps 1000,10000,50000")'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loadtest
+  cancel-in-progress: false
+
+jobs:
+  loadtest:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Tune the OS for high connection counts
+        # The sysctls need privileges and are skipped where they are not granted (hosted runners
+        # allow them through sudo; self-hosted runners may not). The open-file limit is raised in the
+        # run step's own shell, since each step starts a new one. The harness reads the limits in
+        # effect, reports them, and stops gracefully when it hits the client's own.
+        run: |
+          sudo sysctl -w net.core.somaxconn=65535 || echo "somaxconn: needs privileges, left as is"
+          sudo sysctl -w net.ipv4.ip_local_port_range="1024 65535" || echo "port range: needs privileges, left as is"
+          sudo sysctl -w net.ipv4.tcp_tw_reuse=1 || echo "tcp_tw_reuse: needs privileges, left as is"
+          sudo sysctl -w fs.file-max=2097152 || echo "file-max: needs privileges, left as is"
+          sudo sysctl -w net.ipv4.tcp_max_syn_backlog=65535 || echo "syn backlog: needs privileges, left as is"
+      - name: Build the harness
+        run: mvn --batch-mode -Pbench -DskipTests package -pl loadtest -am
+      - name: Run the harness
+        env:
+          PRESET: ${{ inputs.preset }}
+          SCENARIOS: ${{ inputs.scenarios }}
+          PROXIES: ${{ inputs.proxies }}
+          GATE: ${{ inputs.gate }}
+          EXTRA: ${{ inputs.extra-args }}
+        run: |
+          # The settings are split on spaces, never expanded as file names.
+          set -f
+          # Raise this shell's open-file limit: past the hard limit needs privileges (sudo prlimit,
+          # granted on hosted runners), up to it never does. The harness reports what it got, and
+          # stops the connection ramp gracefully at the client's own limit.
+          sudo -n prlimit --pid $$ --nofile=1048576:1048576 2>/dev/null || true
+          ulimit -n 1048576 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+          echo "Open-file limit: soft $(ulimit -n), hard $(ulimit -Hn)"
+          args=(run --preset "$PRESET" --proxies "$PROXIES" --gate "$GATE")
+          [ -n "$SCENARIOS" ] && args+=(--scenarios "$SCENARIOS")
+          # shellcheck disable=SC2206
+          [ -n "$EXTRA" ] && args+=($EXTRA)
+          java -jar loadtest/target/microproxy-loadtest.jar "${args[@]}"
+          latest="$(readlink -f loadtest/results/latest || ls -dt loadtest/results/*/ | head -1)"
+          { echo "## Load test report ($PRESET)"; echo; cat "$latest/report.md"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: loadtest-${{ inputs.preset }}-${{ github.run_id }}
+          path: loadtest/results/
+          if-no-files-found: ignore
