@@ -151,11 +151,16 @@ A read with a timeout (`SO_TIMEOUT`, the idle timeout) also arms a timer for eac
 cancels it; on JDK 25 that wakes the scheduler's delay thread both times.
 
 Measured at a fixed 9,537 requests a second offered, one CPU per proxy, with the
-[comparison's](project/performance.md#methodology) harness and settings, on 2026-10-13 on a
-4-vCPU cloud VM that was slower than the one of the published comparison. CPU, rate and latency
-are medians of three interleaved runs; the system calls and thread switches were counted over
-two seconds of one run on the proxy's core (`sys_enter` and `sched_switch` trace events), per
-request served:
+[comparison's](project/performance.md#methodology) harness, on 2026-10-13 on a 4-vCPU cloud VM
+that was slower than the one of the published comparison. Unlike the comparison's rate sweep,
+which climbs to each rate through shorter steps and judges an 8-second step, each run here goes
+straight to 9,537 after the 15-second warm-up and holds it for 40 seconds, long enough for the
+profiles and traces. A proxy running close to its limit builds a backlog over 40 seconds that an
+8-second step does not see, so the p99 below is not the sweep's: LittleProxy kept 9,537 requests
+a second within the sweep's 50 ms objective (p99 about 18 ms) but not over this longer hold. CPU,
+rate and latency are medians of three interleaved runs; the system calls and thread switches were
+counted over two seconds of one run on the proxy's core (`sys_enter` and `sched_switch` trace
+events), per request served:
 
 | | LittleProxy, JDK 21 | MicroProxy before, JDK 21 | MicroProxy after, JDK 21 | MicroProxy before, JDK 25 | MicroProxy after, JDK 25 |
 |---|---|---|---|---|---|
