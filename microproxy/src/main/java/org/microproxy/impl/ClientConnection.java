@@ -5340,7 +5340,8 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
-            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers)
+                    .idleWaitsOn(active);
             OutputStream output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();

@@ -104,7 +104,7 @@ final class Http1ClientChannel implements ClientChannel {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));
         }
-        in = new ByteReader(is, server.ioBuffers).strictLineEndings();
+        in = new ByteReader(is, server.ioBuffers).strictLineEndings().idleWaitsOn(s);
         out = new PooledOutputStream(os, server.ioBuffers);
         writer = new HttpCodec.HttpWriter(out);
     }
