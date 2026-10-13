@@ -219,6 +219,28 @@ class HttpBodiesTest {
     }
 
     @Test
+    void brotliInsertRunningPastItsMetaBlockIsRejectedWhenTheInputEndsThere() throws IOException {
+        // An insert command longer than what remains of its meta-block, in a stream whose input
+        // ends exactly where the meta-block's declared length (MLEN) is reached, so the output
+        // adds up to the declared length; the reference decoder rejects it.
+        byte[] overrun = hex("1b190200c4cf6ddf29e9f63281fbf14bd519701208986c4e30eddc9b1c160427135ca643797b70c8"
+                + "ed700828a9df8775a3538a8467ecc90beb9d9b122261ff864e0746eac2f9870e7250500e6ca20a61b6a0"
+                + "a20b75ccc2844bd0b00acfc844d699cf5e1501");
+        IOException e = assertThrows(IOException.class, () -> HttpBodies.decode("br", overrun, 1 << 20));
+        assertEquals("corrupt brotli data", e.getMessage());
+        FullHttpResponse r = response(overrun, "br", "text/plain");
+        e = assertThrows(IOException.class, () -> HttpBodies.decoded(r));
+        assertEquals("corrupt brotli data", e.getMessage());
+        e = assertThrows(IOException.class, () -> HttpBodies.decodedPrefix(r, 1 << 20));
+        assertEquals("corrupt brotli data", e.getMessage());
+        FullHttpResponse stacked = response(gzip(overrun), "br, gzip", "text/plain");
+        e = assertThrows(IOException.class, () -> HttpBodies.decoded(stacked));
+        assertEquals("corrupt brotli data", e.getMessage());
+        e = assertThrows(IOException.class, () -> HttpBodies.decodedPrefix(stacked, 1 << 20));
+        assertEquals("corrupt brotli data", e.getMessage());
+    }
+
+    @Test
     void brotliNeedsNoVectorApiAndFollowsTheSimdSwitch() throws Exception {
         // Without the incubator module (as the proxy normally runs): loads quietly, scalar.
         assertEquals(List.of("scalar", ""), probe());

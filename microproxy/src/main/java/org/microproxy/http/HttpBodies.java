@@ -22,17 +22,15 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-import org.microproxy.thirdparty.jaybrotli.BrotliDefaultHandler;
+import org.microproxy.thirdparty.jaybrotli.BrotliContentHandler;
 import org.microproxy.thirdparty.jaybrotli.BrotliException;
-import org.microproxy.thirdparty.jaybrotli.BrotliLocator;
-import org.microproxy.thirdparty.jaybrotli.CorruptStreamException;
 import org.microproxy.thirdparty.jaybrotli.Decoder;
 import org.microproxy.thirdparty.jaybrotli.Encoder;
 import org.microproxy.thirdparty.jaybrotli.LimitExceededException;
-import org.microproxy.thirdparty.jaybrotli.MetablockKind;
 import org.microproxy.thirdparty.jaybrotli.config.DecoderOptions;
 import org.microproxy.thirdparty.jaybrotli.config.EncoderOptions;
 import org.microproxy.thirdparty.jaybrotli.config.Limits;
+import org.microproxy.thirdparty.jaybrotli.config.TrailingData;
 
 /**
  * Reads and rewrites the bodies of buffered messages ({@link FullHttpMessage}) in filters,
@@ -423,7 +421,7 @@ public final class HttpBodies {
     /** {@code br}, with the vendored jaybrotli codec. */
     private static final class BrotliCoding {
 
-        /** Thrown by a content handler to stop decoding once enough is out. */
+        /** Thrown by a content callback to stop decoding once enough is out. */
         private static final class Enough extends RuntimeException {
             Enough() {
                 super(null, null, false, false);
@@ -433,85 +431,26 @@ public final class HttpBodies {
         private BrotliCoding() {}
 
         /**
-         * Decoder options for RFC 7932 streams (no large-window extension, so at most a 16 MiB
-         * window) whose output may total {@code max} bytes. The decoder checks the limit before it
-         * writes anything, so a compression bomb stops there.
+         * A decoder for one RFC 7932 stream (no large-window extension, so at most a 16 MiB
+         * window) whose output may total {@code max} bytes; the decoder checks that limit before it
+         * writes anything, so a compression bomb stops there. Like the reference decoder, it
+         * rejects commands that run past the end of their meta-block and any byte after the end of
+         * the stream (or non-zero bits padding its last byte), so a body's end is never ambiguous.
          */
-        private static DecoderOptions options(long max) {
-            return DecoderOptions.defaults().withLimits(Limits.defaults().withMaxTotalOutput(max));
-        }
-
-        /**
-         * Receives the decoded bytes, and rejects two kinds of malformed stream that the vendored
-         * decoder lets through but the reference decoder rejects: a meta-block holding more (or
-         * fewer) bytes than its header declares, which happens when a command's literals run past
-         * its end, and bytes after the end of the stream.
-         */
-        private abstract static class Content extends BrotliDefaultHandler {
-            private BrotliLocator locator;
-            private long declared;
-            private long seen;
-            /** The length of the stream, once its end has been decoded; -1 before. */
-            long end = -1;
-
-            @Override
-            public void setLocator(BrotliLocator locator) {
-                this.locator = locator;
-            }
-
-            @Override
-            public void endStream() {
-                end = locator.getByteOffset();
-            }
-
-            /** Rejects input beyond the end of the stream, once it has ended. */
-            void checkEnd(long received) throws CorruptStreamException {
-                if (end >= 0 && received > end) throw new CorruptStreamException("bytes after the end of the stream");
-            }
-
-            @Override
-            public void startMetablock(int length, boolean last, MetablockKind kind) {
-                declared = length;
-                seen = 0;
-            }
-
-            @Override
-            public void content(ByteBuffer data, boolean last) throws BrotliException {
-                seen += data.remaining();
-                if (seen > declared) throw new CorruptStreamException("meta-block longer than its declared length");
-                accept(data);
-            }
-
-            @Override
-            public void endMetablock() throws BrotliException {
-                if (seen != declared) throw new CorruptStreamException("meta-block shorter than its declared length");
-            }
-
-            abstract void accept(ByteBuffer data) throws BrotliException;
-        }
-
-        private static Decoder decoder(long max, Content content) {
-            Decoder decoder = new Decoder(options(max));
-            decoder.setHandler(content);
-            return decoder;
+        private static Decoder decoder(long max, BrotliContentHandler content) {
+            DecoderOptions options = DecoderOptions.defaults()
+                    .withLimits(Limits.defaults().withMaxTotalOutput(max))
+                    .withTrailingData(TrailingData.REJECT);
+            return new Decoder(options).onContent(content);
         }
 
         static byte[] decode(byte[] data, int max) throws IOException {
             int cap = Math.max(0, max);
             Output out = new Output(Math.min(cap, Math.max(64, data.length * 4)));
-            Content content = new Content() {
-                @Override
-                void accept(ByteBuffer b) throws BrotliException {
-                    // The decoder enforces the cap; this only makes sure of it.
-                    if (out.size > cap - b.remaining()) throw new LimitExceededException("output over the limit");
-                    out.append(b);
-                }
-            };
-            Decoder decoder = decoder(cap, content);
+            Decoder decoder = decoder(cap, (b, last) -> out.append(b));
             try {
                 decoder.receive(ByteBuffer.wrap(data));
                 decoder.close();
-                content.checkEnd(data.length);
             } catch (LimitExceededException e) {
                 throw new IOException("decoded body exceeds " + max + " bytes", e);
             } catch (BrotliException | RuntimeException e) {
@@ -522,10 +461,7 @@ public final class HttpBodies {
             return out.toByteArray();
         }
 
-        /**
-         * A growable buffer. The decoder hands over output in small pieces (one per copy command),
-         * too many for {@link ByteArrayOutputStream}'s locking.
-         */
+        /** A growable byte array, without {@link ByteArrayOutputStream}'s locking. */
         private static final class Output {
             byte[] bytes;
             int size;
@@ -550,30 +486,26 @@ public final class HttpBodies {
 
         /**
          * A stream of the first {@code needed} decoded bytes of {@code in}: decoding stops there,
-         * and the stream ends.
+         * and the stream ends. Shorter output is read to the end of {@code in}, so a truncated
+         * stream or bytes after its end are still an error.
          */
         static InputStream decoding(InputStream in, int needed) {
             return new InputStream() {
                 private final byte[] chunk = new byte[8192];
                 private final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>();
                 private long produced;
-                private long received;
                 private boolean done;
                 // Output is capped here, exactly at needed bytes, rather than by the decoder's limit.
-                private final Content content = new Content() {
-                    @Override
-                    void accept(ByteBuffer b) {
-                        int n = (int) Math.min(b.remaining(), needed - produced);
-                        if (n > 0) {
-                            byte[] copy = new byte[n];
-                            b.get(copy);
-                            queue.add(ByteBuffer.wrap(copy));
-                            produced += n;
-                        }
-                        if (produced >= needed) throw new Enough();
+                private final Decoder decoder = decoder(Long.MAX_VALUE, (b, last) -> {
+                    int n = (int) Math.min(b.remaining(), needed - produced);
+                    if (n > 0) {
+                        byte[] copy = new byte[n];
+                        b.get(copy);
+                        queue.add(ByteBuffer.wrap(copy));
+                        produced += n;
                     }
-                };
-                private final Decoder decoder = decoder(Long.MAX_VALUE, content);
+                    if (produced >= needed) throw new Enough();
+                });
 
                 @Override
                 public int read() throws IOException {
@@ -603,13 +535,7 @@ public final class HttpBodies {
                         } else if (n == 0) {
                             throw new IOException("compressed input made no progress");
                         } else {
-                            received += n;
                             decoder.receive(ByteBuffer.wrap(chunk, 0, n));
-                            if (content.end >= 0) {
-                                // Ended: nothing may follow, in this chunk or after it.
-                                done = true;
-                                content.checkEnd(in.read() < 0 ? received : received + 1);
-                            }
                         }
                     } catch (Enough e) {
                         done = true;
