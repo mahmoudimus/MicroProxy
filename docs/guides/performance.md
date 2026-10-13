@@ -7,8 +7,9 @@ in [Architecture](../architecture.md#why-virtual-threads-instead-of-netty).
 
 ## SIMD (optional)
 
-A few byte loops can use the JDK's Vector API: WebSocket payload unmasking and the line scanning
-in the HTTP parser. The API is still an incubating module (JDK 21 through 26), so it is off unless
+A few byte loops can use the JDK's Vector API: WebSocket payload unmasking, the line scanning in
+the HTTP parser, and the match comparisons of the Brotli encoder (used when a filter rewrites a
+`br` body). The API is still an incubating module (JDK 21 through 26), so it is off unless
 you ask for it:
 
 ```bash
@@ -17,7 +18,8 @@ java --add-modules jdk.incubator.vector -jar microproxy.jar ...   # prints "SIMD
 
 The JVM then warns that it is using an incubator module. `-Dmicroproxy.simd=false` turns SIMD off
 again, and `-Dmicroproxy.simd=true` warns if the module is missing. Without the module, the
-scalar code runs, and it now works eight bytes at a time.
+scalar code runs, and it now works eight bytes at a time. The Brotli encoder follows the same
+choice unless jaybrotli's own `-Djaybrotli.simd` (`false`, `arrays` or `true`) is set.
 
 Measured on a 4-core AVX-512 machine:
 

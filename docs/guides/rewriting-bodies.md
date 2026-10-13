@@ -7,16 +7,19 @@ message at a time from a filter, and rewrite headers and text bodies declarative
 `org.microproxy.http.HttpBodies` handles the parts of body editing that are easy to get wrong:
 
 - **Decoding:** gzip, x-gzip, deflate (zlib-wrapped or raw), `br` (Brotli, through a vendored
-  copy of Google's pure-Java decoder) and, when `zstd-decoder` is on the class path, `zstd`.
-  Decoding is capped at 64 MiB by default to defuse compression bombs. `canDecode` reports
+  copy of the pure-Java codec [jaybrotli](https://github.com/mahmoudimus/jaybrotli)) and, when
+  `zstd-decoder` is on the class path, `zstd`. Decoding is capped at 64 MiB by default to defuse
+  compression bombs; the Brotli decoder stops before writing past the cap. `canDecode` reports
   codings that can't be decoded, such as the dictionary codings `dcb` and `dcz`.
 - **Negotiation:** `restrictAcceptEncoding(request)` trims a request's `Accept-Encoding` to the
   codings above (keeping q-values), so the server never picks one the proxy can't read.
   `RewriteRules` and scripts that define `on_response` do this automatically.
 - **Charset:** taken from the *response's* `Content-Type`, defaulting to UTF-8.
-- **Rewriting:** the original coding is re-applied, except that Brotli and zstd are re-encoded as
-  gzip because there are no pure-Java encoders for them. `ETag`/`Content-MD5` are dropped because they no longer
-  match. `Content-Length` is fixed when the message is written.
+- **Rewriting:** the original coding is re-applied, Brotli included, except that zstd is
+  re-encoded as gzip because there is no pure-Java encoder for it. Brotli is written at quality 5
+  (`HttpBodies.BROTLI_QUALITY`) with jaybrotli's hash-chain match finder and greedy parsing:
+  about the size of gzip's default level, at roughly 10 to 40 MB/s. `ETag`/`Content-MD5` are
+  dropped because they no longer match. `Content-Length` is fixed when the message is written.
 
 Filters can also ask to buffer one message at a time, after seeing its head:
 

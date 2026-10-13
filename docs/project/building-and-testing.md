@@ -45,7 +45,7 @@ lifecycle, the codec, certificate generation, the shared pool, WebSocket frames,
 HTTP/2 (with the JDK's HTTP/2 client, frame-by-frame protocol tests, a codec-based HTTP/2 origin
 for the server side and gRPC-style streaming, and, when installed, `curl --http2`; CI also runs
 [h2spec](../guides/http2.md#conformance-h2spec) and [grpcio's client and server](../guides/http2.md#grpc-interop-grpcio)),
-content codings (Brotli against the upstream test vectors) and the scripting hooks, sandbox
+content codings (Brotli against streams from the reference encoder) and the scripting hooks, sandbox
 limits and reloading.
 
 DNSSEC is tested in three ways, all offline:
