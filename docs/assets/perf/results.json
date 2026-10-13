@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-13T07:54:12Z",
+ "generated": "2026-10-13T15:53:54Z",
  "runInfo": {
   "commit": "acf503ec9850c408a65b2be8504262db1394ad3f",
   "commitNote": "The harness and loadtest/competitors/ at this commit; the tree had no other changes to them.",
@@ -38,6 +38,7 @@
     "squid",
     "microproxy"
    ],
+   "end": "2026-10-13T06:02:41Z",
    "raw": "raw/rep2-20261013-051243.json",
    "harnessOk": true,
    "notes": [
@@ -84,6 +85,7 @@
     "microproxy",
     "littleproxy"
    ],
+   "end": "2026-10-13T06:51:46Z",
    "raw": "raw/rep3-20261013-060241.json",
    "harnessOk": true,
    "notes": [
@@ -126,6 +128,7 @@
     "g3proxy",
     "squid"
    ],
+   "end": "2026-10-13T07:40:39Z",
    "raw": "raw/rep4-20261013-065146.json",
    "harnessOk": true,
    "notes": [
@@ -383,10 +386,68 @@
   }
  },
  "sloP99Ms": 50.0,
- "commonRate": 9537,
+ "commonRate": 7629,
  "sweep": {
   "microproxy": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 58.495 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": true,
+     "excluded": null,
+     "max": 11921,
+     "coarseMax": 11921,
+     "bracket": [
+      11921,
+      14901.2
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 11921,
+     "kneeReason": "p99 460.543 ms > SLO 50.0 ms; achieved 14085.1/s < 95% of 14901/s; backlog 6529",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 340.479 ms > SLO 50.0 ms; backlog 4247",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep3-20261013-060241",
+    "rep4-20261013-065146"
+   ],
    "maxSustainable": {
     "med": 9536.8,
     "min": 9536.8,
@@ -398,26 +459,13 @@
      9536.8
     ]
    },
-   "clientBoundRuns": [],
-   "maxSustainableRuns": [
-    9536.8,
-    11921,
-    9536.8
-   ],
+   "refined": "none",
+   "bracketWidth": 0.25,
+   "curveEndRate": 9537,
    "kneeReasons": [
     "p99 58.495 ms > SLO 50.0 ms",
     "p99 460.543 ms > SLO 50.0 ms; achieved 14085.1/s < 95% of 14901/s; backlog 6529",
     "p99 340.479 ms > SLO 50.0 ms; backlog 4247"
-   ],
-   "stopReasons": [
-    "past the knee",
-    "past the knee",
-    "past the knee"
-   ],
-   "transientSteps": [
-    0,
-    0,
-    0
    ],
    "foreignOnProxyCpuPct": {
     "med": 2.327,
@@ -435,7 +483,7 @@
      "rate": 2000,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
@@ -513,6 +561,18 @@
        28.238
       ]
      },
+     "cpuUsPerReq": {
+      "med": 141.19,
+      "min": 137.5,
+      "max": 144.065,
+      "n": 3,
+      "values": [
+       137.5,
+       144.065,
+       141.19
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.088,
       "min": 2.713,
@@ -533,6 +593,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.439,
+       0.448,
+       0.459
+      ],
+      "p99": [
+       3.247,
+       5.255,
+       5.259
+      ],
+      "p999": [
+       6.127,
+       13.167,
+       14.127
+      ],
+      "cpuUsPerReq": [
+       137.5,
+       144.065,
+       141.19
       ]
      },
      "percentiles": [
@@ -626,7 +708,7 @@
      "rate": 2500,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
@@ -704,6 +786,18 @@
        33.85
       ]
      },
+     "cpuUsPerReq": {
+      "med": 130.948,
+      "min": 122.8,
+      "max": 135.4,
+      "n": 3,
+      "values": [
+       130.948,
+       122.8,
+       135.4
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 16.6,
       "min": 15.7,
@@ -724,6 +818,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.401,
+       0.363,
+       0.414
+      ],
+      "p99": [
+       6.751,
+       5.903,
+       17.183
+      ],
+      "p999": [
+       18.543,
+       30.335,
+       45.471
+      ],
+      "cpuUsPerReq": [
+       130.948,
+       122.8,
+       135.4
       ]
      },
      "percentiles": [
@@ -817,7 +933,7 @@
      "rate": 3125,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -895,6 +1011,18 @@
        35.888
       ]
      },
+     "cpuUsPerReq": {
+      "med": 116.522,
+      "min": 114.842,
+      "max": 119.84,
+      "n": 3,
+      "values": [
+       119.84,
+       116.522,
+       114.842
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.138,
       "min": 0.088,
@@ -915,6 +1043,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.327,
+       0.33,
+       0.333
+      ],
+      "p99": [
+       3.357,
+       2.943,
+       4.883
+      ],
+      "p999": [
+       9.095,
+       7.299,
+       20.271
+      ],
+      "cpuUsPerReq": [
+       119.84,
+       116.522,
+       114.842
       ]
      },
      "percentiles": [
@@ -1008,7 +1158,7 @@
      "rate": 3906,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -1086,6 +1236,18 @@
        37.875
       ]
      },
+     "cpuUsPerReq": {
+      "med": 101.92,
+      "min": 96.959,
+      "max": 109.469,
+      "n": 3,
+      "values": [
+       101.92,
+       109.469,
+       96.959
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 9.288,
       "min": 3.075,
@@ -1106,6 +1268,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.285,
+       0.29,
+       0.275
+      ],
+      "p99": [
+       2.819,
+       4.639,
+       3.837
+      ],
+      "p999": [
+       5.203,
+       21.519,
+       6.899
+      ],
+      "cpuUsPerReq": [
+       101.92,
+       109.469,
+       96.959
       ]
      },
      "percentiles": [
@@ -1199,7 +1383,7 @@
      "rate": 4883,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -1277,6 +1461,18 @@
        48.25
       ]
      },
+     "cpuUsPerReq": {
+      "med": 90.751,
+      "min": 85.322,
+      "max": 98.814,
+      "n": 3,
+      "values": [
+       90.751,
+       85.322,
+       98.814
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.788,
       "min": 3.55,
@@ -1297,6 +1493,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.257,
+       0.247,
+       0.286
+      ],
+      "p99": [
+       2.819,
+       2.585,
+       4.607
+      ],
+      "p999": [
+       6.899,
+       13.839,
+       10.231
+      ],
+      "cpuUsPerReq": [
+       90.751,
+       85.322,
+       98.814
       ]
      },
      "percentiles": [
@@ -1390,7 +1608,7 @@
      "rate": 6104,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -1468,6 +1686,18 @@
        57.387
       ]
      },
+     "cpuUsPerReq": {
+      "med": 84.396,
+      "min": 83.618,
+      "max": 94.022,
+      "n": 3,
+      "values": [
+       83.618,
+       84.396,
+       94.022
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 6.788,
       "min": 2.175,
@@ -1488,6 +1718,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.276,
+       0.277,
+       0.296
+      ],
+      "p99": [
+       5.583,
+       2.733,
+       6.095
+      ],
+      "p999": [
+       12.839,
+       6.927,
+       17.711
+      ],
+      "cpuUsPerReq": [
+       83.618,
+       84.396,
+       94.022
       ]
      },
      "percentiles": [
@@ -1581,7 +1833,7 @@
      "rate": 7629,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -1659,6 +1911,18 @@
        65.85
       ]
      },
+     "cpuUsPerReq": {
+      "med": 86.31,
+      "min": 86.196,
+      "max": 87.179,
+      "n": 3,
+      "values": [
+       87.179,
+       86.196,
+       86.31
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 11.263,
       "min": 4.363,
@@ -1679,6 +1943,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.287,
+       0.294,
+       0.293
+      ],
+      "p99": [
+       30.991,
+       8.303,
+       6.103
+      ],
+      "p999": [
+       34.943,
+       17.647,
+       10.855
+      ],
+      "cpuUsPerReq": [
+       87.179,
+       86.196,
+       86.31
       ]
      },
      "percentiles": [
@@ -1772,7 +2058,7 @@
      "rate": 9537,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -1850,6 +2136,18 @@
        77.437
       ]
      },
+     "cpuUsPerReq": {
+      "med": 81.198,
+      "min": 77.104,
+      "max": 86.114,
+      "n": 3,
+      "values": [
+       77.104,
+       86.114,
+       81.198
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.478,
       "min": 4.025,
@@ -1870,6 +2168,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.302,
+       0.361,
+       0.352
+      ],
+      "p99": [
+       8.271,
+       17.807,
+       11.807
+      ],
+      "p999": [
+       11.943,
+       22.607,
+       16.959
+      ],
+      "cpuUsPerReq": [
+       77.104,
+       86.114,
+       81.198
       ]
      },
      "percentiles": [
@@ -1963,7 +2283,7 @@
      "rate": 11921,
      "runs": 3,
      "sustained": 1,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 11861.5,
       "min": 11390.1,
@@ -2041,6 +2361,18 @@
        91.887
       ]
      },
+     "cpuUsPerReq": {
+      "med": 73.684,
+      "min": 73.138,
+      "max": 80.673,
+      "n": 3,
+      "values": [
+       73.684,
+       73.138,
+       80.673
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 9.363,
       "min": 7.575,
@@ -2061,6 +2393,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.565,
+       0.976,
+       28.863
+      ],
+      "p99": [
+       58.495,
+       40.479,
+       340.479
+      ],
+      "p999": [
+       72.447,
+       46.399,
+       380.927
+      ],
+      "cpuUsPerReq": [
+       73.684,
+       73.138,
+       80.673
       ]
      },
      "percentiles": [
@@ -2154,7 +2508,7 @@
      "rate": 14901,
      "runs": 3,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 14085.1,
       "min": 13784.9,
@@ -2232,6 +2586,18 @@
        95.775
       ]
      },
+     "cpuUsPerReq": {
+      "med": 67.971,
+      "min": 64.096,
+      "max": 69.478,
+      "n": 3,
+      "values": [
+       64.096,
+       67.971,
+       69.478
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 15.05,
       "min": 11.275,
@@ -2252,6 +2618,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       39.935,
+       311.551,
+       393.471
+      ],
+      "p99": [
+       121.023,
+       460.543,
+       682.495
+      ],
+      "p999": [
+       136.575,
+       496.127,
+       713.215
+      ],
+      "cpuUsPerReq": [
+       64.096,
+       67.971,
+       69.478
       ]
      },
      "percentiles": [
@@ -2345,7 +2733,7 @@
      "rate": 18626,
      "runs": 1,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 13780.9,
       "min": 13780.9,
@@ -2409,6 +2797,16 @@
        93.9
       ]
      },
+     "cpuUsPerReq": {
+      "med": 68.138,
+      "min": 68.138,
+      "max": 68.138,
+      "n": 1,
+      "values": [
+       68.138
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 17.788,
       "min": 17.788,
@@ -2425,6 +2823,28 @@
       "n": 1,
       "values": [
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       null,
+       921.599,
+       null
+      ],
+      "p99": [
+       null,
+       2085.89,
+       null
+      ],
+      "p999": [
+       null,
+       2121.73,
+       null
+      ],
+      "cpuUsPerReq": [
+       null,
+       68.138,
+       null
       ]
      },
      "percentiles": [
@@ -2518,6 +2938,64 @@
   },
   "littleproxy": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 14901.3,
+     "coarseMax": 14901.3,
+     "bracket": [
+      14901,
+      18626.5
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 14901,
+     "kneeReason": "p99 81.407 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": true,
+     "excluded": null,
+     "max": 14901.3,
+     "coarseMax": 14901.3,
+     "bracket": [
+      14901,
+      18626.5
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 14901,
+     "kneeReason": "p99 110.271 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": true,
+     "excluded": null,
+     "max": 14901.3,
+     "coarseMax": 14901.3,
+     "bracket": [
+      14901,
+      18626.5
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 14901,
+     "kneeReason": "p99 531.967 ms > SLO 50.0 ms; backlog 6888",
+     "stopReason": "past the knee",
+     "transientSteps": 1
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep3-20261013-060241",
+    "rep4-20261013-065146"
+   ],
    "maxSustainable": {
     "med": 14901.3,
     "min": 14901.3,
@@ -2529,26 +3007,13 @@
      14901.3
     ]
    },
-   "clientBoundRuns": [],
-   "maxSustainableRuns": [
-    14901.3,
-    14901.3,
-    14901.3
-   ],
+   "refined": "none",
+   "bracketWidth": 0.25,
+   "curveEndRate": 14901,
    "kneeReasons": [
     "p99 81.407 ms > SLO 50.0 ms",
     "p99 110.271 ms > SLO 50.0 ms",
     "p99 531.967 ms > SLO 50.0 ms; backlog 6888"
-   ],
-   "stopReasons": [
-    "past the knee",
-    "past the knee",
-    "past the knee"
-   ],
-   "transientSteps": [
-    0,
-    0,
-    1
    ],
    "foreignOnProxyCpuPct": {
     "med": 1.971,
@@ -2566,7 +3031,7 @@
      "rate": 2000,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
@@ -2644,6 +3109,18 @@
        87.363
       ]
      },
+     "cpuUsPerReq": {
+      "med": 234.125,
+      "min": 231.75,
+      "max": 436.815,
+      "n": 3,
+      "values": [
+       231.75,
+       234.125,
+       436.815
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 12.362,
       "min": 10.925,
@@ -2664,6 +3141,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.491,
+       0.469,
+       0.709
+      ],
+      "p99": [
+       4.579,
+       4.379,
+       10.111
+      ],
+      "p999": [
+       15.007,
+       25.327,
+       47.263
+      ],
+      "cpuUsPerReq": [
+       231.75,
+       234.125,
+       436.815
       ]
      },
      "percentiles": [
@@ -2757,7 +3256,7 @@
      "rate": 2500,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
@@ -2835,6 +3334,18 @@
        34.438
       ]
      },
+     "cpuUsPerReq": {
+      "med": 132.6,
+      "min": 130.352,
+      "max": 137.752,
+      "n": 3,
+      "values": [
+       132.6,
+       130.352,
+       137.752
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.213,
       "min": 0.238,
@@ -2855,6 +3366,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.394,
+       0.366,
+       0.397
+      ],
+      "p99": [
+       7.351,
+       6.435,
+       2.473
+      ],
+      "p999": [
+       37.055,
+       50.399,
+       5.395
+      ],
+      "cpuUsPerReq": [
+       132.6,
+       130.352,
+       137.752
       ]
      },
      "percentiles": [
@@ -2948,7 +3481,7 @@
      "rate": 3125,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -3026,6 +3559,18 @@
        37.038
       ]
      },
+     "cpuUsPerReq": {
+      "med": 118.522,
+      "min": 113.002,
+      "max": 121.52,
+      "n": 3,
+      "values": [
+       121.52,
+       113.002,
+       118.522
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.525,
       "min": 0,
@@ -3046,6 +3591,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.353,
+       0.314,
+       0.33
+      ],
+      "p99": [
+       4.135,
+       3.081,
+       3.113
+      ],
+      "p999": [
+       13.663,
+       11.423,
+       19.503
+      ],
+      "cpuUsPerReq": [
+       121.52,
+       113.002,
+       118.522
       ]
      },
      "percentiles": [
@@ -3139,7 +3706,7 @@
      "rate": 3906,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -3217,6 +3784,18 @@
        42.788
       ]
      },
+     "cpuUsPerReq": {
+      "med": 105.599,
+      "min": 104.319,
+      "max": 109.536,
+      "n": 3,
+      "values": [
+       105.599,
+       104.319,
+       109.536
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.688,
       "min": 3.4,
@@ -3237,6 +3816,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.287,
+       0.288,
+       0.299
+      ],
+      "p99": [
+       3.243,
+       2.901,
+       2.921
+      ],
+      "p999": [
+       8.991,
+       8.199,
+       6.655
+      ],
+      "cpuUsPerReq": [
+       105.599,
+       104.319,
+       109.536
       ]
      },
      "percentiles": [
@@ -3330,7 +3931,7 @@
      "rate": 4883,
      "runs": 3,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -3408,6 +4009,18 @@
        51.012
       ]
      },
+     "cpuUsPerReq": {
+      "med": 108.261,
+      "min": 104.471,
+      "max": 121.905,
+      "n": 3,
+      "values": [
+       108.261,
+       121.905,
+       104.471
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.063,
       "min": 7.9,
@@ -3428,6 +4041,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.322,
+       0.343,
+       0.319
+      ],
+      "p99": [
+       3.407,
+       5.147,
+       251.903
+      ],
+      "p999": [
+       10.447,
+       44.671,
+       308.479
+      ],
+      "cpuUsPerReq": [
+       108.261,
+       121.905,
+       104.471
       ]
      },
      "percentiles": [
@@ -3521,7 +4156,7 @@
      "rate": 6104,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -3599,6 +4234,18 @@
        62.9
       ]
      },
+     "cpuUsPerReq": {
+      "med": 103.054,
+      "min": 103.033,
+      "max": 108.195,
+      "n": 3,
+      "values": [
+       108.195,
+       103.033,
+       103.054
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 4.363,
       "min": 4.063,
@@ -3619,6 +4266,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.327,
+       0.318,
+       0.308
+      ],
+      "p99": [
+       10.327,
+       3.279,
+       5.059
+      ],
+      "p999": [
+       51.455,
+       18.735,
+       15.359
+      ],
+      "cpuUsPerReq": [
+       108.195,
+       103.033,
+       103.054
       ]
      },
      "percentiles": [
@@ -3712,7 +4381,7 @@
      "rate": 7629,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -3790,6 +4459,18 @@
        77.012
       ]
      },
+     "cpuUsPerReq": {
+      "med": 100.629,
+      "min": 100.515,
+      "max": 100.94,
+      "n": 3,
+      "values": [
+       100.515,
+       100.629,
+       100.94
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 3.825,
       "min": 3.813,
@@ -3810,6 +4491,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.339,
+       0.327,
+       0.365
+      ],
+      "p99": [
+       6.179,
+       5.687,
+       9.127
+      ],
+      "p999": [
+       10.295,
+       9.567,
+       20.751
+      ],
+      "cpuUsPerReq": [
+       100.515,
+       100.629,
+       100.94
       ]
      },
      "percentiles": [
@@ -3903,7 +4606,7 @@
      "rate": 9537,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -3981,6 +4684,18 @@
        86.375
       ]
      },
+     "cpuUsPerReq": {
+      "med": 90.57,
+      "min": 89.221,
+      "max": 90.649,
+      "n": 3,
+      "values": [
+       90.649,
+       89.221,
+       90.57
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 6.725,
       "min": 5.675,
@@ -4001,6 +4716,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.463,
+       0.413,
+       0.464
+      ],
+      "p99": [
+       6.187,
+       5.919,
+       10.095
+      ],
+      "p999": [
+       17.327,
+       13.943,
+       19.391
+      ],
+      "cpuUsPerReq": [
+       90.649,
+       89.221,
+       90.57
       ]
      },
      "percentiles": [
@@ -4094,7 +4831,7 @@
      "rate": 11921,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 11921,
       "min": 11921,
@@ -4172,6 +4909,18 @@
        91.6
       ]
      },
+     "cpuUsPerReq": {
+      "med": 78.297,
+      "min": 76.839,
+      "max": 78.38,
+      "n": 3,
+      "values": [
+       78.38,
+       78.297,
+       76.839
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 10.275,
       "min": 7.05,
@@ -4192,6 +4941,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       1.849,
+       1.055,
+       0.582
+      ],
+      "p99": [
+       24.991,
+       38.911,
+       10.143
+      ],
+      "p999": [
+       39.487,
+       89.087,
+       21.807
+      ],
+      "cpuUsPerReq": [
+       78.38,
+       78.297,
+       76.839
       ]
      },
      "percentiles": [
@@ -4285,7 +5056,7 @@
      "rate": 14901,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 14901.3,
       "min": 14901.3,
@@ -4363,6 +5134,18 @@
        95.212
       ]
      },
+     "cpuUsPerReq": {
+      "med": 63.895,
+      "min": 63.837,
+      "max": 64.13,
+      "n": 3,
+      "values": [
+       64.13,
+       63.837,
+       63.895
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 10.075,
       "min": 8.212,
@@ -4383,6 +5166,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       2.549,
+       1.606,
+       3.363
+      ],
+      "p99": [
+       41.087,
+       15.327,
+       32.031
+      ],
+      "p999": [
+       81.599,
+       30.079,
+       47.007
+      ],
+      "cpuUsPerReq": [
+       64.13,
+       63.837,
+       63.895
       ]
      },
      "percentiles": [
@@ -4476,7 +5281,7 @@
      "rate": 18626,
      "runs": 3,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 18626.5,
       "min": 17765.5,
@@ -4554,6 +5359,18 @@
        96.4
       ]
      },
+     "cpuUsPerReq": {
+      "med": 52.061,
+      "min": 51.123,
+      "max": 54.262,
+      "n": 3,
+      "values": [
+       52.061,
+       51.123,
+       54.262
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 16.314,
       "min": 10.963,
@@ -4574,6 +5391,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       6.691,
+       3.713,
+       241.023
+      ],
+      "p99": [
+       81.407,
+       110.271,
+       531.967
+      ],
+      "p999": [
+       101.567,
+       135.935,
+       577.023
+      ],
+      "cpuUsPerReq": [
+       52.061,
+       51.123,
+       54.262
       ]
      },
      "percentiles": [
@@ -4667,7 +5506,7 @@
      "rate": 23283,
      "runs": 3,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 19458.6,
       "min": 15146.8,
@@ -4745,6 +5584,18 @@
        89.7
       ]
      },
+     "cpuUsPerReq": {
+      "med": 49.464,
+      "min": 49.299,
+      "max": 59.22,
+      "n": 3,
+      "values": [
+       49.299,
+       49.464,
+       59.22
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 21.65,
       "min": 14.175,
@@ -4765,6 +5616,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       724.991,
+       446.207,
+       1609.73
+      ],
+      "p99": [
+       1316.86,
+       1327.1,
+       2803.71
+      ],
+      "p999": [
+       1370.11,
+       1418.24,
+       2922.5
+      ],
+      "cpuUsPerReq": [
+       49.299,
+       49.464,
+       59.22
       ]
      },
      "percentiles": [
@@ -4858,6 +5731,60 @@
   },
   "envoy": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 843.775 ms > SLO 50.0 ms; backlog 3581",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": false,
+     "excluded": "the load generator could not keep its schedule, which ended the sweep",
+     "max": 2500,
+     "coarseMax": 2500,
+     "bracket": null,
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 2500,
+     "kneeReason": "client-bound: the load generator could not keep its schedule at 3125/s",
+     "stopReason": "client-bound: the load generator could not keep its schedule at 3125/s",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 296.959 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep4-20261013-065146"
+   ],
    "maxSustainable": {
     "med": 9536.8,
     "min": 9536.8,
@@ -4868,226 +5795,230 @@
      9536.8
     ]
    },
-   "clientBoundRuns": [
-    "rep3-20261013-060241"
-   ],
-   "maxSustainableRuns": [
-    9536.8,
-    9536.8
-   ],
+   "refined": "none",
+   "bracketWidth": 0.25,
+   "curveEndRate": 9537,
    "kneeReasons": [
     "p99 843.775 ms > SLO 50.0 ms; backlog 3581",
-    null,
     "p99 296.959 ms > SLO 50.0 ms"
    ],
-   "stopReasons": [
-    "past the knee",
-    "client-bound: the load generator could not keep its schedule at 3125/s",
-    "past the knee"
-   ],
-   "transientSteps": [
-    0,
-    0,
-    0
-   ],
    "foreignOnProxyCpuPct": {
-    "med": 2.026,
-    "min": 0.905,
+    "med": 2.779,
+    "min": 2.026,
     "max": 3.533,
-    "n": 3,
+    "n": 2,
     "values": [
      3.533,
-     0.905,
      2.026
     ]
    },
    "steps": [
     {
      "rate": 2000,
-     "runs": 3,
-     "sustained": 3,
-     "clientSaturated": 0,
+     "runs": 2,
+     "sustained": 2,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
       "max": 2000,
-      "n": 3,
+      "n": 2,
       "values": [
-       2000,
        2000,
        2000
       ]
      },
      "p50": {
-      "med": 0.539,
-      "min": 0.526,
+      "med": 0.59,
+      "min": 0.539,
       "max": 0.641,
-      "n": 3,
+      "n": 2,
       "values": [
        0.641,
-       0.526,
        0.539
       ]
      },
      "p90": {
-      "med": 0.963,
-      "min": 0.829,
+      "med": 1.045,
+      "min": 0.963,
       "max": 1.127,
-      "n": 3,
+      "n": 2,
       "values": [
        1.127,
-       0.829,
        0.963
       ]
      },
      "p99": {
-      "med": 4.391,
-      "min": 3.729,
+      "med": 5.471,
+      "min": 4.391,
       "max": 6.551,
-      "n": 3,
+      "n": 2,
       "values": [
        4.391,
-       3.729,
        6.551
       ]
      },
      "p999": {
-      "med": 10.455,
+      "med": 23.407,
       "min": 8.319,
       "max": 38.495,
-      "n": 3,
+      "n": 2,
       "values": [
        8.319,
-       10.455,
        38.495
       ]
      },
      "max": {
-      "med": 15.551,
+      "med": 27.991,
       "min": 10.895,
       "max": 45.087,
-      "n": 3,
+      "n": 2,
       "values": [
        10.895,
-       15.551,
        45.087
       ]
      },
      "cpuPct": {
-      "med": 40.563,
-      "min": 40.187,
+      "med": 42.356,
+      "min": 40.563,
       "max": 44.15,
-      "n": 3,
+      "n": 2,
       "values": [
        44.15,
-       40.187,
        40.563
       ]
      },
+     "cpuUsPerReq": {
+      "med": 211.782,
+      "min": 202.815,
+      "max": 220.75,
+      "n": 2,
+      "values": [
+       220.75,
+       202.815
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
-      "med": 4.725,
+      "med": 4.9,
       "min": 0,
       "max": 9.8,
-      "n": 3,
+      "n": 2,
       "values": [
        9.8,
-       4.725,
        0
       ]
      },
      "errors": {
-      "med": 0,
+      "med": 0.0,
       "min": 0,
       "max": 0,
-      "n": 3,
+      "n": 2,
       "values": [
        0,
-       0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.641,
+       0.539
+      ],
+      "p99": [
+       4.391,
+       6.551
+      ],
+      "p999": [
+       8.319,
+       38.495
+      ],
+      "cpuUsPerReq": [
+       220.75,
+       202.815
       ]
      },
      "percentiles": [
       [
        0,
-       0.271,
+       0.283,
        0.271,
        0.296
       ],
       [
        10,
+       0.43,
        0.409,
-       0.394,
        0.451
       ],
       [
        25,
+       0.49,
        0.458,
-       0.451,
        0.522
       ],
       [
        50,
+       0.59,
        0.539,
-       0.526,
        0.641
       ],
       [
        75,
+       0.723,
        0.681,
-       0.652,
        0.764
       ],
       [
        90,
+       1.045,
        0.963,
-       0.829,
        1.127
       ],
       [
        95,
+       1.76,
        1.758,
-       1.192,
        1.761
       ],
       [
        99,
+       5.471,
        4.391,
-       3.729,
        6.551
       ],
       [
        99.5,
+       9.317,
        5.443,
-       5.043,
        13.191
       ],
       [
        99.9,
-       10.455,
+       23.407,
        8.319,
        38.495
       ],
       [
        99.95,
-       13.199,
+       25.715,
        8.871,
        42.559
       ],
       [
        99.99,
-       15.263,
+       27.507,
        10.407,
        44.607
       ],
       [
        99.999,
-       15.551,
+       27.991,
        10.895,
        45.087
       ],
       [
        100,
-       15.551,
+       27.991,
        10.895,
        45.087
       ]
@@ -5095,192 +6026,212 @@
     },
     {
      "rate": 2500,
-     "runs": 3,
-     "sustained": 3,
-     "clientSaturated": 0,
+     "runs": 2,
+     "sustained": 2,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
       "max": 2500,
-      "n": 3,
+      "n": 2,
       "values": [
-       2500,
        2500,
        2500
       ]
      },
      "p50": {
-      "med": 0.526,
-      "min": 0.525,
+      "med": 0.553,
+      "min": 0.526,
       "max": 0.58,
-      "n": 3,
+      "n": 2,
       "values": [
        0.58,
-       0.525,
        0.526
       ]
      },
      "p90": {
-      "med": 0.954,
+      "med": 0.97,
       "min": 0.867,
       "max": 1.073,
-      "n": 3,
+      "n": 2,
       "values": [
        1.073,
-       0.954,
        0.867
       ]
      },
      "p99": {
-      "med": 4.903,
+      "med": 4.895,
       "min": 4.887,
-      "max": 6.367,
-      "n": 3,
+      "max": 4.903,
+      "n": 2,
       "values": [
        4.903,
-       6.367,
        4.887
       ]
      },
      "p999": {
-      "med": 16.135,
+      "med": 15.255,
       "min": 14.375,
-      "max": 32.159,
-      "n": 3,
+      "max": 16.135,
+      "n": 2,
       "values": [
        14.375,
-       32.159,
        16.135
       ]
      },
      "max": {
-      "med": 19.967,
+      "med": 19.135,
       "min": 18.303,
-      "max": 39.231,
-      "n": 3,
+      "max": 19.967,
+      "n": 2,
       "values": [
        18.303,
-       39.231,
        19.967
       ]
      },
      "cpuPct": {
-      "med": 46.4,
-      "min": 44.812,
+      "med": 48.275,
+      "min": 46.4,
       "max": 50.15,
-      "n": 3,
+      "n": 2,
       "values": [
        50.15,
-       44.812,
        46.4
       ]
      },
+     "cpuUsPerReq": {
+      "med": 193.1,
+      "min": 185.6,
+      "max": 200.6,
+      "n": 2,
+      "values": [
+       200.6,
+       185.6
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
-      "med": 8.975,
+      "med": 11.457,
       "min": 1.35,
       "max": 21.563,
-      "n": 3,
+      "n": 2,
       "values": [
        21.563,
-       8.975,
        1.35
       ]
      },
      "errors": {
-      "med": 0,
+      "med": 0.0,
       "min": 0,
       "max": 0,
-      "n": 3,
+      "n": 2,
       "values": [
        0,
-       0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.58,
+       0.526
+      ],
+      "p99": [
+       4.903,
+       4.887
+      ],
+      "p999": [
+       14.375,
+       16.135
+      ],
+      "cpuUsPerReq": [
+       200.6,
+       185.6
       ]
      },
      "percentiles": [
       [
        0,
-       0.276,
+       0.274,
        0.271,
        0.276
       ],
       [
        10,
+       0.384,
        0.361,
-       0.359,
        0.407
       ],
       [
        25,
+       0.457,
        0.42,
-       0.416,
        0.493
       ],
       [
        50,
+       0.553,
        0.526,
-       0.525,
        0.58
       ],
       [
        75,
-       0.616,
+       0.671,
        0.612,
        0.73
       ],
       [
        90,
-       0.954,
+       0.97,
        0.867,
        1.073
       ],
       [
        95,
-       1.89,
+       1.652,
        1.371,
        1.934
       ],
       [
        99,
-       4.903,
+       4.895,
        4.887,
-       6.367
+       4.903
       ],
       [
        99.5,
-       6.735,
+       6.677,
        6.619,
-       11.463
+       6.735
       ],
       [
        99.9,
-       16.135,
+       15.255,
        14.375,
-       32.159
+       16.135
       ],
       [
        99.95,
-       17.823,
+       16.691,
        15.559,
-       35.519
+       17.823
       ],
       [
        99.99,
-       19.487,
+       18.511,
        17.535,
-       38.527
+       19.487
       ],
       [
        99.999,
-       19.967,
+       19.135,
        18.303,
-       39.231
+       19.967
       ],
       [
        100,
-       19.967,
+       19.135,
        18.303,
-       39.231
+       19.967
       ]
      ]
     },
@@ -5288,7 +6239,7 @@
      "rate": 3125,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 1,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -5359,6 +6310,17 @@
        49.65
       ]
      },
+     "cpuUsPerReq": {
+      "med": 175.24,
+      "min": 158.88,
+      "max": 191.6,
+      "n": 2,
+      "values": [
+       191.6,
+       158.88
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 15.732,
       "min": 0,
@@ -5377,6 +6339,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.565,
+       0.45
+      ],
+      "p99": [
+       11.255,
+       5.975
+      ],
+      "p999": [
+       31.887,
+       12.183
+      ],
+      "cpuUsPerReq": [
+       191.6,
+       158.88
       ]
      },
      "percentiles": [
@@ -5470,7 +6450,7 @@
      "rate": 3906,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -5541,6 +6521,17 @@
        63.6
       ]
      },
+     "cpuUsPerReq": {
+      "med": 159.838,
+      "min": 156.862,
+      "max": 162.814,
+      "n": 2,
+      "values": [
+       156.862,
+       162.814
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 9.55,
       "min": 1.275,
@@ -5559,6 +6550,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.406,
+       0.405
+      ],
+      "p99": [
+       6.099,
+       3.027
+      ],
+      "p999": [
+       13.783,
+       5.839
+      ],
+      "cpuUsPerReq": [
+       156.862,
+       162.814
       ]
      },
      "percentiles": [
@@ -5652,7 +6661,7 @@
      "rate": 4883,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -5723,6 +6732,17 @@
        75.637
       ]
      },
+     "cpuUsPerReq": {
+      "med": 150.563,
+      "min": 146.225,
+      "max": 154.902,
+      "n": 2,
+      "values": [
+       146.225,
+       154.902
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.963,
       "min": 6,
@@ -5741,6 +6761,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.393,
+       0.468
+      ],
+      "p99": [
+       4.915,
+       15.255
+      ],
+      "p999": [
+       13.487,
+       44.447
+      ],
+      "cpuUsPerReq": [
+       146.225,
+       154.902
       ]
      },
      "percentiles": [
@@ -5834,7 +6872,7 @@
      "rate": 6104,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -5905,6 +6943,17 @@
        85.337
       ]
      },
+     "cpuUsPerReq": {
+      "med": 137.47,
+      "min": 135.125,
+      "max": 139.814,
+      "n": 2,
+      "values": [
+       135.125,
+       139.814
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.75,
       "min": 0.962,
@@ -5923,6 +6972,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.484,
+       0.484
+      ],
+      "p99": [
+       8.163,
+       5.783
+      ],
+      "p999": [
+       14.447,
+       11.943
+      ],
+      "cpuUsPerReq": [
+       135.125,
+       139.814
       ]
      },
      "percentiles": [
@@ -6016,7 +7083,7 @@
      "rate": 7629,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -6087,6 +7154,17 @@
        93.975
       ]
      },
+     "cpuUsPerReq": {
+      "med": 120.961,
+      "min": 118.75,
+      "max": 123.173,
+      "n": 2,
+      "values": [
+       118.75,
+       123.173
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.744,
       "min": 1.838,
@@ -6105,6 +7183,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       1.065,
+       1.155
+      ],
+      "p99": [
+       27.823,
+       19.855
+      ],
+      "p999": [
+       45.695,
+       29.103
+      ],
+      "cpuUsPerReq": [
+       118.75,
+       123.173
       ]
      },
      "percentiles": [
@@ -6198,7 +7294,7 @@
      "rate": 9537,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -6269,6 +7365,17 @@
        96.75
       ]
      },
+     "cpuUsPerReq": {
+      "med": 101.338,
+      "min": 101.227,
+      "max": 101.449,
+      "n": 2,
+      "values": [
+       101.227,
+       101.449
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.281,
       "min": 5.225,
@@ -6287,6 +7394,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       2.251,
+       1.745
+      ],
+      "p99": [
+       18.207,
+       41.919
+      ],
+      "p999": [
+       22.911,
+       55.807
+      ],
+      "cpuUsPerReq": [
+       101.227,
+       101.449
       ]
      },
      "percentiles": [
@@ -6380,7 +7505,7 @@
      "rate": 11921,
      "runs": 2,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 11697.2,
       "min": 11473.4,
@@ -6451,6 +7576,17 @@
        95.712
       ]
      },
+     "cpuUsPerReq": {
+      "med": 82.912,
+      "min": 80.289,
+      "max": 85.535,
+      "n": 2,
+      "values": [
+       85.535,
+       80.289
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 19.819,
       "min": 15.375,
@@ -6469,6 +7605,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       293.375,
+       174.975
+      ],
+      "p99": [
+       843.775,
+       296.959
+      ],
+      "p999": [
+       886.783,
+       329.471
+      ],
+      "cpuUsPerReq": [
+       85.535,
+       80.289
       ]
      },
      "percentiles": [
@@ -6562,7 +7716,7 @@
      "rate": 14901,
      "runs": 2,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 12423.95,
       "min": 12413.5,
@@ -6633,6 +7787,17 @@
        97.1
       ]
      },
+     "cpuUsPerReq": {
+      "med": 78.292,
+      "min": 78.09,
+      "max": 78.494,
+      "n": 2,
+      "values": [
+       78.494,
+       78.09
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 22.157,
       "min": 17.975,
@@ -6651,6 +7816,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       349.439,
+       704.511
+      ],
+      "p99": [
+       1360.9,
+       1305.6
+      ],
+      "p999": [
+       1397.76,
+       1367.04
+      ],
+      "cpuUsPerReq": [
+       78.494,
+       78.09
       ]
      },
      "percentiles": [
@@ -6744,6 +7927,64 @@
   },
   "goproxy": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 171.519 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 1
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 148.223 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": true,
+     "excluded": null,
+     "max": 11921,
+     "coarseMax": 11921,
+     "bracket": [
+      11921,
+      14901.2
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 11921,
+     "kneeReason": "p99 312.575 ms > SLO 50.0 ms; backlog 3431",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep3-20261013-060241",
+    "rep4-20261013-065146"
+   ],
    "maxSustainable": {
     "med": 9536.8,
     "min": 9536.8,
@@ -6755,26 +7996,13 @@
      11921
     ]
    },
-   "clientBoundRuns": [],
-   "maxSustainableRuns": [
-    9536.8,
-    9536.8,
-    11921
-   ],
+   "refined": "none",
+   "bracketWidth": 0.25,
+   "curveEndRate": 9537,
    "kneeReasons": [
     "p99 171.519 ms > SLO 50.0 ms",
     "p99 148.223 ms > SLO 50.0 ms",
     "p99 312.575 ms > SLO 50.0 ms; backlog 3431"
-   ],
-   "stopReasons": [
-    "past the knee",
-    "past the knee",
-    "past the knee"
-   ],
-   "transientSteps": [
-    1,
-    0,
-    0
    ],
    "foreignOnProxyCpuPct": {
     "med": 1.964,
@@ -6792,7 +8020,7 @@
      "rate": 2000,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
@@ -6870,6 +8098,18 @@
        37.813
       ]
      },
+     "cpuUsPerReq": {
+      "med": 184.5,
+      "min": 179.75,
+      "max": 189.065,
+      "n": 3,
+      "values": [
+       179.75,
+       184.5,
+       189.065
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 0.725,
       "min": 0,
@@ -6890,6 +8130,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.478,
+       0.464,
+       0.501
+      ],
+      "p99": [
+       3.569,
+       4.679,
+       9.935
+      ],
+      "p999": [
+       7.839,
+       31.279,
+       32.799
+      ],
+      "cpuUsPerReq": [
+       179.75,
+       184.5,
+       189.065
       ]
      },
      "percentiles": [
@@ -6983,7 +8245,7 @@
      "rate": 2500,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
@@ -7061,6 +8323,18 @@
        40.55
       ]
      },
+     "cpuUsPerReq": {
+      "med": 162.6,
+      "min": 162.2,
+      "max": 166.6,
+      "n": 3,
+      "values": [
+       162.6,
+       166.6,
+       162.2
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 10.975,
       "min": 4.788,
@@ -7081,6 +8355,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.419,
+       0.395,
+       0.425
+      ],
+      "p99": [
+       15.047,
+       5.459,
+       3.301
+      ],
+      "p999": [
+       60.127,
+       39.807,
+       9.591
+      ],
+      "cpuUsPerReq": [
+       162.6,
+       166.6,
+       162.2
       ]
      },
      "percentiles": [
@@ -7174,7 +8470,7 @@
      "rate": 3125,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -7252,6 +8548,18 @@
        47.175
       ]
      },
+     "cpuUsPerReq": {
+      "med": 148.282,
+      "min": 138.118,
+      "max": 150.96,
+      "n": 3,
+      "values": [
+       138.118,
+       148.282,
+       150.96
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 3.225,
       "min": 1.675,
@@ -7272,6 +8580,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.335,
+       0.345,
+       0.364
+      ],
+      "p99": [
+       6.483,
+       3.671,
+       3.315
+      ],
+      "p999": [
+       31.807,
+       15.719,
+       7.187
+      ],
+      "cpuUsPerReq": [
+       138.118,
+       148.282,
+       150.96
       ]
      },
      "percentiles": [
@@ -7365,7 +8695,7 @@
      "rate": 3906,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -7443,6 +8773,18 @@
        51.4
       ]
      },
+     "cpuUsPerReq": {
+      "med": 131.582,
+      "min": 130.528,
+      "max": 136.702,
+      "n": 3,
+      "values": [
+       130.528,
+       136.702,
+       131.582
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 0.8,
       "min": 0.588,
@@ -7463,6 +8805,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.328,
+       0.319,
+       0.308
+      ],
+      "p99": [
+       5.503,
+       3.047,
+       3.805
+      ],
+      "p999": [
+       11.815,
+       8.823,
+       11.487
+      ],
+      "cpuUsPerReq": [
+       130.528,
+       136.702,
+       131.582
       ]
      },
      "percentiles": [
@@ -7556,7 +8920,7 @@
      "rate": 4883,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -7634,6 +8998,18 @@
        58.4
       ]
      },
+     "cpuUsPerReq": {
+      "med": 119.601,
+      "min": 118.987,
+      "max": 122.546,
+      "n": 3,
+      "values": [
+       122.546,
+       118.987,
+       119.601
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 1.15,
       "min": 0.862,
@@ -7654,6 +9030,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.315,
+       0.307,
+       0.313
+      ],
+      "p99": [
+       4.631,
+       3.729,
+       5.611
+      ],
+      "p999": [
+       20.847,
+       7.095,
+       34.847
+      ],
+      "cpuUsPerReq": [
+       122.546,
+       118.987,
+       119.601
       ]
      },
      "percentiles": [
@@ -7747,7 +9145,7 @@
      "rate": 6104,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -7825,6 +9223,18 @@
        63.775
       ]
      },
+     "cpuUsPerReq": {
+      "med": 105.695,
+      "min": 104.488,
+      "max": 126.565,
+      "n": 3,
+      "values": [
+       126.565,
+       105.695,
+       104.488
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 1.538,
       "min": 0.962,
@@ -7845,6 +9255,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.359,
+       0.286,
+       0.288
+      ],
+      "p99": [
+       7.883,
+       3.869,
+       8.071
+      ],
+      "p999": [
+       15.847,
+       6.407,
+       40.255
+      ],
+      "cpuUsPerReq": [
+       126.565,
+       105.695,
+       104.488
       ]
      },
      "percentiles": [
@@ -7938,7 +9370,7 @@
      "rate": 7629,
      "runs": 3,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -8016,6 +9448,18 @@
        71.362
       ]
      },
+     "cpuUsPerReq": {
+      "med": 96.156,
+      "min": 93.534,
+      "max": 99.744,
+      "n": 3,
+      "values": [
+       99.744,
+       96.156,
+       93.534
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.225,
       "min": 1.688,
@@ -8036,6 +9480,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.338,
+       0.292,
+       0.276
+      ],
+      "p99": [
+       59.295,
+       7.179,
+       12.599
+      ],
+      "p999": [
+       96.575,
+       18.783,
+       40.959
+      ],
+      "cpuUsPerReq": [
+       99.744,
+       96.156,
+       93.534
       ]
      },
      "percentiles": [
@@ -8129,7 +9595,7 @@
      "rate": 9537,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -8207,6 +9673,18 @@
        79.15
       ]
      },
+     "cpuUsPerReq": {
+      "med": 85.995,
+      "min": 82.994,
+      "max": 86.809,
+      "n": 3,
+      "values": [
+       86.809,
+       85.995,
+       82.994
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.138,
       "min": 1.713,
@@ -8227,6 +9705,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.42,
+       0.34,
+       0.324
+      ],
+      "p99": [
+       12.871,
+       19.599,
+       9.815
+      ],
+      "p999": [
+       18.879,
+       30.175,
+       17.727
+      ],
+      "cpuUsPerReq": [
+       86.809,
+       85.995,
+       82.994
       ]
      },
      "percentiles": [
@@ -8320,7 +9820,7 @@
      "rate": 11921,
      "runs": 3,
      "sustained": 1,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 11921,
       "min": 11830.3,
@@ -8398,6 +9898,18 @@
        88.1
       ]
      },
+     "cpuUsPerReq": {
+      "med": 75.592,
+      "min": 73.903,
+      "max": 78.728,
+      "n": 3,
+      "values": [
+       78.728,
+       75.592,
+       73.903
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.388,
       "min": 1.738,
@@ -8418,6 +9930,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       12.415,
+       6.891,
+       0.775
+      ],
+      "p99": [
+       171.519,
+       148.223,
+       47.263
+      ],
+      "p999": [
+       202.495,
+       177.919,
+       74.751
+      ],
+      "cpuUsPerReq": [
+       78.728,
+       75.592,
+       73.903
       ]
      },
      "percentiles": [
@@ -8511,7 +10045,7 @@
      "rate": 14901,
      "runs": 3,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 14349.1,
       "min": 11916.5,
@@ -8589,6 +10123,18 @@
        95.913
       ]
      },
+     "cpuUsPerReq": {
+      "med": 66.755,
+      "min": 66.273,
+      "max": 82.742,
+      "n": 3,
+      "values": [
+       82.742,
+       66.755,
+       66.273
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.75,
       "min": 6.063,
@@ -8609,6 +10155,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       858.111,
+       147.327,
+       155.647
+      ],
+      "p99": [
+       1736.7,
+       416.255,
+       312.575
+      ],
+      "p999": [
+       1798.14,
+       455.167,
+       349.695
+      ],
+      "cpuUsPerReq": [
+       82.742,
+       66.755,
+       66.273
       ]
      },
      "percentiles": [
@@ -8702,7 +10270,7 @@
      "rate": 18626,
      "runs": 1,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 14568,
       "min": 14568,
@@ -8766,6 +10334,16 @@
        97.938
       ]
      },
+     "cpuUsPerReq": {
+      "med": 67.228,
+      "min": 67.228,
+      "max": 67.228,
+      "n": 1,
+      "values": [
+       67.228
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.975,
       "min": 5.975,
@@ -8782,6 +10360,28 @@
       "n": 1,
       "values": [
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       null,
+       null,
+       862.719
+      ],
+      "p99": [
+       null,
+       null,
+       1763.33
+      ],
+      "p999": [
+       null,
+       null,
+       1810.43
+      ],
+      "cpuUsPerReq": [
+       null,
+       null,
+       67.228
       ]
      },
      "percentiles": [
@@ -8875,6 +10475,60 @@
   },
   "g3proxy": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 14901.3,
+     "coarseMax": 14901.3,
+     "bracket": [
+      14901,
+      18626.5
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 14901,
+     "kneeReason": "p99 80.063 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 1
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": true,
+     "excluded": null,
+     "max": 14901.3,
+     "coarseMax": 14901.3,
+     "bracket": [
+      14901,
+      18626.5
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 14901,
+     "kneeReason": "p99 75.519 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": false,
+     "excluded": "the load generator could not keep its schedule, which ended the sweep",
+     "max": 2500,
+     "coarseMax": 2500,
+     "bracket": null,
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 2500,
+     "kneeReason": "client-bound: the load generator could not keep its schedule at 3125/s",
+     "stopReason": "client-bound: the load generator could not keep its schedule at 3125/s",
+     "transientSteps": 0
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep3-20261013-060241"
+   ],
    "maxSustainable": {
     "med": 14901.3,
     "min": 14901.3,
@@ -8885,226 +10539,230 @@
      14901.3
     ]
    },
-   "clientBoundRuns": [
-    "rep4-20261013-065146"
-   ],
-   "maxSustainableRuns": [
-    14901.3,
-    14901.3
-   ],
+   "refined": "none",
+   "bracketWidth": 0.25,
+   "curveEndRate": 14901,
    "kneeReasons": [
     "p99 80.063 ms > SLO 50.0 ms",
-    "p99 75.519 ms > SLO 50.0 ms",
-    null
-   ],
-   "stopReasons": [
-    "past the knee",
-    "past the knee",
-    "client-bound: the load generator could not keep its schedule at 3125/s"
-   ],
-   "transientSteps": [
-    1,
-    0,
-    0
+    "p99 75.519 ms > SLO 50.0 ms"
    ],
    "foreignOnProxyCpuPct": {
-    "med": 3.631,
-    "min": 1.621,
+    "med": 3.811,
+    "min": 3.631,
     "max": 3.991,
-    "n": 3,
+    "n": 2,
     "values": [
      3.991,
-     3.631,
-     1.621
+     3.631
     ]
    },
    "steps": [
     {
      "rate": 2000,
-     "runs": 3,
-     "sustained": 3,
-     "clientSaturated": 0,
+     "runs": 2,
+     "sustained": 2,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
       "max": 2000,
-      "n": 3,
+      "n": 2,
       "values": [
-       2000,
        2000,
        2000
       ]
      },
      "p50": {
-      "med": 0.445,
-      "min": 0.434,
+      "med": 0.45,
+      "min": 0.445,
       "max": 0.455,
-      "n": 3,
+      "n": 2,
       "values": [
        0.445,
-       0.455,
-       0.434
+       0.455
       ]
      },
      "p90": {
-      "med": 0.713,
+      "med": 0.744,
       "min": 0.705,
       "max": 0.782,
-      "n": 3,
+      "n": 2,
       "values": [
        0.705,
-       0.782,
-       0.713
+       0.782
       ]
      },
      "p99": {
-      "med": 3.299,
-      "min": 3.183,
+      "med": 3.526,
+      "min": 3.299,
       "max": 3.753,
-      "n": 3,
+      "n": 2,
       "values": [
        3.299,
-       3.753,
-       3.183
+       3.753
       ]
      },
      "p999": {
-      "med": 6.619,
+      "med": 6.851,
       "min": 5.919,
       "max": 7.783,
-      "n": 3,
+      "n": 2,
       "values": [
        5.919,
-       7.783,
-       6.619
+       7.783
       ]
      },
      "max": {
-      "med": 10.479,
+      "med": 9.955,
       "min": 7.727,
       "max": 12.183,
-      "n": 3,
+      "n": 2,
       "values": [
        7.727,
-       12.183,
-       10.479
+       12.183
       ]
      },
      "cpuPct": {
-      "med": 22.85,
-      "min": 22.238,
+      "med": 22.863,
+      "min": 22.85,
       "max": 22.875,
-      "n": 3,
+      "n": 2,
       "values": [
        22.85,
-       22.875,
-       22.238
+       22.875
       ]
      },
+     "cpuUsPerReq": {
+      "med": 114.312,
+      "min": 114.25,
+      "max": 114.375,
+      "n": 2,
+      "values": [
+       114.25,
+       114.375
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
-      "med": 26.013,
-      "min": 0,
+      "med": 27.157,
+      "min": 26.013,
       "max": 28.3,
-      "n": 3,
+      "n": 2,
       "values": [
        28.3,
-       26.013,
-       0
+       26.013
       ]
      },
      "errors": {
-      "med": 0,
+      "med": 0.0,
       "min": 0,
       "max": 0,
-      "n": 3,
+      "n": 2,
       "values": [
        0,
-       0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.445,
+       0.455
+      ],
+      "p99": [
+       3.299,
+       3.753
+      ],
+      "p999": [
+       5.919,
+       7.783
+      ],
+      "cpuUsPerReq": [
+       114.25,
+       114.375
       ]
      },
      "percentiles": [
       [
        0,
-       0.237,
+       0.231,
        0.225,
-       0.244
+       0.237
       ],
       [
        10,
-       0.334,
+       0.337,
        0.331,
        0.342
       ],
       [
        25,
+       0.38,
        0.374,
-       0.373,
        0.386
       ],
       [
        50,
+       0.45,
        0.445,
-       0.434,
        0.455
       ],
       [
        75,
+       0.556,
        0.533,
-       0.526,
        0.58
       ],
       [
        90,
-       0.713,
+       0.744,
        0.705,
        0.782
       ],
       [
        95,
-       1.128,
+       1.231,
        1.115,
        1.346
       ],
       [
        99,
+       3.526,
        3.299,
-       3.183,
        3.753
       ],
       [
        99.5,
+       4.581,
        4.231,
-       4.119,
        4.931
       ],
       [
        99.9,
-       6.619,
+       6.851,
        5.919,
        7.783
       ],
       [
        99.95,
-       8.039,
+       7.651,
        6.559,
        8.743
       ],
       [
        99.99,
-       10.327,
+       8.911,
        7.271,
        10.551
       ],
       [
        99.999,
-       10.479,
+       9.955,
        7.727,
        12.183
       ],
       [
        100,
-       10.479,
+       9.955,
        7.727,
        12.183
       ]
@@ -9112,192 +10770,212 @@
     },
     {
      "rate": 2500,
-     "runs": 3,
-     "sustained": 3,
-     "clientSaturated": 0,
+     "runs": 2,
+     "sustained": 2,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
       "max": 2500,
-      "n": 3,
+      "n": 2,
       "values": [
-       2500,
        2500,
        2500
       ]
      },
      "p50": {
-      "med": 0.354,
+      "med": 0.367,
       "min": 0.347,
       "max": 0.387,
-      "n": 3,
+      "n": 2,
       "values": [
        0.387,
-       0.347,
-       0.354
+       0.347
       ]
      },
      "p90": {
-      "med": 0.602,
-      "min": 0.598,
+      "med": 0.635,
+      "min": 0.602,
       "max": 0.669,
-      "n": 3,
+      "n": 2,
       "values": [
        0.669,
-       0.602,
-       0.598
+       0.602
       ]
      },
      "p99": {
-      "med": 3.497,
+      "med": 3.372,
       "min": 3.247,
-      "max": 3.955,
-      "n": 3,
+      "max": 3.497,
+      "n": 2,
       "values": [
        3.497,
-       3.247,
-       3.955
+       3.247
       ]
      },
      "p999": {
-      "med": 10.679,
+      "med": 8.713,
       "min": 6.747,
-      "max": 16.047,
-      "n": 3,
+      "max": 10.679,
+      "n": 2,
       "values": [
        6.747,
-       10.679,
-       16.047
+       10.679
       ]
      },
      "max": {
-      "med": 13.855,
+      "med": 11.327,
       "min": 8.799,
-      "max": 22.623,
-      "n": 3,
+      "max": 13.855,
+      "n": 2,
       "values": [
        8.799,
-       13.855,
-       22.623
+       13.855
       ]
      },
      "cpuPct": {
-      "med": 26.475,
+      "med": 25.363,
       "min": 23.75,
       "max": 26.975,
-      "n": 3,
+      "n": 2,
       "values": [
        26.975,
-       23.75,
-       26.475
+       23.75
       ]
      },
+     "cpuUsPerReq": {
+      "med": 101.45,
+      "min": 95.0,
+      "max": 107.9,
+      "n": 2,
+      "values": [
+       107.9,
+       95.0
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
-      "med": 5.113,
-      "min": 0.738,
+      "med": 11.556,
+      "min": 5.113,
       "max": 18,
-      "n": 3,
+      "n": 2,
       "values": [
        18,
-       5.113,
-       0.738
+       5.113
       ]
      },
      "errors": {
-      "med": 0,
+      "med": 0.0,
       "min": 0,
       "max": 0,
-      "n": 3,
+      "n": 2,
       "values": [
        0,
-       0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.387,
+       0.347
+      ],
+      "p99": [
+       3.497,
+       3.247
+      ],
+      "p999": [
+       6.747,
+       10.679
+      ],
+      "cpuUsPerReq": [
+       107.9,
+       95.0
       ]
      },
      "percentiles": [
       [
        0,
-       0.224,
+       0.216,
        0.208,
-       0.227
+       0.224
       ],
       [
        10,
-       0.287,
+       0.29,
        0.281,
        0.3
       ],
       [
        25,
-       0.313,
+       0.321,
        0.309,
        0.332
       ],
       [
        50,
-       0.354,
+       0.367,
        0.347,
        0.387
       ],
       [
        75,
-       0.43,
+       0.464,
        0.425,
        0.502
       ],
       [
        90,
+       0.635,
        0.602,
-       0.598,
        0.669
       ],
       [
        95,
-       0.963,
+       1.052,
        0.959,
        1.146
       ],
       [
        99,
-       3.497,
+       3.372,
        3.247,
-       3.955
+       3.497
       ],
       [
        99.5,
-       5.003,
+       4.795,
        4.587,
-       6.903
+       5.003
       ],
       [
        99.9,
-       10.679,
+       8.713,
        6.747,
-       16.047
+       10.679
       ],
       [
        99.95,
-       12.599,
+       10.045,
        7.491,
-       19.103
+       12.599
       ],
       [
        99.99,
-       13.439,
+       10.923,
        8.407,
-       21.935
+       13.439
       ],
       [
        99.999,
-       13.855,
+       11.327,
        8.799,
-       22.623
+       13.855
       ],
       [
        100,
-       13.855,
+       11.327,
        8.799,
-       22.623
+       13.855
       ]
      ]
     },
@@ -9305,7 +10983,7 @@
      "rate": 3125,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 1,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -9376,6 +11054,17 @@
        25.625
       ]
      },
+     "cpuUsPerReq": {
+      "med": 89.501,
+      "min": 82.0,
+      "max": 97.002,
+      "n": 2,
+      "values": [
+       97.002,
+       82.0
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 14.562,
       "min": 7.1,
@@ -9394,6 +11083,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.327,
+       0.291
+      ],
+      "p99": [
+       2.893,
+       2.103
+      ],
+      "p999": [
+       7.059,
+       13.143
+      ],
+      "cpuUsPerReq": [
+       97.002,
+       82.0
       ]
      },
      "percentiles": [
@@ -9487,7 +11194,7 @@
      "rate": 3906,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -9558,6 +11265,17 @@
        32.088
       ]
      },
+     "cpuUsPerReq": {
+      "med": 86.736,
+      "min": 82.144,
+      "max": 91.327,
+      "n": 2,
+      "values": [
+       91.327,
+       82.144
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.119,
       "min": 4.475,
@@ -9576,6 +11294,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.293,
+       0.271
+      ],
+      "p99": [
+       5.407,
+       3.109
+      ],
+      "p999": [
+       40.607,
+       9.503
+      ],
+      "cpuUsPerReq": [
+       91.327,
+       82.144
       ]
      },
      "percentiles": [
@@ -9669,7 +11405,7 @@
      "rate": 4883,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -9740,6 +11476,17 @@
        35.713
       ]
      },
+     "cpuUsPerReq": {
+      "med": 75.634,
+      "min": 73.139,
+      "max": 78.13,
+      "n": 2,
+      "values": [
+       78.13,
+       73.139
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 3.544,
       "min": 0.975,
@@ -9758,6 +11505,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.294,
+       0.246
+      ],
+      "p99": [
+       3.383,
+       3.481
+      ],
+      "p999": [
+       10.199,
+       18.287
+      ],
+      "cpuUsPerReq": [
+       78.13,
+       73.139
       ]
      },
      "percentiles": [
@@ -9851,7 +11616,7 @@
      "rate": 6104,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -9922,6 +11687,17 @@
        43.65
       ]
      },
+     "cpuUsPerReq": {
+      "med": 73.757,
+      "min": 71.515,
+      "max": 75.999,
+      "n": 2,
+      "values": [
+       75.999,
+       71.515
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 4.55,
       "min": 1.7,
@@ -9940,6 +11716,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.275,
+       0.273
+      ],
+      "p99": [
+       2.797,
+       2.939
+      ],
+      "p999": [
+       6.487,
+       7.275
+      ],
+      "cpuUsPerReq": [
+       75.999,
+       71.515
       ]
      },
      "percentiles": [
@@ -10033,7 +11827,7 @@
      "rate": 7629,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -10104,6 +11898,17 @@
        51
       ]
      },
+     "cpuUsPerReq": {
+      "med": 68.173,
+      "min": 66.846,
+      "max": 69.5,
+      "n": 2,
+      "values": [
+       69.5,
+       66.846
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.926,
       "min": 0.063,
@@ -10122,6 +11927,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.263,
+       0.255
+      ],
+      "p99": [
+       3.311,
+       2.759
+      ],
+      "p999": [
+       7.311,
+       5.983
+      ],
+      "cpuUsPerReq": [
+       69.5,
+       66.846
       ]
      },
      "percentiles": [
@@ -10215,7 +12038,7 @@
      "rate": 9537,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -10286,6 +12109,17 @@
        57.6
       ]
      },
+     "cpuUsPerReq": {
+      "med": 60.293,
+      "min": 60.188,
+      "max": 60.398,
+      "n": 2,
+      "values": [
+       60.188,
+       60.398
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 9.894,
       "min": 1.825,
@@ -10304,6 +12138,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.243,
+       0.241
+      ],
+      "p99": [
+       5.995,
+       4.431
+      ],
+      "p999": [
+       17.311,
+       11.215
+      ],
+      "cpuUsPerReq": [
+       60.188,
+       60.398
       ]
      },
      "percentiles": [
@@ -10397,7 +12249,7 @@
      "rate": 11921,
      "runs": 2,
      "sustained": 1,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 11921,
       "min": 11921,
@@ -10468,6 +12320,17 @@
        72.238
       ]
      },
+     "cpuUsPerReq": {
+      "med": 60.586,
+      "min": 60.575,
+      "max": 60.597,
+      "n": 2,
+      "values": [
+       60.575,
+       60.597
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 8.719,
       "min": 3.013,
@@ -10486,6 +12349,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.288,
+       0.274
+      ],
+      "p99": [
+       102.015,
+       7.063
+      ],
+      "p999": [
+       124.223,
+       12.543
+      ],
+      "cpuUsPerReq": [
+       60.575,
+       60.597
       ]
      },
      "percentiles": [
@@ -10579,7 +12460,7 @@
      "rate": 14901,
      "runs": 2,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 14901.3,
       "min": 14901.3,
@@ -10650,6 +12531,17 @@
        80.463
       ]
      },
+     "cpuUsPerReq": {
+      "med": 53.15,
+      "min": 52.303,
+      "max": 53.997,
+      "n": 2,
+      "values": [
+       52.303,
+       53.997
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 7.594,
       "min": 3.588,
@@ -10668,6 +12560,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.282,
+       0.289
+      ],
+      "p99": [
+       12.543,
+       11.159
+      ],
+      "p999": [
+       28.063,
+       17.327
+      ],
+      "cpuUsPerReq": [
+       52.303,
+       53.997
       ]
      },
      "percentiles": [
@@ -10761,7 +12671,7 @@
      "rate": 18626,
      "runs": 2,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 18626.5,
       "min": 18626.5,
@@ -10832,6 +12742,17 @@
        93.338
       ]
      },
+     "cpuUsPerReq": {
+      "med": 49.328,
+      "min": 48.546,
+      "max": 50.11,
+      "n": 2,
+      "values": [
+       48.546,
+       50.11
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 10.407,
       "min": 9.175,
@@ -10850,6 +12771,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       1.154,
+       6.939
+      ],
+      "p99": [
+       80.063,
+       75.519
+      ],
+      "p999": [
+       89.791,
+       84.031
+      ],
+      "cpuUsPerReq": [
+       48.546,
+       50.11
       ]
      },
      "percentiles": [
@@ -10943,7 +12882,7 @@
      "rate": 23283,
      "runs": 2,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 19055.3,
       "min": 18512.5,
@@ -11014,6 +12953,17 @@
        94.025
       ]
      },
+     "cpuUsPerReq": {
+      "med": 49.886,
+      "min": 47.977,
+      "max": 51.796,
+      "n": 2,
+      "values": [
+       51.796,
+       47.977
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 11.812,
       "min": 11.275,
@@ -11032,6 +12982,24 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       461.311,
+       1023.49
+      ],
+      "p99": [
+       1614.85,
+       1252.35
+      ],
+      "p999": [
+       1652.74,
+       1282.05
+      ],
+      "cpuUsPerReq": [
+       51.796,
+       47.977
       ]
      },
      "percentiles": [
@@ -11125,6 +13093,64 @@
   },
   "squid": {
    "unsupported": null,
+   "runs": [
+    {
+     "run": "rep2-20261013-051243",
+     "included": true,
+     "excluded": null,
+     "max": 7629.5,
+     "coarseMax": 7629.5,
+     "bracket": [
+      7629,
+      9536.74
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 7629,
+     "kneeReason": "p99 60.703 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep3-20261013-060241",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 185.471 ms > SLO 50.0 ms",
+     "stopReason": "past the knee",
+     "transientSteps": 0
+    },
+    {
+     "run": "rep4-20261013-065146",
+     "included": true,
+     "excluded": null,
+     "max": 9536.8,
+     "coarseMax": 9536.8,
+     "bracket": [
+      9537,
+      11920.9
+     ],
+     "refined": false,
+     "probes": 0,
+     "lastSustainedRate": 9537,
+     "kneeReason": "p99 1253.38 ms > SLO 50.0 ms; achieved 10050.3/s < 95% of 11921/s; backlog 14966",
+     "stopReason": "past the knee",
+     "transientSteps": 1
+    }
+   ],
+   "curveRuns": [
+    "rep2-20261013-051243",
+    "rep3-20261013-060241",
+    "rep4-20261013-065146"
+   ],
    "maxSustainable": {
     "med": 9536.8,
     "min": 7629.5,
@@ -11136,26 +13162,13 @@
      9536.8
     ]
    },
-   "clientBoundRuns": [],
-   "maxSustainableRuns": [
-    7629.5,
-    9536.8,
-    9536.8
-   ],
+   "refined": "none",
+   "bracketWidth": 0.2501,
+   "curveEndRate": 7629,
    "kneeReasons": [
     "p99 60.703 ms > SLO 50.0 ms",
     "p99 185.471 ms > SLO 50.0 ms",
     "p99 1253.38 ms > SLO 50.0 ms; achieved 10050.3/s < 95% of 11921/s; backlog 14966"
-   ],
-   "stopReasons": [
-    "past the knee",
-    "past the knee",
-    "past the knee"
-   ],
-   "transientSteps": [
-    0,
-    0,
-    1
    ],
    "foreignOnProxyCpuPct": {
     "med": 2.581,
@@ -11173,7 +13186,7 @@
      "rate": 2000,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2000,
       "min": 2000,
@@ -11251,6 +13264,18 @@
        41.075
       ]
      },
+     "cpuUsPerReq": {
+      "med": 205.375,
+      "min": 183.065,
+      "max": 214.375,
+      "n": 3,
+      "values": [
+       183.065,
+       214.375,
+       205.375
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 2.6,
       "min": 0,
@@ -11271,6 +13296,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.504,
+       0.571,
+       0.551
+      ],
+      "p99": [
+       5.071,
+       9.255,
+       5.747
+      ],
+      "p999": [
+       20.895,
+       39.199,
+       10.735
+      ],
+      "cpuUsPerReq": [
+       183.065,
+       214.375,
+       205.375
       ]
      },
      "percentiles": [
@@ -11364,7 +13411,7 @@
      "rate": 2500,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 2500,
       "min": 2500,
@@ -11442,6 +13489,18 @@
        46.425
       ]
      },
+     "cpuUsPerReq": {
+      "med": 181.6,
+      "min": 168.752,
+      "max": 185.7,
+      "n": 3,
+      "values": [
+       168.752,
+       181.6,
+       185.7
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 4.975,
       "min": 0,
@@ -11462,6 +13521,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.446,
+       0.482,
+       0.516
+      ],
+      "p99": [
+       4.827,
+       4.607,
+       5.611
+      ],
+      "p999": [
+       13.583,
+       13.647,
+       18.959
+      ],
+      "cpuUsPerReq": [
+       168.752,
+       181.6,
+       185.7
       ]
      },
      "percentiles": [
@@ -11555,7 +13636,7 @@
      "rate": 3125,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3125,
       "min": 3125,
@@ -11633,6 +13714,18 @@
        50.625
       ]
      },
+     "cpuUsPerReq": {
+      "med": 153.28,
+      "min": 145.36,
+      "max": 162,
+      "n": 3,
+      "values": [
+       145.36,
+       153.28,
+       162
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 0.613,
       "min": 0,
@@ -11653,6 +13746,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.375,
+       0.401,
+       0.458
+      ],
+      "p99": [
+       3.619,
+       3.299,
+       3.957
+      ],
+      "p999": [
+       14.127,
+       6.335,
+       16.863
+      ],
+      "cpuUsPerReq": [
+       145.36,
+       153.28,
+       162
       ]
      },
      "percentiles": [
@@ -11746,7 +13861,7 @@
      "rate": 3906,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 3906.3,
       "min": 3906.3,
@@ -11824,6 +13939,18 @@
        68.9
       ]
      },
+     "cpuUsPerReq": {
+      "med": 147.869,
+      "min": 134.462,
+      "max": 176.382,
+      "n": 3,
+      "values": [
+       134.462,
+       147.869,
+       176.382
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 3.625,
       "min": 1.188,
@@ -11844,6 +13971,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.364,
+       0.359,
+       0.433
+      ],
+      "p99": [
+       4.275,
+       3.207,
+       3.813
+      ],
+      "p999": [
+       8.559,
+       6.991,
+       10.879
+      ],
+      "cpuUsPerReq": [
+       134.462,
+       147.869,
+       176.382
       ]
      },
      "percentiles": [
@@ -11937,7 +14086,7 @@
      "rate": 4883,
      "runs": 3,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 4882.9,
       "min": 4882.9,
@@ -12015,6 +14164,18 @@
        66.762
       ]
      },
+     "cpuUsPerReq": {
+      "med": 136.726,
+      "min": 132.913,
+      "max": 143.382,
+      "n": 3,
+      "values": [
+       143.382,
+       132.913,
+       136.726
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 1.925,
       "min": 1.487,
@@ -12035,6 +14196,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.386,
+       0.346,
+       0.351
+      ],
+      "p99": [
+       6.459,
+       29.775,
+       51.167
+      ],
+      "p999": [
+       15.335,
+       58.463,
+       78.719
+      ],
+      "cpuUsPerReq": [
+       143.382,
+       132.913,
+       136.726
       ]
      },
      "percentiles": [
@@ -12128,7 +14311,7 @@
      "rate": 6104,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 6103.6,
       "min": 6103.6,
@@ -12206,6 +14389,18 @@
        79.387
       ]
      },
+     "cpuUsPerReq": {
+      "med": 127.179,
+      "min": 125.377,
+      "max": 130.066,
+      "n": 3,
+      "values": [
+       125.377,
+       127.179,
+       130.066
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.45,
       "min": 1.638,
@@ -12226,6 +14421,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.376,
+       0.403,
+       0.422
+      ],
+      "p99": [
+       7.247,
+       10.911,
+       6.495
+      ],
+      "p999": [
+       15.015,
+       14.399,
+       11.287
+      ],
+      "cpuUsPerReq": [
+       125.377,
+       127.179,
+       130.066
       ]
      },
      "percentiles": [
@@ -12319,7 +14536,7 @@
      "rate": 7629,
      "runs": 3,
      "sustained": 3,
-     "clientSaturated": 0,
+     "inCurve": true,
      "achieved": {
       "med": 7629.5,
       "min": 7629.5,
@@ -12397,6 +14614,18 @@
        84.625
       ]
      },
+     "cpuUsPerReq": {
+      "med": 110.918,
+      "min": 106.363,
+      "max": 112.868,
+      "n": 3,
+      "values": [
+       106.363,
+       112.868,
+       110.918
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 3.438,
       "min": 2.15,
@@ -12417,6 +14646,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       0.373,
+       0.47,
+       0.393
+      ],
+      "p99": [
+       7.371,
+       8.895,
+       12.935
+      ],
+      "p999": [
+       15.983,
+       20.479,
+       22.063
+      ],
+      "cpuUsPerReq": [
+       106.363,
+       112.868,
+       110.918
       ]
      },
      "percentiles": [
@@ -12510,7 +14761,7 @@
      "rate": 9537,
      "runs": 3,
      "sustained": 2,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 9536.8,
       "min": 9536.8,
@@ -12588,6 +14839,18 @@
        93.863
       ]
      },
+     "cpuUsPerReq": {
+      "med": 97.164,
+      "min": 96.587,
+      "max": 98.422,
+      "n": 3,
+      "values": [
+       97.164,
+       96.587,
+       98.422
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 5.038,
       "min": 4.038,
@@ -12608,6 +14871,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       1.927,
+       0.554,
+       0.834
+      ],
+      "p99": [
+       60.703,
+       16.343,
+       48.735
+      ],
+      "p999": [
+       68.159,
+       18.447,
+       65.983
+      ],
+      "cpuUsPerReq": [
+       97.164,
+       96.587,
+       98.422
       ]
      },
      "percentiles": [
@@ -12701,7 +14986,7 @@
      "rate": 11921,
      "runs": 3,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 11429.6,
       "min": 10050.3,
@@ -12779,6 +15064,18 @@
        97.063
       ]
      },
+     "cpuUsPerReq": {
+      "med": 84.091,
+      "min": 81.862,
+      "max": 96.577,
+      "n": 3,
+      "values": [
+       84.091,
+       81.862,
+       96.577
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 13.6,
       "min": 11.45,
@@ -12799,6 +15096,28 @@
        0,
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       11.143,
+       30.175,
+       723.967
+      ],
+      "p99": [
+       306.175,
+       185.471,
+       1253.38
+      ],
+      "p999": [
+       341.247,
+       197.119,
+       1274.88
+      ],
+      "cpuUsPerReq": [
+       84.091,
+       81.862,
+       96.577
       ]
      },
      "percentiles": [
@@ -12892,7 +15211,7 @@
      "rate": 14901,
      "runs": 2,
      "sustained": 0,
-     "clientSaturated": 0,
+     "inCurve": false,
      "achieved": {
       "med": 12450.65,
       "min": 11521.3,
@@ -12963,6 +15282,17 @@
        97.613
       ]
      },
+     "cpuUsPerReq": {
+      "med": 78.979,
+      "min": 73.234,
+      "max": 84.724,
+      "n": 2,
+      "values": [
+       73.234,
+       84.724
+      ]
+     },
+     "cpuSource": "sampled",
      "foreignCpuPct": {
       "med": 13.756,
       "min": 12.788,
@@ -12981,6 +15311,28 @@
       "values": [
        0,
        0
+      ]
+     },
+     "perRun": {
+      "p50": [
+       null,
+       304.639,
+       1072.13
+      ],
+      "p99": [
+       null,
+       819.199,
+       1785.86
+      ],
+      "p999": [
+       null,
+       837.631,
+       1825.79
+      ],
+      "cpuUsPerReq": [
+       null,
+       73.234,
+       84.724
       ]
      },
      "percentiles": [

@@ -2,30 +2,44 @@
 """Aggregates repeated runs of the load-testing harness into the data of the performance page.
 
     python3 -I loadtest/competitors/aggregate.py <runs dir> [--publish <docs dir>] [--allow-unguarded]
+    python3 -I loadtest/competitors/aggregate.py --raw docs/assets/perf/raw [--out <dir>] [--publish docs]
 
 <runs dir> holds one harness results directory per repetition (rep1/<timestamp>/results.json, ...,
-as run-all.sh writes them). For every proxy, scenario and measure it takes the median over the
-repetitions and the minimum and maximum (the spread), and writes into <runs dir>/aggregate/:
+as run-all.sh writes them). With --raw, the runs are instead read from a published raw/ directory
+(<rep>-<timestamp>.json files beside run-info.json and hostmon.jsonl), so that the page can be
+regenerated from the data committed beside it. For every proxy, scenario and measure it takes the
+median over the repetitions, keeps every run's value (the charts show each run as a dot) and the
+minimum and maximum (the spread table), and writes into <runs dir>/aggregate/ (or --out):
 
   results.json   the page's data: machine, versions, settings, command lines, and every aggregate
   *.svg          static charts, for readers without JavaScript (and GitHub)
   tables.md      the Markdown tables of the page
 
-Runs listed under "rejected" in <runs dir>/run-info.json are left out. Every other run must pass
-the contamination guard, read from <runs dir>/hostmon.jsonl (written by hostmon.py while the runs
-ran): the CPU the machine spent outside the benchmark's processes must average at most 50% of one
-CPU over the run, with a 95th percentile of at most 100%. --publish refuses runs that fail it or
-were not monitored (--allow-unguarded overrides that, for a local preview only).
+The rate sweep's maximum sustainable rate is each run's refined maximum when the harness refined
+the knee (sweep-refine-steps), with the bracket of offered rates it lies in; for runs made before
+refinement existed, the bracket is the coarse one (one sweep step) and the page says the figure is
+not refined. A run whose sweep the load generator ended (client-bound) is left out of every sweep
+figure, and each latency and CPU curve uses the same runs at every point: it stops at the highest
+offered rate every one of those runs sustained.
+
+Runs listed under "rejected" in run-info.json are left out. Every other run must pass the
+contamination guard, read from hostmon.jsonl (written by hostmon.py while the runs ran): the CPU the
+machine spent outside the benchmark's processes must average at most 50% of one CPU over the run,
+with a 95th percentile of at most 100%. --publish refuses runs that fail it or were not monitored
+(--allow-unguarded overrides that, for a local preview only).
 
 With --publish it also copies them into <docs dir>/assets/perf/, copies each repetition's raw
-results.json (minified) to <docs dir>/assets/perf/raw/, and rewrites the generated tables of
-<docs dir>/project/performance.md, between its <!-- perf:NAME --> and <!-- /perf:NAME --> markers.
+results.json (minified) to <docs dir>/assets/perf/raw/ (unless it is reading from there), and
+rewrites the generated tables of <docs dir>/project/performance.md, between its <!-- perf:NAME -->
+and <!-- /perf:NAME --> markers.
 
 Only the standard library is used. Nothing here invents a number: a value missing from the runs is
-missing from the output (null, or "n/a" in the tables).
+missing from the output (null, or "n/a" in the tables). Paths under the repository are made
+relative in everything published.
 """
 import glob
 import json
+import math
 import os
 import re
 import shutil
@@ -80,23 +94,61 @@ def kb_to_mb(v):
 
 # --- loading -----------------------------------------------------------------------------------
 
+RAW = [False]
+
+
+def parse_utc(text):
+    try:
+        return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
 def load_runs(runs_dir):
-    """Every rep*/<timestamp>/results.json, except the runs that run-info.json rejects."""
+    """Every rep*/<timestamp>/results.json (or, with --raw, every <rep>-<timestamp>.json), except the
+    runs that run-info.json rejects, in start order."""
     rejected = {r["rep"] for r in run_info(runs_dir).get("rejected", [])}
-    files = sorted(set(os.path.realpath(p) for p in glob.glob(os.path.join(runs_dir, "rep*", "*", "results.json"))))
+    if RAW[0]:
+        files = sorted(p for p in glob.glob(os.path.join(runs_dir, "*-*.json")) if re.match(r"^rep\d+-", os.path.basename(p)))
+    else:
+        files = sorted(set(os.path.realpath(p) for p in glob.glob(os.path.join(runs_dir, "rep*", "*", "results.json"))))
     runs = []
     for f in files:
-        rep = os.path.basename(os.path.dirname(os.path.dirname(f)))
+        if RAW[0]:
+            rep = os.path.basename(f).split("-", 1)[0]
+        else:
+            rep = os.path.basename(os.path.dirname(os.path.dirname(f)))
         if rep in rejected:
             continue
         with open(f, encoding="utf-8") as fh:
             data = json.load(fh)
         runs.append({"id": rep + "-" + data["timestamp"], "rep": rep, "file": f, "data": data,
                      "start": datetime.strptime(data["timestamp"], "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc).timestamp(),
-                     "end": os.path.getmtime(f)})
+                     "end": parse_utc(data.get("finished")) or (None if RAW[0] else os.path.getmtime(f))})
     if not runs:
-        sys.exit("no rep*/<timestamp>/results.json under " + runs_dir)
+        sys.exit("no runs under " + runs_dir)
+    runs.sort(key=lambda r: r["start"])
+    # Published raw files have no meaningful modification time: a run made before the harness recorded
+    # when it finished ends where the next one starts (run-all.sh runs them back to back), the last one
+    # at the host monitor's last sample that saw the benchmark's processes busy.
+    for i, r in enumerate(runs):
+        if r["end"] is None:
+            r["end"] = runs[i + 1]["start"] if i + 1 < len(runs) else last_monitor_sample(runs_dir)
     return runs
+
+
+def last_monitor_sample(runs_dir):
+    path = os.path.join(runs_dir, "hostmon.jsonl")
+    last = busy = None
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    x = json.loads(line)
+                    last = x["t"]
+                    if x.get("benchmarkCpuPct", 0) > 0:
+                        busy = x["t"]
+    return busy or last or 0
 
 
 def run_info(runs_dir):
@@ -142,7 +194,7 @@ def host_load(runs_dir, runs):
         procs = {}
         for x in win:
             for p in x.get("topForeign", []):
-                name = program(p["cmd"])
+                name = p.get("program") or program(p.get("cmd"))
                 procs[name] = procs.get(name, 0.0) + p["cpuPct"] / len(win)
         top = sorted(procs.items(), key=lambda kv: -kv[1])[:5]
         mean = statistics.mean(foreign)
@@ -185,6 +237,8 @@ def sanitize(text):
     if not isinstance(text, str):
         return text
     text = text.replace(ROOT + "/", "<repo>/").replace(ROOT, "<repo>")
+    # Published raw results already hold paths relative to the repository.
+    text = re.sub(r"(?<=[ =:])(loadtest|target)/", r"<repo>/\1/", text)
     text = re.sub(r"(<repo>/)?loadtest/results/[^ ]*/logs/", "<logs>/", text)
     text = re.sub(r"/tmp/[^ ]*/logs/", "<logs>/", text)
     text = re.sub(r"-Xlog:gc:file=[^ :]*", "-Xlog:gc:file=<logs>/gc.log", text)
@@ -213,86 +267,147 @@ def foreign_on(series, cpus):
     return statistics.mean(vals) if vals else None
 
 
+def last_sustained_rate(r):
+    """The offered rate of the highest sustained grid step before the knee (None if none was)."""
+    steps = r.get("steps") or []
+    knee = r.get("kneeStep")
+    bound = len(steps) if knee is None else min(knee, len(steps))
+    for j in range(bound - 1, -1, -1):
+        if steps[j].get("sustainable"):
+            return int(round(steps[j]["targetRate"]))
+    return None
+
+
+def proxy_knee(r):
+    """Whether the proxy, rather than the load generator or a crash, ended the sweep's sustained range."""
+    reason = r.get("kneeReason") or ""
+    return r.get("kneeStep") is not None and not reason.startswith("client-bound") and not reason.startswith("proxy ")
+
+
+def run_bracket(r):
+    """The offered rates the run's maximum lies between: the harness's (refined) bracket, or for a
+    run made before refinement existed, the coarse one (the last sustained step and the knee)."""
+    if "maxSustainableBracket" in r:
+        return r["maxSustainableBracket"]
+    if not proxy_knee(r):
+        return None
+    lo = last_sustained_rate(r)
+    steps = r.get("steps") or []
+    if lo is None or r["kneeStep"] >= len(steps):
+        return None
+    return [lo, steps[r["kneeStep"]]["targetRate"]]
+
+
+def cpu_per_request(step):
+    """The proxy's CPU time per completed request (µs) over a step, and how it was measured: from
+    /proc before and after the step ("measured"), or, for runs made before the harness recorded that,
+    from the step's mean sampled CPU% and its achieved rate ("sampled")."""
+    res = step.get("proxy") or {}
+    v = res.get("cpuUsPerRequest")
+    if isinstance(v, (int, float)):
+        return v, "measured"
+    pct, achieved = res.get("cpuPct"), step.get("achievedRate")
+    if isinstance(pct, (int, float)) and pct >= 0 and achieved:
+        return pct * 1e4 / achieved, "sampled"
+    return None, None
+
+
+SWEEP_KEYS = ("p50", "p90", "p99", "p999", "max")
+PER_RUN_KEYS = ("p50", "p99", "p999", "cpuUsPerReq")
+
+
 def aggregate_sweep(runs, proxies, proxy_cpus):
     out = {}
     for p in proxies:
-        by_rate = {}
-        maxes, knees, transients, stops, foreign, client_bound_runs = [], [], [], [], [], []
         unsupported = None
+        rows, used = [], []
         for run in runs:
             r = result(run, "sweep", p)
             if r is not None and "unsupported" in r:
                 unsupported = r["unsupported"]
             if not usable(r):
                 continue
-            client_bound = "client-bound" in (r.get("stopReason") or "")
-            if client_bound:
-                # The load generator, not the proxy, ended this sweep: its maximum says nothing about the proxy.
-                client_bound_runs.append(run["id"])
-            else:
-                maxes.append(r.get("maxSustainableRate"))
-            knees.append(None if client_bound else r.get("kneeReason"))
-            stops.append(r.get("stopReason"))
-            transients.append(len(r.get("transientSteps") or []))
-            f = foreign_on(r.get("series") or {}, proxy_cpus)
-            if f is not None:
-                foreign.append(f)
-            for s in r.get("steps", []):
-                key = int(round(s["targetRate"]))
-                b = by_rate.setdefault(key, {"achieved": [], "p50": [], "p90": [], "p99": [], "p999": [], "max": [],
-                                             "cpu": [], "foreign": [], "sustained": 0, "saturated": 0, "runs": 0,
-                                             "errors": [], "spectra": []})
-                if s.get("clientSaturated"):
-                    # The harness discards a step where the load generator fell behind; so does the page.
-                    b["saturated"] += 1
-                    continue
-                lat = s.get("latencyMs") or {}
+            client_bound = "client-bound" in (r.get("stopReason") or "") or "client-bound" in (r.get("kneeReason") or "")
+            bracket = run_bracket(r)
+            rows.append({"run": run["id"], "included": not client_bound,
+                         "excluded": "the load generator could not keep its schedule, which ended the sweep" if client_bound else None,
+                         "max": rnd(r.get("maxSustainableRate")),
+                         "coarseMax": rnd(r.get("maxSustainableRateCoarse", r.get("maxSustainableRate"))),
+                         "bracket": [rnd(x) for x in bracket] if bracket else None,
+                         "refined": bool(r.get("refined")),
+                         "probes": len((r.get("refine") or {}).get("probes") or []),
+                         "lastSustainedRate": last_sustained_rate(r),
+                         "kneeReason": r.get("kneeReason"), "stopReason": r.get("stopReason"),
+                         "transientSteps": len(r.get("transientSteps") or [])})
+            if not client_bound:
+                used.append((run, r))
+        ids = [run["id"] for run, _ in used]
+        foreign = [f for f in (foreign_on(r.get("series") or {}, proxy_cpus) for _, r in used) if f is not None]
+        # Every point of a curve is the median of the same runs: those that were not client-bound. A
+        # curve stops at the highest offered rate every one of them sustained.
+        ends = [row["lastSustainedRate"] for row in rows if row["included"]]
+        line_end = min(ends) if ends and all(e is not None for e in ends) else None
+        by_rate = {}
+        for k, (run, r) in enumerate(used):
+            for st in r.get("steps", []):
+                rate = int(round(st["targetRate"]))
+                b = by_rate.setdefault(rate, {"vals": {key: [None] * len(used) for key in SWEEP_KEYS + ("cpuUsPerReq", "cpuPct", "achieved", "foreign", "errors")},
+                                              "sustained": 0, "runs": 0, "cpuSource": set(), "spectra": []})
+                lat = st.get("latencyMs") or {}
+                res = st.get("proxy") or {}
                 b["runs"] += 1
-                b["achieved"].append(s.get("achievedRate"))
-                for k in ("p50", "p90", "p99", "p999", "max"):
-                    b[k].append(lat.get(k))
-                res = s.get("proxy") or {}
-                b["cpu"].append(res.get("cpuPct"))
-                b["foreign"].append(res.get("foreignCpuPct"))
-                b["errors"].append(s.get("errorCount"))
-                b["sustained"] += 1 if s.get("sustainable") else 0
-                if s.get("percentilesMs"):
-                    b["spectra"].append(s["percentilesMs"])
+                b["sustained"] += 1 if st.get("sustainable") else 0
+                for key in SWEEP_KEYS:
+                    b["vals"][key][k] = lat.get(key)
+                cpu, how = cpu_per_request(st)
+                b["vals"]["cpuUsPerReq"][k] = cpu
+                if how:
+                    b["cpuSource"].add(how)
+                b["vals"]["cpuPct"][k] = res.get("cpuPct")
+                b["vals"]["achieved"][k] = st.get("achievedRate")
+                b["vals"]["foreign"][k] = res.get("foreignCpuPct")
+                b["vals"]["errors"][k] = st.get("errorCount")
+                if st.get("percentilesMs"):
+                    b["spectra"].append(st["percentilesMs"])
         steps = []
         for rate in sorted(by_rate):
             b = by_rate[rate]
+            v = b["vals"]
             spectrum = None
             if b["spectra"]:
-                pts = []
+                spectrum = []
                 for i, (pct, _) in enumerate(b["spectra"][0]):
-                    vals = [sp[i][1] for sp in b["spectra"] if i < len(sp)]
-                    st = stats(vals)
-                    pts.append([pct, st["med"], st["min"], st["max"]])
-                spectrum = pts
-            steps.append({"rate": rate, "runs": b["runs"], "sustained": b["sustained"], "clientSaturated": b["saturated"],
-                          "achieved": stats(b["achieved"]), "p50": stats(b["p50"]), "p90": stats(b["p90"]),
-                          "p99": stats(b["p99"]), "p999": stats(b["p999"]), "max": stats(b["max"]),
-                          "cpuPct": stats(b["cpu"]), "foreignCpuPct": stats(b["foreign"]), "errors": stats(b["errors"]),
+                    st = stats([sp[i][1] for sp in b["spectra"] if i < len(sp)])
+                    spectrum.append([pct, st["med"], st["min"], st["max"]])
+            steps.append({"rate": rate, "runs": b["runs"], "sustained": b["sustained"],
+                          "inCurve": line_end is not None and rate <= line_end and b["runs"] == len(used),
+                          "achieved": stats(v["achieved"]), "p50": stats(v["p50"]), "p90": stats(v["p90"]),
+                          "p99": stats(v["p99"]), "p999": stats(v["p999"]), "max": stats(v["max"]),
+                          "cpuPct": stats(v["cpuPct"]), "cpuUsPerReq": stats(v["cpuUsPerReq"]),
+                          "cpuSource": "/".join(sorted(b["cpuSource"])) or None,
+                          "foreignCpuPct": stats(v["foreign"]), "errors": stats(v["errors"]),
+                          "perRun": {key: [rnd(x) for x in v[key]] for key in PER_RUN_KEYS},
                           "percentiles": spectrum})
-        steps = [st for st in steps if st["runs"] > 0]
-        out[p] = {"unsupported": unsupported, "maxSustainable": stats(maxes), "clientBoundRuns": client_bound_runs,
-                  "maxSustainableRuns": [m for m in maxes], "kneeReasons": knees, "stopReasons": stops,
-                  "transientSteps": transients, "foreignOnProxyCpuPct": stats(foreign), "steps": steps}
+        inc = [row for row in rows if row["included"]]
+        refined = sum(1 for row in inc if row["refined"])
+        widths = [row["bracket"][1] / row["bracket"][0] - 1 for row in inc if row["bracket"] and row["bracket"][0]]
+        out[p] = {"unsupported": unsupported, "runs": rows, "curveRuns": ids,
+                  "maxSustainable": stats([row["max"] for row in inc]),
+                  "refined": "all" if inc and refined == len(inc) else "none" if not refined else "some",
+                  "bracketWidth": rnd(max(widths), 4) if widths else None,
+                  "curveEndRate": line_end,
+                  "kneeReasons": [row["kneeReason"] for row in inc],
+                  "foreignOnProxyCpuPct": stats(foreign), "steps": steps}
     return out
 
 
-def common_rate(sweep, proxies, slo):
-    """The highest offered rate every proxy sustained in a majority of its runs (p99 within the SLO)."""
+def common_rate(sweep, proxies):
+    """The highest offered rate on every proxy's curve: every proxy sustained it in every run used."""
     best = None
-    rates = sorted({s["rate"] for p in proxies for s in sweep[p]["steps"]})
+    measured = [p for p in proxies if sweep[p]["steps"]]
+    rates = sorted({s["rate"] for p in measured for s in sweep[p]["steps"]})
     for rate in rates:
-        ok = True
-        for p in proxies:
-            step = next((s for s in sweep[p]["steps"] if s["rate"] == rate), None)
-            if step is None or step["sustained"] * 2 <= step["runs"] or step["p99"] is None or step["p99"]["med"] > slo:
-                ok = False
-                break
-        if ok:
+        if all(any(s["rate"] == rate and s["inCurve"] for s in sweep[p]["steps"]) for p in measured):
             best = rate
     return best
 
@@ -511,7 +626,7 @@ def build(runs_dir):
             proxy_cpus.append(int(part))
     slo = float(settings.get("slo-p99-ms", 50))
     sweep = aggregate_sweep(runs, proxies, proxy_cpus)
-    rate = common_rate(sweep, proxies, slo)
+    rate = common_rate(sweep, proxies)
     info = run_info(runs_dir)
     run_info_commit[0] = info.get("commit")
     hosts = host_load(runs_dir, runs)
@@ -520,6 +635,7 @@ def build(runs_dir):
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "runInfo": info,
         "runs": [{"id": r["id"], "timestamp": r["data"]["timestamp"], "order": r["data"]["proxies"],
+                  "end": datetime.fromtimestamp(r["end"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if r["end"] else None,
                   "raw": "raw/" + r["id"] + ".json", "harnessOk": r["data"].get("harnessOk"),
                   "notes": r["data"].get("notes"), "hostLoad": hosts.get(r["id"])} for r in runs],
         "guard": {"foreignCpuMeanMax": GUARD_MEAN, "foreignCpuP95Max": GUARD_P95,
@@ -554,58 +670,83 @@ def fmt(v, digits=0):
 RUNS = [0]
 
 
-def spread(st, digits=0, unit=""):
-    """'median (min–max)' of a stats object; '(n runs)' when fewer runs than all measured it."""
+def fewer(st):
+    """' (n of N runs)' when fewer runs than all measured it (some were left out), else ''."""
+    if st and 0 < st["n"] < RUNS[0]:
+        return f" ({st['n']} of {RUNS[0]} runs)"
+    return ""
+
+
+def med(st, digits=0, unit=""):
+    """The median of a stats object, marked ‡ where runs were left out (a note under the table says which)."""
     if not st:
         return "n/a"
-    fewer = f" ({st['n']} run{'s' if st['n'] > 1 else ''})" if 0 < st["n"] < RUNS[0] else ""
-    if st["n"] == 1 or st["min"] == st["max"]:
-        return f"{fmt(st['med'], digits)}{unit}{fewer}"
-    return f"{fmt(st['med'], digits)}{unit} ({fmt(st['min'], digits)}–{fmt(st['max'], digits)}){fewer}"
+    return f"{fmt(st['med'], digits)}{unit}{' ‡' if fewer(st) else ''}"
+
+
+def spread(st, digits=0, unit=""):
+    """'min–max' of a stats object (one value when every run agreed), with the run count."""
+    if not st:
+        return "n/a"
+    return f"{fmt(st['min'], digits)}–{fmt(st['max'], digits)}{unit}{fewer(st)}"
+
+
+def med_range(st):
+    """'median (min–max)', for prose outside the performance page."""
+    return f"{fmt(st['med'])} ({fmt(st['min'])}–{fmt(st['max'])})" if st["min"] != st["max"] else fmt(st["med"])
 
 
 def step_at(sweep, p, rate):
     return next((s for s in sweep[p]["steps"] if s["rate"] == rate), None)
 
 
+def curve_step(sweep, p, rate):
+    """The step at rate if it is on the proxy's curve (sustained in every run used), else None."""
+    st = step_at(sweep, p, rate) if rate else None
+    return st if st and st["inCurve"] else None
+
+
 def scoreboard_rows(d):
-    """(metric, better, {proxy: stats or None}, digits, unit) for the scoreboard."""
+    """(metric, better, {proxy: stats or None}, digits, unit, key) for the scoreboard and the spread table."""
     ids = [m["id"] for m in d["proxies"]]
     rate = d["commonRate"]
     rows = []
-    rows.append(("Max sustainable rate (req/s)", "higher", {p: d["sweep"][p]["maxSustainable"] for p in ids}, 0, ""))
+    rows.append(("Max sustainable rate (req/s)", "higher", {p: d["sweep"][p]["maxSustainable"] for p in ids}, 0, "", "maxrate"))
     if rate:
+        rows.append((f"Proxy CPU per request at {rate:,} req/s (µs)", "lower",
+                     {p: (curve_step(d["sweep"], p, rate) or {}).get("cpuUsPerReq") for p in ids}, 0, "", "cpu"))
         for key, name in (("p50", "p50"), ("p99", "p99"), ("p999", "p99.9")):
             rows.append((f"{name} latency at {rate:,} req/s (ms)", "lower",
-                         {p: (step_at(d["sweep"], p, rate) or {}).get(key) for p in ids}, 2, ""))
-    rows.append(("Idle RSS (MB)", "lower", {p: d["ramp"][p]["idleRssMb"] for p in ids}, 1, ""))
-    rows.append(("RSS per idle connection (KB)", "lower", {p: d["ramp"][p]["rssKbPerConn"] for p in ids}, 1, ""))
+                         {p: (curve_step(d["sweep"], p, rate) or {}).get(key) for p in ids}, 2, "", key))
+    rows.append(("Idle RSS (MB)", "lower", {p: d["ramp"][p]["idleRssMb"] for p in ids}, 1, "", "idle"))
+    rows.append(("RSS per idle connection (KB)", "lower", {p: d["ramp"][p]["rssKbPerConn"] for p in ids}, 1, "", "perconn"))
     last = max((s["target"] for p in ids for s in d["ramp"][p]["steps"]), default=None)
     if last:
         rows.append((f"RSS holding {last:,} idle connections (MB)", "lower",
-                     {p: next((s["rssMb"] for s in d["ramp"][p]["steps"] if s["target"] == last), None) for p in ids}, 1, ""))
+                     {p: next((s["rssMb"] for s in d["ramp"][p]["steps"] if s["target"] == last), None) for p in ids}, 1, "", "held"))
     names = {"slowread": "slow readers", "slowloris": "slowloris", "updown": "parallel large uploads and downloads"}
     for attack, per in d["memory"].items():
         conns = d["settings"].get(f"{attack}-connections") or d["settings"].get("updown-connections")
         label = names.get(attack, attack)
         if attack == "slowread":
-            rows.append((f"RSS per slow reader, {conns} readers (KB)", "lower", {p: per[p]["rssKbPerConnection"] for p in ids}, 0, ""))
-        rows.append((f"Peak RSS under {label} (MB, 512 MB cap)", "lower", {p: per[p]["peakRssMb"] for p in ids}, 1, ""))
+            rows.append((f"RSS per slow reader, {conns} readers (KB)", "lower", {p: per[p]["rssKbPerConnection"] for p in ids}, 0, "", "reader"))
+        rows.append((f"Peak RSS under {label} (MB, 512 MB cap)", "lower", {p: per[p]["peakRssMb"] for p in ids}, 1, "", attack))
     return rows
 
 
 def winner(cells, better):
-    """The proxy with the best median (None on a tie), and whether its range overlaps the runner-up's."""
+    """The proxy with the best median, if it is clear of the runner-up in every run (its worst run
+    beats the runner-up's best); else None."""
     have = [(p, st) for p, st in cells.items() if st]
     if len(have) < 2:
-        return None, False
+        return None
     key = (lambda x: -x[1]["med"]) if better == "higher" else (lambda x: x[1]["med"])
     have.sort(key=key)
     (bp, bs), (_, rs) = have[0], have[1]
     if bs["med"] == rs["med"]:
-        return None, True
-    overlap = (bs["min"] <= rs["max"]) if better == "higher" else (bs["max"] >= rs["min"])
-    return bp, overlap
+        return None
+    clear = bs["min"] > rs["max"] if better == "higher" else bs["max"] < rs["min"]
+    return bp if clear else None
 
 
 def knee_kind(reason):
@@ -637,27 +778,78 @@ def table(header, rows):
     return "\n".join(out)
 
 
+def tally(c):
+    """Verdict counts: the verdict alone when every run agreed, else each with its count."""
+    if not c:
+        return "n/a"
+    if len(c) == 1 and RUNS[0] > 0 and list(c.values())[0] == RUNS[0]:
+        return list(c)[0]
+    return ", ".join(f"{k} ×{v}" for k, v in c.items())
+
+
+def resolution(s, factor):
+    """How finely the maximum sustainable rate is known: the widest bracket of the runs used."""
+    if not s["maxSustainable"]:
+        return "n/a"
+    if s["refined"] == "all" and s["bracketWidth"] is not None:
+        return f"within {s['bracketWidth'] * 100:.1f}% (refined)"
+    if s["refined"] == "none":
+        return f"one ×{factor:g} step (not refined)"
+    return f"up to {s['bracketWidth'] * 100:.0f}% (some runs refined)" if s["bracketWidth"] is not None else "n/a"
+
+
+def excluded_note(d, labels, ids, mark=True):
+    """A sentence naming the proxies whose sweep figures leave runs out, or ''."""
+    parts = []
+    for p in ids:
+        rows = d["sweep"][p]["runs"]
+        out = [r for r in rows if not r["included"]]
+        if out:
+            parts.append(f"{labels[p]} {len(rows) - len(out)} of {len(rows)}")
+    if not parts:
+        return ""
+    return (("‡ " if mark else "") + "A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep "
+            "figure; runs used: " + "; ".join(parts) + ".")
+
+
 def tables(d):
     RUNS[0] = len(d["runs"])
     labels = {m["id"]: m["label"] for m in d["proxies"]}
     ids = [m["id"] for m in d["proxies"]]
+    factor = float(d["settings"].get("sweep-factor", 1.25))
     t = {}
 
-    # Scoreboard.
+    # Scoreboard: medians only; bold where the best is clear of the runner-up in every run.
     rows = []
-    for metric, better, cells, digits, unit in scoreboard_rows(d):
+    unrefined = any(d["sweep"][p]["refined"] != "all" and d["sweep"][p]["maxSustainable"] for p in ids)
+    for metric, better, cells, digits, unit, key in scoreboard_rows(d):
         if sum(1 for v in cells.values() if v) < 2:
             continue
-        best, overlap = winner(cells, better)
-        row = [metric]
+        best = winner(cells, better)
+        row = [metric + (" †" if key == "maxrate" and unrefined else "")]
         for p in ids:
-            cell = spread(cells.get(p), digits, unit)
-            if p == best:
-                cell = f"**{cell}**"
-            row.append(cell)
-        row.append("tie" if best is None else labels[best] + (" (ranges overlap)" if overlap else ""))
+            cell = med(cells.get(p), digits, unit)
+            row.append(f"**{cell}**" if p == best else cell)
         rows.append(row)
-    t["scoreboard"] = table(["Metric (median, min–max of the runs)"] + [labels[p] for p in ids] + ["Best median"], rows)
+    notes = []
+    if unrefined:
+        ex_row = next((r for p in ids for r in d["sweep"][p]["runs"] if r["included"] and r["bracket"] and not r["refined"]), None)
+        example = (f": {fmt(ex_row['bracket'][0])} means at least {fmt(ex_row['bracket'][0])} and less than "
+                   f"{fmt(ex_row['bracket'][1])}") if ex_row else ""
+        notes.append(f"† Not refined: these runs predate knee refinement, so each run's maximum is known only to within one "
+                     f"×{factor:g} sweep step{example}.")
+    ex = excluded_note(d, labels, ids)
+    if ex:
+        notes.append(ex)
+    t["scoreboard"] = table(["Median of the runs"] + [labels[p] for p in ids], rows) + ("\n\n" + "\n\n".join(notes) if notes else "")
+
+    # The spread behind every median: the lowest and highest run.
+    rows = []
+    for metric, better, cells, digits, unit, key in scoreboard_rows(d):
+        if sum(1 for v in cells.values() if v) < 2:
+            continue
+        rows.append([metric] + [spread(cells.get(p), digits, unit) for p in ids])
+    t["spread"] = table(["Lowest–highest run"] + [labels[p] for p in ids], rows)
 
     # Rate sweep.
     rows = []
@@ -665,42 +857,52 @@ def tables(d):
     for p in ids:
         s = d["sweep"][p]
         if s["unsupported"]:
-            rows.append([labels[p], "not supported: " + s["unsupported"]] + ["n/a"] * 5)
+            rows.append([labels[p], "not supported: " + s["unsupported"]] + ["n/a"] * 4)
             continue
-        at = step_at(d["sweep"], p, rate) if rate else None
-        knees = [k for k in s["kneeReasons"] if k]
-        sat = sum(st["clientSaturated"] for st in s["steps"])
-        cb = len(s["clientBoundRuns"])
-        rows.append([labels[p], spread(s["maxSustainable"]) + (f" ({cb} run{'s' if cb > 1 else ''} ended by the load generator, left out)" if cb else ""),
-                     spread((at or {}).get("p99"), 2), spread((at or {}).get("p999"), 2),
-                     spread((at or {}).get("cpuPct"), 0, "%"),
-                     knee_kinds(knees) or "not reached", str(sat)])
-    t["sweep"] = table(["Proxy", "Max sustainable rate (req/s)", f"p99 at {rate:,} req/s (ms)" if rate else "p99 (ms)",
-                        f"p99.9 at {rate:,} req/s (ms)" if rate else "p99.9 (ms)", "Proxy CPU at that rate",
-                        "Why the knee came", "Steps discarded (load generator behind)"], rows)
+        at = curve_step(d["sweep"], p, rate)
+        rows.append([labels[p], med(s["maxSustainable"]), resolution(s, factor),
+                     med((at or {}).get("cpuUsPerReq")), med((at or {}).get("p99"), 2),
+                     knee_kinds([k for k in s["kneeReasons"] if k]) or "not reached"])
+    header = ["Proxy", "Max sustainable rate (req/s)", "Known to within",
+              f"CPU per request at {rate:,} req/s (µs)" if rate else "CPU per request (µs)",
+              f"p99 at {rate:,} req/s (ms)" if rate else "p99 (ms)", "Why the knee came"]
+    notes = []
+    known = {r[2] for r in rows if r[2] != "n/a"}
+    if len(known) == 1:
+        # The same resolution for every proxy: said once, under the table.
+        notes.append("Every maximum is known to within " + known.pop().replace("within ", "") + ".")
+        header.pop(2)
+        rows = [r[:2] + r[3:] for r in rows]
+    if ex:
+        notes.append(ex)
+    t["sweep"] = table(header, rows) + ("\n\n" + "\n\n".join(notes) if notes else "")
 
-    # Latency per offered rate (every step, median of the runs).
-    rates = sorted({st["rate"] for p in ids for st in d["sweep"][p]["steps"]})
-    rows = []
-    for r in rates:
-        row = [f"{r:,}"]
-        for p in ids:
-            st = step_at(d["sweep"], p, r)
-            if not st or not st["p99"]:
-                row.append("–")
-            else:
-                mark = "" if st["sustained"] * 2 > st["runs"] else " ✗"
-                row.append(f"{fmt(st['p99']['med'], 2)}{mark}" + (f" ({st['runs']} run{'s' if st['runs'] > 1 else ''})" if st["runs"] != len(d["runs"]) else ""))
-        rows.append(row)
-    t["latency"] = table(["Offered req/s"] + [labels[p] + " p99 (ms)" for p in ids], rows)
+    # Per offered rate, on each proxy's curve only (every run used sustained it).
+    rates = sorted({st["rate"] for p in ids for st in d["sweep"][p]["steps"] if st["inCurve"]})
+    for name, key, digits in (("cpu", "cpuUsPerReq", 0), ("latency", "p99", 2)):
+        rows = []
+        for r in rates:
+            row = [f"{r:,}"]
+            for p in ids:
+                st = curve_step(d["sweep"], p, r)
+                mark = " *" if st and st["sustained"] < st["runs"] else ""
+                row.append(fmt(st[key]["med"], digits) + mark if st and st.get(key) else "–")
+            rows.append(row)
+        t[name] = table(["Offered req/s"] + [f"{labels[p]}" for p in ids], rows)
+        notes = []
+        if any(" *" in c for row in rows for c in row):
+            notes.append("\\* Not sustained in every run: a lone noisy step that the sweep recovered from at the next step.")
+        if ex:
+            notes.append(excluded_note(d, labels, ids, mark=False))
+        if notes:
+            t[name] += "\n\n" + "\n\n".join(notes)
 
     # Memory.
     rows = []
     for p in ids:
         r = d["ramp"][p]
-        held = r["maxHeld"]
-        rows.append([labels[p], spread(r["idleRssMb"], 1), spread(r["rssKbPerConn"], 1), spread(held),
-                     ", ".join(f"{k} ×{v}" for k, v in r["failureKinds"].items()) or "n/a"])
+        rows.append([labels[p], med(r["idleRssMb"], 1), med(r["rssKbPerConn"], 1), med(r["maxHeld"]),
+                     tally(r["failureKinds"])])
     t["ramp"] = table(["Proxy", "Idle RSS (MB)", "RSS per idle connection (KB)", "Connections held", "Ramp ended"], rows)
 
     rows = []
@@ -710,11 +912,10 @@ def tables(d):
             if m["skipped"]:
                 rows.append([attack, labels[p], "not supported: " + m["skipped"], "n/a", "n/a", "n/a", "n/a"])
                 continue
-            verdicts = ", ".join(f"{k} ×{v}" for k, v in m["verdicts"].items()) or "n/a"
-            rows.append([attack, labels[p], verdicts, spread(m["peakRssMb"], 1), spread(m["rssKbPerConnection"]),
-                         spread(m["probeOkRatio"] and {**m["probeOkRatio"], **{k: m["probeOkRatio"][k] * 100 for k in ("med", "min", "max")}}, 0, "%"),
-                         ", ".join(f"{k} ×{v}" for k, v in m["states"].items())])
-    t["memory"] = table(["Workload", "Proxy", "Verdicts", "Peak RSS (MB)", "RSS per connection (KB)", "Honest probes answered",
+            probes = m["probeOkRatio"] and {**m["probeOkRatio"], "med": m["probeOkRatio"]["med"] * 100}
+            rows.append([attack, labels[p], tally(m["verdicts"]), med(m["peakRssMb"], 1), med(m["rssKbPerConnection"]),
+                         med(probes, 0, "%"), tally(m["states"])])
+    t["memory"] = table(["Workload", "Proxy", "Verdict", "Peak RSS (MB)", "RSS per connection (KB)", "Honest probes answered",
                          "Proxy at the end"], rows)
 
     # Soak and faults.
@@ -724,9 +925,9 @@ def tables(d):
         if s["unsupported"]:
             rows.append([labels[p], "not supported", "n/a", "n/a", "n/a"])
             continue
-        rows.append([labels[p], ", ".join(f"{k} ×{v}" for k, v in s["verdicts"].items()) or "n/a",
-                     spread(s["rssSlopeKbPerHour"]), spread(s["medianWindowP99Ms"], 2), spread(s["errors"])])
-    t["soak"] = table(["Proxy", "Leak verdicts", "RSS slope (KB/hour)", "Median per-window p99 (ms)", "Errors"], rows)
+        rows.append([labels[p], tally(s["verdicts"]), med(s["rssSlopeKbPerHour"]), med(s["medianWindowP99Ms"], 2),
+                     med(s["errors"])])
+    t["soak"] = table(["Proxy", "Leak verdict", "RSS slope (KB/hour)", "Median per-window p99 (ms)", "Errors"], rows)
 
     fault_names = []
     for p in ids:
@@ -774,7 +975,7 @@ def tables(d):
     if lp and mp:
         readers = d["settings"].get("slowread-connections")
         t["arch-slowread"] = (f"Measured with {readers} slow readers and each proxy capped at 512 MB, RSS rose by about "
-                              f"{spread(lp)} KB per reader for LittleProxy and {spread(mp)} KB for MicroProxy (median of "
+                              f"{med_range(lp)} KB per reader for LittleProxy and {med_range(mp)} KB for MicroProxy (median of "
                               f"{len(d['runs'])} runs, lowest–highest in parentheses).")
     else:
         t["arch-slowread"] = ""
@@ -816,9 +1017,12 @@ class Svg:
                  ".h{fill:#0b0b0b;font-weight:600}.g{stroke:#e1e0d9;stroke-width:1;fill:none}"
                  ".a{stroke:#c3c2b7;stroke-width:1;fill:none}.l{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}"
                  ".l.mp{stroke-width:3}.w{stroke-width:1.5;fill:none}.cap{stroke:#d03b3b;stroke-width:1.5;fill:none}"
+                 ".med{stroke:#52514e;fill:none}.ref{stroke:#52514e;stroke-width:1;stroke-dasharray:4 3;fill:none}"
                  + SVG_STYLE_LIGHT +
+                 ".dot{stroke:#fcfcfb;stroke-width:1.5}.hollow{fill:#fcfcfb}"
                  "@media (prefers-color-scheme: dark){text{fill:#c3c2b7}.h{fill:#f0efec}.g{stroke:#2c2c2a}.a{stroke:#383835}"
-                 + SVG_STYLE_DARK + "}")
+                 ".med{stroke:#c3c2b7}.ref{stroke:#c3c2b7}.cap{stroke:#e66767}"
+                 + SVG_STYLE_DARK + ".dot{stroke:#1a1a19}.hollow{fill:#1a1a19}}")
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" '
                 f'role="img" aria-label="{esc(self.title)}"><title>{esc(self.title)}</title><style>{style}</style>'
                 + "".join(self.parts) + "</svg>\n")
@@ -846,36 +1050,57 @@ def tick_label(v):
     return f"{v:g}"
 
 
-def bar_chart(title, sub, meta, cells, unit, digits):
-    rows = [(m, cells.get(m["id"])) for m in meta]
-    left, right, top, rowh = 150, 70, 54, 30
-    w, h = 720, top + rowh * len(rows) + 40
-    vmax = nice_max(max((c["max"] for _, c in rows if c), default=1))
+def dot_chart(title, sub, meta, rows, unit, digits, note=None):
+    """A strip plot: one row per proxy, a dot per run (offset vertically so equal runs stay visible),
+    a tick at the median with its value. rows: {id: {"values": [...], "brackets": [[lo, hi] or None],
+    "med": v}}; a run's bracket (the range its true value lies in) is drawn as a faint bar behind it."""
+    left, right, top, rowh = 130, 90, 54, 34
+    w = 720
+    h = top + rowh * len(meta) + (54 if note else 36)
+    vals = [v for m in meta for v in (rows.get(m["id"]) or {}).get("values", []) if v is not None]
+    vals += [b[1] for m in meta for b in (rows.get(m["id"]) or {}).get("brackets", []) if b]
+    vmax = nice_max(max(vals, default=1))
     sv = Svg(w, h, title)
     sv.text(0, 18, title, "h", size=14)
     sv.text(0, 36, sub, size=12)
     pw = w - left - right
+    X = lambda v: left + pw * v / vmax
     for tv in ticks(vmax):
-        x = left + pw * tv / vmax
-        sv.add(f'<line class="g" x1="{x:.1f}" y1="{top - 6}" x2="{x:.1f}" y2="{top + rowh * len(rows)}"/>')
-        sv.text(x, top + rowh * len(rows) + 16, tick_label(tv), anchor="middle", size=11)
-    for i, (m, c) in enumerate(rows):
+        sv.add(f'<line class="g" x1="{X(tv):.1f}" y1="{top - 6}" x2="{X(tv):.1f}" y2="{top + rowh * len(meta)}"/>')
+        sv.text(X(tv), top + rowh * len(meta) + 16, tick_label(tv), anchor="middle", size=11)
+    for i, m in enumerate(meta):
         y = top + i * rowh + rowh / 2
-        sv.text(left - 8, y + 4, m["label"], anchor="end")
-        if not c:
-            sv.text(left + 4, y + 4, "not measured")
+        sv.text(left - 10, y + 4, m["label"], "h" if m["id"] == "microproxy" else "t", anchor="end")
+        sv.add(f'<line class="g" x1="{left}" y1="{y:.1f}" x2="{left + pw}" y2="{y:.1f}" style="stroke-dasharray:2 3"/>')
+        r = rows.get(m["id"])
+        if not r or not r.get("values"):
+            sv.text(left + 6, y + 4, "not measured")
             continue
-        bw = pw * c["med"] / vmax
-        sv.add(f'<rect class="s{m["slot"]}" x="{left}" y="{y - 8}" width="{max(bw, 1):.1f}" height="16" rx="3"/>')
-        x1, x2 = left + pw * c["min"] / vmax, left + pw * c["max"] / vmax
-        sv.add(f'<path class="a" style="stroke-width:1.5" d="M{x1:.1f} {y}H{x2:.1f}M{x1:.1f} {y - 5}V{y + 5}M{x2:.1f} {y - 5}V{y + 5}"/>')
-        sv.text(max(bw, x2 - left) + left + 6, y + 4, fmt(c["med"], digits) + unit, size=11)
-    sv.add(f'<line class="a" x1="{left}" y1="{top - 6}" x2="{left}" y2="{top + rowh * len(rows)}"/>')
+        n = len(r["values"])
+        for k, v in enumerate(r["values"]):
+            if v is None:
+                continue
+            dy = (k - (n - 1) / 2) * min(6, 20 / max(1, n - 1))
+            br = (r.get("brackets") or [None] * n)[k]
+            if br:
+                sv.add(f'<rect class="s{m["slot"]}" x="{X(br[0]):.1f}" y="{y + dy - 2:.1f}" width="{max(1, X(br[1]) - X(br[0])):.1f}" height="4" rx="2" style="opacity:.28;stroke:none"/>')
+            sv.add(f'<circle class="s{m["slot"]} dot" cx="{X(v):.1f}" cy="{y + dy:.1f}" r="4.5"/>')
+        if r.get("med") is not None:
+            xm = X(r["med"])
+            sv.add(f'<line class="med" x1="{xm:.1f}" y1="{y - 12:.1f}" x2="{xm:.1f}" y2="{y + 12:.1f}" style="stroke-width:2"/>')
+            xr = max(X(v) for v in r["values"] if v is not None)
+            xr = max([xr] + [X(b[1]) for b in (r.get("brackets") or []) if b])
+            sv.text(xr + 10, y + 4, fmt(r["med"], digits) + unit, size=11)
+    sv.add(f'<line class="a" x1="{left}" y1="{top - 6}" x2="{left}" y2="{top + rowh * len(meta)}"/>')
+    if note:
+        sv.text(0, h - 8, note, size=11)
     return sv.render()
 
 
-def line_chart(title, sub, xlabel, ylabel, series, ymax=None, xmax=None, hline=None, clamp_note=None):
-    """series: [(meta, [[x, y], ...], end_marker or None)]. Points above ymax are pinned and marked."""
+def line_chart(title, sub, xlabel, ylabel, series, ymax=None, xmax=None, hline=None, ylog=None, xlog=False):
+    """series: [(meta, [[x, y], ...], end_marker or None)]. ylog: (min, max) for a logarithmic y axis;
+    xlog: a logarithmic x axis over the points' range (the sweep's geometric steps, evenly spaced)."""
+    import math
     left, right, top, bottom = 56, 120, 54, 46
     w, h = 720, 380
     pw, ph = w - left - right, h - top - bottom
@@ -887,18 +1112,37 @@ def line_chart(title, sub, xlabel, ylabel, series, ymax=None, xmax=None, hline=N
     sv.text(0, 18, title, "h", size=14)
     sv.text(0, 36, sub, size=12)
     X = lambda x: left + pw * x / xmax
-    Y = lambda y: top + ph - ph * min(y, ymax) / ymax
-    for tv in ticks(ymax):
+    xt = ticks(xmax)
+    if xlog and all_x:
+        x0, x1 = math.log(min(all_x) / 1.15), math.log(max(all_x) * 1.15)
+        X = lambda x: left + pw * (math.log(x) - x0) / (x1 - x0)
+        xt = [m * 10 ** e for e in range(math.floor(x0 / math.log(10)), math.ceil(x1 / math.log(10)) + 1)
+              for m in (1, 2, 5) if x0 <= math.log(m * 10 ** e) <= x1]
+    if ylog:
+        lo, hi = math.log10(ylog[0]), math.log10(ylog[1])
+        Y = lambda y: top + ph - ph * (math.log10(max(y, ylog[0])) - lo) / (hi - lo)
+        yt = []
+        for e in range(math.floor(lo), math.ceil(hi) + 1):
+            for m in (1, 2, 5):
+                v = m * 10 ** e
+                if ylog[0] <= v <= ylog[1]:
+                    yt.append(v)
+    else:
+        Y = lambda y: top + ph - ph * min(y, ymax) / ymax
+        yt = ticks(ymax)
+    for tv in yt:
         sv.add(f'<line class="g" x1="{left}" y1="{Y(tv):.1f}" x2="{left + pw}" y2="{Y(tv):.1f}"/>')
         sv.text(left - 6, Y(tv) + 4, tick_label(tv), anchor="end", size=11)
-    for tv in ticks(xmax):
+    for tv in xt:
         sv.text(X(tv), top + ph + 16, tick_label(tv), anchor="middle", size=11)
     sv.add(f'<line class="a" x1="{left}" y1="{top + ph}" x2="{left + pw}" y2="{top + ph}"/>')
     sv.text(left + pw / 2, h - 8, xlabel, anchor="middle", size=12)
     sv.add(f'<text x="14" y="{top + ph / 2:.1f}" font-size="12" text-anchor="middle" transform="rotate(-90 14 {top + ph / 2:.1f})">{esc(ylabel)}</text>')
     if hline:
-        sv.add(f'<line class="cap" x1="{left}" y1="{Y(hline[0]):.1f}" x2="{left + pw}" y2="{Y(hline[0]):.1f}"/>')
-        sv.text(left + pw - 4, Y(hline[0]) - 5, hline[1], anchor="end", size=11)
+        # A hard limit (a memory cap) in the critical color; a reference (an SLO) as a dashed rule.
+        cls = hline[2] if len(hline) > 2 else "cap"
+        sv.add(f'<line class="{cls}" x1="{left}" y1="{Y(hline[0]):.1f}" x2="{left + pw}" y2="{Y(hline[0]):.1f}"/>')
+        sv.text(left + 4 if cls == "ref" else left + pw - 4, Y(hline[0]) - 5, hline[1], anchor="start" if cls == "ref" else "end", size=11)
     ends = []
     for m, pts, end in series:
         pts = [p for p in pts if p[1] is not None]
@@ -907,23 +1151,25 @@ def line_chart(title, sub, xlabel, ylabel, series, ymax=None, xmax=None, hline=N
         d = " ".join(("M" if i == 0 else "L") + f"{X(x):.1f} {Y(y):.1f}" for i, (x, y) in enumerate(pts))
         cls = "l mp" if m["id"] == "microproxy" else "l"
         sv.add(f'<path class="{cls} s{m["slot"]}" style="fill:none" d="{d}"/>')
-        for x, y in pts:
-            if y > ymax:
-                sv.add(f'<path class="s{m["slot"]}" d="M{X(x) - 5:.1f} {Y(y) + 4:.1f}L{X(x):.1f} {Y(y) - 5:.1f}L{X(x) + 5:.1f} {Y(y) + 4:.1f}Z"/>')
-        if end:
-            ex, ey = X(pts[-1][0]), Y(pts[-1][1])
+        for x, y in pts[:-1]:
+            sv.add(f'<circle class="s{m["slot"]}" cx="{X(x):.1f}" cy="{Y(y):.1f}" r="3"/>')
+        ex, ey = X(pts[-1][0]), Y(pts[-1][1])
+        if end == "knee":
+            # The last offered rate every run sustained: the curve stops here, at the knee.
+            sv.add(f'<circle class="s{m["slot"]} hollow" cx="{ex:.1f}" cy="{ey:.1f}" r="5" style="stroke-width:2.5"/>')
+        elif end:
             sv.add(f'<path class="s{m["slot"]}" style="stroke-width:3" d="M{ex - 6:.1f} {ey - 6:.1f}L{ex + 6:.1f} {ey + 6:.1f}M{ex + 6:.1f} {ey - 6:.1f}L{ex - 6:.1f} {ey + 6:.1f}"/>')
-        ends.append([Y(pts[-1][1]), m])
-    # End labels, nudged apart to stay legible (each with a short key line in the series color).
+        else:
+            sv.add(f'<circle class="s{m["slot"]}" cx="{ex:.1f}" cy="{ey:.1f}" r="3"/>')
+        ends.append([ey, m, ex])
+    # End labels at the right edge, nudged apart to stay legible (each with a short key line in the series color).
     ends.sort(key=lambda e: e[0])
     for i in range(1, len(ends)):
         if ends[i][0] - ends[i - 1][0] < 14:
             ends[i][0] = ends[i - 1][0] + 14
-    for y, m in ends:
+    for y, m, ex in ends:
         sv.add(f'<line class="s{m["slot"]}" style="stroke-width:3" x1="{left + pw + 6}" y1="{y:.1f}" x2="{left + pw + 18}" y2="{y:.1f}"/>')
-        sv.text(left + pw + 22, y + 4, m["label"], size=11)
-    if clamp_note:
-        sv.text(left, top - 6, clamp_note, size=11)
+        sv.text(left + pw + 22, y + 4, m["label"], "h" if m["id"] == "microproxy" else "t", size=11)
     return sv.render()
 
 
@@ -931,21 +1177,43 @@ def charts(d):
     meta = d["proxies"]
     out = {}
     n = len(d["runs"])
-    out["max-rate.svg"] = bar_chart("Max sustainable rate (requests/s, higher is better)",
-                                    f"Median of {n} runs; whiskers span min–max. One CPU per proxy; p99 ≤ {d['sloP99Ms']:g} ms.",
-                                    meta, {m["id"]: d["sweep"][m["id"]]["maxSustainable"] for m in meta}, "", 0)
-    cap = 100.0
-    series = []
+    factor = float(d["settings"].get("sweep-factor", 1.25))
+    rows = {}
+    unrefined = False
     for m in meta:
-        pts = [[s["rate"], s["p99"]["med"]] for s in d["sweep"][m["id"]]["steps"] if s["p99"]]
-        series.append((m, pts, None))
+        s = d["sweep"][m["id"]]
+        inc = [r for r in s["runs"] if r["included"]]
+        rows[m["id"]] = {"values": [r["max"] for r in inc], "brackets": [r["bracket"] for r in inc],
+                         "med": (s["maxSustainable"] or {}).get("med")}
+        unrefined = unrefined or any(not r["refined"] for r in inc)
+    out["max-rate.svg"] = dot_chart("Max sustainable rate (requests/s, higher is better)",
+                                    f"One dot per run ({n} runs), the tick at the median. One CPU per proxy; p99 within {d['sloP99Ms']:g} ms.",
+                                    meta, rows, "/s", 0,
+                                    note=(f"Not refined: the faint bar behind each dot is the ×{factor:g} sweep step its true maximum lies in."
+                                          if unrefined else "The faint bar behind each dot is the bracket its true maximum lies in."))
+    def curve(key):
+        series = []
+        for m in meta:
+            pts = [[s["rate"], s[key]["med"]] for s in d["sweep"][m["id"]]["steps"] if s["inCurve"] and s.get(key)]
+            series.append((m, pts, "knee" if d["sweep"][m["id"]]["curveEndRate"] else None))
+        return series
+    cpu = curve("cpuUsPerReq")
+    out["cpu-per-request.svg"] = line_chart("Proxy CPU time per request (µs, lower is better)",
+                                            f"Median of the runs at each offered rate; each line stops at the last rate every run sustained (○).",
+                                            "offered load (requests/s, log scale)", "CPU per request (µs)", cpu, xlog=True)
+    lat = curve("p99")
+    ys = [p[1] for _, pts, _ in lat for p in pts]
+    lo = 10 ** math.floor(math.log10(max(min(ys, default=1), 0.01)))
     out["latency-p99.svg"] = line_chart("p99 latency vs offered load (lower is better)",
-                                        f"Median of {n} runs, corrected for coordinated omission; linear axis to {cap:g} ms.",
-                                        "offered load (requests/s)", "p99 latency (ms)", series, ymax=cap,
-                                        clamp_note=f"▲ = above {cap:g} ms (past the knee), pinned to the top edge")
-    out["idle-rss.svg"] = bar_chart("Idle RSS (MB, lower is better)",
-                                    f"Resident memory after start-up and a few validation requests; median of {n} runs, whiskers min–max.",
-                                    meta, {m["id"]: d["ramp"][m["id"]]["idleRssMb"] for m in meta}, " MB", 1)
+                                        f"Median of the runs, corrected for coordinated omission; each line stops at the last rate every run sustained (○).",
+                                        "offered load (requests/s, log scale)", "p99 latency (ms, log scale)", lat, xlog=True,
+                                        ylog=(lo, max(100, nice_max(max(ys, default=1)))),
+                                        hline=(d["sloP99Ms"], f"SLO: p99 {d['sloP99Ms']:g} ms", "ref"))
+    rows = {m["id"]: {"values": (d["ramp"][m["id"]]["idleRssMb"] or {}).get("values", []),
+                      "med": (d["ramp"][m["id"]]["idleRssMb"] or {}).get("med")} for m in meta}
+    out["idle-rss.svg"] = dot_chart("Idle RSS (MB, lower is better)",
+                                    f"Resident memory after start-up and a few validation requests; one dot per run, the tick at the median.",
+                                    meta, rows, " MB", 1)
     series = []
     for m in meta:
         pts = [[s["held"]["med"], s["rssMb"]["med"]] for s in d["ramp"][m["id"]]["steps"] if s["rssMb"] and s["held"]]
@@ -982,17 +1250,24 @@ def replace_markers(path, blocks):
         f.write(text)
 
 
+def option(argv, name):
+    return argv[argv.index(name) + 1] if name in argv else None
+
+
 def main(argv):
     if len(argv) < 2:
         sys.exit(__doc__)
-    runs_dir = argv[1]
-    publish = argv[argv.index("--publish") + 1] if "--publish" in argv else None
+    raw_dir = option(argv, "--raw")
+    RAW[0] = raw_dir is not None
+    runs_dir = raw_dir or argv[1]
+    publish = option(argv, "--publish")
     data = build(runs_dir)
     unclean = [r["id"] for r in data["runs"] if not (r.get("hostLoad") or {}).get("accepted")]
     if publish and unclean and "--allow-unguarded" not in argv:
         sys.exit("not publishing: runs failed the contamination guard or have no host monitor samples: "
                  + ", ".join(unclean) + " (reject them in run-info.json, or pass --allow-unguarded for a local preview)")
-    out = os.path.join(runs_dir, "aggregate")
+    out = option(argv, "--out") or (os.path.join(ROOT, "loadtest", "results", "aggregate-raw") if RAW[0]
+                                    else os.path.join(runs_dir, "aggregate"))
     os.makedirs(out, exist_ok=True)
     tbl = tables(data)
     svgs = charts(data)
@@ -1017,27 +1292,8 @@ def main(argv):
         shutil.copy(os.path.join(out, "results.json"), os.path.join(assets, "results.json"))
         for name in svgs:
             shutil.copy(os.path.join(out, name), os.path.join(assets, name))
-        for r in load_runs(runs_dir):
-            with open(r["file"], encoding="utf-8") as f:
-                raw = json.load(f)
-            with open(os.path.join(assets, "raw", r["id"] + ".json"), "w", encoding="utf-8") as f:
-                f.write(strip_root(json.dumps(raw, separators=(",", ":"), ensure_ascii=False)))
-                f.write("\n")
-        # The guard's evidence and what was run, beside the raw results.
-        info_src = os.path.join(runs_dir, "run-info.json")
-        if os.path.exists(info_src):
-            shutil.copy(info_src, os.path.join(assets, "raw", "run-info.json"))
-        # The host monitor's log, with other processes' command lines reduced to their program names
-        # (they hold paths of other work on the machine, which is not this page's to publish).
-        mon_src = os.path.join(runs_dir, "hostmon.jsonl")
-        if os.path.exists(mon_src):
-            with open(mon_src, encoding="utf-8") as fin, open(os.path.join(assets, "raw", "hostmon.jsonl"), "w", encoding="utf-8") as fout:
-                for line in fin:
-                    if not line.strip():
-                        continue
-                    x = json.loads(line)
-                    x["topForeign"] = [{"cpuPct": p["cpuPct"], "program": program(p.get("cmd"))} for p in x.get("topForeign", [])]
-                    fout.write(json.dumps(x, separators=(",", ":")) + "\n")
+        if not (RAW[0] and os.path.realpath(runs_dir) == os.path.realpath(os.path.join(assets, "raw"))):
+            publish_raw(runs_dir, assets)
         page_md = os.path.join(publish, "project", "performance.md")
         if os.path.exists(page_md):
             replace_markers(page_md, tbl)
@@ -1045,6 +1301,33 @@ def main(argv):
         if os.path.exists(arch_md):
             replace_markers(arch_md, {"arch-slowread": tbl["arch-slowread"]})
         print(f"published into {assets} and {page_md}")
+
+
+def publish_raw(runs_dir, assets):
+    """Each run's raw results (minified, repository paths made relative), what was run, and the host
+    monitor's log, beside the page's data."""
+    for r in load_runs(runs_dir):
+        with open(r["file"], encoding="utf-8") as f:
+            raw = json.load(f)
+        with open(os.path.join(assets, "raw", r["id"] + ".json"), "w", encoding="utf-8") as f:
+            f.write(strip_root(json.dumps(raw, separators=(",", ":"), ensure_ascii=False)))
+            f.write("\n")
+    # The guard's evidence and what was run, beside the raw results.
+    info_src = os.path.join(runs_dir, "run-info.json")
+    if os.path.exists(info_src):
+        shutil.copy(info_src, os.path.join(assets, "raw", "run-info.json"))
+    # The host monitor's log, with other processes' command lines reduced to their program names
+    # (they hold paths of other work on the machine, which is not this page's to publish).
+    mon_src = os.path.join(runs_dir, "hostmon.jsonl")
+    if os.path.exists(mon_src):
+        with open(mon_src, encoding="utf-8") as fin, open(os.path.join(assets, "raw", "hostmon.jsonl"), "w", encoding="utf-8") as fout:
+            for line in fin:
+                if not line.strip():
+                    continue
+                x = json.loads(line)
+                x["topForeign"] = [{"cpuPct": p["cpuPct"], "program": p.get("program") or program(p.get("cmd"))}
+                                   for p in x.get("topForeign", [])]
+                fout.write(json.dumps(x, separators=(",", ":")) + "\n")
 
 
 if __name__ == "__main__":

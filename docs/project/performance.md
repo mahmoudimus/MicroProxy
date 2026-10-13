@@ -6,21 +6,30 @@ proxy (g3proxy) and Squid on throughput, latency and memory, measured with the
 whose raw JSON is committed beside this page; read the results as relative rather than absolute,
 and reproduce them with the commands at the end.
 
-<div class="mp-perf-chart" data-chart="maxrate" data-perf-src="../../assets/perf/results.json"></div>
+<div class="mp-perf-chart" data-chart="cpu" data-perf-src="../../assets/perf/results.json"></div>
 
 ## At a glance
 
-Three runs on one shared 4-vCPU cloud VM, every proxy on one CPU; medians below, with every range
-in the [scoreboard](#scoreboard). MicroProxy is not the fastest proxy here, and it is not the
-smallest at rest. Where it stands out is memory under connections and slow clients:
+Three runs on one shared 4-vCPU cloud VM, every proxy on one CPU; medians below, and every run's
+value in the charts and the [spread table](#repetitions-and-spread). MicroProxy is not the fastest
+proxy here, and it is not the smallest at rest. Where it stands out is memory under connections and
+slow clients:
 
-- **Peak rate: LittleProxy and g3proxy lead.** Both sustained 14,901 requests a second, one step
-  (×1.25) above MicroProxy, goproxy, Envoy and Squid, which all topped out at 9,537. The steps are
-  coarse: a maximum of 9,537 means somewhere between 9,537 and 11,921.
-- **Latency at 9,537 requests a second**, the highest rate every proxy sustained: g3proxy has the
-  lowest tail (p99 5.2 ms, p99.9 14.3 ms), then LittleProxy (p99 6.2 ms), then MicroProxy (p99
-  11.8 ms, p99.9 17.0 ms, second to g3proxy at p99.9) and goproxy (12.9 ms); Envoy (30.1 ms) and
-  Squid (48.7 ms) were close to their limit on one CPU.
+- **Peak rate: LittleProxy and g3proxy lead.** They sustained 14,901 requests a second in every
+  run counted, the sweep step above the 9,537 where MicroProxy, goproxy, Envoy and Squid topped out
+  in most runs. These runs predate the harness's knee refinement, so each maximum is known only to
+  within a ×1.25 step: 9,537 means somewhere from 9,537 up to 11,921, and the four proxies that share
+  it are not ranked among themselves.
+- **CPU per request explains the gap.** At 7,629 requests a second, the highest rate every proxy
+  sustained in every run, g3proxy spends 68 µs of CPU per request, MicroProxy 86 µs, goproxy 96 µs,
+  LittleProxy 101 µs, Squid 111 µs and Envoy 121 µs, each within 7% from run to run. As
+  the load rises, LittleProxy's cost keeps falling (64 µs at 14,901 requests a second) while
+  MicroProxy's levels off near 80 µs; on one CPU that is the difference between their maximum
+  rates.
+- **Latency at 7,629 requests a second**: g3proxy has the lowest tail (p99 3.0 ms), the only lead
+  clear of run-to-run noise; then LittleProxy (6.2 ms), MicroProxy (8.3 ms), Squid (8.9 ms),
+  goproxy (12.6 ms) and Envoy (23.8 ms), whose runs overlap: MicroProxy's p99 ranged from 6.1 to
+  31.0 ms across its three runs.
 - **Idle memory: the native proxies are smaller.** goproxy idles at 9.4 MB, g3proxy at 25.3 MB and
   Squid at 28.8 MB; MicroProxy at 52.9 MB, Envoy at 66.6 MB and LittleProxy at 72.0 MB.
 - **Idle connections: MicroProxy has the lowest median memory per connection** (10.9 KB of RSS
@@ -38,26 +47,31 @@ smallest at rest. Where it stands out is memory under connections and slow clien
 
 ## Scoreboard
 
-Each row is one measure, each cell the median of the runs with the lowest and highest run in
-parentheses. The best median of each row is in bold, and the last column names it; "ranges overlap"
-means the runner-up's range reaches it, so the lead is within run-to-run noise. "n/a" means the
-measure does not apply or was not measured.
+Each row is one measure, each cell the median of the runs. A median is in bold when it is the best
+of its row and clear of run-to-run noise: that proxy's worst run beats the runner-up's best. The
+lowest and highest run of every cell are in the [spread table](#repetitions-and-spread). "n/a" means
+the measure does not apply or was not measured.
 
 <!-- perf:scoreboard -->
 
-| Metric (median, min–max of the runs) | MicroProxy | LittleProxy | Envoy | goproxy (Go) | g3proxy (Rust) | Squid | Best median |
-|---|---|---|---|---|---|---|---|
-| Max sustainable rate (req/s) | 9,537 (9,537–11,921) | 14,901 | 9,537 (2 runs) | 9,537 (9,537–11,921) | 14,901 (2 runs) | 9,537 (7,630–9,537) | tie |
-| p50 latency at 9,537 req/s (ms) | 0.35 (0.30–0.36) | 0.46 (0.41–0.46) | 2.00 (1.75–2.25) (2 runs) | 0.34 (0.32–0.42) | **0.24 (0.24–0.24) (2 runs)** | 0.83 (0.55–1.93) | g3proxy (Rust) |
-| p99 latency at 9,537 req/s (ms) | 11.81 (8.27–17.81) | 6.19 (5.92–10.10) | 30.06 (18.21–41.92) (2 runs) | 12.87 (9.81–19.60) | **5.21 (4.43–6.00) (2 runs)** | 48.73 (16.34–60.70) | g3proxy (Rust) (ranges overlap) |
-| p99.9 latency at 9,537 req/s (ms) | 16.96 (11.94–22.61) | 17.33 (13.94–19.39) | 39.36 (22.91–55.81) (2 runs) | 18.88 (17.73–30.18) | **14.26 (11.21–17.31) (2 runs)** | 65.98 (18.45–68.16) | g3proxy (Rust) (ranges overlap) |
-| Idle RSS (MB) | 52.9 (52.8–53.0) | 72.0 (71.8–77.1) | 66.6 (66.4–67.8) | **9.4 (9.4–9.4)** | 25.3 (25.0–25.5) | 28.8 (28.5–29.0) | goproxy (Go) |
-| RSS per idle connection (KB) | **10.9 (10.7–15.6)** | 15.2 (13.2–16.1) | 15.8 (15.8–15.8) | 20.3 (20.3–20.6) | 49.9 (49.9–49.9) | 28.8 (28.7–29.0) | MicroProxy (ranges overlap) |
-| RSS holding 8,000 idle connections (MB) | **166.5 (161.2–193.3)** | 212.8 (210.6–226.1) | 191.2 (190.8–191.2) | 170.3 (170.2–172.6) | 416.0 (416.0–416.2) | 254.8 (254.1–256.6) | MicroProxy (ranges overlap) |
-| Peak RSS under slowloris (MB, 512 MB cap) | 127.9 (121.5–133.3) | 99.6 (92.4–112.3) | 105.6 (105.1–105.8) | **33.9 (33.9–34.1)** | 109.8 (109.4–109.9) | 40.4 (40.3–40.8) | goproxy (Go) |
-| RSS per slow reader, 200 readers (KB) | 190 (170–191) | 1,037 (1,023–1,092) | 1,770 (1,755–1,838) | 102 (100–103) | **75 (75–75)** | 409 (409–418) | g3proxy (Rust) |
-| Peak RSS under slow readers (MB, 512 MB cap) | 87.2 (83.4–87.6) | 268.9 (266.6–279.5) | 410.2 (404.4–422.9) | **28.7 (28.3–28.8)** | 38.7 (38.5–38.7) | 106.4 (106.3–108.1) | goproxy (Go) |
-| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 82.2 (79.6–82.8) | 197.8 (197.3–203.8) | 125.3 (124.9–126.7) | **17.0 (16.9–17.0)** | 28.4 (26.9–28.7) | 36.8 (36.7–37.4) | goproxy (Go) |
+| Median of the runs | MicroProxy | LittleProxy | Envoy | goproxy (Go) | g3proxy (Rust) | Squid |
+|---|---|---|---|---|---|---|
+| Max sustainable rate (req/s) † | 9,537 | 14,901 | 9,537 ‡ | 9,537 | 14,901 ‡ | 9,537 |
+| Proxy CPU per request at 7,629 req/s (µs) | 86 | 101 | 121 ‡ | 96 | **68 ‡** | 111 |
+| p50 latency at 7,629 req/s (ms) | 0.29 | 0.34 | 1.11 ‡ | 0.29 | **0.26 ‡** | 0.39 |
+| p99 latency at 7,629 req/s (ms) | 8.30 | 6.18 | 23.84 ‡ | 12.60 | **3.04 ‡** | 8.89 |
+| p99.9 latency at 7,629 req/s (ms) | 17.65 | 10.29 | 37.40 ‡ | 40.96 | **6.65 ‡** | 20.48 |
+| Idle RSS (MB) | 52.9 | 72.0 | 66.6 | **9.4** | 25.3 | 28.8 |
+| RSS per idle connection (KB) | 10.9 | 15.2 | 15.8 | 20.3 | 49.9 | 28.8 |
+| RSS holding 8,000 idle connections (MB) | 166.5 | 212.8 | 191.2 | 170.3 | 416.0 | 254.8 |
+| Peak RSS under slowloris (MB, 512 MB cap) | 127.9 | 99.6 | 105.6 | **33.9** | 109.8 | 40.4 |
+| RSS per slow reader, 200 readers (KB) | 190 | 1,037 | 1,770 | 102 | **75** | 409 |
+| Peak RSS under slow readers (MB, 512 MB cap) | 87.2 | 268.9 | 410.2 | **28.7** | 38.7 | 106.4 |
+| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 82.2 | 197.8 | 125.3 | **17.0** | 28.4 | 36.8 |
+
+† Not refined: these runs predate knee refinement, so each run's maximum is known only to within one ×1.25 sweep step: 9,537 means at least 9,537 and less than 11,921.
+
+‡ A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep figure; runs used: Envoy 2 of 3; g3proxy (Rust) 2 of 3.
 
 <!-- /perf:scoreboard -->
 
@@ -71,32 +85,77 @@ least 95% of the offered rate completed and almost nothing was left unsent. The 
 of two unsustained steps in a row, and the maximum sustainable rate is the highest sustained step
 before it. Every proxy has one CPU (see [Methodology](#methodology)).
 
-### Max sustainable rate
+Every curve below is the median of the same runs at every point, and stops at the highest offered
+rate that every one of those runs sustained, marked with a ring: past it a proxy is overloaded, and
+its latency is the length of its queue rather than anything about the proxy.
 
-The chart at the top of the page; the same data as a static chart:
+### CPU time per request
+
+The chart at the top of the page: the proxy's CPU time per completed request, at each offered rate.
+With one CPU, a proxy that needs N µs per request can serve at most 1,000,000 ÷ N requests a
+second, so this is where the maximum rates below come from. It is also the steadier measure: at
+7,629 requests a second and above, each proxy's runs agree within 12%, where their p99 latencies
+differ by up to eight times (at low rates, where little CPU is used, the sampled figures are
+coarser). In microseconds per request, median of the runs:
 
 <div class="mp-perf-static" markdown>
 
-![Max sustainable rate per proxy, median of the runs with min-max whiskers](../assets/perf/max-rate.svg)
+![Proxy CPU time per request against offered load for each proxy](../assets/perf/cpu-per-request.svg)
+
+</div>
+
+<!-- perf:cpu -->
+
+| Offered req/s | MicroProxy | LittleProxy | Envoy | goproxy (Go) | g3proxy (Rust) | Squid |
+|---|---|---|---|---|---|---|
+| 2,000 | 141 | 234 | 212 | 184 | 114 | 205 |
+| 2,500 | 131 | 133 | 193 | 163 | 101 | 182 |
+| 3,125 | 117 | 119 | 175 | 148 | 90 | 153 |
+| 3,906 | 102 | 106 | 160 | 132 | 87 | 148 |
+| 4,883 | 91 | 108 * | 151 | 120 | 76 | 137 * |
+| 6,104 | 84 | 103 | 137 | 106 | 74 | 127 |
+| 7,629 | 86 | 101 | 121 | 96 * | 68 | 111 |
+| 9,537 | 81 | 91 | 101 | 86 | 60 | – |
+| 11,921 | – | 78 | – | – | 61 * | – |
+| 14,901 | – | 64 | – | – | 53 | – |
+
+\* Not sustained in every run: a lone noisy step that the sweep recovered from at the next step.
+
+A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep figure; runs used: Envoy 2 of 3; g3proxy (Rust) 2 of 3.
+
+<!-- /perf:cpu -->
+
+### Max sustainable rate
+
+<div class="mp-perf-chart" data-chart="maxrate"></div>
+
+<div class="mp-perf-static" markdown>
+
+![Max sustainable rate per proxy, one dot per run](../assets/perf/max-rate.svg)
 
 </div>
 
 <!-- perf:sweep -->
 
-| Proxy | Max sustainable rate (req/s) | p99 at 9,537 req/s (ms) | p99.9 at 9,537 req/s (ms) | Proxy CPU at that rate | Why the knee came | Steps discarded (load generator behind) |
-|---|---|---|---|---|---|---|
-| MicroProxy | 9,537 (9,537–11,921) | 11.81 (8.27–17.81) | 16.96 (11.94–22.61) | 77% (74–82) | p99 over the SLO, fell behind the offered rate, requests left unsent | 0 |
-| LittleProxy | 14,901 | 6.19 (5.92–10.10) | 17.33 (13.94–19.39) | 86% (85–86) | p99 over the SLO, requests left unsent | 0 |
-| Envoy | 9,537 (2 runs) (1 run ended by the load generator, left out) | 30.06 (18.21–41.92) (2 runs) | 39.36 (22.91–55.81) (2 runs) | 97% (97–97) (2 runs) | p99 over the SLO, requests left unsent | 1 |
-| goproxy (Go) | 9,537 (9,537–11,921) | 12.87 (9.81–19.60) | 18.88 (17.73–30.18) | 82% (79–83) | p99 over the SLO, requests left unsent | 0 |
-| g3proxy (Rust) | 14,901 (2 runs) (1 run ended by the load generator, left out) | 5.21 (4.43–6.00) (2 runs) | 14.26 (11.21–17.31) (2 runs) | 58% (57–58) (2 runs) | p99 over the SLO | 1 |
-| Squid | 9,537 (7,630–9,537) | 48.73 (16.34–60.70) | 65.98 (18.45–68.16) | 93% (92–94) | p99 over the SLO, fell behind the offered rate, requests left unsent | 0 |
+| Proxy | Max sustainable rate (req/s) | CPU per request at 7,629 req/s (µs) | p99 at 7,629 req/s (ms) | Why the knee came |
+|---|---|---|---|---|
+| MicroProxy | 9,537 | 86 | 8.30 | p99 over the SLO, fell behind the offered rate, requests left unsent |
+| LittleProxy | 14,901 | 101 | 6.18 | p99 over the SLO, requests left unsent |
+| Envoy | 9,537 ‡ | 121 ‡ | 23.84 ‡ | p99 over the SLO, requests left unsent |
+| goproxy (Go) | 9,537 | 96 | 12.60 | p99 over the SLO, requests left unsent |
+| g3proxy (Rust) | 14,901 ‡ | 68 ‡ | 3.04 ‡ | p99 over the SLO |
+| Squid | 9,537 | 111 | 8.89 | p99 over the SLO, fell behind the offered rate, requests left unsent |
+
+Every maximum is known to within one ×1.25 step (not refined).
+
+‡ A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep figure; runs used: Envoy 2 of 3; g3proxy (Rust) 2 of 3.
 
 <!-- /perf:sweep -->
 
 ### Latency as the load climbs
 
-Drag the offered-load dial, or replay the climb. The readout ranks the proxies at the dial's rate.
+Each line ends where its proxy's sustained range does; the tooltip ranks only the proxies still
+sustaining the rate under the cursor.
 
 <div class="mp-perf-chart" data-chart="latency"></div>
 
@@ -106,25 +165,27 @@ Drag the offered-load dial, or replay the climb. The readout ranks the proxies a
 
 </div>
 
-The p99 at every step, in milliseconds (median of the runs; ✗ marks a step not sustained in most
-runs; a proxy's column ends where its sweep stopped):
+The p99 at every offered rate each proxy sustained in every run, in milliseconds (median of the
+runs):
 
 <!-- perf:latency -->
 
-| Offered req/s | MicroProxy p99 (ms) | LittleProxy p99 (ms) | Envoy p99 (ms) | goproxy (Go) p99 (ms) | g3proxy (Rust) p99 (ms) | Squid p99 (ms) |
+| Offered req/s | MicroProxy | LittleProxy | Envoy | goproxy (Go) | g3proxy (Rust) | Squid |
 |---|---|---|---|---|---|---|
-| 2,000 | 5.25 | 4.58 | 4.39 | 4.68 | 3.30 | 5.75 |
-| 2,500 | 6.75 | 6.43 | 4.90 | 5.46 | 3.50 | 4.83 |
-| 3,125 | 3.36 | 3.11 | 8.62 (2 runs) | 3.67 | 2.50 (2 runs) | 3.62 |
-| 3,906 | 3.84 | 2.92 | 4.56 (2 runs) | 3.81 | 4.26 (2 runs) | 3.81 |
-| 4,883 | 2.82 | 5.15 | 10.09 (2 runs) | 4.63 | 3.43 (2 runs) | 29.77 |
-| 6,104 | 5.58 | 5.06 | 6.97 (2 runs) | 7.88 | 2.87 (2 runs) | 7.25 |
-| 7,629 | 8.30 | 6.18 | 23.84 (2 runs) | 12.60 | 3.04 (2 runs) | 8.89 |
-| 9,537 | 11.81 | 6.19 | 30.06 (2 runs) | 12.87 | 5.21 (2 runs) | 48.73 |
-| 11,921 | 58.49 ✗ | 24.99 | 570.37 ✗ (2 runs) | 148.22 ✗ | 54.54 ✗ (2 runs) | 306.18 ✗ |
-| 14,901 | 460.54 ✗ | 32.03 | 1,333.25 ✗ (2 runs) | 416.25 ✗ | 11.85 (2 runs) | 1,302.53 ✗ (2 runs) |
-| 18,626 | 2,085.89 ✗ (1 run) | 110.27 ✗ | – | 1,763.33 ✗ (1 run) | 77.79 ✗ (2 runs) | – |
-| 23,283 | – | 1,327.10 ✗ | – | – | 1,433.60 ✗ (2 runs) | – |
+| 2,000 | 5.25 | 4.58 | 5.47 | 4.68 | 3.53 | 5.75 |
+| 2,500 | 6.75 | 6.43 | 4.89 | 5.46 | 3.37 | 4.83 |
+| 3,125 | 3.36 | 3.11 | 8.62 | 3.67 | 2.50 | 3.62 |
+| 3,906 | 3.84 | 2.92 | 4.56 | 3.81 | 4.26 | 3.81 |
+| 4,883 | 2.82 | 5.15 * | 10.09 | 4.63 | 3.43 | 29.77 * |
+| 6,104 | 5.58 | 5.06 | 6.97 | 7.88 | 2.87 | 7.25 |
+| 7,629 | 8.30 | 6.18 | 23.84 | 12.60 * | 3.04 | 8.89 |
+| 9,537 | 11.81 | 6.19 | 30.06 | 12.87 | 5.21 | – |
+| 11,921 | – | 24.99 | – | – | 54.54 * | – |
+| 14,901 | – | 32.03 | – | – | 11.85 | – |
+
+\* Not sustained in every run: a lone noisy step that the sweep recovered from at the next step.
+
+A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep figure; runs used: Envoy 2 of 3; g3proxy (Rust) 2 of 3.
 
 <!-- /perf:latency -->
 
@@ -162,12 +223,12 @@ proxies' heap and Native Memory Tracking figures are in the raw results.
 
 | Proxy | Idle RSS (MB) | RSS per idle connection (KB) | Connections held | Ramp ended |
 |---|---|---|---|---|
-| MicroProxy | 52.9 (52.8–53.0) | 10.9 (10.7–15.6) | 8,000 | limit not reached ×3 |
-| LittleProxy | 72.0 (71.8–77.1) | 15.2 (13.2–16.1) | 8,000 | limit not reached ×3 |
-| Envoy | 66.6 (66.4–67.8) | 15.8 (15.8–15.8) | 8,000 | limit not reached ×3 |
-| goproxy (Go) | 9.4 (9.4–9.4) | 20.3 (20.3–20.6) | 8,000 | limit not reached ×3 |
-| g3proxy (Rust) | 25.3 (25.0–25.5) | 49.9 (49.9–49.9) | 8,000 | limit not reached ×3 |
-| Squid | 28.8 (28.5–29.0) | 28.8 (28.7–29.0) | 8,000 | limit not reached ×3 |
+| MicroProxy | 52.9 | 10.9 | 8,000 | limit not reached |
+| LittleProxy | 72.0 | 15.2 | 8,000 | limit not reached |
+| Envoy | 66.6 | 15.8 | 8,000 | limit not reached |
+| goproxy (Go) | 9.4 | 20.3 | 8,000 | limit not reached |
+| g3proxy (Rust) | 25.3 | 49.9 | 8,000 | limit not reached |
+| Squid | 28.8 | 28.8 | 8,000 | limit not reached |
 
 <!-- /perf:ramp -->
 
@@ -181,32 +242,33 @@ proxies' heap and Native Memory Tracking figures are in the raw results.
 
 </div>
 
-Every run of every workload, with the harness's verdict (see
-[how memory growth is judged](load-testing.md#how-memory-growth-is-judged)). "RSS per connection"
-is the peak RSS over the idle baseline, divided by the workload's connections:
+Every workload, median of the runs, with the harness's verdict (see
+[how memory growth is judged](load-testing.md#how-memory-growth-is-judged)); a verdict stands alone
+when every run agreed, and is counted otherwise. "RSS per connection" is the peak RSS over the idle
+baseline, divided by the workload's connections:
 
 <!-- perf:memory -->
 
-| Workload | Proxy | Verdicts | Peak RSS (MB) | RSS per connection (KB) | Honest probes answered | Proxy at the end |
+| Workload | Proxy | Verdict | Peak RSS (MB) | RSS per connection (KB) | Honest probes answered | Proxy at the end |
 |---|---|---|---|---|---|---|
-| slowloris | MicroProxy | bounded ×3 | 127.9 (121.5–133.3) | 37 (33–39) | 100% | running ×3 |
-| slowloris | LittleProxy | bounded ×3 | 99.6 (92.4–112.3) | 10 (7–14) | 100% | running ×3 |
-| slowloris | Envoy | bounded ×3 | 105.6 (105.1–105.8) | 20 (20–20) | 100% | running ×3 |
-| slowloris | goproxy (Go) | bounded ×3 | 33.9 (33.9–34.1) | 13 (13–13) | 100% | running ×3 |
-| slowloris | g3proxy (Rust) | bounded ×3 | 109.8 (109.4–109.9) | 43 (43–43) | 100% | running ×3 |
-| slowloris | Squid | bounded ×3 | 40.4 (40.3–40.8) | 6 (6–6) | 100% | running ×3 |
-| slowread | MicroProxy | bounded ×3 | 87.2 (83.4–87.6) | 190 (170–191) | 100% | running ×3 |
-| slowread | LittleProxy | oom ×3 | 268.9 (266.6–279.5) | 1,037 (1,023–1,092) | 83% (80–83) | oom (still running) ×3 |
-| slowread | Envoy | bounded ×3 | 410.2 (404.4–422.9) | 1,770 (1,755–1,838) | 100% | running ×3 |
-| slowread | goproxy (Go) | bounded ×3 | 28.7 (28.3–28.8) | 102 (100–103) | 100% | running ×3 |
-| slowread | g3proxy (Rust) | bounded ×3 | 38.7 (38.5–38.7) | 75 (75–75) | 100% | running ×3 |
-| slowread | Squid | bounded ×3 | 106.4 (106.3–108.1) | 409 (409–418) | 100% | running ×3 |
-| updown | MicroProxy | bounded ×1, inconclusive ×2 | 82.2 (79.6–82.8) | 1,022 (941–1,042) | 100% | running ×3 |
-| updown | LittleProxy | bounded ×3 | 197.8 (197.3–203.8) | 4,265 (4,210–4,508) | 100% | running ×3 |
-| updown | Envoy | bounded ×3 | 125.3 (124.9–126.7) | 1,941 (1,940–2,003) | 100% | running ×3 |
-| updown | goproxy (Go) | bounded ×3 | 17.0 (16.9–17.0) | 265 (261–266) | 100% | running ×3 |
-| updown | g3proxy (Rust) | bounded ×3 | 28.4 (26.9–28.7) | 146 (143–152) | 100% | running ×3 |
-| updown | Squid | bounded ×3 | 36.8 (36.7–37.4) | 332 (325–347) | 100% | running ×3 |
+| slowloris | MicroProxy | bounded | 127.9 | 37 | 100% | running |
+| slowloris | LittleProxy | bounded | 99.6 | 10 | 100% | running |
+| slowloris | Envoy | bounded | 105.6 | 20 | 100% | running |
+| slowloris | goproxy (Go) | bounded | 33.9 | 13 | 100% | running |
+| slowloris | g3proxy (Rust) | bounded | 109.8 | 43 | 100% | running |
+| slowloris | Squid | bounded | 40.4 | 6 | 100% | running |
+| slowread | MicroProxy | bounded | 87.2 | 190 | 100% | running |
+| slowread | LittleProxy | oom | 268.9 | 1,037 | 83% | oom (still running) |
+| slowread | Envoy | bounded | 410.2 | 1,770 | 100% | running |
+| slowread | goproxy (Go) | bounded | 28.7 | 102 | 100% | running |
+| slowread | g3proxy (Rust) | bounded | 38.7 | 75 | 100% | running |
+| slowread | Squid | bounded | 106.4 | 409 | 100% | running |
+| updown | MicroProxy | bounded ×1, inconclusive ×2 | 82.2 | 1,022 | 100% | running |
+| updown | LittleProxy | bounded | 197.8 | 4,265 | 100% | running |
+| updown | Envoy | bounded | 125.3 | 1,941 | 100% | running |
+| updown | goproxy (Go) | bounded | 17.0 | 265 | 100% | running |
+| updown | g3proxy (Rust) | bounded | 28.4 | 146 | 100% | running |
+| updown | Squid | bounded | 36.8 | 332 | 100% | running |
 
 <!-- /perf:memory -->
 
@@ -219,14 +281,14 @@ not a slow one.
 
 <!-- perf:soak -->
 
-| Proxy | Leak verdicts | RSS slope (KB/hour) | Median per-window p99 (ms) | Errors |
+| Proxy | Leak verdict | RSS slope (KB/hour) | Median per-window p99 (ms) | Errors |
 |---|---|---|---|---|
-| MicroProxy | no-leak ×3 | 2,757 (994–3,086) | 4.39 (3.70–4.75) | 0 |
-| LittleProxy | no-leak ×3 | 11,780 (5,106–552,846) | 4.23 (3.76–4.29) | 0 |
-| Envoy | no-leak ×3 | 3,261 (962–12,182) | 4.33 (3.98–4.86) | 0 |
-| goproxy (Go) | no-leak ×3 | 4,169 (2,051–14,565) | 3.59 (3.23–3.72) | 0 |
-| g3proxy (Rust) | no-leak ×3 | 676 (471–2,314) | 3.78 (3.25–4.07) | 0 |
-| Squid | no-leak ×3 | 0 (0–368) | 4.67 (4.38–4.67) | 0 |
+| MicroProxy | no-leak | 2,757 | 4.39 | 0 |
+| LittleProxy | no-leak | 11,780 | 4.23 | 0 |
+| Envoy | no-leak | 3,261 | 4.33 | 0 |
+| goproxy (Go) | no-leak | 4,169 | 3.59 | 0 |
+| g3proxy (Rust) | no-leak | 676 | 3.78 | 0 |
+| Squid | no-leak | 0 | 4.67 | 0 |
 
 <!-- /perf:soak -->
 
@@ -297,8 +359,8 @@ The runs that are published, and what else ran during each:
 <!-- /perf:contamination -->
 
 The remaining foreign CPU is mostly the agent process that drove the runs and kernel workers.
-Interference that remains shows as noise between runs, which is why every figure is a median with
-its range, and why a sweep's knee needs two unsustained steps in a row.
+Interference that remains shows as noise between runs, which is why every figure is a median of the
+runs with each run shown, and why a sweep's knee needs two unsustained steps in a row.
 
 ### One CPU per proxy
 
@@ -370,14 +432,21 @@ Some differences cannot be made equal, and are part of what is measured:
 
 ### What each chart measures
 
+- **CPU time per request**: the proxy process's user and system CPU time over a sweep step (every
+  thread, so the JVMs' garbage collector and JIT compiler count), divided by the requests it
+  completed. The harness now reads it from `/proc` before and after each step; the published runs
+  predate that, so their figure is the step's mean sampled CPU% divided by its achieved rate.
 - **Max sustainable rate**: the achieved rate of the highest sweep step that every check passed
   (p99 within 50 ms, no errors, at least 95% of the offered rate completed, almost no backlog). The
-  offered rate climbs by a factor of 1.25 per step, so the result is known to within one step. A
-  sweep that the load generator ended (a step where it could not keep its own schedule, flagged
-  `clientSaturated`) is left out of the maximum, and such steps are left out of every latency
-  figure; the sweep table counts them.
+  offered rate climbs by a factor of 1.25 per step, which by itself brackets the maximum only to
+  within one step, so the harness then refines the knee: it bisects between the last sustained step
+  and the knee with up to four more steps, judged by the same rules and each after 2 s at the
+  bracket's lower rate, until the bracket is within 2%. An unsustained probe is repeated once, as a
+  lone unsustained sweep step is. The published runs predate refinement, and the page says so where
+  it shows them. A sweep that the load generator ended (a step where it could not keep its own
+  schedule, flagged `clientSaturated`) is left out of every sweep figure.
 - **Latency as the load climbs**: p50, p99 or p99.9 at each offered rate, from each request's
-  intended send time. A proxy's line continues one or two steps past its knee.
+  intended send time, up to the last offered rate every run sustained.
 - **The whole latency distribution**: the latency at each percentile, from the same steps'
   HdrHistograms, at a rate every proxy sustained.
 - **Idle memory**: RSS after start-up and a few validation requests (the ramp's baseline).
@@ -397,8 +466,28 @@ every proxy in turn, the proxies' order rotated between runs so that none always
 scenario starts a fresh proxy process (each memory workload too), so no run inherits another's
 state. The rate sweep warms each proxy up at 2,000 requests a second for 15 s before its first
 recorded step, which gives the JVMs' JIT compilers time; its first steps are at low rates as well.
-Each figure is the median of the three runs, with the lowest and highest run beside it; the
-charts' whiskers, bands and tooltips show the same range.
+Each figure above is the median of the runs. With this few runs the charts show every run as a dot
+(or, on the curves, with "Show each run") rather than whiskers, and the tooltips list each run's
+value. The lowest and highest run behind every median of the scoreboard:
+
+<!-- perf:spread -->
+
+| Lowest–highest run | MicroProxy | LittleProxy | Envoy | goproxy (Go) | g3proxy (Rust) | Squid |
+|---|---|---|---|---|---|---|
+| Max sustainable rate (req/s) | 9,537–11,921 | 14,901–14,901 | 9,537–9,537 (2 of 3 runs) | 9,537–11,921 | 14,901–14,901 (2 of 3 runs) | 7,630–9,537 |
+| Proxy CPU per request at 7,629 req/s (µs) | 86–87 | 101–101 | 119–123 (2 of 3 runs) | 94–100 | 67–70 (2 of 3 runs) | 106–113 |
+| p50 latency at 7,629 req/s (ms) | 0.29–0.29 | 0.33–0.36 | 1.06–1.16 (2 of 3 runs) | 0.28–0.34 | 0.26–0.26 (2 of 3 runs) | 0.37–0.47 |
+| p99 latency at 7,629 req/s (ms) | 6.10–30.99 | 5.69–9.13 | 19.86–27.82 (2 of 3 runs) | 7.18–59.30 | 2.76–3.31 (2 of 3 runs) | 7.37–12.94 |
+| p99.9 latency at 7,629 req/s (ms) | 10.86–34.94 | 9.57–20.75 | 29.10–45.70 (2 of 3 runs) | 18.78–96.58 | 5.98–7.31 (2 of 3 runs) | 15.98–22.06 |
+| Idle RSS (MB) | 52.8–53.0 | 71.8–77.1 | 66.4–67.8 | 9.4–9.4 | 25.0–25.5 | 28.5–29.0 |
+| RSS per idle connection (KB) | 10.7–15.6 | 13.2–16.1 | 15.8–15.8 | 20.3–20.6 | 49.9–49.9 | 28.7–29.0 |
+| RSS holding 8,000 idle connections (MB) | 161.2–193.3 | 210.6–226.1 | 190.8–191.2 | 170.2–172.6 | 416.0–416.2 | 254.1–256.6 |
+| Peak RSS under slowloris (MB, 512 MB cap) | 121.5–133.3 | 92.4–112.3 | 105.1–105.8 | 33.9–34.1 | 109.4–109.9 | 40.3–40.8 |
+| RSS per slow reader, 200 readers (KB) | 170–191 | 1,023–1,092 | 1,755–1,838 | 100–103 | 75–75 | 409–418 |
+| Peak RSS under slow readers (MB, 512 MB cap) | 83.4–87.6 | 266.6–279.5 | 404.4–422.9 | 28.3–28.8 | 38.5–38.7 | 106.3–108.1 |
+| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 79.6–82.8 | 197.3–203.8 | 124.9–126.7 | 16.9–17.0 | 26.9–28.7 | 36.7–37.4 |
+
+<!-- /perf:spread -->
 
 ### Caveats
 
@@ -422,7 +511,7 @@ root (for the memory cgroups and Squid's package):
 ```bash
 mvn -Pbench -DskipTests package -pl loadtest -am   # the harness
 loadtest/competitors/setup.sh                      # Envoy, goproxy, g3proxy and Squid, into loadtest/competitors/.tools/
-loadtest/competitors/run-all.sh                    # three runs (about three hours), then this page's data
+loadtest/competitors/run-all.sh                    # five runs (about five hours), then this page's data
 ```
 
 [`setup.sh`](https://github.com/mahmoudimus/MicroProxy/blob/main/loadtest/competitors/setup.sh)
@@ -432,14 +521,15 @@ checking Envoy's and Go's SHA-256 and g3proxy's commit (g3proxy also needs `capn
 `libssl-dev` to build, and Rust, which it installs with `rustup-init` when missing). None of it is
 part of the Maven build or CI, and nothing it downloads is committed.
 [`run-all.sh`](https://github.com/mahmoudimus/MicroProxy/blob/main/loadtest/competitors/run-all.sh)
-holds every setting of the runs, with a comment on each, and runs the harness three times with the
-external proxies of
+holds every setting of the runs, with a comment on each, and runs the harness five times (`REPS`;
+the runs published here were made with three, before knee refinement) with the external proxies of
 [`proxies.json`](https://github.com/mahmoudimus/MicroProxy/blob/main/loadtest/competitors/proxies.json).
 While it runs, `hostmon.py` logs the machine's load beside it. Then
 [`aggregate.py`](https://github.com/mahmoudimus/MicroProxy/blob/main/loadtest/competitors/aggregate.py)
-computes the medians and ranges and rewrites this page's data, static charts and tables (between
+computes the medians and spreads and rewrites this page's data, static charts and tables (between
 their `<!-- perf:... -->` markers); the prose around them is written by hand and must be checked
-against the new numbers. `REPS`, `PROXIES`, `SCENARIOS` and the CPU split can be overridden from
+against the new numbers. `aggregate.py --raw docs/assets/perf/raw --publish docs` regenerates all
+of it from the raw data committed beside this page. `REPS`, `PROXIES`, `SCENARIOS` and the CPU split can be overridden from
 the environment (see the script's header), and `PUBLISH=0` keeps the results out of `docs/`. A run
 that fails the contamination guard stops the publication: run it again, and list the failed one
 under `"rejected"` (with its `rep` and a `reason`) in the results directory's `run-info.json`.
@@ -447,8 +537,8 @@ under `"rejected"` (with its `rep` and a `reason`) in the results directory's `r
 ### The raw data
 
 - [`results.json`](../assets/perf/results.json): the aggregates this page draws from (medians,
-  ranges, every sweep step, every ramp step, the memory series), with the machine, versions,
-  settings and command lines.
+  every run's value, every sweep step, every ramp step, the memory series), with the machine,
+  versions, settings and command lines.
 - `raw/`: each run's complete harness output, unedited: every step's latency summary and
   HdrHistogram, the per-second `/proc` samples of every process and CPU, every verdict and
   self-check, the settings and the exact command lines. The files are listed in `results.json`
