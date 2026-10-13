@@ -58,12 +58,15 @@ markdown_extensions:
 plugins:
   - search
 
-# The performance page's interactive charts (docs/project/performance.md); they act only on that
-# page's chart elements, and re-initialise on Material's instant navigation.
+# The performance page's interactive charts (docs/project/performance.md) and the architecture
+# page's animated diagrams (docs/architecture.md); each acts only on its own elements, and
+# re-initialises on Material's instant navigation.
 extra_css:
   - assets/perf/perf.css
+  - assets/arch/arch.css
 extra_javascript:
   - assets/perf/perf.js
+  - assets/arch/arch.js
 
 hooks:
   # Writes llms.txt and llms-full.txt at the site root, and unescapes pipes in table code spans
