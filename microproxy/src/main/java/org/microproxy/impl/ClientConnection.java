@@ -430,11 +430,30 @@ final class ClientConnection implements Runnable {
         final String serverName;
         /** The cluster the retry counts in. */
         final ProxyStats.ClusterStats cluster;
+        /** The server side of the rejected attempt, for trackers if it is not retried after all. */
+        final FullFlowContext serverContext;
 
-        SniRejected(IOException cause, String serverName, ProxyStats.ClusterStats cluster) {
+        SniRejected(IOException cause, String serverName, ProxyStats.ClusterStats cluster,
+                FullFlowContext serverContext) {
             super(cause);
             this.serverName = serverName;
             this.cluster = cluster;
+            this.serverContext = serverContext;
+        }
+    }
+
+    /**
+     * A failed attempt whose failure was reported already (trackers, the chained proxy, stats,
+     * trace) by the connect loop that made it: the redial without SNI of an attempt the server
+     * rejected ({@link #redialForTls}), whose failure is that attempt's. The cause is the failure.
+     */
+    private static final class AttemptReported extends IOException {
+        AttemptReported(IOException cause) {
+            super(cause.getMessage(), cause);
+        }
+
+        IOException failure() {
+            return (IOException) getCause();
         }
     }
 
@@ -607,6 +626,12 @@ final class ClientConnection implements Runnable {
         List<String> offeredAlpn;
         /** How many attempts failed before the connect loop's last connection was made. */
         int failedAttempts;
+        /**
+         * The connect loop is redialling an attempt the server rejected for its name ({@link
+         * #redialForTls}): part of that attempt, it does not tell the filters that connecting
+         * failed, which the attempt's caller does once.
+         */
+        boolean redialing;
         /**
          * The backoff between the exchange's connection attempts, once an attempt has failed
          * ({@link #retryBackoff}, asked once); null before.
@@ -3774,7 +3799,10 @@ final class ClientConnection implements Runnable {
                     offered = startServerTls(ex, conn, hello, target, hostAndPort);
                 } catch (SniRejected rejected) {
                     ServerConnection fresh = redialForTls(ex, conn, hostAndPort, route);
-                    if (fresh == null) throw rejected;
+                    if (fresh == null) {
+                        sniRejectionIsFinal(ex, rejected);
+                        throw rejected;
+                    }
                     conn = fresh;
                     offered = retryWithoutSni(ex, hostAndPort, rejected,
                             () -> startServerTls(ex, fresh, hello, target, hostAndPort));
@@ -3888,15 +3916,19 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection failOverDeferredTls(Exchange ex, ServerConnection failed, IOException e,
             ClientHello hello, String hostAndPort, List<ChainedProxy> route) throws IOException {
+        boolean reported = e instanceof AttemptReported;
+        if (reported) e = ((AttemptReported) e).failure();
         IOException cause = unwrap(e);
-        LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort
+        LOG.log(Level.DEBUG, ex.log + (reported ? "connection to " : "TLS with ") + hostAndPort
                 + (failed.chainedProxy != null ? " via " + failed.chainedProxy.getChainedProxyAddress() : "")
                 + " failed: " + cause.getMessage());
-        // The same account of a failed attempt as the connect loop keeps for one.
-        if (failed.cluster != null) failed.cluster.connectFailed(cause);
-        if (failed.chainedProxy != null) failed.chainedProxy.connectionFailed(cause);
-        reportServerFailure(failed.flowContext, cause);
-        traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
+        if (!reported) {
+            // The same account of a failed attempt as the connect loop keeps for one.
+            if (failed.cluster != null) failed.cluster.connectFailed(cause);
+            if (failed.chainedProxy != null) failed.chainedProxy.connectionFailed(cause);
+            reportServerFailure(failed.flowContext, cause);
+            traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
+        }
         int failures = ex.failedAttempts + 1;
         List<ChainedProxy> rest = List.of();
         if (via == null && route != null) {
@@ -3947,7 +3979,19 @@ final class ClientConnection implements Runnable {
             List<ChainedProxy> route) throws IOException {
         if (via != null || route == null) return null;
         int failedBefore = ex.failedAttempts;
-        ServerConnection fresh = replace(ex, old, hostAndPort, List.of(routeOf(old)), 0, null, true);
+        ServerConnection fresh;
+        ex.redialing = true;
+        try {
+            fresh = replace(ex, old, hostAndPort, List.of(routeOf(old)), 0, null, true);
+        } catch (ClientFailure e) {
+            throw e;
+        } catch (IOException e) {
+            // The connect loop reported this failure as the attempt's: it is, the rejected
+            // handshake being the same attempt.
+            throw new AttemptReported(e);
+        } finally {
+            ex.redialing = false;
+        }
         ex.failedAttempts = failedBefore;
         return fresh;
     }
@@ -5339,7 +5383,7 @@ final class ClientConnection implements Runnable {
                 traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
             }
         }
-        if (connecting) {
+        if (connecting && !ex.redialing) {
             ex.filters.proxyToServerConnectionFailed();
         }
         if (failures > 1) {
@@ -5655,7 +5699,9 @@ final class ClientConnection implements Runnable {
         } catch (IOException e) {
             Tls.closeQuietly(plain);
             // (A server that does not speak TLS was reached: it is tunnelled to instead.)
-            if (!(e instanceof NotTlsServer)) cluster.connectFailed(e);
+            // (A server that does not speak TLS was reached: it is tunnelled to instead. A
+            // rejected name is the same attempt again, without SNI: counted if that fails.)
+            if (!(e instanceof NotTlsServer) && !(e instanceof SniRejected)) cluster.connectFailed(e);
             throw e;
         } catch (RuntimeException e) {
             Tls.closeQuietly(plain);
@@ -5880,14 +5926,25 @@ final class ClientConnection implements Runnable {
                 throw new NotTlsServer(hostAndPort, ssl);
             }
             cluster.sslConnectionError.inc();
-            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             if (sent != null && ex.policy.tlsRetryWithoutSni() && Tls.serverRejectedName(e)) {
-                // (The failure is the exchange's only if the retry fails too.)
-                throw new SniRejected(e, sent, cluster);
+                // The same attempt goes on without SNI: its failure, if any, is the retry's, and
+                // only that is reported (sniRejectionIsFinal reports this one when no retry follows).
+                throw new SniRejected(e, sent, cluster, serverContext);
             }
+            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             ex.flow.transportFailure(e);
             throw new TlsHandshakeFailed(e);
         }
+    }
+
+    /**
+     * Reports {@code rejected} as the TLS failure it is, when no retry without SNI follows after
+     * all: {@link #serverTls} left that to whoever would retry.
+     */
+    private void sniRejectionIsFinal(Exchange ex, SniRejected rejected) {
+        IOException cause = (IOException) rejected.getCause();
+        server.trackers.fire(t -> t.tlsHandshakeFailed(rejected.serverContext, false, cause));
+        ex.flow.transportFailure(cause);
     }
 
     /** A connection attempt that may be made again. */
