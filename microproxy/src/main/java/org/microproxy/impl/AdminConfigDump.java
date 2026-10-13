@@ -96,8 +96,10 @@ final class AdminConfigDump {
             if (b.chainProxyManager instanceof org.microproxy.UpstreamProxyManager) {
                 chained.put("proxies", redactUrls(b.chainProxyManager.toString()).replace("***@", REDACTED + "@"));
             }
-            chained.put("backoff_initial", duration(b.chainedProxyBackoffInitial));
-            chained.put("backoff_max", duration(b.chainedProxyBackoffMax));
+            boolean backoff = !b.chainedProxyBackoff.isNone();
+            chained.put("backoff_initial", backoff ? duration(b.chainedProxyBackoff.initial()) : null);
+            chained.put("backoff_max", backoff ? duration(b.chainedProxyBackoff.max()) : null);
+            chained.put("backoff_jitter", backoff ? b.chainedProxyBackoff.jittered() : null);
         }
         boot.put("chained_proxy", chained);
         boot.put("stripped_request_headers", List.copyOf(b.strippedRequestHeaders.values()));

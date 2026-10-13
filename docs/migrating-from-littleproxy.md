@@ -105,7 +105,9 @@ HttpResponseStatus.OK, "<html>...</html>")`, with `Content-Length` set when it i
 - **Direct requests to the proxy:** an origin-form request (no scheme, host or port) is answered
   `400` unless `--allow-requests-to-origin-server` is given; a filter can answer it from
   `clientToProxyRequest`, as in LittleProxy.
-- **New hooks:** lambdas (`HttpFilters.builder()`), failure answers, per-request connect timeouts,
+- **New hooks:** lambdas (`HttpFilters.builder()`), failure answers, per-request connect and
+  upstream TLS handshake timeouts (`proxyToServerConnectTimeout`,
+  `proxyToServerTlsHandshakeTimeout`), a per-request retry backoff (`chainedProxyRetryBackoff`),
   WebSocket frames and messages: see [Filters and failure responses](guides/filters.md).
 
 ## MITM
@@ -187,6 +189,18 @@ either way:
   unaffected. `--no-http2` and `--no-http2-upstream` (`http2=false`, `http2_upstream=false`,
   `withHttp2(false)`, `withHttp2Upstream(false)`) keep HTTP/1.1 on both sides, as in LittleProxy;
   compatibility mode leaves HTTP/2 as configured.
+- Chained proxy retries: LittleProxy 2.9.1 tries the next chained proxy as soon as one fails,
+  without waiting, and so does MicroProxy by default (`RetryBackoff.none()`); compatibility mode
+  leaves the backoff as configured. Forks of LittleProxy that added a wait between attempts
+  doubled it without jitter; `withChainedProxyRetryBackoff(RetryBackoff.exponential(initial,
+  max))` (`chained_proxy_backoff_jitter=false`, `--chained-proxy-backoff-deterministic`) waits the
+  same exact times, while the `withChainedProxyRetryBackoff(initial, max)` shorthand and
+  `--chained-proxy-backoff` add full jitter (see
+  [Retries and backoff](guides/chained-proxies.md#retries-and-backoff)). A filter can choose the
+  backoff per request with `chainedProxyRetryBackoff()`.
+- TLS handshakes are bounded by `withTlsHandshakeTimeout` (10 s by default, the same as Netty's
+  `SslHandler` default that LittleProxy left in place); a filter can change it per request for the
+  upstream handshakes with `proxyToServerTlsHandshakeTimeout()`.
 - The proxy does not fill `FlowContext`'s string-keyed timing map (LittleProxy's
   `dns_resolution_*_time_ms`); `FlowContext.timings()` has typed timings for every phase instead
   (see [Observability](observability/activity-tracking.md#observability)).
