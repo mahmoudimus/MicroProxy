@@ -18,6 +18,11 @@ machine.
   totals are published, never the desktop's process names. Use a High or Ultimate performance power
   plan, and keep the Windows side idle. The page names the platform (for example "i9-13900K, WSL2
   on Windows 11") so readers can weigh it.
+- A limitation to state in the published methodology: from inside WSL2 the harness pins processes to
+  the VM's virtual CPUs, not to physical cores, and on a hybrid processor Windows decides whether
+  those run on performance or efficiency cores. The Windows monitor catches competing load, and five
+  repetitions in rotated order spread scheduling wobble across all proxies, but neither guarantees
+  every proxy got the same kind of core.
 - On hybrid processors (Intel's performance + efficiency cores) the script uses only the performance
   cores, one thread per core; turning SMT off and leaving the efficiency cores idle is still best.
 - 16 GB of memory or more, and nothing else running for the campaign's duration (about 5 hours for
