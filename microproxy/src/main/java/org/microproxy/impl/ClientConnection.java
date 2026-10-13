@@ -1824,7 +1824,7 @@ final class ClientConnection implements Runnable {
         InetSocketAddress local = null;
         SSLSession session = null;
         if (socket != null) {
-            if (socket.getLocalSocketAddress() instanceof InetSocketAddress address) local = address;
+            local = conn.localAddress();
             if (socket instanceof SSLSocket tls) session = tls.getSession();
         }
         ChainedProxy proxy = conn.chainedProxy;
@@ -2806,14 +2806,19 @@ final class ClientConnection implements Runnable {
         }
         ex.responseStarted = true;
         boolean writeBody = Framing.responseMayHaveBody(finalResponse, request.method());
-        writeToClient(() -> ex.channel.writeHead(finalResponse, writeBody));
+        boolean relayed = body != null && prefetched.isEmpty() && !observes(filters, OBSERVES_RESPONSE_CONTENT);
+        // A Content-Length body that is already buffered is read without waiting, and relaying
+        // it flushes: the head goes out with it, one write (and one segment) instead of two.
+        boolean bodyFollows = relayed && writeBody && !(finalResponse instanceof FullHttpMessage)
+                && body.declaredLength() > 0 && body.hasBufferedInput();
+        writeToClient(() -> ex.channel.writeHead(finalResponse, writeBody, bodyFollows));
         ResponseSource source = source(ResponseSource.SERVER, head, upstreamStatus, finalResponse);
         sent(ex, finalResponse, source);
 
         if (body == null && writeBody) {
             countFull(ex, finalResponse, true);
         }
-        if (body != null && prefetched.isEmpty() && !observes(filters, OBSERVES_RESPONSE_CONTENT)) {
+        if (relayed) {
             relayResponseBody(ex, body);
         } else if (body != null) {
             boolean lastWritten = false;
@@ -5589,7 +5594,8 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
-            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
+            ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers)
+                    .idleWaitsOn(active);
             OutputStream output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             InputStream rawIn = active.getInputStream();
             OutputStream rawOut = active.getOutputStream();

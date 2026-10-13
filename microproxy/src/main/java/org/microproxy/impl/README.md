@@ -100,6 +100,15 @@ are. `Http2UpstreamStream` overrides them for one stream of an HTTP/2 connection
   threads at once. HTTP/1 clients stay half-duplex: their next request is read from the same
   buffer after this one's body.
 
+On a plain socket, the two waits every keep-alive request makes, the client connection's for its
+next request and `awaitResponseHead`'s for the server's answer, read with no `SO_TIMEOUT`:
+`IdleWaits` keeps their deadlines on one daemon thread, which sleeps until the earliest is due and
+shuts the input of a socket whose wait passed it, so the read fails with a
+`SocketTimeoutException` as a timed read would. A timed read would park its virtual thread with a
+timeout, and the JDK arms and cancels a timer for every such park (on JDK 25, by waking the
+scheduler's delay thread each time). TLS sockets, and reads whose timeout was changed for them,
+keep `SO_TIMEOUT`.
+
 `Http2Origins` keeps the HTTP/2 connections by `Key`: the server's authority, and its isolation
 (mode, route or hop, MITM manager, and the client connection for private ones). Its index is by
 isolation, then by every authority a connection serves: the one it was made for and, with
@@ -892,7 +901,8 @@ flow control counts what is on the wire, whatever the interceptor makes of it.
 ## What stays HTTP/1-specific, and why
 
 - **The connection loop** (`serveRequests`): waiting for the next request without holding a
-  buffer, pipelining (unread requests wait in the buffer), and answering unparseable request
+  buffer (`ByteReader.awaitNext`, whose idle timeout `IdleWaits` keeps without a timer per wait;
+  see below), pipelining (unread requests wait in the buffer), and answering unparseable request
   heads. An HTTP/2 connection reads frames and starts a thread per stream instead.
 - **Connection-wide CONNECT interception** (`interceptOrTunnel`, `intercept`). An HTTP/1
   `CONNECT` that is intercepted turns the whole connection into TLS and serves the decrypted

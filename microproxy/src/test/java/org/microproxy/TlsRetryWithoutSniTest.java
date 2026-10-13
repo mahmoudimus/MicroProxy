@@ -21,12 +21,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.ExtendedSSLSession;
 import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIMatcher;
 import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.StandardConstants;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -90,7 +92,18 @@ class TlsRetryWithoutSniTest {
         PickyOrigin(SSLContext context) throws IOException {
             socket = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 50, TestSupport.LOOPBACK);
             SSLParameters params = socket.getSSLParameters();
-            params.setSNIMatchers(List.of(SNIHostName.createSNIMatcher("known\\.test")));
+            // Counts the refusals itself: the text of the handshake exception the server side
+            // sees differs between JDK releases ("unrecognized_name" in some, "Unrecognized
+            // server name indication" in others), the matcher's verdict does not.
+            SNIMatcher known = SNIHostName.createSNIMatcher("known\\.test");
+            params.setSNIMatchers(List.of(new SNIMatcher(StandardConstants.SNI_HOST_NAME) {
+                @Override
+                public boolean matches(SNIServerName name) {
+                    boolean ok = known.matches(name);
+                    if (!ok) rejected.incrementAndGet();
+                    return ok;
+                }
+            }));
             socket.setSSLParameters(params);
             Thread.ofVirtual().start(() -> {
                 while (!socket.isClosed()) {
@@ -114,7 +127,6 @@ class TlsRetryWithoutSniTest {
                 try {
                     client.startHandshake();
                 } catch (SSLHandshakeException e) {
-                    if (String.valueOf(e.getMessage()).contains("unrecognized_name")) rejected.incrementAndGet();
                     return;
                 }
                 String sni = "none";

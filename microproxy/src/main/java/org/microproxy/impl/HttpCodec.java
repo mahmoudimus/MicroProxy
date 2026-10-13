@@ -388,6 +388,15 @@ final class HttpCodec {
          *     HEAD, 1xx/204/304, CONNECT 2xx)
          */
         void writeHead(HttpMessage message, boolean bodyAllowed) throws IOException {
+            writeHead(message, bodyAllowed, true);
+        }
+
+        /**
+         * Writes a message head as {@link #writeHead(HttpMessage, boolean)} does; with {@code
+         * flush} false, a bare head stays in the output buffer for the body that follows it, which
+         * the caller flushes.
+         */
+        void writeHead(HttpMessage message, boolean bodyAllowed, boolean flush) throws IOException {
             this.bodyAllowed = bodyAllowed;
             this.chunked = bodyAllowed && HttpUtil.isTransferEncodingChunked(message);
             if (message instanceof FullHttpMessage full && bodyAllowed && !chunked) {
@@ -425,7 +434,7 @@ final class HttpCodec {
             out.write(CRLF);
             if (message instanceof FullHttpMessage full) {
                 writeContent(full);
-            } else {
+            } else if (flush) {
                 out.flush();
             }
         }

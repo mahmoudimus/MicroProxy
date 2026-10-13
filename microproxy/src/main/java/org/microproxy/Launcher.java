@@ -328,9 +328,24 @@ public final class Launcher {
      * @throws IOException if configuration cannot be read or the proxy cannot be started
      */
     public static void main(String[] args) throws IOException {
+        registerSocketWaitsDirectly();
         HttpProxyServer server = start(args, System.out);
         if (server != null) {
             Runtime.getRuntime().addShutdownHook(shutdownHook(server, System.out));
+        }
+    }
+
+    /**
+     * On JDK 21, a virtual thread about to wait for a socket queues the socket's registration to a
+     * poller's "updater" thread and waits for that thread to make it: two more thread switches for
+     * every wait, which on a busy proxy is most of a request's scheduling cost. JDK 22 and later
+     * always register on the waiting thread; {@code jdk.useDirectRegister} asks JDK 21 to do the
+     * same. It must be set before the first virtual thread waits for a socket, and is left alone
+     * when set on the command line (later JDKs ignore it).
+     */
+    static void registerSocketWaitsDirectly() {
+        if (Runtime.version().feature() == 21 && System.getProperty("jdk.useDirectRegister") == null) {
+            System.setProperty("jdk.useDirectRegister", "true");
         }
     }
 
