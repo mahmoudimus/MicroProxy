@@ -51,8 +51,8 @@ import org.microproxy.http.HttpResponse;
  * whose codings cannot be decoded and event streams are never buffered. A response body larger
  * than {@link Builder#maxBodySize} streams through unchanged; a request body that large is
  * answered with {@code 413}, as for any filter that buffers requests. The proxy narrows {@code
- * Accept-Encoding} to codings it can decode, re-applies the body's coding after editing (Brotli
- * and zstd become gzip) and fixes {@code Content-Length}.
+ * Accept-Encoding} to codings it can decode, re-applies the body's coding after editing (zstd
+ * becomes gzip) and fixes {@code Content-Length}.
  */
 public final class ModifyBody implements HttpFiltersSource {
 
