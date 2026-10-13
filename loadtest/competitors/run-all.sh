@@ -6,9 +6,9 @@
 # else uses the machine; aggregate.py publishes only runs that pass that contamination guard.
 #
 #   loadtest/competitors/setup.sh            # once: the external proxies, into .tools/
-#   loadtest/competitors/run-all.sh          # about three hours on a 4-vCPU machine
+#   loadtest/competitors/run-all.sh          # about five hours on a 4-vCPU machine (five repetitions)
 #
-# Environment overrides: REPS (3), PROXIES, SCENARIOS, OUT (loadtest/results/perf-<UTC time>),
+# Environment overrides: REPS (5), PROXIES, SCENARIOS, OUT (loadtest/results/perf-<UTC time>),
 # CPUS_PROXY (0), CPUS_ORIGIN (1), CPUS_CLIENT (2-3), NICE (-20; empty for none), PUBLISH (1: write
 # docs/assets/perf/; 0: aggregate into $OUT only). Extra arguments go to every harness run.
 set -euo pipefail
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 cd "$ROOT"
 
-REPS=${REPS:-3}
+REPS=${REPS:-5}
 PROXIES=${PROXIES:-microproxy,littleproxy,envoy,goproxy,g3proxy,squid}
 SCENARIOS=${SCENARIOS:-sweep,ramp,memory,faults,soak}
 OUT=${OUT:-loadtest/results/perf-$(date -u +%Y%m%d-%H%M%S)}
@@ -49,6 +49,10 @@ SETTINGS=(
     --sweep-start-rate 2000 --sweep-factor 1.25 --sweep-step-seconds 8 --sweep-warmup-seconds 15
     --sweep-max-steps 24 --sweep-connections 128 --sweep-knee-confirm 2 --sweep-steps-after-knee 1
     --slo-p99-ms 50
+    # Knee refinement: the x1.25 steps only bracket the maximum to within 25%, so up to 4 more 8 s
+    # steps bisect between the last sustained step and the knee (to within 2%: 1.25^(1/16) is 1.4%),
+    # each after 2 s at the bracket's lower rate; an unsustained probe is repeated once, like the knee.
+    --sweep-refine-steps 4 --sweep-refine-precision 0.02 --sweep-refine-settle-seconds 2
     # Connection ramp: the container's open-file limit (20,000 per process) bounds the largest step.
     --ramp-steps 1000,2000,4000,6000,8000
     # Memory under adversarial clients: every proxy in a 512 MB memory cgroup (the JVMs also keep the

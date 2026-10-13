@@ -75,7 +75,7 @@ Each scenario runs once for MicroProxy and once for LittleProxy, each in a fresh
 
 | Scenario | What it does | What it proves | Verdicts |
 |---|---|---|---|
-| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step (data). Verdict: the proxy survived, or crashed / ran out of memory |
+| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step, refined by bisecting between it and the knee (data), with the proxy's CPU time per request at every step. Verdict: the proxy survived, or crashed / ran out of memory |
 | **Connection ramp** | idle keep-alive connections held in steps (1k, 5k, 10k …), from many loopback source addresses | memory per idle connection, the connection limit, and how it is reached | records RSS, NMT, heap-after-GC, fds, threads and a probe's latency; stops at the first step it cannot complete and says how (refused, unresponsive, crashed, OOM, or the client's own limit). The limit is data; the verdict is whether the proxy survived |
 | **Memory under adversarial clients** | the proxy capped in memory, then slowloris, slow readers, parallel large up/down, and an h2c rapid-reset flood | whether backpressure and per-connection caps keep memory bounded | **bounded** or **shedding** pass; **unbounded-growth**, **oom** or **crashed** fail; **inconclusive** when the window is too short (see [below](#how-memory-growth-is-judged)) |
 | **Soak** | a fixed moderate rate held for a configurable duration | leaks: memory, fds or threads that climb monotonically | **possible-leak** (fail) when a series climbs steadily after the warm-up, **no-leak** (pass), or **inconclusive** for a soak too short to judge |
@@ -316,6 +316,17 @@ default of most Linux kernels) the CPU is first shared equally between sessions,
 nice value alone does not make other sessions yield. A single noisy step can still spike a step's
 p99; `--sweep-knee-confirm 2` makes the knee the first of two unsustained steps in a row, so one
 step that the next recovers from is recorded as unsustained but does not end the sweep.
+
+**Knee refinement.** The sweep's steps multiply the rate (by 1.5, or 1.25 in the comparison runs),
+so on their own they bracket the maximum sustainable rate only to within one step. Once the proxy
+has made the knee, the sweep bisects between the last sustained step and the knee with up to
+`--sweep-refine-steps` more recorded steps, judged by the same rules, until the bracket is within
+`--sweep-refine-precision` (2%). Each probe follows `--sweep-refine-settle-seconds` of unrecorded
+load at the bracket's lower rate, and an unsustained probe is repeated like a knee step (up to
+`--sweep-knee-confirm` times in all). The results keep every probe (`refine.probes`), the refined
+`maxSustainableRate`, its `maxSustainableBracket` and the unrefined `maxSustainableRateCoarse`.
+Every step and probe also records the proxy's CPU time over it, read from `/proc`, and per
+completed request (`proxy.cpuUsPerRequest`).
 
 **On a big runner.** The [`loadtest.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/loadtest.yml)
 workflow runs on demand (`workflow_dispatch`) with inputs for the preset, the scenarios, the proxies,

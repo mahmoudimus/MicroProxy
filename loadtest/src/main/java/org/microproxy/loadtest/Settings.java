@@ -61,6 +61,9 @@ public final class Settings {
         {"sweep-response-bytes", "128", "128", "128", "the response body size"},
         {"sweep-steps-after-knee", "1", "1", "2", "steps to run past the knee, to show the curve"},
         {"sweep-knee-confirm", "1", "1", "1", "unsustainable steps in a row that make the knee (2 or more lets a lone noisy step pass)"},
+        {"sweep-refine-steps", "2", "4", "6", "after the knee, probes bisecting between the last sustained step and the knee (0: off); an unsustained probe is repeated like a knee step"},
+        {"sweep-refine-precision", "0.02", "0.02", "0.02", "refinement stops once the knee's bracket (highest sustained to lowest unsustained rate) is within this ratio"},
+        {"sweep-refine-settle-seconds", "1", "2", "3", "unrecorded load at the bracket's lower rate before each refinement probe"},
         // Connection ramp
         {"ramp-steps", "200,500,1000", "1000,5000,10000,25000,50000", "1000,5000,10000,25000,50000,100000,150000,200000", "idle connections to hold at each step"},
         {"ramp-warm", "true", "true", "true", "send one request on each connection before it idles (so the proxy also holds an upstream connection)"},
