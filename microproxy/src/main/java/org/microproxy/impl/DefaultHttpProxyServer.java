@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Deque;
 import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -760,7 +761,9 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             toDraining();
             LOG.log(Level.INFO, "{0} draining for {1} ({2})", name, drainTime,
                     drainImmediate ? "immediate" : "gradual");
-            if (drainImmediate) connections.forEach(ClientConnection::drain);
+            // The connections open now; one accepted from here on is answered once, with
+            // Connection: close (drainClose), rather than closed by this loop before its request.
+            if (drainImmediate) List.copyOf(connections).forEach(ClientConnection::drain);
             return true;
         } catch (RuntimeException | Error e) {
             drainDone.countDown();
