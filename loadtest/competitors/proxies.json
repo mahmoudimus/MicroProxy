@@ -1,0 +1,40 @@
+{
+  "_comment": "External (non-JVM) proxies for the load-testing harness: java -jar loadtest/target/microproxy-loadtest.jar run --external-proxies loadtest/competitors/proxies.json --proxies microproxy,littleproxy,envoy,... . setup.sh builds or downloads each one into .tools/ (git-ignored). Placeholders: {{port}}, {{idleSeconds}}, {{connectTimeoutMs}}, {{connectTimeoutSeconds}}, {{workers}} (CPUs the proxy is pinned to), {{config}} (the rendered config file), {{logs}}, {{name}}, {{home}} (this directory) and {{tools}} (this directory's .tools). See docs/project/performance.md.",
+  "envoy": {
+    "label": "Envoy",
+    "language": "C++",
+    "version": "1.39.4",
+    "config": "envoy/envoy.yaml",
+    "command": ["{{tools}}/bin/envoy", "-c", "{{config}}", "--concurrency", "{{workers}}", "--log-level", "error",
+      "--disable-hot-restart"],
+    "versionCommand": ["{{tools}}/bin/envoy", "--version"],
+    "notes": "Official release binary; dynamic forward proxy filter and cluster; one worker thread per pinned CPU (--concurrency)."
+  },
+  "goproxy": {
+    "label": "goproxy (Go)",
+    "language": "Go",
+    "version": "github.com/elazarl/goproxy v1.9.2, Go 1.27.2",
+    "command": ["{{tools}}/bin/goproxy-proxy", "-addr", "127.0.0.1:{{port}}", "-idle-timeout", "{{idleSeconds}}s",
+      "-connect-timeout", "{{connectTimeoutMs}}ms"],
+    "versionCommand": ["{{tools}}/bin/goproxy-proxy", "-version"],
+    "notes": "goproxy/main.go: a minimal goproxy server, logging off; GOMAXPROCS follows the pinned CPUs (Go's default)."
+  },
+  "g3proxy": {
+    "label": "g3proxy (Rust)",
+    "language": "Rust",
+    "version": "g3proxy 1.12.4",
+    "config": "g3proxy/g3proxy.yaml",
+    "command": ["{{tools}}/bin/g3proxy", "-c", "{{config}}"],
+    "versionCommand": ["{{tools}}/bin/g3proxy", "--version"],
+    "notes": "ByteDance's g3proxy (tokio), built from the g3proxy-v1.12.4 tag with --no-default-features --features rustls-ring; one worker runtime thread per pinned CPU."
+  },
+  "squid": {
+    "label": "Squid",
+    "language": "C++",
+    "version": "Squid 6.14 (Ubuntu 24.04 package)",
+    "config": "squid/squid.conf",
+    "command": ["/usr/sbin/squid", "-N", "-d", "1", "-f", "{{config}}"],
+    "versionCommand": ["/usr/sbin/squid", "-v"],
+    "notes": "One process in the foreground (-N), caching and the access log off. Squid is single-threaded, so it uses one of the pinned CPUs."
+  }
+}
