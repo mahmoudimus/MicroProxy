@@ -75,6 +75,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 - [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/api/): the aggregated Javadoc of the published modules
 - [Building and testing](https://mahmoudimus.github.io/MicroProxy/project/building-and-testing/): Build MicroProxy from source, run its test suites (unit, interop, conformance, DNSSEC), and cut releases.
+- [Benchmarks against LittleProxy](https://mahmoudimus.github.io/MicroProxy/project/benchmarks/): JMH benchmarks that measure MicroProxy and LittleProxy side by side, through the same origin server and the same client, in JVMs started with the same settings.
 - [Writing documentation](https://mahmoudimus.github.io/MicroProxy/CONTRIBUTING-DOCS/): Where new documentation goes, the conventions every page follows, and how the site, `llms.txt` and the checks are built.
 - [Publishing to Maven Central](https://mahmoudimus.github.io/MicroProxy/PUBLISHING/): MicroProxy publishes under the verified `io.github.mahmoudimus` namespace.
 - [Acknowledgements and license](https://mahmoudimus.github.io/MicroProxy/project/acknowledgements/): The code MicroProxy vendors or ports, the projects that contributed ideas, and its license.

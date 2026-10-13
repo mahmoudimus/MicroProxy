@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.mahmoudimus</groupId>
+        <artifactId>microproxy-parent</artifactId>
+        <version>0.2.0</version>
+    </parent>
+
+    <!-- JMH benchmarks of MicroProxy against LittleProxy, side by side. Built only with the parent's
+         bench profile (mvn -Pbench package): a normal build neither compiles this module nor
+         downloads JMH, LittleProxy or Netty, and the published modules stay dependency-free.
+         Never installed, deployed, signed or published to Maven Central. See
+         docs/project/benchmarks.md. -->
+    <artifactId>microproxy-benchmarks</artifactId>
+    <packaging>jar</packaging>
+
+    <name>MicroProxy benchmarks</name>
+    <description>
+        JMH benchmarks comparing MicroProxy with LittleProxy through one shared origin and client.
+        Not published.
+    </description>
+
+    <properties>
+        <jmh.version>1.37</jmh.version>
+        <!-- The latest maintained LittleProxy release (github.com/LittleProxy/LittleProxy), on
+             Maven Central as io.github.littleproxy:littleproxy; it brings Netty with it. -->
+        <littleproxy.version>2.9.1</littleproxy.version>
+        <!-- The SLF4J version LittleProxy itself is built with. -->
+        <slf4j.version>2.0.18</slf4j.version>
+
+        <!-- Never released: no install, deploy, sources, Javadoc, signature or Central bundle. -->
+        <maven.install.skip>true</maven.install.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.source.skip>true</maven.source.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <gpg.skip>true</gpg.skip>
+        <skipPublishing>true</skipPublishing>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.littleproxy</groupId>
+            <artifactId>littleproxy</artifactId>
+            <version>${littleproxy.version}</version>
+        </dependency>
+        <!-- LittleProxy logs through SLF4J: no logging, as for MicroProxy, and no warning about a
+             missing provider. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-serial,-processing</arg>
+                    </compilerArgs>
+                    <!-- JMH generates the benchmark harness at compile time. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.openjdk.jmh</groupId>
+                            <artifactId>jmh-generator-annprocess</artifactId>
+                            <version>${jmh.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- target/benchmarks.jar: JMH's runner with every benchmark, both proxies and the
+                     footprint harness, as JMH's own archetype builds it. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <finalName>benchmarks</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.openjdk.jmh.Main</mainClass>
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
