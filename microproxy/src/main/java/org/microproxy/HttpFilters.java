@@ -241,12 +241,52 @@ public interface HttpFilters {
      * server's ({@link HttpProxyServerBootstrap#withConnectTimeout(int)}). Asked when the request
      * needs a new connection, after {@link #proxyToServerRequest}; a request that reuses a
      * connection makes none. It bounds the TCP connect only, not name resolution or TLS handshakes
-     * ({@link HttpProxyServerBootstrap#withTlsHandshakeTimeout}). In a {@link HttpFiltersChain} the
-     * shortest timeout wins.
+     * ({@link #proxyToServerTlsHandshakeTimeout()}). In a {@link HttpFiltersChain} the shortest
+     * timeout wins.
      *
      * @return the connect timeout override, or {@code null} for the server setting
      */
     default java.time.Duration proxyToServerConnectTimeout() {
+        return null;
+    }
+
+    /**
+     * The TLS handshake timeout for this request's upstream handshakes: with the server when the
+     * proxy speaks TLS to it (an intercepted {@code CONNECT}, an absolute {@code https://} URL,
+     * HTTP/2 to the server), and with each TLS chained proxy tried ({@code https://} and {@code
+     * h2://} ones), including the server's handshake inside a tunnel through one. {@code null} (the
+     * default), zero or a negative duration keeps the server's ({@link
+     * HttpProxyServerBootstrap#withTlsHandshakeTimeout}); a request cannot turn the limit off.
+     * Asked when the request needs a new connection, after {@link #proxyToServerRequest}; a
+     * request that reuses a connection makes no handshake. A handshake that runs out of time fails
+     * the attempt with {@link ProxyFailure.TlsFailed} (a {@link java.net.SocketTimeoutException}
+     * cause, response flag {@code UF}), and the next chained proxy, if any, is tried, as after other
+     * failures. In a {@link HttpFiltersChain} the shortest timeout wins.
+     *
+     * <p>Upstream HTTP/3 (QUIC) handshakes keep {@link Http3Options#upstreamHandshakeTimeout()}:
+     * their connections are shared by every client, and one that is not made in time does not fail
+     * the request but sends it over TCP, whose TLS handshake this timeout then bounds.
+     *
+     * @return the TLS handshake timeout override, or {@code null} for the server setting
+     */
+    default java.time.Duration proxyToServerTlsHandshakeTimeout() {
+        return null;
+    }
+
+    /**
+     * The backoff between this request's connection attempts when a chained proxy (or the direct
+     * fallback) fails and the next route the {@link ChainedProxyManager} offered is tried, instead
+     * of the server's ({@link HttpProxyServerBootstrap#withChainedProxyRetryBackoff(RetryBackoff)}).
+     * {@code null} (the default) keeps the server's; {@link RetryBackoff#none()} tries the next
+     * route at once. Asked when an attempt has failed and another route remains, so a request that
+     * connects on its first attempt never asks. The server's limits apply to it too: no wait before
+     * the first attempt or after the last, at most 30 seconds or the connect timeout of waiting in
+     * all, and a client that leaves ends the wait. In a {@link HttpFiltersChain} the first filter
+     * that returns a backoff wins.
+     *
+     * @return the retry backoff override, or {@code null} for the server setting
+     */
+    default RetryBackoff chainedProxyRetryBackoff() {
         return null;
     }
 

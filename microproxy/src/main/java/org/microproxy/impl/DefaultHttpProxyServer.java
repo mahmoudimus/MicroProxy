@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DrainStrategy;
@@ -43,6 +42,7 @@ import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyProtocolMode;
+import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ServerState;
 import org.microproxy.SslContextSource;
@@ -130,9 +130,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int connectTimeoutMs;
     final Duration tlsHandshakeTimeout;
     final boolean littleProxyCompatibility;
-    /** Backoff between chained proxy attempts, in nanoseconds; 0 when off. */
-    final long backoffInitialNanos;
-    final long backoffMaxNanos;
+    /** Backoff between chained proxy attempts; {@link RetryBackoff#none()} when off. */
+    final RetryBackoff chainedProxyBackoff;
     /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
     final String[] tlsProtocols;
     /** Headers removed from every request right before it is written upstream; empty for none. */
@@ -208,8 +207,13 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     volatile Object quicEarlyDataPolicy;
     /** The writer of the QUIC connections' qlog files (a {@link QlogWriter}), made on first use; null before, or without qlog. */
     volatile Object qlogWriter;
-    /** Draws the backoff jitter, a fraction in [0, 1); replaceable by tests. */
-    volatile DoubleSupplier backoffJitter = () -> ThreadLocalRandom.current().nextDouble();
+    /** Draws the backoff jitter; null for a {@link ThreadLocalRandom}. Replaceable by tests. */
+    volatile java.util.random.RandomGenerator backoffRandom;
+    /**
+     * Waits out a backoff of the given nanoseconds instead of the real wait, which watches the
+     * client; null for the real wait. Replaceable by tests, so they need not sleep.
+     */
+    volatile java.util.function.LongConsumer backoffSleeper;
 
     private final Set<ClientConnection> connections = ConcurrentHashMap.newKeySet();
     private ServerSocket serverSocket;
@@ -341,7 +345,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
         this.littleProxyCompatibility = b.littleProxyCompatibility;
-        this.backoffInitialNanos = b.chainedProxyBackoffInitial == null ? 0 : b.chainedProxyBackoffInitial.toNanos();
+        this.chainedProxyBackoff = b.chainedProxyBackoff;
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
         this.stripsTracingHeaders = b.strippedRequestHeaders.containsKey("traceparent");
         this.tracer = b.tracer;
@@ -350,7 +354,6 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparentQuicPort = b.transparentQuicPort;
         this.transparentQuicKeys = b.transparentQuicPort >= 0 ? transparentQuicKeys(b.mitmManager) : null;
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
-        this.backoffMaxNanos = b.chainedProxyBackoffMax == null ? 0 : b.chainedProxyBackoffMax.toNanos();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);

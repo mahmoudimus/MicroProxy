@@ -49,7 +49,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
 | `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
-| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none) | `10000` |
+| `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none); filters can change it per request for upstream handshakes (`proxyToServerTlsHandshakeTimeout`) | `10000` |
 | `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](../guides/mitm.md#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
@@ -71,7 +71,8 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `no_proxy` | hosts reached directly, curl `NO_PROXY` syntax | none |
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
-| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum, with full jitter (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_jitter` | with `chained_proxy_backoff_initial_ms`: `true` waits a random time up to each doubling wait ("full jitter", `RetryBackoff.exponentialWithJitter`); `false` waits exactly the doubling waits (`RetryBackoff.exponential`) | `true` |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](../guides/forward-proxy.md#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
 | `strip_alt_svc_h3` | remove `h3` (HTTP/3) alternatives from `Alt-Svc` response headers (see [Alt-Svc](../guides/http3.md#alt-svc-which-clients-may-move-to-http3)) | `true` with interception or `transparent`, except for redirected clients with `transparent_quic_port`; else `false` |

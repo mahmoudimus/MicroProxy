@@ -65,6 +65,7 @@ import org.microproxy.ProxyFailure;
 import org.microproxy.ProxyProtocolMode;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
+import org.microproxy.RetryBackoff;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.cache.HttpCache;
 import org.microproxy.extras.ServerReplay;
@@ -529,6 +530,8 @@ final class ClientConnection implements Runnable {
         boolean ended;
         /** The connect timeout for this exchange, once asked; -1 before. */
         int connectTimeoutMillis = -1;
+        /** The upstream TLS handshake timeout for this exchange, once asked; null before. */
+        java.time.Duration tlsHandshakeTimeout;
         /** Whether TLS connections made for the exchange offer HTTP/2 (ALPN {@code h2}). */
         boolean offerHttp2;
         /** The request goes to the server over TLS: its Alt-Svc may teach the proxy HTTP/3 ({@link Http3Origins}). */
@@ -4952,14 +4955,20 @@ final class ClientConnection implements Runnable {
         IOException last = null;
         boolean connecting = false;
         int failures = 0;
-        long backoffBudget = server.backoffInitialNanos > 0 ? backoffBudgetNanos(ex) : 0;
+        // Which backoff applies is asked only once an attempt has failed (null before).
+        RetryBackoff backoff = null;
+        long backoffBudget = 0;
         ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
             // The last attempt failed and this one takes over from it.
             if (failedCluster != null) failedCluster.failover.inc();
+            if (failures > 0 && backoff == null) {
+                backoff = retryBackoff(ex);
+                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex);
+            }
             if (failures > 0 && backoffBudget > 0) {
-                backoffBudget -= backOff(ex, failures, backoffBudget, hostAndPort, proxy);
+                backoffBudget -= backOff(ex, backoff, failures, backoffBudget, hostAndPort, proxy);
             }
             ex.attempt = null;
             if (ex.trace != FlowTrace.NONE) {
@@ -5043,26 +5052,48 @@ final class ClientConnection implements Runnable {
     }
 
     /**
-     * The backoff before the attempt that follows {@code failures} failed ones: a random time
-     * up to {@code initial * 2^(failures-1)}, capped at the maximum.
+     * The upstream TLS handshake timeout for {@code ex}'s connections (zero = none): the filters'
+     * ({@link HttpFilters#proxyToServerTlsHandshakeTimeout()}), else the server's.
      */
-    static long backoffNanos(int failures, long initialNanos, long maxNanos, double jitter) {
-        int doublings = Math.min(failures - 1, 62);
-        long ceiling = initialNanos > (maxNanos >> doublings) ? maxNanos : Math.min(maxNanos, initialNanos << doublings);
-        return (long) (ceiling * Math.min(1.0, Math.max(0.0, jitter)));
+    private java.time.Duration tlsHandshakeTimeout(Exchange ex) {
+        if (ex.tlsHandshakeTimeout == null) {
+            java.time.Duration own = null;
+            try {
+                own = ex.filters.proxyToServerTlsHandshakeTimeout();
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, ex.log + "proxyToServerTlsHandshakeTimeout threw; using the server's", e);
+            }
+            ex.tlsHandshakeTimeout = own != null && own.isPositive() ? own : server.tlsHandshakeTimeout;
+        }
+        return ex.tlsHandshakeTimeout;
     }
 
     /**
-     * Waits before trying the next candidate after {@code failures} failed attempts, at most
-     * {@code budget} nanoseconds, while watching for the client to leave. Returns how long it
-     * waited.
+     * The backoff between {@code ex}'s connection attempts: the filters' ({@link
+     * HttpFilters#chainedProxyRetryBackoff()}), else the server's.
+     */
+    private RetryBackoff retryBackoff(Exchange ex) {
+        RetryBackoff own = null;
+        try {
+            own = ex.filters.chainedProxyRetryBackoff();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "chainedProxyRetryBackoff threw; using the server's", e);
+        }
+        return own != null ? own : server.chainedProxyBackoff;
+    }
+
+    /**
+     * Waits before trying the next candidate after {@code failures} failed attempts, as {@code
+     * backoff} says but at most {@code budget} nanoseconds, while watching for the client to
+     * leave. Returns how long it waited.
      *
      * @throws ClientFailure if the client disconnected meanwhile
      */
-    private long backOff(Exchange ex, int failures, long budget, String hostAndPort, ChainedProxy next)
-            throws IOException {
+    private long backOff(Exchange ex, RetryBackoff backoff, int failures, long budget, String hostAndPort,
+            ChainedProxy next) throws IOException {
+        java.util.random.RandomGenerator random = server.backoffRandom;
         long wait = Math.min(budget,
-                backoffNanos(failures, server.backoffInitialNanos, server.backoffMaxNanos, server.backoffJitter.getAsDouble()));
+                (random == null ? backoff.delay(failures) : backoff.delay(failures, random)).toNanos());
         if (wait <= 0) return 0;
         if (LOG.isLoggable(Level.DEBUG)) {
             LOG.log(Level.DEBUG, ex.log + "waiting " + TimeUnit.NANOSECONDS.toMillis(wait) + " ms before trying "
@@ -5073,8 +5104,13 @@ final class ClientConnection implements Runnable {
                 : ProxyStats.ClusterStats.NOOP;
         cluster.backoffEngaged.inc();
         cluster.backoffActive.inc();
+        java.util.function.LongConsumer sleeper = server.backoffSleeper;
         long start = System.nanoTime();
         try {
+            if (sleeper != null) {
+                sleeper.accept(wait);
+                return wait;
+            }
             ex.channel.awaitUnlessClientLeaves(start + wait);
         } finally {
             cluster.backoffActive.dec();
@@ -5186,7 +5222,7 @@ final class ClientConnection implements Runnable {
                                 // (Before the proxy's own settings, which may change it.)
                                 if (proxyKey != null) offerAlpn(s, List.of(ClientHello.H2, ClientHello.HTTP_1_1));
                                 proxy.configure(s, true);
-                            }, server.tlsHandshakeTimeout,
+                            }, tlsHandshakeTimeout(ex),
                             new TlsLog.Peer(ex.log, "chained proxy", remote.getHostString()));
                     ex.flow.mark(ClientFlowContext.TLS_END);
                     cluster.sslHandshake.inc();
@@ -5487,7 +5523,7 @@ final class ClientConnection implements Runnable {
                     s -> {
                         if (alpn != null) offerAlpn(s, alpn);
                         if (manager != null) manager.configureServerSocket(s, serverContext);
-                    }, server.tlsHandshakeTimeout,
+                    }, tlsHandshakeTimeout(ex),
                     new TlsLog.Peer(ex.log, "server", sniHost));
             ex.flow.mark(ClientFlowContext.TLS_END);
             cluster.sslHandshake.inc();

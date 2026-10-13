@@ -40,28 +40,41 @@ context, or as a chained proxy's.
 
 When a connection through one chained proxy fails (refused, timed out, its name does not resolve,
 its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
-`ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once.
-`withChainedProxyRetryBackoff(initial, max)` (or `chained_proxy_backoff_initial_ms` and
-`chained_proxy_backoff_max_ms`, or `--chained-proxy-backoff <initial-ms>[:<max-ms>]`) waits in
-between, so a flapping upstream is not hammered:
+`ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once,
+as LittleProxy does. `withChainedProxyRetryBackoff(RetryBackoff)` waits in between, so a flapping
+upstream is not hammered. `RetryBackoff` has these policies:
+
+| Policy | Waits before attempts 2, 3, 4, ... |
+|---|---|
+| `RetryBackoff.none()` | nothing (the default) |
+| `RetryBackoff.exponentialWithJitter(initial, max)` | a uniformly random time between zero and `initial`, `2 × initial`, `4 × initial`, ... capped at `max` ("full jitter", so clients that failed together do not retry together) |
+| `RetryBackoff.exponential(initial, max)` | exactly `initial`, `2 × initial`, `4 × initial`, ... capped at `max`, without jitter: deterministic doubling, as LittleProxy forks that added a backoff used, for tests that depend on exact timings |
+| `RetryBackoff.fixed(delay)` | exactly `delay` every time |
 
 ```java
 MicroProxy.bootstrap()
         .withChainProxyManager(upstreams)
-        .withChainedProxyRetryBackoff(Duration.ofMillis(100), Duration.ofSeconds(2))
+        .withChainedProxyRetryBackoff(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofSeconds(2)))
         .start();
 ```
 
+`withChainedProxyRetryBackoff(initial, max)` is short for the jittered policy. In a properties file,
+`chained_proxy_backoff_initial_ms` and `chained_proxy_backoff_max_ms` choose it, and
+`chained_proxy_backoff_jitter=false` the deterministic one; on the command line,
+`--chained-proxy-backoff <initial-ms>[:<max-ms>]` and `--chained-proxy-backoff-deterministic
+<initial-ms>[:<max-ms>]`:
+
 ```bash
 java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --chained-proxy-backoff 100:2000
+java -jar microproxy.jar --upstream-proxy http://proxy.corp:3128 --chained-proxy-backoff-deterministic 100:800
 java -jar microproxy.jar --config proxy.properties --chained-proxy-backoff 0   # turn off the file's backoff
 ```
 
-Without a maximum, the property and the flag cap the wait at 8 × the initial one; `0` on the
-command line turns waiting off, overriding a properties file.
+Without a maximum, the properties and the flags cap the wait at 8 × the initial one; `0` on the
+command line turns waiting off, overriding a properties file. A request's filters can choose
+another policy for it, including `none()`, with `HttpFilters.chainedProxyRetryBackoff()` (see
+[Filters](filters.md#per-request-retry-backoff)).
 
-- Before attempt `n + 1` it waits a random time between zero and `initial * 2^(n-1)`, capped at
-  `max` ("full jitter", so clients that failed together do not retry together).
 - It never waits before the first attempt or after the last one.
 - It stops waiting, and gives up on the request, if the client disconnects meanwhile. Once the
   client has sent more bytes (a request body, a pipelined request) a disconnect can no longer be

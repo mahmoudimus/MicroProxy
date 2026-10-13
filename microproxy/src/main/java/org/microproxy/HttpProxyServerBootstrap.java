@@ -527,21 +527,41 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * Waits between attempts when a connection through one chained proxy (or the direct
-     * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried. Before
-     * attempt {@code n + 1} the proxy sleeps a random time between zero and {@code initial *
-     * 2^(n-1)}, capped at {@code max} ("full jitter"). It never sleeps before the first attempt or
+     * fallback) fails and the next candidate from the {@link ChainedProxyManager} is tried, as
+     * {@code backoff} says: {@link RetryBackoff#exponential} for exact doubling waits, {@link
+     * RetryBackoff#exponentialWithJitter} for random ones ("full jitter"), {@link
+     * RetryBackoff#fixed} for the same wait every time. It never waits before the first attempt or
      * after the last, stops waiting (and gives up on the request) when the client disconnects
-     * meanwhile, and sleeps at most 30 seconds or the connect timeout in total per request,
+     * meanwhile, and waits at most 30 seconds or the connect timeout in total per request,
      * whichever is less; once that is spent, the remaining candidates are tried without waiting.
-     * The wait counts towards the connect phase of {@link FlowContext#timings()}. Off by default;
-     * {@code null} turns it off again.
+     * The wait counts towards the connect phase of {@link FlowContext#timings()}. A request's
+     * filters can choose another backoff ({@link HttpFilters#chainedProxyRetryBackoff()}). Off
+     * ({@link RetryBackoff#none()}) by default, as in LittleProxy, which tries the next chained
+     * proxy at once; {@code null} turns it off again.
      *
-     * @param initial the delay before the first retry
-     * @param max the maximum retry delay
+     * @param backoff the backoff between attempts, or {@code null} for none
      * @return this bootstrap
      */
-    default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+    default HttpProxyServerBootstrap withChainedProxyRetryBackoff(RetryBackoff backoff) {
         throw new UnsupportedOperationException(getClass().getName() + " does not support retry backoff");
+    }
+
+    /**
+     * Exponential backoff with full jitter between chained proxy attempts: {@code
+     * withChainedProxyRetryBackoff(RetryBackoff.exponentialWithJitter(initial, max))}. Before attempt
+     * {@code n + 1} the proxy waits a random time between zero and {@code initial * 2^(n-1)},
+     * capped at {@code max}. A {@code null} maximum is the initial wait; a {@code null} initial
+     * wait turns the backoff off. For exact, unjittered waits use {@link
+     * #withChainedProxyRetryBackoff(RetryBackoff)} with {@link RetryBackoff#exponential}.
+     *
+     * @param initial the ceiling of the delay before the first retry
+     * @param max the ceiling of every retry delay
+     * @return this bootstrap
+     * @throws IllegalArgumentException if {@code initial} is not positive or {@code max} is below it
+     */
+    default HttpProxyServerBootstrap withChainedProxyRetryBackoff(Duration initial, Duration max) {
+        return withChainedProxyRetryBackoff(initial == null ? RetryBackoff.none()
+                : RetryBackoff.exponentialWithJitter(initial, max == null ? initial : max));
     }
 
     /**

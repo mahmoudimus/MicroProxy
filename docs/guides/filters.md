@@ -1,8 +1,9 @@
 # Filters and failure responses
 
 Filters are Java hooks that see, change, answer or drop each exchange as it passes the proxy, with
-LittleProxy's API. This page lists the hooks, shows the lambda builder and the per-request connect
-timeout, and explains how the proxy answers when it cannot reach the server. Start with [Your first
+LittleProxy's API. This page lists the hooks, shows the lambda builder and the per-request
+connection settings (connect timeout, TLS handshake timeout, retry backoff), and explains how the
+proxy answers when it cannot reach the server. Start with [Your first
 filter](../getting-started/first-filter.md) for a runnable example.
 
 ## The filter API
@@ -22,7 +23,9 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
 | `proxyToServerResolutionStarted(hostAndPort)` | before the server's name is resolved | return an address to use instead |
-| `proxyToServerConnectTimeout()` | when a new server connection is needed | shorten the connect timeout ([below](#filters-from-lambdas)) |
+| `proxyToServerConnectTimeout()` | when a new server connection is needed | change the connect timeout ([below](#per-request-connect-timeout)) |
+| `proxyToServerTlsHandshakeTimeout()` | when a new server connection is needed | change the upstream TLS handshake timeout ([below](#per-request-tls-handshake-timeout)) |
+| `chainedProxyRetryBackoff()` | when an attempt failed and another route remains | change the wait before the next chained proxy ([below](#per-request-retry-backoff)) |
 | `requestBufferSizeInBytes(request)`, `responseBufferSizeInBytes(response)` | after a message's head | buffer that message whole ([Rewriting bodies](rewriting-bodies.md)) |
 | `webSocketFrameReceived`, `filterWebSocketFrame`, `filterWebSocketMessage(s)` | after a WebSocket upgrade | watch, rewrite or drop frames and messages ([WebSockets](websockets.md)) |
 | `proxyToClientResponseSent(response, source)`, `exchangeEnded(completed)` | once the response is written / once the exchange ends however it ended | release what the filter holds per exchange ([Activity tracking](../observability/activity-tracking.md)) |
@@ -55,7 +58,8 @@ MicroProxy.bootstrap().withFiltersSource((request, ctx) -> filters).start();
 ```
 
 Other hooks: `onRequestBody`, `onResponseBody`, `beforeResponding`, `onFailure`, `onWebSocketMessage`,
-`resolveWith`, `allowMitm`, `connectTimeout`, `bufferRequests` and `bufferResponses`. Registering a hook twice runs both in order.
+`resolveWith`, `allowMitm`, `connectTimeout`, `tlsHandshakeTimeout`, `retryBackoff`, `bufferRequests` and
+`bufferResponses`. Registering a hook twice runs both in order.
 `log(httpLogger)` logs each exchange around the lambdas (see [Request/response
 logging](../observability/request-logging.md)), whether a lambda source returns the built filters, as above,
 or they are the source themselves: they are also an `HttpFiltersSource` that returns them for every
@@ -72,6 +76,43 @@ connection is needed, and does not cover name resolution or TLS handshakes:
 ```java
 HttpFilters.builder()
         .connectTimeout(Duration.ofMillis(500))   // fail fast, e.g. to fall back to the next upstream
+        .build();
+```
+
+### Per-request TLS handshake timeout
+
+`HttpFilters.proxyToServerTlsHandshakeTimeout()` (or `tlsHandshakeTimeout(Duration)` in the
+builder) bounds each upstream TLS handshake of the request's new connections instead of the server's
+`withTlsHandshakeTimeout` (10 s by default): with the server when the proxy speaks TLS to it (an
+intercepted `CONNECT`, an absolute `https://` URL, HTTP/2 to the server), and with each TLS chained
+proxy tried (`https://` and `h2://` ones), including the server's handshake through a tunnel. `null`
+(the default) or a non-positive duration keeps the server's, so a request cannot turn the limit
+off; in a chain the shortest timeout wins. A handshake that runs out of time is a
+`ProxyFailure.TlsFailed` whose cause is a `SocketTimeoutException` (response flag `UF`), and the
+next chained proxy, if any, is tried:
+
+```java
+HttpFilters.builder()
+        .tlsHandshakeTimeout(Duration.ofMillis(200))   // a server that accepts but never handshakes fails fast
+        .build();
+```
+
+Upstream HTTP/3 (QUIC) handshakes keep `Http3Options.upstreamHandshakeTimeout()`: those
+connections are shared by every client, and one that is not made in time sends the request over
+TCP rather than failing it, where this timeout bounds the TLS handshake.
+
+### Per-request retry backoff
+
+`HttpFilters.chainedProxyRetryBackoff()` (or `retryBackoff(RetryBackoff)` in the builder) chooses
+the wait between the request's attempts at its chained proxies instead of the server's
+[`withChainedProxyRetryBackoff`](chained-proxies.md#retries-and-backoff): `RetryBackoff.exponential`
+for exact doubling waits, `exponentialWithJitter`, `fixed`, or `none()` to try the next route at
+once. `null` (the default) keeps the server's; in a chain the first filter that names a backoff
+wins. It is asked only after an attempt failed, so requests that connect at once never ask:
+
+```java
+HttpFilters.builder()
+        .retryBackoff(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(1)))   // 100, 200, 400, 800, 1000 ms
         .build();
 ```
 
