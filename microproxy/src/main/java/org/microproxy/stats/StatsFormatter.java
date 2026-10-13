@@ -45,15 +45,14 @@ public final class StatsFormatter {
      * #prometheus(StatsRegistry)}).
      *
      * @param registry the metrics
-     * @param include which metrics to show
+     * @param include which metrics to show; it sees each metric as read once, the value shown
      * @return the exposition
      */
     public static String prometheus(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096);
         String prefix = registry.prefix().isEmpty() ? "" : registry.prefix() + "_";
         Map<String, List<Metric>> families = new TreeMap<>();
-        for (Metric m : registry.metrics()) {
-            if (!include.test(m)) continue;
+        for (Metric m : read(registry, include)) {
             families.computeIfAbsent(prefix + metricName(m.tagExtractedName()), k -> new ArrayList<>()).add(m);
         }
         for (Map.Entry<String, List<Metric>> family : families.entrySet()) {
@@ -167,12 +166,12 @@ public final class StatsFormatter {
      * #text(StatsRegistry)}).
      *
      * @param registry the metrics
-     * @param include which metrics to show
+     * @param include which metrics to show; it sees each metric as read once, the value shown
      * @return the dump, a line per metric
      */
     public static String text(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096);
-        List<Metric> metrics = registry.metrics().stream().filter(include).toList();
+        List<Metric> metrics = read(registry, include);
         for (Metric m : metrics) {
             switch (m) {
                 case Counter c -> out.append(m.name()).append(": ").append(c.value()).append('\n');
@@ -215,12 +214,12 @@ public final class StatsFormatter {
      * #json(StatsRegistry)}).
      *
      * @param registry the metrics
-     * @param include which metrics to show
+     * @param include which metrics to show; it sees each metric as read once, the value shown
      * @return the JSON document
      */
     public static String json(StatsRegistry registry, Predicate<? super Metric> include) {
         StringBuilder out = new StringBuilder(4096).append("{\"stats\":[");
-        List<Metric> metrics = registry.metrics().stream().filter(include).toList();
+        List<Metric> metrics = read(registry, include);
         boolean firstStat = true;
         for (Metric m : metrics) {
             long value;
@@ -278,6 +277,121 @@ public final class StatsFormatter {
             case Histogram h -> h.snapshot().count() != 0;
             default -> true;
         };
+    }
+
+    /**
+     * The registry's metrics that {@code include} accepts, each read once: a counter or gauge as
+     * the value it had, a histogram as its snapshot. Metrics change while a dump is made (a
+     * connection that closes takes its gauges back to zero), and {@code include} (such as {@link
+     * #used}) and the line a metric gets must see the same value: read twice, a gauge that was 1 for
+     * {@code usedonly} could be shown as 0.
+     */
+    private static List<Metric> read(StatsRegistry registry, Predicate<? super Metric> include) {
+        List<Metric> read = new ArrayList<>();
+        for (Metric m : registry.metrics()) {
+            Metric once = switch (m) {
+                case Counter c -> new ReadCounter(m, c.value());
+                case Gauge g -> new ReadGauge(m, g.value());
+                case Histogram h -> new ReadHistogram(m, h.snapshot());
+                default -> m;
+            };
+            if (include.test(once)) read.add(once);
+        }
+        return read;
+    }
+
+    /** A counter as read once: {@code of}'s names, tags and help, and {@code value}. */
+    private record ReadCounter(Metric of, long value) implements Counter {
+        @Override
+        public void inc() {
+            throw new UnsupportedOperationException("a counter as read");
+        }
+
+        @Override
+        public void add(long n) {
+            throw new UnsupportedOperationException("a counter as read");
+        }
+
+        @Override
+        public String name() {
+            return of.name();
+        }
+
+        @Override
+        public String tagExtractedName() {
+            return of.tagExtractedName();
+        }
+
+        @Override
+        public List<Tag> tags() {
+            return of.tags();
+        }
+
+        @Override
+        public String help() {
+            return of.help();
+        }
+    }
+
+    /** A gauge as read once: {@code of}'s names, tags and help, and {@code value}. */
+    private record ReadGauge(Metric of, long value) implements Gauge {
+        @Override
+        public void set(long value) {
+            throw new UnsupportedOperationException("a gauge as read");
+        }
+
+        @Override
+        public void add(long delta) {
+            throw new UnsupportedOperationException("a gauge as read");
+        }
+
+        @Override
+        public String name() {
+            return of.name();
+        }
+
+        @Override
+        public String tagExtractedName() {
+            return of.tagExtractedName();
+        }
+
+        @Override
+        public List<Tag> tags() {
+            return of.tags();
+        }
+
+        @Override
+        public String help() {
+            return of.help();
+        }
+    }
+
+    /** A histogram as read once: {@code of}'s names, tags and help, and {@code snapshot}. */
+    private record ReadHistogram(Metric of, Histogram.Snapshot snapshot) implements Histogram {
+        @Override
+        public void record(double value) {
+            throw new UnsupportedOperationException("a histogram as read");
+        }
+
+        @Override
+        public String name() {
+            return of.name();
+        }
+
+        @Override
+        public String tagExtractedName() {
+            return of.tagExtractedName();
+        }
+
+        @Override
+        public List<Tag> tags() {
+            return of.tags();
+        }
+
+        @Override
+        public String help() {
+            return of.help();
+        }
     }
 
     /** {@code v} to three decimals, so estimates read cleanly. */
