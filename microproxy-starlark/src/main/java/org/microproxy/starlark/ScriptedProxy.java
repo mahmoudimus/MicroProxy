@@ -29,6 +29,7 @@ import org.microproxy.HttpFiltersBuilder.Body;
 import org.microproxy.HttpFiltersSource;
 import org.microproxy.ProxyAuthenticator;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ResponseSource;
 import org.microproxy.ScriptCallObserver;
 import org.microproxy.SelectiveFilters;
 import org.microproxy.UpstreamProxyManager;
@@ -666,19 +667,23 @@ public final class ScriptedProxy implements HttpFiltersSource, ChainedProxyManag
         }
 
         /**
-         * Where a response reaching serverToProxyResponse came from. The proxy decides the final
-         * {@link org.microproxy.ResponseSource} only when the response is sent, after every filter;
-         * here it is known from what this hook receives: the cache's answers are their own class,
-         * the CONNECT 200 is the proxy's, and anything else is the server's response, unless an
-         * earlier filter in a chain gave it another status. Null when none of these applies.
+         * Where a response reaching serverToProxyResponse came from: what the proxy says it handed
+         * the hooks ({@link FlowContext#responseSource()}), refined by what this hook receives.
+         * The cache's answers are their own class; the proxy's acceptances (a CONNECT's 200, a
+         * CONNECT-UDP flow's 101) are the proxy's unless an earlier filter in a chain gave them
+         * another status; anything else is the server's response, unless an earlier filter gave
+         * it another status. Null when none of these applies.
          */
         private String source(HttpResponse response, OptionalInt upstream) {
             if (response instanceof HttpCache.Answer) return "cache";
+            int status = response.status().code();
+            ResponseSource known = flow == null ? null : flow.responseSource().orElse(null);
+            if (known == ResponseSource.PROXY) return status == 200 || status == 101 ? "proxy" : "filter";
             if (original != null && original.method().equals(HttpMethod.CONNECT)) {
-                return response.status().code() == 200 ? "proxy" : "filter";
+                return status == 200 ? "proxy" : "filter";
             }
-            if (upstream.isEmpty()) return null;
-            return upstream.getAsInt() == response.status().code() ? "server" : "filter";
+            if (upstream.isEmpty()) return known == null ? null : known.name().toLowerCase(java.util.Locale.ROOT);
+            return upstream.getAsInt() == status ? "server" : "filter";
         }
 
         @Override

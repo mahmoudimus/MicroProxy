@@ -53,6 +53,7 @@ public final class ProtocolPolicy {
             .servePlainHttpAfterConnect(true)
             .proxyProtocolDestination(ProxyProtocolDestination.LOCAL_ADDRESS)
             .tlsRetryWithoutSni(false)
+            .generatedResponses(GeneratedResponses.REPLACEABLE)
             .build();
 
     private static final ProtocolPolicy LITTLE_PROXY = new Builder()
@@ -61,6 +62,7 @@ public final class ProtocolPolicy {
             .servePlainHttpAfterConnect(false)
             .proxyProtocolDestination(ProxyProtocolDestination.SERVER_ADDRESS)
             .tlsRetryWithoutSni(true)
+            .generatedResponses(GeneratedResponses.REPLACEABLE)
             .build();
 
     private final Boolean resolveBeforeProxyToServerRequest;
@@ -69,6 +71,7 @@ public final class ProtocolPolicy {
     private final ProxyProtocolDestination proxyProtocolDestination;
     private final Boolean tlsRetryWithoutSni;
     private final Boolean allowChunkedLength;
+    private final GeneratedResponses generatedResponses;
 
     private ProtocolPolicy(Builder b) {
         resolveBeforeProxyToServerRequest = b.resolveBeforeProxyToServerRequest;
@@ -77,6 +80,7 @@ public final class ProtocolPolicy {
         proxyProtocolDestination = b.proxyProtocolDestination;
         tlsRetryWithoutSni = b.tlsRetryWithoutSni;
         allowChunkedLength = b.allowChunkedLength;
+        generatedResponses = b.generatedResponses;
     }
 
     /**
@@ -102,7 +106,9 @@ public final class ProtocolPolicy {
      *       CONNECT} that could be intercepted (a {@code ws://} WebSocket, say) is served as HTTP,
      *       its requests seen by filters;
      *   <li>{@link #proxyProtocolDestination()}: {@link ProxyProtocolDestination#LOCAL_ADDRESS};
-     *   <li>{@link #tlsRetryWithoutSni()}: {@code false}.
+     *   <li>{@link #tlsRetryWithoutSni()}: {@code false};
+     *   <li>{@link #generatedResponses()}: {@link GeneratedResponses#REPLACEABLE}, so a filter can
+     *       brand the proxy's own responses.
      * </ul>
      *
      * @return MicroProxy's default policy
@@ -137,6 +143,13 @@ public final class ProtocolPolicy {
      *   <li>{@link #tlsRetryWithoutSni()}: {@code true}. {@code
      *       ProxyToServerConnection.connectionFailed} connects again without SNI after an {@code
      *       unrecognized_name} handshake failure.
+     *   <li>{@link #generatedResponses()}: {@link GeneratedResponses#REPLACEABLE}. {@code
+     *       ClientToProxyConnection.respondWithShortCircuitResponse}, which writes the proxy's error
+     *       responses ({@code writeBadGateway}, {@code writeBadRequest}, {@code
+     *       writeGatewayTimeout}) and filters' short-circuit responses, runs {@code
+     *       proxyToClientResponse} and writes the response it returns. (LittleProxy 1.x wrote the
+     *       response it was given instead, which forks of it kept: {@link
+     *       GeneratedResponses#IN_PLACE}.)
      * </ul>
      *
      * @return LittleProxy's policy
@@ -235,6 +248,19 @@ public final class ProtocolPolicy {
     }
 
     /**
+     * How {@link HttpFilters#proxyToClientResponse} treats the responses the proxy answers with
+     * itself: its error responses and the short-circuit responses filters returned from earlier
+     * hooks ({@link GeneratedResponses}): it may replace them ({@link
+     * GeneratedResponses#REPLACEABLE}), change them in place only ({@link
+     * GeneratedResponses#IN_PLACE}), or never see them ({@link GeneratedResponses#SKIP}).
+     *
+     * @return the field's value, or empty when this policy leaves it unset
+     */
+    public Optional<GeneratedResponses> generatedResponses() {
+        return Optional.ofNullable(generatedResponses);
+    }
+
+    /**
      * HTTP/1 only: whether an HTTP/1.1 request with both {@code Transfer-Encoding} and {@code
      * Content-Length} is accepted (see {@link HttpProxyServerBootstrap#withAllowChunkedLength}).
      * Set with {@link Http1PolicyBuilder#allowChunkedLength}; a policy for other protocols
@@ -268,13 +294,14 @@ public final class ProtocolPolicy {
                 && Objects.equals(servePlainHttpAfterConnect, p.servePlainHttpAfterConnect)
                 && proxyProtocolDestination == p.proxyProtocolDestination
                 && Objects.equals(tlsRetryWithoutSni, p.tlsRetryWithoutSni)
-                && Objects.equals(allowChunkedLength, p.allowChunkedLength);
+                && Objects.equals(allowChunkedLength, p.allowChunkedLength)
+                && generatedResponses == p.generatedResponses;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(resolveBeforeProxyToServerRequest, filterConnectAnswer, servePlainHttpAfterConnect,
-                proxyProtocolDestination, tlsRetryWithoutSni, allowChunkedLength);
+                proxyProtocolDestination, tlsRetryWithoutSni, allowChunkedLength, generatedResponses);
     }
 
     /**
@@ -291,6 +318,8 @@ public final class ProtocolPolicy {
                 : proxyProtocolDestination.name().toLowerCase(Locale.ROOT));
         field(s, "tls_retry_without_sni", tlsRetryWithoutSni);
         field(s, "allow_chunked_length", allowChunkedLength);
+        field(s, "generated_responses",
+                generatedResponses == null ? null : generatedResponses.name().toLowerCase(Locale.ROOT));
         if (s.charAt(s.length() - 1) == ',') s.setLength(s.length() - 1);
         return s.append(']').toString();
     }
@@ -316,6 +345,7 @@ public final class ProtocolPolicy {
         ProxyProtocolDestination proxyProtocolDestination;
         Boolean tlsRetryWithoutSni;
         Boolean allowChunkedLength;
+        GeneratedResponses generatedResponses;
 
         Builder() {}
 
@@ -340,6 +370,7 @@ public final class ProtocolPolicy {
             if (p.servePlainHttpAfterConnect != null) servePlainHttpAfterConnect = p.servePlainHttpAfterConnect;
             if (p.proxyProtocolDestination != null) proxyProtocolDestination = p.proxyProtocolDestination;
             if (p.tlsRetryWithoutSni != null) tlsRetryWithoutSni = p.tlsRetryWithoutSni;
+            if (p.generatedResponses != null) generatedResponses = p.generatedResponses;
             if (http1Fields && p.allowChunkedLength != null) allowChunkedLength = p.allowChunkedLength;
         }
 
@@ -399,11 +430,23 @@ public final class ProtocolPolicy {
         }
 
         /**
+         * Sets {@link ProtocolPolicy#generatedResponses()}.
+         *
+         * @param value how {@code proxyToClientResponse} treats generated responses
+         * @return this builder
+         */
+        public Builder generatedResponses(GeneratedResponses value) {
+            generatedResponses = Objects.requireNonNull(value, "generatedResponses");
+            return this;
+        }
+
+        /**
          * Sets a field by its configuration name, as the properties file and the command line
          * name them: {@code preset} ({@link ProtocolPolicy#preset(String)}), {@code
          * resolve_before_proxy_to_server_request}, {@code filter_connect_answer}, {@code
          * serve_plain_http_after_connect}, {@code proxy_protocol_destination} ({@code
-         * local_address} or {@code server_address}) and {@code tls_retry_without_sni}, and for
+         * local_address} or {@code server_address}), {@code tls_retry_without_sni} and {@code
+         * generated_responses} ({@link GeneratedResponses#parse}), and for
          * HTTP/1 {@code allow_chunked_length}. Booleans are {@code true} or {@code false}.
          *
          * @param name the field's name ({@code -} may stand for {@code _})
@@ -421,6 +464,7 @@ public final class ProtocolPolicy {
                 case "serve_plain_http_after_connect" -> servePlainHttpAfterConnect(bool(name, value));
                 case "proxy_protocol_destination" -> proxyProtocolDestination(ProxyProtocolDestination.parse(value));
                 case "tls_retry_without_sni" -> tlsRetryWithoutSni(bool(name, value));
+                case "generated_responses" -> generatedResponses(GeneratedResponses.parse(value));
                 default -> throw new IllegalArgumentException("unknown protocol policy field: " + name.strip()
                         + (token(name).equals("allow_chunked_length") ? " (HTTP/1 only)" : ""));
             }
@@ -447,7 +491,7 @@ public final class ProtocolPolicy {
 
     private static final List<String> NAMES = List.of("preset", "resolve_before_proxy_to_server_request",
             "filter_connect_answer", "serve_plain_http_after_connect", "proxy_protocol_destination",
-            "tls_retry_without_sni");
+            "tls_retry_without_sni", "generated_responses");
 
     /**
      * The configuration names {@link Builder#set} takes, {@code preset} first; {@link

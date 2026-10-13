@@ -216,12 +216,24 @@ MicroProxy.bootstrap()
 | `filter_connect_answer` | `false`: `ClientToProxyConnection.RespondCONNECTSuccessful` writes the `200 Connection established` straight to the client; no response filter runs, and only trackers hear of it (`responseSentToClient`) | `true`: it goes through `serverToProxyResponse` and `proxyToClientResponse`, so a filter can see it or turn it into a refusal |
 | `serve_plain_http_after_connect` | `false`: with interception on, a `CONNECT` to a server that does not speak TLS is answered and relayed as it is (`ProxyToServerConnection.initializeConnectionFlow` after `shouldRetryWithoutSsl`); the client's bytes are only looked at for a TLS handshake (`checkAndPerformTlsDetection`) | `true`: plain HTTP after a `CONNECT` (a `ws://` WebSocket) is served as HTTP, through the filters |
 | `proxy_protocol_destination` | `server_address`: `ProxyToServerConnection.SendProxyProtocolHeader` names the server connection's remote address as the destination, and no header is sent when the client and that address are of different address families | `local_address`: the address the client connected to, as HAProxy names it |
+| `generated_responses` | `replaceable`: `ClientToProxyConnection.respondWithShortCircuitResponse`, which writes the proxy's error responses (`writeBadGateway`, `writeBadRequest`, `writeGatewayTimeout`) and filters' short-circuit responses, passes them through `proxyToClientResponse` and writes the response it returns. LittleProxy 1.x (`org.littleshoot:littleproxy` 1.1.2) wrote the response it was given, so a filter could only change it in place or drop it: forks descended from it want `in_place` | `replaceable` |
 | `tls_retry_without_sni` | `true`: `ProxyToServerConnection.connectionFailed` connects again without SNI after an `unrecognized_name` handshake failure (see [TLS to servers](#tls-to-servers)) | `false` |
 
 With `filter_connect_answer` off, trackers and the hooks LittleProxy does not have
 (`proxyToClientResponseSent`, `exchangeEnded`) still see the `CONNECT`'s answer. An HTTP chained
 proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
 `serverToProxyResponse`, reaches no filter in MicroProxy either way.
+
+LittleProxy's `407` challenge (`writeAuthenticationRequired`) reaches no filter, and MicroProxy's
+reaches none either, whatever the policy. A filter written against a fork that kept LittleProxy
+1.x's in-place semantics wants the preset with that one field changed:
+
+```java
+MicroProxy.bootstrap()
+        .onHttp1(p -> p.preset(ProtocolPolicy.littleProxy())
+                       .generatedResponses(GeneratedResponses.IN_PLACE))
+        .start();
+```
 
 `withLittleProxyCompatibility()` used to change these fields for every client protocol; it now
 changes HTTP/1's defaults only, and HTTP/2 and HTTP/3 clients keep MicroProxy's unless their own

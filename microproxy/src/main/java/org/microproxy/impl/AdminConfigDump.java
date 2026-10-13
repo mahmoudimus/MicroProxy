@@ -74,6 +74,7 @@ final class AdminConfigDump {
             fields.put("proxy_protocol_destination", p.proxyProtocolDestination()
                     .map(d -> d.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
             fields.put("tls_retry_without_sni", p.tlsRetryWithoutSni().orElse(null));
+            fields.put("generated_responses", p.generatedResponses().map(v -> v.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
             if (version == 1) fields.put("allow_chunked_length", p.allowChunkedLength().orElse(false));
             policies.put("http" + version, fields);
         }

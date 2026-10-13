@@ -399,6 +399,26 @@ public class FlowContext {
     }
 
     /**
+     * Where the response of the exchange in progress on this connection came from: inside {@link
+     * HttpFilters#serverToProxyResponse} and {@link HttpFilters#proxyToClientResponse}, the source
+     * of the response the hook is handed ({@link ResponseSource#SERVER} for the server's, {@link
+     * ResponseSource#PROXY} for the proxy's own answers, such as its error responses and a {@code
+     * CONNECT}'s {@code 200}, {@link ResponseSource#FILTER} for a short-circuit response or a
+     * {@link HttpFilters#proxyToServerFailure} answer, {@link ResponseSource#CACHE} and {@link
+     * ResponseSource#REPLAY}); once the response is sent, where the response the client got came
+     * from, as {@link HttpFilters#proxyToClientResponseSent} and trackers are told. A filter that
+     * replaced or restatused the server's response in {@code serverToProxyResponse} makes it
+     * {@code FILTER} for {@code proxyToClientResponse}; within one hook of a {@link
+     * HttpFiltersChain}, a later filter is told what the proxy handed the chain. Empty before the
+     * exchange has a response, and for contexts made outside the proxy.
+     *
+     * @return the source of the exchange's response, or empty
+     */
+    public Optional<ResponseSource> responseSource() {
+        return root == this ? Optional.empty() : root.responseSource();
+    }
+
+    /**
      * Adds {@code flag} to the {@linkplain #responseFlags() response flags} of the exchange in
      * progress: for a filter that answers or refuses a request for a reason the access log should
      * show (a rate limiter's {@link ResponseFlag#RATE_LIMITED}, say). Does nothing on a context

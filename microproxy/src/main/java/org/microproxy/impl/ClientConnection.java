@@ -54,6 +54,7 @@ import org.microproxy.FlowTimings;
 import org.microproxy.FlowTrace;
 import org.microproxy.FlowTracer;
 import org.microproxy.FullFlowContext;
+import org.microproxy.GeneratedResponses;
 import org.microproxy.Http3Options;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersAdapter;
@@ -2709,10 +2710,12 @@ final class ClientConnection implements Runnable {
             }
         }
 
+        ex.flow.hookSource(head instanceof HttpCache.Answer ? ResponseSource.CACHE : ResponseSource.SERVER);
         HttpObject filtered = responseHook(filters, head, false);
         if (!(filtered instanceof HttpResponse res)) {
             return abort(ex, conn);
         }
+        ex.flow.hookSource(source(ResponseSource.SERVER, head, upstreamStatus, res));
         if (filtered instanceof FullHttpMessage && body != null) {
             // The filter replaced a streamed response with a complete one: discard the original body.
             serverKeepAlive &= drain(body);
@@ -3265,7 +3268,9 @@ final class ClientConnection implements Runnable {
             accepted.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
             accepted.headers().set("Capsule-Protocol", "?1");
             ProxyUtils.addVia(accepted, server.proxyAlias);
+            ex.flow.hookSource(ResponseSource.PROXY);
             HttpObject o = ex.filters.serverToProxyResponse(accepted);
+            if (o instanceof HttpResponse r) ex.flow.hookSource(source(ResponseSource.PROXY, accepted, 101, r));
             if (o != null) o = ex.filters.proxyToClientResponse(o);
             if (!(o instanceof HttpResponse response)) {
                 ex.channel.close();
@@ -3360,10 +3365,12 @@ final class ClientConnection implements Runnable {
         HttpObject o = established;
         // LittleProxy writes its answer to a client's CONNECT straight to the client
         // (ClientToProxyConnection.RespondCONNECTSuccessful): no response filter sees it, though
-        // trackers do (responseSentToClient). So does compatibility mode.
+        // trackers do (responseSentToClient). So does a policy with filter_connect_answer off.
         if (ex.policy.filterConnectAnswer() || ex.implicit || ex.socks != 0) {
+            ex.flow.hookSource(ResponseSource.PROXY);
             o = ex.filters.serverToProxyResponse(established);
             if (o != null) {
+                if (o instanceof HttpResponse r) ex.flow.hookSource(source(ResponseSource.PROXY, established, 200, r));
                 o = ex.filters.proxyToClientResponse(o);
             }
         }
@@ -4082,8 +4089,12 @@ final class ClientConnection implements Runnable {
             if (!server.transparent) {
                 modifyResponseHeadersToReflectProxying(established, true);
             }
+            ex.flow.hookSource(ResponseSource.SERVER);
             HttpObject o = ex.filters.serverToProxyResponse(established);
             if (o != null) {
+                if (o instanceof HttpResponse r) {
+                    ex.flow.hookSource(source(ResponseSource.SERVER, established, established.status().code(), r));
+                }
                 o = ex.filters.proxyToClientResponse(o);
             }
             if (!(o instanceof HttpResponse response)) {
@@ -6050,10 +6061,27 @@ final class ClientConnection implements Runnable {
         boolean keepAlive = HttpUtil.isKeepAlive(response) && ex.clientKeepAlive
                 && !ex.bodyUnread() && !ex.bodyAbandoned;
         int status = response.status().code();
-        HttpObject filtered = ex.filters.proxyToClientResponse(response);
-        if (!(filtered instanceof HttpResponse res)) {
-            ex.channel.close();
-            return false;
+        ex.flow.hookSource(source(source, response, status, response));
+        GeneratedResponses filtering = ex.policy.generatedResponses();
+        HttpResponse res = response;
+        if (filtering != GeneratedResponses.SKIP) {
+            HttpObject filtered = ex.filters.proxyToClientResponse(response);
+            if (filtered == null || (filtering == GeneratedResponses.REPLACEABLE
+                    && !(filtered instanceof HttpResponse))) {
+                ex.channel.close();
+                return false;
+            }
+            if (filtering == GeneratedResponses.REPLACEABLE) {
+                res = (HttpResponse) filtered;
+            } else {
+                // As LittleProxy 1.x's respondWithShortCircuitResponse: the hook's changes in place stick,
+                // and it may drop the response, but what is sent is the response it was given.
+                if (filtered != response) {
+                    LOG.log(Level.DEBUG, ex.log + "proxyToClientResponse returned another response for the proxy's "
+                            + status + " (" + source + "); sending the proxy's (in-place filtering)");
+                }
+                keepAlive &= HttpUtil.isKeepAlive(response);
+            }
         }
         if (rewriteHeaders && !server.transparent) {
             modifyResponseHeadersToReflectProxying(res, false);
@@ -6064,7 +6092,8 @@ final class ClientConnection implements Runnable {
         ex.channel.setKeepAlive(res, keepAlive);
         boolean bodyAllowed = Framing.responseMayHaveBody(res, ex.request.method());
         ex.responseStarted = true;
-        writeToClient(() -> ex.channel.writeComplete(res, bodyAllowed));
+        HttpResponse written = res;
+        writeToClient(() -> ex.channel.writeComplete(written, bodyAllowed));
         countFull(ex, res, bodyAllowed);
         ResponseSource sent = source(source, response, status, res);
         sent(ex, res, sent);

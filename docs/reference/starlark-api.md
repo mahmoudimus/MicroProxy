@@ -188,7 +188,7 @@ received it, not the script's own changes:
 
 | where | `res.source` |
 |---|---|
-| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
+| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel and the `101` that accepts a CONNECT-UDP flow; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
 | `response(...)` | `"filter"` |
 
 The script never sees the proxy's own answers or other filters' short-circuits as `res`

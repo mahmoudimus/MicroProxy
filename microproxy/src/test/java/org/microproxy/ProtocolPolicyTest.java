@@ -84,7 +84,7 @@ class ProtocolPolicyTest {
                 () -> ProtocolPolicy.builder().set("allow_chunked_length", "true"), "HTTP/1 only");
         assertEquals(Optional.of(true), new Http1PolicyBuilder().set("allow_chunked_length", "true").build()
                 .allowChunkedLength());
-        assertEquals(ProtocolPolicy.configurationNames().size(), 6);
+        assertEquals(7, ProtocolPolicy.configurationNames().size());
     }
 
     @Test

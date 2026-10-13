@@ -185,3 +185,33 @@ passes `proxyToClientResponse` like the default answers. A responder that throws
 default is sent. Requests the proxy cannot parse at all are answered with a plain `4xx` without
 asking anyone. `HttpCache` uses the filter hook to serve stale entries when servers are
 unreachable.
+
+Customising the proxy's own error pages belongs here, in `proxyToServerFailure` or a
+`FailureResponder`, which get the failure itself, rather than in `proxyToClientResponse`.
+
+### The proxy's responses in proxyToClientResponse
+
+`proxyToClientResponse` sees the server's responses, and also the responses the proxy answers with
+itself: its failure answers above (a `FailureResponder`'s included) and the short-circuit
+responses filters returned from `clientToProxyRequest` or `proxyToServerRequest` (the
+`HttpCache`'s answers too). No filter sees the `407` authentication challenge, which is sent
+before the request's filters are made. What the hook may do with the proxy's responses is the
+[protocol policy](protocol-policies.md) field `generated_responses`:
+
+| `GeneratedResponses` | `proxyToClientResponse` | For |
+|---|---|---|
+| `REPLACEABLE` (the default; LittleProxy 2.x) | sees them, may return another response or `null` (close without an answer) | filters that brand every response: their own error pages, `503` with `Retry-After` in place of `502`, CORS or request-id headers on every response |
+| `IN_PLACE` (LittleProxy 1.x and its forks) | sees them, may change them in place or return `null`; another response it returns is ignored | filters written for the server's responses, which must not turn the proxy's own errors into something else (a filter that answers some responses `400` would otherwise turn an unreachable server's `502` into `400`) |
+| `SKIP` | never sees them; trackers and `proxyToClientResponseSent` still do | filters that must only ever see the server's responses |
+
+```java
+MicroProxy.bootstrap()
+        .onHttp1(p -> p.generatedResponses(GeneratedResponses.IN_PLACE))
+        .start();
+```
+
+Inside the hooks, `FlowContext.responseSource()` says where the response at hand came from:
+`SERVER`, `PROXY` (the proxy's answers, and the `200` that opens a `CONNECT` tunnel), `FILTER`
+(a short-circuit response, or one a filter replaced or restatused in `serverToProxyResponse`),
+`CACHE` or `REPLAY`; once the response is sent, where the response the client got came from, as
+`proxyToClientResponseSent` is told.
