@@ -4,7 +4,7 @@
 
     <groupId>io.github.mahmoudimus</groupId>
     <artifactId>microproxy-parent</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>MicroProxy (parent)</name>
@@ -181,7 +181,7 @@
                                     <packages>io.github.mahmoudimus.*</packages>
                                 </group>
                             </groups>
-                            <bottom>Copyright &#169; MicroProxy contributors. Apache License 2.0. &lt;a href="https://mahmoudimus.github.io/MicroProxy/"&gt;Documentation&lt;/a&gt;</bottom>
+                            <bottom>Copyright © MicroProxy contributors. Apache License 2.0. &lt;a href="https://mahmoudimus.github.io/MicroProxy/"&gt;Documentation&lt;/a&gt;</bottom>
                         </configuration>
                     </execution>
                 </executions>

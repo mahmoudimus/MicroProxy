@@ -51,13 +51,13 @@ it falls back to HTTP/1.1 (logged once at `INFO`), so the `microproxy` jar alone
 <dependency>
     <groupId>io.github.mahmoudimus</groupId>
     <artifactId>microproxy</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-SNAPSHOT</version>
 </dependency>
 <!-- Optional: HTTP/2 to clients and servers. -->
 <dependency>
     <groupId>io.github.mahmoudimus</groupId>
     <artifactId>http2-codec</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-SNAPSHOT</version>
 </dependency>
 ```
 <!-- x-release-please-end -->
@@ -70,11 +70,11 @@ OpenTelemetry and `microproxy-starlark` for scripting, all at the same version.
 <!-- x-release-please-start-version -->
 ```kotlin
 dependencies {
-    implementation("io.github.mahmoudimus:microproxy:0.2.0")
+    implementation("io.github.mahmoudimus:microproxy:0.2.1-SNAPSHOT")
     // Optional, at the same version:
-    implementation("io.github.mahmoudimus:http2-codec:0.2.0")
-    implementation("io.github.mahmoudimus:http3-codec:0.2.0")
-    implementation("io.github.mahmoudimus:quic:0.2.0")
+    implementation("io.github.mahmoudimus:http2-codec:0.2.1-SNAPSHOT")
+    implementation("io.github.mahmoudimus:http3-codec:0.2.1-SNAPSHOT")
+    implementation("io.github.mahmoudimus:quic:0.2.1-SNAPSHOT")
 }
 ```
 <!-- x-release-please-end -->
@@ -89,7 +89,7 @@ launcher, scripting, zstd, HTTP/2, QUIC, HTTP/3 and OpenTelemetry: one file to r
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.2.0
+MICROPROXY_VERSION=0.2.1-SNAPSHOT
 curl -LO https://github.com/mahmoudimus/MicroProxy/releases/download/v${MICROPROXY_VERSION}/microproxy-starlark-${MICROPROXY_VERSION}-all.jar
 java -jar microproxy-starlark-${MICROPROXY_VERSION}-all.jar --help
 ```
@@ -109,7 +109,7 @@ Optional modules add their own options when their jars are on the class path (`-
 <!-- x-release-please-start-version -->
 ```bash
 git clone https://github.com/mahmoudimus/MicroProxy.git && cd MicroProxy
-MICROPROXY_VERSION=0.2.0
+MICROPROXY_VERSION=0.2.1-SNAPSHOT
 mvn package                                   # every module, with the tests
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080
