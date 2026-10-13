@@ -218,6 +218,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).transparentQuicPort;
     }
 
+    /** Whether TLS with a server that rejects its SNI is retried without it, defaults applied. */
+    public static boolean retriesTlsWithoutSni(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).retriesTlsWithoutSni();
+    }
+
     /** The HTTP/3 options as configured. */
     public static org.microproxy.Http3Options http3Options(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http3Options;

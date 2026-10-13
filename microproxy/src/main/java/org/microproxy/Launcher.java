@@ -85,6 +85,10 @@ public final class Launcher {
               --tls-handshake-timeout <millis>  longest TLS handshake (default 10000, 0 = none)
               --tls-protocols <list>       TLS versions allowed on every TLS connection
                                            (default TLSv1.3,TLSv1.2; "" = JDK defaults)
+              --tls-retry-without-sni      retry TLS with a server once without SNI when it
+                                           rejects the name (unrecognized_name alert); default
+                                           with --littleproxy-compat
+              --no-tls-retry-without-sni   never retry without SNI, even with --littleproxy-compat
               --littleproxy-compat         behave like LittleProxy where MicroProxy differs
               --proxy-alias <alias>        name used in Via headers
               --throttle <read> <write>    global server bandwidth limits in bytes/s
@@ -518,6 +522,8 @@ public final class Launcher {
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
                 case "--littleproxy-compat" -> bootstrap.withLittleProxyCompatibility(true);
                 case "--tls-protocols" -> bootstrap.withTlsProtocols(value(queue, arg).split(","));
+                case "--tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(true);
+                case "--no-tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(false);
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));

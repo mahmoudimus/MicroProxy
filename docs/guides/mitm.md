@@ -175,6 +175,20 @@ an expired one the `CertificateExpiredException`. `TlsFailed.reason()` reads the
 The access log's `%UPSTREAM_TRANSPORT_FAILURE_REASON%` is that reason's name and the innermost
 cause's message: `certificate_revoked: Certificate has been revoked, reason: ...`.
 
+Some servers answer a server name (SNI) they do not recognize with a fatal `unrecognized_name`
+alert (RFC 6066 section 3), even for names they serve. `withTlsRetryWithoutSni(true)`
+(`--tls-retry-without-sni`, `tls_retry_without_sni=true`) tries such a server once more, on a new
+connection, without SNI, as the JDK's `HttpsURLConnection` once did and LittleProxy forks still
+do. It is off by default, so that the misconfiguration shows (browsers and the JDK's `HttpClient`
+do not retry), and on by default with `withLittleProxyCompatibility()`. The retry leaves out the
+SNI extension only: the certificate is validated with the same trust and checked against the same
+host, so leaving out a name that authenticates nothing weakens no check; a server that then
+presents a certificate for another name still fails, with `HOSTNAME_MISMATCH`. Each retry is
+logged at `INFO` and counted in the cluster's `ssl.retry_without_sni` (the rejected handshake in
+its `ssl.connection_error`). Nothing is remembered: each new connection to such a server pays for
+the extra handshake. It applies to servers (intercepted sessions, TLS origination, a reverse
+proxy's `https://` upstream), not to TLS chained proxies, and not to HTTP/3.
+
 ### Server name and verification host
 
 The proxy sends the request's host as the server name (SNI) and checks the server's certificate

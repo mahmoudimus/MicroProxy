@@ -23,6 +23,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
+import org.microproxy.ProxyFailure;
 import org.microproxy.tls.SslContexts;
 
 /** Layers TLS over already-connected sockets. */
@@ -253,6 +254,14 @@ final class Tls {
                 + host + " (SNI " + sentServerName(socket) + ")");
         e.initCause(mismatch);
         throw e;
+    }
+
+    /**
+     * Whether a failed client handshake ended with the server's {@code unrecognized_name} alert
+     * (RFC 6066 section 3): its answer to a server name it does not recognize.
+     */
+    static boolean serverRejectedName(IOException e) {
+        return "unrecognized_name".equals(ProxyFailure.TlsFailed.Reason.alertOf(e));
     }
 
     static boolean isIpLiteral(String host) {

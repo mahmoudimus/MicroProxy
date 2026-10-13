@@ -407,9 +407,28 @@ final class ClientConnection implements Runnable {
     }
 
     /** A TLS handshake with the server or a chained proxy failed; the cause is the handshake's error. */
-    private static final class TlsHandshakeFailed extends IOException {
+    private static class TlsHandshakeFailed extends IOException {
         TlsHandshakeFailed(IOException cause) {
             super("TLS handshake failed: " + cause.getMessage(), cause);
+        }
+    }
+
+    /**
+     * The server answered the server name the proxy sent (SNI) with an {@code unrecognized_name}
+     * alert, and {@link org.microproxy.HttpProxyServerBootstrap#withTlsRetryWithoutSni} is on:
+     * whoever can make a new connection tries once more without SNI ({@link #retryWithoutSni}).
+     * Anyone else sees the TLS failure it is.
+     */
+    private static final class SniRejected extends TlsHandshakeFailed {
+        /** The name the server rejected. */
+        final String serverName;
+        /** The cluster the retry counts in. */
+        final ProxyStats.ClusterStats cluster;
+
+        SniRejected(IOException cause, String serverName, ProxyStats.ClusterStats cluster) {
+            super(cause);
+            this.serverName = serverName;
+            this.cluster = cluster;
         }
     }
 
@@ -566,6 +585,8 @@ final class ClientConnection implements Runnable {
         String tlsIdentityFor;
         /** Their answer for {@link #tlsIdentityFor} ({@link HttpFilters#proxyToServerTlsIdentity}); null for the default. */
         TlsServerIdentity tlsIdentity;
+        /** The exchange's next TLS handshake with a server sends no SNI: it was rejected ({@link #retryWithoutSni}). */
+        boolean omitSni;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -3632,7 +3653,16 @@ final class ClientConnection implements Runnable {
         if (conn != null && conn.tlsPending) {
             if (serverSpoke(conn)) return tunnelAfterPeek(ex, conn, hostAndPort, route, "the server spoke first");
             try {
-                List<String> offered = startServerTls(ex, conn, hello, target, hostAndPort);
+                List<String> offered;
+                try {
+                    offered = startServerTls(ex, conn, hello, target, hostAndPort);
+                } catch (SniRejected rejected) {
+                    ServerConnection fresh = redialForTls(ex, conn, hostAndPort, route);
+                    if (fresh == null) throw rejected;
+                    conn = fresh;
+                    offered = retryWithoutSni(ex, hostAndPort, rejected,
+                            () -> startServerTls(ex, fresh, hello, target, hostAndPort));
+                }
                 SSLSocket tls = (SSLSocket) conn.socket;
                 serverSession = tls.getSession();
                 // The server's choice says what it speaks only if it could have chosen h2, or if
@@ -3709,6 +3739,37 @@ final class ClientConnection implements Runnable {
     /** Whether the client's ALPN offers protocols, none of them HTTP ({@code imap}, {@code mqtt}, ...). */
     private static boolean offersNoHttp(ClientHello hello) {
         return !hello.alpnProtocols().isEmpty() && hello.httpAlpnProtocols(true).isEmpty();
+    }
+
+    /**
+     * A new connection to {@code hostAndPort} in place of {@code old}, whose deferred TLS handshake
+     * failed, made as {@code old} was (by {@code route}, directly or through chained proxies), its
+     * TLS pending too; null when {@code old} came another way (a tunnel through a session's
+     * server), which this does not redo: the session's requests connect anew instead.
+     */
+    private ServerConnection redialForTls(Exchange ex, ServerConnection old, String hostAndPort,
+            List<ChainedProxy> route) throws IOException {
+        if (via != null || route == null) return null;
+        // (Kept by this connection unless an intercepted stream's session holds it.)
+        boolean kept = serverConnections.remove(old.key, old);
+        old.close();
+        boolean defer = ex.deferServerTls;
+        ex.deferServerTls = true;
+        ServerConnection fresh;
+        try {
+            fresh = connect(hostAndPort, ex, route, Mode.TLS);
+        } finally {
+            ex.deferServerTls = defer;
+        }
+        fresh.key = old.key;
+        try {
+            ex.channel.serverConnectionInUse(fresh);
+        } catch (IOException e) {
+            fresh.close();
+            throw e;
+        }
+        if (kept) serverConnections.put(fresh.key, fresh);
+        return fresh;
     }
 
     /**
@@ -4927,7 +4988,13 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via)
             throws IOException {
-        if (via != null) return connectThrough(via, hostAndPort, ex, mode);
+        if (via != null) {
+            try {
+                return connectThrough(via, hostAndPort, ex, mode);
+            } catch (SniRejected rejected) {
+                return retryWithoutSni(ex, hostAndPort, rejected, () -> connectThrough(via, hostAndPort, ex, mode));
+            }
+        }
         IOException last = null;
         boolean connecting = false;
         int failures = 0;
@@ -4946,7 +5013,13 @@ final class ClientConnection implements Runnable {
                 ex.attemptTraced = true;
             }
             try {
-                ServerConnection conn = connectVia(hostAndPort, ex, proxy, mode);
+                ServerConnection conn;
+                try {
+                    conn = connectVia(hostAndPort, ex, proxy, mode);
+                } catch (SniRejected rejected) {
+                    // The route works, the server just rejects its name: the same route again, without SNI.
+                    conn = retryWithoutSni(ex, hostAndPort, rejected, () -> connectVia(hostAndPort, ex, proxy, mode));
+                }
                 if (proxy != null) {
                     proxy.connectionSucceeded();
                 }
@@ -5465,6 +5538,8 @@ final class ClientConnection implements Runnable {
         String serverName = identity != null && identity.serverName() != null ? identity.serverName() : sniHost;
         String verifyHost = identity != null && identity.verificationHost() != null ? identity.verificationHost()
                 : serverName;
+        if (ex.omitSni) serverName = null;
+        String sent = Tls.sniName(serverName) == null ? null : serverName;
         try {
             ex.flow.markFirst(ClientFlowContext.TLS_START);
             SSLSocket tls = Tls.clientHandshake(context, active, verifyHost, target.port(), serverName, true,
@@ -5482,9 +5557,39 @@ final class ClientConnection implements Runnable {
                 throw new NotTlsServer(hostAndPort, ssl);
             }
             cluster.sslConnectionError.inc();
-            ex.flow.transportFailure(e);
             server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
+            if (sent != null && server.tlsRetryWithoutSni && Tls.serverRejectedName(e)) {
+                // (The failure is the exchange's only if the retry fails too.)
+                throw new SniRejected(e, sent, cluster);
+            }
+            ex.flow.transportFailure(e);
             throw new TlsHandshakeFailed(e);
+        }
+    }
+
+    /** A connection attempt that may be made again. */
+    @FunctionalInterface
+    private interface Attempt<T> {
+        T run() throws IOException;
+    }
+
+    /**
+     * Makes {@code again}, the attempt whose TLS handshake the server ended with an {@code
+     * unrecognized_name} alert to the name it was sent ({@code rejected}), once more on a new
+     * connection, without SNI. The certificate is checked as before: SNI authenticates nothing,
+     * the verification host stays the same.
+     */
+    private <T> T retryWithoutSni(Exchange ex, String hostAndPort, SniRejected rejected, Attempt<T> again)
+            throws IOException {
+        LOG.log(Level.INFO, ex.log + "TLS server " + hostAndPort + " rejected the server name " + rejected.serverName
+                + " (unrecognized_name alert); trying again without SNI");
+        rejected.cluster.sslRetryWithoutSni.inc();
+        boolean omitted = ex.omitSni;
+        ex.omitSni = true;
+        try {
+            return again.run();
+        } finally {
+            ex.omitSni = omitted;
         }
     }
 

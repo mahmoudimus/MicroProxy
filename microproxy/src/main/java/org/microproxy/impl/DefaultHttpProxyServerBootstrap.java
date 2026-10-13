@@ -121,6 +121,8 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     Duration chainedProxyBackoffMax;
     /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
     List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
+    /** Retry a server's TLS without SNI after its unrecognized_name alert; null for the default ({@link #retriesTlsWithoutSni()}). */
+    Boolean tlsRetryWithoutSni;
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
     /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
@@ -226,6 +228,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.chainedProxyBackoffMax = chainedProxyBackoffMax;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
+        c.tlsRetryWithoutSni = tlsRetryWithoutSni;
         c.altSvcH3Stripping = altSvcH3Stripping;
         c.http2 = http2;
         c.http2Upstream = http2Upstream;
@@ -319,6 +322,7 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("tls_protocols")) {
             withTlsProtocols(p.getProperty("tls_protocols").split(","));
         }
+        if (p.containsKey("tls_retry_without_sni")) withTlsRetryWithoutSni(bool(p, "tls_retry_without_sni"));
         if (p.containsKey("tls_handshake_timeout")) {
             withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
         }
@@ -1060,6 +1064,17 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         }
         this.tlsProtocols = List.copyOf(chosen);
         return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withTlsRetryWithoutSni(boolean retry) {
+        this.tlsRetryWithoutSni = retry;
+        return this;
+    }
+
+    /** Whether TLS with a server that rejects its SNI is retried without it: as set, else with LittleProxy compatibility. */
+    boolean retriesTlsWithoutSni() {
+        return tlsRetryWithoutSni != null ? tlsRetryWithoutSni : littleProxyCompatibility;
     }
 
     @Override

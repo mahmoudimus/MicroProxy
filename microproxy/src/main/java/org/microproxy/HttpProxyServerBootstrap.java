@@ -409,10 +409,42 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
+     * Whether a TLS handshake with a server that ends with the server's fatal {@code
+     * unrecognized_name} alert (RFC 6066 section 3, RFC 8446 section 6.2), its answer to a server
+     * name (SNI) it does not recognize, is tried once more on a new connection, without SNI. Some
+     * misconfigured servers answer so for names they do serve; the JDK's {@code
+     * HttpsURLConnection} once retried the same way, and LittleProxy forks copied it.
+     *
+     * <p>Only the SNI extension is left out: the retry offers the same versions and ALPN
+     * protocols, and the certificate is validated with the same trust and checked against the
+     * same host name as the first attempt's. SNI authenticates nothing, so leaving it out weakens
+     * no check; the server may present another (default) certificate, which must then pass the
+     * same checks. The retry is logged, and counted in the cluster's {@code
+     * ssl.retry_without_sni}; a retry that fails too fails the request as the first attempt
+     * would have. Each new connection to such a server pays the extra handshake: nothing is
+     * remembered about the server. It applies to servers (intercepted sessions, TLS origination,
+     * a reverse proxy's {@code https://} upstream), not to TLS chained proxies, and not to HTTP/3.
+     *
+     * <p>Off by default, so that a server that rejects its name fails visibly, as it does for
+     * browsers and the JDK's {@code HttpClient}, and the proxy never sends a ClientHello other
+     * than the one asked for; on by default with {@link #withLittleProxyCompatibility(boolean)}.
+     * Calling this method decides either way.
+     *
+     * @param retry whether to retry without SNI after an {@code unrecognized_name} alert
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap withTlsRetryWithoutSni(boolean retry) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support retrying TLS without SNI");
+    }
+
+    /**
      * Behaves like LittleProxy where MicroProxy deliberately differs, for filters that depend on
      * it:
      *
      * <ul>
+     *   <li>A server that rejects the server name the proxy sends with an {@code unrecognized_name}
+     *       alert is tried again without SNI ({@link #withTlsRetryWithoutSni}), unless that is
+     *       set explicitly.
      *   <li>The server is resolved before {@link HttpFilters#proxyToServerRequest} rather than
      *       after it; a name that does not resolve gets {@code 502} without that hook being called.
      *   <li>A PROXY header sent without one received ({@link #withSendProxyProtocol}) names the

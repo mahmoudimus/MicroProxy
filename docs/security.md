@@ -80,6 +80,12 @@ Every input has a bound, and a peer that exceeds it loses its stream or connecti
   control.
 - **TLS versions:** only TLS 1.3 and 1.2 are allowed by default on every TLS connection
   ([TLS protocol versions](guides/mitm.md#tls-protocol-versions)).
+- **Server names:** a server that rejects the name the proxy sends (SNI) is retried without it
+  only with `--tls-retry-without-sni` (on by default in LittleProxy compatibility mode); a filter
+  may send another name or check the certificate against another host
+  (`proxyToServerTlsIdentity`). Neither skips a check: the certificate is still validated and
+  matched against the intended (or the filter's) host, since SNI authenticates nothing
+  ([Server TLS failures](guides/mitm.md#server-tls-failures)).
 - **DNS:** `--dnssec` validates answers from the root down and never falls back to unvalidated DNS
   ([DNSSEC](guides/dnssec.md)).
 - **0-RTT:** early data from HTTP/3 clients can be replayed, so it is off by default

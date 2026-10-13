@@ -445,6 +445,7 @@ final class ProxyStats {
         final Counter rqRxReset;
         final Counter sslHandshake;
         final Counter sslConnectionError;
+        final Counter sslRetryWithoutSni;
         final Counter cxRxBytes;
         final Counter cxTxBytes;
         final Counter backoffEngaged;
@@ -487,6 +488,8 @@ final class ProxyStats {
             rqRxReset = counter(p + "upstream_rq_rx_reset", "Requests the server reset or closed the connection of");
             sslHandshake = counter(p + "ssl.handshake", "TLS handshakes with the cluster that succeeded");
             sslConnectionError = counter(p + "ssl.connection_error", "TLS handshakes with the cluster that failed");
+            sslRetryWithoutSni = counter(p + "ssl.retry_without_sni",
+                    "TLS handshakes tried again without SNI after the server's unrecognized_name alert");
             cxRxBytes = counter(p + "upstream_cx_rx_bytes_total", "Bytes read from the cluster (decrypted, over TLS)");
             cxTxBytes = counter(p + "upstream_cx_tx_bytes_total", "Bytes written to the cluster (before encryption, over TLS)");
             backoffEngaged = counter(p + "backoff_engaged", "Waits before trying the cluster after earlier attempts failed");
