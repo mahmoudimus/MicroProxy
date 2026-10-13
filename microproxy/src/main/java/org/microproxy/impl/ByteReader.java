@@ -166,6 +166,11 @@ final class ByteReader {
         return buf == null ? new byte[0] : Arrays.copyOfRange(buf, pos, limit);
     }
 
+    /** A copy of at most {@code max} of the bytes buffered and not yet consumed; nothing is consumed. */
+    byte[] peekBuffered(int max) {
+        return buf == null ? new byte[0] : Arrays.copyOfRange(buf, pos, pos + Math.min(max, limit - pos));
+    }
+
     /** Gives the buffer back to the pool if everything in it has been consumed. */
     void release() {
         if (buf != null && pos >= limit) {

@@ -57,8 +57,14 @@ public final class Orchestrator {
         top.put("preset", settings.preset());
         top.put("settings", settings.toMap());
         top.put("environment", ctx.environment);
-        top.put("versions", versions(ctx));
+        top.put("versions", versions(ctx, proxies));
         top.put("proxies", proxies);
+        Map<String, Object> externalDefs = new LinkedHashMap<>();
+        for (String p : proxies) {
+            if (ctx.externals.containsKey(p)) externalDefs.put(p, ctx.externals.get(p).describe());
+        }
+        top.put("externalProxies", externalDefs);
+        top.put("cpuSplit", ctx.cpus);
         top.put("scenarios", scenarioNames);
 
         // Enough origin addresses for the ramp's warm-up connections.
@@ -76,11 +82,21 @@ public final class Orchestrator {
             for (String scenarioName : scenarioNames) {
                 Map<String, Object> perProxy = new LinkedHashMap<>();
                 for (String proxy : proxies) {
-                    if (!RunContext.PROXIES.contains(proxy)) {
-                        throw new IllegalArgumentException("unknown proxy " + proxy + "; one of " + RunContext.PROXIES);
+                    if (!ctx.knows(proxy)) {
+                        throw new IllegalArgumentException("unknown proxy " + proxy + "; one of " + ctx.knownProxies()
+                                + " (external proxies come from --external-proxies)");
                     }
                     RunContext.log("=== " + scenarioName + " / " + proxy + " ===");
                     Scenario scenario = scenario(scenarioName, ctx);
+                    ExternalProxy ext = ctx.externals.get(proxy);
+                    String unsupported = ext == null ? null : ext.unsupportedReason(scenarioName);
+                    if (unsupported != null) {
+                        // A scenario the proxy cannot run: reported as not supported, never dropped silently.
+                        perProxy.put(proxy, Json.obj("unsupported", unsupported));
+                        ctx.verdict(proxy, scenarioName, "scenario", "not-supported", null, unsupported);
+                        RunContext.log(scenarioName + "/" + proxy + " not supported: " + unsupported);
+                        continue;
+                    }
                     Map<String, Object> r;
                     try {
                         r = scenario.run(proxy);
@@ -91,8 +107,15 @@ public final class Orchestrator {
                         e.printStackTrace();
                     }
                     if (!r.containsKey("error")) {
-                        ctx.check(proxy, scenarioName, "proxy metrics were sampled (/proc and NMT)", sampled(r),
-                                sampled(r) ? "per-second /proc samples and NMT present" : "no /proc series or no NMT figures");
+                        if (ctx.isJvm(proxy)) {
+                            ctx.check(proxy, scenarioName, "proxy metrics were sampled (/proc and NMT)", sampled(r),
+                                    sampled(r) ? "per-second /proc samples and NMT present" : "no /proc series or no NMT figures");
+                        } else {
+                            // An external proxy has no NMT: /proc is all there is to sample.
+                            boolean ok = hasProcSeries(r);
+                            ctx.check(proxy, scenarioName, "proxy metrics were sampled (/proc; NMT n/a)", ok,
+                                    ok ? "per-second /proc samples present" : "no /proc series");
+                        }
                     }
                     perProxy.put(proxy, r);
                     writeJson(out.resolve(scenarioName + "-" + proxy + ".json"), r);
@@ -216,9 +239,13 @@ public final class Orchestrator {
         };
     }
 
-    private static Map<String, Object> versions(RunContext ctx) {
+    private static Map<String, Object> versions(RunContext ctx, List<String> proxies) {
         Map<String, Object> m = new LinkedHashMap<>();
         ctx.versions.forEach((k, v) -> m.put(k.toString(), v.toString()));
+        for (String p : proxies) {
+            ExternalProxy e = ctx.externals.get(p);
+            if (e != null) m.put(p, e.probeVersion());
+        }
         return m;
     }
 

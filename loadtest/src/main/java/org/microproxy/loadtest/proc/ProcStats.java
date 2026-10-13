@@ -79,6 +79,31 @@ public final class ProcStats {
         }
     }
 
+    /**
+     * The machine's CPU counters from {@code /proc/stat}: for every CPU, its process time (user, nice
+     * and system), its total, and its interrupt time (irq and softirq, which no process is charged
+     * with: on loopback, much of it is the benchmark's own traffic), in jiffies; null without
+     * {@code /proc}.
+     */
+    public static Map<Integer, long[]> cpuJiffies() {
+        Map<Integer, long[]> out = new LinkedHashMap<>();
+        try {
+            for (String line : Files.readAllLines(Path.of("/proc/stat"))) {
+                if (!line.startsWith("cpu") || line.startsWith("cpu ")) continue;
+                String[] f = line.trim().split("\\s+");
+                if (!Character.isDigit(f[0].charAt(3))) continue;
+                long total = 0;
+                for (int i = 1; i < Math.min(f.length, 9); i++) total += Long.parseLong(f[i]);
+                long process = Long.parseLong(f[1]) + Long.parseLong(f[2]) + Long.parseLong(f[3]);
+                long interrupt = Long.parseLong(f[6]) + Long.parseLong(f[7]);
+                out.put(Integer.parseInt(f[0].substring(3)), new long[] {process, total, interrupt});
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+        return out;
+    }
+
     /** {@code pid}'s soft limit of open files, or -1. */
     public static long maxOpenFiles(long pid) {
         try {

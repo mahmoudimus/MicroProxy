@@ -65,14 +65,24 @@ public final class Report {
     }
 
     private static void header(Md w, Map<String, Object> top) {
-        w.h1("MicroProxy vs LittleProxy load and capacity report");
+        List<String> proxies = strings(top.get("proxies"));
+        boolean classic = proxies.equals(List.of("microproxy", "littleproxy"));
+        w.h1(classic ? "MicroProxy vs LittleProxy load and capacity report" : "Load and capacity report: " + String.join(", ", proxies));
         Map<String, Object> versions = Json.getObject(top, "versions");
         w.line("- Preset: `" + top.get("preset") + "`  Timestamp (UTC): `" + top.get("timestamp") + "`");
-        w.line("- MicroProxy `" + versions.getOrDefault("microproxy", "?") + "` vs LittleProxy `"
-                + versions.getOrDefault("littleproxy", "?") + "` (`io.github.littleproxy:littleproxy`)");
+        if (classic) {
+            w.line("- MicroProxy `" + versions.getOrDefault("microproxy", "?") + "` vs LittleProxy `"
+                    + versions.getOrDefault("littleproxy", "?") + "` (`io.github.littleproxy:littleproxy`)");
+        } else {
+            List<String> v = new ArrayList<>();
+            for (String p : proxies) v.add(p + " `" + versions.getOrDefault(p, "?") + "`");
+            w.line("- Versions: " + String.join(", ", v));
+        }
+        if (top.get("cpuSplit") instanceof Map<?, ?> split) w.line("- CPU split (taskset): " + split);
         Map<String, Object> env = Json.getObject(top, "environment");
         Map<String, Object> limits = Json.getObject(env, "limits");
-        w.line("- Host: " + env.get("os") + ", " + env.get("java"));
+        w.line("- Host: " + env.get("os") + ", " + env.getOrDefault("distribution", "?") + ", " + env.get("java"));
+        w.line("- CPU: " + env.getOrDefault("cpuModel", "?") + "; memory " + mb(env.get("memTotalKb")) + " MB");
         w.line("- CPUs: " + env.get("cpus") + "; taskset present: " + env.get("taskset") + "; cgroup: " + env.get("cgroup"));
         w.line("- Limits: ulimit -n " + limits.get("nofile") + ", somaxconn " + limits.get("somaxconn")
                 + ", ip_local_port_range " + limits.get("ip_local_port_range") + ", tcp_tw_reuse " + limits.get("tcp_tw_reuse"));
@@ -144,8 +154,8 @@ public final class Report {
         w.rule(5);
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) {
-                w.row(p, "error", "-", String.valueOf(r.get("error")), "-");
+            if (skip(r)) {
+                w.row(p, r.containsKey("unsupported") ? "not supported" : "error", "-", why(r), "-");
                 continue;
             }
             Object max = r.get("maxSustainableRate");
@@ -156,7 +166,7 @@ public final class Report {
         w.blank();
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) continue;
+            if (skip(r)) continue;
             w.h3("Latency curve — " + p);
             w.row("Target req/s", "Achieved", "p50", "p90", "p99", "p99.9", "max", "errors", "proxy CPU%", "RSS MB", "sustained");
             w.rule(11);
@@ -200,8 +210,8 @@ public final class Report {
         w.rule(7);
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) {
-                w.row(p, "error", "-", String.valueOf(r.get("error")), "-", "-", "-");
+            if (skip(r)) {
+                w.row(p, r.containsKey("unsupported") ? "not supported" : "error", "-", why(r), "-", "-", "-");
                 continue;
             }
             Map<String, Object> per = Json.getObject(r, "perConnection");
@@ -212,7 +222,7 @@ public final class Report {
         w.blank();
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) continue;
+            if (skip(r)) continue;
             w.h3("Per-step memory — " + p);
             w.row("Held", "Setup req/s", "RSS MB", "NMT total MB", "heap(GC) MB", "thread MB", "other MB", "fds", "threads", "probe ok", "probe p99 ms");
             w.rule(11);
@@ -307,8 +317,8 @@ public final class Report {
         w.rule(8);
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) {
-                w.row(p, "error", "-", "-", "-", "-", "-", String.valueOf(r.get("error")));
+            if (skip(r)) {
+                w.row(p, r.containsKey("unsupported") ? "not supported" : "error", "-", "-", "-", "-", "-", why(r));
                 continue;
             }
             Map<String, Object> leak = Json.getObject(r, "leakCheck");
@@ -339,8 +349,8 @@ public final class Report {
         w.blank();
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
-            if (r.containsKey("error")) {
-                w.line("**" + p + "**: error: " + r.get("error"));
+            if (skip(r)) {
+                w.line("**" + p + "**: " + why(r));
                 continue;
             }
             w.h3("Faults — " + p + " (overall: " + (Boolean.TRUE.equals(r.get("pass")) ? "bounded" : "see below") + ")");
@@ -373,6 +383,16 @@ public final class Report {
     }
 
     // --- formatting helpers ---
+
+    /** Whether a proxy's scenario result has no data: it failed, or the proxy cannot run the scenario. */
+    private static boolean skip(Map<String, Object> r) {
+        return r.containsKey("error") || r.containsKey("unsupported");
+    }
+
+    /** Why a skipped result has no data. */
+    private static String why(Map<String, Object> r) {
+        return r.containsKey("unsupported") ? "not supported: " + r.get("unsupported") : "error: " + r.get("error");
+    }
 
     private static String compact(Map<String, Object> m) {
         List<String> parts = new ArrayList<>();

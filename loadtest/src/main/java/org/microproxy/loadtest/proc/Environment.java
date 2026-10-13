@@ -25,6 +25,9 @@ public final class Environment {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("os", System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch"));
         m.put("java", System.getProperty("java.vm.name") + " " + System.getProperty("java.runtime.version"));
+        m.put("distribution", distribution());
+        m.put("kernel", sysctl("kernel/osrelease"));
+        m.put("cpuModel", cpuModel());
         m.put("cpus", allowedCpus());
         m.put("memTotalKb", memTotalKb());
         Map<String, Object> limits = new LinkedHashMap<>();
@@ -51,6 +54,21 @@ public final class Environment {
             return new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim().replaceAll("\\s+", " ");
         } catch (IOException | RuntimeException e) {
             return null;
+        }
+    }
+
+    /**
+     * Sets this process's scheduling autogroup nice ({@code /proc/self/autogroup}); false when the
+     * kernel has no autogroups or the process may not lower it.
+     */
+    public static boolean setAutogroupNice(String nice) {
+        Path ag = Path.of("/proc/self/autogroup");
+        if (!"1".equals(sysctl("kernel/sched_autogroup_enabled")) || !Files.exists(ag)) return false;
+        try {
+            Files.writeString(ag, nice.trim());
+            return Files.readString(ag).trim().endsWith("nice " + nice.trim());
+        } catch (IOException | RuntimeException e) {
+            return false;
         }
     }
 
@@ -212,6 +230,30 @@ public final class Environment {
         } catch (IOException e) {
             // Still populated; the OS keeps it.
         }
+    }
+
+    /** The CPU's model name from {@code /proc/cpuinfo}, or null. */
+    static String cpuModel() {
+        try {
+            for (String line : Files.readAllLines(Path.of("/proc/cpuinfo"))) {
+                if (line.startsWith("model name")) return line.substring(line.indexOf(':') + 1).trim();
+            }
+        } catch (IOException | RuntimeException e) {
+            // Not Linux.
+        }
+        return null;
+    }
+
+    /** The distribution's name from {@code /etc/os-release}, or null. */
+    static String distribution() {
+        try {
+            for (String line : Files.readAllLines(Path.of("/etc/os-release"))) {
+                if (line.startsWith("PRETTY_NAME=")) return line.substring(12).replace("\"", "").trim();
+            }
+        } catch (IOException | RuntimeException e) {
+            // Not Linux.
+        }
+        return null;
     }
 
     private static long memTotalKb() {

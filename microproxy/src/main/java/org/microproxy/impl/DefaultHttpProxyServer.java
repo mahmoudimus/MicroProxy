@@ -41,6 +41,7 @@ import org.microproxy.KeyMaterial;
 import org.microproxy.MitmManager;
 import org.microproxy.PoolMetrics;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ProxyProtocolMode;
 import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ServerState;
@@ -98,8 +99,15 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     /** Whether clients' own {@code https://} requests are fetched over TLS, or refused. */
     final boolean tlsOrigination;
     final String proxyAlias;
+    /** Whether client connections start with a PROXY header: always, maybe, or never. */
+    final ProxyProtocolMode proxyProtocolMode;
+    /** Whether {@link #proxyProtocolMode} is not {@link ProxyProtocolMode#OFF}. */
     final boolean acceptProxyProtocol;
+    /** The peers whose PROXY headers are honored. */
+    final ProxyProtocol.TrustedSources proxyProtocolTrustedSources;
     final boolean sendProxyProtocol;
+    /** Whether HTTP/1.1 requests with both Transfer-Encoding and Content-Length are accepted (the latter dropped). */
+    final boolean allowChunkedLength;
     final int maxWebSocketFrameBufferSize;
     final int maxWebSocketMessageSize;
     /** Shared server connection pool, or null when connections are kept per client. */
@@ -323,8 +331,11 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.allowRequestsToOriginServer = b.allowRequestToOriginServer;
         this.tlsOrigination = b.tlsOrigination;
         this.proxyAlias = Objects.requireNonNullElseGet(b.proxyAlias, ProxyUtils::getHostName);
-        this.acceptProxyProtocol = b.acceptProxyProtocol;
+        this.proxyProtocolMode = b.proxyProtocolMode;
+        this.acceptProxyProtocol = b.proxyProtocolMode != ProxyProtocolMode.OFF;
+        this.proxyProtocolTrustedSources = b.proxyProtocolTrustedSources;
         this.sendProxyProtocol = b.sendProxyProtocol;
+        this.allowChunkedLength = b.allowChunkedLength;
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
         this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool

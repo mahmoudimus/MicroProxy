@@ -41,6 +41,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%UPSTREAM_TRANSPORT_FAILURE_REASON%` | why the TLS handshake with the server failed: the [reason](../guides/mitm.md#server-tls-failures) and the innermost cause's message (`certificate_revoked: Certificate has been revoked, ...`, `hostname_mismatch: No subject alternative ...`) |
 | `%UPSTREAM_TLS_VERSION%`, `%UPSTREAM_TLS_CIPHER%`, `%UPSTREAM_PEER_SUBJECT%`, `%UPSTREAM_PEER_ISSUER%` | the TLS session with the server |
 | `%DOWNSTREAM_REMOTE_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_REMOTE_PORT%` | the client (the PROXY protocol's source, when one was accepted) |
+| `%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` (`_WITHOUT_PORT`) | the peer of the client's TCP connection: the load balancer when a PROXY protocol header was accepted, else the client |
 | `%DOWNSTREAM_LOCAL_ADDRESS%` (`_WITHOUT_PORT`), `%DOWNSTREAM_LOCAL_PORT%` | the proxy's end of the client connection |
 | `%DOWNSTREAM_TLS_VERSION%`, `%DOWNSTREAM_TLS_CIPHER%`, `%DOWNSTREAM_PEER_SUBJECT%`, `%DOWNSTREAM_PEER_ISSUER%`, `%DOWNSTREAM_PEER_FINGERPRINT_256%` | the TLS session with the client (listener or interception) and its certificate |
 | `%REQUESTED_SERVER_NAME%` | the SNI the client sent |
@@ -52,6 +53,7 @@ Nested objects, numbers and booleans in the dictionary are written as they are.
 | `%MP_RESPONSE_SOURCE%` | `SERVER`, `PROXY`, `FILTER`, `CACHE` or `REPLAY` |
 | `%MP_FLOW%` | `h1`, `h2`, `h3`, `tunnel`, `socks`, `websocket`, `tcp`, `udp`, `quic` or `quic_relay` |
 | `%MP_EARLY_DATA%`, `%MP_TRANSPARENT_QUIC%` | whether the request came as 0-RTT data; whether the client came to the transparent QUIC listener |
+| `%MP_CHUNKED_LENGTH%` | whether the request had both `Transfer-Encoding: chunked` and `Content-Length`, accepted with `--allow-chunked-length` (its `Content-Length` dropped) |
 | `%MP_SOCKS_VERSION%`, `%MP_FORWARDED_VIA%` | the SOCKS version; the client's own proxy the request went through |
 | `%MP_USER%`, `%MP_URL%`, `%MP_UPSTREAM_STATUS%` | the authenticated user; the absolute URL; the status the server sent (before a filter changed it) |
 | `%MP_UPSTREAM_PROTOCOL%` | the protocol spoken to `%UPSTREAM_CLUSTER%`: to a chained proxy `HTTP/1.1` or `HTTP/2` (for a tunnel, that of its `CONNECT`), `SOCKS4` or `SOCKS5`; else to the server `HTTP/1.1`, `HTTP/2` or `HTTP/3`; `-` for a tunnel straight to the server |

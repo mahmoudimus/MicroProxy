@@ -45,9 +45,15 @@ final class MemoryUnderAttack extends Scenario {
 
         for (String attack : names) {
             boolean h2c = attack.equals("rapidreset");
-            if (h2c && !proxy.equals("microproxy")) {
-                attacks.add(Json.obj("attack", attack, "skipped", "LittleProxy serves HTTP/1 only; no h2c for rapid reset"));
-                ctx.verdict(proxy, name(), attack, "not-applicable", null, "HTTP/1 only: no h2c to send streams over");
+            ExternalProxy ext = ctx.externals.get(proxy);
+            String unsupported = ext == null ? null : ext.unsupportedReason(name() + "/" + attack);
+            if (unsupported == null && h2c && !proxy.equals("microproxy")) {
+                unsupported = proxy.equals("littleproxy") ? "LittleProxy serves HTTP/1 only; no h2c for rapid reset"
+                        : "not configured for h2c in this harness; no h2c for rapid reset";
+            }
+            if (unsupported != null) {
+                attacks.add(Json.obj("attack", attack, "skipped", unsupported));
+                ctx.verdict(proxy, name(), attack, "not-applicable", null, unsupported);
                 continue;
             }
             ProxyProcess.Options o = new ProxyProcess.Options(s.getInt("idle-timeout"), s.get("attack-heap"),
@@ -57,7 +63,8 @@ final class MemoryUnderAttack extends Scenario {
                     ClientControl prober = ctx.startClient(proxy + "-" + name() + "-" + attack + "-probe", p.port, List.of());
                     Sampler sampler = new Sampler(Map.of("proxy", p.pid(), "client", attacker.process().pid()), 1000)) {
                 if (attacks.isEmpty()) result.put("validation", validate(proxy, prober));
-                Map<String, Object> cap = Json.obj("heap", o.heap(), "direct", o.direct(), "cgroupLimit",
+                // The heap and direct-memory caps are JVM flags; an external proxy has only the cgroup.
+                Map<String, Object> cap = Json.obj("heap", p.jvm ? o.heap() : null, "direct", p.jvm ? o.direct() : null, "cgroupLimit",
                         o.cgroupLimit().isBlank() ? null : o.cgroupLimit(), "cgroup", p.cgroupProcs == null ? null
                                 : p.cgroupProcs.getParent().toString());
                 Map<String, Object> baseline = p.memorySnapshot(true);
@@ -243,12 +250,14 @@ final class MemoryUnderAttack extends Scenario {
     private Map<String, Object> memSample(ProxyProcess p, double t) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("t", Trend.round(t));
-        m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(p.pid()));
-        Map<String, Object> nmt = ctx.jcmd.nmt(p.pid());
-        m.put("nmtTotalKb", nmt.get("totalKb"));
-        m.put("heapKb", nmt.get("heapKb"));
-        m.put("threadKb", nmt.get("threadKb"));
-        m.put("otherKb", nmt.get("otherKb"));
+        if (p.jvm) {
+            m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(p.pid()));
+            Map<String, Object> nmt = ctx.jcmd.nmt(p.pid());
+            m.put("nmtTotalKb", nmt.get("totalKb"));
+            m.put("heapKb", nmt.get("heapKb"));
+            m.put("threadKb", nmt.get("threadKb"));
+            m.put("otherKb", nmt.get("otherKb"));
+        }
         ProcStats.Sample sm = ProcStats.sample(p.pid());
         if (sm != null) {
             m.put("rssKb", sm.rssKb());

@@ -28,6 +28,7 @@ import org.microproxy.HttpProxyServer;
 import org.microproxy.HttpProxyServerBootstrap;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyAuthenticator;
+import org.microproxy.ProxyProtocolMode;
 import org.microproxy.RetryBackoff;
 import org.microproxy.ReverseProxyMode;
 import org.microproxy.ScriptCallObserver;
@@ -106,8 +107,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** Fetch clients' own {@code https://} requests over TLS (forward proxy). */
     boolean tlsOrigination = true;
     String proxyAlias;
-    boolean acceptProxyProtocol;
+    ProxyProtocolMode proxyProtocolMode = ProxyProtocolMode.OFF;
+    /** The peers whose PROXY headers are honored; empty for every peer. */
+    ProxyProtocol.TrustedSources proxyProtocolTrustedSources = ProxyProtocol.TrustedSources.ALL;
     boolean sendProxyProtocol;
+    /** Accept requests with both Transfer-Encoding and Content-Length (dropping the latter). */
+    boolean allowChunkedLength;
     int maxWebSocketFrameBufferSize = 1 << 20;
     int maxWebSocketMessageSize = 16 << 20;
     boolean sharedServerConnectionPool;
@@ -213,8 +218,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.allowRequestToOriginServer = allowRequestToOriginServer;
         c.tlsOrigination = tlsOrigination;
         c.proxyAlias = proxyAlias;
-        c.acceptProxyProtocol = acceptProxyProtocol;
+        c.proxyProtocolMode = proxyProtocolMode;
+        c.proxyProtocolTrustedSources = proxyProtocolTrustedSources;
         c.sendProxyProtocol = sendProxyProtocol;
+        c.allowChunkedLength = allowChunkedLength;
         c.maxWebSocketFrameBufferSize = maxWebSocketFrameBufferSize;
         c.maxWebSocketMessageSize = maxWebSocketMessageSize;
         c.sharedServerConnectionPool = sharedServerConnectionPool;
@@ -340,8 +347,14 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withAllowRequestToOriginServer(bool(p, "allow_requests_to_origin_server"));
         }
         if (p.containsKey("originate_tls")) withTlsOrigination(bool(p, "originate_tls"));
-        if (p.containsKey("allow_proxy_protocol")) withAcceptProxyProtocol(bool(p, "allow_proxy_protocol"));
+        if (p.containsKey("allow_proxy_protocol")) {
+            withAcceptProxyProtocol(ProxyProtocolMode.parse(p.getProperty("allow_proxy_protocol")));
+        }
+        if (p.containsKey("proxy_protocol_trusted_sources")) {
+            withProxyProtocolTrustedSources(p.getProperty("proxy_protocol_trusted_sources").split(","));
+        }
         if (p.containsKey("send_proxy_protocol")) withSendProxyProtocol(bool(p, "send_proxy_protocol"));
+        if (p.containsKey("allow_chunked_length")) withAllowChunkedLength(bool(p, "allow_chunked_length"));
         if (p.containsKey("use_shared_server_connection_pool")) {
             withSharedServerConnectionPool(bool(p, "use_shared_server_connection_pool"));
         }
@@ -1129,13 +1142,31 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
 
     @Override
     public HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol) {
-        this.acceptProxyProtocol = acceptProxyProtocol;
+        this.proxyProtocolMode = acceptProxyProtocol ? ProxyProtocolMode.REQUIRED : ProxyProtocolMode.OFF;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAcceptProxyProtocol(ProxyProtocolMode mode) {
+        this.proxyProtocolMode = Objects.requireNonNull(mode, "mode");
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withProxyProtocolTrustedSources(String... sources) {
+        this.proxyProtocolTrustedSources = ProxyProtocol.TrustedSources.parse(List.of(sources));
         return this;
     }
 
     @Override
     public HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol) {
         this.sendProxyProtocol = sendProxyProtocol;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withAllowChunkedLength(boolean allow) {
+        this.allowChunkedLength = allow;
         return this;
     }
 
