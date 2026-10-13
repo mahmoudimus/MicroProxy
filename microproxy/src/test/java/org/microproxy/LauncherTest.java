@@ -114,7 +114,7 @@ class LauncherTest {
         String usage = console.toString(StandardCharsets.UTF_8);
         for (String flag : List.of("--config", "--port", "--address", "--server", "--name", "--transparent",
                 "--idle-timeout", "--connect-timeout", "--tls-handshake-timeout", "--tls-protocols", "--littleproxy-compat", "--proxy-alias",
-                "--throttle", "--chained-proxy-backoff",
+                "--throttle", "--chained-proxy-backoff", "--chained-proxy-backoff-deterministic",
                 "--accept-proxy-protocol",
                 "--send-proxy-protocol", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy", "--env-proxy",
                 "--strip-tracing-headers", "--strip-request-headers",
@@ -497,7 +497,7 @@ class LauncherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"--config", "--port", "--address", "--name", "--idle-timeout", "--connect-timeout",
-        "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
+        "--proxy-alias", "--throttle", "--chained-proxy-backoff", "--chained-proxy-backoff-deterministic", "--upstream-proxy", "--upstream-https-proxy", "--no-proxy",
         "--dnssec-resolver", "--activity-log-format", "--access-log", "--access-log-format", "--access-log-json",
         "--access-log-filter", "--statsd", "--dogstatsd", "--stats-prefix", "--stats-max-clusters",
         "--log-http", "--log-http-view", "--proto-descriptors",
@@ -670,6 +670,35 @@ class LauncherTest {
         assertEquals("--chained-proxy-backoff 0 turns the backoff off and takes no maximum, got: 0:500",
                 assertThrows(IllegalArgumentException.class, () -> parse("--chained-proxy-backoff", "0:500"))
                         .getMessage());
+    }
+
+    @Test
+    void deterministicChainedProxyBackoffHasNoJitter(@TempDir Path dir) throws IOException {
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "100:2000"));
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(250), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "250"));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
+                backoffPolicy("--chained-proxy-backoff", "100:2000"));
+        assertEquals(RetryBackoff.none(), backoffPolicy("--chained-proxy-backoff-deterministic", "0"));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(5), Duration.ofMillis(40)),
+                backoffPolicy("--chained-proxy-backoff-deterministic", "100", "--chained-proxy-backoff", "5"),
+                "the last flag wins");
+        assertEquals("--chained-proxy-backoff-deterministic maximum 100 ms is below the initial 500 ms",
+                assertThrows(IllegalArgumentException.class,
+                        () -> parse("--chained-proxy-backoff-deterministic", "500:100")).getMessage());
+
+        Path props = dir.resolve("backoff.properties");
+        Files.writeString(props, "chained_proxy_backoff_initial_ms=50\nchained_proxy_backoff_jitter=false\n");
+        assertEquals(RetryBackoff.exponential(Duration.ofMillis(50), Duration.ofMillis(400)),
+                backoffPolicy("--config", props.toString()));
+        assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(10), Duration.ofMillis(80)),
+                backoffPolicy("--config", props.toString(), "--chained-proxy-backoff", "10"),
+                "the flag overrides the file's jitter setting too");
+    }
+
+    private RetryBackoff backoffPolicy(String... args) throws IOException {
+        return BootstrapView.chainedProxyBackoffPolicy(parse(args).bootstrap());
     }
 
     private List<Duration> backoff(String... args) throws IOException {

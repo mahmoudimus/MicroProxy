@@ -50,8 +50,9 @@ public sealed interface ProxyFailure {
 
     /**
      * The TLS handshake with the server (when intercepting) or with a TLS chained proxy failed or
-     * did not finish within {@link HttpProxyServerBootstrap#withTlsHandshakeTimeout}, e.g. because
-     * its certificate is not trusted. Default {@code 502}.
+     * did not finish within {@link HttpProxyServerBootstrap#withTlsHandshakeTimeout} (or the
+     * request's {@link HttpFilters#proxyToServerTlsHandshakeTimeout()}), e.g. because its
+     * certificate is not trusted. Default {@code 502}.
      *
      * <p>{@code cause} is the handshake's own exception, as the JDK threw it, with its whole cause
      * chain: an {@link javax.net.ssl.SSLHandshakeException} whose causes say, for example, that the

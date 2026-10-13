@@ -67,7 +67,8 @@ See [Chained proxies](../guides/chained-proxies.md), [DNSSEC](../guides/dnssec.m
 | `--upstream-https-proxy <url>` | different upstream for HTTPS / CONNECT | `upstream_https_proxy` |
 | `--no-proxy <list>` | hosts to reach directly (NO_PROXY syntax) | `no_proxy` |
 | `--env-proxy` | take upstream proxies from http_proxy/https_proxy/no_proxy | `use_env_proxy` |
-| `--chained-proxy-backoff` | <initial>[:<max>]  millis to wait between failed chained proxy attempts, doubling up to max (default 8 x initial; 0 = no waiting, the default) | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms` |
+| `--chained-proxy-backoff` | <initial>[:<max>]  millis to wait between failed chained proxy attempts, doubling up to max (default 8 x initial; 0 = no waiting, the default), with full jitter | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms` |
+| `--chained-proxy-backoff-deterministic` | <initial>[:<max>]  the same, without jitter: exactly initial, 2 x initial, 4 x initial, ... up to max | `chained_proxy_backoff_initial_ms`, `chained_proxy_backoff_max_ms`, `chained_proxy_backoff_jitter=false` |
 | `--dnssec` | resolve server names with DNSSEC validation | `dnssec` |
 | `--dnssec-resolver <spec>` | DoH URL or comma-separated resolver IPs for --dnssec | `dnssec_resolver` |
 | `--shared-pool` | share server connections between clients | `use_shared_server_connection_pool` |

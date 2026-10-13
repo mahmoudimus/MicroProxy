@@ -94,7 +94,9 @@ public final class Launcher {
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --chained-proxy-backoff <initial>[:<max>]  millis to wait between failed chained
                                            proxy attempts, doubling up to max (default 8 x initial;
-                                           0 = no waiting, the default)
+                                           0 = no waiting, the default), with full jitter
+              --chained-proxy-backoff-deterministic <initial>[:<max>]  the same, without jitter:
+                                           exactly initial, 2 x initial, 4 x initial, ... up to max
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
               --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
@@ -527,7 +529,8 @@ public final class Launcher {
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));
-                case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg);
+                case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, true);
+                case "--chained-proxy-backoff-deterministic" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, false);
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
@@ -963,20 +966,23 @@ public final class Launcher {
     }
 
     /**
-     * Applies {@code --chained-proxy-backoff <initial-ms>[:<max-ms>]}: the maximum defaults to 8 x
-     * the initial wait, as {@code chained_proxy_backoff_max_ms} does, and 0 turns waiting off.
+     * Applies {@code --chained-proxy-backoff <initial-ms>[:<max-ms>]} (with full jitter) or {@code
+     * --chained-proxy-backoff-deterministic} (without): the maximum defaults to 8 x the initial
+     * wait, as {@code chained_proxy_backoff_max_ms} does, and 0 turns waiting off.
      */
-    private static void chainedProxyBackoff(HttpProxyServerBootstrap bootstrap, String v, String option) {
+    private static void chainedProxyBackoff(HttpProxyServerBootstrap bootstrap, String v, String option, boolean jitter) {
         int colon = v.indexOf(':');
         long initial = millis(colon < 0 ? v : v.substring(0, colon), v, option);
         long max = colon < 0 ? initial * 8 : millis(v.substring(colon + 1), v, option);
         if (initial == 0) {
             if (colon >= 0) throw new IllegalArgumentException(option + " 0 turns the backoff off and takes no maximum, got: " + v);
-            bootstrap.withChainedProxyRetryBackoff(null, null);
+            bootstrap.withChainedProxyRetryBackoff(RetryBackoff.none());
         } else if (max < initial) {
             throw new IllegalArgumentException(option + " maximum " + max + " ms is below the initial " + initial + " ms");
         } else {
-            bootstrap.withChainedProxyRetryBackoff(Duration.ofMillis(initial), Duration.ofMillis(max));
+            bootstrap.withChainedProxyRetryBackoff(jitter
+                    ? RetryBackoff.exponentialWithJitter(Duration.ofMillis(initial), Duration.ofMillis(max))
+                    : RetryBackoff.exponential(Duration.ofMillis(initial), Duration.ofMillis(max)));
         }
     }
 
