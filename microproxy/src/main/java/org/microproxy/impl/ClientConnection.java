@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -3060,6 +3061,10 @@ final class ClientConnection implements Runnable {
      * proxy's resolver and filters, and the flow is bounded. The acceptance is a {@code 101} with
      * {@code Upgrade: connect-udp} as filters see it (a 200 on an HTTP/2 or HTTP/3 stream); then
      * the flow relays datagrams ({@link UdpFlow}) on this exchange's thread until it ends.
+     *
+     * <p>The flow's places in the bounds, the proxy's and its connection's, go back before the
+     * client can learn that the request ended (a refusal, or the end of the flow): a client that
+     * opens another flow as soon as it reads that finds room for it.
      */
     private boolean handleConnectUdp(Exchange ex) throws IOException {
         ex.kind = FlowRecord.Kind.UDP;
@@ -3095,23 +3100,34 @@ final class ClientConnection implements Runnable {
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows"), true, ResponseSource.PROXY);
         }
+        AtomicBoolean held = new AtomicBoolean(true);
+        Runnable release = () -> {
+            if (held.compareAndSet(true, false)) server.udpFlows.decrementAndGet();
+        };
         try {
-            return serveUdpFlow(ex, client, target, hostAndPort);
+            return serveUdpFlow(ex, client, target, hostAndPort, release);
         } finally {
-            server.udpFlows.decrementAndGet();
+            release.run();
         }
     }
 
-    /** Opens the socket of a CONNECT-UDP flow, accepts it, and relays it until it ends. */
-    private boolean serveUdpFlow(Exchange ex, UdpFlow.Client client, HostAndPort target, String hostAndPort)
-            throws IOException {
+    /**
+     * Opens the socket of a CONNECT-UDP flow, accepts it, and relays it until it ends.
+     *
+     * @param release gives the flow's place in the proxy's bound back (once): run before any
+     *     answer that ends the request, and by the flow as it ends, before its client learns it
+     */
+    private boolean serveUdpFlow(Exchange ex, UdpFlow.Client client, HostAndPort target, String hostAndPort,
+            Runnable release) throws IOException {
         InetSocketAddress address;
         try {
             address = resolveServer(hostAndPort, ex);
         } catch (UnknownHostException e) {
+            release.run();
             return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort, e), false);
         }
         if (address.isUnresolved()) {
+            release.run();
             return respondFailure(ex, new ProxyFailure.UnresolvedHost(hostAndPort,
                     new UnknownHostException(address.getHostString())), false);
         }
@@ -3130,28 +3146,31 @@ final class ClientConnection implements Runnable {
             }
         } catch (IOException e) {
             LOG.log(Level.DEBUG, ex.log + "no UDP socket to " + hostAndPort + ": " + e);
+            release.run();
             return respondFailure(ex, connectFailure(hostAndPort, e), false);
         }
         Http3Options options = server.http3Options;
         UdpFlow flow = new UdpFlow(client, socket, target, address, ex.flow, ex.log, server.udpInterceptor,
                 options.connectUdpIdleTimeout(), options.connectUdpMaxQueued(), options.connectUdpMaxQueuedBytes(),
-                server.stats.hooks.udp);
+                server.stats.hooks.udp, release);
         // Before the answer: the client may send datagrams as soon as it reads it.
         if (!client.attach(flow)) {
             socket.close();
+            release.run();
             server.stats.masque.rejectedLimit.inc();
             LOG.log(Level.DEBUG, ex.log + "refusing CONNECT-UDP to " + hostAndPort + ": "
                     + options.connectUdpMaxFlowsPerConnection() + " flows open on the connection");
             return respondDirect(ex, errorResponse(ex, HttpResponseStatus.SERVICE_UNAVAILABLE,
                     "Too many UDP flows on this connection"), true, ResponseSource.PROXY);
         }
-        MasqueQuic masque = server.masqueQuic();
-        if (masque != null && masque.inspects(target.port())) {
-            // QUIC inside the flow is decided on as transparent QUIC is, by a client connection of
-            // this client's, with the flow's target as the server.
-            flow.inspectQuic(masque.attach(flow, targetAddress -> new ClientConnection(this, targetAddress)));
-        }
+        // From here the flow's end (UdpFlow.end) gives its places back, whatever happens.
         try {
+            MasqueQuic masque = server.masqueQuic();
+            if (masque != null && masque.inspects(target.port())) {
+                // QUIC inside the flow is decided on as transparent QUIC is, by a client connection of
+                // this client's, with the flow's target as the server.
+                flow.inspectQuic(masque.attach(flow, targetAddress -> new ClientConnection(this, targetAddress)));
+            }
             HttpResponse accepted = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.SWITCHING_PROTOCOLS);
             accepted.headers().set(HttpHeaderNames.UPGRADE, CONNECT_UDP);
             accepted.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
@@ -3166,8 +3185,11 @@ final class ClientConnection implements Runnable {
             ResponseSource source = source(ResponseSource.PROXY, accepted, 101, response);
             ex.responseStarted = true;
             if (response.status().code() != 101) {
-                // A filter refused the flow: its answer goes to the client as it is.
+                // A filter refused the flow: its answer goes to the client as it is, once the flow
+                // holds no place.
                 server.stats.masque.rejectedPolicy.inc();
+                client.detach(flow);
+                release.run();
                 writeToClient(() -> ex.channel.writeComplete(response, true));
                 countFull(ex, response, true);
                 sent(ex, response, source);
@@ -3194,7 +3216,6 @@ final class ClientConnection implements Runnable {
             }
             return false;
         } finally {
-            client.detach(flow);
             flow.end(false);
         }
     }
