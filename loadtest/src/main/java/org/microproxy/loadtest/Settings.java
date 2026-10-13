@@ -35,6 +35,7 @@ public final class Settings {
         {"proxy-cgroup-limit", "", "", "", "a memory cgroup limit for the proxy in every scenario (e.g. 2g), empty for none; needs a writable cgroup"},
         {"proxy-gc", "G1", "G1", "G1", "the proxies' garbage collector: G1, Parallel, Serial or Z"},
         {"proxy-jvm-args", "", "", "", "extra JVM arguments for both proxies, space-separated"},
+        {"proxy-java", "", "", "", "the java executable for the JVM proxies, empty for the harness's own (to compare JDK versions)"},
         {"proxy-log-level", "error", "error", "error", "the proxies' log level: error or off"},
         {"jfr", "false", "false", "false", "record a JFR file (profile settings) of each proxy run"},
         {"idle-timeout", "70", "70", "70", "both proxies' idle connection timeout in seconds (matches the JMH benchmarks)"},

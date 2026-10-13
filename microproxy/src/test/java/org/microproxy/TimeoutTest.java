@@ -169,6 +169,30 @@ class TimeoutTest {
     }
 
     @Test
+    void aResponseHeadIsNotHeldBackWhileItsBodyIsAwaited() throws Exception {
+        CountDownLatch headSeen = new CountDownLatch(1);
+        try (TestSupport.RawServer slowBody = TestSupport.rawServer(s -> {
+            TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+            TestSupport.write(s.getOutputStream(), "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n");
+            headSeen.await(5, TimeUnit.SECONDS);
+            TestSupport.write(s.getOutputStream(), "hello");
+            Thread.sleep(1000);
+        })) {
+            proxy = MicroProxy.bootstrap().withPort(0).start();
+            try (Socket c = new Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort())) {
+                c.setSoTimeout(3000);
+                TestSupport.write(c.getOutputStream(), "GET http://127.0.0.1:" + slowBody.port() + "/ HTTP/1.1\r\nHost: x\r\n\r\n");
+                // The origin sends the body only once the client has the head.
+                String head = TestSupport.readUntil(c.getInputStream(), "\r\n\r\n");
+                assertTrue(head.startsWith("HTTP/1.1 200"), head);
+                headSeen.countDown();
+                byte[] body = c.getInputStream().readNBytes(5);
+                assertEquals("hello", new String(body, StandardCharsets.US_ASCII));
+            }
+        }
+    }
+
+    @Test
     void stalledResponseBodyIsCutOff() throws Exception {
         try (TestSupport.RawServer stalling = TestSupport.rawServer(s -> {
             TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");

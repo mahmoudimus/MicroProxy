@@ -1,9 +1,45 @@
 # Performance options
 
-Two optional JVM-level switches: SIMD byte loops through the JDK's incubating Vector API, and an
-experimental build with Project Valhalla value classes. Neither is needed; use this page to decide
-whether to turn SIMD on, or to track Valhalla. The design that makes the proxy fast by default is
-in [Architecture](../architecture.md#why-virtual-threads-instead-of-netty).
+Which JDK to run on, and two optional JVM-level switches: SIMD byte loops through the JDK's
+incubating Vector API, and an experimental build with Project Valhalla value classes. None of
+them is needed; use this page to pick a JDK, to decide whether to turn SIMD on, or to track
+Valhalla. The design that makes the proxy fast by default is in
+[Architecture](../architecture.md#why-virtual-threads-instead-of-netty).
+
+## The JDK: 25 for throughput
+
+MicroProxy runs on JDK 21 and later, but how a virtual thread waits for a socket changed after
+JDK 21, and on a busy proxy that is most of what a request costs besides the system calls
+themselves (see [what a request costs on one core](../architecture.md#what-a-request-costs-on-one-core)):
+
+- **JDK 25** polls for ready sockets on the carrier threads themselves (its "virtual-thread
+  pollers", `jdk.pollerMode=2`, the default on Linux): under load one `epoll_wait` returns dozens
+  of ready sockets, and a busy carrier thread seldom has to hand anything to another thread. It is the fastest JDK for the proxy, and the one
+  to choose when throughput or tail latency on few cores matters.
+- **JDK 21** has a platform poller thread that wakes for every socket that becomes ready and
+  hands it to the scheduler: a thread switch each time, which no setting removes. By default it
+  also registers every wait through a second "updater" thread; the launcher turns that off
+  (`jdk.useDirectRegister=true`, what JDK 22 and later always do) unless the command line sets
+  it. An application that embeds MicroProxy on JDK 21 should pass `-Djdk.useDirectRegister=true`
+  itself.
+
+Measured with the [load-testing harness](../project/load-testing.md) at a fixed 9,537 requests a
+second over 128 keep-alive connections, the proxy on one CPU (medians of three runs; the setup
+and the counts behind it are in
+[Architecture](../architecture.md#what-a-request-costs-on-one-core)):
+
+| Proxy CPU per request | JDK 21 | JDK 25 |
+|---|---|---|
+| release 0.3.0 | 117.6 µs | 97.5 µs |
+| release 0.3.0 with `-Djdk.useDirectRegister=true` | 106.4 µs | (no such property) |
+| this version (the launcher sets the property on JDK 21) | 97.3 µs | 83.0 µs |
+
+At that rate this version's p99 latency was 150 ms on JDK 21, which was at its limit, and 14 ms
+on JDK 25.
+
+JDK 25's other poller mode, `-Djdk.pollerMode=1` (platform poller threads, as on JDK 21), was
+slower than both (130 µs a request with release 0.3.0), and the garbage collector made no
+difference at this load (`-XX:+UseSerialGC`: 117.3 µs against G1's 117.6 µs).
 
 ## SIMD (optional)
 

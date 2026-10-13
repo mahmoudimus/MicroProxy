@@ -105,6 +105,10 @@ class ServerConnection {
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Trackers trackers;
+    /** {@link #localAddress()}'s answer, and the socket it is for. */
+    private LocalAddress localAddress;
+
+    private record LocalAddress(Socket of, InetSocketAddress address) {}
 
     ServerConnection(
             String key,
@@ -306,6 +310,21 @@ class ServerConnection {
 
     boolean isOpen() {
         return !closed.get() && !socket.isClosed();
+    }
+
+    /**
+     * The proxy's end of the connection, or null if it is not an IP socket. Asked once per socket:
+     * every ask of the socket itself is a system call, and an exchange records it for each request.
+     */
+    InetSocketAddress localAddress() {
+        Socket s = socket;
+        if (s == null) return null;
+        LocalAddress known = localAddress;
+        if (known == null || known.of() != s) {
+            known = new LocalAddress(s, s.getLocalSocketAddress() instanceof InetSocketAddress a ? a : null);
+            localAddress = known;
+        }
+        return known.address();
     }
 
     void close() {

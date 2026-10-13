@@ -140,6 +140,37 @@ class HttpCodecTest {
     }
 
     @Test
+    void aHeadCanWaitForTheBodyItIsSentWith() throws IOException {
+        java.util.List<String> writes = new java.util.ArrayList<>();
+        java.io.OutputStream socket = new java.io.OutputStream() {
+            @Override
+            public void write(int b) {
+                writes.add(String.valueOf((char) b));
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) {
+                writes.add(new String(b, off, len, StandardCharsets.ISO_8859_1));
+            }
+        };
+        HttpCodec.HttpWriter writer = new HttpCodec.HttpWriter(new PooledOutputStream(socket, new BufferPool(1024, 1)));
+        DefaultHttpResponse head = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        head.headers().set("Content-Length", "3");
+
+        writer.writeHead(head, true, false);
+        assertTrue(writes.isEmpty(), "the head waits in the buffer");
+        writer.writeData("abc".getBytes(StandardCharsets.US_ASCII), 0, 3);
+        writer.flush();
+        assertEquals(java.util.List.of("HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc"), writes,
+                "head and body in one write");
+
+        writes.clear();
+        writer.writeHead(head, true);
+        assertEquals(java.util.List.of("HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\n"), writes,
+                "by default a bare head is flushed at once, for a body that may be slow to come");
+    }
+
+    @Test
     void hostAndPortParsing() {
         assertEquals(new HostAndPort("example.com", 443), HostAndPort.parse("example.com:443", 80));
         assertEquals(new HostAndPort("example.com", 80), HostAndPort.parse("example.com", 80));
