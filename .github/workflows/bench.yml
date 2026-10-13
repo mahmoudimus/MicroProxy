@@ -1,0 +1,79 @@
+name: Benchmarks
+
+# Runs the JMH benchmarks of MicroProxy against LittleProxy (benchmarks/, see
+# docs/project/benchmarks.md) on demand, and uploads JMH's JSON and the Markdown comparison as
+# artifacts. A hosted runner is shared and noisy: treat its numbers as a smoke test of the suite,
+# and publish only numbers from a manual run on a quiet machine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'smoke (each benchmark once), quick (1 fork, short iterations) or full (2 forks)'
+        required: true
+        type: choice
+        options: [full, quick, smoke]
+        default: full
+      filter:
+        description: 'Benchmark regexps, space-separated (e.g. "SmallGet Concurrency"); empty for all'
+        required: false
+        type: string
+        default: ''
+      jmh-options:
+        description: 'More JMH options (e.g. "-prof gc" or "-p connections=4096")'
+        required: false
+        type: string
+        default: ''
+      footprint-connections:
+        description: 'Idle connections for the footprint harness; 0 to skip it'
+        required: false
+        type: string
+        default: '2000'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build the benchmarks
+        run: mvn --batch-mode -Pbench -DskipTests package -pl benchmarks -am
+      - name: Run the benchmarks
+        env:
+          PRESET: ${{ inputs.preset }}
+          FILTER: ${{ inputs.filter }}
+          JMH_OPTIONS: ${{ inputs.jmh-options }}
+          RESULTS_DIR: bench-results
+        run: |
+          # The options and regexps are split on spaces, never expanded as file names.
+          set -f
+          # shellcheck disable=SC2086
+          benchmarks/run.sh "$PRESET" $JMH_OPTIONS $FILTER
+          cat bench-results/*.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Measure the footprint per idle connection
+        if: ${{ inputs.footprint-connections != '0' }}
+        env:
+          CONNECTIONS: ${{ inputs.footprint-connections }}
+        run: |
+          ulimit -n 32768 || true
+          java -cp benchmarks/target/benchmarks.jar org.microproxy.bench.Footprint --connections "$CONNECTIONS" \
+              | tee bench-results/footprint.md
+          { echo; cat bench-results/footprint.md; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: bench-${{ inputs.preset }}-${{ github.run_id }}
+          path: bench-results/
+          if-no-files-found: ignore

@@ -715,10 +715,25 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     public void drain(Duration drainTime) {
         Objects.requireNonNull(drainTime, "drainTime");
         if (stopping.get()) return;
-        if (!drainBegun.compareAndSet(false, true)) {
+        if (beginDrain(drainTime)) {
+            endDrain();
+        } else {
             awaitQuietly(drainDone);
-            return;
         }
+    }
+
+    /**
+     * Begins a drain on the calling thread, unless one has begun already or the proxy is stopping.
+     * When it returns true the state says DRAINING and new requests are told to go elsewhere, and
+     * the caller must see that {@link #endDrain} runs. The admin's graceful
+     * {@code /drain_listeners} begins the drain before it answers, so that {@code /ready} fails
+     * once the client has the answer, and leaves the drain time to a thread of its own.
+     *
+     * @return whether this call began the drain
+     */
+    boolean beginDrain(Duration drainTime) {
+        Objects.requireNonNull(drainTime, "drainTime");
+        if (stopping.get() || !drainBegun.compareAndSet(false, true)) return false;
         try {
             long nanos = drainTime.isNegative() ? 0 : saturatedNanos(drainTime);
             drainNanos = nanos;
@@ -729,9 +744,24 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
             LOG.log(Level.INFO, "{0} draining for {1} ({2})", name, drainTime,
                     drainImmediate ? "immediate" : "gradual");
             if (drainImmediate) connections.forEach(ClientConnection::drain);
+            return true;
+        } catch (RuntimeException | Error e) {
+            drainDone.countDown();
+            throw e;
+        }
+    }
+
+    /**
+     * Ends the drain {@link #beginDrain} began: waits out the rest of the drain time, counted from
+     * its beginning, then closes the listeners and every connection still open; at once if the
+     * proxy starts stopping meanwhile.
+     */
+    void endDrain() {
+        try {
             // The listeners keep accepting meanwhile: clients still on their way are served, and
             // told to go elsewhere.
-            if (stopBegun.await(nanos, TimeUnit.NANOSECONDS)) return;
+            long left = drainNanos - (System.nanoTime() - drainStartNanos);
+            if (stopBegun.await(Math.max(0, left), TimeUnit.NANOSECONDS)) return;
             closeListeners();
             for (ClientConnection c : connections) c.close();
             LOG.log(Level.INFO, "{0} drained", name);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /** Histogram bucketing, and the Prometheus, text and JSON forms against golden output. */
@@ -183,5 +184,38 @@ class StatsFormatterTest {
         assertTrue(used.contains("server.live: 1\n"), used);
         assertTrue(used.contains("cluster.direct.upstream_rq_time: P0"), used);
         assertTrue(!used.contains("script.say_hi") && !used.contains("cluster.idle"), "unused counter and histogram: " + used);
+    }
+
+    /**
+     * The predicate and the line see the same value: a metric that changes while the dump is made
+     * (here a gauge that is 1 the first time it is read, 0 after, as a connection's gauges are when
+     * it closes during the dump) is shown with the value the predicate accepted, not left as a
+     * zero that {@code usedonly} kept.
+     */
+    @Test
+    void aMetricIsReadOnceForThePredicateAndItsLine() {
+        for (String form : new String[] {"text", "json", "prometheus"}) {
+            StatsRegistry r = StatsRegistry.create();
+            AtomicInteger reads = new AtomicInteger();
+            r.gauge("http.ingress.downstream_cx_active", "", () -> reads.getAndIncrement() == 0 ? 1 : 0);
+            String used;
+            String line;
+            switch (form) {
+                case "text" -> {
+                    used = StatsFormatter.text(r, StatsFormatter::used);
+                    line = "http.ingress.downstream_cx_active: 1\n";
+                }
+                case "json" -> {
+                    used = StatsFormatter.json(r, StatsFormatter::used);
+                    line = "{\"name\":\"http.ingress.downstream_cx_active\",\"value\":1}";
+                }
+                default -> {
+                    used = StatsFormatter.prometheus(r, StatsFormatter::used);
+                    line = "envoy_http_downstream_cx_active{envoy_http_conn_manager_prefix=\"ingress\"} 1\n";
+                }
+            }
+            assertTrue(used.contains(line), form + ": " + used);
+            assertEquals(1, reads.get(), form + " reads the gauge once");
+        }
     }
 }

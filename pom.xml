@@ -191,6 +191,35 @@
 
     <profiles>
         <profile>
+            <!-- Performance testing, never published (mvn -Pbench -DskipTests package): the JMH
+                 microbenchmarks (benchmarks/, docs/project/benchmarks.md) and the system-level load
+                 and capacity harness (loadtest/, docs/project/load-testing.md). Both bring
+                 LittleProxy and Netty and are never part of a normal build. Without the profile
+                 neither module is built or resolved. -->
+            <id>bench</id>
+            <modules>
+                <module>benchmarks</module>
+                <module>loadtest</module>
+            </modules>
+            <build>
+                <plugins>
+                    <plugin>
+                        <!-- Keep both modules out of the aggregated Javadoc, should it run with the profile. -->
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>api-docs</id>
+                                <configuration>
+                                    <skippedModules>microproxy-benchmarks,microproxy-loadtest</skippedModules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <!-- Opt in only when checking or publishing Central artifacts. -->
             <id>central</id>
             <build>

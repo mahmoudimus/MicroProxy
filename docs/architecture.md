@@ -43,6 +43,8 @@ Per request, header handling avoids throwaway objects:
 
 A small keep-alive GET through the proxy now allocates about 4.7 KB, down from 12.1 KB, at
 10-20% higher throughput. Both figures include the benchmark client's own allocations.
+[Benchmarks against LittleProxy](project/benchmarks.md) measures throughput, latency,
+allocation and idle footprint against LittleProxy itself, through the same origin and client.
 
 A few rules keep this safe on JDK 21, where a virtual thread that blocks inside `synchronized`
 pins its carrier thread:

@@ -113,6 +113,74 @@ jobs:
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dgrpc.interop.python=python -Dgrpc.interop.required=true
 
+  bench-smoke:
+    # The JMH benchmarks of MicroProxy against LittleProxy (benchmarks/, built only with -Pbench),
+    # every benchmark run once with small parameters (-f 1 -wi 0 -i 1 -r 1s): a check that each
+    # one works against both proxies, whose responses are all validated, not a measurement
+    # (runners are too noisy for that; see docs/project/benchmarks.md). Then the footprint
+    # harness, also small.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build the benchmarks
+        run: mvn --batch-mode -Pbench -DskipTests package -pl benchmarks -am
+      - name: Run every benchmark once against both proxies
+        run: benchmarks/run.sh smoke
+        env:
+          RESULTS_DIR: bench-results
+      - name: Run the footprint harness
+        run: java -cp benchmarks/target/benchmarks.jar org.microproxy.bench.Footprint --connections 100
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: bench-smoke
+          path: bench-results/
+          if-no-files-found: ignore
+
+  loadtest-smoke:
+    # The system-level load and capacity harness (loadtest/, built only with -Pbench) run with its
+    # smoke preset against both proxies: a check that every scenario runs, responses validate and
+    # the JSON and Markdown reports are produced. Thresholds are not checked here; GitHub runners
+    # are too noisy (see docs/project/load-testing.md). The job fails on a failed harness self-check,
+    # or on a failed verdict on MicroProxy (out of memory, a crash, a fault that hung or leaked);
+    # the smoke windows are too short for growth or leak verdicts, which are inconclusive here.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build the harness
+        run: mvn --batch-mode -Pbench -DskipTests package -pl loadtest -am
+      - name: Run the smoke preset against both proxies
+        # The smoke preset needs about 2,500 descriptors per process, under a hosted runner's
+        # default. Raising the soft limit to the hard one never needs privileges; going past the
+        # hard limit does, and is not attempted. The exit code gates on the harness's self-checks
+        # and MicroProxy's verdicts (--gate microproxy, the default); LittleProxy's verdicts are
+        # comparison data and appear in the summary below.
+        run: |
+          ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+          echo "Open-file limit: soft $(ulimit -n), hard $(ulimit -Hn)"
+          java -jar loadtest/target/microproxy-loadtest.jar run --preset smoke --gate microproxy
+      - name: Add the report to the job summary
+        if: always()
+        run: |
+          report=loadtest/results/latest/report.md
+          if [ -f "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: loadtest-smoke
+          path: loadtest/results/
+          if-no-files-found: ignore
+
   central-artifacts:
     runs-on: ubuntu-24.04
     steps:
