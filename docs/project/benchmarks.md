@@ -4,6 +4,11 @@ JMH benchmarks that measure MicroProxy and LittleProxy side by side, through the
 server and the same client, in JVMs started with the same settings. Use this page to run them,
 to check what they compare and how fairly, and to read the comparison they print.
 
+These benchmarks are the first of two layers of performance testing. They measure the hot path
+inside one JVM; the system-level [load and capacity harness](load-testing.md) measures the proxies
+as separate processes under open-loop load, for sustainable rate, memory per connection, limits,
+adversarial clients, soak and faults. Both pin the same LittleProxy.
+
 The benchmarks live in the `benchmarks/` module, which only the `bench` Maven profile builds: a
 normal `mvn verify` neither compiles it nor downloads JMH, LittleProxy or Netty, and the module is
 never installed, deployed or published. The published modules stay dependency-free.
