@@ -180,7 +180,9 @@ public class FlowContext {
      * The HTTP version of the client connection that carries this flow: {@link
      * HttpVersion#HTTP_2_0} or {@link HttpVersion#HTTP_3_0} for a stream's flow, {@link
      * HttpVersion#HTTP_1_1} for an HTTP/1.x connection (whose request lines tell 1.0 from 1.1) and
-     * for the context of a connection itself.
+     * for the context of a connection itself. It is the client protocol whose {@link
+     * ProtocolPolicy} applies to the flow's exchanges ({@link HttpProxyServer#getProtocolPolicy}),
+     * so filters can branch on it too.
      *
      * @return the client connection's HTTP version
      */

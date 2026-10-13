@@ -95,6 +95,20 @@ class ScriptedObservabilityTest {
     }
 
     @Test
+    void theClientsProtocolIsOnTheContext() throws Exception {
+        origin = origin(echo());
+        proxy = MicroProxy.bootstrap().withPort(0).withHttp2Cleartext(true).withFiltersSource(script("""
+                def on_response(req, res, ctx):
+                    res.headers["X-Protocol"] = ctx.protocol
+                """)).start();
+        assertEquals("http1", header(get(client(proxy), url(origin, "/")), "x-protocol"));
+        try (RawH2 h2 = new RawH2(proxy.getListenAddress(), "127.0.0.1:" + origin.getAddress().getPort())) {
+            h2.request(1, "GET", "/", null);
+            assertEquals("http2", h2.response(1).header("x-protocol"));
+        }
+    }
+
+    @Test
     void theConnectResponseIsTheProxys() throws Exception {
         origin = origin(echo());
         proxy = MicroProxy.bootstrap().withPort(0).withFiltersSource(script(TAG_SOURCE)).start();

@@ -91,7 +91,18 @@ public final class Launcher {
                                            rejects the name (unrecognized_name alert); default
                                            with --littleproxy-compat
               --no-tls-retry-without-sni   never retry without SNI, even with --littleproxy-compat
-              --littleproxy-compat         behave like LittleProxy where MicroProxy differs
+              --littleproxy-compat         make LittleProxy's behaviour HTTP/1 clients' default
+                                           where MicroProxy differs (the littleproxy preset)
+              --policy <field=value,...>   protocol policy fields for every client protocol:
+                                           preset (littleproxy, microproxy),
+                                           resolve_before_proxy_to_server_request,
+                                           filter_connect_answer, serve_plain_http_after_connect,
+                                           proxy_protocol_destination (local_address,
+                                           server_address), tls_retry_without_sni
+              --http1-policy <field=value,...>  the same for HTTP/1.x clients only, which also
+                                           take allow_chunked_length
+              --http2-policy <field=value,...>  the same for HTTP/2 clients only
+              --http3-policy <field=value,...>  the same for HTTP/3 clients only
               --proxy-alias <alias>        name used in Via headers
               --throttle <read> <write>    global server bandwidth limits in bytes/s
               --chained-proxy-backoff <initial>[:<max>]  millis to wait between failed chained
@@ -529,6 +540,22 @@ public final class Launcher {
                 case "--idle-timeout" -> bootstrap.withIdleConnectionTimeout(intValue(queue, arg));
                 case "--connect-timeout" -> bootstrap.withConnectTimeout(intValue(queue, arg));
                 case "--littleproxy-compat" -> bootstrap.withLittleProxyCompatibility(true);
+                case "--policy" -> {
+                    String v = value(queue, arg);
+                    bootstrap.onAllProtocols(p -> policyFields(p, v, arg));
+                }
+                case "--http1-policy" -> {
+                    String v = value(queue, arg);
+                    bootstrap.onHttp1(p -> policyFields(p, v, arg));
+                }
+                case "--http2-policy" -> {
+                    String v = value(queue, arg);
+                    bootstrap.onHttp2(p -> policyFields(p, v, arg));
+                }
+                case "--http3-policy" -> {
+                    String v = value(queue, arg);
+                    bootstrap.onHttp3(p -> policyFields(p, v, arg));
+                }
                 case "--tls-protocols" -> bootstrap.withTlsProtocols(value(queue, arg).split(","));
                 case "--tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(true);
                 case "--no-tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(false);
@@ -972,6 +999,23 @@ public final class Launcher {
             return Long.parseLong(v.strip());
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(option + " needs a number, got: " + v);
+        }
+    }
+
+    /**
+     * Sets the protocol policy fields of {@code --policy} (or {@code --http1-policy}, ...) on
+     * {@code policy}: comma-separated {@code field=value} pairs, applied left to right.
+     */
+    private static void policyFields(ProtocolPolicy.Builder policy, String v, String option) {
+        for (String pair : v.split(",")) {
+            if (pair.isBlank()) continue;
+            int eq = pair.indexOf('=');
+            if (eq < 0) throw new IllegalArgumentException(option + " takes field=value pairs, got: " + pair.strip());
+            try {
+                policy.set(pair.substring(0, eq), pair.substring(eq + 1));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(option + ": " + e.getMessage(), e);
+            }
         }
     }
 

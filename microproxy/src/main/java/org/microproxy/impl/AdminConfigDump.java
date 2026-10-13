@@ -64,6 +64,20 @@ final class AdminConfigDump {
         boot.put("timeouts", timeouts);
         boot.put("tls_protocols", b.tlsProtocols);
         boot.put("tls_retry_without_sni", b.retriesTlsWithoutSni());
+        Map<String, Object> policies = new LinkedHashMap<>();
+        for (int version = 1; version <= 3; version++) {
+            org.microproxy.ProtocolPolicy p = b.effectivePolicy(version);
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("resolve_before_proxy_to_server_request", p.resolveBeforeProxyToServerRequest().orElse(null));
+            fields.put("filter_connect_answer", p.filterConnectAnswer().orElse(null));
+            fields.put("serve_plain_http_after_connect", p.servePlainHttpAfterConnect().orElse(null));
+            fields.put("proxy_protocol_destination", p.proxyProtocolDestination()
+                    .map(d -> d.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
+            fields.put("tls_retry_without_sni", p.tlsRetryWithoutSni().orElse(null));
+            if (version == 1) fields.put("allow_chunked_length", p.allowChunkedLength().orElse(false));
+            policies.put("http" + version, fields);
+        }
+        boot.put("protocol_policies", policies);
         Map<String, Object> limits = new LinkedHashMap<>();
         limits.put("max_initial_line_length", b.maxInitialLineLength);
         limits.put("max_header_size", b.maxHeaderSize);

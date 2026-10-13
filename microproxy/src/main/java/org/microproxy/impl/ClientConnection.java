@@ -62,6 +62,7 @@ import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.MitmManager;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ProxyProtocolDestination;
 import org.microproxy.ProxyProtocolMode;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
@@ -525,6 +526,8 @@ final class ClientConnection implements Runnable {
         final ClientChannel channel;
         /** The record of this exchange (timings, upstream status), which flow contexts show. */
         final ClientFlowContext flow;
+        /** The protocol policy of the client's protocol ({@link org.microproxy.ProtocolPolicy}). */
+        final EffectivePolicy policy;
         /** Starts the exchange's log lines: {@code [conn <id>] }, or {@code [conn <id> stream <s>] }. */
         final String log;
         HttpRequest request;
@@ -628,9 +631,11 @@ final class ClientConnection implements Runnable {
         /** The trace has been told of an attempt to reach the server that has not ended yet. */
         boolean attemptTraced;
 
-        Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
+        Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive,
+                EffectivePolicy policy) {
             this.channel = channel;
             this.flow = channel.flowContext();
+            this.policy = policy;
             this.log = channel.logPrefix();
             this.request = request;
             this.originalUri = request.uri();
@@ -1498,7 +1503,8 @@ final class ClientConnection implements Runnable {
             keepAlive = false;
             markDrained();
         }
-        Exchange ex = new Exchange(channel, request, body, keepAlive);
+        Exchange ex = new Exchange(channel, request, body, keepAlive,
+                server.policy(channel.flowContext().getHttpVersion().majorVersion()));
         ex.trace = trace;
         ex.logRequest = snapshot;
         ex.kind = kind(channel);
@@ -2095,7 +2101,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        if (server.littleProxyCompatibility && conn == null && via == null
+        if (ex.policy.resolveBeforeProxyToServerRequest() && conn == null && via == null
                 && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
             // LittleProxy resolves the server before proxyToServerRequest, and answers 502 without
             // calling it when the name does not resolve.
@@ -3355,7 +3361,7 @@ final class ClientConnection implements Runnable {
         // LittleProxy writes its answer to a client's CONNECT straight to the client
         // (ClientToProxyConnection.RespondCONNECTSuccessful): no response filter sees it, though
         // trackers do (responseSentToClient). So does compatibility mode.
-        if (!(server.littleProxyCompatibility && !ex.implicit && ex.socks == 0)) {
+        if (ex.policy.filterConnectAnswer() || ex.implicit || ex.socks != 0) {
             o = ex.filters.serverToProxyResponse(established);
             if (o != null) {
                 o = ex.filters.proxyToClientResponse(o);
@@ -3676,8 +3682,8 @@ final class ClientConnection implements Runnable {
                 if (server.tcpHosts != null && server.tcpHosts.matches(target.host(), null)) {
                     return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain bytes to a TCP host");
                 }
-                if (!server.littleProxyCompatibility) return servePlainSession(ex, conn, hostAndPort);
-                return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (LittleProxy compatibility)");
+                if (ex.policy.servePlainHttpAfterConnect()) return servePlainSession(ex, conn, hostAndPort);
+                return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (serve_plain_http_after_connect off)");
             }
             case OTHER -> {
                 return tunnelAfterPeek(ex, conn, hostAndPort, route, start.note());
@@ -5371,7 +5377,7 @@ final class ClientConnection implements Runnable {
             // CONNECT, and not at all when there is no tunnel to the final server (SOCKS, or a
             // plain request forwarded to an HTTP chained proxy).
             if (server.sendProxyProtocol && proxy == null) {
-                writeProxyProtocolHeader(rawOut, remote);
+                writeProxyProtocolHeader(ex, rawOut, remote);
             } else if (server.sendProxyProtocol && (socks || mode == Mode.PLAIN)) {
                 LOG.log(Level.DEBUG, ex.log + "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
                         hostAndPort, type, remote);
@@ -5393,7 +5399,7 @@ final class ClientConnection implements Runnable {
                             + (reply == null ? "connection closed" : reply.status()));
                 }
                 if (server.sendProxyProtocol) {
-                    writeProxyProtocolHeader(rawOut, remote);
+                    writeProxyProtocolHeader(ex, rawOut, remote);
                 }
             }
             boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
@@ -5574,7 +5580,7 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext = () -> holder[0] != null ? holder[0].flowContext : serverContext;
             if (server.sendProxyProtocol) {
-                writeProxyProtocolHeader(tunnel.getOutputStream(), stream.remoteAddress);
+                writeProxyProtocolHeader(ex, tunnel.getOutputStream(), stream.remoteAddress);
             }
             Socket active = tunnel;
             boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
@@ -5649,7 +5655,7 @@ final class ClientConnection implements Runnable {
             }
             cluster.sslConnectionError.inc();
             server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
-            if (sent != null && server.tlsRetryWithoutSni && Tls.serverRejectedName(e)) {
+            if (sent != null && ex.policy.tlsRetryWithoutSni() && Tls.serverRejectedName(e)) {
                 // (The failure is the exchange's only if the retry fails too.)
                 throw new SniRejected(e, sent, cluster);
             }
@@ -5772,13 +5778,13 @@ final class ClientConnection implements Runnable {
     }
 
     /** @param remote the address this server connection goes to */
-    private void writeProxyProtocolHeader(OutputStream os, InetSocketAddress remote) throws IOException {
+    private void writeProxyProtocolHeader(Exchange ex, OutputStream os, InetSocketAddress remote) throws IOException {
         ProxyProtocol.Header received = proxyHeader;
         InetSocketAddress source = clientDetails.getClientAddress();
         InetSocketAddress destination;
         if (received != null && received.destination() != null) {
             destination = received.destination();
-        } else if (server.littleProxyCompatibility) {
+        } else if (ex.policy.proxyProtocolDestination() == ProxyProtocolDestination.SERVER_ADDRESS) {
             // LittleProxy names the server connection's remote end, and skips mixed families.
             destination = remote;
             if (source != null && source.getAddress() != null && destination.getAddress() != null

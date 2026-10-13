@@ -129,13 +129,12 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile Duration idleConnectionTimeout;
     private volatile int connectTimeoutMs;
     final Duration tlsHandshakeTimeout;
-    final boolean littleProxyCompatibility;
+    /** The protocol policies of HTTP/1, HTTP/2 and HTTP/3 clients, by major version (index 0 unused). */
+    private final EffectivePolicy[] policies;
     /** Backoff between chained proxy attempts; {@link RetryBackoff#none()} when off. */
     final RetryBackoff chainedProxyBackoff;
     /** The TLS versions every TLS socket starts with, before configuration hooks; null for the contexts' defaults. */
     final String[] tlsProtocols;
-    /** Retry TLS with a server without SNI after its unrecognized_name alert ({@link org.microproxy.HttpProxyServerBootstrap#withTlsRetryWithoutSni}). */
-    final boolean tlsRetryWithoutSni;
     /** Headers removed from every request right before it is written upstream; empty for none. */
     final String[] strippedRequestHeaders;
     /** Whether {@link #strippedRequestHeaders} removes {@code traceparent}, so a tracer injects its own context only. */
@@ -335,7 +334,7 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.acceptProxyProtocol = b.proxyProtocolMode != ProxyProtocolMode.OFF;
         this.proxyProtocolTrustedSources = b.proxyProtocolTrustedSources;
         this.sendProxyProtocol = b.sendProxyProtocol;
-        this.allowChunkedLength = b.allowChunkedLength;
+        this.allowChunkedLength = b.effectivePolicy(1).allowChunkedLength().orElse(false);
         this.maxWebSocketFrameBufferSize = b.maxWebSocketFrameBufferSize;
         this.maxWebSocketMessageSize = b.maxWebSocketMessageSize;
         this.pool = b.sharedServerConnectionPool
@@ -346,7 +345,8 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.idleConnectionTimeout = b.idleConnectionTimeout;
         this.connectTimeoutMs = b.connectTimeoutMs;
         this.tlsHandshakeTimeout = b.tlsHandshakeTimeout;
-        this.littleProxyCompatibility = b.littleProxyCompatibility;
+        this.policies = new EffectivePolicy[] {null, EffectivePolicy.of(b.effectivePolicy(1)),
+                EffectivePolicy.of(b.effectivePolicy(2)), EffectivePolicy.of(b.effectivePolicy(3))};
         this.chainedProxyBackoff = b.chainedProxyBackoff;
         this.strippedRequestHeaders = b.strippedRequestHeaders.values().toArray(String[]::new);
         this.stripsTracingHeaders = b.strippedRequestHeaders.containsKey("traceparent");
@@ -356,7 +356,6 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         this.transparentQuicPort = b.transparentQuicPort;
         this.transparentQuicKeys = b.transparentQuicPort >= 0 ? transparentQuicKeys(b.mitmManager) : null;
         this.tlsProtocols = b.tlsProtocols.isEmpty() ? null : b.tlsProtocols.toArray(String[]::new);
-        this.tlsRetryWithoutSni = b.retriesTlsWithoutSni();
         this.readLimiter = new RateLimiter(b.readThrottleBytesPerSecond);
         this.writeLimiter = new RateLimiter(b.writeThrottleBytesPerSecond);
         b.activityTrackers.forEach(trackers::add);
@@ -565,6 +564,16 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
                 Tls.closeQuietly(socket);
             }
         }
+    }
+
+    /** The policy of clients that speak HTTP major version {@code version} (1, 2 or 3). */
+    EffectivePolicy policy(int version) {
+        return policies[version >= 1 && version <= 3 ? version : 1];
+    }
+
+    @Override
+    public org.microproxy.ProtocolPolicy getProtocolPolicy(org.microproxy.http.HttpVersion clientVersion) {
+        return policy(clientVersion.majorVersion()).policy();
     }
 
     void unregister(ClientConnection connection) {

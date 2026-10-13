@@ -17,9 +17,9 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | Hook | When it runs | What it may do |
 |---|---|---|
 | `clientToProxyRequest(HttpObject)` | for the request head and each body piece from the client | return a response for the head to answer without contacting the server (a short-circuit), or `null` to go on |
-| `proxyToServerRequest(HttpObject)` | after the proxy has rewritten the headers, before the server is resolved and connected | the same |
+| `proxyToServerRequest(HttpObject)` | after the proxy has rewritten the headers, before the server is resolved and connected (after it is resolved with the [protocol policy](protocol-policies.md) field `resolve_before_proxy_to_server_request`, as in the LittleProxy preset) | the same |
 | `serverToProxyResponse(HttpObject)` | for the response head and each body piece from the server | return it (changed or replaced), or `null` to abort and disconnect the client |
-| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with LittleProxy compatibility, neither hook sees it) | the same |
+| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with the [protocol policy](protocol-policies.md) field `filter_connect_answer` off, as in the LittleProxy preset, neither hook sees it) | the same |
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
 | `proxyToServerTlsIdentity(hostAndPort)` | before a request that reaches its server over TLS chooses a connection | return the server name (SNI) and verification host for it; `builder().tlsIdentity(...)` ([MITM](mitm.md#server-name-and-verification-host)) |
@@ -54,6 +54,10 @@ in on:
 | `getDirectClientAddress()` | the TCP peer: the load balancer that sent the PROXY header, or the client |
 | `getLocalAddress()` | the proxy's own address that the client connected to: the TCP socket's local address on every TCP listener (plain, TLS, h2c, SOCKS, transparent, reverse), the UDP address for HTTP/3 and transparent QUIC, the outer connection's inside an intercepted `CONNECT` stream |
 | `getProxyProtocolDestinationAddress()` | the PROXY header's destination, the address the client reached at the load balancer; `null` without a header |
+
+`getHttpVersion()` says which protocol the client speaks to the proxy (HTTP/1.1 for HTTP/1.x,
+HTTP/2 or HTTP/3), the one whose [protocol policy](protocol-policies.md) applies, so a filter can
+branch on it too.
 
 A `FullFlowContext` has the same, plus the server side (`getRemoteAddress()`, the server or
 chained proxy connected to). In LittleProxy the local address came from the

@@ -18,7 +18,8 @@ run or embed LittleProxy today.
 | log4j configuration (`--log_config`) | `System.Logger`: `java.util.logging`, or SLF4J/Log4j through their bridges |
 
 `withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`)
-restores LittleProxy's behaviour where MicroProxy deliberately differs; see
+restores LittleProxy's behaviour for HTTP/1 clients where MicroProxy deliberately differs, as a
+[protocol policy](guides/protocol-policies.md) preset whose fields can be set one by one; see
 [Behaviour differences](#behaviour-differences).
 
 ## Command line
@@ -127,8 +128,10 @@ these as options:
 - **Retry without SNI.** Some servers answer a server name (SNI) they do not recognize with a
   fatal `unrecognized_name` alert. Forks retried the handshake once without SNI, as the JDK's
   `HttpsURLConnection` once did. `withTlsRetryWithoutSni(true)` (`--tls-retry-without-sni`,
-  `tls_retry_without_sni=true`) does the same, on a new connection; it is on by default with
-  `withLittleProxyCompatibility()`, and `withTlsRetryWithoutSni(false)` keeps it off there too.
+  `tls_retry_without_sni=true`) does the same, on a new connection; it is on by default for
+  HTTP/1 clients with `withLittleProxyCompatibility()`, and `withTlsRetryWithoutSni(false)` keeps
+  it off there too. It is a [protocol policy](guides/protocol-policies.md) field, so it can be set
+  for one client protocol alone (`onHttp2(p -> p.tlsRetryWithoutSni(true))`).
   The certificate is still checked against the host the request is for. See
   [Server TLS failures](guides/mitm.md#server-tls-failures).
 - **SNI and verification host apart from the address.** Forks that connected to an IP address or
@@ -192,30 +195,41 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 
 ## Behaviour differences
 
-Other behaviour differences. Where a filter depends on LittleProxy's behaviour,
-`withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) restores
-it; see that method's Javadoc for the list:
+Where MicroProxy deliberately behaves otherwise than LittleProxy and a filter may depend on it,
+a [protocol policy](guides/protocol-policies.md) field chooses, for HTTP/1, HTTP/2 or HTTP/3
+clients separately. `ProtocolPolicy.littleProxy()` sets every such field as LittleProxy does, and
+`withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) makes it
+the default of HTTP/1 clients, the only ones LittleProxy ever served. Any field can still be set
+on its own, for HTTP/1 (`onHttp1`, `--http1-policy`, `policy.http1.<field>`) or for every protocol
+(`onAllProtocols`, `--policy`, `policy.<field>`), over the preset:
 
-- `proxyToServerRequest` runs before the server is resolved and connected, so a filter can answer
-  or redirect without a DNS lookup. LittleProxy resolves first (and with compatibility on, so does
-  MicroProxy).
-- A PROXY protocol header sent without one received (`--send-proxy-protocol`) names the address
-  the client connected to as its destination. LittleProxy (and compatibility mode) names the
-  server connection's remote address, and sends none when the client and that address are of
-  different address families.
-- The proxy's `200 Connection established` answer to a `CONNECT` goes through
-  `serverToProxyResponse` and `proxyToClientResponse`, so a filter can see it or turn it into a
-  refusal. LittleProxy writes it straight to the client (`RespondCONNECTSuccessful`): no response
-  filter runs, and only trackers hear of it (`responseSentToClient`). Compatibility mode does the
-  same, sparing a filter call (and whatever a filter logs) per `CONNECT`; trackers and the hooks
-  LittleProxy does not have (`proxyToClientResponseSent`, `exchangeEnded`) still run. An HTTP
-  chained proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
-  `serverToProxyResponse`, reaches no filter in MicroProxy in either mode.
+```java
+MicroProxy.bootstrap()
+        .withLittleProxyCompatibility()                // LittleProxy's behaviour for HTTP/1 clients
+        .onHttp1(p -> p.filterConnectAnswer(true))     // except: filters see the CONNECT's 200
+        .start();                                      // HTTP/2 and HTTP/3 clients: MicroProxy's
+```
 
-Compatibility mode covers the three items above, and the retry without SNI described under
-[TLS to servers](#tls-to-servers). Security fixes (strict request parsing, error
-pages that do not echo the request) are not affected by it, and the following differences remain
-either way:
+| Field | LittleProxy 2.9.1 (`ProtocolPolicy.littleProxy()`) | MicroProxy's default |
+|---|---|---|
+| `resolve_before_proxy_to_server_request` | `true`: `ClientToProxyConnection.doReadHTTPInitial` creates the server connection (`ProxyToServerConnection.create`, whose `setupConnectionParameters` resolves the server) before it calls `proxyToServerRequest`, and answers `502` without calling it when the name does not resolve | `false`: `proxyToServerRequest` runs before the server is resolved and connected, so a filter can answer or redirect without a DNS lookup |
+| `filter_connect_answer` | `false`: `ClientToProxyConnection.RespondCONNECTSuccessful` writes the `200 Connection established` straight to the client; no response filter runs, and only trackers hear of it (`responseSentToClient`) | `true`: it goes through `serverToProxyResponse` and `proxyToClientResponse`, so a filter can see it or turn it into a refusal |
+| `serve_plain_http_after_connect` | `false`: with interception on, a `CONNECT` to a server that does not speak TLS is answered and relayed as it is (`ProxyToServerConnection.initializeConnectionFlow` after `shouldRetryWithoutSsl`); the client's bytes are only looked at for a TLS handshake (`checkAndPerformTlsDetection`) | `true`: plain HTTP after a `CONNECT` (a `ws://` WebSocket) is served as HTTP, through the filters |
+| `proxy_protocol_destination` | `server_address`: `ProxyToServerConnection.SendProxyProtocolHeader` names the server connection's remote address as the destination, and no header is sent when the client and that address are of different address families | `local_address`: the address the client connected to, as HAProxy names it |
+| `tls_retry_without_sni` | `true`: `ProxyToServerConnection.connectionFailed` connects again without SNI after an `unrecognized_name` handshake failure (see [TLS to servers](#tls-to-servers)) | `false` |
+
+With `filter_connect_answer` off, trackers and the hooks LittleProxy does not have
+(`proxyToClientResponseSent`, `exchangeEnded`) still see the `CONNECT`'s answer. An HTTP chained
+proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
+`serverToProxyResponse`, reaches no filter in MicroProxy either way.
+
+`withLittleProxyCompatibility()` used to change these fields for every client protocol; it now
+changes HTTP/1's defaults only, and HTTP/2 and HTTP/3 clients keep MicroProxy's unless their own
+policies say otherwise. Fields set explicitly for every protocol, such as
+`withTlsRetryWithoutSni(false)`, still win over it.
+
+Security fixes (strict request parsing, error pages that do not echo the request) are not
+affected by any policy, and the following differences remain either way:
 
 - HTTP/2 is on by default, and LittleProxy never spoke it: a client that offers `h2` on
   intercepted TLS (or the proxy's TLS listener) now gets HTTP/2, and so does a server that picks

@@ -12,11 +12,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.Consumer;
 import org.microproxy.ActivityTracker;
 import org.microproxy.ChainedProxyManager;
 import org.microproxy.DefaultHostResolver;
 import org.microproxy.DrainStrategy;
 import org.microproxy.FailureResponder;
+import org.microproxy.Http1PolicyBuilder;
+import org.microproxy.ProtocolPolicy;
 import org.microproxy.FlowTracer;
 import org.microproxy.HostResolver;
 import org.microproxy.Http2Options;
@@ -127,7 +130,11 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     /** TLS versions enabled on every TLS socket before configuration hooks; empty for the contexts' defaults. */
     List<String> tlsProtocols = DEFAULT_TLS_PROTOCOLS;
     /** Retry a server's TLS without SNI after its unrecognized_name alert; null for the default ({@link #retriesTlsWithoutSni()}). */
-    Boolean tlsRetryWithoutSni;
+    /** The protocol policy layers ({@link #onAllProtocols}, {@link #onHttp1}, ...). */
+    ProtocolPolicy.Builder allProtocolsPolicy = ProtocolPolicy.builder();
+    Http1PolicyBuilder http1Policy = new Http1PolicyBuilder();
+    ProtocolPolicy.Builder http2Policy = ProtocolPolicy.builder();
+    ProtocolPolicy.Builder http3Policy = ProtocolPolicy.builder();
     /** Headers removed from requests sent upstream, in the order given, without duplicates. */
     final java.util.LinkedHashMap<String, String> strippedRequestHeaders = new java.util.LinkedHashMap<>();
     /** Whether to remove HTTP/3 alternatives from Alt-Svc; null for the default (see {@link #stripsAltSvcH3()}). */
@@ -234,7 +241,10 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         c.chainedProxyBackoff = chainedProxyBackoff;
         c.strippedRequestHeaders.putAll(strippedRequestHeaders);
         c.tlsProtocols = tlsProtocols;
-        c.tlsRetryWithoutSni = tlsRetryWithoutSni;
+        c.allProtocolsPolicy = ProtocolPolicy.builder().preset(allProtocolsPolicy.build());
+        c.http1Policy = new Http1PolicyBuilder().preset(http1Policy.build());
+        c.http2Policy = ProtocolPolicy.builder().preset(http2Policy.build());
+        c.http3Policy = ProtocolPolicy.builder().preset(http3Policy.build());
         c.altSvcH3Stripping = altSvcH3Stripping;
         c.http2 = http2;
         c.http2Upstream = http2Upstream;
@@ -329,6 +339,25 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
             withTlsProtocols(p.getProperty("tls_protocols").split(","));
         }
         if (p.containsKey("tls_retry_without_sni")) withTlsRetryWithoutSni(bool(p, "tls_retry_without_sni"));
+        // Protocol policies: policy.<field> for every protocol, policy.http1.<field> and so on;
+        // preset first, so that the other fields of the same layer win over it.
+        java.util.Set<String> policyKeys = new java.util.HashSet<>();
+        for (String scope : List.of("", "http1.", "http2.", "http3.")) {
+            ProtocolPolicy.Builder layer = policyLayer(scope);
+            List<String> names = new ArrayList<>(ProtocolPolicy.configurationNames());
+            if (scope.equals("http1.")) names.add("allow_chunked_length");
+            for (String name : names) {
+                String key = "policy." + scope + name;
+                policyKeys.add(key);
+                if (p.containsKey(key)) layer.set(name, p.getProperty(key));
+            }
+        }
+        for (String key : p.stringPropertyNames()) {
+            if (key.startsWith("policy.") && !policyKeys.contains(key)) {
+                throw new IllegalArgumentException("unknown protocol policy key: " + key
+                        + (key.endsWith(".allow_chunked_length") ? " (HTTP/1 only: policy.http1.allow_chunked_length)" : ""));
+            }
+        }
         if (p.containsKey("tls_handshake_timeout")) {
             withTlsHandshakeTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("tls_handshake_timeout").strip())));
         }
@@ -1095,13 +1124,70 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
 
     @Override
     public HttpProxyServerBootstrap withTlsRetryWithoutSni(boolean retry) {
-        this.tlsRetryWithoutSni = retry;
+        allProtocolsPolicy.tlsRetryWithoutSni(retry);
         return this;
     }
 
-    /** Whether TLS with a server that rejects its SNI is retried without it: as set, else with LittleProxy compatibility. */
+    /** Whether TLS with a server that rejects its SNI is retried without it, for HTTP/1 clients. */
     boolean retriesTlsWithoutSni() {
-        return tlsRetryWithoutSni != null ? tlsRetryWithoutSni : littleProxyCompatibility;
+        return effectivePolicy(1).tlsRetryWithoutSni().orElseThrow();
+    }
+
+    /** The layer of protocol policy {@code scope} names: "" for all protocols, "http1." and so on. */
+    ProtocolPolicy.Builder policyLayer(String scope) {
+        return switch (scope) {
+            case "" -> allProtocolsPolicy;
+            case "http1." -> http1Policy;
+            case "http2." -> http2Policy;
+            case "http3." -> http3Policy;
+            default -> throw new IllegalArgumentException("no protocol " + scope);
+        };
+    }
+
+    @Override
+    public HttpProxyServerBootstrap onAllProtocols(Consumer<ProtocolPolicy.Builder> policy) {
+        policy.accept(allProtocolsPolicy);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap onHttp1(Consumer<Http1PolicyBuilder> policy) {
+        policy.accept(http1Policy);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap onHttp2(Consumer<ProtocolPolicy.Builder> policy) {
+        policy.accept(http2Policy);
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap onHttp3(Consumer<ProtocolPolicy.Builder> policy) {
+        policy.accept(http3Policy);
+        return this;
+    }
+
+    /**
+     * The policy of clients of HTTP major version {@code version}, every field set: the
+     * protocol's own layer, over the one for all protocols, over the protocol's defaults
+     * (LittleProxy's for HTTP/1 with compatibility on). HTTP/1's {@code allow_chunked_length}
+     * falls back to {@link #withAllowChunkedLength}.
+     */
+    ProtocolPolicy effectivePolicy(int version) {
+        ProtocolPolicy own = switch (version) {
+            case 1 -> http1Policy.build();
+            case 2 -> http2Policy.build();
+            case 3 -> http3Policy.build();
+            default -> throw new IllegalArgumentException("HTTP/" + version);
+        };
+        ProtocolPolicy defaults = version == 1 && littleProxyCompatibility ? ProtocolPolicy.littleProxy()
+                : ProtocolPolicy.defaults();
+        ProtocolPolicy effective = own.orElse(allProtocolsPolicy.build()).orElse(defaults);
+        if (version == 1 && effective.allowChunkedLength().isEmpty()) {
+            effective = effective.orElse(new Http1PolicyBuilder().allowChunkedLength(allowChunkedLength).build());
+        }
+        return effective;
     }
 
     @Override

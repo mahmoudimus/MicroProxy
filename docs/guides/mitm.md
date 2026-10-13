@@ -103,8 +103,10 @@ consuming it, as mitmproxy does:
   HTTP: its requests go to the `CONNECT` target through the filters, as in an intercepted session
   but without TLS. Absolute-form requests and `CONNECT`s in it are proxy requests for that target,
   which the client takes for its HTTP proxy ([In front of an HTTP or HTTPS
-  proxy](chained-proxies.md#in-front-of-an-http-or-https-proxy)). With `--littleproxy-compat` it is tunnelled, as
-  LittleProxy does.
+  proxy](chained-proxies.md#in-front-of-an-http-or-https-proxy)). With the
+  [protocol policy](protocol-policies.md) field `serve_plain_http_after_connect` off (as in the
+  LittleProxy preset, `--littleproxy-compat` for HTTP/1 clients) it is tunnelled, as LittleProxy
+  does.
 - **Anything else** is tunnelled, the bytes read so far first: other protocols, HTTP/2 with prior
   knowledge, and a malformed or oversized ClientHello. A server that speaks first (SMTP, SSH) is
   noticed while the proxy waits for the client, and its connection is tunnelled as well.
@@ -180,7 +182,9 @@ alert (RFC 6066 section 3), even for names they serve. `withTlsRetryWithoutSni(t
 (`--tls-retry-without-sni`, `tls_retry_without_sni=true`) tries such a server once more, on a new
 connection, without SNI, as the JDK's `HttpsURLConnection` once did and LittleProxy forks still
 do. It is off by default, so that the misconfiguration shows (browsers and the JDK's `HttpClient`
-do not retry), and on by default with `withLittleProxyCompatibility()`. The retry leaves out the
+do not retry), and on by default for HTTP/1 clients with `withLittleProxyCompatibility()`. It is
+a [protocol policy](protocol-policies.md) field, `tls_retry_without_sni`, so it can be set for
+HTTP/1, HTTP/2 or HTTP/3 clients alone too. The retry leaves out the
 SNI extension only: the certificate is validated with the same trust and checked against the same
 host, so leaving out a name that authenticates nothing weakens no check; a server that then
 presents a certificate for another name still fails, with `HOSTNAME_MISMATCH`. Each retry is
