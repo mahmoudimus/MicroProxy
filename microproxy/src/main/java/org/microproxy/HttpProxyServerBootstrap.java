@@ -419,6 +419,13 @@ public interface HttpProxyServerBootstrap {
      *       server connection's remote address as its destination, not the address the client
      *       connected to; and none is sent when the client and that address are of different
      *       address families.
+     *   <li>The proxy's {@code 200 Connection established} answer to a client's {@code CONNECT}
+     *       is written without going through {@link HttpFilters#serverToProxyResponse} and {@link
+     *       HttpFilters#proxyToClientResponse}, so filters can neither see nor change it; trackers
+     *       are still told ({@link ActivityTracker#responseSentToClient}), and {@link
+     *       HttpFilters#proxyToClientResponseSent} and {@link HttpFilters#exchangeEnded} still run.
+     *       The {@code CONNECT}s the proxy makes up itself (transparent TLS, SOCKS, raw TCP reverse
+     *       proxying), which LittleProxy does not have, are unaffected.
      * </ul>
      *
      * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not

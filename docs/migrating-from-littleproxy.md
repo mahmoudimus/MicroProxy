@@ -173,8 +173,16 @@ it; see that method's Javadoc for the list:
   the client connected to as its destination. LittleProxy (and compatibility mode) names the
   server connection's remote address, and sends none when the client and that address are of
   different address families.
+- The proxy's `200 Connection established` answer to a `CONNECT` goes through
+  `serverToProxyResponse` and `proxyToClientResponse`, so a filter can see it or turn it into a
+  refusal. LittleProxy writes it straight to the client (`RespondCONNECTSuccessful`): no response
+  filter runs, and only trackers hear of it (`responseSentToClient`). Compatibility mode does the
+  same, sparing a filter call (and whatever a filter logs) per `CONNECT`; trackers and the hooks
+  LittleProxy does not have (`proxyToClientResponseSent`, `exchangeEnded`) still run. An HTTP
+  chained proxy's answer to the proxy's own `CONNECT`, which LittleProxy passes through
+  `serverToProxyResponse`, reaches no filter in MicroProxy in either mode.
 
-Compatibility mode covers the two items above. Security fixes (strict request parsing, error
+Compatibility mode covers the three items above. Security fixes (strict request parsing, error
 pages that do not echo the request) are not affected by it, and the following differences remain
 either way:
 

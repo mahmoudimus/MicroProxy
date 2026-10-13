@@ -3287,9 +3287,15 @@ final class ClientConnection implements Runnable {
         if (!server.transparent) {
             ProxyUtils.addVia(established, server.proxyAlias);
         }
-        HttpObject o = ex.filters.serverToProxyResponse(established);
-        if (o != null) {
-            o = ex.filters.proxyToClientResponse(o);
+        HttpObject o = established;
+        // LittleProxy writes its answer to a client's CONNECT straight to the client
+        // (ClientToProxyConnection.RespondCONNECTSuccessful): no response filter sees it, though
+        // trackers do (responseSentToClient). So does compatibility mode.
+        if (!(server.littleProxyCompatibility && !ex.implicit && ex.socks == 0)) {
+            o = ex.filters.serverToProxyResponse(established);
+            if (o != null) {
+                o = ex.filters.proxyToClientResponse(o);
+            }
         }
         if (!(o instanceof HttpResponse response)) {
             if (conn == null) {
