@@ -157,6 +157,17 @@ interface ClientChannel {
     void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException;
 
     /**
+     * Writes a response head as {@link #writeHead(HttpResponse, boolean)} does, but may leave a
+     * bare head unflushed when {@code bodyFollows}: the caller has body bytes in hand and flushes
+     * them, head included, before it waits for anything. On a byte stream this sends a small
+     * response as one segment instead of two. Transports that frame the head on their own write
+     * it as usual.
+     */
+    default void writeHead(HttpResponse response, boolean bodyAllowed, boolean bodyFollows) throws IOException {
+        writeHead(response, bodyAllowed);
+    }
+
+    /**
      * Writes a response that has nothing more to follow: a {@link FullHttpMessage} with its body,
      * or a bare head, which is given an empty body.
      */

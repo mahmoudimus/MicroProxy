@@ -109,6 +109,24 @@ class LauncherTest {
     // --- help, defaults, unknown options ------------------------------------------------------
 
     @Test
+    void socketWaitsRegisterDirectlyOnJdk21UnlessSetOtherwise() {
+        String key = "jdk.useDirectRegister";
+        String before = System.getProperty(key);
+        try {
+            System.clearProperty(key);
+            Launcher.registerSocketWaitsDirectly();
+            assertEquals(Runtime.version().feature() == 21 ? "true" : null, System.getProperty(key),
+                    "JDK 21 is asked to register directly; later JDKs always do and have no such property");
+            System.setProperty(key, "false");
+            Launcher.registerSocketWaitsDirectly();
+            assertEquals("false", System.getProperty(key), "a value set on the command line is kept");
+        } finally {
+            if (before == null) System.clearProperty(key);
+            else System.setProperty(key, before);
+        }
+    }
+
+    @Test
     void helpListsEveryOptionAndStartsNothing() throws IOException {
         assertNull(Launcher.start(new String[] {"--help"}, out()));
         String usage = console.toString(StandardCharsets.UTF_8);

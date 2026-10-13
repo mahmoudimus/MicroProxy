@@ -102,7 +102,7 @@ public final class ProxyProcess implements AutoCloseable {
             }
         }
         cmd.addAll(ctx.pinPrefix("proxy"));
-        cmd.add(RunContext.java());
+        cmd.add(s.get("proxy-java").isBlank() ? RunContext.java() : s.get("proxy-java"));
         cmd.add("-Xmx" + o.heap());
         if (!o.direct().isBlank()) cmd.add("-XX:MaxDirectMemorySize=" + o.direct());
         if (!s.get("proxy-max-ram").isBlank()) cmd.add("-XX:MaxRAM=" + s.get("proxy-max-ram"));

@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -26,6 +27,8 @@ final class ByteReader {
     private int pos;
     private int limit;
     private boolean strictLineEndings;
+    /** The plain socket {@link #in} reads, when {@link #awaitNext()} waits through {@link IdleWaits}. */
+    private Socket idleSocket;
 
     ByteReader(InputStream in, BufferPool pool) {
         this.in = in;
@@ -39,6 +42,15 @@ final class ByteReader {
      */
     ByteReader strictLineEndings() {
         this.strictLineEndings = true;
+        return this;
+    }
+
+    /**
+     * Makes {@link #awaitNext()} keep {@code socket}'s read timeout through {@link IdleWaits},
+     * without a timer per wait, when {@code socket} is a plain socket and {@link #in} reads it.
+     */
+    ByteReader idleWaitsOn(Socket socket) {
+        this.idleSocket = IdleWaits.supports(socket) ? socket : null;
         return this;
     }
 
@@ -79,7 +91,7 @@ final class ByteReader {
     void awaitNext() throws IOException {
         if (pos < limit) return;
         release();
-        int first = in.read();
+        int first = idleSocket != null ? IdleWaits.readFirst(idleSocket, in) : in.read();
         if (first < 0) return;
         buf = pool.take();
         buf[0] = (byte) first;

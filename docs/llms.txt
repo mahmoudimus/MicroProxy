@@ -42,7 +42,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 - [Content views, gRPC and protobuf](https://mahmoudimus.github.io/MicroProxy/guides/content-views/): Render message bodies readably: protobuf without a schema, gRPC message by message with its status details, JSON, GraphQL, msgpack, forms, Socket.IO and DNS, with field names from a `protoc` descriptor set.
 - [Scripting with Starlark](https://mahmoudimus.github.io/MicroProxy/guides/scripting/): Drive the proxy from a sandboxed Starlark script: answer, rewrite and route requests, decide what to intercept, authenticate clients, and see WebSocket, HTTP/2 and HTTP/3 frames, raw TCP, UDP and QUIC traffic.
 - [DNSSEC](https://mahmoudimus.github.io/MicroProxy/guides/dnssec/): Resolve server names with a validating DNSSEC resolver written for this project, over UDP/TCP or DNS over HTTPS, with no dependencies.
-- [Performance options](https://mahmoudimus.github.io/MicroProxy/guides/performance/): Two optional JVM-level switches: SIMD byte loops through the JDK's incubating Vector API, and an experimental build with Project Valhalla value classes.
+- [Performance options](https://mahmoudimus.github.io/MicroProxy/guides/performance/): Which JDK to run on, and two optional JVM-level switches: SIMD byte loops through the JDK's incubating Vector API, and an experimental build with Project Valhalla value classes.
 
 ## Observability
 

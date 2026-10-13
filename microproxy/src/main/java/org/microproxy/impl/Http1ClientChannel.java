@@ -104,7 +104,7 @@ final class Http1ClientChannel implements ClientChannel {
             is = CountingStreams.counting(is, n -> server.trackers.fire(t -> t.bytesReceivedFromClient(flowContext, n)));
             os = CountingStreams.counting(os, n -> server.trackers.fire(t -> t.bytesSentToClient(flowContext, n)));
         }
-        in = new ByteReader(is, server.ioBuffers).strictLineEndings();
+        in = new ByteReader(is, server.ioBuffers).strictLineEndings().idleWaitsOn(s);
         out = new PooledOutputStream(os, server.ioBuffers);
         writer = new HttpCodec.HttpWriter(out);
     }
@@ -440,6 +440,12 @@ final class Http1ClientChannel implements ClientChannel {
     public void writeHead(HttpResponse response, boolean bodyAllowed) throws IOException {
         hop(response);
         writer.writeHead(response, bodyAllowed);
+    }
+
+    @Override
+    public void writeHead(HttpResponse response, boolean bodyAllowed, boolean bodyFollows) throws IOException {
+        hop(response);
+        writer.writeHead(response, bodyAllowed, !bodyFollows);
     }
 
     /** A response from an HTTP/2 server goes to an HTTP/1 client with this hop's version, 1.1. */
