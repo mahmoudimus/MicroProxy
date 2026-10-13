@@ -77,8 +77,10 @@ final class Faults extends Scenario {
                         timeout(limitMs / 1000.0 + 30));
                 r.remove("self");
 
-                // Give the proxy a moment to release connections, then check for leaks.
-                Thread.sleep(Math.min(3000, idle * 1000L + 1500));
+                // Give the proxy its idle timeout to release connections, then check for leaks. A proxy
+                // that pools upstream connections (Envoy, Go's transport, Squid) keeps an idle one
+                // until that timeout, which is not a leak.
+                Thread.sleep(idle * 1000L + 2500);
                 Map<String, Object> originStats = originStats();
                 long relayOpen = relayOpen(originStats, relay);
                 long fdsNow = ProcStats.sample(p.pid()).fds();
@@ -132,13 +134,22 @@ final class Faults extends Scenario {
             if (p.alive()) {
                 Map<String, Object> memAfter = p.memorySnapshot(true);
                 result.put("memoryAfter", memAfter);
-                long heapDelta = num(memAfter.get("heapAfterGcKb")) - num(memBefore.get("heapAfterGcKb"));
-                long nmtDelta = num(Json.getObject(memAfter, "nmt").get("totalKb")) - num(Json.getObject(memBefore, "nmt").get("totalKb"));
-                // Retained after every fault: more than 16 MB of live heap, or 32 MB of committed memory.
-                boolean retained = heapDelta > 16 * 1024 || nmtDelta > 32 * 1024;
-                ctx.verdict(proxy, name(), "memory", retained ? "memory-retained" : "bounded", !retained,
-                        "heap after GC " + (heapDelta >= 0 ? "+" : "") + heapDelta + " KB, NMT total "
-                                + (nmtDelta >= 0 ? "+" : "") + nmtDelta + " KB across the faults");
+                if (p.jvm) {
+                    long heapDelta = num(memAfter.get("heapAfterGcKb")) - num(memBefore.get("heapAfterGcKb"));
+                    long nmtDelta = num(Json.getObject(memAfter, "nmt").get("totalKb"))
+                            - num(Json.getObject(memBefore, "nmt").get("totalKb"));
+                    // Retained after every fault: more than 16 MB of live heap, or 32 MB of committed memory.
+                    boolean retained = heapDelta > 16 * 1024 || nmtDelta > 32 * 1024;
+                    ctx.verdict(proxy, name(), "memory", retained ? "memory-retained" : "bounded", !retained,
+                            "heap after GC " + (heapDelta >= 0 ? "+" : "") + heapDelta + " KB, NMT total "
+                                    + (nmtDelta >= 0 ? "+" : "") + nmtDelta + " KB across the faults");
+                } else {
+                    // No heap or NMT outside a JVM: RSS retained across the faults, at the same 32 MB bar.
+                    long rssDelta = num(memAfter.get("rssKb")) - num(memBefore.get("rssKb"));
+                    boolean retained = rssDelta > 32 * 1024;
+                    ctx.verdict(proxy, name(), "memory", retained ? "memory-retained" : "bounded", !retained,
+                            "RSS " + (rssDelta >= 0 ? "+" : "") + rssDelta + " KB across the faults (heap and NMT n/a)");
+                }
             }
             result.put("allBounded", allBounded);
             result.put("series", sampler.toMap());

@@ -79,6 +79,28 @@ public final class ProcStats {
         }
     }
 
+    /**
+     * The machine's CPU counters from {@code /proc/stat}: for every CPU, its busy and total jiffies
+     * (busy excludes idle and iowait); null without {@code /proc}.
+     */
+    public static Map<Integer, long[]> cpuJiffies() {
+        Map<Integer, long[]> out = new LinkedHashMap<>();
+        try {
+            for (String line : Files.readAllLines(Path.of("/proc/stat"))) {
+                if (!line.startsWith("cpu") || line.startsWith("cpu ")) continue;
+                String[] f = line.trim().split("\\s+");
+                if (!Character.isDigit(f[0].charAt(3))) continue;
+                long total = 0;
+                for (int i = 1; i < Math.min(f.length, 9); i++) total += Long.parseLong(f[i]);
+                long idle = Long.parseLong(f[4]) + Long.parseLong(f[5]);
+                out.put(Integer.parseInt(f[0].substring(3)), new long[] {total - idle, total});
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+        return out;
+    }
+
     /** {@code pid}'s soft limit of open files, or -1. */
     public static long maxOpenFiles(long pid) {
         try {

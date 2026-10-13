@@ -20,12 +20,14 @@ import org.microproxy.loadtest.proc.GcLog;
 import org.microproxy.loadtest.proc.ManagedProcess;
 
 /**
- * A proxy under test in its own JVM: MicroProxy through its real launcher
- * ({@code org.microproxy.Launcher}, from the project's jars) or LittleProxy through
- * {@link org.microproxy.loadtest.proxy.LittleProxyLauncher}, both configured alike (forward proxy
- * on a loopback port, the same idle and connect timeouts, errors-only logging) and started with
- * Native Memory Tracking, a GC log, an OOM marker, optionally JFR, the configured heap, direct
- * memory, {@code MaxRAM} and memory cgroup limits, pinned to the proxy's CPUs.
+ * A proxy under test in a process of its own. The built-in proxies run in a JVM: MicroProxy through
+ * its real launcher ({@code org.microproxy.Launcher}, from the project's jars) or LittleProxy through
+ * {@link org.microproxy.loadtest.proxy.LittleProxyLauncher}, both configured alike (forward proxy on
+ * a loopback port, the same idle and connect timeouts, errors-only logging) and started with Native
+ * Memory Tracking, a GC log, an OOM marker, optionally JFR, the configured heap, direct memory,
+ * {@code MaxRAM} and memory cgroup limits. An external proxy ({@link ExternalProxy}) runs its own
+ * command with its configuration rendered from a template; of the memory caps only the cgroup
+ * limit applies to it. Every proxy is pinned to the proxy's CPUs.
  */
 public final class ProxyProcess implements AutoCloseable {
 
@@ -42,11 +44,17 @@ public final class ProxyProcess implements AutoCloseable {
     final Path jfr;
     final Path cgroupProcs;
     final List<String> command;
+    /** Whether the proxy runs in a JVM: false for an external proxy, which has no NMT, heap or GC log. */
+    final boolean jvm;
+    /** The rendered configuration file of an external proxy, or null. */
+    final Path config;
     private final RunContext ctx;
 
     private ProxyProcess(RunContext ctx, String kind, String label, ManagedProcess process, int port, int adminPort,
-            Path gcLog, Path oomFlag, Path jfr, Path cgroupProcs, List<String> command) {
+            Path gcLog, Path oomFlag, Path jfr, Path cgroupProcs, List<String> command, boolean jvm, Path config) {
         this.ctx = ctx;
+        this.jvm = jvm;
+        this.config = config;
         this.kind = kind;
         this.label = label;
         this.process = process;
@@ -70,6 +78,7 @@ public final class ProxyProcess implements AutoCloseable {
         Path logs = ctx.out.resolve("logs");
         Files.createDirectories(logs);
         String base = kind + "-" + label;
+        if (!ctx.isJvm(kind)) return startExternal(ctx, ctx.externals.get(kind), label, base, logs, o);
         boolean admin = kind.equals("microproxy") && s.getBool("mp-admin");
         int[] ports = RunContext.freePorts(admin ? 2 : 1);
         int port = ports[0];
@@ -128,10 +137,65 @@ public final class ProxyProcess implements AutoCloseable {
             throw new IllegalArgumentException("unknown proxy " + kind);
         }
         ManagedProcess p = ManagedProcess.start(base, cmd, logs.resolve(base + ".log"), null);
-        ProxyProcess proxy = new ProxyProcess(ctx, kind, label, p, port, adminPort, gcLog, oomFlag, jfr, procs, cmd);
+        ProxyProcess proxy = new ProxyProcess(ctx, kind, label, p, port, adminPort, gcLog, oomFlag, jfr, procs, cmd, true, null);
         if (!RunContext.awaitPort(p, port, Duration.ofSeconds(60))) {
             proxy.close();
             throw new IOException(kind + " did not start listening; see " + p.log());
+        }
+        return proxy;
+    }
+
+    /**
+     * Starts an external proxy: renders its configuration template into the run's logs, then runs
+     * its command pinned to the proxy's CPUs, inside a memory cgroup when {@code o} sets a limit.
+     * The JVM-only options (heap, direct memory, GC, NMT, JFR) do not apply.
+     */
+    private static ProxyProcess startExternal(RunContext ctx, ExternalProxy def, String label, String base, Path logs,
+            Options o) throws IOException, InterruptedException {
+        Settings s = ctx.settings;
+        int port = RunContext.freePort();
+        Map<String, String> values = def.baseValues();
+        values.put("port", Integer.toString(port));
+        values.put("idleSeconds", Integer.toString(o.idleTimeoutSeconds()));
+        long connectMs = s.getLong("connect-timeout-ms");
+        values.put("connectTimeoutMs", Long.toString(connectMs));
+        values.put("connectTimeoutSeconds", connectMs % 1000 == 0 ? Long.toString(connectMs / 1000)
+                : String.format(java.util.Locale.ROOT, "%.3f", connectMs / 1000.0));
+        values.put("workers", Integer.toString(ctx.cpuCount("proxy")));
+        values.put("logs", logs.toAbsolutePath().toString());
+        values.put("name", base);
+        Path config = null;
+        if (def.config() != null) {
+            Path template = def.home().resolve(def.config());
+            String file = template.getFileName().toString();
+            config = logs.resolve(base + "-" + file).toAbsolutePath();
+            values.put("config", config.toString());
+            Files.writeString(config, ExternalProxy.render(Files.readString(template), values));
+        }
+        List<String> cmd = new ArrayList<>();
+        Path procs = null;
+        if (!o.cgroupLimit().isBlank()) {
+            procs = Environment.createMemoryCgroup("microproxy-loadtest-" + ProcessHandle.current().pid() + "-" + base,
+                    Settings.bytes(o.cgroupLimit()));
+            if (procs != null) {
+                cmd.addAll(List.of("sh", "-c", "echo $$ > '" + procs + "' && exec \"$@\"", "sh"));
+            } else {
+                ctx.notes.add("No writable memory cgroup: " + base + " ran without its " + o.cgroupLimit()
+                        + " memory limit (an external proxy has no JVM flag to fall back on).");
+            }
+        }
+        cmd.addAll(ctx.pinPrefix("proxy"));
+        for (String c : def.command()) cmd.add(ExternalProxy.render(c, values));
+        Map<String, String> env = new LinkedHashMap<>();
+        def.env().forEach((k, v) -> env.put(k, ExternalProxy.render(v, values)));
+        Path oomFlag = logs.resolve(base + ".oom");
+        Files.deleteIfExists(oomFlag);
+        ManagedProcess p = ManagedProcess.start(base, cmd, logs.resolve(base + ".log"), env);
+        ProxyProcess proxy = new ProxyProcess(ctx, def.name(), label, p, port, 0, logs.resolve(base + "-gc.log"), oomFlag,
+                null, procs, cmd, false, config);
+        if (!RunContext.awaitPort(p, port, Duration.ofSeconds(60))) {
+            proxy.close();
+            throw new IOException(def.name() + " did not start listening; see " + p.log());
         }
         return proxy;
     }
@@ -153,6 +217,11 @@ public final class ProxyProcess implements AutoCloseable {
 
     /** Whether the proxy ran out of memory: the OOM marker, its log, or a cgroup OOM kill. */
     boolean oom() {
+        if (!jvm) {
+            // An external proxy: the cgroup's OOM killer, or a runtime's own out-of-memory abort.
+            return Environment.cgroupOomKilled(cgroupProcs) || process.logContains("runtime: out of memory")
+                    || process.logContains("std::bad_alloc");
+        }
         // "java.lang.OutOfMemoryError" in the log, not the "-XX:OnOutOfMemoryError" flag echoed in it.
         return Files.exists(oomFlag) || process.logContains("java.lang.OutOfMemoryError")
                 || process.logContains("OutOfMemoryError: ") || Environment.cgroupOomKilled(cgroupProcs);
@@ -168,15 +237,16 @@ public final class ProxyProcess implements AutoCloseable {
 
     /** The GC log's collections so far. */
     List<GcLog.Event> gcEvents() {
+        if (!jvm) return List.of();
         return GcLog.read(gcLog);
     }
 
-    /** NMT, heap after a forced GC, and /proc figures now. */
+    /** NMT, heap after a forced GC (a JVM only), and /proc figures now. */
     Map<String, Object> memorySnapshot(boolean forceGc) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (!alive()) return m;
-        if (forceGc) m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(pid()));
-        m.put("nmt", ctx.jcmd.nmt(pid()));
+        if (jvm && forceGc) m.put("heapAfterGcKb", ctx.jcmd.heapAfterGcKb(pid()));
+        m.put("nmt", jvm ? ctx.jcmd.nmt(pid()) : Map.of());
         var s = org.microproxy.loadtest.proc.ProcStats.sample(pid());
         if (s != null) m.putAll(s.toMap());
         return m;
@@ -205,9 +275,11 @@ public final class ProxyProcess implements AutoCloseable {
 
     /** A description for the results file. */
     Map<String, Object> describe() {
-        return Json.obj("kind", kind, "label", label, "pid", pid(), "port", port, "adminPort", adminPort,
+        return Json.obj("kind", kind, "label", label, "jvm", jvm, "pid", pid(), "port", port, "adminPort", adminPort,
                 "command", command, "cgroup", cgroupProcs == null ? null : cgroupProcs.getParent().toString(),
-                "log", ctx.out.relativize(process.log()).toString(), "gcLog", ctx.out.relativize(gcLog).toString(),
+                "log", ctx.out.relativize(process.log()).toString(),
+                "gcLog", jvm ? ctx.out.relativize(gcLog).toString() : null,
+                "config", config == null ? null : ctx.out.relativize(config).toString(),
                 "jfr", jfr == null ? null : ctx.out.relativize(jfr).toString());
     }
 

@@ -20,13 +20,15 @@ public final class Settings {
     /** Every setting: name, then its smoke, standard and full values, then what it means. */
     private static final String[][] TABLE = {
         // General
-        {"proxies", "microproxy,littleproxy", "microproxy,littleproxy", "microproxy,littleproxy", "the proxies to test, in order"},
+        {"proxies", "microproxy,littleproxy", "microproxy,littleproxy", "microproxy,littleproxy", "the proxies to test, in order: microproxy, littleproxy, or a name from external-proxies"},
+        {"external-proxies", "", "", "", "a JSON file of external (non-JVM) proxies to test, such as loadtest/competitors/proxies.json; empty for none"},
         {"scenarios", "sweep,ramp,memory,soak,faults", "sweep,ramp,memory,soak,faults", "sweep,ramp,memory,soak,faults", "the scenarios to run, in order"},
         {"gate", "microproxy", "microproxy", "microproxy", "whose failed verdicts fail the run: microproxy (the system under development), all, or none; harness self-checks always do"},
         {"pin", "auto", "auto", "auto", "auto: pin each process to its own CPUs with taskset when present; off: never"},
         {"cpus-proxy", "auto", "auto", "auto", "CPU list for the proxy under test (taskset -c syntax), auto splits the allowed CPUs"},
         {"cpus-origin", "auto", "auto", "auto", "CPU list for the origin"},
         {"cpus-client", "auto", "auto", "auto", "CPU list for the load generator (and jcmd)"},
+        {"nice", "", "", "", "a nice value (e.g. -20) for the proxy, origin and load generator, so that other work on a shared machine yields to them; empty for none"},
         {"proxy-heap", "512m", "1g", "2g", "the proxy's -Xmx"},
         {"proxy-direct", "", "", "", "the proxy's -XX:MaxDirectMemorySize, empty for the JVM default"},
         {"proxy-max-ram", "", "", "", "the proxy's -XX:MaxRAM, empty for none"},

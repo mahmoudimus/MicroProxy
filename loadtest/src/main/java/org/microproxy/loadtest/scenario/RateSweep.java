@@ -67,6 +67,8 @@ final class RateSweep extends Scenario {
                 resources.put("cpuPct", Trend.round(sampler.mean("proxy", "cpuPct", from)));
                 resources.put("clientCpuPct", Trend.round(sampler.mean("client", "cpuPct", from)));
                 resources.put("originCpuPct", Trend.round(sampler.mean("origin", "cpuPct", from)));
+                // CPU the machine spent on anything but the proxy, origin and load generator (a shared machine).
+                resources.put("foreignCpuPct", Trend.round(sampler.mean(Sampler.SYSTEM, "foreignCpuPct", from)));
                 resources.put("gc", GcLog.summary(p.gcEvents(), upFrom, upTo));
                 resources.putAll(p.memorySnapshot(false));
                 if (p.adminPort > 0) resources.put("microproxyStats", p.adminStats());

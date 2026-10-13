@@ -63,7 +63,8 @@ public final class ManagedProcess implements AutoCloseable {
     /**
      * Starts {@code command}, with standard error merged into standard output, and without the
      * environment's {@code JAVA_TOOL_OPTIONS} (which would set the child JVMs' options behind the
-     * harness's back).
+     * harness's back) or proxy variables ({@code http_proxy} and the like, which some proxies under
+     * test would otherwise chain through).
      */
     public static ManagedProcess start(String name, List<String> command, Path log, Map<String, String> extraEnv)
             throws IOException {
@@ -74,6 +75,10 @@ public final class ManagedProcess implements AutoCloseable {
         pb.environment().remove("JAVA_TOOL_OPTIONS");
         pb.environment().remove("JDK_JAVA_OPTIONS");
         pb.environment().remove("_JAVA_OPTIONS");
+        for (String v : List.of("http_proxy", "https_proxy", "all_proxy", "no_proxy")) {
+            pb.environment().remove(v);
+            pb.environment().remove(v.toUpperCase(java.util.Locale.ROOT));
+        }
         if (extraEnv != null) pb.environment().putAll(extraEnv);
         return new ManagedProcess(name, pb.start(), log);
     }
