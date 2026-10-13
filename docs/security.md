@@ -66,7 +66,7 @@ Every input has a bound, and a peer that exceeds it loses its stream or connecti
 | TLS | a handshake timeout (`--tls-handshake-timeout`, 10 s) on both sides; a ClientHello is read up to 64 KiB within that timeout | [Deciding what to intercept](guides/mitm.md#deciding-what-to-intercept-the-clienthello) |
 | SOCKS | the whole handshake within the TLS handshake timeout; field lengths bounded | [SOCKS hardening](guides/socks.md#hardening) |
 | WebSockets | frames over 1 MiB stream through unbuffered; messages, joined or inflated, over 16 MiB close the connection with 1009 (decompression bombs included) | [WebSockets](guides/websockets.md) |
-| Bodies | decoding is capped at 64 MiB to defuse compression bombs; buffered requests over the filters' limit get `413` | [Rewriting bodies](guides/rewriting-bodies.md) |
+| Bodies | decoding is capped at 64 MiB to defuse compression bombs; a Brotli body with bytes after its end, or a command past its meta-block, is rejected as the reference decoder does; buffered requests over the filters' limit get `413` | [Rewriting bodies](guides/rewriting-bodies.md) |
 | Transparent QUIC and CONNECT-UDP | bounded pending clients, per-IP flows, held datagrams and queues; datagrams past a bound are dropped | [Transparent QUIC](guides/transparent-mode.md#transparent-quic), [CONNECT-UDP](guides/masque.md) |
 | QUIC message framing | messages over `--quic-max-message-size` reset their stream | [QUIC message framing](guides/quic-hooks.md#quic-message-framing) |
 | Scripts | each hook call is bounded in steps, time and allocation, and sandboxed (no files, network or processes) | [Budgets and measurements](reference/starlark-api.md#script-budgets) |
