@@ -18,6 +18,13 @@ guide with the details.
   ([Authenticating clients](guides/scripting.md#authenticating-clients)).
 - **Concurrency limits** keep one client, user or target from taking every connection:
   `--max-concurrent-per-client` or a [`ConcurrencyLimiter`](guides/concurrency-limiting.md).
+- **PROXY protocol** makes the address a header names the client's, for logs, authorization and
+  limits alike. Required mode (`--accept-proxy-protocol`) is safe when only load balancers can
+  reach the listener. Optional mode (`--proxy-protocol-mode optional`) lets any client that can
+  connect claim any address by sending a header: use it only behind a load balancer on a trusted
+  network, and name the load balancers with `--proxy-protocol-trusted-sources`, so that a header
+  from any other peer closes its connection. `%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%` logs the TCP
+  peer either way ([PROXY protocol](guides/forward-proxy.md#proxy-protocol)).
 - **The admin API** can drain and stop the proxy. It listens on `127.0.0.1` unless told otherwise,
   takes a token (`--admin-token`, `--admin-token-file`), answers on loopback only to `Host`s that
   are loopback names (against DNS rebinding), refuses `POST`s that carry an `Origin`, and redacts
@@ -32,6 +39,21 @@ against CR/LF injection; and `Host` is replaced by the absolute-form authority. 
 ([Configuration properties](reference/properties.md)). When the proxy answers itself, its short
 plain-text body never echoes the request ([Failure responses](guides/filters.md#failure-responses)).
 `withLittleProxyCompatibility()` does not relax any of this.
+
+A request with both `Transfer-Encoding` and `Content-Length` is the classic request smuggling
+vector: two hops that frame it differently disagree on where the next request starts. RFC 9112
+section 6.1 lets a server reject it, which MicroProxy does (`400`), as LittleProxy does through
+Netty's decoder. Some LittleProxy forks accepted such requests; for clients that send them,
+`--allow-chunked-length` (`allow_chunked_length`, `withAllowChunkedLength(true)`) accepts them as
+the RFC describes, and only when the rest of the framing is sound: `chunked` exactly once, as the
+final coding, a `Content-Length` valid on its own, HTTP/1.1, and neither a `CONNECT` nor an
+`Upgrade`. The `Content-Length` is removed
+before filters see the request, the body is read by its chunked coding, and the client connection
+is closed after the response, so whatever followed the body is never read as a request. Accepted
+requests are flagged (`FlowContext.isChunkedWithContentLength()`, `%MP_CHUNKED_LENGTH%`, the
+`downstream_rq_chunked_length` counter) so they can be watched. A server's response with both
+headers is always framed by its transfer coding, its `Content-Length` dropped, as RFC 9112
+section 6.3 requires of an intermediary.
 
 ## Denial of service
 

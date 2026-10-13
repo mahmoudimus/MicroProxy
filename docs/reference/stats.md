@@ -20,6 +20,7 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `http.<name>.downstream_rq_http1_total`, `_http2_total`, `_http3_total` | counter | requests by protocol |
 | `http.<name>.downstream_rq_rx_reset` / `_tx_reset` | counter | requests the client reset (`DR`) / the proxy reset or cut off after its response started |
 | `http.<name>.downstream_rq_too_large` | counter | requests the proxy answered `413` |
+| `http.<name>.downstream_rq_chunked_length` | counter | MicroProxy's: HTTP/1.1 requests with both `Transfer-Encoding` and `Content-Length` accepted by `--allow-chunked-length` (a request smuggling signal) |
 | `http.<name>.downstream_rq_response_flag.<flag>` | counter | MicroProxy's: requests that ended with a 4xx or 5xx response, or none, by [response flag](response-flags.md#response-flags-and-details) (tag `microproxy_response_flag`: `UF`, `UT`, `DC`, ...) |
 | `http.<name>.downstream_cx_total`, `_active` | counter, gauge | client connections (TCP, and QUIC connections of the HTTP/3 listener) |
 | `http.<name>.downstream_cx_http1_total`, `_http2_total`, `_http3_total` | counter | connections by the protocols they carried (once each) |
@@ -44,6 +45,9 @@ cardinality](../observability/metrics.md#clusters-and-cardinality)).
 | `cluster.<cluster>.failover` | counter | connection attempts through the cluster that failed and moved on to the route's next choice |
 | `cluster.<cluster>.backoff_engaged` | counter | waits ([retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) before trying the cluster after earlier choices failed |
 | `cluster.<cluster>.backoff_active` | gauge | requests waiting to try the cluster now: a lighter kind of outlier detection |
+| `proxy_proto.v1.found`, `v2.found` / `v1.error`, `v2.error` | counter | [PROXY protocol](../guides/forward-proxy.md#proxy-protocol) headers read / malformed, or not complete in time |
+| `proxy_proto.not_found_allowed`, `not_found_disallowed` | counter | connections without a PROXY header: served (optional mode) / closed (required mode, or a signature begun and not finished) |
+| `proxy_proto.untrusted_source` | counter | MicroProxy's: connections closed because a PROXY header (or, when one is required, the connection) came from a peer outside `--proxy-protocol-trusted-sources` |
 | `tls_inspector.tls_found`, `tls_not_found`, `sni_found`, `sni_not_found`, `alpn_found`, `alpn_not_found`, `client_hello_too_large` | counter | the ClientHellos the proxy reads to decide on a session (transparent TLS, interception) |
 | `cache.hits`, `misses`, `stores`, `revalidations`, `stale_served` | counter | the [HTTP cache](../guides/caching.md)'s counts (`HttpCache.stats()`) |
 | `concurrency_limit.in_use`, `waiting` / `acquired`, `rq_blocked`, `reclaimed` | gauge / counter | the [concurrency limiter](../guides/concurrency-limiting.md) among the filters |

@@ -511,7 +511,9 @@ final class AdminServer {
             if (server.socksDetection) tcp.addAll(List.of("socks5", "socks4"));
             if (server.transparent) tcp.add("transparent_tls");
         }
-        if (server.acceptProxyProtocol) tcp.add("proxy_protocol");
+        if (server.acceptProxyProtocol) {
+            tcp.add(server.proxyProtocolMode == org.microproxy.ProxyProtocolMode.OPTIONAL ? "proxy_protocol_optional" : "proxy_protocol");
+        }
         list.add(listener(server.name, "tcp", addresses[0], tcp, accepting));
         if (addresses[1] != null) {
             List<String> h3 = new ArrayList<>(List.of("quic", "h3"));

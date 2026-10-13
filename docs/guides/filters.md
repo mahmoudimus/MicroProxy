@@ -19,7 +19,7 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | `clientToProxyRequest(HttpObject)` | for the request head and each body piece from the client | return a response for the head to answer without contacting the server (a short-circuit), or `null` to go on |
 | `proxyToServerRequest(HttpObject)` | after the proxy has rewritten the headers, before the server is resolved and connected | the same |
 | `serverToProxyResponse(HttpObject)` | for the response head and each body piece from the server | return it (changed or replaced), or `null` to abort and disconnect the client |
-| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses | the same |
+| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with LittleProxy compatibility, neither hook sees it) | the same |
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
 | `proxyToServerResolutionStarted(hostAndPort)` | before the server's name is resolved | return an address to use instead |

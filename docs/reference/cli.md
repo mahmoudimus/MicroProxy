@@ -49,6 +49,7 @@ See [Transparent mode](../guides/transparent-mode.md), [Reverse proxy](../guides
 | `--transparent` | do not add Via / strip hop-by-hop headers, and route TLS that arrives without CONNECT by its SNI | `transparent` |
 | `--transparent-tls-port <port>` | port SNI-routed TLS and QUIC go to (default 443) | `transparent_tls_port` |
 | `--allow-requests-to-origin-server` | accept origin-form requests, routed by Host (for transparent HTTP) | `allow_requests_to_origin_server` |
+| `--allow-chunked-length` | accept HTTP/1.1 requests with both Transfer-Encoding and Content-Length (the Content-Length is dropped and the connection closes after the response) | `allow_chunked_length` |
 | `--reverse <spec>` | reverse proxy to one upstream: [scheme://]host[:port] | `mode=reverse:...` |
 | `--keep-host-header` | in reverse mode, keep the client's Host | `keep_host_header` |
 | `--socks` | also serve SOCKS5 and SOCKS4(a) clients on the listener, told apart by their first byte | `socks` |
@@ -71,6 +72,8 @@ See [Chained proxies](../guides/chained-proxies.md), [DNSSEC](../guides/dnssec.m
 | `--dnssec-resolver <spec>` | DoH URL or comma-separated resolver IPs for --dnssec | `dnssec_resolver` |
 | `--shared-pool` | share server connections between clients | `use_shared_server_connection_pool` |
 | `--accept-proxy-protocol` | require a PROXY protocol header on inbound connections | `allow_proxy_protocol` |
+| `--proxy-protocol-mode <mode>` | `off`, `required` or `optional` (a header is read if one comes; any client can then claim any address) | `allow_proxy_protocol` |
+| `--proxy-protocol-trusted-sources <list>` | IP addresses or CIDR ranges whose PROXY headers count | `proxy_protocol_trusted_sources` |
 | `--send-proxy-protocol` | send a PROXY protocol v1 header upstream | `send_proxy_protocol` |
 | `--throttle <read> <write>` | global server bandwidth limits in bytes/s | `throttle_read_bytes_per_second`, `throttle_write_bytes_per_second` |
 | `--max-concurrent-per-client <n>` | exchanges each client IP may run at once; more get 429 (CONNECT tunnels count while open) | `max_concurrent_per_client` |

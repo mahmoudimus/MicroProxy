@@ -55,7 +55,7 @@ public record BootstrapView(
         DefaultHttpProxyServerBootstrap b = (DefaultHttpProxyServerBootstrap) bootstrap;
         return new BootstrapView(b.name, b.address(), b.allowLocalOnly, b.transparent, b.idleConnectionTimeout,
                 b.connectTimeoutMs, b.proxyAlias, b.readThrottleBytesPerSecond, b.writeThrottleBytesPerSecond,
-                b.acceptProxyProtocol, b.sendProxyProtocol, b.authenticateSslClients, b.chainProxyManager,
+                b.proxyProtocolMode != org.microproxy.ProxyProtocolMode.OFF, b.sendProxyProtocol, b.authenticateSslClients, b.chainProxyManager,
                 b.mitmManager, b.filtersSource, b.httpCache, b.serverResolver, List.copyOf(b.activityTrackers),
                 b.sharedServerConnectionPool, b.serverConnectionPoolType, b.maxConnectionsPerHost, b.maxConnections,
                 b.poolIdleTimeout, b.poolSharedMitmConnections, b.poolPerRequestInMitm, b.maxInitialLineLength,
@@ -65,6 +65,21 @@ public record BootstrapView(
     /** Whether the listener serves SOCKS clients only ({@code withSocksServer}, {@code socks5} mode). */
     public static boolean socksServer(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).socksServer;
+    }
+
+    /** Whether client connections start with a PROXY header ({@code withAcceptProxyProtocol}). */
+    public static org.microproxy.ProxyProtocolMode proxyProtocolMode(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).proxyProtocolMode;
+    }
+
+    /** The peers whose PROXY headers count ({@code withProxyProtocolTrustedSources}); empty for all. */
+    public static List<String> proxyProtocolTrustedSources(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).proxyProtocolTrustedSources.entries();
+    }
+
+    /** Whether requests with both Transfer-Encoding and Content-Length are accepted ({@code withAllowChunkedLength}). */
+    public static boolean allowChunkedLength(HttpProxyServerBootstrap bootstrap) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).allowChunkedLength;
     }
 
     /** Whether the listener serves SOCKS clients besides HTTP ones ({@code withSocksDetection}). */

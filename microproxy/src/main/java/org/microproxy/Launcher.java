@@ -69,6 +69,8 @@ public final class Launcher {
                                            long without a datagram (default 60)
               --allow-requests-to-origin-server  accept origin-form requests, routed by Host (for
                                            transparent HTTP)
+              --allow-chunked-length       accept HTTP/1.1 requests with both Transfer-Encoding and
+                                           Content-Length (dropped; the connection then closes)
               --no-originate-tls           refuse https:// requests sent without CONNECT (absolute
                                            URIs over plain HTTP, :scheme https on h2c) instead of
                                            opening TLS to the server for them, which
@@ -94,6 +96,9 @@ public final class Launcher {
               --chained-proxy-backoff-deterministic <initial>[:<max>]  the same, without jitter:
                                            exactly initial, 2 x initial, 4 x initial, ... up to max
               --accept-proxy-protocol      require a PROXY protocol header on inbound connections
+              --proxy-protocol-mode <mode> off, required or optional (a header is read if one
+                                           comes; any client can then claim any address)
+              --proxy-protocol-trusted-sources <list>  IPs/CIDRs whose PROXY headers count
               --send-proxy-protocol        send a PROXY protocol v1 header upstream
               --upstream-proxy <url>       chain to http(s)://[user:pw@]host:port or socks5://...;
                                            h2://... (TLS, ALPN h2) or h2c://... (prior knowledge)
@@ -502,6 +507,7 @@ public final class Launcher {
                 case "--transparent-quic-port" -> bootstrap.withTransparentQuicPort(intValue(queue, arg));
                 case "--transparent-quic-relay-idle-timeout" -> quicRelayIdleSeconds = longValue(queue, arg);
                 case "--allow-requests-to-origin-server" -> bootstrap.withAllowRequestToOriginServer(true);
+                case "--allow-chunked-length" -> bootstrap.withAllowChunkedLength(true);
                 case "--originate-tls" -> bootstrap.withTlsOrigination(true);
                 case "--no-originate-tls" -> bootstrap.withTlsOrigination(false);
                 case "--mode" -> {
@@ -526,6 +532,10 @@ public final class Launcher {
                 case "--chained-proxy-backoff" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, true);
                 case "--chained-proxy-backoff-deterministic" -> chainedProxyBackoff(bootstrap, value(queue, arg), arg, false);
                 case "--accept-proxy-protocol" -> bootstrap.withAcceptProxyProtocol(true);
+                case "--proxy-protocol-mode" -> bootstrap.withAcceptProxyProtocol(
+                        ProxyProtocolMode.parse(value(queue, arg)));
+                case "--proxy-protocol-trusted-sources" ->
+                        bootstrap.withProxyProtocolTrustedSources(value(queue, arg).split(","));
                 case "--send-proxy-protocol" -> bootstrap.withSendProxyProtocol(true);
                 case "--upstream-proxy" -> upstream = value(queue, arg);
                 case "--upstream-https-proxy" -> upstreamHttps = value(queue, arg);

@@ -210,6 +210,19 @@ public class FlowContext {
     }
 
     /**
+     * The peer of the client's TCP connection: the load balancer that sent a PROXY protocol header
+     * when one was accepted ({@link HttpProxyServerBootstrap#withAcceptProxyProtocol(ProxyProtocolMode)}),
+     * where {@link #getClientAddress()} is the client that header named; otherwise the same as
+     * {@link #getClientAddress()}. Access logs render it with {@code
+     * %DOWNSTREAM_DIRECT_REMOTE_ADDRESS%}.
+     *
+     * @return the address the client connection came from
+     */
+    public InetSocketAddress getDirectClientAddress() {
+        return root != this ? root.getDirectClientAddress() : getClientAddress();
+    }
+
+    /**
      * The TLS session with the client, or {@code null}. This is the proxy's own TLS listener
      * session, or the intercepted session while a CONNECT is being man-in-the-middled.
      *
@@ -292,6 +305,21 @@ public class FlowContext {
      */
     public boolean isEarlyData() {
         return root != this && root.isEarlyData();
+    }
+
+    /**
+     * Whether the HTTP/1.1 request of the exchange in progress (or the last one) arrived with both
+     * {@code Transfer-Encoding: chunked} and {@code Content-Length}, and was accepted because
+     * {@link HttpProxyServerBootstrap#withAllowChunkedLength(boolean)} is on: its {@code
+     * Content-Length} was removed before filters saw it, its body was read as chunked, and the
+     * client connection closes after the response (RFC 9112 section 6.1). Such requests are a
+     * request smuggling signal. False for every other request, and for contexts made outside the
+     * proxy.
+     *
+     * @return whether the request had both framings, and its {@code Content-Length} was dropped
+     */
+    public boolean isChunkedWithContentLength() {
+        return root != this && root.isChunkedWithContentLength();
     }
 
     /**
