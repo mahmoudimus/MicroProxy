@@ -191,6 +191,32 @@
 
     <profiles>
         <profile>
+            <!-- Performance testing, never published: mvn -Pbench -DskipTests package builds the
+                 load-testing harness (loadtest/, docs/project/load-testing.md). Without the profile
+                 the module is neither built nor resolved. -->
+            <id>bench</id>
+            <modules>
+                <module>loadtest</module>
+            </modules>
+            <build>
+                <plugins>
+                    <plugin>
+                        <!-- Keep the harness out of the aggregated Javadoc, should it run with the profile. -->
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>api-docs</id>
+                                <configuration>
+                                    <skippedModules>microproxy-loadtest</skippedModules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <!-- Opt in only when checking or publishing Central artifacts. -->
             <id>central</id>
             <build>

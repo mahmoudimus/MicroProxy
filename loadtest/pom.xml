@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.mahmoudimus</groupId>
+        <artifactId>microproxy-parent</artifactId>
+        <version>0.2.0</version>
+    </parent>
+
+    <artifactId>microproxy-loadtest</artifactId>
+    <packaging>jar</packaging>
+
+    <name>MicroProxy load testing</name>
+    <description>
+        The system-level load and capacity testing harness: MicroProxy and LittleProxy in JVMs of
+        their own, a separate origin and an open-loop load generator. Never published; built only
+        with -Pbench (docs/project/load-testing.md).
+    </description>
+
+    <properties>
+        <!-- Never published: no deploy, install, Javadoc, sources or signatures, whatever profiles are on. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.source.skip>true</maven.source.skip>
+        <gpg.skip>true</gpg.skip>
+        <!-- The latest release of the maintained LittleProxy fork, which publishes as
+             io.github.littleproxy:littleproxy since 2.2.0 (xyz.rogfam stopped at 2.2.0, and
+             org.littleshoot at 1.1.2). -->
+        <littleproxy.version>2.9.1</littleproxy.version>
+        <hdrhistogram.version>2.2.2</hdrhistogram.version>
+        <slf4j.version>2.0.18</slf4j.version>
+    </properties>
+
+    <dependencies>
+        <!-- The proxy under test runs from the project's own jars, copied to target/microproxy-lib
+             below; provided keeps them out of the harness jar. -->
+        <dependency>
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>microproxy</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <!-- For h2c (the http2-cleartext flag), which the h2load cross-check needs. -->
+            <groupId>io.github.mahmoudimus</groupId>
+            <artifactId>http2-codec</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hdrhistogram</groupId>
+            <artifactId>HdrHistogram</artifactId>
+            <version>${hdrhistogram.version}</version>
+        </dependency>
+        <!-- The baseline, started by LittleProxyLauncher in its own JVM. -->
+        <dependency>
+            <groupId>io.github.littleproxy</groupId>
+            <artifactId>littleproxy</artifactId>
+            <version>${littleproxy.version}</version>
+        </dependency>
+        <!-- LittleProxy logs through SLF4J: errors only, to standard error, as MicroProxy's JUL does. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>microproxy-loadtest</finalName>
+        <resources>
+            <resource>
+                <!-- versions.properties: the versions under test, for the report. -->
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-Xlint:all,-serial,-processing</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- MicroProxy's own jars, for its JVM:
+                       java -cp 'target/microproxy-lib/*' org.microproxy.Launcher ... -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>microproxy-lib</id>
+                        <phase>package</phase>
+                        <goals><goal>copy-dependencies</goal></goals>
+                        <configuration>
+                            <includeScope>provided</includeScope>
+                            <includeGroupIds>io.github.mahmoudimus</includeGroupIds>
+                            <excludeTransitive>true</excludeTransitive>
+                            <stripVersion>true</stripVersion>
+                            <outputDirectory>${project.build.directory}/microproxy-lib</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- One runnable jar with sub-commands (run, origin, client, littleproxy, report, env). -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.microproxy.loadtest.Main</mainClass>
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
