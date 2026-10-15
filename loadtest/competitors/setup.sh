@@ -98,6 +98,9 @@ setup_g3proxy() {
     [ "$head" = "$G3_COMMIT" ] || { log "g3 checkout is $head, expected $G3_COMMIT"; exit 1; }
     local cargo
     cargo=$(cargo_bin)
+    # cargo_bin ran in a subshell, so its exports are gone: the toolchain under .tools needs them here
+    # too, or its rustup proxies look for a toolchain in ~/.rustup.
+    if [[ $cargo == "$TOOLS/cargo/"* ]]; then export RUSTUP_HOME="$TOOLS/rustup" CARGO_HOME="$TOOLS/cargo"; fi
     log "building g3proxy $G3PROXY_VERSION with $("$cargo" --version) (several minutes)"
     (cd "$src" && "$cargo" build --locked --release -p g3proxy --no-default-features --features rustls-ring)
     install -m 0755 "$src/target/release/g3proxy" "$TOOLS/bin/g3proxy"
