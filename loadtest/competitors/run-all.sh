@@ -57,8 +57,10 @@ SETTINGS=(
     --ramp-steps 1000,2000,4000,6000,8000
     # Memory under adversarial clients: every proxy in a 512 MB memory cgroup (the JVMs also keep the
     # standard preset's 256 MB heap and 128 MB direct-memory caps inside it). Rapid reset needs h2c,
-    # which only MicroProxy is set up for, so it is left out of the comparison.
-    --attacks slowloris,slowread,updown --attack-seconds 40 --attack-cgroup-limit 512m
+    # which only MicroProxy is set up for, so it is left out of the comparison. The limit holds each
+    # proxy's own memory; the kernel's TCP buffers for its sockets, which cgroup v2 also charges to the
+    # group, are measured beside it (--attack-cgroup-sockets, exclude by default).
+    --attacks slowloris,slowread,updown --attack-seconds 40 --attack-cgroup-limit 512m --attack-cgroup-sockets exclude
     # Soak: 100 s at 2,000 req/s; memory sampled every 10 s after a 30 s warm-up.
     --soak-seconds 100 --soak-rate 2000 --soak-sample-seconds 10
 )

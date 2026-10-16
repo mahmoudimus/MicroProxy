@@ -194,7 +194,7 @@ final class RateSweep extends Scenario {
         if (proxy.equals("microproxy") && ExternalTools.available(ctx).contains("h2load")) {
             ProxyProcess.Options o = ProxyProcess.defaults(s);
             try (ProxyProcess p = ProxyProcess.start(ctx, proxy, "h2load", new ProxyProcess.Options(o.idleTimeoutSeconds(),
-                    o.heap(), o.direct(), o.cgroupLimit(), true))) {
+                    o.heap(), o.direct(), o.cgroupLimit(), o.socketsInLimit(), true))) {
                 Double max = (Double) result.get("maxSustainableRate");
                 double crossRate = max != null ? Math.max(1, max / 2) : s.getDouble("sweep-start-rate");
                 @SuppressWarnings("unchecked")

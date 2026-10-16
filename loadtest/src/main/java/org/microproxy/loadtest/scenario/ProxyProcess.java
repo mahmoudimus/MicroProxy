@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import org.microproxy.loadtest.Json;
 import org.microproxy.loadtest.Settings;
+import org.microproxy.loadtest.proc.CgroupWatch;
 import org.microproxy.loadtest.proc.Environment;
 import org.microproxy.loadtest.proc.GcLog;
 import org.microproxy.loadtest.proc.ManagedProcess;
@@ -31,8 +32,12 @@ import org.microproxy.loadtest.proc.ManagedProcess;
  */
 public final class ProxyProcess implements AutoCloseable {
 
-    /** How a scenario wants the proxy started. */
-    record Options(int idleTimeoutSeconds, String heap, String direct, String cgroupLimit, boolean h2c) {}
+    /**
+     * How a scenario wants the proxy started. With {@code socketsInLimit} false the cgroup limit
+     * holds the proxy's own memory only, and its TCP socket buffers are measured beside it (see
+     * {@link CgroupWatch}).
+     */
+    record Options(int idleTimeoutSeconds, String heap, String direct, String cgroupLimit, boolean socketsInLimit, boolean h2c) {}
 
     final String kind;
     final String label;
@@ -43,6 +48,8 @@ public final class ProxyProcess implements AutoCloseable {
     final Path oomFlag;
     final Path jfr;
     final Path cgroupProcs;
+    /** Holds the proxy's own memory to the cgroup limit when the kernel's limit leaves socket buffers out; or null. */
+    final CgroupWatch watch;
     final List<String> command;
     /** Whether the proxy runs in a JVM: false for an external proxy, which has no NMT, heap or GC log. */
     final boolean jvm;
@@ -51,7 +58,8 @@ public final class ProxyProcess implements AutoCloseable {
     private final RunContext ctx;
 
     private ProxyProcess(RunContext ctx, String kind, String label, ManagedProcess process, int port, int adminPort,
-            Path gcLog, Path oomFlag, Path jfr, Path cgroupProcs, List<String> command, boolean jvm, Path config) {
+            Path gcLog, Path oomFlag, Path jfr, Path cgroupProcs, long ownLimitBytes, List<String> command, boolean jvm,
+            Path config) {
         this.ctx = ctx;
         this.jvm = jvm;
         this.config = config;
@@ -65,11 +73,15 @@ public final class ProxyProcess implements AutoCloseable {
         this.jfr = jfr;
         this.cgroupProcs = cgroupProcs;
         this.command = command;
+        // Over the limit on its own memory, the proxy is killed as the kernel's OOM killer would have.
+        this.watch = cgroupProcs != null && ownLimitBytes > 0
+                ? CgroupWatch.start(cgroupProcs, ownLimitBytes, Duration.ofMillis(100), process::close, "cgroup-watch-" + kind + "-" + label)
+                : null;
     }
 
     /** The default options: the run's idle timeout and memory settings, HTTP/1 only. */
     static Options defaults(Settings s) {
-        return new Options(s.getInt("idle-timeout"), s.get("proxy-heap"), s.get("proxy-direct"), s.get("proxy-cgroup-limit"), false);
+        return new Options(s.getInt("idle-timeout"), s.get("proxy-heap"), s.get("proxy-direct"), s.get("proxy-cgroup-limit"), true, false);
     }
 
     /** Starts {@code kind} for the scenario {@code label} and waits until it accepts connections. */
@@ -93,7 +105,7 @@ public final class ProxyProcess implements AutoCloseable {
         Path procs = null;
         if (!o.cgroupLimit().isBlank()) {
             procs = Environment.createMemoryCgroup("microproxy-loadtest-" + ProcessHandle.current().pid() + "-" + base,
-                    Settings.bytes(o.cgroupLimit()));
+                    Settings.bytes(o.cgroupLimit()), o.socketsInLimit());
             if (procs != null) {
                 cmd.addAll(List.of("sh", "-c", "echo $$ > '" + procs + "' && exec \"$@\"", "sh"));
             } else {
@@ -137,7 +149,8 @@ public final class ProxyProcess implements AutoCloseable {
             throw new IllegalArgumentException("unknown proxy " + kind);
         }
         ManagedProcess p = ManagedProcess.start(base, cmd, logs.resolve(base + ".log"), null);
-        ProxyProcess proxy = new ProxyProcess(ctx, kind, label, p, port, adminPort, gcLog, oomFlag, jfr, procs, cmd, true, null);
+        ProxyProcess proxy = new ProxyProcess(ctx, kind, label, p, port, adminPort, gcLog, oomFlag, jfr, procs,
+                ownLimit(o), cmd, true, null);
         if (!RunContext.awaitPort(p, port, Duration.ofSeconds(60))) {
             proxy.close();
             throw new IOException(kind + " did not start listening; see " + p.log());
@@ -176,7 +189,7 @@ public final class ProxyProcess implements AutoCloseable {
         Path procs = null;
         if (!o.cgroupLimit().isBlank()) {
             procs = Environment.createMemoryCgroup("microproxy-loadtest-" + ProcessHandle.current().pid() + "-" + base,
-                    Settings.bytes(o.cgroupLimit()));
+                    Settings.bytes(o.cgroupLimit()), o.socketsInLimit());
             if (procs != null) {
                 cmd.addAll(List.of("sh", "-c", "echo $$ > '" + procs + "' && exec \"$@\"", "sh"));
             } else {
@@ -192,12 +205,27 @@ public final class ProxyProcess implements AutoCloseable {
         Files.deleteIfExists(oomFlag);
         ManagedProcess p = ManagedProcess.start(base, cmd, logs.resolve(base + ".log"), env);
         ProxyProcess proxy = new ProxyProcess(ctx, def.name(), label, p, port, 0, logs.resolve(base + "-gc.log"), oomFlag,
-                null, procs, cmd, false, config);
+                null, procs, ownLimit(o), cmd, false, config);
         if (!RunContext.awaitPort(p, port, Duration.ofSeconds(60))) {
             proxy.close();
             throw new IOException(def.name() + " did not start listening; see " + p.log());
         }
         return proxy;
+    }
+
+    /** The limit the harness holds the proxy's own memory to, or 0 when the kernel's limit does (or there is none). */
+    private static long ownLimit(Options o) {
+        return o.cgroupLimit().isBlank() || o.socketsInLimit() ? 0 : Settings.bytes(o.cgroupLimit());
+    }
+
+    /** What the proxy's cgroup is charged now, or null without one. */
+    Environment.CgroupMemory cgroupMemory() {
+        return Environment.cgroupMemory(cgroupProcs);
+    }
+
+    /** Whether the harness killed the proxy for passing the limit on its own memory. */
+    boolean overOwnLimit() {
+        return watch != null && watch.overLimit();
     }
 
     /** The JVM's process id. */
@@ -217,6 +245,7 @@ public final class ProxyProcess implements AutoCloseable {
 
     /** Whether the proxy ran out of memory: the OOM marker, its log, or a cgroup OOM kill. */
     boolean oom() {
+        if (overOwnLimit()) return true;
         if (!jvm) {
             // An external proxy: the cgroup's OOM killer, or a runtime's own out-of-memory abort.
             return Environment.cgroupOomKilled(cgroupProcs) || process.logContains("runtime: out of memory")
@@ -287,6 +316,7 @@ public final class ProxyProcess implements AutoCloseable {
     public void close() {
         if (jfr != null && alive()) ctx.jcmd.jfrDump(pid(), jfr);
         process.stop(Duration.ofSeconds(3));
+        if (watch != null) watch.close();
         Environment.removeCgroup(cgroupProcs);
     }
 }

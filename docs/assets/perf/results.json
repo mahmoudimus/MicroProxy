@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-16T15:08:53Z",
+ "generated": "2026-10-16T15:25:33Z",
  "runInfo": {
   "commit": "bfe751dcc0e4ec03b669031c7e9c782607906270",
   "uncommittedLoadtestChanges": 0,
@@ -57,7 +57,7 @@
       "meanCpuPct": 0.0
      },
      {
-      "process": "sshd:",
+      "process": "sshd",
       "meanCpuPct": 0.0
      }
     ],
@@ -102,7 +102,7 @@
       "meanCpuPct": 3.9
      },
      {
-      "process": "sshd:",
+      "process": "sshd",
       "meanCpuPct": 0.0
      }
     ],
@@ -147,7 +147,7 @@
       "meanCpuPct": 6.4
      },
      {
-      "process": "sshd:",
+      "process": "sshd",
       "meanCpuPct": 0.1
      }
     ],
@@ -192,7 +192,7 @@
       "meanCpuPct": 4.6
      },
      {
-      "process": "sshd:",
+      "process": "sshd",
       "meanCpuPct": 0.1
      },
      {
@@ -241,7 +241,7 @@
       "meanCpuPct": 5.0
      },
      {
-      "process": "sshd:",
+      "process": "sshd",
       "meanCpuPct": 0.1
      },
      {
@@ -441,17 +441,17 @@
  "commands": {
   "microproxy": {
    "scenario": "sweep",
-   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch out/jdk25/rep1/20261015-215158/logs/microproxy-sweep.oom -Djava.util.logging.config.file=out/jdk25/rep1/20261015-215158/logs/microproxy-logging.properties -cp <repo>/loadtest/target/microproxy-lib/* org.microproxy.Launcher --port <port> --idle-timeout 70 --connect-timeout 40000 --proxy-alias loadtest",
+   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch <logs>/microproxy-sweep.oom -Djava.util.logging.config.file=<logs>/microproxy-logging.properties -cp <repo>/loadtest/target/microproxy-lib/* org.microproxy.Launcher --port <port> --idle-timeout 70 --connect-timeout 40000 --proxy-alias loadtest",
    "config": null
   },
   "littleproxy": {
    "scenario": "sweep",
-   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch out/jdk25/rep1/20261015-215158/logs/littleproxy-sweep.oom -Dorg.slf4j.simpleLogger.defaultLogLevel=error -Dorg.slf4j.simpleLogger.logFile=System.out -cp <repo>/loadtest/target/microproxy-loadtest.jar org.microproxy.loadtest.proxy.LittleProxyLauncher --port <port> --idle-timeout 70 --connect-timeout 40000",
+   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch <logs>/littleproxy-sweep.oom -Dorg.slf4j.simpleLogger.defaultLogLevel=error -Dorg.slf4j.simpleLogger.logFile=System.out -cp <repo>/loadtest/target/microproxy-loadtest.jar org.microproxy.loadtest.proxy.LittleProxyLauncher --port <port> --idle-timeout 70 --connect-timeout 40000",
    "config": null
   },
   "envoy": {
    "scenario": "sweep",
-   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/envoy -c out/jdk25/rep1/20261015-215158/logs/envoy-sweep-envoy.yaml --concurrency 1 --log-level error --disable-hot-restart",
+   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/envoy -c <logs>/envoy-sweep-envoy.yaml --concurrency 1 --log-level error --disable-hot-restart",
    "config": "logs/envoy-sweep-envoy.yaml"
   },
   "goproxy": {
@@ -461,12 +461,12 @@
   },
   "g3proxy": {
    "scenario": "sweep",
-   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/g3proxy -c out/jdk25/rep1/20261015-215158/logs/g3proxy-sweep-g3proxy.yaml",
+   "command": "nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/g3proxy -c <logs>/g3proxy-sweep-g3proxy.yaml",
    "config": "logs/g3proxy-sweep-g3proxy.yaml"
   },
   "squid": {
    "scenario": "sweep",
-   "command": "nice -n -20 taskset -c 1 /usr/sbin/squid -N -d 1 -f out/jdk25/rep1/20261015-215158/logs/squid-sweep-squid.conf",
+   "command": "nice -n -20 taskset -c 1 /usr/sbin/squid -N -d 1 -f <logs>/squid-sweep-squid.conf",
    "config": "logs/squid-sweep-squid.conf"
   }
  },
@@ -26821,6 +26821,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-microproxy-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep4-20261016-003717",
      "points": [
@@ -26944,6 +26946,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-littleproxy-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep2-20261015-224705",
      "points": [
@@ -27067,6 +27071,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-envoy-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep5-20261016-013155",
      "points": [
@@ -27190,6 +27196,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-goproxy-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep2-20261015-224705",
      "points": [
@@ -27313,6 +27321,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-g3proxy-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep4-20261016-003717",
      "points": [
@@ -27436,6 +27446,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-squid-memory-slowloris"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep3-20261015-234222",
      "points": [
@@ -27549,6 +27561,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-microproxy-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep5-20261016-013155",
      "points": [
@@ -27656,6 +27670,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-littleproxy-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep4-20261016-003717",
      "points": [
@@ -27743,6 +27759,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-envoy-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep2-20261015-224705",
      "points": [
@@ -27854,6 +27872,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-goproxy-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep1-20261015-215158",
      "points": [
@@ -27965,6 +27985,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-g3proxy-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep3-20261015-234222",
      "points": [
@@ -28076,6 +28098,8 @@
      "cgroupLimit": "512m",
      "cgroup": "/sys/fs/cgroup/microproxy-loadtest-41398-squid-memory-updown"
     },
+    "peakSockMb": null,
+    "sockKbPerConnection": null,
     "series": {
      "run": "rep1-20261015-215158",
      "points": [
