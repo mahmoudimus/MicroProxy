@@ -922,6 +922,21 @@ def excluded_note(d, labels, ids, mark=True):
             "figure; runs used: " + "; ".join(parts) + ".")
 
 
+def memory_fewer_note(d, labels, ids):
+    """A sentence naming the memory figures that fewer runs measured (the proxy ended before the
+    first memory sample), or ''."""
+    parts = []
+    for attack, per in d["memory"].items():
+        for p in ids:
+            st = per[p].get("peakRssMb")
+            if st and fewer(st):
+                parts.append(f"{labels[p]} under {ATTACK_NAMES.get(attack, attack)} ({st['n']} of {st['of']} runs)")
+    if not parts:
+        return ""
+    return ("‡ Measured in fewer runs than all, because in the others the proxy ran out of memory before the first "
+            "memory sample: " + "; ".join(parts) + ".")
+
+
 def tables(d):
     RUNS[0] = len(d["runs"])
     labels = {m["id"]: m["label"] for m in d["proxies"]}
@@ -951,6 +966,9 @@ def tables(d):
     ex = excluded_note(d, labels, ids)
     if ex:
         notes.append(ex)
+    mem_note = memory_fewer_note(d, labels, ids)
+    if mem_note:
+        notes.append(mem_note)
     gone = d.get("memoryNotMeasured") or {}
     if gone:
         notes.append("Not measured on this machine: " + ", ".join(ATTACK_NAMES.get(a, a) for a in gone)
@@ -1041,6 +1059,8 @@ def tables(d):
         header.pop(5)
         rows = [r[:5] + r[6:] for r in rows]
     t["memory"] = table(header, rows)
+    if mem_note:
+        t["memory"] += "\n\n" + mem_note
     for attack, reason in gone.items():
         t["memory"] += f"\n\n{ATTACK_NAMES.get(attack, attack).capitalize()} were not measured on this machine: {reason}."
 
@@ -1364,8 +1384,11 @@ def charts(d):
             if s:
                 series.append((m, s["points"], s["end"]))
         readers = d["settings"].get("slowread-connections")
+        beside = any((per[m["id"]].get("cap") or {}).get("socketBuffers") == "beside the limit" for m in meta)
+        cap = ("Each proxy's own memory capped at 512 MB, its kernel socket buffers beside the cap" if beside
+               else "Each proxy in a 512 MB memory cgroup")
         out["slowread-rss.svg"] = line_chart(f"RSS while {readers} slow readers download (lower is better)",
-                                             "Each proxy in a 512 MB memory cgroup; the run with the median peak; ✕ = out of memory or crash.",
+                                             cap + "; the run with the median peak; ✕ = out of memory or crash.",
                                              "seconds since the readers started", "RSS (MB)", series, ymax=560,
                                              hline=(512, "512 MB cgroup limit"))
     return out
