@@ -54,11 +54,12 @@ Start `claude remote-control` in the clone, then give it this prompt:
 > `perf/dedicated-<date>`, push it, and report the machine report, the runs the guard accepted or
 > rejected, and the median max sustainable rate and CPU per request of each proxy.
 
-## Known issue: slow readers on newer kernels
+## Slow readers and socket buffers
 
-On some kernels (Linux 7.0 on Google Cloud, for one) the TCP socket buffers of the memory
-scenario's 200 slow readers are charged to the proxy's 512 MB memory cgroup and fill it on their
-own, so the cgroup's OOM killer ends the run whatever the proxy holds; lowering `tcp_rmem` and
-`tcp_wmem` to the upstream defaults does not prevent it. Watch the cgroup's `memory.stat` (`sock`
-against `anon`) to tell. Such a run's slow-reader results are not the proxy's: list the workload
-under `"notMeasured"` in the results directory's `run-info.json` (see aggregate.py's header).
+cgroup v2 charges the TCP socket buffers of the proxy's sockets to its memory cgroup. On some
+kernels (Linux 7.0 on Google Cloud, for one) the buffers of the memory scenario's 200 slow readers
+alone fill a 512 MB limit, and lowering `tcp_rmem` and `tcp_wmem` to the upstream defaults does not
+prevent it. The harness therefore holds the proxy's own memory to the limit and reports the socket
+buffers beside it (`--attack-cgroup-sockets exclude`, the default; see
+docs/project/load-testing.md). Runs made before that (they have no `peakSockKb`) list the
+workload under `"notMeasured"` in their `run-info.json` instead (see aggregate.py's header).

@@ -245,7 +245,9 @@ memory cgroup, and a follow-up that watched the cgroup found the buffers alone a
 within a second, while the proxy's own memory stayed at 16 to 56 MB: the cgroup's OOM killer ended
 the run for every proxy but LittleProxy, whatever the proxy itself held, and lowering the kernel's
 buffer limits to the upstream defaults did not change that. The proxies' own memory under slow
-readers needs a harness that keeps the kernel's buffers out of the cap; until then, the
+readers needs a harness that keeps the kernel's buffers out of the cap, which it now does
+(`--attack-cgroup-sockets`, see [the load-testing page](load-testing.md#how-memory-growth-is-judged));
+the slow-reader rows return with the next run. Until then, the
 [backpressure section of the architecture page](../architecture.md) describes how each proxy
 stops reading.
 
@@ -359,9 +361,9 @@ The runs that are published, and what else ran during each:
 |---|---|---|---|---|---|
 | 20261015-215158 | 7.5% / 52.0% / 435.6% | 1.76 / 14.84 | kernel thread 5.3% | 5.8 s | accepted |
 | 20261015-224705 | 5.7% / 31.6% / 416.3% | 1.64 / 12.85 | kernel thread 3.9% | 5.1 s | accepted |
-| 20261015-234222 | 6.0% / 43.8% / 197.7% | 1.63 / 11.87 | kernel thread 6.4%, sshd: 0.1% | 5.1 s | accepted |
-| 20261016-003717 | 5.3% / 42.3% / 188.6% | 1.74 / 15.19 | kernel thread 4.6%, sshd: 0.1% | 5.1 s | accepted |
-| 20261016-013155 | 7.6% / 53.6% / 495.4% | 1.69 / 14.27 | kernel thread 5.0%, sshd: 0.1% | 5.1 s | accepted |
+| 20261015-234222 | 6.0% / 43.8% / 197.7% | 1.63 / 11.87 | kernel thread 6.4%, sshd 0.1% | 5.1 s | accepted |
+| 20261016-003717 | 5.3% / 42.3% / 188.6% | 1.74 / 15.19 | kernel thread 4.6%, sshd 0.1% | 5.1 s | accepted |
+| 20261016-013155 | 7.6% / 53.6% / 495.4% | 1.69 / 14.27 | kernel thread 5.0%, sshd 0.1% | 5.1 s | accepted |
 
 <!-- /perf:contamination -->
 
@@ -408,12 +410,12 @@ virtual-thread pollers spare MicroProxy a thread switch for every ready socket (
 
 | Proxy | Language | Version | Command line (sweep run) |
 |---|---|---|---|
-| MicroProxy | Java (virtual threads) | MicroProxy 0.3.0 (this repository at bfe751d) | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch out/jdk25/rep1/20261015-215158/logs/microproxy-sweep.oom -Djava.util.logging.config.file=out/jdk25/rep1/20261015-215158/logs/microproxy-logging.properties -cp <repo>/loadtest/target/microproxy-lib/* org.microproxy.Launcher --port <port> --idle-timeout 70 --connect-timeout 40000 --proxy-alias loadtest` |
-| LittleProxy | Java (Netty) | io.github.littleproxy:littleproxy 2.9.1 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch out/jdk25/rep1/20261015-215158/logs/littleproxy-sweep.oom -Dorg.slf4j.simpleLogger.defaultLogLevel=error -Dorg.slf4j.simpleLogger.logFile=System.out -cp <repo>/loadtest/target/microproxy-loadtest.jar org.microproxy.loadtest.proxy.LittleProxyLauncher --port <port> --idle-timeout 70 --connect-timeout 40000` |
-| Envoy | C++ | Envoy 1.39.4 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/envoy -c out/jdk25/rep1/20261015-215158/logs/envoy-sweep-envoy.yaml --concurrency 1 --log-level error --disable-hot-restart` |
+| MicroProxy | Java (virtual threads) | MicroProxy 0.3.0 (this repository at bfe751d) | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch <logs>/microproxy-sweep.oom -Djava.util.logging.config.file=<logs>/microproxy-logging.properties -cp <repo>/loadtest/target/microproxy-lib/* org.microproxy.Launcher --port <port> --idle-timeout 70 --connect-timeout 40000 --proxy-alias loadtest` |
+| LittleProxy | Java (Netty) | io.github.littleproxy:littleproxy 2.9.1 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/temurin-25/bin/java -Xmx1g -XX:+UseG1GC -XX:NativeMemoryTracking=summary -Xlog:gc:file=<logs>/gc.log:uptime,level,tags -XX:OnOutOfMemoryError=touch <logs>/littleproxy-sweep.oom -Dorg.slf4j.simpleLogger.defaultLogLevel=error -Dorg.slf4j.simpleLogger.logFile=System.out -cp <repo>/loadtest/target/microproxy-loadtest.jar org.microproxy.loadtest.proxy.LittleProxyLauncher --port <port> --idle-timeout 70 --connect-timeout 40000` |
+| Envoy | C++ | Envoy 1.39.4 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/envoy -c <logs>/envoy-sweep-envoy.yaml --concurrency 1 --log-level error --disable-hot-restart` |
 | goproxy (Go) | Go | github.com/elazarl/goproxy v1.9.2 (go1.27.2) | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/goproxy-proxy -addr 127.0.0.1:<port> -idle-timeout 70s -connect-timeout 40000ms` |
-| g3proxy (Rust) | Rust | g3proxy 1.12.4 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/g3proxy -c out/jdk25/rep1/20261015-215158/logs/g3proxy-sweep-g3proxy.yaml` |
-| Squid | C++ | Squid Cache: Version 6.14 | `nice -n -20 taskset -c 1 /usr/sbin/squid -N -d 1 -f out/jdk25/rep1/20261015-215158/logs/squid-sweep-squid.conf` |
+| g3proxy (Rust) | Rust | g3proxy 1.12.4 | `nice -n -20 taskset -c 1 <repo>/loadtest/competitors/.tools/bin/g3proxy -c <logs>/g3proxy-sweep-g3proxy.yaml` |
+| Squid | C++ | Squid Cache: Version 6.14 | `nice -n -20 taskset -c 1 /usr/sbin/squid -N -d 1 -f <logs>/squid-sweep-squid.conf` |
 
 <!-- /perf:versions -->
 

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.microproxy.loadtest.Json;
 import org.microproxy.loadtest.client.ClientControl;
+import org.microproxy.loadtest.proc.Environment;
 import org.microproxy.loadtest.proc.GcLog;
 import org.microproxy.loadtest.proc.ProcStats;
 import org.microproxy.loadtest.proc.Sampler;
@@ -22,6 +23,11 @@ import org.microproxy.loadtest.proc.Sampler;
  * is reported but never fails a run. Heap alone is misleading here — virtual-thread stacks sit on
  * the heap while direct buffers do not — so growth is read from RSS and NMT total, with heap and
  * NMT "other" (direct memory) shown alongside.
+ *
+ * <p>The cgroup's TCP socket buffers (cgroup v2 charges them to it) are measured beside the proxy's
+ * own memory. By default ({@code attack-cgroup-sockets=exclude}) the limit holds the proxy's own
+ * memory only: how much a slow client leaves in the kernel's buffers is set mostly by the kernel,
+ * and with a few hundred slow readers the buffers alone can fill a limit sized for the proxy.
  */
 final class MemoryUnderAttack extends Scenario {
 
@@ -57,7 +63,7 @@ final class MemoryUnderAttack extends Scenario {
                 continue;
             }
             ProxyProcess.Options o = new ProxyProcess.Options(s.getInt("idle-timeout"), s.get("attack-heap"),
-                    s.get("attack-direct"), s.get("attack-cgroup-limit"), h2c);
+                    s.get("attack-direct"), s.get("attack-cgroup-limit"), s.get("attack-cgroup-sockets").equals("include"), h2c);
             try (ProxyProcess p = ProxyProcess.start(ctx, proxy, name() + "-" + attack, o);
                     ClientControl attacker = ctx.startClient(proxy + "-" + name() + "-" + attack, p.port, List.of());
                     ClientControl prober = ctx.startClient(proxy + "-" + name() + "-" + attack + "-probe", p.port, List.of());
@@ -66,7 +72,8 @@ final class MemoryUnderAttack extends Scenario {
                 // The heap and direct-memory caps are JVM flags; an external proxy has only the cgroup.
                 Map<String, Object> cap = Json.obj("heap", p.jvm ? o.heap() : null, "direct", p.jvm ? o.direct() : null, "cgroupLimit",
                         o.cgroupLimit().isBlank() ? null : o.cgroupLimit(), "cgroup", p.cgroupProcs == null ? null
-                                : p.cgroupProcs.getParent().toString());
+                                : p.cgroupProcs.getParent().toString(), "socketBuffers", p.cgroupProcs == null ? null
+                                : o.socketsInLimit() ? "in the limit" : "beside the limit");
                 Map<String, Object> baseline = p.memorySnapshot(true);
 
                 Map<String, Object> cmd = attackCommand(attack, p, probeUrl(0));
@@ -112,6 +119,9 @@ final class MemoryUnderAttack extends Scenario {
                 rec.put("peakNmtTotalKb", peak(mem, "nmtTotalKb"));
                 rec.put("peakHeapAfterGcKb", peak(mem, "heapAfterGcKb"));
                 rec.put("peakOtherKb", peak(mem, "otherKb"));
+                // The cgroup's own memory and socket buffers, from the watch's 100 ms polls where it ran.
+                rec.put("peakCgroupOwnKb", p.watch != null ? p.watch.peakOwnKb() : peak(mem, "cgroupOwnKb"));
+                rec.put("peakSockKb", p.watch != null ? Math.max(p.watch.peakSockKb(), peak(mem, "sockKb")) : peak(mem, "sockKb"));
                 rec.put("rssGrowthKb", growth(mem, "rssKb"));
                 rec.put("outcome", outcome);
                 rec.put("pass", pass);
@@ -208,7 +218,13 @@ final class MemoryUnderAttack extends Scenario {
         }
         String availability = probeTotal == 0 ? "no probes" : "probe " + probeOk + "/" + probeTotal + " ok";
         long peakOther = peak(mem, "otherKb");
-        String memory = "peak RSS " + peak(mem, "rssKb") / 1024 + " MB, peak NMT other (direct) " + peakOther / 1024 + " MB";
+        long peakSock = p.watch != null ? Math.max(p.watch.peakSockKb(), peak(mem, "sockKb")) : peak(mem, "sockKb");
+        String memory = "peak RSS " + peak(mem, "rssKb") / 1024 + " MB, peak NMT other (direct) " + peakOther / 1024 + " MB"
+                + (peakSock >= 0 ? ", peak socket buffers " + peakSock / 1024 + " MB" : "");
+        if (p.overOwnLimit()) {
+            return Json.obj("verdict", "oom", "pass", false, "detail", "over the limit on its own memory (" + p.watch.overLimitBytes() / 1024 / 1024
+                    + " MB of " + p.watch.limitBytes() / 1024 / 1024 + " MB, socket buffers aside), killed; " + memory + "; " + availability);
+        }
         if (p.oom()) {
             return Json.obj("verdict", "oom", "pass", false, "detail", "out of memory (" + p.state() + "); " + memory
                     + "; " + availability);
@@ -257,6 +273,11 @@ final class MemoryUnderAttack extends Scenario {
             m.put("heapKb", nmt.get("heapKb"));
             m.put("threadKb", nmt.get("threadKb"));
             m.put("otherKb", nmt.get("otherKb"));
+        }
+        Environment.CgroupMemory cg = p.cgroupMemory();
+        if (cg != null) {
+            m.put("cgroupOwnKb", cg.ownBytes() / 1024);
+            m.put("sockKb", cg.sockBytes() / 1024);
         }
         ProcStats.Sample sm = ProcStats.sample(p.pid());
         if (sm != null) {

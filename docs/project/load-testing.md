@@ -126,6 +126,20 @@ the window cannot tell growth from warm-up, so the verdict is **inconclusive**. 
 (in the proxy's log, or a cgroup OOM kill) is **oom**, even if the process kept running, and an exit
 is **crashed**.
 
+**Socket buffers.** cgroup v2 charges a group for its sockets' TCP buffers as well as for its
+processes' memory, and a kernel limit covers both. How much a slow client leaves in those buffers
+is set mostly by the kernel (`tcp_rmem`, `tcp_wmem` and their autotuning; newer kernels let a
+receive buffer grow to 32 MB), and with a few hundred slow readers the buffers alone can fill a
+512 MB limit and have the OOM killer end the proxy whatever the proxy holds. So by default
+(`--attack-cgroup-sockets exclude`) the cgroup gets no kernel limit: the harness reads its
+`memory.current` and `memory.stat` every 100 ms, holds the memory other than the socket buffers
+(the processes' own, and the kernel's on their behalf) to `--attack-cgroup-limit`, killing the
+proxy as the OOM killer would when it passes it (verdict **oom**, saying so), and reports the
+socket buffers' peak beside the proxy's memory. `--attack-cgroup-sockets include` keeps the
+kernel's limit over both, which is what a proxy in a container with that memory limit lives
+under. cgroup v1 keeps TCP buffers out of its memory limit either way, and reports them apart
+(`memory.kmem.tcp.usage_in_bytes`). The run records the machine's `tcp_rmem` and `tcp_wmem`.
+
 The smoke preset's workloads last a few seconds, shorter than the warm-up, so its memory verdicts are
 always inconclusive (the same holds for its 10 s soak). They are reported, never gating, and they do
 not flip from run to run. Real growth verdicts come from the standard and full presets.
@@ -303,8 +317,9 @@ HTTP/2 over h2c and so runs against MicroProxy only.
 
 **In a container with a memory cap.** Give the proxy a cgroup limit so an out-of-memory is contained
 and observable, for example `--proxy-cgroup-limit 2g` (every scenario) or `--attack-cgroup-limit 512m`
-(the adversarial scenario); where no writable cgroup is available the harness falls back to
-`-XX:MaxRAM` and notes it. The proxy's heap and direct-memory caps are `--proxy-heap`, `--proxy-direct`,
+(the adversarial scenario, whose limit leaves the kernel's socket buffers out unless
+`--attack-cgroup-sockets include`; see [socket buffers](#how-memory-growth-is-judged)); where no
+writable cgroup is available the harness falls back to `-XX:MaxRAM` and notes it. The proxy's heap and direct-memory caps are `--proxy-heap`, `--proxy-direct`,
 `--attack-heap` and `--attack-direct`.
 
 **On a shared machine.** Other work on the same machine competes for the CPUs the harness pins its

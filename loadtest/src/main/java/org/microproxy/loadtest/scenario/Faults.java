@@ -34,7 +34,8 @@ final class Faults extends Scenario {
         Map<String, Object> result = new LinkedHashMap<>();
         int idle = s.getInt("fault-idle-timeout");
         ProxyProcess.Options base = ProxyProcess.defaults(s);
-        ProxyProcess.Options o = new ProxyProcess.Options(idle, base.heap(), base.direct(), base.cgroupLimit(), false);
+        ProxyProcess.Options o = new ProxyProcess.Options(idle, base.heap(), base.direct(), base.cgroupLimit(),
+                base.socketsInLimit(), false);
         int count = s.getInt("fault-requests");
         int concurrency = s.getInt("fault-concurrency");
         int timeoutMs = s.getInt("request-timeout-ms");

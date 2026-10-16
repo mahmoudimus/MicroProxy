@@ -80,6 +80,7 @@ public final class Settings {
         {"attack-heap", "128m", "256m", "512m", "the proxy's -Xmx while capped"},
         {"attack-direct", "64m", "128m", "256m", "the proxy's -XX:MaxDirectMemorySize while capped"},
         {"attack-cgroup-limit", "", "", "", "a memory cgroup limit for the capped proxy (e.g. 512m), empty for none"},
+        {"attack-cgroup-sockets", "exclude", "exclude", "exclude", "whether the proxy's TCP socket buffers count against attack-cgroup-limit (cgroup v2 charges them): exclude (the limit holds the proxy's own memory; the buffers are measured beside it) or include (the kernel's limit covers both, as in a container)"},
         {"nmt-every-seconds", "1", "5", "15", "NMT and RSS samples during a workload, every this many seconds"},
         {"slowloris-connections", "100", "2000", "10000", "connections trickling their request headers"},
         {"slowloris-interval-ms", "1000", "5000", "10000", "milliseconds between one connection's header lines"},

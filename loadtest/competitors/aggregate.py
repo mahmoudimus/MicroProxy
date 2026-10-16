@@ -280,10 +280,12 @@ def sanitize(text):
     text = re.sub(r"(?<=[ =:])(loadtest|target)/", r"<repo>/\1/", text)
     text = re.sub(r"(<repo>/)?loadtest/results/[^ ]*/logs/", "<logs>/", text)
     text = re.sub(r"/tmp/[^ ]*/logs/", "<logs>/", text)
+    # Any other results directory (a scratch output directory made relative by hand, say).
+    text = re.sub(r"(?<=[ =:'])[^ =:'<]*/logs/", "<logs>/", text)
     text = re.sub(r"-Xlog:gc:file=[^ :]*", "-Xlog:gc:file=<logs>/gc.log", text)
     text = re.sub(r"--port \d+", "--port <port>", text)
     text = re.sub(r"127\.0\.0\.1:\d{4,5}", "127.0.0.1:<port>", text)
-    text = re.sub(r"/sys/fs/cgroup/memory/[^' ]*", "<cgroup>", text)
+    text = re.sub(r"/sys/fs/cgroup/(memory/)?[^' ]*", "<cgroup>", text)
     return text
 
 
@@ -501,6 +503,7 @@ def aggregate_memory(runs, proxies, excluded=None):
         per = {}
         for p in proxies:
             verdicts, peaks, bases, per_conn, series, states, probes, caps, shed = [], [], [], [], [], [], [], [], []
+            socks, sock_per_conn = [], []
             skipped = None
             for run in runs:
                 r = result(run, "memory", p)
@@ -523,6 +526,12 @@ def aggregate_memory(runs, proxies, excluded=None):
                 conns = (rec.get("workload") or {}).get("connections") or 0
                 if peak is not None and base is not None and conns:
                     per_conn.append(max(0.0, (peak - base) * 1024.0 / conns))
+                # The kernel's TCP buffers for the proxy's sockets (runs that measured them).
+                sock_kb = rec.get("peakSockKb")
+                sock = kb_to_mb(sock_kb) if isinstance(sock_kb, (int, float)) and sock_kb >= 0 else None
+                socks.append(sock)
+                if sock is not None and conns:
+                    sock_per_conn.append(sock * 1024.0 / conns)
                 closed = (rec.get("workload") or {}).get("closedByProxy")
                 if conns and closed is not None:
                     shed.append(closed / conns)
@@ -550,6 +559,7 @@ def aggregate_memory(runs, proxies, excluded=None):
             per[p] = {"skipped": skipped, "verdicts": counts(verdicts), "states": counts(states),
                       "peakRssMb": stats(peaks), "baselineRssMb": stats(bases), "rssKbPerConnection": stats(per_conn),
                       "probeOkRatio": stats(probes), "shedRatio": stats(shed), "cap": caps[0] if caps else None,
+                      "peakSockMb": stats(socks), "sockKbPerConnection": stats(sock_per_conn),
                       "series": median_series, "allSeries": series}
         out[attack] = per
     return out
@@ -957,20 +967,26 @@ def tables(d):
     t["ramp"] = table(["Proxy", "Idle RSS (MB)", "RSS per idle connection (KB)", "Connections held", "Ramp ended"], rows)
 
     rows = []
+    # The socket-buffer column only for runs that measured them (a memory cgroup on cgroup v2 or v1).
+    with_sock = any((per[p].get("peakSockMb") or {}).get("n") for per in d["memory"].values() for p in ids)
     for attack, per in d["memory"].items():
         for p in ids:
             m = per[p]
             if m["skipped"]:
-                rows.append([attack, labels[p], "not supported: " + m["skipped"], "n/a", "n/a", "n/a", "n/a"])
+                rows.append([attack, labels[p], "not supported: " + m["skipped"], "n/a", "n/a", "n/a", "n/a", "n/a"])
                 continue
             probes = m["probeOkRatio"] and {**m["probeOkRatio"], "med": m["probeOkRatio"]["med"] * 100}
             rows.append([attack, labels[p], tally(m["verdicts"]), med(m["peakRssMb"], 1), med(m["rssKbPerConnection"]),
-                         med(probes, 0, "%"), tally(m["states"])])
+                         med(m.get("peakSockMb"), 1), med(probes, 0, "%"), tally(m["states"])])
     gone = d.get("memoryNotMeasured") or {}
     for attack in gone:
-        rows.append([attack, "every proxy", "not measured (see below)", "n/a", "n/a", "n/a", "n/a"])
-    t["memory"] = table(["Workload", "Proxy", "Verdict", "Peak RSS (MB)", "RSS per connection (KB)", "Honest probes answered",
-                         "Proxy at the end"], rows)
+        rows.append([attack, "every proxy", "not measured (see below)", "n/a", "n/a", "n/a", "n/a", "n/a"])
+    header = ["Workload", "Proxy", "Verdict", "Peak RSS (MB)", "RSS per connection (KB)",
+              "Kernel socket buffers, peak (MB)", "Honest probes answered", "Proxy at the end"]
+    if not with_sock:
+        header.pop(5)
+        rows = [r[:5] + r[6:] for r in rows]
+    t["memory"] = table(header, rows)
     for attack, reason in gone.items():
         t["memory"] += f"\n\n{ATTACK_NAMES.get(attack, attack).capitalize()} were not measured on this machine: {reason}."
 
