@@ -114,6 +114,11 @@ final class Http3StreamReader {
     private boolean connect;
     /** The request is an extended {@code CONNECT} ({@code :protocol}): its DATA are no message body. */
     private volatile boolean extendedConnect;
+    /**
+     * The request went on framed for a body ({@link #announceBody}): it has one, if only an empty
+     * one, whenever the stream's end comes.
+     */
+    private volatile boolean bodyAnnounced;
     /** How long reads of the body wait, in ms; 0 for ever, negative for the connection's idle timeout. */
     private volatile int readTimeoutMillis = -1;
 
@@ -447,6 +452,15 @@ final class Http3StreamReader {
         }
     }
 
+    /**
+     * The request's head was passed on framed for a body, its end not yet known: from now on the
+     * message has one ({@link MessageBody#hasBody}), empty if the stream's end comes next, so the
+     * body is sent as the head promised whenever the end arrives.
+     */
+    void announceBody() {
+        bodyAnnounced = true;
+    }
+
     /** Whether the stream ended right after what has been taken: a message with no body. */
     boolean endsHere() {
         lock.lock();
@@ -573,6 +587,7 @@ final class Http3StreamReader {
         @Override
         public boolean hasBody() {
             if (extendedConnect) return false;
+            if (bodyAnnounced) return declaredLength != 0;
             lock.lock();
             try {
                 return !(events.peekFirst() instanceof End) && declaredLength != 0;

@@ -4,7 +4,8 @@ It reads a JSON list of requests from the file named by --requests, sends them o
 (all at once with --concurrent, else one after another), and prints one "RESULT <json>" line with
 each response: status, headers, body length and SHA-256, the body itself when it is text and
 short, and trailers. A request is {"method", "path", "headers": [[name, value], ...], "body":
-text, or "body_size" and "seed" for random bytes, "trailers": [[name, value], ...]}; a body's
+text, or "body_size" and "seed" for random bytes, "trailers": [[name, value], ...], "end_delay":
+seconds to wait before ending the stream}; a body's
 SHA-256 is reported as "sent_sha256" so the test can compare an echo. It exits with status 0 once
 every response has arrived.
 """
@@ -135,15 +136,21 @@ class H3ClientProtocol(QuicConnectionProtocol):
             (b":path", spec.get("path", "/").encode()),
             (b"user-agent", b"aioquic-proxy-test"),
         ] + [(k.encode(), v.encode()) for k, v in spec.get("headers", [])]
-        self._http.send_headers(stream_id=sid, headers=headers, end_stream=not body and not trailers)
+        end_delay = spec.get("end_delay", 0)
+        self._http.send_headers(stream_id=sid, headers=headers, end_stream=not body and not trailers and not end_delay)
         if body:
             for off in range(0, len(body), 65536):
                 last = off + 65536 >= len(body)
-                self._http.send_data(stream_id=sid, data=body[off:off + 65536], end_stream=last and not trailers)
+                self._http.send_data(stream_id=sid, data=body[off:off + 65536], end_stream=last and not trailers and not end_delay)
                 self.transmit()
                 await asyncio.sleep(0)
         if trailers:
             self._http.send_headers(stream_id=sid, headers=trailers, end_stream=True)
+        if end_delay:
+            # The stream's end alone, in a packet of its own, end_delay seconds after the rest
+            self.transmit()
+            await asyncio.sleep(end_delay)
+            self._quic.send_stream_data(sid, b"", end_stream=True)
         self.transmit()
         await self.wait(response["done"])
         response["finished"] = True

@@ -86,6 +86,14 @@ class AioquicHttp3Test {
                     @Override
                     public HttpFilters filterRequest(HttpRequest originalRequest, FlowContext ctx) {
                         filtered.add(originalRequest.method() + " " + originalRequest.uri() + " " + ctx.getHttpVersion());
+                        if (originalRequest.uri().startsWith("/slow/")) {
+                            // Holds the exchange back, past the stream's end, before it goes upstream
+                            try {
+                                Thread.sleep(500);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                         return new HttpFiltersAdapter(originalRequest, ctx) {
                             @Override
                             public HttpObject proxyToClientResponse(HttpObject o) {
@@ -187,6 +195,27 @@ class AioquicHttp3Test {
         checkStandard(responses, "h1", false);
         manyAtOnce(50);
         assertTrue(filtered.contains("GET /echo/hello HTTP/3.0"), filtered.toString());
+    }
+
+    @Test
+    void aRequestWhoseStreamEndsLateGoesToAnHttp1OriginAsItsHeadIsFramed() throws Exception {
+        // The stream's FIN comes after the proxy has framed the request's head for a body
+        // (chunked, its end unknown) but before the exchange sends it, held back by a filter: the
+        // body must still be sent, and ended, as the head is framed, or the origin waits for it
+        HttpServer origin = TestSupport.origin(TestSupport.echo());
+        closeables.add(() -> origin.stop(0));
+        startProxy("http://127.0.0.1:" + origin.getAddress().getPort(), b -> {});
+        Map<String, Object> get = AioquicPeers.request("GET", "/slow/late");
+        get.put("end_delay", 0.2);
+        Map<String, Object> post = AioquicPeers.request("POST", "/slow/late-post");
+        post.put("body", "a body");
+        post.put("end_delay", 0.2);
+        List<Map<String, Object>> responses = send(List.of(get, post), true);
+        assertEquals(200L, responses.get(0).get("status"));
+        assertTrue(((String) responses.get(0).get("text")).startsWith("method: GET\nuri: /slow/late\n"),
+                (String) responses.get(0).get("text"));
+        assertEquals(200L, responses.get(1).get("status"));
+        assertTrue(((String) responses.get(1).get("text")).endsWith("\n\na body"), (String) responses.get(1).get("text"));
     }
 
     @Test
