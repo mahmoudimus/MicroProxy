@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.mahmoudimus</groupId>
         <artifactId>microproxy-parent</artifactId>
-        <version>0.4.0</version>
+        <version>0.4.1-SNAPSHOT</version>
     </parent>
 
     <!-- JMH benchmarks of MicroProxy against LittleProxy, side by side. Built only with the parent's
