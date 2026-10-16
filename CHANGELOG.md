@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.4.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.3.0...v0.4.0) (2026-10-16)
+
+
+### Features
+
+* **api:** expose the local address and the PROXY header destination on FlowContext ([eccedff](https://github.com/mahmoudimus/MicroProxy/commit/eccedff820063690f4cb1e8e7ab5fa649b89534c))
+* **chained-proxy:** make the backoff budget part of RetryBackoff ([193b2e5](https://github.com/mahmoudimus/MicroProxy/commit/193b2e5857fd9b7a4c98a2f80916a2da97247369))
+* **loadtest:** bootstrap a dedicated machine for the cross-proxy comparison ([664be11](https://github.com/mahmoudimus/MicroProxy/commit/664be11072ac61dc1477afb5513a55a3de6e4b34))
+* **loadtest:** count the Windows host's load against runs on WSL2 ([9d8d13d](https://github.com/mahmoudimus/MicroProxy/commit/9d8d13d1e99e6103e3ea0548d7368a3486831c49))
+* **loadtest:** proxy-java setting to run the JVM proxies on another JDK ([194d6c2](https://github.com/mahmoudimus/MicroProxy/commit/194d6c27030ed8e7b4a7f0e4141412fc152653d0))
+* **loadtest:** refine the sweep's knee and record proxy CPU per request ([d649211](https://github.com/mahmoudimus/MicroProxy/commit/d649211e5b5fc6d2144cb4fb90c0da9bc901e3d9))
+* **loadtest:** take the page's memory figures from a separate run ([f53ab01](https://github.com/mahmoudimus/MicroProxy/commit/f53ab012a62e269310de1b0b483bc2042bc579f7))
+* **mitm:** mitm_server_handshake (deferred or eager), with failover either way ([d8c03d5](https://github.com/mahmoudimus/MicroProxy/commit/d8c03d5974290daf455d0b68de34c54b93eb7e87))
+* per-protocol policies with LittleProxy compatibility as a preset; MITM handshake timing, generated responses, backoff budget, flow addresses ([4733482](https://github.com/mahmoudimus/MicroProxy/commit/4733482cb13ce460c83ee4597fc5323529270c16))
+* **policy:** generated_responses, and FlowContext.responseSource() ([0c282c9](https://github.com/mahmoudimus/MicroProxy/commit/0c282c9d862c6c98e53882a8a85f3ff5f6ad0be7))
+* **policy:** protocol policies per client protocol; LittleProxy compatibility as a preset ([6f037ab](https://github.com/mahmoudimus/MicroProxy/commit/6f037abdd0e8c7d34dcc572cf2559dca6e7efe1f))
+
+
+### Bug Fixes
+
+* **core:** an immediate drain no longer closes connections accepted after it began ([e1bf0f3](https://github.com/mahmoudimus/MicroProxy/commit/e1bf0f316cde866bdd5cae58b9137c476f2268ae))
+* **http3:** send an HTTP/3 request's body as its HTTP/1 head is framed ([f2ed3fa](https://github.com/mahmoudimus/MicroProxy/commit/f2ed3fab1356b47f19e8dac0ddf70a306fc5acad))
+* **loadtest:** give the g3proxy build the Rust toolchain setup.sh installed ([76fcd96](https://github.com/mahmoudimus/MicroProxy/commit/76fcd96c210be988723f5ad7a3e5b961682514b7))
+* **loadtest:** keep the kernel's socket buffers out of the memory scenario's limit ([e9fd612](https://github.com/mahmoudimus/MicroProxy/commit/e9fd61295412382c2a22fc0b3269f21bf31b1d04))
+* **loadtest:** keep the kernel's socket buffers out of the memory scenario's limit ([39aa8c5](https://github.com/mahmoudimus/MicroProxy/commit/39aa8c54878b150b2dce8304e54ed23b73cf3c15))
+* **loadtest:** pick measurement cores by topology, and install any distribution's Squid ([990ae65](https://github.com/mahmoudimus/MicroProxy/commit/990ae65d736db64fc302d8be43a6eba0152155b9))
+* **loadtest:** reject WSL2 runs without the Windows log, and leave the port range alone there ([9f71c4a](https://github.com/mahmoudimus/MicroProxy/commit/9f71c4a9bd9ff69e3d13da5bf479f36168eb9f9f))
+* **mitm:** deferred TLS failover keeps pool accounting and the request's retry budget ([6975e71](https://github.com/mahmoudimus/MicroProxy/commit/6975e710192e5cce1b572568c33e6bc6d7847b26))
+* **tls:** a retry without SNI is part of the attempt the server rejected ([3f20681](https://github.com/mahmoudimus/MicroProxy/commit/3f20681c2a2da228e821405e06df6949e925e53a))
+
+
+### Performance Improvements
+
+* **core:** ask a server connection's local address once ([86c2c23](https://github.com/mahmoudimus/MicroProxy/commit/86c2c234d5e795c9713ba239aa38eb8d5470db01))
+* **core:** keep the idle timeout of keep-alive waits without a timer per wait ([20307ea](https://github.com/mahmoudimus/MicroProxy/commit/20307eadde9fca27e7144768f2bd3f3a55f18f90))
+* cut virtual-thread hand-offs per request (one write per small response, shared idle deadlines, direct poller registration on JDK 21) ([588d406](https://github.com/mahmoudimus/MicroProxy/commit/588d406493dea1ccf878d8858c23e6ec12b6ba2f))
+* **http1:** send a small response's head and body in one write ([48478bb](https://github.com/mahmoudimus/MicroProxy/commit/48478bbb795e577e5defef05d23bedff15b9ba34))
+* **launcher:** register socket waits directly on JDK 21 ([c35d1da](https://github.com/mahmoudimus/MicroProxy/commit/c35d1da035c14cc5a54d4692733bb7b96fbabb6c))
+
+
+### Documentation
+
+* **loadtest:** state WSL2's core-placement limitation for the methodology ([30efd83](https://github.com/mahmoudimus/MicroProxy/commit/30efd83292b12b36bbfad0d78d83e7bef0037954))
+* **perf:** dedicated-machine benchmark campaign, page redesign and harness hardening ([724c99b](https://github.com/mahmoudimus/MicroProxy/commit/724c99bb821449921504ae5bb5fbb22499180ac7))
+* **perf:** drop the WSL2 campaign from the caveats ([54fc25c](https://github.com/mahmoudimus/MicroProxy/commit/54fc25cc6e83755a7999b9192092a5bdc0b3992d))
+* **perf:** memory results with socket buffers beside the cap ([8260e0b](https://github.com/mahmoudimus/MicroProxy/commit/8260e0bc84c7f2f5d814a6812d7b84ea3ddfd1f0))
+* **perf:** publish the dedicated-machine campaign ([a8f467c](https://github.com/mahmoudimus/MicroProxy/commit/a8f467cb80d5e3464aab4acafd74cd3e23322b35))
+* **perf:** publish the memory runs with socket buffers beside the cap ([681acc7](https://github.com/mahmoudimus/MicroProxy/commit/681acc7c1fb21391c327c6d8f655109045cad6b0))
+* **perf:** redesign the performance page's charts and tables ([fb95260](https://github.com/mahmoudimus/MicroProxy/commit/fb952603f342bd4bb7730aa73ac54bcee2c8b713))
+* say how the one-core cost table was measured, and why its p99 is not the sweep's ([114e33f](https://github.com/mahmoudimus/MicroProxy/commit/114e33fcb612247c0ca63c3d4a5d09747bc2fee7))
+* what a request costs on one core, and which JDK to run ([fc23f3e](https://github.com/mahmoudimus/MicroProxy/commit/fc23f3e7763164f2b1d514951077d9e7096a77e0))
+
 ## [0.3.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.2.0...v0.3.0) (2026-10-13)
 
 

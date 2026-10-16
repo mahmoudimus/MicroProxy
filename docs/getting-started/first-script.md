@@ -27,7 +27,7 @@ optional feature built in ([Install](install.md#the-self-contained-all-jar)):
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.3.1-SNAPSHOT
+MICROPROXY_VERSION=0.4.0
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --port 8080 --script hello.star
 ```
 <!-- x-release-please-end -->

@@ -10,7 +10,7 @@ send a request through it:
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.3.1-SNAPSHOT
+MICROPROXY_VERSION=0.4.0
 mvn -q -DskipTests package
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 ```
@@ -46,7 +46,7 @@ trust store. See [MITM, certificates and TLS](../guides/mitm.md).
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.3.1-SNAPSHOT
+MICROPROXY_VERSION=0.4.0
 mvn package
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080
 java -jar microproxy/target/microproxy-${MICROPROXY_VERSION}.jar --port 8080 --mitm   # intercept HTTPS
