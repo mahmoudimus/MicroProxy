@@ -150,36 +150,54 @@ public final class Report {
                 + " request's intended send time). Pass/fail: a run passes the harness check when its steps produced"
                 + " valid responses; the maximum sustainable rate below is the comparison.");
         w.blank();
-        w.row("Proxy", "Max sustainable rate (req/s)", "Knee at", "Why", "Proxy end");
-        w.rule(5);
+        w.row("Proxy", "Max sustainable rate (req/s)", "Between (offered req/s)", "Refined", "Knee at", "Why", "Proxy end");
+        w.rule(7);
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
             if (skip(r)) {
-                w.row(p, r.containsKey("unsupported") ? "not supported" : "error", "-", why(r), "-");
+                w.row(p, r.containsKey("unsupported") ? "not supported" : "error", "-", "-", "-", why(r), "-");
                 continue;
             }
             Object max = r.get("maxSustainableRate");
-            w.row(p, max == null ? "none sustained" : num(max), r.get("kneeFound").equals(Boolean.TRUE)
-                    ? "step " + r.get("kneeStep") : "not reached", trunc(Json.getString(r, "kneeReason", "-"), 60),
-                    Json.getString(r, "proxyState", "-"));
+            w.row(p, max == null ? "none sustained" : num(max), bracket(r.get("maxSustainableBracket")),
+                    Boolean.TRUE.equals(r.get("refined")) ? "yes" : "no",
+                    Boolean.TRUE.equals(r.get("kneeFound")) ? "step " + r.get("kneeStep") : "not reached",
+                    trunc(Json.getString(r, "kneeReason", "-"), 60), Json.getString(r, "proxyState", "-"));
         }
         w.blank();
         for (String p : proxies) {
             Map<String, Object> r = Json.getObject(perProxy, p);
             if (skip(r)) continue;
             w.h3("Latency curve — " + p);
-            w.row("Target req/s", "Achieved", "p50", "p90", "p99", "p99.9", "max", "errors", "proxy CPU%", "RSS MB", "sustained");
-            w.rule(11);
-            for (Map<String, Object> step : Json.getObjects(r, "steps")) {
-                Map<String, Object> lat = Json.getObject(step, "latencyMs");
-                Map<String, Object> res = Json.getObject(step, "proxy");
-                w.row(num(step.get("targetRate")), num(step.get("achievedRate")), ms(lat, "p50"), ms(lat, "p90"),
-                        ms(lat, "p99"), ms(lat, "p999"), ms(lat, "max"), num(step.get("errorCount")),
-                        num(res.get("cpuPct")), mb(res.get("rssKb")), yes(step.get("sustainable")));
+            stepTable(w, Json.getObjects(r, "steps"));
+            List<Map<String, Object>> probes = Json.getObjects(Json.getObject(r, "refine"), "probes");
+            if (!probes.isEmpty()) {
+                w.line("Knee refinement (" + Json.getString(Json.getObject(r, "refine"), "stopReason", "-") + "):");
+                w.blank();
+                stepTable(w, probes);
             }
-            w.blank();
             crossChecks(w, r);
         }
+    }
+
+    private static void stepTable(Md w, List<Map<String, Object>> steps) {
+        w.row("Target req/s", "Achieved", "p50", "p90", "p99", "p99.9", "max", "errors", "proxy CPU%", "CPU µs/req", "RSS MB",
+                "sustained");
+        w.rule(12);
+        for (Map<String, Object> step : steps) {
+            Map<String, Object> lat = Json.getObject(step, "latencyMs");
+            Map<String, Object> res = Json.getObject(step, "proxy");
+            w.row(num(step.get("targetRate")), num(step.get("achievedRate")), ms(lat, "p50"), ms(lat, "p90"),
+                    ms(lat, "p99"), ms(lat, "p999"), ms(lat, "max"), num(step.get("errorCount")),
+                    num(res.get("cpuPct")), num(res.getOrDefault("cpuUsPerRequest", "-")), mb(res.get("rssKb")),
+                    yes(step.get("sustainable")));
+        }
+        w.blank();
+    }
+
+    private static String bracket(Object o) {
+        if (!(o instanceof List<?> l) || l.size() != 2) return "-";
+        return num(l.get(0)) + " – " + num(l.get(1));
     }
 
     private static void crossChecks(Md w, Map<String, Object> r) {

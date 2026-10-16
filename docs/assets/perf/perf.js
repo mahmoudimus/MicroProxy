@@ -5,9 +5,15 @@
  * JSON. A chart is a <div class="mp-perf-chart" data-chart="..."> on the page; anything else on the
  * site is left alone.
  *
+ * The rules every chart follows: a value is shown only where it was measured, and a point on a line
+ * is always the median of the same runs (each sweep curve stops at the highest offered rate every one
+ * of its runs sustained, marked with a ring); with a handful of runs, the runs themselves are shown
+ * as dots rather than whiskers; every value can be read without motion (hover or focus a chart and
+ * use the arrow keys, or read the tables beside it). The draw-in animation is decoration only.
+ *
  * Works with Material's instant navigation (re-initialises on document$), honours
  * prefers-reduced-motion (the final state, no animation), Material's light and dark schemes (CSS
- * tokens in perf.css), keyboard use (every control is a button, select or range; plots take arrow
+ * tokens in perf.css), keyboard use (every control is a button, checkbox or select; plots take arrow
  * keys) and narrow screens (the SVG is drawn at the container's width).
  */
 (function () {
@@ -73,15 +79,21 @@
     return "var(--mp-c" + (p.slot % 8) + ")";
   }
 
-  function fmtMs(v) {
-    if (v == null) return "n/a";
-    return v >= 100 ? nf0.format(v) + " ms" : nf2.format(v) + " ms";
+  function present(v) {
+    return typeof v === "number" && isFinite(v);
   }
 
-  function fmtSpread(st, f) {
-    if (!st) return "n/a";
-    if (st.n <= 1 || st.min === st.max) return f(st.med) + (st.n ? " (" + st.n + " run" + (st.n > 1 ? "s" : "") + ")" : "");
-    return f(st.med) + " (" + f(st.min) + "–" + f(st.max) + ", " + st.n + " runs)";
+  function fmtMs(v) {
+    if (v == null) return "n/a";
+    return v >= 100 ? nf0.format(v) + " ms" : v >= 10 ? nf1.format(v) + " ms" : nf2.format(v) + " ms";
+  }
+
+  function fmtUs(v) {
+    return v == null ? "n/a" : nf0.format(v) + " µs";
+  }
+
+  function fmtRate(v) {
+    return nf0.format(v) + " req/s";
   }
 
   function compact(v) {
@@ -108,15 +120,15 @@
   }
 
   // Ticks at round steps (1, 2, 2.5 or 5 times a power of ten), about four to six of them.
-  function niceTicks(max) {
-    var counts = [5, 4, 6, 8, 3, 10, 2];
+  function niceTicks(max, few) {
+    var counts = few ? [4, 3, 2, 5] : [5, 4, 6, 8, 3, 10, 2];
     for (var i = 0; i < counts.length; i++) {
       var step = max / counts[i];
       var e = Math.pow(10, Math.floor(Math.log10(step)));
       var m = Math.round((step / e) * 1000) / 1000;
       if ([1, 2, 2.5, 5, 10].indexOf(m) >= 0) return linTicks(max, counts[i]);
     }
-    return linTicks(max, 4);
+    return linTicks(max, few ? 2 : 4);
   }
 
   function linTicks(max, n) {
@@ -125,8 +137,25 @@
     return out;
   }
 
+  // 1, 2, 5 times each power of ten between min and max.
+  function logTicks(min, max) {
+    var out = [];
+    for (var e = Math.floor(Math.log10(min)); e <= Math.ceil(Math.log10(max)); e++) {
+      [1, 2, 5].forEach(function (m) {
+        var v = m * Math.pow(10, e);
+        if (v >= min * 0.999 && v <= max * 1.001) out.push(v);
+      });
+    }
+    return out;
+  }
+
   function ease(t) {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  // "a · b · c" of the values that were measured.
+  function runList(values, f) {
+    return (values || []).filter(present).map(f).join(" · ");
   }
 
   // A marker of the given shape, centered on x, y.
@@ -156,13 +185,39 @@
     return sv("path", Object.assign(attrs, { d: d }), g);
   }
 
-  // A small swatch for the legend: the series' line and marker.
+  // A small key for the legend: the series' line and marker, or a dot.
   function legendKey(p, line) {
     var s = sv("svg", { width: 22, height: 12, viewBox: "0 0 22 12", "aria-hidden": "true" });
     if (line) sv("line", { x1: 1, y1: 6, x2: 21, y2: 6, stroke: color(p), "stroke-width": p.id === "microproxy" ? 3 : 2, "stroke-linecap": "round" }, s);
-    else sv("rect", { x: 3, y: 1, width: 16, height: 10, rx: 2, fill: color(p) }, s);
-    marker(s, SHAPES[p.slot % 8], 11, 6, 3.5, color(p), { "stroke-width": 1 });
+    marker(s, line ? SHAPES[p.slot % 8] : "circle", 11, 6, line ? 3.5 : 4.5, color(p), { "stroke-width": 1 });
     return s;
+  }
+
+  // A checkbox in the controls row.
+  function toggle(parent, label, checked, onChange) {
+    var l = el("label", { class: "mp-check" }, parent);
+    var box = el("input", { type: "checkbox" }, l);
+    box.checked = !!checked;
+    l.appendChild(document.createTextNode(label));
+    box.addEventListener("change", function () {
+      onChange(box.checked);
+    });
+    return box;
+  }
+
+  function segmented(parent, label, options, current, onChange) {
+    var wrap = el("span", { class: "mp-seg", role: "group", "aria-label": label }, parent);
+    el("span", null, wrap, label + ":");
+    var buttons = options.map(function (o) {
+      var b = el("button", { type: "button", class: "mp-btn", "aria-pressed": String(o.value === current) }, wrap, o.label);
+      b.addEventListener("click", function () {
+        buttons.forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true");
+        onChange(o.value);
+      });
+      return b;
+    });
+    return wrap;
   }
 
   // --- the shared frame of every chart ---
@@ -183,15 +238,10 @@
     this.extra = el("div", null, root);
     this.plot = el("div", { class: "mp-plot" }, root);
     this.tip = el("div", { class: "mp-tip", hidden: "", role: "status", "aria-live": "polite" }, this.plot);
-    if (spec.note) this.noteEl = el("p", { class: "mp-note" }, root, spec.note);
+    this.noteEl = el("p", { class: "mp-note" }, root, spec.note || "");
+    if (!spec.note) this.noteEl.hidden = true;
     this.buildLegend(spec.legendLine !== false);
     var self = this;
-    if (!reducedMotion()) {
-      var replay = el("button", { type: "button", class: "mp-btn", "aria-label": "Replay the animation of: " + spec.title }, this.controls, "↻ Replay");
-      replay.addEventListener("click", function () {
-        self.play();
-      });
-    }
     if ("ResizeObserver" in window) {
       var lastW = 0;
       this.ro = new ResizeObserver(function () {
@@ -219,6 +269,11 @@
       this.progress = 1;
     }
   }
+
+  Chart.prototype.note = function (text) {
+    this.noteEl.textContent = text || "";
+    this.noteEl.hidden = !text;
+  };
 
   Chart.prototype.visible = function () {
     return this.data.proxies.filter(function (p) {
@@ -254,6 +309,7 @@
     for (var i = 0; i < keys.length; i++) keys[i].setAttribute("aria-pressed", String(hidden.indexOf(ps[i].id) < 0));
   };
 
+  // The draw-in: decoration only, never needed to read a value (and skipped under reduced motion).
   Chart.prototype.play = function () {
     var self = this;
     this.started = true;
@@ -263,7 +319,7 @@
       return;
     }
     if (this.anim) cancelAnimationFrame(this.anim);
-    var dur = this.spec.duration || 3200;
+    var dur = this.spec.duration || 1400;
     var t0 = null;
     function frame(ts) {
       if (t0 == null) t0 = ts;
@@ -277,23 +333,19 @@
     this.anim = requestAnimationFrame(frame);
   };
 
-  Chart.prototype.stop = function () {
-    if (this.anim) cancelAnimationFrame(this.anim);
-    this.anim = null;
-  };
-
   // A fresh SVG at the plot's width; returns {svg, w, h, m (margins), pw, ph}.
   Chart.prototype.canvas = function (heightRatio, margins) {
     var old = this.plot.querySelector("svg");
     if (old) old.remove();
     var w = Math.max(280, Math.round(this.plot.clientWidth || 600));
-    var h = Math.round(Math.max(220, Math.min(420, w * heightRatio)));
-    var m = Object.assign({ l: 52, r: 18, t: 14, b: 40 }, margins || {});
+    var h = Math.round(Math.max(240, Math.min(420, w * heightRatio)));
+    var m = Object.assign({ l: 48, r: 14, t: 14, b: 40 }, margins || {});
     var svg = sv("svg", { viewBox: "0 0 " + w + " " + h, width: w, height: h, role: "img", "aria-label": this.spec.title });
     this.plot.insertBefore(svg, this.tip);
     return { svg: svg, w: w, h: h, m: m, pw: w - m.l - m.r, ph: h - m.t - m.b };
   };
 
+  // rows: [{color, value, label, detail}]; values lead, labels follow.
   Chart.prototype.showTip = function (x, y, header, rows) {
     var tip = this.tip;
     tip.textContent = "";
@@ -304,6 +356,7 @@
       k.style.background = r.color;
       el("b", null, row, r.value);
       el("span", null, row, r.label);
+      if (r.detail) el("div", { class: "mp-tip-d" }, tip, r.detail);
     });
     tip.hidden = false;
     var pw = this.plot.clientWidth;
@@ -348,7 +401,7 @@
         if (i > 0) {
           var a = points[i - 1];
           var f = (xLimit - a[0]) / (p[0] - a[0]);
-          out.push([xLimit, a[1] + (p[1] - a[1]) * f, true]);
+          out.push([a[0] + (p[0] - a[0]) * f, a[1] + (p[1] - a[1]) * f, null, true]);
         }
         break;
       }
@@ -362,17 +415,47 @@
     }).join("");
   }
 
+  // Labels placed beside points without overlapping each other: items = [{x, y, text, cls}].
+  function placeLabels(c, items, obstacles) {
+    var placed = (obstacles || []).slice();
+    // The page's own series first, so its label lands nearest its line; then top to bottom.
+    items.sort(function (a, b) { return (b.cls === "mp-label") - (a.cls === "mp-label") || a.y - b.y; });
+    items.forEach(function (it) {
+      var w = it.text.length * 6.4 + 4;
+      var right = it.x + 8 + w <= c.m.l + c.pw + c.m.r - 2;
+      var x0 = right ? it.x + 8 : it.x - 8 - w;
+      var offsets = [-9, 13, -22, 26, -35, 39, -48, 52, -61, 65];
+      for (var i = 0; i < offsets.length; i++) {
+        var y = it.y + offsets[i];
+        if (y < c.m.t + 8 || y > c.m.t + c.ph + 2) continue;
+        var box = { x0: x0, x1: x0 + w, y0: y - 10, y1: y + 2 };
+        var clash = placed.some(function (b) { return box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0; });
+        if (!clash) {
+          placed.push(box);
+          sv("text", { class: it.cls || "mp-label", x: right ? x0 : x0 + w, y: y, "text-anchor": right ? "start" : "end" }, c.svg, it.text);
+          return;
+        }
+      }
+    });
+  }
+
   /*
-   * A line chart with a crosshair: series = [{p, points: [[x, y, extra]], band: [[x, lo, hi]]}].
-   * opts: xMax, yMax, yLog {min, max}, xFmt, yFmt, xTitle, yTitle, yCap {value, label}, clampTop,
-   * xTicks, tipHeader(x), tipValue(series, point), progress (0..1 of the x range), heightRatio,
-   * after(c, X, Y) to draw more.
+   * A line chart with a crosshair. series = [{p, points: [[x, y, info, transient]], runs: [[x, y]],
+   * endMark}]: points are medians, runs (optional) each run's value, drawn as small dots behind the
+   * lines; a point flagged transient is drawn hollow; endMark rings the last point (the last offered
+   * rate every run sustained). opts: xMin, xMax, yMax or yLog {min, max}, xFmt, yFmt, xTitle,
+   * yTitle, yRef {value, label} (a reference line), yCap {value, label} (a hard limit), endLabels,
+   * tipHeader(x), tipRow(series, point) -> {value, detail}, progress (0..1 of the x range),
+   * heightRatio, margins.
    */
   function lineChart(chart, series, opts) {
-    var c = chart.canvas(opts.heightRatio || 0.5, opts.margins);
-    var xMax = opts.xMax;
+    var narrow = (chart.plot.clientWidth || 600) < 520;
+    var c = chart.canvas(opts.heightRatio || 0.5, Object.assign({ r: opts.endLabels && !narrow ? 96 : 14 }, opts.margins || {}));
+    var xMin = opts.xMin || 0;
+    // A logarithmic x axis spaces the sweep's geometric steps evenly.
+    var tx = opts.xLog ? function (x) { return Math.log(x); } : function (x) { return x; };
     var X = function (x) {
-      return c.m.l + (c.pw * (opts.xMap ? opts.xMap(x) : x)) / (opts.xMap ? opts.xMap(xMax) : xMax);
+      return c.m.l + (c.pw * (tx(x) - tx(xMin))) / (tx(opts.xMax) - tx(xMin));
     };
     var Y;
     var yTicks;
@@ -383,30 +466,30 @@
         var v = Math.log10(Math.max(opts.yLog.min, y));
         return c.m.t + c.ph - (c.ph * (v - lo)) / (hi - lo);
       };
-      yTicks = [];
-      for (var e = Math.ceil(lo); e <= hi; e++) yTicks.push(Math.pow(10, e));
+      yTicks = logTicks(opts.yLog.min, opts.yLog.max);
     } else {
       Y = function (y) {
         return c.m.t + c.ph - (c.ph * Math.min(y, opts.yMax)) / opts.yMax;
       };
-      yTicks = opts.yTickCount ? linTicks(opts.yMax, opts.yTickCount) : niceTicks(opts.yMax);
+      yTicks = opts.yTickCount ? linTicks(opts.yMax, opts.yTickCount) : niceTicks(opts.yMax, c.ph < 220);
     }
-    axes(c, yTicks, Y, opts.yFmt, opts.xTicks || niceTicks(xMax), X, opts.xFmt, opts.xTitle, opts.yTitle);
-    var xLimit = opts.xMin + (xMax - opts.xMin) * opts.progress;
-    if (opts.yCap) {
-      var cy = Y(opts.yCap.value);
-      sv("line", { class: "mp-capline", x1: c.m.l, x2: c.m.l + c.pw, y1: cy, y2: cy }, c.svg);
-      sv("text", { class: "mp-cap-text", x: c.m.l + c.pw - 4, y: cy - 6, "text-anchor": "end" }, c.svg, opts.yCap.label);
-    }
-    if (opts.badge) sv("text", { class: "mp-badge", x: c.m.l + 6, y: c.m.t + 12 }, c.svg, opts.badge);
-    // Bands first (behind every line), then lines, then markers.
+    var xTicks = opts.xTicks || (opts.xLog ? logTicks(xMin, opts.xMax) : niceTicks(opts.xMax, c.pw < 360).filter(function (v) { return v >= xMin; }));
+    axes(c, yTicks, Y, opts.yFmt, xTicks, X, opts.xFmt, opts.xTitle, opts.yTitle);
+    var xLimit = opts.xLog ? Math.exp(tx(xMin) + (tx(opts.xMax) - tx(xMin)) * opts.progress) : xMin + (opts.xMax - xMin) * opts.progress;
+    if (opts.progress >= 1) xLimit = Infinity;
+    [["yRef", "mp-refline", "mp-ref-text"], ["yCap", "mp-capline", "mp-cap-text"]].forEach(function (k) {
+      var ref = opts[k[0]];
+      if (!ref) return;
+      var cy = Y(ref.value);
+      sv("line", { class: k[1], x1: c.m.l, x2: c.m.l + c.pw, y1: cy, y2: cy }, c.svg);
+      sv("text", { class: k[2], x: c.m.l + 4, y: cy - 5, "text-anchor": "start" }, c.svg, ref.label);
+    });
+    // Each run's values first, behind the medians.
     series.forEach(function (s) {
-      if (!s.band || !s.band.length) return;
-      var pts = s.band.filter(function (b) { return b[0] <= xLimit; });
-      if (pts.length < 2) return;
-      var d = pts.map(function (b, i) { return (i ? "L" : "M") + X(b[0]).toFixed(1) + " " + Y(b[2]).toFixed(1); }).join("");
-      for (var i = pts.length - 1; i >= 0; i--) d += "L" + X(pts[i][0]).toFixed(1) + " " + Y(pts[i][1]).toFixed(1);
-      sv("path", { d: d + "Z", fill: color(s.p), "fill-opacity": 0.12, stroke: "none" }, c.svg);
+      (s.runs || []).forEach(function (r) {
+        if (r[0] > xLimit) return;
+        sv("circle", { class: "mp-run", cx: X(r[0]), cy: Y(r[1]), r: 2.6, fill: color(s.p) }, c.svg);
+      });
     });
     var drawn = [];
     series.forEach(function (s) {
@@ -414,39 +497,34 @@
       if (!pts.length) return;
       var main = s.p.id === "microproxy";
       sv("path", { d: pathOf(pts, X, Y), fill: "none", stroke: color(s.p), "stroke-width": main ? 3 : 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, c.svg);
-      drawn.push({ s: s, pts: pts });
+      drawn.push({ s: s, pts: pts, complete: pts.length === s.points.length && !pts[pts.length - 1][3] });
+    });
+    var labels = [];
+    var obstacles = [];
+    drawn.forEach(function (d) {
+      d.pts.forEach(function (pt) { obstacles.push({ x0: X(pt[0]) - 6, x1: X(pt[0]) + 6, y0: Y(pt[1]) - 6, y1: Y(pt[1]) + 6 }); });
     });
     drawn.forEach(function (d) {
       var shape = SHAPES[d.s.p.slot % 8];
-      d.pts.forEach(function (pt) {
-        if (pt[2] === true) return; // the interpolated head of an animated line
-        var over = !opts.yLog && pt[1] > opts.yMax;
-        if (over) {
-          // Above the axis: pinned to the top edge as an up-pointing triangle; the value is in the tooltip.
-          marker(c.svg, "triangle", X(pt[0]), Y(opts.yMax) + 1, 5, color(d.s.p));
+      var main = d.s.p.id === "microproxy";
+      d.pts.forEach(function (pt, i) {
+        if (pt[3] === true) return; // the interpolated head of an animated line
+        var last = d.complete && i === d.pts.length - 1;
+        if (last && d.s.endMark) {
+          // The last offered rate every run sustained: the knee lies beyond it.
+          sv("circle", { cx: X(pt[0]), cy: Y(pt[1]), r: 6, fill: "var(--mp-surface)", stroke: color(d.s.p), "stroke-width": 2.5 }, c.svg);
+        } else if (pt[4]) {
+          sv("circle", { cx: X(pt[0]), cy: Y(pt[1]), r: 4, fill: "var(--mp-surface)", stroke: color(d.s.p), "stroke-width": 2, "stroke-dasharray": "2 2" }, c.svg);
         } else {
-          marker(c.svg, shape, X(pt[0]), Y(pt[1]), d.s.p.id === "microproxy" ? 4.5 : 3.6, color(d.s.p));
+          marker(c.svg, shape, X(pt[0]), Y(pt[1]), main ? 4.5 : 3.6, color(d.s.p));
         }
       });
-      if (d.s.end && d.pts.length === d.s.points.length) {
-        var last = d.pts[d.pts.length - 1];
-        var ex = X(last[0]);
-        var ey = Y(last[1]);
-        sv("path", { d: "M" + (ex - 7) + " " + (ey - 7) + "L" + (ex + 7) + " " + (ey + 7) + "M" + (ex + 7) + " " + (ey - 7) + "L" + (ex - 7) + " " + (ey + 7), stroke: "var(--mp-surface)", "stroke-width": 6, "stroke-linecap": "round" }, c.svg);
-        sv("path", { d: "M" + (ex - 7) + " " + (ey - 7) + "L" + (ex + 7) + " " + (ey + 7) + "M" + (ex + 7) + " " + (ey - 7) + "L" + (ex - 7) + " " + (ey + 7), stroke: color(d.s.p), "stroke-width": 3, "stroke-linecap": "round" }, c.svg);
-        sv("text", { class: "mp-label", x: ex + (ex > c.m.l + c.pw - 90 ? -10 : 10), y: ey - 10, "text-anchor": ex > c.m.l + c.pw - 90 ? "end" : "start" }, c.svg, d.s.endLabel || d.s.end.verdict);
+      if (opts.endLabels !== false && (!narrow || main || opts.endLabels === "all")) {
+        var head = d.pts[d.pts.length - 1];
+        labels.push({ x: X(head[0]), y: Y(head[1]), text: d.s.p.label, cls: main ? "mp-label" : "mp-label-2" });
       }
     });
-    // A direct label at the end of MicroProxy's line, the series the page is about.
-    drawn.forEach(function (d) {
-      if (d.s.p.id !== "microproxy" || opts.noDirectLabel) return;
-      var last = d.pts[d.pts.length - 1];
-      var lx = X(last[0]);
-      var ly = Y(opts.yLog ? last[1] : Math.min(last[1], opts.yMax));
-      var right = lx > c.m.l + c.pw - 80;
-      sv("text", { class: "mp-label", x: right ? lx - 8 : lx + 8, y: ly - 8, "text-anchor": right ? "end" : "start" }, c.svg, d.s.p.label);
-    });
-    if (opts.after) opts.after(c, X, Y, xLimit);
+    placeLabels(c, labels, obstacles);
     // The crosshair layer: snaps to the nearest measured x.
     var xs = [];
     series.forEach(function (s) {
@@ -469,10 +547,11 @@
       series.forEach(function (s) {
         var pt = s.points.find(function (q) { return q[0] === x; });
         if (!pt) return;
-        rows.push({ color: color(s.p), value: opts.tipValue(s, pt), label: s.p.label, y: pt[1] });
+        var r = opts.tipRow(s, pt);
+        rows.push({ color: color(s.p), value: r.value, label: s.p.label, detail: r.detail, y: pt[1] });
       });
-      if (opts.sortTip) rows.sort(function (a, b) { return a.y - b.y; });
-      chart.showTip(X(x), c.m.t + c.ph / 3, opts.tipHeader(x), rows);
+      rows.sort(function (a, b) { return a.y - b.y; });
+      chart.showTip(X(x), c.m.t + c.ph / 3, opts.tipHeader(x, rows.length), rows);
     }
     function nearest(evt) {
       var r = c.svg.getBoundingClientRect();
@@ -481,19 +560,13 @@
       for (var i = 1; i < xs.length; i++) if (Math.abs(X(xs[i]) - px) < Math.abs(X(xs[best]) - px)) best = i;
       return best;
     }
-    hit.addEventListener("pointermove", function (evt) {
-      show(nearest(evt));
-    });
-    hit.addEventListener("pointerdown", function (evt) {
-      show(nearest(evt));
-    });
+    hit.addEventListener("pointermove", function (evt) { show(nearest(evt)); });
+    hit.addEventListener("pointerdown", function (evt) { show(nearest(evt)); });
     hit.addEventListener("pointerleave", function () {
       cross.setAttribute("visibility", "hidden");
       chart.hideTip();
     });
-    hit.addEventListener("focus", function () {
-      show(idx < 0 ? xs.length - 1 : idx);
-    });
+    hit.addEventListener("focus", function () { show(idx < 0 ? xs.length - 1 : idx); });
     hit.addEventListener("blur", function () {
       cross.setAttribute("visibility", "hidden");
       chart.hideTip();
@@ -513,207 +586,284 @@
     return c;
   }
 
-  /* Horizontal bars with min–max whiskers: rows = [{p, st (stats), note}]. */
-  function barChart(chart, rows, opts) {
-    var rowH = 30;
+  /*
+   * A strip plot: one row per proxy, one dot per run (offset vertically so that equal runs stay
+   * visible), a tick at the median with its value. rows = [{p, values, brackets, med, note,
+   * tip: [{value, label}]}]; a run's bracket (the range its true value lies in) is a faint bar behind
+   * its dot. opts: tickFmt, valueFmt, xTitle, progress.
+   */
+  function dotPlot(chart, rows, opts) {
     var old = chart.plot.querySelector("svg");
     if (old) old.remove();
     var w = Math.max(280, Math.round(chart.plot.clientWidth || 600));
-    var labelW = Math.min(130, Math.round(w * 0.3));
-    var m = { l: labelW, r: 64, t: 6, b: 30 };
+    var narrow = w < 480;
+    var rowH = 34;
+    var labelW = narrow ? 92 : Math.min(130, Math.round(w * 0.24));
+    var m = { l: labelW, r: narrow ? 52 : 70, t: 6, b: 42 };
     var h = m.t + m.b + rowH * rows.length;
-    var svg = sv("svg", { viewBox: "0 0 " + w + " " + h, width: w, height: h, role: "img", "aria-label": chart.spec.title });
+    var svg = sv("svg", { viewBox: "0 0 " + w + " " + h, width: w, height: h, role: "list", "aria-label": chart.spec.title });
     chart.plot.insertBefore(svg, chart.tip);
     var pw = w - m.l - m.r;
-    var vmax = niceMax(Math.max.apply(null, rows.map(function (r) { return r.st ? r.st.max : 0; }).concat([1e-9])));
-    var X = function (v) { return m.l + (pw * v) / vmax; };
-    (w < 420 ? linTicks(vmax, 2) : niceTicks(vmax)).forEach(function (v) {
-      sv("line", { class: "mp-grid", x1: X(v), x2: X(v), y1: m.t, y2: m.t + rowH * rows.length }, svg);
-      sv("text", { class: "mp-tick", x: X(v), y: h - 12, "text-anchor": "middle" }, svg, opts.tickFmt(v));
+    var top = 0;
+    rows.forEach(function (r) {
+      (r.values || []).forEach(function (v) { if (present(v)) top = Math.max(top, v); });
+      (r.brackets || []).forEach(function (b) { if (b) top = Math.max(top, b[1]); });
     });
+    var vmax = niceMax(top || 1);
+    var X = function (v) { return m.l + (pw * v) / vmax; };
+    var f = opts.progress;
+    niceTicks(vmax, narrow).forEach(function (v) {
+      sv("line", { class: "mp-grid", x1: X(v), x2: X(v), y1: m.t, y2: m.t + rowH * rows.length }, svg);
+      sv("text", { class: "mp-tick", x: X(v), y: m.t + rowH * rows.length + 15, "text-anchor": "middle" }, svg, opts.tickFmt(v));
+    });
+    sv("text", { class: "mp-axis-title", x: m.l + pw / 2, y: h - 6, "text-anchor": "middle" }, svg, opts.xTitle);
     sv("line", { class: "mp-axis", x1: m.l, x2: m.l, y1: m.t, y2: m.t + rowH * rows.length }, svg);
     rows.forEach(function (r, i) {
       var y = m.t + rowH * i + rowH / 2;
-      var g = sv("g", { tabindex: 0, role: "listitem", "aria-label": r.p.label + ": " + (r.st ? opts.aria(r) : r.note || "not measured") }, svg);
+      var vals = (r.values || []).filter(present);
+      var g = sv("g", { tabindex: 0, role: "listitem", "aria-label": r.p.label + ": " + (vals.length ? opts.aria(r) : r.note || "not measured") }, svg);
       sv("rect", { class: "mp-hit", x: 0, y: y - rowH / 2 + 1, width: w, height: rowH - 2, fill: "transparent", rx: 4 }, g);
-      sv("text", { class: r.p.id === "microproxy" ? "mp-label" : "mp-value", x: m.l - 8, y: y + 4, "text-anchor": "end" }, g, r.p.label);
-      if (!r.st) {
+      var name = narrow && r.p.label.length > 13 ? r.p.label.replace(/ \(.*\)$/, "") : r.p.label;
+      sv("text", { class: r.p.id === "microproxy" ? "mp-label" : "mp-value", x: m.l - 8, y: y + 4, "text-anchor": "end" }, g, name);
+      sv("line", { class: "mp-guide", x1: m.l, x2: m.l + pw, y1: y, y2: y }, g);
+      if (!vals.length) {
         sv("text", { class: "mp-value", x: m.l + 6, y: y + 4 }, g, r.note || "not measured");
       } else {
-        var f = opts.progress;
-        var bw = Math.max(1, (X(r.st.med) - m.l) * f);
-        // A 24px-max bar: 4px rounded data end, square at the baseline.
-        var bh = 14;
-        sv("path", { d: "M" + m.l + " " + (y - bh / 2) + "h" + Math.max(0, bw - 4) + "a4 4 0 0 1 4 4v" + (bh - 8) + "a4 4 0 0 1 -4 4h" + -Math.max(0, bw - 4) + "Z", fill: color(r.p) }, g);
-        if (f >= 1) {
-          var x1 = X(r.st.min);
-          var x2 = X(r.st.max);
-          if (x2 - x1 > 0.5) sv("path", { d: "M" + x1 + " " + y + "H" + x2 + "M" + x1 + " " + (y - 5) + "V" + (y + 5) + "M" + x2 + " " + (y - 5) + "V" + (y + 5), stroke: "var(--mp-text-2)", "stroke-width": 1.5, fill: "none" }, g);
-          sv("text", { class: "mp-value", x: Math.max(X(r.st.med), x2) + 6, y: y + 4 }, g, opts.valueFmt(r.st.med));
+        var n = r.values.length;
+        var spacing = n > 1 ? Math.min(6, 20 / (n - 1)) : 0;
+        r.values.forEach(function (v, k) {
+          if (!present(v)) return;
+          var dy = (k - (n - 1) / 2) * spacing;
+          var b = (r.brackets || [])[k];
+          if (b && f >= 1) sv("rect", { x: X(b[0]), y: y + dy - 2, width: Math.max(1, X(b[1]) - X(b[0])), height: 4, rx: 2, fill: color(r.p), "fill-opacity": 0.3 }, g);
+          sv("circle", { cx: m.l + (X(v) - m.l) * f, cy: y + dy, r: 4.5, fill: color(r.p), stroke: "var(--mp-surface)", "stroke-width": 1.5 }, g);
+        });
+        if (present(r.med) && f >= 1) {
+          sv("line", { class: "mp-medtick", x1: X(r.med), x2: X(r.med), y1: y - 12, y2: y + 12 }, g);
+          var right = Math.max.apply(null, vals.map(X).concat((r.brackets || []).filter(Boolean).map(function (b) { return X(b[1]); })));
+          sv("text", { class: "mp-value", x: right + 8, y: y + 4 }, g, opts.valueFmt(r.med));
         }
       }
       function tip() {
-        if (!r.st) return;
-        chart.showTip(Math.min(w - 40, X(r.st.max)), y, r.p.label, [{ color: color(r.p), value: opts.valueFmt(r.st.med), label: "median" }, { color: "transparent", value: opts.valueFmt(r.st.min) + " – " + opts.valueFmt(r.st.max), label: "min – max of " + r.st.n + " runs" }].concat(r.extra || []));
+        if (!vals.length) return;
+        var rowsT = [{ color: color(r.p), value: opts.valueFmt(r.med), label: "median of " + vals.length + " run" + (vals.length > 1 ? "s" : "") }];
+        r.values.forEach(function (v, k) {
+          if (!present(v)) return;
+          var b = (r.brackets || [])[k];
+          rowsT.push({ color: "transparent", value: opts.valueFmt(v), label: "run " + (k + 1) + (b ? " · offered " + nf0.format(b[0]) + " held, " + nf0.format(b[1]) + " not" : "") });
+        });
+        chart.showTip(Math.min(w - 40, X(Math.max.apply(null, vals))), y, r.p.label, rowsT.concat(r.tip || []));
       }
       g.addEventListener("pointerenter", tip);
       g.addEventListener("focus", tip);
       g.addEventListener("pointerleave", function () { chart.hideTip(); });
       g.addEventListener("blur", function () { chart.hideTip(); });
     });
-    svg.setAttribute("role", "list");
   }
 
-  function segmented(parent, label, options, current, onChange) {
-    var wrap = el("span", { class: "mp-seg", role: "group", "aria-label": label }, parent);
-    el("span", null, wrap, label + ":");
-    var buttons = options.map(function (o) {
-      var b = el("button", { type: "button", class: "mp-btn", "aria-pressed": String(o.value === current) }, wrap, o.label);
-      b.addEventListener("click", function () {
-        buttons.forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
-        b.setAttribute("aria-pressed", "true");
-        onChange(o.value);
-      });
-      return b;
+  // --- the sweep's data ---
+
+  // A proxy's sweep steps on its curve: every run used sustained the offered rate (see aggregate.py).
+  function curve(d, p) {
+    var s = d.sweep[p.id];
+    return s && !s.unsupported ? s.steps.filter(function (st) { return st.inCurve; }) : [];
+  }
+
+  function sweepRuns(d, p) {
+    return (d.sweep[p.id].runs || []).filter(function (r) { return r.included; });
+  }
+
+  function excludedNote(d) {
+    var parts = d.proxies.filter(function (p) {
+      return (d.sweep[p.id].runs || []).some(function (r) { return !r.included; });
+    }).map(function (p) {
+      var rs = d.sweep[p.id].runs;
+      return p.label + " " + sweepRuns(d, p).length + " of " + rs.length;
     });
-    return wrap;
+    return parts.length ? " Runs whose sweep the load generator ended are left out (runs used: " + parts.join("; ") + ")." : "";
+  }
+
+  function curveSeries(d, p, key, withRuns) {
+    var s = d.sweep[p.id];
+    var steps = curve(d, p).filter(function (st) { return st[key]; });
+    var runs = [];
+    if (withRuns) {
+      steps.forEach(function (st) {
+        ((st.perRun || {})[key] || []).forEach(function (v) { if (present(v)) runs.push([st.rate, v]); });
+      });
+    }
+    return {
+      p: p,
+      points: steps.map(function (st) { return [st.rate, st[key].med, st, false, st.sustained < st.runs]; }),
+      runs: runs,
+      endMark: s.curveEndRate != null
+    };
+  }
+
+  function curveTip(d, key, f) {
+    return function (s, pt) {
+      var st = pt[2];
+      var parts = [];
+      var each = runList((st.perRun || {})[key], f);
+      if (st.runs > 1 && each) parts.push("runs " + each);
+      if (st.sustained < st.runs) parts.push("not sustained in " + (st.runs - st.sustained) + " of " + st.runs + " runs");
+      var sw = d.sweep[s.p.id];
+      if (pt[0] === sw.curveEndRate && sw.maxSustainable) parts.push("last rate every run sustained; max sustainable " + nf0.format(sw.maxSustainable.med) + " req/s");
+      return { value: f(pt[1]), detail: parts.join(" · ") };
+    };
+  }
+
+  function rateDomain(d, key) {
+    var top = 0;
+    var bottom = Infinity;
+    d.proxies.forEach(function (p) {
+      curve(d, p).forEach(function (st) {
+        if (!st[key]) return;
+        top = Math.max(top, st.rate);
+        bottom = Math.min(bottom, st.rate);
+      });
+    });
+    // A little room either side of the first and last step, on the logarithmic axis.
+    return { min: bottom === Infinity ? 1 : bottom / 1.15, max: (top || 1) * 1.15 };
+  }
+
+  // The highest (and lowest) median, and each run's value when shown, of a measure on the curves.
+  function valueDomain(d, key, withRuns) {
+    var lo = Infinity;
+    var hi = 0;
+    d.proxies.forEach(function (p) {
+      curve(d, p).forEach(function (st) {
+        if (!st[key]) return;
+        lo = Math.min(lo, withRuns ? st[key].min : st[key].med);
+        hi = Math.max(hi, withRuns ? st[key].max : st[key].med);
+      });
+    });
+    return { lo: lo === Infinity ? 1 : lo, hi: hi || 1 };
   }
 
   // --- the charts ---
 
   var SPECS = {};
 
+  SPECS.cpu = function (root, d) {
+    var state = { runs: false };
+    var sampled = d.proxies.some(function (p) {
+      return curve(d, p).some(function (st) { return /sampled/.test(st.cpuSource || ""); });
+    });
+    var chart = new Chart(root, d, {
+      title: "Proxy CPU time per request (µs, lower is better)",
+      sub: "The CPU time each proxy process spends per completed request (every thread: the JVMs' garbage collector and JIT compiler included), at each offered rate of the rate sweep. Each proxy has one CPU, so at N µs a request it can serve at most 1,000,000 ÷ N requests a second. Median of the runs; each line stops at the last offered rate every run sustained (ring).",
+      note: (sampled ? "These runs predate the harness's per-step CPU time: each value is the step's mean sampled CPU% divided by its achieved rate." : "Read from /proc before and after each step.") + " A dashed ring marks a step one run did not sustain (a lone noisy step the sweep recovered from)." + excludedNote(d)
+    });
+    toggle(chart.controls, "Show each run", false, function (v) {
+      state.runs = v;
+      chart.render();
+    });
+    var dom = rateDomain(d, "cpuUsPerReq");
+    chart.render = function () {
+      var series = chart.visible().map(function (p) { return curveSeries(d, p, "cpuUsPerReq", state.runs); });
+      lineChart(chart, series, {
+        xMin: dom.min,
+        xMax: dom.max,
+        xLog: true,
+        progress: chart.progress,
+        yMax: niceMax(valueDomain(d, "cpuUsPerReq", state.runs).hi * 1.05),
+        heightRatio: 0.52,
+        endLabels: true,
+        xFmt: compact,
+        yFmt: function (v) { return String(Math.round(v)); },
+        xTitle: "offered load (requests/s, log scale)",
+        yTitle: "CPU per request (µs)",
+        tipHeader: function (x) { return fmtRate(x) + " offered · CPU per request"; },
+        tipRow: curveTip(d, "cpuUsPerReq", fmtUs)
+      });
+    };
+    return chart;
+  };
+
   SPECS.maxrate = function (root, d) {
+    var factor = Number(d.settings["sweep-factor"] || 1.25);
+    var unrefined = d.proxies.some(function (p) { return sweepRuns(d, p).some(function (r) { return !r.refined; }); });
+    var widths = [];
+    d.proxies.forEach(function (p) { if (d.sweep[p.id].bracketWidth != null) widths.push(d.sweep[p.id].bracketWidth); });
     var chart = new Chart(root, d, {
       title: "Max sustainable rate (requests/s, higher is better)",
-      sub: "The highest offered rate each proxy kept within a p99 of " + d.sloP99Ms + " ms, with no errors and no backlog, on one CPU. Bars are the median of " + d.runs.length + " runs; whiskers span the lowest and highest run.",
+      sub: "The highest offered rate each proxy kept within a p99 of " + d.sloP99Ms + " ms, with no errors and no backlog, on one CPU. Each dot is one run; the tick is the median.",
+      note: (unrefined
+        ? "Not refined: these runs predate knee refinement, so each run's maximum is known only to within one ×" + factor + " sweep step, the faint bar behind its dot. Equal dots mean the same step, not the same rate."
+        : "The faint bar behind each dot is the range of offered rates the run's maximum lies in (at most " + nf1.format(Math.max.apply(null, widths.concat([0])) * 100) + "% wide).") + excludedNote(d),
       legendLine: false,
-      duration: 1600
+      duration: 900
     });
     chart.render = function () {
       var rows = chart.visible().map(function (p) {
         var s = d.sweep[p.id];
-        var cb = (s.clientBoundRuns || []).length;
+        var runs = sweepRuns(d, p);
+        var out = (s.runs || []).length - runs.length;
         return {
           p: p,
-          st: s.maxSustainable,
+          values: runs.map(function (r) { return r.max; }),
+          brackets: runs.map(function (r) { return r.bracket; }),
+          med: s.maxSustainable ? s.maxSustainable.med : null,
           note: s.unsupported ? "not supported" : "none sustained",
-          extra: cb ? [{ color: "transparent", value: String(cb), label: "run" + (cb > 1 ? "s" : "") + " ended by the load generator, left out" }] : null
+          tip: out ? [{ color: "transparent", value: String(out), label: "run" + (out > 1 ? "s" : "") + " left out (load generator behind)" }] : null
         };
       });
-      barChart(chart, rows, {
+      dotPlot(chart, rows, {
         progress: chart.progress,
         tickFmt: compact,
+        xTitle: "requests per second",
         valueFmt: function (v) { return nf0.format(v) + "/s"; },
-        aria: function (r) { return "median " + nf0.format(r.st.med) + " requests per second, runs from " + nf0.format(r.st.min) + " to " + nf0.format(r.st.max); }
+        aria: function (r) { return "median " + nf0.format(r.med) + " requests per second; runs: " + runList(r.values, nf0.format); }
       });
     };
     return chart;
   };
 
   SPECS.latency = function (root, d) {
-    var state = { metric: "p99", log: false, band: false, dial: 1 };
+    var state = { metric: "p99", log: true, runs: false };
+    var names = { p50: "p50", p99: "p99", p999: "p99.9" };
     var chart = new Chart(root, d, {
-      title: "Latency as the offered load climbs (lower is better)",
-      sub: "Each point is one step of the open-loop rate sweep: latency measured from each request's intended send time (corrected for coordinated omission), median of " + d.runs.length + " runs. Every line ends one or two steps past that proxy's knee.",
-      note: "Linear axis: points above 100 ms (past a knee) are pinned to the top edge as ▲, with their value in the tooltip. The logarithmic axis shows them in scale.",
-      duration: 4200
-    });
-    var dialRow = el("div", { class: "mp-dial" }, chart.extra);
-    var dialId = "mp-dial-" + Math.random().toString(36).slice(2);
-    el("label", { for: dialId }, dialRow, "Offered load");
-    var rates = [];
-    d.proxies.forEach(function (p) {
-      d.sweep[p.id].steps.forEach(function (s) { if (rates.indexOf(s.rate) < 0) rates.push(s.rate); });
-    });
-    rates.sort(function (a, b) { return a - b; });
-    var xMax = niceMax(rates[rates.length - 1] || 1);
-    var xMin = rates[0] || 0;
-    var dial = el("input", { id: dialId, type: "range", min: 0, max: 1000, step: 1, value: 1000, "aria-valuetext": "" }, dialRow);
-    var out = el("output", { for: dialId }, dialRow);
-    var board = el("div", { class: "mp-board", "aria-live": "off" }, chart.extra);
-    dial.addEventListener("input", function () {
-      chart.stop();
-      chart.started = true;
-      chart.progress = Number(dial.value) / 1000;
-      chart.render();
+      title: "Latency below each proxy's knee (lower is better)",
+      sub: "Latency at each offered rate a proxy sustained in every run, measured from each request's intended send time (no coordinated omission). Median of the runs; each line stops at the last offered rate every run sustained (ring): past it, a proxy is overloaded and its latency is its queue.",
+      note: "Logarithmic latency axis: equal distances are equal ratios. A dashed ring marks a step one run did not sustain (a lone noisy step the sweep recovered from)." + excludedNote(d)
     });
     segmented(chart.controls, "Percentile", [{ value: "p50", label: "p50" }, { value: "p99", label: "p99" }, { value: "p999", label: "p99.9" }], "p99", function (v) {
       state.metric = v;
       chart.render();
     });
-    segmented(chart.controls, "Latency axis", [{ value: false, label: "linear, 0–100 ms" }, { value: true, label: "logarithmic" }], false, function (v) {
+    segmented(chart.controls, "Axis", [{ value: true, label: "log" }, { value: false, label: "linear" }], true, function (v) {
       state.log = v;
+      chart.note(v ? chart.spec.note : "Linear latency axis. A dashed ring marks a step one run did not sustain (a lone noisy step the sweep recovered from)." + excludedNote(d));
       chart.render();
     });
-    var bandLabel = el("label", null, chart.controls);
-    var bandBox = el("input", { type: "checkbox" }, bandLabel);
-    bandLabel.appendChild(document.createTextNode("run-to-run spread"));
-    bandBox.addEventListener("change", function () {
-      state.band = bandBox.checked;
+    toggle(chart.controls, "Show each run", false, function (v) {
+      state.runs = v;
       chart.render();
     });
-    var metricName = { p50: "p50", p99: "p99", p999: "p99.9" };
+    var dom = rateDomain(d, "p99");
     chart.render = function () {
-      var vis = chart.visible();
-      var series = vis.map(function (p) {
-        var steps = d.sweep[p.id].steps.filter(function (s) { return s[state.metric]; });
-        return {
-          p: p,
-          points: steps.map(function (s) { return [s.rate, s[state.metric].med, s]; }),
-          band: state.band ? steps.map(function (s) { return [s.rate, s[state.metric].min, s[state.metric].max]; }) : null
-        };
-      });
-      var maxY = 0;
-      series.forEach(function (s) { s.points.forEach(function (pt) { maxY = Math.max(maxY, pt[1]); }); });
-      var dialRate = xMin + (rates[rates.length - 1] - xMin) * chart.progress;
-      dial.value = String(Math.round(chart.progress * 1000));
-      out.textContent = nf0.format(dialRate) + " req/s";
-      dial.setAttribute("aria-valuetext", nf0.format(dialRate) + " requests per second offered");
+      var key = state.metric;
+      var series = chart.visible().map(function (p) { return curveSeries(d, p, key, state.runs); });
+      var vd = valueDomain(d, key, state.runs);
+      var lo = vd.lo;
+      var hi = key === "p99" ? Math.max(vd.hi, d.sloP99Ms) : vd.hi;
       lineChart(chart, series, {
-        xMin: xMin,
-        xMax: xMax,
-        progress: (dialRate - xMin) / Math.max(1, xMax - xMin),
-        yMax: 100,
-        yLog: state.log ? { min: 0.1, max: Math.pow(10, Math.ceil(Math.log10(Math.max(maxY, 1)))) } : null,
-        badge: state.log ? "Logarithmic scale" : null,
+        xMin: dom.min,
+        xMax: dom.max,
+        xLog: true,
+        progress: chart.progress,
+        yLog: state.log ? { min: Math.pow(10, Math.floor(Math.log10(Math.max(lo, 0.01)))), max: Math.pow(10, Math.ceil(Math.log10(Math.max(hi, 1)))) } : null,
+        yMax: niceMax(hi * 1.05),
+        yRef: key === "p99" ? { value: d.sloP99Ms, label: "SLO: p99 " + d.sloP99Ms + " ms" } : null,
         heightRatio: 0.52,
+        endLabels: true,
         xFmt: compact,
-        yFmt: function (v) { return state.log ? (v < 1 ? String(v) : compact(v)) : String(Math.round(v)); },
-        xTitle: "offered load (requests/s)",
-        yTitle: metricName[state.metric] + " latency (ms)",
-        sortTip: true,
-        tipHeader: function (x) { return nf0.format(x) + " req/s offered · " + metricName[state.metric]; },
-        tipValue: function (s, pt) {
-          var st = pt[2];
-          var m = st[state.metric];
-          var v = fmtMs(m.med) + (m.n > 1 && m.min !== m.max ? " (" + fmtMs(m.min) + "–" + fmtMs(m.max) + ")" : "");
-          if (st.sustained * 2 <= st.runs) v += " ✗";
-          return v;
-        },
-        after: function (c, X) {
-          // The dial's position on the plot.
-          if (chart.progress < 1) {
-            var x = X(Math.min(dialRate, xMax));
-            sv("line", { x1: x, x2: x, y1: c.m.t, y2: c.m.t + c.ph, stroke: "var(--mp-text-2)", "stroke-width": 1, opacity: 0.5 }, c.svg);
-          }
-        }
-      });
-      // The readout: each proxy's value at the last measured step at or below the dial.
-      board.textContent = "";
-      var rowsB = vis.map(function (p) {
-        var steps = d.sweep[p.id].steps.filter(function (s) { return s.rate <= dialRate + 1e-6 && s[state.metric]; });
-        var s = steps[steps.length - 1];
-        return { p: p, s: s, v: s ? s[state.metric].med : null };
-      }).filter(function (r) { return r.s; });
-      rowsB.sort(function (a, b) { return a.v - b.v; });
-      rowsB.forEach(function (r, i) {
-        var div = el("div", null, board);
-        el("span", { class: "mp-rank" }, div, String(i + 1) + ".");
-        var k = el("i", { class: "mp-lk" }, div);
-        k.style.cssText = "display:inline-block;width:12px;height:3px;border-radius:2px;background:" + color(r.p);
-        el("b", null, div, fmtMs(r.v) + (r.s.sustained * 2 <= r.s.runs ? " ✗" : ""));
-        el("span", null, div, r.p.label + (r.s.rate < dialRate - 1 && r.s === d.sweep[r.p.id].steps[d.sweep[r.p.id].steps.length - 1] ? " (last step " + compact(r.s.rate) + "/s)" : ""));
+        yFmt: function (v) { return v < 1 ? String(v) : compact(v); },
+        xTitle: "offered load (requests/s, log scale)",
+        yTitle: names[key] + " latency (ms)",
+        tipHeader: function (x, n) { return fmtRate(x) + " offered · " + names[key] + (n > 1 ? " · lowest first" : ""); },
+        tipRow: curveTip(d, key, fmtMs)
       });
     };
     return chart;
@@ -722,20 +872,20 @@
   SPECS.percentiles = function (root, d) {
     var rates = [];
     d.proxies.forEach(function (p) {
-      d.sweep[p.id].steps.forEach(function (s) { if (s.percentiles && rates.indexOf(s.rate) < 0) rates.push(s.rate); });
+      curve(d, p).forEach(function (s) { if (s.percentiles && rates.indexOf(s.rate) < 0) rates.push(s.rate); });
     });
     rates.sort(function (a, b) { return a - b; });
     var state = { rate: d.commonRate || rates[0] };
     var chart = new Chart(root, d, {
       title: "Latency by percentile at one offered rate (lower is better)",
-      sub: "The whole latency distribution at a rate every proxy sustained, as an HDR-style plot: each step right adds a nine (90%, 99%, 99.9%, …), so the far right is the tail and the maximum. Per-percentile median of " + d.runs.length + " runs.",
-      note: "The percentile axis is logarithmic in 1/(1 − percentile), the usual way to show latency tails; the latency axis is linear.",
-      duration: 2600
+      sub: "The whole latency distribution at one offered rate, as an HDR-style plot: each step right adds a nine (90%, 99%, 99.9%, …), so the far right is the tail and the maximum. Per-percentile median of the runs; only proxies that sustained the rate in every run are drawn.",
+      note: "",
+      duration: 1200
     });
     var label = el("label", null, chart.controls, "Offered rate ");
     var select = el("select", { class: "mp-select" }, label);
     rates.forEach(function (r) {
-      el("option", { value: r, selected: r === state.rate ? "" : null }, select, nf0.format(r) + " req/s" + (r === d.commonRate ? " (highest all sustained)" : ""));
+      el("option", { value: r, selected: r === state.rate ? "" : null }, select, nf0.format(r) + " req/s" + (r === d.commonRate ? " (highest every proxy sustained)" : ""));
     });
     select.addEventListener("change", function () {
       state.rate = Number(select.value);
@@ -746,35 +896,43 @@
       return -Math.log10(1 - pct / 100);
     }
     chart.render = function () {
-      var series = chart.visible().map(function (p) {
-        var s = d.sweep[p.id].steps.find(function (x) { return x.rate === state.rate; });
-        return { p: p, points: s && s.percentiles ? s.percentiles.map(function (q) { return [nines(q[0]), q[1], q]; }) : [], step: s };
+      var past = [];
+      var series = [];
+      chart.visible().forEach(function (p) {
+        var s = curve(d, p).find(function (x) { return x.rate === state.rate; });
+        if (!s || !s.percentiles) {
+          if (!d.sweep[p.id].unsupported) past.push(p.label);
+          return;
+        }
+        series.push({ p: p, points: s.percentiles.map(function (q) { return [nines(q[0]), q[1], q]; }) });
       });
       var maxY = 0;
       series.forEach(function (s) { s.points.forEach(function (pt) { maxY = Math.max(maxY, pt[1]); }); });
       var names = { 0: "min", 1: "90%", 2: "99%", 3: "99.9%", 4: "99.99%", 5: "99.999%", 5.6: "max" };
+      var narrow = (chart.plot.clientWidth || 600) < 480;
       lineChart(chart, series, {
         xMin: 0,
         xMax: 5.6,
         progress: chart.progress,
         yMax: niceMax(maxY * 1.05),
         heightRatio: 0.48,
-        xTicks: [0, 1, 2, 3, 4, 5, 5.6],
+        endLabels: false,
+        xTicks: narrow ? [0, 2, 4, 5.6] : [0, 1, 2, 3, 4, 5, 5.6],
         xFmt: function (v) { return names[v] || ""; },
         yFmt: function (v) { return String(Math.round(v * 10) / 10); },
         xTitle: "percentile",
         yTitle: "latency (ms)",
-        sortTip: true,
         tipHeader: function (x) {
           var any = series.find(function (s) { return s.points.find(function (q) { return q[0] === x; }); });
           var q = any ? any.points.find(function (q2) { return q2[0] === x; })[2] : null;
-          return (q ? (q[0] >= 100 ? "maximum" : q[0] <= 0 ? "minimum" : q[0] + "th percentile") : "") + " at " + nf0.format(state.rate) + " req/s";
+          return (q ? (q[0] >= 100 ? "maximum" : q[0] <= 0 ? "minimum" : q[0] + "th percentile") : "") + " at " + fmtRate(state.rate);
         },
-        tipValue: function (s, pt) {
+        tipRow: function (s, pt) {
           var q = pt[2];
-          return fmtMs(q[1]) + (q[2] !== q[3] ? " (" + fmtMs(q[2]) + "–" + fmtMs(q[3]) + ")" : "");
+          return { value: fmtMs(q[1]), detail: q[2] !== q[3] ? "runs from " + fmtMs(q[2]) + " to " + fmtMs(q[3]) : "" };
         }
       });
+      chart.note("The percentile axis is logarithmic in 1/(1 − percentile), the usual way to show latency tails; the latency axis is linear." + (past.length ? " Past their knee at this rate in some run, so not drawn: " + past.join(", ") + "." : ""));
     };
     return chart;
   };
@@ -782,37 +940,36 @@
   SPECS.idle = function (root, d) {
     var chart = new Chart(root, d, {
       title: "Idle memory: resident set size (MB, lower is better)",
-      sub: "RSS after start-up and a few validation requests, before any load: what the OS charges for the proxy doing nothing. Median of " + d.runs.length + " runs; whiskers span min–max.",
+      sub: "RSS after start-up and a few validation requests, before any load: what the OS charges for the proxy doing nothing. Each dot is one run; the tick is the median.",
       note: "The JVM proxies' RSS depends on heap sizing (here -Xmx1g, G1, Native Memory Tracking on); a native process has no such floor.",
       legendLine: false,
-      duration: 1400
+      duration: 900
     });
     chart.render = function () {
-      barChart(chart, chart.visible().map(function (p) {
-        return { p: p, st: d.ramp[p.id].idleRssMb };
+      dotPlot(chart, chart.visible().map(function (p) {
+        var st = d.ramp[p.id].idleRssMb;
+        return { p: p, values: st ? st.values : [], med: st ? st.med : null };
       }), {
         progress: chart.progress,
         tickFmt: function (v) { return Math.round(v) + " MB"; },
+        xTitle: "resident set size (MB)",
         valueFmt: function (v) { return nf1.format(v) + " MB"; },
-        aria: function (r) { return "median " + nf1.format(r.st.med) + " megabytes"; }
+        aria: function (r) { return "median " + nf1.format(r.med) + " megabytes; runs: " + runList(r.values, nf1.format); }
       });
     };
     return chart;
   };
 
   SPECS.ramp = function (root, d) {
-    var state = { band: false };
+    var state = { runs: false };
     var chart = new Chart(root, d, {
       title: "Memory as idle keep-alive connections pile up (lower is better)",
       sub: "RSS while the load generator opens idle keep-alive connections in steps, each after one request (so the proxy has also connected upstream). Median of " + d.runs.length + " runs.",
       note: "The largest step is bounded by this container's open-file limit, not by any proxy. Proxies that pool upstream connections (Envoy, goproxy, Squid) keep fewer upstream sockets than those that hold one per client connection.",
-      duration: 3600
+      duration: 1400
     });
-    var bandLabel = el("label", null, chart.controls);
-    var bandBox = el("input", { type: "checkbox" }, bandLabel);
-    bandLabel.appendChild(document.createTextNode("run-to-run spread"));
-    bandBox.addEventListener("change", function () {
-      state.band = bandBox.checked;
+    toggle(chart.controls, "Show each run", false, function (v) {
+      state.runs = v;
       chart.render();
     });
     var maxX = 0;
@@ -828,29 +985,25 @@
     chart.render = function () {
       var series = chart.visible().map(function (p) {
         var steps = d.ramp[p.id].steps.filter(function (s) { return s.held && s.rssMb; });
-        return {
-          p: p,
-          points: steps.map(function (s) { return [s.held.med, s.rssMb.med, s]; }),
-          band: state.band ? steps.map(function (s) { return [s.held.med, s.rssMb.min, s.rssMb.max]; }) : null
-        };
+        var runs = [];
+        if (state.runs) steps.forEach(function (s) { (s.rssMb.values || []).forEach(function (v) { runs.push([s.held.med, v]); }); });
+        return { p: p, points: steps.map(function (s) { return [s.held.med, s.rssMb.med, s]; }), runs: runs };
       });
-      var held = Math.round(maxX * chart.progress);
       lineChart(chart, series, {
         xMin: 0,
         xMax: niceMax(maxX),
-        progress: (maxX * chart.progress) / niceMax(maxX),
+        progress: chart.progress,
         yMax: niceMax(maxY * 1.05),
         heightRatio: 0.48,
+        endLabels: true,
         xFmt: compact,
         yFmt: function (v) { return String(Math.round(v)); },
         xTitle: "idle connections held",
         yTitle: "RSS (MB)",
-        sortTip: true,
-        badge: chart.progress < 1 ? nf0.format(held) + " connections" : null,
         tipHeader: function (x) { return nf0.format(x) + " idle connections"; },
-        tipValue: function (s, pt) {
-          var st = pt[2];
-          return fmtSpread(st.rssMb, function (v) { return nf1.format(v) + " MB"; });
+        tipRow: function (s, pt) {
+          var st = pt[2].rssMb;
+          return { value: nf1.format(st.med) + " MB", detail: st.n > 1 ? "runs " + runList(st.values, nf1.format) : "" };
         }
       });
     };
@@ -861,16 +1014,20 @@
     var attacks = Object.keys(d.memory);
     var names = { slowread: "slow readers", slowloris: "slowloris", updown: "large uploads and downloads" };
     var state = { attack: attacks.indexOf("slowread") >= 0 ? "slowread" : attacks[0] };
+    var baseNote = "✕ marks a proxy that ran out of memory (an OutOfMemoryError, or the cgroup's OOM killer) or crashed. Samples are 5 s apart. The verdicts and per-connection figures are in the table below.";
+    var gone = Object.keys(d.memoryNotMeasured || {});
+    if (gone.length) {
+      baseNote += " Not measured on this machine: " + gone.map(function (a) { return names[a] || a; }).join(", ") + " (the reason is under the table).";
+    }
     var chart = new Chart(root, d, {
       title: "Memory under adversarial clients, in a 512 MB cgroup (lower is better)",
       sub: "RSS over time while the workload runs, every proxy in the same 512 MB memory cgroup (the JVMs additionally capped at a 256 MB heap and 128 MB of direct memory inside it). One line per proxy: the run with the median peak.",
-      note: "✕ marks a proxy that ran out of memory (an OutOfMemoryError, or the cgroup's OOM killer) or crashed. Samples are 5 s apart. The verdicts, peaks across all runs and per-connection figures are in the table below.",
-      duration: 4200
+      note: baseNote,
+      duration: 1800
     });
     segmented(chart.controls, "Workload", attacks.map(function (a) { return { value: a, label: names[a] || a }; }), state.attack, function (v) {
       state.attack = v;
-      chart.play();
-      if (reducedMotion()) chart.render();
+      chart.render();
     });
     var desc = el("p", { class: "mp-sub" }, chart.extra);
     chart.render = function () {
@@ -888,37 +1045,41 @@
         var m = per[p.id];
         if (!m || !m.series) return;
         m.series.points.forEach(function (q) { maxT = Math.max(maxT, q[0]); });
-        var end = m.series.end;
-        var endLabel = !end ? null : end.verdict === "oom"
-          ? "out of memory" + (/still running/.test(end.state || "") ? " (kept running)" : "")
-          : "crashed";
-        series.push({ p: p, points: m.series.points.map(function (q) { return [q[0], q[1], m]; }), end: end, endLabel: endLabel });
+        series.push({ p: p, points: m.series.points.map(function (q) { return [q[0], q[1], m]; }), end: m.series.end });
       });
-      var t = maxT * chart.progress;
-      lineChart(chart, series, {
+      var c = lineChart(chart, series, {
         xMin: 0,
         xMax: niceMax(maxT),
-        progress: t / niceMax(maxT),
+        progress: chart.progress,
         yMax: 600,
         yTickCount: 6,
         yCap: { value: 512, label: "512 MB cgroup limit" },
         heightRatio: 0.5,
+        endLabels: true,
         xFmt: function (v) { return Math.round(v) + " s"; },
         yFmt: function (v) { return String(Math.round(v)); },
         xTitle: "seconds since the workload started",
         yTitle: "RSS (MB)",
-        sortTip: true,
-        badge: chart.progress < 1 ? "t = " + Math.round(t) + " s" : null,
         tipHeader: function (x) { return nf1.format(x) + " s into " + (names[state.attack] || state.attack); },
-        tipValue: function (s, pt) {
+        tipRow: function (s, pt) {
           var m = pt[2];
-          var verdicts = Object.keys(m.verdicts).map(function (k) { return k + " ×" + m.verdicts[k]; }).join(", ");
-          return nf1.format(pt[1]) + " MB · " + verdicts;
+          return { value: nf1.format(pt[1]) + " MB", detail: Object.keys(m.verdicts).map(function (k) { return k + " ×" + m.verdicts[k]; }).join(", ") };
         }
       });
-      // Proxies that cannot run this workload are named, not dropped.
+      // Out of memory or crashed: a cross at the line's end, named in the note and the tooltip.
+      var failed = [];
+      series.forEach(function (s) {
+        if (!s.end || chart.progress < 1) return;
+        var last = s.points[s.points.length - 1];
+        var ex = c.m.l + (c.pw * last[0]) / niceMax(maxT);
+        var ey = c.m.t + c.ph - (c.ph * Math.min(last[1], 600)) / 600;
+        var d7 = "M" + (ex - 7) + " " + (ey - 7) + "L" + (ex + 7) + " " + (ey + 7) + "M" + (ex + 7) + " " + (ey - 7) + "L" + (ex - 7) + " " + (ey + 7);
+        sv("path", { d: d7, stroke: "var(--mp-surface)", "stroke-width": 6, "stroke-linecap": "round" }, c.svg);
+        sv("path", { d: d7, stroke: color(s.p), "stroke-width": 3, "stroke-linecap": "round" }, c.svg);
+        failed.push(s.p.label + " " + (s.end.verdict === "oom" ? "ran out of memory" + (/still running/.test(s.end.state || "") ? " (and kept running)" : "") : "crashed"));
+      });
       var skipped = chart.visible().filter(function (p) { return per[p.id] && per[p.id].skipped; });
-      if (chart.noteEl) chart.noteEl.textContent = chart.spec.note + (skipped.length ? " Not supported here: " + skipped.map(function (p) { return p.label; }).join(", ") + "." : "");
+      chart.note(baseNote + (failed.length ? " Here: " + failed.join("; ") + "." : "") + (skipped.length ? " Not supported here: " + skipped.map(function (p) { return p.label; }).join(", ") + "." : ""));
     };
     return chart;
   };

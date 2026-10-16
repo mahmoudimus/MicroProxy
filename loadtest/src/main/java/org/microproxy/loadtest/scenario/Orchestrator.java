@@ -134,6 +134,8 @@ public final class Orchestrator {
         top.put("gate", gate);
         top.put("verdicts", ctx.verdicts);
         top.put("notes", ctx.notes);
+        // When the measuring ended (UTC): with the timestamp, the window a host monitor's log is read over.
+        top.put("finished", DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)));
         writeAndRender(out, top, ctx, settings);
         // The report is part of the harness's own job: check it was written, then record that check.
         Path report = out.resolve("report.md");

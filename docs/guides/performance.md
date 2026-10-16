@@ -37,6 +37,10 @@ and the counts behind it are in
 At that rate this version's p99 latency was 150 ms on JDK 21, which was at its limit, and 14 ms
 on JDK 25.
 
+On the dedicated machine of the [comparison with other proxies](../project/performance.md#the-jdk),
+the same source sustains 48,748 requests a second on one core on JDK 25 and about 36,900 on
+JDK 21.
+
 JDK 25's other poller mode, `-Djdk.pollerMode=1` (platform poller threads, as on JDK 21), was
 slower than both (130 µs a request with release 0.3.0), and the garbage collector made no
 difference at this load (`-XX:+UseSerialGC`: 117.3 µs against G1's 117.6 µs).
