@@ -264,6 +264,123 @@ class TlsRetryWithoutSniTest {
     }
 
     @Test
+    void anEagerHandshakeSendsTheConnectsHostAndIsRetriedToo() throws Exception {
+        // The server's handshake runs before the CONNECT is answered: the retry without SNI happens
+        // then too, and the CONNECT is answered once it worked.
+        PickyOrigin origin = pickyOrigin();
+        proxy = forward().withTlsRetryWithoutSni(true)
+                .onAllProtocols(p -> p.mitmServerHandshake(MitmServerHandshake.EAGER)).start();
+        HttpResponse<String> r = TestSupport.get(TestSupport.client(proxy, proxyCa.clientContext()), url(origin));
+        assertEquals(200, r.statusCode(), r.body());
+        assertEquals("none", r.headers().firstValue("X-Sni").orElseThrow());
+        assertEquals(1, origin.rejected.get(), "the first handshake sent the CONNECT's host");
+        assertEquals(1, stat("cluster.direct.ssl.retry_without_sni"));
+    }
+
+    /** What the hooks and trackers were told of failed attempts at the server, and what the client got. */
+    private record Reported(int connectionFailed, int serverFailures, int tlsFailures, String answer) {}
+
+    /**
+     * A CONNECT to a server that rejects the name it is sent, with {@code mode} running the
+     * handshake; the proxy's first connection reaches the server, and later ones go to {@code
+     * redialTo} (a refusing port, or the server again). Then a GET inside the session, if any.
+     */
+    private Reported connectThroughRejection(MitmServerHandshake mode, PickyOrigin origin, InetSocketAddress redialTo)
+            throws IOException {
+        AtomicInteger resolutions = new AtomicInteger();
+        AtomicInteger connectionFailed = new AtomicInteger();
+        AtomicInteger serverFailures = new AtomicInteger();
+        AtomicInteger tlsFailures = new AtomicInteger();
+        InetSocketAddress first = new InetSocketAddress(TestSupport.LOOPBACK, origin.port());
+        proxy = forward().withTlsRetryWithoutSni(true).onAllProtocols(p -> p.mitmServerHandshake(mode))
+                .withFiltersSource((request, ctx) -> new HttpFilters() {
+                    @Override
+                    public InetSocketAddress proxyToServerResolutionStarted(String hostAndPort) {
+                        return resolutions.getAndIncrement() == 0 ? first : redialTo;
+                    }
+
+                    @Override
+                    public void proxyToServerConnectionFailed() {
+                        connectionFailed.incrementAndGet();
+                    }
+                })
+                .plusActivityTracker(new ActivityTrackerAdapter() {
+                    @Override
+                    public void serverConnectionExceptionCaught(FullFlowContext serverContext, Throwable cause) {
+                        serverFailures.incrementAndGet();
+                    }
+
+                    @Override
+                    public void tlsHandshakeFailed(FlowContext ctx, boolean clientSide, Throwable cause) {
+                        if (!clientSide) tlsFailures.incrementAndGet();
+                    }
+                })
+                .start();
+        String target = "localhost:" + origin.port();
+        String answer;
+        try (java.net.Socket raw = new java.net.Socket(TestSupport.LOOPBACK, proxy.getListenAddress().getPort())) {
+            raw.setSoTimeout(20_000);
+            TestSupport.write(raw.getOutputStream(), "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\n\r\n");
+            answer = TestSupport.readUntil(raw.getInputStream(), "\r\n\r\n");
+            if (answer.startsWith("HTTP/1.1 200")) {
+                SSLSocket tls = (SSLSocket) proxyCa.clientContext().getSocketFactory()
+                        .createSocket(raw, "localhost", origin.port(), true);
+                tls.startHandshake();
+                TestSupport.write(tls.getOutputStream(), "GET / HTTP/1.1\r\nHost: " + target
+                        + "\r\nConnection: close\r\n\r\n");
+                answer = new String(tls.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+            }
+        }
+        return new Reported(connectionFailed.get(), serverFailures.get(), tlsFailures.get(), answer);
+    }
+
+    private long counter(String name) {
+        return stats.get(name) instanceof Counter c ? c.value() : 0;
+    }
+
+    @Test
+    void aRetryWithoutSniThatCannotConnectIsOneFailedAttempt() throws Exception {
+        // The redial without SNI belongs to the attempt the server rejected: when it cannot
+        // connect, that attempt failed once, and only its last failure is reported.
+        for (MitmServerHandshake mode : MitmServerHandshake.values()) {
+            PickyOrigin origin = pickyOrigin();
+            java.net.Socket refusing = TestSupport.refusingPort();
+            closeables.add(refusing);
+            long connectFailBefore = counter("cluster.direct.upstream_cx_connect_fail");
+            failures.clear();
+            Reported reported = connectThroughRejection(mode, origin,
+                    new InetSocketAddress(TestSupport.LOOPBACK, refusing.getLocalPort()));
+            assertTrue(reported.answer().startsWith("HTTP/1.1 502"), mode + ": " + reported.answer());
+            assertEquals(1, reported.connectionFailed(), mode + ": proxyToServerConnectionFailed");
+            assertEquals(1, reported.serverFailures(), mode + ": serverConnectionExceptionCaught");
+            assertEquals(0, reported.tlsFailures(), mode + ": the attempt's last failure was not TLS's");
+            assertEquals(1, counter("cluster.direct.upstream_cx_connect_fail") - connectFailBefore, mode.toString());
+            assertEquals(1, failures.size(), mode.toString());
+            assertInstanceOf(ProxyFailure.ConnectFailed.class, failures.getFirst(), mode.toString());
+            proxy.abort();
+        }
+    }
+
+    @Test
+    void aRetryWithoutSniThatWorksReportsNoFailure() throws Exception {
+        for (MitmServerHandshake mode : MitmServerHandshake.values()) {
+            PickyOrigin origin = pickyOrigin();
+            long connectFailBefore = counter("cluster.direct.upstream_cx_connect_fail");
+            long retriesBefore = counter("cluster.direct.ssl.retry_without_sni");
+            Reported reported = connectThroughRejection(mode, origin,
+                    new InetSocketAddress(TestSupport.LOOPBACK, origin.port()));
+            assertTrue(reported.answer().startsWith("HTTP/1.1 200"), mode + ": " + reported.answer());
+            assertTrue(reported.answer().contains("X-Sni: none"), mode + ": " + reported.answer());
+            assertEquals(0, reported.connectionFailed(), mode.toString());
+            assertEquals(0, reported.serverFailures(), mode.toString());
+            assertEquals(0, reported.tlsFailures(), mode.toString());
+            assertEquals(0, counter("cluster.direct.upstream_cx_connect_fail") - connectFailBefore, mode.toString());
+            assertEquals(1, counter("cluster.direct.ssl.retry_without_sni") - retriesBefore, mode.toString());
+            proxy.abort();
+        }
+    }
+
+    @Test
     void configuredFromTheBootstrapPropertiesAndCommandLine() throws IOException {
         assertFalse(BootstrapView.retriesTlsWithoutSni(MicroProxy.bootstrap()));
         assertTrue(BootstrapView.retriesTlsWithoutSni(MicroProxy.bootstrap().withLittleProxyCompatibility()));

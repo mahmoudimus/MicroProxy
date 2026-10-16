@@ -64,6 +64,23 @@ final class AdminConfigDump {
         boot.put("timeouts", timeouts);
         boot.put("tls_protocols", b.tlsProtocols);
         boot.put("tls_retry_without_sni", b.retriesTlsWithoutSni());
+        Map<String, Object> policies = new LinkedHashMap<>();
+        for (int version = 1; version <= 3; version++) {
+            org.microproxy.ProtocolPolicy p = b.effectivePolicy(version);
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("resolve_before_proxy_to_server_request", p.resolveBeforeProxyToServerRequest().orElse(null));
+            fields.put("filter_connect_answer", p.filterConnectAnswer().orElse(null));
+            fields.put("serve_plain_http_after_connect", p.servePlainHttpAfterConnect().orElse(null));
+            fields.put("proxy_protocol_destination", p.proxyProtocolDestination()
+                    .map(d -> d.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
+            fields.put("tls_retry_without_sni", p.tlsRetryWithoutSni().orElse(null));
+            fields.put("generated_responses", p.generatedResponses().map(v -> v.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
+            fields.put("mitm_server_handshake", p.mitmServerHandshake()
+                    .map(v -> v.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
+            if (version == 1) fields.put("allow_chunked_length", p.allowChunkedLength().orElse(false));
+            policies.put("http" + version, fields);
+        }
+        boot.put("protocol_policies", policies);
         Map<String, Object> limits = new LinkedHashMap<>();
         limits.put("max_initial_line_length", b.maxInitialLineLength);
         limits.put("max_header_size", b.maxHeaderSize);
@@ -107,6 +124,9 @@ final class AdminConfigDump {
             chained.put("backoff_initial", backoff ? duration(b.chainedProxyBackoff.initial()) : null);
             chained.put("backoff_max", backoff ? duration(b.chainedProxyBackoff.max()) : null);
             chained.put("backoff_jitter", backoff ? b.chainedProxyBackoff.jittered() : null);
+            // "default": the connect timeout, at most 30 s.
+            chained.put("backoff_budget", !backoff ? null : b.chainedProxyBackoff.isUnbudgeted() ? "unlimited"
+                    : b.chainedProxyBackoff.budget().map(AdminConfigDump::duration).orElse("default"));
         }
         boot.put("chained_proxy", chained);
         boot.put("stripped_request_headers", List.copyOf(b.strippedRequestHeaders.values()));

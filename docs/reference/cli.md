@@ -32,9 +32,13 @@ See [Quick start](../getting-started/quick-start.md), [configuration properties]
 | `--connect-timeout <millis>` | outbound connect timeout (default 40000) | `connect_timeout` |
 | `--tls-handshake-timeout <millis>` | longest TLS handshake (default 10000, 0 = none) | `tls_handshake_timeout` |
 | `--tls-protocols <list>` | TLS versions allowed on every TLS connection (default TLSv1.3,TLSv1.2; "" = JDK defaults) | `tls_protocols` |
-| `--tls-retry-without-sni` | retry TLS with a server once without SNI when it rejects the name (unrecognized_name alert); default with --littleproxy-compat | `tls_retry_without_sni=true` |
-| `--no-tls-retry-without-sni` | never retry without SNI, even with --littleproxy-compat | `tls_retry_without_sni=false` |
-| `--littleproxy-compat` | behave like LittleProxy where MicroProxy differs | `littleproxy_compatibility` |
+| `--tls-retry-without-sni` | retry TLS with a server once without SNI when it rejects the name (unrecognized_name alert), for every client protocol; default for HTTP/1 clients with --littleproxy-compat | `tls_retry_without_sni=true` |
+| `--no-tls-retry-without-sni` | never retry without SNI, for every client protocol, even with --littleproxy-compat | `tls_retry_without_sni=false` |
+| `--littleproxy-compat` | make LittleProxy's behaviour HTTP/1 clients' default where MicroProxy differs (the `littleproxy` [protocol policy](../guides/protocol-policies.md) preset) | `littleproxy_compatibility` |
+| `--policy <field=value,...>` | [protocol policy](../guides/protocol-policies.md) fields for every client protocol: `preset` (`littleproxy`, `microproxy`), `resolve_before_proxy_to_server_request`, `filter_connect_answer`, `serve_plain_http_after_connect`, `proxy_protocol_destination` (`local_address`, `server_address`), `tls_retry_without_sni`, `generated_responses` (`replaceable`, `in_place`, `skip`), `mitm_server_handshake` (`deferred`, `eager`); applied left to right | `policy.<field>` |
+| `--http1-policy <field=value,...>` | the same for HTTP/1.x clients only, which also take `allow_chunked_length` | `policy.http1.<field>` |
+| `--http2-policy <field=value,...>` | the same for HTTP/2 clients only | `policy.http2.<field>` |
+| `--http3-policy <field=value,...>` | the same for HTTP/3 clients only | `policy.http3.<field>` |
 | `--proxy-alias <alias>` | name used in Via headers | `proxy_alias` |
 | `--listener-keystore <file>` | serve TLS on the listener with this PKCS#12 or JKS key store's first key entry (HTTPS, HTTP/2, and the certificate --http3 presents) | `listener_keystore` |
 | `--listener-keystore-password <pw>` | the key store's password (default empty) | `listener_keystore_password` |

@@ -39,7 +39,9 @@ context, or as a chained proxy's.
 ### Retries and backoff
 
 When a connection through one chained proxy fails (refused, timed out, its name does not resolve,
-its TLS handshake or `CONNECT` fails), the proxy tries the next candidate the
+its TLS handshake or `CONNECT` fails, or, for an intercepted `CONNECT`, the TLS handshake with the
+server through it fails, [before or after](mitm.md#server-tls-failures) the `CONNECT` is
+answered), the proxy tries the next candidate the
 `ChainedProxyManager` offered, which may be a direct connection. By default it moves on at once,
 as LittleProxy does. `withChainedProxyRetryBackoff(RetryBackoff)` waits in between, so a flapping
 upstream is not hammered. `RetryBackoff` has these policies:
@@ -79,9 +81,18 @@ another policy for it, including `none()`, with `HttpFilters.chainedProxyRetryBa
 - It stops waiting, and gives up on the request, if the client disconnects meanwhile. Once the
   client has sent more bytes (a request body, a pipelined request) a disconnect can no longer be
   seen, and the rest of the wait is a plain sleep.
-- The waits of one request add up to at most 30 seconds or the connect timeout, whichever is
-  less, so a long candidate list cannot hold a request for minutes. Once that budget is spent,
-  the remaining candidates are tried without waiting.
+- By default the waits of one request add up to at most 30 seconds or the connect timeout,
+  whichever is less, so a long candidate list cannot hold a request for minutes. Once that budget
+  is spent, the remaining candidates are tried without waiting (the wait that would overrun it is
+  shortened to what is left). The budget is part of the policy: `withBudget(Duration)` sets
+  another, and `unbudgeted()` lifts it, so that every wait the policy names is waited, as
+  LittleProxy forks that added a backoff did. In a properties file,
+  `chained_proxy_backoff_budget_ms` takes a number of milliseconds or `unlimited`:
+
+  ```java
+  // 100, 200, 400, 800, 1600 ms between six candidates, whatever the connect timeout
+  RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(5)).unbudgeted()
+  ```
 - The waiting counts towards the connect phase of `FlowContext.timings()`; it fires no callbacks,
   only a `DEBUG` log line.
 

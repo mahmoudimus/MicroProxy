@@ -132,6 +132,26 @@ final class SharedConnectionPool {
         connection.pool = this;
     }
 
+    /**
+     * Turns {@code connection}, a leased connection about to be closed (a failed attempt), back
+     * into a bare reservation that its replacement takes over: it stops counting, but its place in
+     * the limits stays taken, so that no other request can take it meanwhile. The caller must
+     * {@link #register} the replacement under that reservation, or {@link #cancel} it.
+     *
+     * @return whether {@code connection} held a place in this pool, now a reservation
+     */
+    boolean handOver(ServerConnection connection) {
+        lock.lock();
+        try {
+            if (connection.pool != this) return false;
+            removeIdle(connection);
+            connection.pool = null;
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Releases a reservation whose connection could not be created. */
     void cancel(String hostKey) {
         lock.lock();

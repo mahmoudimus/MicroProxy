@@ -77,6 +77,7 @@ public final class HttpFiltersBuilder {
     private Duration connectTimeout;
     private Duration tlsHandshakeTimeout;
     private RetryBackoff retryBackoff;
+    private MitmServerHandshake mitmServerHandshake;
 
     HttpFiltersBuilder() {}
 
@@ -286,6 +287,19 @@ public final class HttpFiltersBuilder {
     }
 
     /**
+     * When the proxy runs its TLS handshake with the server for these requests' intercepted
+     * {@code CONNECT}s, instead of the protocol policy's choice (see {@link
+     * HttpFilters#proxyToServerMitmHandshake()}).
+     *
+     * @param handshake when the server's handshake runs
+     * @return this builder
+     */
+    public HttpFiltersBuilder mitmServerHandshake(MitmServerHandshake handshake) {
+        this.mitmServerHandshake = Objects.requireNonNull(handshake);
+        return this;
+    }
+
+    /**
      * Buffer request bodies up to {@code maxBytes}, so {@link #onRequest} gets the whole request.
      *
      * @param maxBytes the maximum number of body bytes
@@ -390,6 +404,7 @@ public final class HttpFiltersBuilder {
         private final Duration connectTimeout;
         private final Duration tlsHandshakeTimeout;
         private final RetryBackoff retryBackoff;
+        private final MitmServerHandshake mitmServerHandshake;
         /** The logger's filters for one exchange, once bound by {@link #filterRequest}. */
         private final SelectiveFilters logged;
         /** Whether these filters belong to one exchange (made by {@link #filterRequest}). */
@@ -417,6 +432,7 @@ public final class HttpFiltersBuilder {
             connectTimeout = b.connectTimeout;
             tlsHandshakeTimeout = b.tlsHandshakeTimeout;
             retryBackoff = b.retryBackoff;
+            mitmServerHandshake = b.mitmServerHandshake;
             logged = null;
             bound = false;
             unlogged = logger == null ? this : new Built(this, null);
@@ -443,6 +459,7 @@ public final class HttpFiltersBuilder {
             connectTimeout = base.connectTimeout;
             tlsHandshakeTimeout = base.tlsHandshakeTimeout;
             retryBackoff = base.retryBackoff;
+            mitmServerHandshake = base.mitmServerHandshake;
             this.logged = logged;
             bound = true;
             unlogged = this;
@@ -620,6 +637,11 @@ public final class HttpFiltersBuilder {
         @Override
         public RetryBackoff chainedProxyRetryBackoff() {
             return retryBackoff;
+        }
+
+        @Override
+        public MitmServerHandshake proxyToServerMitmHandshake() {
+            return mitmServerHandshake;
         }
     }
 }

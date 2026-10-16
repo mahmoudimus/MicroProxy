@@ -54,7 +54,9 @@ All are optional.
   or 4 for a [SOCKS client](../guides/socks.md#socks5-mode), else `None`), `transparent_quic` (whether the client's
   QUIC came to the [transparent QUIC](../guides/transparent-mode.md#transparent-quic) listener), `early_data` (whether the
   HTTP/3 request arrived as 0-RTT early data, which may be a replay; see
-  [Session resumption and 0-RTT](../guides/http3.md#session-resumption-and-0-rtt)), `failure` (why the proxy has to
+  [Session resumption and 0-RTT](../guides/http3.md#session-resumption-and-0-rtt)), `protocol` (what the client speaks
+  to the proxy, `"http1"`, `"http2"` or `"http3"`, whose
+  [protocol policy](../guides/protocol-policies.md) applies), `failure` (why the proxy has to
   answer the request itself, a `Failure` as `on_failure` gets it, else `None`), `response_flags`
   (the exchange's [response flags](response-flags.md#response-flags-and-details) so far, as short codes: `["UF"]`),
   `response_code_details` (`"proxy_failure:connect_failed"`, ..., or `None`), `script_stats`
@@ -186,7 +188,7 @@ received it, not the script's own changes:
 
 | where | `res.source` |
 |---|---|
-| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
+| `on_response`, `buffer_response` | `"server"`; `"proxy"` for the `200` that opens a `CONNECT` tunnel and the `101` that accepts a CONNECT-UDP flow; `"cache"` for an `HttpCache` answer (a revalidated or stale entry) when the cache runs before the script in a filter chain; `"filter"` when an earlier filter in the chain gave the response another status; `None` when it cannot be told |
 | `response(...)` | `"filter"` |
 
 The script never sees the proxy's own answers or other filters' short-circuits as `res`

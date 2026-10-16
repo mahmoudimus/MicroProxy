@@ -37,7 +37,8 @@ The modules, their Maven coordinates and the self-contained `-all` jar are liste
 - **LittleProxy's filter API.** `HttpFiltersSource`, `HttpFilters`, `ActivityTracker`,
   `ChainedProxyManager`, `MitmManager` and `ProxyAuthenticator` keep LittleProxy's shape, so
   existing filters port with a package rename; `withLittleProxyCompatibility()` restores
-  LittleProxy's behaviour where MicroProxy differs. See
+  LittleProxy's behaviour for HTTP/1 clients where MicroProxy differs, one
+  [protocol policy](guides/protocol-policies.md) field at a time if need be. See
   [Migrating from LittleProxy](migrating-from-littleproxy.md).
 - **Envoy's and mitmproxy's vocabularies.** Access logs, stats, response flags and the admin API
   use Envoy's names; interception rules, addons, flow filters, HAR and replay follow mitmproxy.
@@ -53,6 +54,7 @@ Each feature links to the guide that describes it.
 | [HTTP/2 to servers](guides/http2.md#http2-to-servers) | on by default (`--no-http2-upstream` turns it off): servers that negotiate `h2` get every exchange for them as a stream on a shared connection, within their stream limit; trailers end to end and bidirectional streaming, so gRPC works through the proxy ([tested with grpcio](guides/http2.md#grpc-interop-grpcio)); connection coalescing across names a server's certificate covers (`--http2-coalesce`, RFC 9113 and RFC 8336's ORIGIN frame) |
 | [HTTP/3](guides/http3.md) | optional, over the proxy's own QUIC (`quic` module): a reverse proxy serves HTTP/3 on UDP (`--http3`), each request stream an exchange of its own, advertised with `Alt-Svc`; a forward proxy serves it next to its TLS listener, with `CONNECT`, WebSockets (RFC 9220) and MASQUE's CONNECT-UDP (RFC 9298); servers that advertise `h3` get their exchanges, WebSockets included, over one shared QUIC connection (`--http3-upstream`), falling back to TCP; QPACK with dynamic tables, hardened limits, live frame interception |
 | [Filters](guides/filters.md) | `HttpFilters` / `HttpFiltersSource` with the same hooks as LittleProxy, streaming or buffered (`getMaximumRequestBufferSizeInBytes` / `getMaximumResponseBufferSizeInBytes`); several sources run in order as an `HttpFiltersChain` (`plusFiltersSource`) |
+| [Protocol policies](guides/protocol-policies.md) | where MicroProxy can behave in more than one way (the order of the filter hooks, the `CONNECT` answer, TLS to servers), a policy per client protocol chooses: LittleProxy's behaviour for HTTP/1.1 clients, say, and MicroProxy's for HTTP/2 and HTTP/3 |
 | [TLS origination](guides/forward-proxy.md#tls-origination-https-uris-without-connect) | `https://` URIs asked for without `CONNECT` (absolute-form over plain HTTP, `:scheme https` on `h2c`) are fetched over TLS the proxy opens, with the upstream trust, pooling, HTTP/2 and HTTP/3 of intercepted sessions, and through chained proxies' tunnels; `--no-originate-tls` refuses them |
 | [CONNECT](guides/tcp-hooks.md) | byte tunnel with idle timeout and half-close; optional TCP hooks see, rewrite, drop and add the bytes of every raw tunnel, and of intercepted TLS that does not carry HTTP (SMTPS, IMAPS, MQTT over TLS), as mitmproxy's `tcp_message` |
 | [MITM](guides/mitm.md) | `MitmManager`; `CertificateAuthorityMitmManager` issues per-host certificates on demand (EC P-256). Its SANs copy the real server's DNS names. Only the JDK is used, through a small built-in X.509/DER encoder (`org.microproxy.tls.CertificateBuilder`). CA, upstream trust and client certificate can be chosen per client connection |

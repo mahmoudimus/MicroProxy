@@ -31,6 +31,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -54,6 +55,7 @@ import org.microproxy.FlowTimings;
 import org.microproxy.FlowTrace;
 import org.microproxy.FlowTracer;
 import org.microproxy.FullFlowContext;
+import org.microproxy.GeneratedResponses;
 import org.microproxy.Http3Options;
 import org.microproxy.HttpFilters;
 import org.microproxy.HttpFiltersAdapter;
@@ -61,7 +63,9 @@ import org.microproxy.HttpFiltersBuilder;
 import org.microproxy.HttpFiltersChain;
 import org.microproxy.HttpFiltersSourceAdapter;
 import org.microproxy.MitmManager;
+import org.microproxy.MitmServerHandshake;
 import org.microproxy.ProxyFailure;
+import org.microproxy.ProxyProtocolDestination;
 import org.microproxy.ProxyProtocolMode;
 import org.microproxy.ResponseFlag;
 import org.microproxy.ResponseSource;
@@ -426,11 +430,30 @@ final class ClientConnection implements Runnable {
         final String serverName;
         /** The cluster the retry counts in. */
         final ProxyStats.ClusterStats cluster;
+        /** The server side of the rejected attempt, for trackers if it is not retried after all. */
+        final FullFlowContext serverContext;
 
-        SniRejected(IOException cause, String serverName, ProxyStats.ClusterStats cluster) {
+        SniRejected(IOException cause, String serverName, ProxyStats.ClusterStats cluster,
+                FullFlowContext serverContext) {
             super(cause);
             this.serverName = serverName;
             this.cluster = cluster;
+            this.serverContext = serverContext;
+        }
+    }
+
+    /**
+     * A failed attempt whose failure was reported already (trackers, the chained proxy, stats,
+     * trace) by the connect loop that made it: the redial without SNI of an attempt the server
+     * rejected ({@link #redialForTls}), whose failure is that attempt's. The cause is the failure.
+     */
+    private static final class AttemptReported extends IOException {
+        AttemptReported(IOException cause) {
+            super(cause.getMessage(), cause);
+        }
+
+        IOException failure() {
+            return (IOException) getCause();
         }
     }
 
@@ -525,6 +548,8 @@ final class ClientConnection implements Runnable {
         final ClientChannel channel;
         /** The record of this exchange (timings, upstream status), which flow contexts show. */
         final ClientFlowContext flow;
+        /** The protocol policy of the client's protocol ({@link org.microproxy.ProtocolPolicy}). */
+        final EffectivePolicy policy;
         /** Starts the exchange's log lines: {@code [conn <id>] }, or {@code [conn <id> stream <s>] }. */
         final String log;
         HttpRequest request;
@@ -591,6 +616,33 @@ final class ClientConnection implements Runnable {
         TlsServerIdentity tlsIdentity;
         /** The exchange's next TLS handshake with a server sends no SNI: it was rejected ({@link #retryWithoutSni}). */
         boolean omitSni;
+        /**
+         * The client's ClientHello that this exchange's TLS handshakes with the server mirror (its
+         * ALPN protocols, and its SNI for a {@code CONNECT} to an IP address), once read, while
+         * a deferred handshake fails over to the next routes ({@link #failOverDeferredTls}).
+         */
+        ClientHello mirrorHello;
+        /** The ALPN protocols the exchange's latest TLS handshake with a server offered; null for none. */
+        List<String> offeredAlpn;
+        /** How many attempts failed before the connect loop's last connection was made. */
+        int failedAttempts;
+        /**
+         * The connect loop is redialling an attempt the server rejected for its name ({@link
+         * #redialForTls}): part of that attempt, it does not tell the filters that connecting
+         * failed, which the attempt's caller does once.
+         */
+        boolean redialing;
+        /**
+         * The backoff between the exchange's connection attempts, once an attempt has failed
+         * ({@link #retryBackoff}, asked once); null before.
+         */
+        RetryBackoff backoff;
+        /**
+         * What is left of the exchange's backoff budget, in nanoseconds, once {@link #backoff} is
+         * known: the waits of every pass of the connect loop for the exchange (a deferred
+         * handshake's failover is another) draw on it.
+         */
+        long backoffBudget;
         /** The CONNECT's answer, written, whose completion waits until the session is set up. */
         HttpResponse connectResponse;
         ResponseSource connectSource;
@@ -628,9 +680,11 @@ final class ClientConnection implements Runnable {
         /** The trace has been told of an attempt to reach the server that has not ended yet. */
         boolean attemptTraced;
 
-        Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive) {
+        Exchange(ClientChannel channel, HttpRequest request, MessageBody body, boolean clientKeepAlive,
+                EffectivePolicy policy) {
             this.channel = channel;
             this.flow = channel.flowContext();
+            this.policy = policy;
             this.log = channel.logPrefix();
             this.request = request;
             this.originalUri = request.uri();
@@ -828,6 +882,12 @@ final class ClientConnection implements Runnable {
      */
     private String mitmHostAndPort;
     /**
+     * Why the server's deferred TLS handshake for the intercepted session failed on every route
+     * ({@link #failOverDeferredTls}): the session's first request that needs its server is
+     * answered with it, and later ones try the server again. Null otherwise.
+     */
+    private final AtomicReference<SessionFailure> sessionFailure = new AtomicReference<>();
+    /**
      * The MITM manager chosen for this connection ({@link MitmManager#forConnection}), once asked.
      * Guarded by {@link #mitmLock}.
      */
@@ -905,7 +965,7 @@ final class ClientConnection implements Runnable {
         this.authenticated = true;
         this.flowContext = new ClientFlowContext(id, clientDetails::getClientAddress, () -> sslSession, clientDetails);
         parent.flowContext.socksVersion().ifPresent(flowContext::socksVersion);
-        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        copyAddresses(parent);
         this.http1 = new Http1ClientChannel(server, tunnel, flowContext, logPrefix, this::close);
     }
 
@@ -933,13 +993,24 @@ final class ClientConnection implements Runnable {
         this(parent.server, parent.clientDetails.getClientAddress());
         clientDetails.setUserName(parent.clientDetails.getUserName());
         this.proxyHeader = parent.proxyHeader;
-        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        copyAddresses(parent);
         if (server.mitmManager != null) {
             this.connectionMitm = parent.mitmManager();
             this.mitmChosen = true;
         }
         this.authenticated = true;
         this.pinnedServer = address;
+    }
+
+    /**
+     * Gives this connection, which runs inside {@code parent}'s (an intercepted stream, a
+     * CONNECT-UDP flow), the addresses of {@code parent}'s: its TCP peer, its local address and its
+     * PROXY header's destination.
+     */
+    private void copyAddresses(ClientConnection parent) {
+        flowContext.directClientAddress(parent.flowContext.directClientAddressOrNull());
+        flowContext.localAddress(parent.flowContext.localAddress());
+        flowContext.proxyProtocolDestination(parent.flowContext.getProxyProtocolDestinationAddress());
     }
 
     /** The connection's own flow context (not one of its streams'). */
@@ -1201,6 +1272,7 @@ final class ClientConnection implements Runnable {
         ProxyProtocol.Header header = http1.readProxyHeader(optional, trusted, timeout, server.stats.proxyProtocol);
         if (header == null) return;
         proxyHeader = header;
+        flowContext.proxyProtocolDestination(header.destination());
         if (header.source() != null) {
             flowContext.directClientAddress(peer);
             clientDetails.setClientAddress(header.source());
@@ -1486,7 +1558,8 @@ final class ClientConnection implements Runnable {
             keepAlive = false;
             markDrained();
         }
-        Exchange ex = new Exchange(channel, request, body, keepAlive);
+        Exchange ex = new Exchange(channel, request, body, keepAlive,
+                server.policy(channel.flowContext().getHttpVersion().majorVersion()));
         ex.trace = trace;
         ex.logRequest = snapshot;
         ex.kind = kind(channel);
@@ -2083,7 +2156,7 @@ final class ClientConnection implements Runnable {
             }
         }
 
-        if (server.littleProxyCompatibility && conn == null && via == null
+        if (ex.policy.resolveBeforeProxyToServerRequest() && conn == null && via == null
                 && route.getFirst() == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
             // LittleProxy resolves the server before proxyToServerRequest, and answers 502 without
             // calling it when the name does not resolve.
@@ -2098,6 +2171,13 @@ final class ClientConnection implements Runnable {
         HttpResponse shortCircuit = requestHook(ex.filters, ex.request, true);
         if (shortCircuit != null) {
             return respondDirect(ex, shortCircuit, true, ResponseSource.FILTER);
+        }
+        SessionFailure unreached = conn == null ? sessionFailure.get() : null;
+        if (unreached != null && unreached.hostAndPort().equalsIgnoreCase(hostAndPort)
+                && sessionFailure.compareAndSet(unreached, null)) {
+            // Every route to the session's server failed its TLS handshake when the session began.
+            if (unreached.retried()) ex.flow.addResponseFlag(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED);
+            return respondFailure(ex, unreached.failure(), false);
         }
 
         boolean replayable = ex.request instanceof FullHttpRequest || !ex.body.hasBody();
@@ -2691,10 +2771,12 @@ final class ClientConnection implements Runnable {
             }
         }
 
+        ex.flow.hookSource(head instanceof HttpCache.Answer ? ResponseSource.CACHE : ResponseSource.SERVER);
         HttpObject filtered = responseHook(filters, head, false);
         if (!(filtered instanceof HttpResponse res)) {
             return abort(ex, conn);
         }
+        ex.flow.hookSource(source(ResponseSource.SERVER, head, upstreamStatus, res));
         if (filtered instanceof FullHttpMessage && body != null) {
             // The filter replaced a streamed response with a complete one: discard the original body.
             serverKeepAlive &= drain(body);
@@ -2988,8 +3070,9 @@ final class ClientConnection implements Runnable {
         Mode mode = mitm ? Mode.TLS : Mode.TUNNEL;
         // The session's requests may take streams on an HTTP/2 connection made now.
         ex.offerHttp2 = server.http2Origins != null;
-        // TLS with the server waits for the client's ClientHello, whose protocols and name it mirrors.
-        ex.deferServerTls = mitm;
+        // TLS with the server waits for the client's ClientHello, whose protocols and name it
+        // mirrors, unless it runs before the CONNECT is answered (MitmServerHandshake.EAGER).
+        ex.deferServerTls = mitm && mitmServerHandshake(ex) == MitmServerHandshake.DEFERRED;
 
         List<ChainedProxy> route = lookupRoute(request);
         if (route == null) {
@@ -3084,6 +3167,23 @@ final class ClientConnection implements Runnable {
         } finally {
             releaseHttp2Claim(ex);
         }
+    }
+
+    /**
+     * When the server's TLS handshake runs for {@code ex}, a {@code CONNECT} to intercept: as its
+     * filters say ({@link HttpFilters#proxyToServerMitmHandshake()}), else as its protocol's
+     * policy does. A transparent TLS connection's is always deferred: its ClientHello is read
+     * already, and it gets no answer in HTTP.
+     */
+    private MitmServerHandshake mitmServerHandshake(Exchange ex) {
+        if (ex.implicit && ex.socks == 0) return MitmServerHandshake.DEFERRED;
+        MitmServerHandshake own = null;
+        try {
+            own = ex.filters.proxyToServerMitmHandshake();
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, ex.log + "proxyToServerMitmHandshake threw; using the policy's", e);
+        }
+        return own != null ? own : ex.policy.mitmServerHandshake();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -3252,7 +3352,9 @@ final class ClientConnection implements Runnable {
             accepted.headers().set(HttpHeaderNames.CONNECTION, "Upgrade");
             accepted.headers().set("Capsule-Protocol", "?1");
             ProxyUtils.addVia(accepted, server.proxyAlias);
+            ex.flow.hookSource(ResponseSource.PROXY);
             HttpObject o = ex.filters.serverToProxyResponse(accepted);
+            if (o instanceof HttpResponse r) ex.flow.hookSource(source(ResponseSource.PROXY, accepted, 101, r));
             if (o != null) o = ex.filters.proxyToClientResponse(o);
             if (!(o instanceof HttpResponse response)) {
                 ex.channel.close();
@@ -3347,10 +3449,12 @@ final class ClientConnection implements Runnable {
         HttpObject o = established;
         // LittleProxy writes its answer to a client's CONNECT straight to the client
         // (ClientToProxyConnection.RespondCONNECTSuccessful): no response filter sees it, though
-        // trackers do (responseSentToClient). So does compatibility mode.
-        if (!(server.littleProxyCompatibility && !ex.implicit && ex.socks == 0)) {
+        // trackers do (responseSentToClient). So does a policy with filter_connect_answer off.
+        if (ex.policy.filterConnectAnswer() || ex.implicit || ex.socks != 0) {
+            ex.flow.hookSource(ResponseSource.PROXY);
             o = ex.filters.serverToProxyResponse(established);
             if (o != null) {
+                if (o instanceof HttpResponse r) ex.flow.hookSource(source(ResponseSource.PROXY, established, 200, r));
                 o = ex.filters.proxyToClientResponse(o);
             }
         }
@@ -3669,8 +3773,8 @@ final class ClientConnection implements Runnable {
                 if (server.tcpHosts != null && server.tcpHosts.matches(target.host(), null)) {
                     return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain bytes to a TCP host");
                 }
-                if (!server.littleProxyCompatibility) return servePlainSession(ex, conn, hostAndPort);
-                return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (LittleProxy compatibility)");
+                if (ex.policy.servePlainHttpAfterConnect()) return servePlainSession(ex, conn, hostAndPort);
+                return tunnelAfterPeek(ex, conn, hostAndPort, route, "plain HTTP (serve_plain_http_after_connect off)");
             }
             case OTHER -> {
                 return tunnelAfterPeek(ex, conn, hostAndPort, route, start.note());
@@ -3695,7 +3799,10 @@ final class ClientConnection implements Runnable {
                     offered = startServerTls(ex, conn, hello, target, hostAndPort);
                 } catch (SniRejected rejected) {
                     ServerConnection fresh = redialForTls(ex, conn, hostAndPort, route);
-                    if (fresh == null) throw rejected;
+                    if (fresh == null) {
+                        sniRejectionIsFinal(ex, rejected);
+                        throw rejected;
+                    }
                     conn = fresh;
                     offered = retryWithoutSni(ex, hostAndPort, rejected,
                             () -> startServerTls(ex, fresh, hello, target, hostAndPort));
@@ -3720,13 +3827,29 @@ final class ClientConnection implements Runnable {
                 // The client speaks TLS, the server does not: relay what the client sends, as is.
                 conn.close();
                 return tunnelAfterPeek(ex, null, hostAndPort, route, e.getMessage());
+            } catch (ClientFailure e) {
+                throw e;
             } catch (IOException e) {
-                // Intercept anyway: the session's requests try the server again, and are answered
-                // with the failure (a 502 for a TLS failure) through the usual filters and responder.
-                LOG.log(Level.DEBUG, ex.log + "TLS with " + hostAndPort + " failed (" + unwrap(e).getMessage()
-                        + "); intercepting without a server connection");
-                conn.close();
-                conn = null;
+                // The route's handshake failed: the next routes, after the backoff, as any failed
+                // attempt. Without one that works, intercept anyway: the client's handshake
+                // completes, and its first request is answered with the failure.
+                conn = failOverDeferredTls(ex, conn, e, hello, hostAndPort, route);
+                if (conn != null) {
+                    SSLSocket tls = (SSLSocket) conn.socket;
+                    serverSession = tls.getSession();
+                    List<String> offered = ex.offeredAlpn;
+                    serverAlpn = offered != null && (offered.contains(ClientHello.H2) || offersNoHttp(hello))
+                            ? tls.getApplicationProtocol() : null;
+                    if (conn.http2) {
+                        ServerConnection carrier = conn;
+                        conn = null;
+                        adoptForSession(ex, carrier, Mode.TLS, hostAndPort, http2Key);
+                        ex.http2Claim = null;
+                    } else if (ex.http2Claim != null && offered != null && offered.contains(ClientHello.H2)) {
+                        server.http2Origins.negotiatedHttp1(ex.http2Claim);
+                        ex.http2Claim = null;
+                    }
+                }
             }
         }
         releaseHttp2Claim(ex);
@@ -3778,27 +3901,135 @@ final class ClientConnection implements Runnable {
         return !hello.alpnProtocols().isEmpty() && hello.httpAlpnProtocols(true).isEmpty();
     }
 
+    /** Why an intercepted session's server could not be reached, for its first request; see {@link #sessionFailure}. */
+    private record SessionFailure(String hostAndPort, ProxyFailure failure, boolean retried) {}
+
+    /**
+     * After the deferred TLS handshake on {@code failed}, the connection one of {@code route} made,
+     * failed with {@code e}: counts that as a failed attempt at the route, and tries the routes
+     * after it, after the backoff wait, each with the handshake mirroring {@code hello} (as {@link
+     * #connect} tries them). Returns the new connection, kept as {@code failed} was, or null when
+     * none worked (or the connection came another way, through a session's server), having
+     * recorded the failure for the session's first request ({@link #sessionFailure}).
+     *
+     * @throws ClientFailure if the client left meanwhile
+     */
+    private ServerConnection failOverDeferredTls(Exchange ex, ServerConnection failed, IOException e,
+            ClientHello hello, String hostAndPort, List<ChainedProxy> route) throws IOException {
+        boolean reported = e instanceof AttemptReported;
+        if (reported) e = ((AttemptReported) e).failure();
+        IOException cause = unwrap(e);
+        LOG.log(Level.DEBUG, ex.log + (reported ? "connection to " : "TLS with ") + hostAndPort
+                + (failed.chainedProxy != null ? " via " + failed.chainedProxy.getChainedProxyAddress() : "")
+                + " failed: " + cause.getMessage());
+        if (!reported) {
+            // The same account of a failed attempt as the connect loop keeps for one.
+            if (failed.cluster != null) failed.cluster.connectFailed(cause);
+            if (failed.chainedProxy != null) failed.chainedProxy.connectionFailed(cause);
+            reportServerFailure(failed.flowContext, cause);
+            traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
+        }
+        int failures = ex.failedAttempts + 1;
+        List<ChainedProxy> rest = List.of();
+        if (via == null && route != null) {
+            int index = route.indexOf(routeOf(failed));
+            if (index >= 0) rest = route.subList(index + 1, route.size());
+        }
+        if (rest.isEmpty()) {
+            serverConnections.remove(failed.key, failed);
+            failed.close();
+            ex.filters.proxyToServerConnectionFailed();
+            if (failures > 1) ex.flow.addResponseFlag(ResponseFlag.UPSTREAM_RETRY_LIMIT_EXCEEDED);
+            return sessionFailed(ex, hostAndPort, e, failures > 1);
+        }
+        if (failed.cluster != null) failed.cluster.failover.inc();
+        ClientHello mirrored = ex.mirrorHello;
+        ex.mirrorHello = hello;
+        try {
+            return replace(ex, failed, hostAndPort, rest, failures, e, false);
+        } catch (ClientFailure client) {
+            throw client;
+        } catch (IOException last) {
+            return sessionFailed(ex, hostAndPort, last, true);
+        } finally {
+            ex.mirrorHello = mirrored;
+        }
+    }
+
+    /** Records that no route reached the intercepted session's server ({@link #sessionFailure}); returns null. */
+    private ServerConnection sessionFailed(Exchange ex, String hostAndPort, IOException e, boolean retried) {
+        ProxyFailure failure = e instanceof SharedConnectionPool.PoolExhaustedException
+                ? new ProxyFailure.NoConnectionAvailable(hostAndPort) : connectFailure(hostAndPort, e);
+        LOG.log(Level.DEBUG, ex.log + "no route reached " + hostAndPort + " (" + unwrap(e).getMessage()
+                + "); intercepting without a server connection, the first request to be answered "
+                + failure.status().code());
+        sessionFailure.set(new SessionFailure(hostAndPort, failure, retried));
+        return null;
+    }
+
     /**
      * A new connection to {@code hostAndPort} in place of {@code old}, whose deferred TLS handshake
-     * failed, made as {@code old} was (by {@code route}, directly or through chained proxies), its
-     * TLS pending too; null when {@code old} came another way (a tunnel through a session's
-     * server), which this does not redo: the session's requests connect anew instead.
+     * the server ended by rejecting the name it was sent, made by the same route as {@code old}
+     * (directly or through the same chained proxy), its TLS pending too, for the retry without
+     * SNI: the same attempt again, so it is not counted as a failed one, and no backoff is waited.
+     * Null when {@code old} came another way (a tunnel through a session's server), which this does
+     * not redo: the session's requests connect anew instead.
      */
     private ServerConnection redialForTls(Exchange ex, ServerConnection old, String hostAndPort,
             List<ChainedProxy> route) throws IOException {
         if (via != null || route == null) return null;
+        int failedBefore = ex.failedAttempts;
+        ServerConnection fresh;
+        ex.redialing = true;
+        try {
+            fresh = replace(ex, old, hostAndPort, List.of(routeOf(old)), 0, null, true);
+        } catch (ClientFailure e) {
+            throw e;
+        } catch (IOException e) {
+            // The connect loop reported this failure as the attempt's: it is, the rejected
+            // handshake being the same attempt.
+            throw new AttemptReported(e);
+        } finally {
+            ex.redialing = false;
+        }
+        ex.failedAttempts = failedBefore;
+        return fresh;
+    }
+
+    /** The route that made {@code conn}: its chained proxy, or the direct connection. */
+    private static ChainedProxy routeOf(ServerConnection conn) {
+        return conn.chainedProxy == null ? ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION : conn.chainedProxy;
+    }
+
+    /**
+     * Closes {@code failed}, a connection (with its TLS pending) whose attempt failed, and makes
+     * another to {@code hostAndPort} by {@code routes}, after {@code priorFailures} failed attempts
+     * (the last with {@code prior}), as the connect loop would: with the backoff, the request's
+     * remaining budget and its client-departure checks. A pooled {@code failed} hands its place in
+     * the pool's limits over to the new connection, which is leased and registered as the first
+     * one was; one that could not keep its place (it was handed over already) leases a new one.
+     * The new connection is kept by this client connection as {@code failed} was.
+     *
+     * @param deferTls whether the new connection's TLS waits too (for a retry without SNI), or
+     *     its handshake mirrors the ClientHello in the loop ({@link Exchange#mirrorHello})
+     */
+    private ServerConnection replace(Exchange ex, ServerConnection failed, String hostAndPort,
+            List<ChainedProxy> routes, int priorFailures, IOException prior, boolean deferTls) throws IOException {
         // (Kept by this connection unless an intercepted stream's session holds it.)
-        boolean kept = serverConnections.remove(old.key, old);
-        old.close();
+        boolean kept = serverConnections.remove(failed.key, failed);
+        SharedConnectionPool pool = failed.pool;
+        boolean reserved = pool != null && pool.handOver(failed);
+        failed.close();
         boolean defer = ex.deferServerTls;
-        ex.deferServerTls = true;
+        ex.deferServerTls = deferTls;
         ServerConnection fresh;
         try {
-            fresh = connect(hostAndPort, ex, route, Mode.TLS);
+            fresh = usesPool(Mode.TLS) ? lease(hostAndPort, ex, routes, Mode.TLS, priorFailures, prior, reserved)
+                    : connect(hostAndPort, ex, routes, Mode.TLS, via, priorFailures, prior);
         } finally {
             ex.deferServerTls = defer;
         }
-        fresh.key = old.key;
+        fresh.key = failed.key;
         try {
             ex.channel.serverConnectionInUse(fresh);
         } catch (IOException e) {
@@ -3819,10 +4050,37 @@ final class ClientConnection implements Runnable {
      */
     private List<String> startServerTls(Exchange ex, ServerConnection conn, ClientHello hello, HostAndPort target,
             String hostAndPort) throws IOException {
-        String sniHost = Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
-        List<String> alpn = offersNoHttp(hello) ? hello.alpnProtocols() : upstreamAlpn(ex.offerHttp2, hello);
-        layerServerTls(ex, conn, target, sniHost, hostAndPort, alpn);
+        List<String> alpn = mirroredAlpn(ex, hello);
+        layerServerTls(ex, conn, target, mirroredSni(target, hello), hostAndPort, alpn);
         return alpn;
+    }
+
+    /** The server name a handshake that mirrors {@code hello} sends: its SNI for a {@code CONNECT} to an IP address. */
+    private static String mirroredSni(HostAndPort target, ClientHello hello) {
+        return Tls.isIpLiteral(target.host()) && hello.sni() != null ? hello.sni() : target.host();
+    }
+
+    /**
+     * The ALPN protocols a handshake that mirrors {@code hello} offers: those the proxy speaks,
+     * or all of them when none is HTTP (the session is then relayed as raw TCP).
+     */
+    private static List<String> mirroredAlpn(Exchange ex, ClientHello hello) {
+        return offersNoHttp(hello) ? hello.alpnProtocols() : upstreamAlpn(ex.offerHttp2, hello);
+    }
+
+    /**
+     * Runs the TLS handshake with the server over {@code active} for a connection the connect
+     * loop makes: mirroring the client's ClientHello when one is at hand ({@link
+     * Exchange#mirrorHello}), else with the {@code CONNECT}'s host and the protocols the proxy
+     * offers on its own.
+     */
+    private SSLSocket loopServerTls(Exchange ex, Socket active, HostAndPort target, String hostAndPort,
+            FullFlowContext serverContext) throws IOException {
+        ClientHello hello = ex.mirrorHello;
+        List<String> alpn = hello != null ? mirroredAlpn(ex, hello) : upstreamAlpn(ex.offerHttp2, sessionHello());
+        ex.offeredAlpn = alpn;
+        return serverTls(ex, active, target, hello != null ? mirroredSni(target, hello) : target.host(), hostAndPort,
+                serverContext, alpn);
     }
 
     /**
@@ -4069,8 +4327,12 @@ final class ClientConnection implements Runnable {
             if (!server.transparent) {
                 modifyResponseHeadersToReflectProxying(established, true);
             }
+            ex.flow.hookSource(ResponseSource.SERVER);
             HttpObject o = ex.filters.serverToProxyResponse(established);
             if (o != null) {
+                if (o instanceof HttpResponse r) {
+                    ex.flow.hookSource(source(ResponseSource.SERVER, established, established.status().code(), r));
+                }
                 o = ex.filters.proxyToClientResponse(o);
             }
             if (!(o instanceof HttpResponse response)) {
@@ -4487,6 +4749,8 @@ final class ClientConnection implements Runnable {
      * QUIC flow, decided on before its handshake).
      */
     private void serveHttp3(io.github.mahmoudimus.quic.QuicConnection quic, boolean connected) {
+        // (A transparent QUIC flow's was recorded when it was decided on.)
+        if (flowContext.localAddress() == null) flowContext.localAddress(quic.localAddress());
         try {
             if (connected) {
                 cxOpened(null);
@@ -4563,6 +4827,10 @@ final class ClientConnection implements Runnable {
      */
     QuicDecision decideTransparentQuic(ClientHello hello, String hostAndPort, boolean canIntercept, boolean masque) {
         idle = false;
+        if (!masque && flowContext.localAddress() == null) {
+            TransparentQuicListener listener = server.transparentQuicListener();
+            if (listener != null) flowContext.localAddress(listener.localAddress());
+        }
         flowContext.transparentQuic();
         flowContext.clientHello(hello);
         flowContext.startExchange();
@@ -4832,11 +5100,23 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode)
             throws IOException {
+        return lease(hostAndPort, ex, route, mode, 0, null, false);
+    }
+
+    /**
+     * Leases as {@link #lease(String, Exchange, List, Mode)} does, after {@code priorFailures}
+     * failed attempts (the last with {@code prior}) at the routes before {@code route}, as {@link
+     * #connect(String, Exchange, List, Mode, Hop, int, IOException)} counts them. With {@code
+     * reserved}, the caller holds a reservation for the host already, handed over from a failed
+     * attempt ({@link SharedConnectionPool#handOver}): the new connection takes it.
+     */
+    private ServerConnection lease(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode,
+            int priorFailures, IOException prior, boolean reserved) throws IOException {
         String hostKey = mode + "|" + hostAndPort;
         // (The TLS identity keeps connections apart, but the per-host limit counts them all.)
         String managerKey = mitmPoolKey(mode) + tlsIdentityKey(ex, mode, hostAndPort);
-        ServerConnection conn = server.pool.acquire(hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey,
-                Math.max(1000, server.getConnectTimeout()));
+        ServerConnection conn = reserved ? null : server.pool.acquire(
+                hostKey + "|" + routeKey(route.getFirst()) + managerKey, hostKey, Math.max(1000, server.getConnectTimeout()));
         if (conn != null) {
             if (LOG.isLoggable(Level.DEBUG)) {
                 LOG.log(Level.DEBUG, ex.log + "reusing pooled " + conn);
@@ -4844,7 +5124,7 @@ final class ClientConnection implements Runnable {
             conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress);
         } else {
             try {
-                conn = connect(hostAndPort, ex, route, mode);
+                conn = connect(hostAndPort, ex, route, mode, via, priorFailures, prior);
             } catch (IOException | RuntimeException e) {
                 server.pool.cancel(hostKey);
                 throw e;
@@ -5025,6 +5305,16 @@ final class ClientConnection implements Runnable {
      */
     private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via)
             throws IOException {
+        return connect(hostAndPort, ex, route, mode, via, 0, null);
+    }
+
+    /**
+     * Connects as {@link #connect(String, Exchange, List, Mode, Hop)} does, after {@code
+     * priorFailures} attempts at the routes before {@code route} failed, the last with {@code
+     * prior}: the first of {@code route} is then a retry, after the backoff wait, and counts them.
+     */
+    private ServerConnection connect(String hostAndPort, Exchange ex, List<ChainedProxy> route, Mode mode, Hop via,
+            int priorFailures, IOException prior) throws IOException {
         if (via != null) {
             try {
                 return connectThrough(via, hostAndPort, ex, mode);
@@ -5032,23 +5322,22 @@ final class ClientConnection implements Runnable {
                 return retryWithoutSni(ex, hostAndPort, rejected, () -> connectThrough(via, hostAndPort, ex, mode));
             }
         }
-        IOException last = null;
-        boolean connecting = false;
-        int failures = 0;
-        // Which backoff applies is asked only once an attempt has failed (null before).
-        RetryBackoff backoff = null;
-        long backoffBudget = 0;
+        IOException last = prior;
+        boolean connecting = prior != null;
+        int failures = priorFailures;
+        // Which backoff applies is asked only once an attempt has failed (null before), once per
+        // exchange: its budget is the exchange's, whatever passes of this loop draw on it.
         ProxyStats.ClusterStats failedCluster = null;
         for (ChainedProxy candidate : route) {
             ChainedProxy proxy = candidate == ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION ? null : candidate;
             // The last attempt failed and this one takes over from it.
             if (failedCluster != null) failedCluster.failover.inc();
-            if (failures > 0 && backoff == null) {
-                backoff = retryBackoff(ex);
-                backoffBudget = backoff.isNone() ? 0 : backoffBudgetNanos(ex);
+            if (failures > 0 && ex.backoff == null) {
+                ex.backoff = retryBackoff(ex);
+                ex.backoffBudget = ex.backoff.isNone() ? 0 : backoffBudgetNanos(ex, ex.backoff);
             }
-            if (failures > 0 && backoffBudget > 0) {
-                backoffBudget -= backOff(ex, backoff, failures, backoffBudget, hostAndPort, proxy);
+            if (failures > 0 && ex.backoffBudget > 0) {
+                ex.backoffBudget -= backOff(ex, ex.backoff, failures, ex.backoffBudget, hostAndPort, proxy);
             }
             ex.attempt = null;
             if (ex.trace != FlowTrace.NONE) {
@@ -5066,6 +5355,7 @@ final class ClientConnection implements Runnable {
                 if (proxy != null) {
                     proxy.connectionSucceeded();
                 }
+                ex.failedAttempts = failures;
                 connected(ex, conn);
                 return conn;
             } catch (NotTlsServer e) {
@@ -5093,7 +5383,7 @@ final class ClientConnection implements Runnable {
                 traceAttemptEnded(ex, ClientFlowContext.failureKind(connectFailure(hostAndPort, e)));
             }
         }
-        if (connecting) {
+        if (connecting && !ex.redialing) {
             ex.filters.proxyToServerConnectionFailed();
         }
         if (failures > 1) {
@@ -5110,10 +5400,18 @@ final class ClientConnection implements Runnable {
         server.trackers.fire(t -> t.serverConnected(conn.flowContext, conn.remoteAddress));
     }
 
-    /** The longest all backoff waits of one request may add up to: 30 s or the connect timeout. */
+    /** The longest all backoff waits of one request may add up to by default: 30 s or the connect timeout. */
     private static final long MAX_BACKOFF_TOTAL_NANOS = TimeUnit.SECONDS.toNanos(30);
 
-    private long backoffBudgetNanos(Exchange ex) {
+    /**
+     * The most all backoff waits of {@code ex}'s request may add up to: {@code backoff}'s own
+     * budget ({@link RetryBackoff#withBudget}), none ({@link RetryBackoff#unbudgeted()}), else the
+     * connect timeout, at most 30 s.
+     */
+    private long backoffBudgetNanos(Exchange ex, RetryBackoff backoff) {
+        if (backoff.isUnbudgeted()) return Long.MAX_VALUE;
+        java.util.Optional<java.time.Duration> own = backoff.budget();
+        if (own.isPresent()) return own.get().toNanos();
         long connectTimeout = TimeUnit.MILLISECONDS.toNanos(connectTimeoutMillis(ex));
         return connectTimeout > 0 ? Math.min(connectTimeout, MAX_BACKOFF_TOTAL_NANOS) : MAX_BACKOFF_TOTAL_NANOS;
     }
@@ -5351,7 +5649,7 @@ final class ClientConnection implements Runnable {
             // CONNECT, and not at all when there is no tunnel to the final server (SOCKS, or a
             // plain request forwarded to an HTTP chained proxy).
             if (server.sendProxyProtocol && proxy == null) {
-                writeProxyProtocolHeader(rawOut, remote);
+                writeProxyProtocolHeader(ex, rawOut, remote);
             } else if (server.sendProxyProtocol && (socks || mode == Mode.PLAIN)) {
                 LOG.log(Level.DEBUG, ex.log + "not sending a PROXY header: no tunnel to {0} through {1} chained proxy {2}",
                         hostAndPort, type, remote);
@@ -5373,7 +5671,7 @@ final class ClientConnection implements Runnable {
                             + (reply == null ? "connection closed" : reply.status()));
                 }
                 if (server.sendProxyProtocol) {
-                    writeProxyProtocolHeader(rawOut, remote);
+                    writeProxyProtocolHeader(ex, rawOut, remote);
                 }
             }
             boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
@@ -5381,8 +5679,7 @@ final class ClientConnection implements Runnable {
                 if (reader.buffered() > 0) {
                     throw new ProtocolException("unexpected data from server before TLS handshake");
                 }
-                active = serverTls(ex, active, target, target.host(), hostAndPort, serverContext,
-                        upstreamAlpn(ex.offerHttp2, sessionHello()));
+                active = loopServerTls(ex, active, target, hostAndPort, serverContext);
                 reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers);
                 output = new PooledOutputStream(serverOutput(active, currentContext, cluster), server.ioBuffers);
             }
@@ -5402,7 +5699,9 @@ final class ClientConnection implements Runnable {
         } catch (IOException e) {
             Tls.closeQuietly(plain);
             // (A server that does not speak TLS was reached: it is tunnelled to instead.)
-            if (!(e instanceof NotTlsServer)) cluster.connectFailed(e);
+            // (A server that does not speak TLS was reached: it is tunnelled to instead. A
+            // rejected name is the same attempt again, without SNI: counted if that fails.)
+            if (!(e instanceof NotTlsServer) && !(e instanceof SniRejected)) cluster.connectFailed(e);
             throw e;
         } catch (RuntimeException e) {
             Tls.closeQuietly(plain);
@@ -5554,14 +5853,13 @@ final class ClientConnection implements Runnable {
             ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext = () -> holder[0] != null ? holder[0].flowContext : serverContext;
             if (server.sendProxyProtocol) {
-                writeProxyProtocolHeader(tunnel.getOutputStream(), stream.remoteAddress);
+                writeProxyProtocolHeader(ex, tunnel.getOutputStream(), stream.remoteAddress);
             }
             Socket active = tunnel;
             boolean deferTls = mode == Mode.TLS && ex.deferServerTls;
             if (mode == Mode.TLS && !deferTls) {
                 HostAndPort target = HostAndPort.parse(hostAndPort, 80);
-                active = serverTls(ex, tunnel, target, target.host(), hostAndPort, serverContext,
-                        upstreamAlpn(ex.offerHttp2, sessionHello()));
+                active = loopServerTls(ex, tunnel, target, hostAndPort, serverContext);
             }
             ByteReader reader = new ByteReader(trackedInput(active.getInputStream(), currentContext), server.ioBuffers);
             OutputStream output = new PooledOutputStream(trackedOutput(active.getOutputStream(), currentContext),
@@ -5628,14 +5926,25 @@ final class ClientConnection implements Runnable {
                 throw new NotTlsServer(hostAndPort, ssl);
             }
             cluster.sslConnectionError.inc();
-            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
-            if (sent != null && server.tlsRetryWithoutSni && Tls.serverRejectedName(e)) {
-                // (The failure is the exchange's only if the retry fails too.)
-                throw new SniRejected(e, sent, cluster);
+            if (sent != null && ex.policy.tlsRetryWithoutSni() && Tls.serverRejectedName(e)) {
+                // The same attempt goes on without SNI: its failure, if any, is the retry's, and
+                // only that is reported (sniRejectionIsFinal reports this one when no retry follows).
+                throw new SniRejected(e, sent, cluster, serverContext);
             }
+            server.trackers.fire(t -> t.tlsHandshakeFailed(serverContext, false, e));
             ex.flow.transportFailure(e);
             throw new TlsHandshakeFailed(e);
         }
+    }
+
+    /**
+     * Reports {@code rejected} as the TLS failure it is, when no retry without SNI follows after
+     * all: {@link #serverTls} left that to whoever would retry.
+     */
+    private void sniRejectionIsFinal(Exchange ex, SniRejected rejected) {
+        IOException cause = (IOException) rejected.getCause();
+        server.trackers.fire(t -> t.tlsHandshakeFailed(rejected.serverContext, false, cause));
+        ex.flow.transportFailure(cause);
     }
 
     /** A connection attempt that may be made again. */
@@ -5752,13 +6061,13 @@ final class ClientConnection implements Runnable {
     }
 
     /** @param remote the address this server connection goes to */
-    private void writeProxyProtocolHeader(OutputStream os, InetSocketAddress remote) throws IOException {
+    private void writeProxyProtocolHeader(Exchange ex, OutputStream os, InetSocketAddress remote) throws IOException {
         ProxyProtocol.Header received = proxyHeader;
         InetSocketAddress source = clientDetails.getClientAddress();
         InetSocketAddress destination;
         if (received != null && received.destination() != null) {
             destination = received.destination();
-        } else if (server.littleProxyCompatibility) {
+        } else if (ex.policy.proxyProtocolDestination() == ProxyProtocolDestination.SERVER_ADDRESS) {
             // LittleProxy names the server connection's remote end, and skips mixed families.
             destination = remote;
             if (source != null && source.getAddress() != null && destination.getAddress() != null
@@ -6024,10 +6333,27 @@ final class ClientConnection implements Runnable {
         boolean keepAlive = HttpUtil.isKeepAlive(response) && ex.clientKeepAlive
                 && !ex.bodyUnread() && !ex.bodyAbandoned;
         int status = response.status().code();
-        HttpObject filtered = ex.filters.proxyToClientResponse(response);
-        if (!(filtered instanceof HttpResponse res)) {
-            ex.channel.close();
-            return false;
+        ex.flow.hookSource(source(source, response, status, response));
+        GeneratedResponses filtering = ex.policy.generatedResponses();
+        HttpResponse res = response;
+        if (filtering != GeneratedResponses.SKIP) {
+            HttpObject filtered = ex.filters.proxyToClientResponse(response);
+            if (filtered == null || (filtering == GeneratedResponses.REPLACEABLE
+                    && !(filtered instanceof HttpResponse))) {
+                ex.channel.close();
+                return false;
+            }
+            if (filtering == GeneratedResponses.REPLACEABLE) {
+                res = (HttpResponse) filtered;
+            } else {
+                // As LittleProxy 1.x's respondWithShortCircuitResponse: the hook's changes in place stick,
+                // and it may drop the response, but what is sent is the response it was given.
+                if (filtered != response) {
+                    LOG.log(Level.DEBUG, ex.log + "proxyToClientResponse returned another response for the proxy's "
+                            + status + " (" + source + "); sending the proxy's (in-place filtering)");
+                }
+                keepAlive &= HttpUtil.isKeepAlive(response);
+            }
         }
         if (rewriteHeaders && !server.transparent) {
             modifyResponseHeadersToReflectProxying(res, false);
@@ -6038,7 +6364,8 @@ final class ClientConnection implements Runnable {
         ex.channel.setKeepAlive(res, keepAlive);
         boolean bodyAllowed = Framing.responseMayHaveBody(res, ex.request.method());
         ex.responseStarted = true;
-        writeToClient(() -> ex.channel.writeComplete(res, bodyAllowed));
+        HttpResponse written = res;
+        writeToClient(() -> ex.channel.writeComplete(written, bodyAllowed));
         countFull(ex, res, bodyAllowed);
         ResponseSource sent = source(source, response, status, res);
         sent(ex, res, sent);

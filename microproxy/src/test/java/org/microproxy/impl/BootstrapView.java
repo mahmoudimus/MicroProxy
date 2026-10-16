@@ -248,6 +248,11 @@ public record BootstrapView(
         return ((DefaultHttpProxyServerBootstrap) bootstrap).retriesTlsWithoutSni();
     }
 
+    /** The protocol policy of HTTP/{@code version} clients, every field resolved. */
+    public static org.microproxy.ProtocolPolicy protocolPolicy(HttpProxyServerBootstrap bootstrap, int version) {
+        return ((DefaultHttpProxyServerBootstrap) bootstrap).effectivePolicy(version);
+    }
+
     /** The HTTP/3 options as configured. */
     public static org.microproxy.Http3Options http3Options(HttpProxyServerBootstrap bootstrap) {
         return ((DefaultHttpProxyServerBootstrap) bootstrap).http3Options;

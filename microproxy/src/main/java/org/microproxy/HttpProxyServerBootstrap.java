@@ -427,8 +427,10 @@ public interface HttpProxyServerBootstrap {
      *
      * <p>Off by default, so that a server that rejects its name fails visibly, as it does for
      * browsers and the JDK's {@code HttpClient}, and the proxy never sends a ClientHello other
-     * than the one asked for; on by default with {@link #withLittleProxyCompatibility(boolean)}.
-     * Calling this method decides either way.
+     * than the one asked for; on by default for HTTP/1 clients with {@link
+     * #withLittleProxyCompatibility(boolean)}. This sets the field for every client protocol
+     * ({@link #onAllProtocols}, {@link ProtocolPolicy#tlsRetryWithoutSni()}), where it wins over
+     * that preset; a protocol's own policy ({@link #onHttp1}, ...) wins over it.
      *
      * @param retry whether to retry without SNI after an {@code unrecognized_name} alert
      * @return this bootstrap
@@ -438,32 +440,101 @@ public interface HttpProxyServerBootstrap {
     }
 
     /**
-     * Behaves like LittleProxy where MicroProxy deliberately differs, for filters that depend on
-     * it:
+     * Sets fields of the {@link ProtocolPolicy} of every client protocol: below each protocol's
+     * own ({@link #onHttp1}, {@link #onHttp2}, {@link #onHttp3}), above the protocols' defaults.
+     * Calls add up: a later one overwrites only the fields it sets. The bootstrap's setters for
+     * those fields ({@link #withTlsRetryWithoutSni}) set them here too.
+     *
+     * <pre>{@code
+     * bootstrap.onAllProtocols(p -> p.tlsRetryWithoutSni(true));
+     * }</pre>
+     *
+     * @param policy sets fields on the builder it is given
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap onAllProtocols(java.util.function.Consumer<ProtocolPolicy.Builder> policy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support protocol policies");
+    }
+
+    /**
+     * Sets fields of the {@link ProtocolPolicy} of HTTP/1.x clients, which win over those set for
+     * every protocol ({@link #onAllProtocols}) and over HTTP/1's defaults. The builder also takes
+     * the fields only HTTP/1 has ({@link Http1PolicyBuilder#allowChunkedLength}). Calls add up:
+     * a later one overwrites only the fields it sets.
+     *
+     * <pre>{@code
+     * bootstrap.onHttp1(p -> p.preset(ProtocolPolicy.littleProxy()).filterConnectAnswer(true));
+     * }</pre>
+     *
+     * @param policy sets fields on the builder it is given
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap onHttp1(java.util.function.Consumer<Http1PolicyBuilder> policy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support protocol policies");
+    }
+
+    /**
+     * Sets fields of the {@link ProtocolPolicy} of HTTP/2 clients (h2 and h2c), which win over
+     * those set for every protocol ({@link #onAllProtocols}). Calls add up.
+     *
+     * @param policy sets fields on the builder it is given
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap onHttp2(java.util.function.Consumer<ProtocolPolicy.Builder> policy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support protocol policies");
+    }
+
+    /**
+     * Sets fields of the {@link ProtocolPolicy} of HTTP/3 clients (the HTTP/3 listener,
+     * transparent QUIC, QUIC inside CONNECT-UDP flows), which win over those set for every
+     * protocol ({@link #onAllProtocols}). Calls add up.
+     *
+     * @param policy sets fields on the builder it is given
+     * @return this bootstrap
+     */
+    default HttpProxyServerBootstrap onHttp3(java.util.function.Consumer<ProtocolPolicy.Builder> policy) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support protocol policies");
+    }
+
+    /**
+     * Makes {@link ProtocolPolicy#littleProxy()} the defaults of HTTP/1.x clients' policy, so that
+     * the proxy behaves like LittleProxy where MicroProxy deliberately differs, for filters that
+     * depend on it. LittleProxy only ever spoke HTTP/1.x: HTTP/2 and HTTP/3 clients keep
+     * MicroProxy's defaults unless their own policies say otherwise ({@link #onHttp2}, {@link
+     * #onHttp3}). Every field set explicitly, for HTTP/1 ({@link #onHttp1}) or for all protocols
+     * ({@link #onAllProtocols}, {@link #withTlsRetryWithoutSni}), wins over the preset. The fields
+     * and their LittleProxy sources are listed at {@link ProtocolPolicy#littleProxy()}:
      *
      * <ul>
-     *   <li>A server that rejects the server name the proxy sends with an {@code unrecognized_name}
-     *       alert is tried again without SNI ({@link #withTlsRetryWithoutSni}), unless that is
-     *       set explicitly.
-     *   <li>The server is resolved before {@link HttpFilters#proxyToServerRequest} rather than
-     *       after it; a name that does not resolve gets {@code 502} without that hook being called.
-     *   <li>A PROXY header sent without one received ({@link #withSendProxyProtocol}) names the
+     *   <li>the server is resolved before {@link HttpFilters#proxyToServerRequest}, and a name
+     *       that does not resolve gets {@code 502} without that hook being called;
+     *   <li>the {@code 200 Connection established} answer to a client's {@code CONNECT} is
+     *       written without going through {@link HttpFilters#serverToProxyResponse} and {@link
+     *       HttpFilters#proxyToClientResponse}; trackers are still told ({@link
+     *       ActivityTracker#responseSentToClient}), and {@link HttpFilters#proxyToClientResponseSent}
+     *       and {@link HttpFilters#exchangeEnded} still run;
+     *   <li>plain HTTP sent after a {@code CONNECT} that could be intercepted is relayed as raw
+     *       bytes rather than served as HTTP;
+     *   <li>a PROXY header sent without one received ({@link #withSendProxyProtocol}) names the
      *       server connection's remote address as its destination, not the address the client
-     *       connected to; and none is sent when the client and that address are of different
-     *       address families.
-     *   <li>The proxy's {@code 200 Connection established} answer to a client's {@code CONNECT}
-     *       is written without going through {@link HttpFilters#serverToProxyResponse} and {@link
-     *       HttpFilters#proxyToClientResponse}, so filters can neither see nor change it; trackers
-     *       are still told ({@link ActivityTracker#responseSentToClient}), and {@link
-     *       HttpFilters#proxyToClientResponseSent} and {@link HttpFilters#exchangeEnded} still run.
-     *       The {@code CONNECT}s the proxy makes up itself (transparent TLS, SOCKS, raw TCP reverse
-     *       proxying), which LittleProxy does not have, are unaffected.
+     *       connected to, and none is sent when the client and that address are of different
+     *       address families;
+     *   <li>a server that rejects the server name the proxy sends with an {@code unrecognized_name}
+     *       alert is tried again without SNI ({@link #withTlsRetryWithoutSni});
+     *   <li>the TLS handshake with the server of an intercepted {@code CONNECT} runs before the
+     *       {@code CONNECT} is answered ({@link MitmServerHandshake#EAGER}), so a failure answers it
+     *       {@code 502}.
      * </ul>
+     *
+     * <p>{@link HttpFilters#proxyToClientResponse} may replace the proxy's own responses, as in
+     * LittleProxy 2.x and by default ({@link GeneratedResponses#REPLACEABLE}); forks of LittleProxy
+     * 1.x let it change them in place only, which {@code onHttp1(p ->
+     * p.generatedResponses(GeneratedResponses.IN_PLACE))} restores.
      *
      * <p>Security fixes (strict request parsing, error pages that do not echo the request) are not
      * affected. Off by default.
      *
-     * @param compatible whether to enable the documented LittleProxy compatibility behaviors
+     * @param compatible whether HTTP/1's defaults are LittleProxy's
      * @return this bootstrap
      */
     HttpProxyServerBootstrap withLittleProxyCompatibility(boolean compatible);
@@ -564,8 +635,11 @@ public interface HttpProxyServerBootstrap {
      * RetryBackoff#exponentialWithJitter} for random ones ("full jitter"), {@link
      * RetryBackoff#fixed} for the same wait every time. It never waits before the first attempt or
      * after the last, stops waiting (and gives up on the request) when the client disconnects
-     * meanwhile, and waits at most 30 seconds or the connect timeout in total per request,
-     * whichever is less; once that is spent, the remaining candidates are tried without waiting.
+     * meanwhile, and by default waits at most 30 seconds or the connect timeout in total per
+     * request, whichever is less; once that is spent, the remaining candidates are tried without
+     * waiting. The policy can set another budget ({@link RetryBackoff#withBudget}) or none ({@link
+     * RetryBackoff#unbudgeted()}), to wait every time it names as LittleProxy forks that added a
+     * backoff did.
      * The wait counts towards the connect phase of {@link FlowContext#timings()}. A request's
      * filters can choose another backoff ({@link HttpFilters#chainedProxyRetryBackoff()}). Off
      * ({@link RetryBackoff#none()}) by default, as in LittleProxy, which tries the next chained
@@ -1142,6 +1216,8 @@ public interface HttpProxyServerBootstrap {
      * <p>Off by default, with LittleProxy compatibility too (LittleProxy answers such requests
      * {@code 400}): a request with both framings is the classic request smuggling vector, and
      * rejecting it is the safe answer. Turn it on only for clients known to send such requests.
+     * HTTP/1's own policy can decide too ({@link Http1PolicyBuilder#allowChunkedLength}), and
+     * wins over this.
      *
      * @param allow whether to accept requests with both {@code Transfer-Encoding} and {@code
      *     Content-Length}

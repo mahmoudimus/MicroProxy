@@ -225,6 +225,41 @@ class ChainedProxyBackoffTest {
     }
 
     @Test
+    void anUnbudgetedPolicyWaitsTheWholeDoublingSequence() throws Exception {
+        // As LittleProxy forks that added a backoff: 3.1 s of waits with a 2 s connect timeout.
+        start(MicroProxy.bootstrap().withConnectTimeout(2000)
+                        .withChainedProxyRetryBackoff(
+                                RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(5)).unbudgeted()),
+                refused(), refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        proxy.backoffRandom = null;
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(100, 200, 400, 800, 1600), waits);
+    }
+
+    @Test
+    void theSameWaitsAreCutAtTheDefaultBudget() throws Exception {
+        start(MicroProxy.bootstrap().withConnectTimeout(2000)
+                        .withChainedProxyRetryBackoff(RetryBackoff.exponential(Duration.ofMillis(100), Duration.ofSeconds(5))),
+                refused(), refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        // 2 s in all: 100 + 200 + 400 + 800, then the 500 ms left.
+        assertEquals(millis(100, 200, 400, 800, 500), waits);
+    }
+
+    @Test
+    void aPolicysOwnBudgetReplacesTheDefault() throws Exception {
+        start(MicroProxy.bootstrap().withConnectTimeout(60_000)
+                        .withFiltersSource(HttpFilters.builder().retryBackoff(
+                                RetryBackoff.fixed(Duration.ofMillis(400)).withBudget(Duration.ofMillis(1000))).build()),
+                refused(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(400, 400, 200), waits);
+    }
+
+    @Test
     void chainsUseTheFirstFilterThatNamesABackoff() {
         var request = new org.microproxy.http.DefaultHttpRequest(org.microproxy.http.HttpVersion.HTTP_1_1,
                 org.microproxy.http.HttpMethod.GET, "http://example.com/");
@@ -253,11 +288,24 @@ class ChainedProxyBackoffTest {
         start(MicroProxy.bootstrap().withMetrics(true)
                         .withChainedProxyRetryBackoff(Duration.ofMillis(400), Duration.ofMillis(400)),
                 first, second, ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
+        // The first wait holds until the test has looked at the stats during it.
+        CountDownLatch waiting = new CountDownLatch(1);
+        CountDownLatch looked = new CountDownLatch(1);
+        proxy.backoffSleeper = nanos -> {
+            waiting.countDown();
+            try {
+                looked.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        };
         String url = origin();
         AtomicReference<long[]> result = new AtomicReference<>();
         Thread request = Thread.ofVirtual().start(() -> result.set(timedGet(url)));
-        // While it waits before trying the second proxy, the second proxy's cluster is backing off
-        TestSupport.eventually("the second proxy backing off", () -> clusterStat(second, "backoff_active") == 1);
+        assertTrue(waiting.await(10, TimeUnit.SECONDS));
+        // While it waits before trying the second proxy, the second proxy's cluster is backing off.
+        assertEquals(1, clusterStat(second, "backoff_active"));
+        looked.countDown();
         request.join(10_000);
         assertEquals(200, result.get()[0]);
         org.microproxy.stats.StatsRegistry r = proxy.getStats();
@@ -277,40 +325,42 @@ class ChainedProxyBackoffTest {
     @Test
     void noWaitingUnlessConfigured() throws Exception {
         start(MicroProxy.bootstrap(), refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
-        long[] result = timedGet(origin());
-        assertEquals(200, result[0]);
-        assertTrue(result[1] < 2000, "took " + result[1] + " ms");
+        List<Duration> waits = recordWaits();
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(List.of(), waits);
     }
 
     @Test
     void waitsBetweenAttemptsAndCountsTowardsTheConnectPhase() throws Exception {
         start(MicroProxy.bootstrap().withChainedProxyRetryBackoff(Duration.ofMillis(100), Duration.ofMillis(150)),
                 refused(), refused(), refused(), ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
-        long[] result = timedGet(origin());
-        assertEquals(200, result[0]);
-        // 100 + 150 + 150 ms of waiting before the direct connection.
-        assertTrue(result[1] >= 380, "took only " + result[1] + " ms");
-        assertTrue(result[1] < 5000, "took " + result[1] + " ms");
+        // The waits are recorded and really slept, so they show in the exchange's timings.
+        List<Duration> waits = new CopyOnWriteArrayList<>();
+        proxy.backoffSleeper = nanos -> {
+            waits.add(Duration.ofNanos(nanos));
+            java.util.concurrent.locks.LockSupport.parkNanos(nanos);
+        };
+        assertEquals(200, timedGet(origin())[0]);
+        assertEquals(millis(100, 150, 150), waits);
         TestSupport.eventually("the exchange's timings", () -> timings.get() != null);
         long connect = timings.get().connect().orElseThrow().toMillis();
-        assertTrue(connect >= 380, "the connect phase took only " + connect + " ms");
+        assertTrue(connect >= 400, "the connect phase took only " + connect + " ms");
     }
 
     @Test
     void neverWaitsBeforeTheFirstAttemptOrAfterTheLast() throws Exception {
         start(MicroProxy.bootstrap().withChainedProxyRetryBackoff(Duration.ofSeconds(1), Duration.ofSeconds(1)),
                 refused());
-        long[] one = timedGet(origin());
-        assertEquals(502, one[0]);
-        assertTrue(one[1] < 800, "a single failed attempt took " + one[1] + " ms");
+        List<Duration> one = recordWaits();
+        assertEquals(502, timedGet(origin())[0]);
+        assertEquals(List.of(), one, "a single failed attempt waits for nothing");
         proxy.abort();
 
         start(MicroProxy.bootstrap().withChainedProxyRetryBackoff(Duration.ofSeconds(1), Duration.ofSeconds(1)),
                 refused(), refused());
-        long[] two = timedGet(origin());
-        assertEquals(502, two[0]);
-        assertTrue(two[1] >= 950, "waited only " + two[1] + " ms between the attempts");
-        assertTrue(two[1] < 1900, "took " + two[1] + " ms: waited after the last attempt too");
+        List<Duration> two = recordWaits();
+        assertEquals(502, timedGet(origin())[0]);
+        assertEquals(millis(1000), two, "one wait between the attempts, none after the last");
     }
 
     @Test
@@ -318,11 +368,10 @@ class ChainedProxyBackoffTest {
         start(MicroProxy.bootstrap().withConnectTimeout(600)
                         .withChainedProxyRetryBackoff(Duration.ofMillis(500), Duration.ofMillis(500)),
                 refused(), refused(), refused(), refused(), refused(), refused());
-        long[] result = timedGet(origin());
-        assertEquals(502, result[0]);
-        // Five waits of 500 ms would take 2.5 s; the budget is 600 ms.
-        assertTrue(result[1] >= 550, "waited only " + result[1] + " ms");
-        assertTrue(result[1] < 1800, "took " + result[1] + " ms");
+        List<Duration> waits = recordWaits();
+        assertEquals(502, timedGet(origin())[0]);
+        // Five waits of 500 ms would be 2.5 s; the budget is 600 ms.
+        assertEquals(millis(500, 100), waits);
     }
 
     @Test
@@ -332,8 +381,9 @@ class ChainedProxyBackoffTest {
         closeables.add(second);
         CountDownLatch firstFailed = new CountDownLatch(1);
         CountDownLatch ended = new CountDownLatch(1);
+        // A ten-minute wait, without a budget to shorten it: only the client leaving ends it in time.
         start(MicroProxy.bootstrap()
-                        .withChainedProxyRetryBackoff(Duration.ofSeconds(5), Duration.ofSeconds(5))
+                        .withChainedProxyRetryBackoff(RetryBackoff.fixed(Duration.ofMinutes(10)).unbudgeted())
                         .withFiltersSource((request, flow) -> new HttpFilters() {
                             @Override
                             public void exchangeEnded(boolean completed) {
@@ -351,10 +401,7 @@ class ChainedProxyBackoffTest {
             TestSupport.write(client.getOutputStream(), "GET " + origin() + " HTTP/1.1\r\nHost: x\r\n\r\n");
             assertTrue(firstFailed.await(10, TimeUnit.SECONDS));
         }
-        long start = System.nanoTime();
-        assertTrue(ended.await(10, TimeUnit.SECONDS));
-        long took = Duration.ofNanos(System.nanoTime() - start).toMillis();
-        assertTrue(took < 3000, "noticed the client leaving after " + took + " ms");
+        assertTrue(ended.await(30, TimeUnit.SECONDS), "the client leaving ended the wait");
         assertEquals(0, reached.get(), "the next candidate was not tried for a client that left");
     }
 
@@ -375,6 +422,18 @@ class ChainedProxyBackoffTest {
         assertEquals(RetryBackoff.exponentialWithJitter(Duration.ofMillis(100), Duration.ofMillis(2000)),
                 DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff);
         p.remove("chained_proxy_backoff_jitter");
+
+        p.setProperty("chained_proxy_backoff_budget_ms", "unlimited");
+        assertTrue(DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.isUnbudgeted());
+        p.setProperty("chained_proxy_backoff_budget_ms", "5000");
+        assertEquals(java.util.Optional.of(Duration.ofSeconds(5)),
+                DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.budget());
+        p.setProperty("chained_proxy_backoff_budget_ms", "0");
+        assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(p));
+        p.remove("chained_proxy_backoff_budget_ms");
+        Properties budgetOnly = new Properties();
+        budgetOnly.setProperty("chained_proxy_backoff_budget_ms", "unlimited");
+        assertThrows(IllegalArgumentException.class, () -> DefaultHttpProxyServerBootstrap.fromProperties(budgetOnly));
 
         p.remove("chained_proxy_backoff_max_ms");
         assertEquals(Duration.ofMillis(800), DefaultHttpProxyServerBootstrap.fromProperties(p).chainedProxyBackoff.max(),

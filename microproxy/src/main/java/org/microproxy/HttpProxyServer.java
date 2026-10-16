@@ -123,6 +123,19 @@ public interface HttpProxyServer extends AutoCloseable {
     InetSocketAddress getListenAddress();
 
     /**
+     * The {@link ProtocolPolicy} the server applies to the exchanges of clients that speak {@code
+     * clientVersion} (HTTP/1.0 and 1.1 alike), every field resolved: the protocol's own policy over
+     * the one for all protocols over the protocol's defaults (see {@link ProtocolPolicy}). A
+     * request's filters may still decide some fields for that request alone.
+     *
+     * @param clientVersion the protocol the client speaks to the proxy
+     * @return the effective policy, every field set
+     */
+    default ProtocolPolicy getProtocolPolicy(org.microproxy.http.HttpVersion clientVersion) {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support protocol policies");
+    }
+
+    /**
      * The UDP address of the transparent QUIC listener ({@link
      * HttpProxyServerBootstrap#withTransparentQuicPort}), with the port it bound.
      *

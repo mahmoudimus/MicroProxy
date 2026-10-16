@@ -180,7 +180,9 @@ public class FlowContext {
      * The HTTP version of the client connection that carries this flow: {@link
      * HttpVersion#HTTP_2_0} or {@link HttpVersion#HTTP_3_0} for a stream's flow, {@link
      * HttpVersion#HTTP_1_1} for an HTTP/1.x connection (whose request lines tell 1.0 from 1.1) and
-     * for the context of a connection itself.
+     * for the context of a connection itself. It is the client protocol whose {@link
+     * ProtocolPolicy} applies to the flow's exchanges ({@link HttpProxyServer#getProtocolPolicy}),
+     * so filters can branch on it too.
      *
      * @return the client connection's HTTP version
      */
@@ -220,6 +222,41 @@ public class FlowContext {
      */
     public InetSocketAddress getDirectClientAddress() {
         return root != this ? root.getDirectClientAddress() : getClientAddress();
+    }
+
+    /**
+     * The proxy's own address on the client connection: the local socket address of the
+     * listener's TCP connection the client made (the TLS, SOCKS, transparent and reverse proxy
+     * listeners' too), or, for HTTP/3 and transparent QUIC, the UDP address the QUIC connection
+     * is served on (which may be the listener's wildcard address). A connection redirected to the
+     * proxy (transparent mode) has the proxy's address here, not the one the client meant to reach.
+     * A request inside an intercepted {@code CONNECT} stream of an HTTP/2 or HTTP/3 connection, or
+     * inside a CONNECT-UDP flow, has that connection's. It is what the client connected to, as
+     * against {@link #getClientAddress()} (the client, from the PROXY protocol header when one
+     * was accepted), {@link #getDirectClientAddress()} (the TCP peer, a load balancer when it sent
+     * that header) and {@link #getProxyProtocolDestinationAddress()} (the address that header says
+     * the client connected to, at the load balancer). Access logs render it with {@code
+     * %DOWNSTREAM_LOCAL_ADDRESS%}. {@code null} for contexts made outside the proxy.
+     *
+     * @return the address the client connected to, or {@code null}
+     */
+    public InetSocketAddress getLocalAddress() {
+        return root != this ? root.getLocalAddress() : null;
+    }
+
+    /**
+     * The destination address of the PROXY protocol header the client connection started with
+     * ({@link HttpProxyServerBootstrap#withAcceptProxyProtocol(ProxyProtocolMode)}): the address
+     * the original client connected to, at the load balancer that sent the header, where {@link
+     * #getLocalAddress()} is the proxy's own. Load balancers that serve several addresses or ports
+     * through one proxy listener tell them apart by it. {@code null} without a header, for a
+     * header without addresses ({@code UNKNOWN}, {@code LOCAL}), and for contexts made outside the
+     * proxy.
+     *
+     * @return the PROXY header's destination address, or {@code null}
+     */
+    public InetSocketAddress getProxyProtocolDestinationAddress() {
+        return root != this ? root.getProxyProtocolDestinationAddress() : null;
     }
 
     /**
@@ -359,6 +396,26 @@ public class FlowContext {
      */
     public Optional<String> responseCodeDetails() {
         return root == this ? Optional.empty() : root.responseCodeDetails();
+    }
+
+    /**
+     * Where the response of the exchange in progress on this connection came from: inside {@link
+     * HttpFilters#serverToProxyResponse} and {@link HttpFilters#proxyToClientResponse}, the source
+     * of the response the hook is handed ({@link ResponseSource#SERVER} for the server's, {@link
+     * ResponseSource#PROXY} for the proxy's own answers, such as its error responses and a {@code
+     * CONNECT}'s {@code 200}, {@link ResponseSource#FILTER} for a short-circuit response or a
+     * {@link HttpFilters#proxyToServerFailure} answer, {@link ResponseSource#CACHE} and {@link
+     * ResponseSource#REPLAY}); once the response is sent, where the response the client got came
+     * from, as {@link HttpFilters#proxyToClientResponseSent} and trackers are told. A filter that
+     * replaced or restatused the server's response in {@code serverToProxyResponse} makes it
+     * {@code FILTER} for {@code proxyToClientResponse}; within one hook of a {@link
+     * HttpFiltersChain}, a later filter is told what the proxy handed the chain. Empty before the
+     * exchange has a response, and for contexts made outside the proxy.
+     *
+     * @return the source of the exchange's response, or empty
+     */
+    public Optional<ResponseSource> responseSource() {
+        return root == this ? Optional.empty() : root.responseSource();
     }
 
     /**

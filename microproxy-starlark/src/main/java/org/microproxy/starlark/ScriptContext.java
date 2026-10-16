@@ -35,7 +35,9 @@ import org.microproxy.thirdparty.starlark.syntax.TypeConstructor;
  * time, interpreter steps and bytes of values created; see {@link ScriptUsageValue}), {@code
  * early_data}, whether the HTTP/3 request arrived as 0-RTT early data, which may be a
  * replay: a hook may answer it {@code 425} (Too Early) for its client to send again after the
- * handshake. How the exchange is going: {@code failure}, why the proxy has to answer it itself (a
+ * handshake, {@code protocol}, the protocol the client speaks to the proxy ({@code "http1"},
+ * {@code "http2"} or {@code "http3"}, whose protocol policy applies), or {@code None} where the
+ * hook gets no flow. How the exchange is going: {@code failure}, why the proxy has to answer it itself (a
  * {@code Failure}, as {@code on_failure} gets it) or {@code None}, {@code response_flags}, the
  * Envoy-style flags so far as short codes ({@code ["UF"]}), and {@code response_code_details}
  * ({@code "proxy_failure:connect_failed"}, ...) or {@code None}. {@code trace_id} and {@code
@@ -48,6 +50,7 @@ public final class ScriptContext implements Structure {
     private static final ImmutableList<String> FIELDS =
             ImmutableList.of("client_ip", "client_port", "user", "connection_id", "tls", "vars", "timings",
                     "script_stats", "client_hello", "forwarded_via", "socks_version", "transparent_quic", "early_data",
+                    "protocol",
                     "failure", "response_flags", "response_code_details", "trace_id", "span_id");
 
     private final InetSocketAddress client;
@@ -114,6 +117,7 @@ public final class ScriptContext implements Structure {
                     : StarlarkInt.of(flow.socksVersion().getAsInt());
             case "transparent_quic" -> flow != null && flow.isTransparentQuic();
             case "early_data" -> flow != null && flow.isEarlyData();
+            case "protocol" -> flow == null ? Starlark.NONE : "http" + flow.getHttpVersion().majorVersion();
             case "failure" -> flow == null ? Starlark.NONE
                     : flow.failure().<Object>map(ScriptFailure::new).orElse(Starlark.NONE);
             case "response_flags" -> {

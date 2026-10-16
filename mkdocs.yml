@@ -89,6 +89,7 @@ nav:
   - Guides:
       - Forward proxy: guides/forward-proxy.md
       - Filters and failure responses: guides/filters.md
+      - Protocol policies: guides/protocol-policies.md
       - MITM, certificates and TLS: guides/mitm.md
       - Proxy authentication: guides/authentication.md
       - Concurrency limiting: guides/concurrency-limiting.md

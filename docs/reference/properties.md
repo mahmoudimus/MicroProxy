@@ -48,10 +48,10 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `quic_max_message_size` / `quic_message_error_code` | the largest framed QUIC message, in bytes, and the error code of the reset of a stream that sends a larger one | `1048576` / `2` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
-| `littleproxy_compatibility` | behave like LittleProxy where MicroProxy differs | `false` |
+| `littleproxy_compatibility` | make LittleProxy's behaviour HTTP/1 clients' default where MicroProxy differs: the `littleproxy` [protocol policy](../guides/protocol-policies.md) preset, under every field set explicitly | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none); filters can change it per request for upstream handshakes (`proxyToServerTlsHandshakeTimeout`) | `10000` |
 | `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](../guides/mitm.md#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
-| `tls_retry_without_sni` | retry TLS with a server once, without SNI, when it rejects the name with an `unrecognized_name` alert (see [Server TLS failures](../guides/mitm.md#server-tls-failures)); default `true` with `littleproxy_compatibility` | `false` |
+| `tls_retry_without_sni` | retry TLS with a server once, without SNI, when it rejects the name with an `unrecognized_name` alert (see [Server TLS failures](../guides/mitm.md#server-tls-failures)); for every client protocol, as `policy.tls_retry_without_sni`; default `true` for HTTP/1 clients with `littleproxy_compatibility` | `false` |
 | `max_initial_line_length` / `max_header_size` / `max_chunk_size` | parser limits in bytes | `8192` / `16384` / `16384` |
 | `nic` | local address for outbound connections | any |
 | `proxy_alias` | name in `Via` | host name |
@@ -73,6 +73,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `use_env_proxy` | take upstreams from `http_proxy` / `https_proxy` / `all_proxy` / `no_proxy` | `false` |
 | `upstream_fallback_to_direct` | connect directly if the upstream is unreachable | `false` |
 | `chained_proxy_backoff_initial_ms` / `chained_proxy_backoff_max_ms` | wait between failed chained proxy attempts, doubling from the initial value up to the maximum (see [Retries and backoff](../guides/chained-proxies.md#retries-and-backoff)) | off / 8 × initial |
+| `chained_proxy_backoff_budget_ms` | with `chained_proxy_backoff_initial_ms`: the most all waits of one request may add up to, in milliseconds, or `unlimited` for no limit (`RetryBackoff.withBudget`, `RetryBackoff.unbudgeted`) | the connect timeout, at most 30000 |
 | `chained_proxy_backoff_jitter` | with `chained_proxy_backoff_initial_ms`: `true` waits a random time up to each doubling wait ("full jitter", `RetryBackoff.exponentialWithJitter`); `false` waits exactly the doubling waits (`RetryBackoff.exponential`) | `true` |
 | `strip_tracing_headers` | remove `traceparent`, `tracestate`, `baggage`, B3 and other tracing headers from requests sent upstream (see [Removing tracing headers](../guides/forward-proxy.md#removing-tracing-headers)) | `false` |
 | `strip_request_headers` | comma-separated request headers to remove as well | none |
@@ -124,3 +125,23 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `cache_memory_mb` | cache responses in memory instead | off |
 | `cache_max_entry_mb` | largest response body cached | `8` |
 | `offline` | answer only from the cache | `false` |
+
+## Protocol policy keys
+
+[Protocol policies](../guides/protocol-policies.md) choose, per client protocol, where MicroProxy can
+behave in more than one way. `policy.<field>` sets a field for every client protocol (under
+`littleproxy_compatibility`'s preset for HTTP/1 clients), and `policy.http1.<field>`,
+`policy.http2.<field>` and `policy.http3.<field>` for one protocol, over the former. An unknown
+`policy.` key is an error. Booleans take `true` or `false`.
+
+| field | every protocol | HTTP/1 | HTTP/2 | HTTP/3 | default |
+|---|---|---|---|---|---|
+| a preset, applied before the scope's other fields: `littleproxy` or `microproxy` | `policy.preset` | `policy.http1.preset` | `policy.http2.preset` | `policy.http3.preset` | none |
+| resolve the server before `proxyToServerRequest` | `policy.resolve_before_proxy_to_server_request` | `policy.http1.resolve_before_proxy_to_server_request` | `policy.http2.resolve_before_proxy_to_server_request` | `policy.http3.resolve_before_proxy_to_server_request` | `false` |
+| pass the `CONNECT`'s `200` through the response filters | `policy.filter_connect_answer` | `policy.http1.filter_connect_answer` | `policy.http2.filter_connect_answer` | `policy.http3.filter_connect_answer` | `true` |
+| serve plain HTTP sent after a `CONNECT` as HTTP rather than relay it | `policy.serve_plain_http_after_connect` | `policy.http1.serve_plain_http_after_connect` | `policy.http2.serve_plain_http_after_connect` | `policy.http3.serve_plain_http_after_connect` | `true` |
+| the destination of a PROXY header sent to a server: `local_address` or `server_address` | `policy.proxy_protocol_destination` | `policy.http1.proxy_protocol_destination` | `policy.http2.proxy_protocol_destination` | `policy.http3.proxy_protocol_destination` | `local_address` |
+| retry TLS with a server without SNI after its `unrecognized_name` alert | `policy.tls_retry_without_sni` | `policy.http1.tls_retry_without_sni` | `policy.http2.tls_retry_without_sni` | `policy.http3.tls_retry_without_sni` | `false` |
+| what `proxyToClientResponse` may do with the proxy's own responses: `replaceable`, `in_place` or `skip` | `policy.generated_responses` | `policy.http1.generated_responses` | `policy.http2.generated_responses` | `policy.http3.generated_responses` | `replaceable` |
+| when the server's TLS handshake runs for an intercepted `CONNECT`: `deferred` or `eager` | `policy.mitm_server_handshake` | `policy.http1.mitm_server_handshake` | `policy.http2.mitm_server_handshake` | `policy.http3.mitm_server_handshake` | `deferred` |
+| accept requests with both `Transfer-Encoding` and `Content-Length` (HTTP/1 only) | | `policy.http1.allow_chunked_length` | | | `allow_chunked_length` |

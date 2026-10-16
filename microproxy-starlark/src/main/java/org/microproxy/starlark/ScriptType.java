@@ -98,6 +98,7 @@ final class ScriptType extends StarlarkType {
             .put("socks_version", Types.union(Types.INT, Types.NONE))
             .put("transparent_quic", Types.BOOL)
             .put("early_data", Types.BOOL)
+            .put("protocol", Types.union(Types.STR, Types.NONE))
             .put("failure", Types.union(FAILURE, Types.NONE))
             .put("response_flags", Types.list(Types.STR))
             .put("response_code_details", Types.union(Types.STR, Types.NONE))

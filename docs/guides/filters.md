@@ -17,11 +17,12 @@ more with `plusFiltersSource(...)`: several sources run in order as an `HttpFilt
 | Hook | When it runs | What it may do |
 |---|---|---|
 | `clientToProxyRequest(HttpObject)` | for the request head and each body piece from the client | return a response for the head to answer without contacting the server (a short-circuit), or `null` to go on |
-| `proxyToServerRequest(HttpObject)` | after the proxy has rewritten the headers, before the server is resolved and connected | the same |
+| `proxyToServerRequest(HttpObject)` | after the proxy has rewritten the headers, before the server is resolved and connected (after it is resolved with the [protocol policy](protocol-policies.md) field `resolve_before_proxy_to_server_request`, as in the LittleProxy preset) | the same |
 | `serverToProxyResponse(HttpObject)` | for the response head and each body piece from the server | return it (changed or replaced), or `null` to abort and disconnect the client |
-| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with LittleProxy compatibility, neither hook sees it) | the same |
+| `proxyToClientResponse(HttpObject)` | before each piece is written to the client, also for the proxy's own responses (a `CONNECT`'s `200` passes `serverToProxyResponse` first; with the [protocol policy](protocol-policies.md) field `filter_connect_answer` off, as in the LittleProxy preset, neither hook sees it) | the same |
 | `proxyToServerFailure(ProxyFailure)` | when the proxy has to answer itself ([below](#failure-responses)) | return the answer, or `null` for the default |
 | `proxyToServerAllowMitm()`, `proxyToServerAllowMitm(ClientHello)` | for a `CONNECT`, and once its ClientHello is read | decline interception ([MITM](mitm.md#deciding-what-to-intercept-the-clienthello)) |
+| `proxyToServerMitmHandshake()` | for a `CONNECT` the proxy intercepts, after authentication and `clientToProxyRequest` | run the server's TLS handshake before answering it (`EAGER`) or after the ClientHello (`DEFERRED`), over the [protocol policy](protocol-policies.md); `builder().mitmServerHandshake(...)` ([MITM](mitm.md#server-tls-failures)) |
 | `proxyToServerTlsIdentity(hostAndPort)` | before a request that reaches its server over TLS chooses a connection | return the server name (SNI) and verification host for it; `builder().tlsIdentity(...)` ([MITM](mitm.md#server-name-and-verification-host)) |
 | `proxyToServerResolutionStarted(hostAndPort)` | before the server's name is resolved | return an address to use instead |
 | `proxyToServerConnectTimeout()` | when a new server connection is needed | change the connect timeout ([below](#per-request-connect-timeout)) |
@@ -41,6 +42,28 @@ A source can ask for whole messages with `getMaximumRequestBufferSizeInBytes()` 
 `getMaximumResponseBufferSizeInBytes()`, as in LittleProxy; otherwise bodies stream through in
 pieces. Bodies that no filter inspects skip the message objects entirely (see
 [Architecture](../architecture.md#why-virtual-threads-instead-of-netty)).
+
+### Addresses of a flow
+
+The `FlowContext` a source and its filters get names four addresses of the client connection,
+for logging, or for a filter that answers or resolves a request by the address the client came
+in on:
+
+| Method | The address |
+|---|---|
+| `getClientAddress()` | the client: the PROXY protocol header's source when one was accepted, else the TCP peer |
+| `getDirectClientAddress()` | the TCP peer: the load balancer that sent the PROXY header, or the client |
+| `getLocalAddress()` | the proxy's own address that the client connected to: the TCP socket's local address on every TCP listener (plain, TLS, h2c, SOCKS, transparent, reverse), the UDP address for HTTP/3 and transparent QUIC, the outer connection's inside an intercepted `CONNECT` stream |
+| `getProxyProtocolDestinationAddress()` | the PROXY header's destination, the address the client reached at the load balancer; `null` without a header |
+
+`getHttpVersion()` says which protocol the client speaks to the proxy (HTTP/1.1 for HTTP/1.x,
+HTTP/2 or HTTP/3), the one whose [protocol policy](protocol-policies.md) applies, so a filter can
+branch on it too.
+
+A `FullFlowContext` has the same, plus the server side (`getRemoteAddress()`, the server or
+chained proxy connected to). In LittleProxy the local address came from the
+`ChannelHandlerContext` (`ctx.channel().localAddress()`) and the PROXY header's destination from
+`ClientToProxyConnection.getHaProxyMessage()`.
 
 ## Filters from lambdas
 
@@ -117,6 +140,10 @@ HttpFilters.builder()
         .build();
 ```
 
+The policy carries the budget for all of the request's waits too: by default the connect timeout,
+at most 30 seconds; `.withBudget(Duration)` sets another, and `.unbudgeted()` waits every time the
+policy names (see [Retries and backoff](chained-proxies.md#retries-and-backoff)).
+
 Bodies and frames are only split into pieces when a body or frame hook is registered; otherwise they
 take the fast path, as they do for a filters class that doesn't override those hooks. A filters
 class that overrides `clientToProxyRequest` or `serverToProxyResponse` only to read heads can say so
@@ -159,3 +186,33 @@ passes `proxyToClientResponse` like the default answers. A responder that throws
 default is sent. Requests the proxy cannot parse at all are answered with a plain `4xx` without
 asking anyone. `HttpCache` uses the filter hook to serve stale entries when servers are
 unreachable.
+
+Customising the proxy's own error pages belongs here, in `proxyToServerFailure` or a
+`FailureResponder`, which get the failure itself, rather than in `proxyToClientResponse`.
+
+### The proxy's responses in proxyToClientResponse
+
+`proxyToClientResponse` sees the server's responses, and also the responses the proxy answers with
+itself: its failure answers above (a `FailureResponder`'s included) and the short-circuit
+responses filters returned from `clientToProxyRequest` or `proxyToServerRequest` (the
+`HttpCache`'s answers too). No filter sees the `407` authentication challenge, which is sent
+before the request's filters are made. What the hook may do with the proxy's responses is the
+[protocol policy](protocol-policies.md) field `generated_responses`:
+
+| `GeneratedResponses` | `proxyToClientResponse` | For |
+|---|---|---|
+| `REPLACEABLE` (the default; LittleProxy 2.x) | sees them, may return another response or `null` (close without an answer) | filters that brand every response: their own error pages, `503` with `Retry-After` in place of `502`, CORS or request-id headers on every response |
+| `IN_PLACE` (LittleProxy 1.x and its forks) | sees them, may change them in place or return `null`; another response it returns is ignored | filters written for the server's responses, which must not turn the proxy's own errors into something else (a filter that answers some responses `400` would otherwise turn an unreachable server's `502` into `400`) |
+| `SKIP` | never sees them; trackers and `proxyToClientResponseSent` still do | filters that must only ever see the server's responses |
+
+```java
+MicroProxy.bootstrap()
+        .onHttp1(p -> p.generatedResponses(GeneratedResponses.IN_PLACE))
+        .start();
+```
+
+Inside the hooks, `FlowContext.responseSource()` says where the response at hand came from:
+`SERVER`, `PROXY` (the proxy's answers, and the `200` that opens a `CONNECT` tunnel), `FILTER`
+(a short-circuit response, or one a filter replaced or restatused in `serverToProxyResponse`),
+`CACHE` or `REPLAY`; once the response is sent, where the response the client got came from, as
+`proxyToClientResponseSent` is told.
