@@ -64,7 +64,7 @@ buffers, and TCP flow control slows the server. The cost per slow reader is meas
 [Performance against other proxies](project/performance.md#adversarial-clients-under-a-memory-cap).
 <!-- perf:arch-slowread -->
 
-Measured with 200 slow readers and each proxy capped at 512 MB, RSS rose by about 1,037 (1,023–1,092) KB per reader for LittleProxy and 190 (170–191) KB for MicroProxy (median of 3 runs, lowest–highest in parentheses).
+The slow-reader workload was not measured on the machine of the current comparison: its kernel (Linux 7.0) charges TCP socket buffers to the proxy's memory cgroup, and with 200 slow readers the buffers alone filled most of the 512 MB cap within a second (290 to 490 MB, against 16 to 56 MB of the proxy's own memory), so the cgroup's OOM killer ended the run for five of the six proxies whatever the proxy itself held.
 
 <!-- /perf:arch-slowread -->
 
@@ -151,8 +151,8 @@ A read with a timeout (`SO_TIMEOUT`, the idle timeout) also arms a timer for eac
 cancels it; on JDK 25 that wakes the scheduler's delay thread both times.
 
 Measured at a fixed 9,537 requests a second offered, one CPU per proxy, with the
-[comparison's](project/performance.md#methodology) harness, on 2026-10-13 on a 4-vCPU cloud VM
-that was slower than the one of the published comparison. Unlike the comparison's rate sweep,
+[comparison's](project/performance.md#methodology) harness, on 2026-10-13 on a shared 4-vCPU cloud
+VM, a slower machine than the comparison's dedicated one. Unlike the comparison's rate sweep,
 which climbs to each rate through shorter steps and judges an 8-second step, each run here goes
 straight to 9,537 after the 15-second warm-up and holds it for 40 seconds, long enough for the
 profiles and traces. A proxy running close to its limit builds a backlog over 40 seconds that an
@@ -181,8 +181,9 @@ MicroProxy's own code is the cheaper of the two (its user time is about half of 
 so what LittleProxy saved was the scheduling. Its cost per request also keeps falling as the load
 rises: the busier its event loops, the more sockets each `epoll_wait` returns and the less often
 a loop thread sleeps. JDK 21's poller has no such economy of scale, since every wait still makes
-the same calls and the same thread switches, which is why, in the published runs, MicroProxy was
-cheaper per request than LittleProxy below about 12,000 requests a second and LittleProxy above.
+the same calls and the same thread switches, which is why, in the comparison's JDK 21 runs,
+MicroProxy costs less per request than LittleProxy at every rate both sustain (28 µs against
+34 µs at 29,104 requests a second) and still only ties it on maximum rate.
 
 Three changes take most of that cost out:
 
@@ -194,6 +195,9 @@ Three changes take most of that cost out:
   `IdleWaits` keeps their deadlines on one thread that sleeps until the earliest is due, and
   shuts the input of a socket whose wait passed it (see the
   [design notes](https://github.com/mahmoudimus/MicroProxy/blob/main/microproxy/src/main/java/org/microproxy/impl/README.md#the-server-side-serverconnection)).
+  On the comparison's dedicated machine, taking this change back out lowered MicroProxy's
+  maximum rate on JDK 25 from about 49,100 to 29,900 requests a second (three runs each); on
+  JDK 21, whose waits do not wake the delay thread, it made no difference.
 - **Direct registration on JDK 21.** The launcher sets `jdk.useDirectRegister=true` on JDK 21,
   as JDK 22 and later always behave, which removes the updater thread from every wait.
 
@@ -203,8 +207,10 @@ reads many ready sockets per `epoll_wait` and seldom switches threads. With the 
 cost per request falls with the load as LittleProxy's does. At 11,921 requests a second offered,
 MicroProxy on JDK 25 served them all at 73 µs a request (p99 32 ms), while LittleProxy served
 10,992 at 90 µs and MicroProxy on JDK 21 10,977 at 89 µs, both past their limit (medians of three
-runs). That is why JDK 25 is the JDK to run for throughput (see
-[Performance options](guides/performance.md#the-jdk-25-for-throughput)).
+runs). On the comparison's dedicated machine the gap is wider: on JDK 25 MicroProxy sustains
+48,748 requests a second on one core against LittleProxy's 36,367, where on JDK 21 the two tie at
+about 36,900 (see [the JDK](project/performance.md#the-jdk)). That is why JDK 25 is the JDK to run
+for throughput (see [Performance options](guides/performance.md#the-jdk-25-for-throughput)).
 
 Garbage collection is not part of the difference: in these runs MicroProxy's young collections
 paused it about 0.05% of the time (at most 2 to 4 ms each), against 0.2% for LittleProxy, which

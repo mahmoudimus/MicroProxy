@@ -22,10 +22,15 @@ not refined. A run whose sweep the load generator ended (client-bound) is left o
 figure, and each latency and CPU curve uses the same runs at every point: it stops at the highest
 offered rate every one of those runs sustained.
 
+A memory workload listed under "notMeasured" in run-info.json ({"scenario": "memory", "attack": ...,
+"reason": ...}) is left out of every figure, and the tables give its reason instead: for a workload
+the machine itself made meaningless (not a run that was disturbed, which is "rejected").
+
 Runs listed under "rejected" in run-info.json are left out. Every other run must pass the
 contamination guard, read from hostmon.jsonl (written by hostmon.py while the runs ran): the CPU the
 machine spent outside the benchmark's processes must average at most 50% of one CPU over the run,
-with a 95th percentile of at most 100%. --publish refuses runs that fail it or were not monitored
+with a 95th percentile of at most 100%, and the monitor must cover the whole run, never more than
+10 s (twice its 5 s interval) without a sample, the run's start and end included. --publish refuses runs that fail it or were not monitored
 (--allow-unguarded overrides that, for a local preview only).
 
 With --publish it also copies them into <docs dir>/assets/perf/, copies each repetition's raw
@@ -164,6 +169,15 @@ def run_info(runs_dir):
 # CPU, interrupt time excluded) stayed low.
 GUARD_MEAN = 50.0
 GUARD_P95 = 100.0
+# The longest the monitor may go without a sample within a run (its start and end included): a gap
+# is time in which the machine could have been busy unseen.
+GUARD_MAX_GAP_S = 10.0
+
+
+def largest_gap(times, start, end):
+    """The longest stretch of [start, end] without a sample in times (sorted)."""
+    edges = [start] + list(times) + [end]
+    return max(b - a for a, b in zip(edges, edges[1:]))
 
 
 def program(cmd):
@@ -201,11 +215,13 @@ def host_load(runs_dir, runs):
         procs = {}
         for x in win:
             for p in x.get("topForeign", []):
-                name = p.get("program") or program(p.get("cmd"))
+                # "sshd: user@notty" and the like: the program, without the title it gives itself.
+                name = (p.get("program") or program(p.get("cmd"))).rstrip(":")
                 procs[name] = procs.get(name, 0.0) + p["cpuPct"] / len(win)
         top = sorted(procs.items(), key=lambda kv: -kv[1])[:5]
         mean = statistics.mean(foreign)
         p95 = foreign[min(len(foreign) - 1, int(len(foreign) * 0.95))]
+        gap = largest_gap(sorted(x["t"] for x in win), r["start"], r["end"])
         # On WSL2 the Windows host's own work (winmon.py) competes for the same cores without showing
         # in the Linux VM's /proc: it counts against the run as well.
         wwin = [x for x in winsamples if r["start"] <= x["t"] <= r["end"]]
@@ -214,6 +230,7 @@ def host_load(runs_dir, runs):
             if not wwin:
                 out[r["id"]] = {"samples": len(win), "accepted": None, "note": "no Windows host monitor samples for this run"}
                 continue
+            gap = max(gap, largest_gap(sorted(x["t"] for x in wwin), r["start"], r["end"]))
             wf = sorted(x["windowsForeignCpuPct"] for x in wwin)
             wmean, wp95 = statistics.mean(wf), wf[min(len(wf) - 1, int(len(wf) * 0.95))]
             # The Windows processes stay in the local log: they are the person's own desktop.
@@ -226,7 +243,8 @@ def host_load(runs_dir, runs):
                         "interruptCpuPct": rnd(statistics.mean(x.get("interruptCpuPct", 0) for x in win), 1),
                         "stealCpuPct": rnd(statistics.mean(x.get("stealCpuPct", 0) for x in win), 1),
                         "topForeign": [{"process": n, "meanCpuPct": rnd(v, 1)} for n, v in top],
-                        "accepted": mean <= GUARD_MEAN and p95 <= GUARD_P95}
+                        "largestGapS": rnd(gap, 1),
+                        "accepted": mean <= GUARD_MEAN and p95 <= GUARD_P95 and gap <= GUARD_MAX_GAP_S}
     return out
 
 
@@ -467,11 +485,16 @@ def aggregate_ramp(runs, proxies):
     return out
 
 
-def aggregate_memory(runs, proxies):
+def not_measured(info):
+    """The memory workloads run-info.json says this machine could not measure: {attack: reason}."""
+    return {x["attack"]: x["reason"] for x in info.get("notMeasured", []) if x.get("scenario") == "memory"}
+
+
+def aggregate_memory(runs, proxies, excluded=None):
     attacks = []
     for run in runs:
         for a in run["data"].get("settings", {}).get("attacks", "").split(","):
-            if a and a not in attacks:
+            if a and a not in attacks and a not in (excluded or {}):
                 attacks.append(a)
     out = {}
     for attack in attacks:
@@ -659,7 +682,7 @@ def build(runs_dir):
                   "end": datetime.fromtimestamp(r["end"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if r["end"] else None,
                   "raw": "raw/" + r["id"] + ".json", "harnessOk": r["data"].get("harnessOk"),
                   "notes": r["data"].get("notes"), "hostLoad": hosts.get(r["id"])} for r in runs],
-        "guard": {"foreignCpuMeanMax": GUARD_MEAN, "foreignCpuP95Max": GUARD_P95,
+        "guard": {"foreignCpuMeanMax": GUARD_MEAN, "foreignCpuP95Max": GUARD_P95, "largestGapMaxS": GUARD_MAX_GAP_S,
                   "rejected": info.get("rejected", [])},
         "machine": {"cpuModel": env.get("cpuModel"), "cpus": len(env.get("cpus") or []), "memTotalMb": round((env.get("memTotalKb") or 0) / 1024),
                     "kernel": env.get("kernel"), "distribution": env.get("distribution"), "os": env.get("os"),
@@ -671,7 +694,8 @@ def build(runs_dir):
         "commonRate": rate,
         "sweep": sweep,
         "ramp": aggregate_ramp(runs, proxies),
-        "memory": aggregate_memory(runs, proxies),
+        "memory": aggregate_memory(runs, proxies, not_measured(info)),
+        "memoryNotMeasured": not_measured(info),
         "soak": aggregate_soak(runs, proxies),
         "faults": aggregate_faults(runs, proxies),
     }
@@ -745,14 +769,16 @@ def scoreboard_rows(d):
     if last:
         rows.append((f"RSS holding {last:,} idle connections (MB)", "lower",
                      {p: next((s["rssMb"] for s in d["ramp"][p]["steps"] if s["target"] == last), None) for p in ids}, 1, "", "held"))
-    names = {"slowread": "slow readers", "slowloris": "slowloris", "updown": "parallel large uploads and downloads"}
     for attack, per in d["memory"].items():
         conns = d["settings"].get(f"{attack}-connections") or d["settings"].get("updown-connections")
-        label = names.get(attack, attack)
+        label = ATTACK_NAMES.get(attack, attack)
         if attack == "slowread":
             rows.append((f"RSS per slow reader, {conns} readers (KB)", "lower", {p: per[p]["rssKbPerConnection"] for p in ids}, 0, "", "reader"))
         rows.append((f"Peak RSS under {label} (MB, 512 MB cap)", "lower", {p: per[p]["peakRssMb"] for p in ids}, 1, "", attack))
     return rows
+
+
+ATTACK_NAMES = {"slowread": "slow readers", "slowloris": "slowloris", "updown": "parallel large uploads and downloads"}
 
 
 def winner(cells, better):
@@ -862,6 +888,10 @@ def tables(d):
     ex = excluded_note(d, labels, ids)
     if ex:
         notes.append(ex)
+    gone = d.get("memoryNotMeasured") or {}
+    if gone:
+        notes.append("Not measured on this machine: " + ", ".join(ATTACK_NAMES.get(a, a) for a in gone)
+                     + " (see [Adversarial clients](#adversarial-clients-under-a-memory-cap)).")
     t["scoreboard"] = table(["Median of the runs"] + [labels[p] for p in ids], rows) + ("\n\n" + "\n\n".join(notes) if notes else "")
 
     # The spread behind every median: the lowest and highest run.
@@ -936,8 +966,13 @@ def tables(d):
             probes = m["probeOkRatio"] and {**m["probeOkRatio"], "med": m["probeOkRatio"]["med"] * 100}
             rows.append([attack, labels[p], tally(m["verdicts"]), med(m["peakRssMb"], 1), med(m["rssKbPerConnection"]),
                          med(probes, 0, "%"), tally(m["states"])])
+    gone = d.get("memoryNotMeasured") or {}
+    for attack in gone:
+        rows.append([attack, "every proxy", "not measured (see below)", "n/a", "n/a", "n/a", "n/a"])
     t["memory"] = table(["Workload", "Proxy", "Verdict", "Peak RSS (MB)", "RSS per connection (KB)", "Honest probes answered",
                          "Proxy at the end"], rows)
+    for attack, reason in gone.items():
+        t["memory"] += f"\n\n{ATTACK_NAMES.get(attack, attack).capitalize()} were not measured on this machine: {reason}."
 
     # Soak and faults.
     rows = []
@@ -980,15 +1015,16 @@ def tables(d):
     for r in d["runs"]:
         h = r.get("hostLoad") or {}
         if not h.get("samples"):
-            rows.append([r["timestamp"], "n/a", "n/a", "n/a", "no monitor samples"])
+            rows.append([r["timestamp"], "n/a", "n/a", "n/a", "n/a", "no monitor samples"])
             continue
         f = h["foreignCpuPct"]
         top = ", ".join(f"{p['process']} {fmt(p['meanCpuPct'], 1)}%" for p in h["topForeign"][:3] if p["meanCpuPct"] >= 0.1) or "none"
         rows.append([r["timestamp"], f"{fmt(f['mean'], 1)}% / {fmt(f['p95'], 1)}% / {fmt(f['max'], 1)}%",
                      f"{fmt(h['loadavg1']['mean'], 2)} / {fmt(h['loadavg1']['max'], 2)}", top,
-                     "accepted" if h["accepted"] else "**rejected**"])
+                     f"{fmt(h.get('largestGapS'), 1)} s", "accepted" if h["accepted"] else "**rejected**"])
     t["contamination"] = table(["Run (UTC start)", "Foreign CPU, mean / p95 / max (% of one CPU)", "Load average, mean / max",
-                                "Busiest outside processes (mean CPU; kernel threads include some interrupt work)", "Guard"], rows)
+                                "Busiest outside processes (mean CPU; kernel threads include some interrupt work)",
+                                "Longest gap in the monitor's samples", "Guard"], rows)
 
     # A sentence for the architecture page's backpressure diagram, from the slow-reader runs.
     slow = d["memory"].get("slowread", {})
@@ -998,6 +1034,9 @@ def tables(d):
         t["arch-slowread"] = (f"Measured with {readers} slow readers and each proxy capped at 512 MB, RSS rose by about "
                               f"{med_range(lp)} KB per reader for LittleProxy and {med_range(mp)} KB for MicroProxy (median of "
                               f"{len(d['runs'])} runs, lowest–highest in parentheses).")
+    elif "slowread" in (d.get("memoryNotMeasured") or {}):
+        t["arch-slowread"] = ("The slow-reader workload was not measured on the machine of the current comparison: "
+                              + d["memoryNotMeasured"]["slowread"] + ".")
     else:
         t["arch-slowread"] = ""
 
@@ -1313,6 +1352,10 @@ def main(argv):
         shutil.copy(os.path.join(out, "results.json"), os.path.join(assets, "results.json"))
         for name in svgs:
             shutil.copy(os.path.join(out, name), os.path.join(assets, name))
+        # A chart these runs do not draw (a workload not measured) must not outlive the data it came from.
+        for old in glob.glob(os.path.join(assets, "*.svg")):
+            if os.path.basename(old) not in svgs:
+                os.remove(old)
         if not (RAW[0] and os.path.realpath(runs_dir) == os.path.realpath(os.path.join(assets, "raw"))):
             publish_raw(runs_dir, assets)
         page_md = os.path.join(publish, "project", "performance.md")

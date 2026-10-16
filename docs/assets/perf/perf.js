@@ -1015,6 +1015,10 @@
     var names = { slowread: "slow readers", slowloris: "slowloris", updown: "large uploads and downloads" };
     var state = { attack: attacks.indexOf("slowread") >= 0 ? "slowread" : attacks[0] };
     var baseNote = "✕ marks a proxy that ran out of memory (an OutOfMemoryError, or the cgroup's OOM killer) or crashed. Samples are 5 s apart. The verdicts and per-connection figures are in the table below.";
+    var gone = Object.keys(d.memoryNotMeasured || {});
+    if (gone.length) {
+      baseNote += " Not measured on this machine: " + gone.map(function (a) { return names[a] || a; }).join(", ") + " (the reason is under the table).";
+    }
     var chart = new Chart(root, d, {
       title: "Memory under adversarial clients, in a 512 MB cgroup (lower is better)",
       sub: "RSS over time while the workload runs, every proxy in the same 512 MB memory cgroup (the JVMs additionally capped at a 256 MB heap and 128 MB of direct memory inside it). One line per proxy: the run with the median peak.",

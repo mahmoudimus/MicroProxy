@@ -34,10 +34,11 @@ machine.
 git clone https://github.com/mahmoudimus/MicroProxy && cd MicroProxy
 git checkout <branch named in the pull request>
 sudo loadtest/competitors/dedicated/bootstrap.sh            # prepare and print a machine report
-sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh      # then run the campaign (about 5 hours)
+sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh      # then run the campaign (about 6 hours)
 ```
 
-`JDK=25` runs the proxies and harness on Temurin 25 instead of 21. The results land in
+The proxies and harness run on Temurin 25; pass `JDK=21` (with `sudo env JDK=21 ...`: sudo drops
+the environment) to run them on Temurin 21 instead. The results land in
 `loadtest/results/dedicated-<UTC time>/`; commit that directory's raw results (or attach it as a
 tarball) and aggregate with `python3 -I loadtest/competitors/aggregate.py <dir> --publish docs`.
 
@@ -46,9 +47,18 @@ tarball) and aggregate with `python3 -I loadtest/competitors/aggregate.py <dir> 
 Start `claude remote-control` in the clone, then give it this prompt:
 
 > Prepare this machine with `sudo loadtest/competitors/dedicated/bootstrap.sh` and check its report
-> (SMT off, performance governor, load near 0). Run the campaign with
-> `sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh`, then again with `JDK=25` and
-> `PROXIES=microproxy,littleproxy`. Don't run anything else on the machine meanwhile. Commit the raw
+> (one thread per core, load near 0). Run the campaign with
+> `sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh`, then again with
+> `sudo env JDK=21 REPS=3 PROXIES=microproxy,littleproxy RUN=1 loadtest/competitors/dedicated/bootstrap.sh`. Don't run anything else on the machine meanwhile. Commit the raw
 > results directories (no absolute local paths; aggregate.py strips them) to a new branch
 > `perf/dedicated-<date>`, push it, and report the machine report, the runs the guard accepted or
 > rejected, and the median max sustainable rate and CPU per request of each proxy.
+
+## Known issue: slow readers on newer kernels
+
+On some kernels (Linux 7.0 on Google Cloud, for one) the TCP socket buffers of the memory
+scenario's 200 slow readers are charged to the proxy's 512 MB memory cgroup and fill it on their
+own, so the cgroup's OOM killer ends the run whatever the proxy holds; lowering `tcp_rmem` and
+`tcp_wmem` to the upstream defaults does not prevent it. Watch the cgroup's `memory.stat` (`sock`
+against `anon`) to tell. Such a run's slow-reader results are not the proxy's: list the workload
+under `"notMeasured"` in the results directory's `run-info.json` (see aggregate.py's header).

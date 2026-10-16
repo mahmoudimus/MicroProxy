@@ -8,7 +8,7 @@
 # It installs the build and proxy dependencies, two pinned JDKs (Temurin 21 and 25, checked against
 # their SHA-256), the external proxies (setup.sh), applies the kernel and CPU settings the runs
 # assume, prints a machine report, and with RUN=1 runs run-all.sh with a CPU split for this machine.
-# Environment overrides: JDK (21 or 25; the JDK the proxies and harness run on, default 21),
+# Environment overrides: JDK (21 or 25; the JDK the proxies and harness run on, default 25),
 # REPS (5), OUT, and any run-all.sh variable (CPUS_PROXY, CPUS_ORIGIN, CPUS_CLIENT, PROXIES, ...).
 set -euo pipefail
 
@@ -55,7 +55,7 @@ apt-get install -y -q --no-install-recommends ca-certificates curl git maven pyt
     pkg-config capnproto libssl-dev squid util-linux procps
 systemctl disable --now squid >/dev/null 2>&1 || true   # the harness starts its own Squid
 
-# Two pinned JDKs: the published runs used JDK 21; JDK 25's virtual-thread pollers change the picture.
+# Two pinned JDKs: the published runs use JDK 25 (the default here), and JDK 21 for comparison.
 mkdir -p "$TOOLS/dl"
 jdk() {  # jdk NAME URL SHA256
     local dir="$TOOLS/$1" f="$TOOLS/dl/$1.tar.gz"
@@ -68,7 +68,7 @@ jdk temurin-21 https://github.com/adoptium/temurin21-binaries/releases/download/
     ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94
 jdk temurin-25 https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz \
     dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e
-export JAVA_HOME="$TOOLS/temurin-${JDK:-21}"
+export JAVA_HOME="$TOOLS/temurin-${JDK:-25}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 # Kernel settings the connection ramp and slow-reader scenarios need, restored when this script
