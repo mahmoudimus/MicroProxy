@@ -1,0 +1,3 @@
+[0.002s][info][gc] Using G1
+[2.234s][info][gc] GC(0) Pause Full (Diagnostic Command) 34M->5M(20M) 25.344ms
+[143.750s][info][gc] GC(1) Pause Full (Diagnostic Command) 10M->5M(20M) 14.205ms

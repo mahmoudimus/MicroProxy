@@ -1,0 +1,5 @@
+[0.002s][info][gc] Using G1
+[1.647s][info][gc] GC(0) Pause Full (Diagnostic Command) 13M->2M(10M) 15.755ms
+[10.372s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 5M->2M(10M) 1.590ms
+[37.843s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 4M->2M(10M) 1.027ms
+[118.039s][info][gc] GC(3) Pause Full (Diagnostic Command) 4M->2M(10M) 6.717ms

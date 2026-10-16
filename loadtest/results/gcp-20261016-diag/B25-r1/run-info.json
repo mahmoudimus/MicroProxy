@@ -1,0 +1,7 @@
+{
+ "commit": "52ce224a0bcc9bdd238ad4fcecafcc7399f7fbb9",
+ "uncommittedLoadtestChanges": 1,
+ "command": "REPS=1 PROXIES=microproxy SCENARIOS=soak,sweep loadtest/competitors/run-all.sh ",
+ "started": "2026-10-15T20:34:57Z",
+ "wsl": false
+}

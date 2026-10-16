@@ -1,0 +1,51 @@
+[0.002s][info][gc] Using G1
+[0.115s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 3M->1M(10M) 1.413ms
+[0.203s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 3M->1M(10M) 1.495ms
+[0.474s][info][gc] GC(2) Pause Full (Diagnostic Command) 2M->1M(8M) 5.520ms
+[0.797s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 3M->2M(8M) 1.800ms
+[0.863s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 4M->2M(8M) 2.066ms
+[1.826s][info][gc] GC(5) Pause Young (Normal) (G1 Evacuation Pause) 4M->3M(8M) 3.294ms
+[2.185s][info][gc] GC(6) Pause Young (Concurrent Start) (G1 Evacuation Pause) 4M->4M(8M) 1.982ms
+[2.185s][info][gc] GC(7) Concurrent Mark Cycle
+[2.201s][info][gc] GC(7) Pause Remark 4M->4M(10M) 2.333ms
+[2.209s][info][gc] GC(7) Pause Cleanup 4M->4M(10M) 0.022ms
+[2.209s][info][gc] GC(7) Concurrent Mark Cycle 23.932ms
+[2.657s][info][gc] GC(8) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 5M->5M(10M) 1.729ms
+[3.363s][info][gc] GC(9) Pause Young (Mixed) (G1 Evacuation Pause) 6M->5M(10M) 1.836ms
+[3.753s][info][gc] GC(10) Pause Young (Concurrent Start) (G1 Evacuation Pause) 6M->5M(10M) 0.960ms
+[3.753s][info][gc] GC(11) Concurrent Mark Cycle
+[3.763s][info][gc] GC(11) Pause Remark 5M->5M(12M) 1.485ms
+[3.765s][info][gc] GC(11) Pause Cleanup 5M->5M(12M) 0.020ms
+[3.775s][info][gc] GC(11) Concurrent Mark Cycle 21.581ms
+[4.313s][info][gc] GC(12) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 6M->5M(12M) 1.184ms
+[4.935s][info][gc] GC(13) Pause Young (Mixed) (G1 Evacuation Pause) 6M->5M(12M) 1.730ms
+[5.814s][info][gc] GC(14) Pause Full (Diagnostic Command) 6M->4M(12M) 8.868ms
+[6.994s][info][gc] GC(15) Pause Young (Normal) (G1 Evacuation Pause) 6M->5M(12M) 1.636ms
+[8.182s][info][gc] GC(16) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 1.239ms
+[8.875s][info][gc] GC(17) Pause Young (Concurrent Start) (G1 Evacuation Pause) 6M->5M(12M) 1.438ms
+[8.875s][info][gc] GC(18) Concurrent Mark Cycle
+[8.895s][info][gc] GC(18) Pause Remark 5M->5M(12M) 1.673ms
+[8.902s][info][gc] GC(18) Pause Cleanup 5M->5M(12M) 0.023ms
+[8.909s][info][gc] GC(18) Concurrent Mark Cycle 33.531ms
+[10.404s][info][gc] GC(19) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 7M->5M(12M) 1.012ms
+[11.674s][info][gc] GC(20) Pause Young (Mixed) (G1 Evacuation Pause) 7M->5M(12M) 1.137ms
+[12.432s][info][gc] GC(21) Pause Full (Diagnostic Command) 6M->3M(12M) 8.615ms
+[14.985s][info][gc] GC(22) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 1.164ms
+[16.407s][info][gc] GC(23) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 1.008ms
+[17.590s][info][gc] GC(24) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 0.915ms
+[18.823s][info][gc] GC(25) Pause Full (Diagnostic Command) 7M->4M(12M) 9.590ms
+[20.643s][info][gc] GC(26) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 1.096ms
+[21.893s][info][gc] GC(27) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 1.093ms
+[23.112s][info][gc] GC(28) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 0.934ms
+[24.872s][info][gc] GC(29) Pause Young (Normal) (G1 Evacuation Pause) 7M->5M(12M) 0.677ms
+[25.049s][info][gc] GC(30) Pause Full (Diagnostic Command) 6M->4M(12M) 9.984ms
+[28.047s][info][gc] GC(31) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 0.944ms
+[30.106s][info][gc] GC(32) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 1.051ms
+[31.270s][info][gc] GC(33) Pause Full (Diagnostic Command) 7M->4M(12M) 10.190ms
+[34.064s][info][gc] GC(34) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 1.045ms
+[36.264s][info][gc] GC(35) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 0.949ms
+[37.456s][info][gc] GC(36) Pause Full (Diagnostic Command) 7M->4M(12M) 10.209ms
+[40.420s][info][gc] GC(37) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 0.990ms
+[42.476s][info][gc] GC(38) Pause Young (Normal) (G1 Evacuation Pause) 8M->5M(12M) 1.044ms
+[43.730s][info][gc] GC(39) Pause Full (Diagnostic Command) 7M->4M(12M) 11.005ms
+[44.776s][info][gc] GC(40) Pause Full (Diagnostic Command) 6M->4M(12M) 8.710ms

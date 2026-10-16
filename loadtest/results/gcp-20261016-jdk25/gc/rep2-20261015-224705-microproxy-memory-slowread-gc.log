@@ -1,0 +1,30 @@
+[0.002s][info][gc] Using G1
+[0.195s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 5M->1M(10M) 1.778ms
+[0.462s][info][gc] GC(1) Pause Full (Diagnostic Command) 3M->1M(8M) 5.505ms
+[0.750s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 3M->2M(8M) 3.050ms
+[0.828s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 4M->3M(8M) 2.520ms
+[0.861s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 4M->4M(8M) 1.898ms
+[0.896s][info][gc] GC(5) Pause Young (Concurrent Start) (G1 Evacuation Pause) 5M->5M(11M) 1.293ms
+[0.899s][info][gc] GC(6) Concurrent Mark Cycle
+[0.914s][info][gc] GC(6) Pause Remark 6M->6M(11M) 0.838ms
+[0.915s][info][gc] GC(6) Pause Cleanup 6M->6M(11M) 0.009ms
+[0.915s][info][gc] GC(6) Concurrent Mark Cycle 16.695ms
+[0.929s][info][gc] GC(7) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 6M->6M(11M) 1.380ms
+[0.964s][info][gc] GC(8) Pause Young (Mixed) (G1 Evacuation Pause) 7M->7M(11M) 3.234ms
+[0.979s][info][gc] GC(9) Pause Young (Concurrent Start) (G1 Evacuation Pause) 8M->8M(11M) 1.123ms
+[0.979s][info][gc] GC(10) Concurrent Mark Cycle
+[0.994s][info][gc] GC(10) Pause Remark 8M->8M(15M) 0.922ms
+[0.996s][info][gc] GC(10) Pause Cleanup 8M->8M(15M) 0.008ms
+[0.999s][info][gc] GC(10) Concurrent Mark Cycle 20.065ms
+[1.010s][info][gc] GC(11) Pause Young (Normal) (G1 Evacuation Pause) 9M->9M(15M) 1.613ms
+[1.039s][info][gc] GC(12) Pause Young (Concurrent Start) (G1 Evacuation Pause) 10M->10M(15M) 1.525ms
+[1.039s][info][gc] GC(13) Concurrent Mark Cycle
+[1.050s][info][gc] GC(13) Pause Remark 10M->10M(19M) 0.919ms
+[1.055s][info][gc] GC(13) Pause Cleanup 10M->10M(19M) 0.009ms
+[1.055s][info][gc] GC(13) Concurrent Mark Cycle 16.254ms
+[1.074s][info][gc] GC(14) Pause Young (Normal) (G1 Evacuation Pause) 11M->11M(19M) 1.069ms
+[1.141s][info][gc] GC(15) Pause Young (Concurrent Start) (G1 Evacuation Pause) 13M->13M(38M) 2.014ms
+[1.141s][info][gc] GC(16) Concurrent Mark Cycle
+[1.153s][info][gc] GC(16) Pause Remark 13M->13M(38M) 1.006ms
+[1.163s][info][gc] GC(16) Pause Cleanup 13M->13M(38M) 0.012ms
+[1.164s][info][gc] GC(16) Concurrent Mark Cycle 23.544ms
