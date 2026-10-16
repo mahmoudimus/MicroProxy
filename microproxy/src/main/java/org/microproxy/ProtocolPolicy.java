@@ -1,5 +1,6 @@
 package org.microproxy;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -53,6 +54,7 @@ public final class ProtocolPolicy {
             .servePlainHttpAfterConnect(true)
             .proxyProtocolDestination(ProxyProtocolDestination.LOCAL_ADDRESS)
             .tlsRetryWithoutSni(false)
+            .requestHeadTimeout(Duration.ofSeconds(30))
             .generatedResponses(GeneratedResponses.REPLACEABLE)
             .mitmServerHandshake(MitmServerHandshake.DEFERRED)
             .build();
@@ -63,6 +65,7 @@ public final class ProtocolPolicy {
             .servePlainHttpAfterConnect(false)
             .proxyProtocolDestination(ProxyProtocolDestination.SERVER_ADDRESS)
             .tlsRetryWithoutSni(true)
+            .requestHeadTimeout(Duration.ofSeconds(30))
             .generatedResponses(GeneratedResponses.REPLACEABLE)
             .mitmServerHandshake(MitmServerHandshake.EAGER)
             .build();
@@ -72,6 +75,7 @@ public final class ProtocolPolicy {
     private final Boolean servePlainHttpAfterConnect;
     private final ProxyProtocolDestination proxyProtocolDestination;
     private final Boolean tlsRetryWithoutSni;
+    private final Duration requestHeadTimeout;
     private final Boolean allowChunkedLength;
     private final GeneratedResponses generatedResponses;
     private final MitmServerHandshake mitmServerHandshake;
@@ -82,6 +86,7 @@ public final class ProtocolPolicy {
         servePlainHttpAfterConnect = b.servePlainHttpAfterConnect;
         proxyProtocolDestination = b.proxyProtocolDestination;
         tlsRetryWithoutSni = b.tlsRetryWithoutSni;
+        requestHeadTimeout = b.requestHeadTimeout;
         allowChunkedLength = b.allowChunkedLength;
         generatedResponses = b.generatedResponses;
         mitmServerHandshake = b.mitmServerHandshake;
@@ -111,6 +116,8 @@ public final class ProtocolPolicy {
      *       its requests seen by filters;
      *   <li>{@link #proxyProtocolDestination()}: {@link ProxyProtocolDestination#LOCAL_ADDRESS};
      *   <li>{@link #tlsRetryWithoutSni()}: {@code false};
+     *   <li>{@link #requestHeadTimeout()}: 30 seconds for HTTP/1 request heads, with zero disabling
+     *       the deadline;
      *   <li>{@link #generatedResponses()}: {@link GeneratedResponses#REPLACEABLE}, so a filter can
      *       brand the proxy's own responses;
      *   <li>{@link #mitmServerHandshake()}: {@link MitmServerHandshake#DEFERRED}, so the server's
@@ -149,6 +156,8 @@ public final class ProtocolPolicy {
      *   <li>{@link #tlsRetryWithoutSni()}: {@code true}. {@code
      *       ProxyToServerConnection.connectionFailed} connects again without SNI after an {@code
      *       unrecognized_name} handshake failure.
+     *   <li>{@link #requestHeadTimeout()}: 30 seconds, MicroProxy's default protection against
+     *       clients that trickle an HTTP/1 request head indefinitely.
      *   <li>{@link #generatedResponses()}: {@link GeneratedResponses#REPLACEABLE}. {@code
      *       ClientToProxyConnection.respondWithShortCircuitResponse}, which writes the proxy's error
      *       responses ({@code writeBadGateway}, {@code writeBadRequest}, {@code
@@ -259,6 +268,16 @@ public final class ProtocolPolicy {
     }
 
     /**
+     * How long an HTTP/1 request head may take, from its first byte to its end; zero disables the
+     * deadline. HTTP/2 and HTTP/3 ignore this field.
+     *
+     * @return the field's value, or empty when this policy leaves it unset
+     */
+    public Optional<Duration> requestHeadTimeout() {
+        return Optional.ofNullable(requestHeadTimeout);
+    }
+
+    /**
      * How {@link HttpFilters#proxyToClientResponse} treats the responses the proxy answers with
      * itself: its error responses and the short-circuit responses filters returned from earlier
      * hooks ({@link GeneratedResponses}): it may replace them ({@link
@@ -320,6 +339,7 @@ public final class ProtocolPolicy {
                 && Objects.equals(servePlainHttpAfterConnect, p.servePlainHttpAfterConnect)
                 && proxyProtocolDestination == p.proxyProtocolDestination
                 && Objects.equals(tlsRetryWithoutSni, p.tlsRetryWithoutSni)
+                && Objects.equals(requestHeadTimeout, p.requestHeadTimeout)
                 && Objects.equals(allowChunkedLength, p.allowChunkedLength)
                 && generatedResponses == p.generatedResponses
                 && mitmServerHandshake == p.mitmServerHandshake;
@@ -328,7 +348,7 @@ public final class ProtocolPolicy {
     @Override
     public int hashCode() {
         return Objects.hash(resolveBeforeProxyToServerRequest, filterConnectAnswer, servePlainHttpAfterConnect,
-                proxyProtocolDestination, tlsRetryWithoutSni, allowChunkedLength, generatedResponses,
+                proxyProtocolDestination, tlsRetryWithoutSni, requestHeadTimeout, allowChunkedLength, generatedResponses,
                 mitmServerHandshake);
     }
 
@@ -345,6 +365,7 @@ public final class ProtocolPolicy {
         field(s, "proxy_protocol_destination", proxyProtocolDestination == null ? null
                 : proxyProtocolDestination.name().toLowerCase(Locale.ROOT));
         field(s, "tls_retry_without_sni", tlsRetryWithoutSni);
+        field(s, "request_head_timeout", requestHeadTimeout == null ? null : requestHeadTimeout.toMillis());
         field(s, "allow_chunked_length", allowChunkedLength);
         field(s, "generated_responses",
                 generatedResponses == null ? null : generatedResponses.name().toLowerCase(Locale.ROOT));
@@ -374,6 +395,7 @@ public final class ProtocolPolicy {
         Boolean servePlainHttpAfterConnect;
         ProxyProtocolDestination proxyProtocolDestination;
         Boolean tlsRetryWithoutSni;
+        Duration requestHeadTimeout;
         Boolean allowChunkedLength;
         GeneratedResponses generatedResponses;
         MitmServerHandshake mitmServerHandshake;
@@ -401,6 +423,7 @@ public final class ProtocolPolicy {
             if (p.servePlainHttpAfterConnect != null) servePlainHttpAfterConnect = p.servePlainHttpAfterConnect;
             if (p.proxyProtocolDestination != null) proxyProtocolDestination = p.proxyProtocolDestination;
             if (p.tlsRetryWithoutSni != null) tlsRetryWithoutSni = p.tlsRetryWithoutSni;
+            if (p.requestHeadTimeout != null) requestHeadTimeout = p.requestHeadTimeout;
             if (p.generatedResponses != null) generatedResponses = p.generatedResponses;
             if (p.mitmServerHandshake != null) mitmServerHandshake = p.mitmServerHandshake;
             if (http1Fields && p.allowChunkedLength != null) allowChunkedLength = p.allowChunkedLength;
@@ -462,6 +485,19 @@ public final class ProtocolPolicy {
         }
 
         /**
+         * Sets {@link ProtocolPolicy#requestHeadTimeout()}.
+         *
+         * @param timeout the maximum time for an HTTP/1 request head; zero disables the deadline
+         * @return this builder
+         */
+        public Builder requestHeadTimeout(Duration timeout) {
+            Objects.requireNonNull(timeout, "requestHeadTimeout");
+            if (timeout.isNegative()) throw new IllegalArgumentException("negative request head timeout");
+            requestHeadTimeout = timeout;
+            return this;
+        }
+
+        /**
          * Sets {@link ProtocolPolicy#generatedResponses()}.
          *
          * @param value how {@code proxyToClientResponse} treats generated responses
@@ -490,8 +526,8 @@ public final class ProtocolPolicy {
          * serve_plain_http_after_connect}, {@code proxy_protocol_destination} ({@code
          * local_address} or {@code server_address}), {@code tls_retry_without_sni} and {@code
          * generated_responses} ({@link GeneratedResponses#parse}), {@code mitm_server_handshake}
-         * ({@link MitmServerHandshake#parse}), and for
-         * HTTP/1 {@code allow_chunked_length}. Booleans are {@code true} or {@code false}.
+         * ({@link MitmServerHandshake#parse}), {@code request_head_timeout} (milliseconds), and
+         * for HTTP/1 {@code allow_chunked_length}. Booleans are {@code true} or {@code false}.
          *
          * @param name the field's name ({@code -} may stand for {@code _})
          * @param value its value
@@ -508,6 +544,7 @@ public final class ProtocolPolicy {
                 case "serve_plain_http_after_connect" -> servePlainHttpAfterConnect(bool(name, value));
                 case "proxy_protocol_destination" -> proxyProtocolDestination(ProxyProtocolDestination.parse(value));
                 case "tls_retry_without_sni" -> tlsRetryWithoutSni(bool(name, value));
+                case "request_head_timeout" -> requestHeadTimeout(Duration.ofMillis(nonNegativeMillis(name, value)));
                 case "generated_responses" -> generatedResponses(GeneratedResponses.parse(value));
                 case "mitm_server_handshake" -> mitmServerHandshake(MitmServerHandshake.parse(value));
                 default -> throw new IllegalArgumentException("unknown protocol policy field: " + name.strip()
@@ -524,6 +561,12 @@ public final class ProtocolPolicy {
             };
         }
 
+        private static long nonNegativeMillis(String name, String value) {
+            long millis = Long.parseLong(value.strip());
+            if (millis < 0) throw new IllegalArgumentException(name.strip() + " must be non-negative milliseconds");
+            return millis;
+        }
+
         /**
          * The policy set so far.
          *
@@ -536,7 +579,7 @@ public final class ProtocolPolicy {
 
     private static final List<String> NAMES = List.of("preset", "resolve_before_proxy_to_server_request",
             "filter_connect_answer", "serve_plain_http_after_connect", "proxy_protocol_destination",
-            "tls_retry_without_sni", "generated_responses", "mitm_server_handshake");
+            "tls_retry_without_sni", "request_head_timeout", "generated_responses", "mitm_server_handshake");
 
     /**
      * The configuration names {@link Builder#set} takes, {@code preset} first; {@link

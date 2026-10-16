@@ -16,6 +16,7 @@ behaviour while others keep MicroProxy's, or to change one such behaviour on its
 | `generatedResponses` / `generated_responses`: what `proxyToClientResponse` may do with the responses the proxy answers with itself, its error responses and filters' short-circuit responses ([The proxy's responses in proxyToClientResponse](filters.md#the-proxys-responses-in-proxytoclientresponse)) | `REPLACEABLE` (`replaceable`): replace them | `REPLACEABLE`, as LittleProxy 2.x; LittleProxy 1.x and its forks: `IN_PLACE` (`in_place`), change them in place only. `SKIP` (`skip`) keeps them from the hook |
 | `mitmServerHandshake` / `mitm_server_handshake`: when the proxy runs its TLS handshake with the server for an intercepted `CONNECT` ([Server TLS failures](mitm.md#server-tls-failures)); `HttpFilters.proxyToServerMitmHandshake()` overrides it per request | `DEFERRED` (`deferred`): after the `CONNECT` is answered and the ClientHello read, mirroring it; a failure answers the session's first request `502` | `EAGER` (`eager`): before answering, so a failure answers the `CONNECT` `502` |
 | `tlsRetryWithoutSni` / `tls_retry_without_sni`: whether a server that rejects the server name with an `unrecognized_name` alert is tried once more without SNI ([Server TLS failures](mitm.md#server-tls-failures)) | `false` | `true` |
+| HTTP/1 request-head deadline: `requestHeadTimeout` / `request_head_timeout`, measured from its first byte to the end of its headers; zero disables it | 30 seconds: an incomplete head receives `408` and the connection closes | 30 seconds (MicroProxy hardening; LittleProxy has no corresponding setting) |
 | HTTP/1 only: `allowChunkedLength` / `allow_chunked_length`: whether a request with both `Transfer-Encoding` and `Content-Length` is accepted ([Security](../security.md#request-parsing)) | `withAllowChunkedLength` (`false`) | not part of the preset: LittleProxy refuses such requests too |
 
 Each field and the LittleProxy 2.9.1 code that behaves so are listed in
@@ -37,8 +38,15 @@ MicroProxy.bootstrap()
 
 `withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) makes
 the LittleProxy preset HTTP/1's defaults; HTTP/2 and HTTP/3 clients, which LittleProxy never
-served, keep MicroProxy's. Only HTTP/1's builder (`Http1PolicyBuilder`) takes the HTTP/1-only
-fields.
+served, keep MicroProxy's. `allowChunkedLength` is only available on HTTP/1's builder
+(`Http1PolicyBuilder`); `requestHeadTimeout` is available in every policy but only applies to
+HTTP/1.
+
+Set the timeout for every protocol with `withRequestHeadTimeout(Duration)` or
+`--request-head-timeout` / `request_head_timeout`. The HTTP/1 policy can override it with
+`onHttp1(p -> p.requestHeadTimeout(Duration))`, `--http1-policy request_head_timeout=<millis>` or
+`policy.http1.request_head_timeout=<millis>`. The default is 30 seconds; zero disables the deadline.
+HTTP/2 and HTTP/3 do not use this field.
 
 In a properties file, `policy.<field>` sets a field for every protocol and `policy.http1.<field>`,
 `policy.http2.<field>` and `policy.http3.<field>` for one; `preset` names a preset (`littleproxy`

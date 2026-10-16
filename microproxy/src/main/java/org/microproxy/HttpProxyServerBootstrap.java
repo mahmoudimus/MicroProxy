@@ -373,6 +373,17 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withIdleConnectionTimeout(Duration idleConnectionTimeout);
 
     /**
+     * Sets the maximum time for an HTTP/1 request head to arrive, from its first byte through the
+     * terminating blank line. A timed-out request receives {@code 408 Request Timeout}; the
+     * connection is closed. Zero disables the deadline. The default is 30 seconds. An HTTP/1
+     * protocol policy may override this value with {@link Http1PolicyBuilder#requestHeadTimeout}.
+     *
+     * @param timeout the maximum request-head time, or zero for no deadline
+     * @return this bootstrap
+     */
+    HttpProxyServerBootstrap withRequestHeadTimeout(Duration timeout);
+
+    /**
      * Connect timeout for outbound connections in milliseconds.
      *
      * @param connectTimeoutMs the outbound connect timeout in milliseconds; zero uses the system default

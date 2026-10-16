@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(true), defaults.servePlainHttpAfterConnect());
         assertEquals(Optional.of(ProxyProtocolDestination.LOCAL_ADDRESS), defaults.proxyProtocolDestination());
         assertEquals(Optional.of(false), defaults.tlsRetryWithoutSni());
+        assertEquals(Optional.of(Duration.ofSeconds(30)), defaults.requestHeadTimeout());
         assertEquals(Optional.empty(), defaults.allowChunkedLength(), "decided by withAllowChunkedLength");
         assertEquals(Optional.of(GeneratedResponses.REPLACEABLE), defaults.generatedResponses());
         assertEquals(Optional.of(MitmServerHandshake.DEFERRED), defaults.mitmServerHandshake());
@@ -45,6 +47,7 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(false), littleProxy.servePlainHttpAfterConnect());
         assertEquals(Optional.of(ProxyProtocolDestination.SERVER_ADDRESS), littleProxy.proxyProtocolDestination());
         assertEquals(Optional.of(true), littleProxy.tlsRetryWithoutSni());
+        assertEquals(Optional.of(Duration.ofSeconds(30)), littleProxy.requestHeadTimeout());
         assertEquals(Optional.empty(), littleProxy.allowChunkedLength());
         assertEquals(Optional.of(GeneratedResponses.REPLACEABLE), littleProxy.generatedResponses(), "as LittleProxy 2.x");
         assertEquals(Optional.of(MitmServerHandshake.EAGER), littleProxy.mitmServerHandshake());
@@ -89,11 +92,14 @@ class ProtocolPolicyTest {
         assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("mitm_server_handshake", "now"));
         assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("no_such_field", "true"));
         assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("tls_retry_without_sni", "yes"));
+        assertEquals(Optional.of(Duration.ofMillis(1234)), ProtocolPolicy.builder()
+                .set("request_head_timeout", "1234").build().requestHeadTimeout());
+        assertThrows(IllegalArgumentException.class, () -> ProtocolPolicy.builder().set("request_head_timeout", "-1"));
         assertThrows(IllegalArgumentException.class,
                 () -> ProtocolPolicy.builder().set("allow_chunked_length", "true"), "HTTP/1 only");
         assertEquals(Optional.of(true), new Http1PolicyBuilder().set("allow_chunked_length", "true").build()
                 .allowChunkedLength());
-        assertEquals(8, ProtocolPolicy.configurationNames().size());
+        assertEquals(9, ProtocolPolicy.configurationNames().size());
     }
 
     @Test
@@ -162,8 +168,10 @@ class ProtocolPolicyTest {
     @Test
     void propertiesConfigureEachLayer() {
         Properties p = new Properties();
+        p.setProperty("request_head_timeout", "1200");
         p.setProperty("policy.tls_retry_without_sni", "true");
         p.setProperty("policy.http1.preset", "littleproxy");
+        p.setProperty("policy.http1.request_head_timeout", "250");
         p.setProperty("policy.http1.filter_connect_answer", "true");
         p.setProperty("policy.http1.allow_chunked_length", "true");
         p.setProperty("policy.http2.proxy_protocol_destination", "server_address");
@@ -175,6 +183,8 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(ProxyProtocolDestination.SERVER_ADDRESS), policy(b, 2).proxyProtocolDestination());
         assertEquals(Optional.of(true), policy(b, 2).tlsRetryWithoutSni());
         assertEquals(Optional.of(false), policy(b, 3).servePlainHttpAfterConnect());
+        assertEquals(Optional.of(Duration.ofMillis(250)), policy(b, 1).requestHeadTimeout());
+        assertEquals(Optional.of(Duration.ofMillis(1200)), policy(b, 2).requestHeadTimeout());
 
         Properties compat = new Properties();
         compat.setProperty("littleproxy_compatibility", "true");
@@ -188,8 +198,8 @@ class ProtocolPolicyTest {
 
     @Test
     void theCommandLineConfiguresEachLayer() throws IOException {
-        HttpProxyServerBootstrap b = parse("--policy", "tls_retry_without_sni=true",
-                "--http1-policy", "preset=littleproxy,filter_connect_answer=true,allow_chunked_length=true",
+        HttpProxyServerBootstrap b = parse("--request-head-timeout", "1000", "--policy", "tls_retry_without_sni=true",
+                "--http1-policy", "preset=littleproxy,filter_connect_answer=true,allow_chunked_length=true,request_head_timeout=250",
                 "--http2-policy", "proxy_protocol_destination=server_address",
                 "--http3-policy", "serve-plain-http-after-connect=false");
         assertEquals(Optional.of(true), policy(b, 1).resolveBeforeProxyToServerRequest());
@@ -198,6 +208,8 @@ class ProtocolPolicyTest {
         assertEquals(Optional.of(ProxyProtocolDestination.SERVER_ADDRESS), policy(b, 2).proxyProtocolDestination());
         assertEquals(Optional.of(true), policy(b, 3).tlsRetryWithoutSni());
         assertEquals(Optional.of(false), policy(b, 3).servePlainHttpAfterConnect());
+        assertEquals(Optional.of(Duration.ofMillis(250)), policy(b, 1).requestHeadTimeout());
+        assertEquals(Optional.of(Duration.ofMillis(1000)), policy(b, 2).requestHeadTimeout());
 
         HttpProxyServerBootstrap compat = parse("--littleproxy-compat");
         assertEquals(Optional.of(false), policy(compat, 1).filterConnectAnswer());

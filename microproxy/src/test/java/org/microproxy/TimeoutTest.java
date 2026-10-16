@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.microproxy.http.HttpRequest;
+import org.microproxy.stats.Counter;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
 
@@ -81,6 +82,67 @@ class TimeoutTest {
             assertEquals(-1, in.read(), "proxy should close the idle connection");
         }
         assertEquals(1, timeouts.get());
+    }
+
+    @Test
+    void aRequestHeadDeadlineReturns408WhileBytesKeepArriving() throws Exception {
+        proxy = Launcher.start(new String[] {"--port", "0", "--metrics", "--request-head-timeout", "1000",
+                "--http1-policy", "request_head_timeout=250"},
+                new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
+        try (Socket client = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+            client.setSoTimeout(3_000);
+            InputStream request = client.getInputStream();
+            var output = client.getOutputStream();
+            output.write("GET / HTTP/1.1\r\nHost: example.test\r\nX-Slow: "
+                    .getBytes(StandardCharsets.ISO_8859_1));
+            output.flush();
+            Thread trickle = Thread.ofVirtual().start(() -> {
+                try {
+                    for (int i = 0; i < 200; i++) {
+                        output.write('x');
+                        output.flush();
+                        Thread.sleep(20);
+                    }
+                } catch (java.io.IOException | InterruptedException expectedAfter408) {
+                    // The proxy closes the connection after its 408 response.
+                }
+            });
+            try {
+                String status = new java.io.BufferedReader(new java.io.InputStreamReader(request,
+                        StandardCharsets.ISO_8859_1)).readLine();
+                assertEquals("HTTP/1.1 408 Request Timeout", status);
+                assertEquals(1L, ((Counter) proxy.getStats().get("http.MicroProxy.downstream_rq_head_timeout")).value());
+            } finally {
+                trickle.interrupt();
+                trickle.join(1_000);
+            }
+        }
+    }
+
+    @Test
+    void zeroDisablesTheRequestHeadDeadline() throws Exception {
+        try (TestSupport.RawServer origin = TestSupport.rawServer(s -> {
+            TestSupport.readUntil(s.getInputStream(), "\r\n\r\n");
+            s.getOutputStream().write("HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    .getBytes(StandardCharsets.ISO_8859_1));
+        })) {
+            proxy = Launcher.start(new String[] {"--port", "0", "--request-head-timeout", "0"},
+                    new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));
+            try (Socket client = new Socket(proxy.getListenAddress().getAddress(), proxy.getListenAddress().getPort())) {
+                client.setSoTimeout(3_000);
+                var output = client.getOutputStream();
+                String target = "http://127.0.0.1:" + origin.port() + "/";
+                output.write(("GET " + target + " HTTP/1.1\r\nHost: 127.0.0.1:" + origin.port()
+                        + "\r\nX-Slow: ").getBytes(StandardCharsets.ISO_8859_1));
+                output.flush();
+                Thread.sleep(400);
+                output.write("finished\r\nConnection: close\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
+                output.flush();
+                String status = new java.io.BufferedReader(new java.io.InputStreamReader(client.getInputStream(),
+                        StandardCharsets.ISO_8859_1)).readLine();
+                assertEquals("HTTP/1.1 204 No Content", status);
+            }
+        }
     }
 
     @Test

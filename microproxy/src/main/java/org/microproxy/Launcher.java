@@ -84,6 +84,7 @@ public final class Launcher {
               --keep-host-header           in reverse mode, keep the client's Host
               --idle-timeout <seconds>     idle connection timeout (default 70, 0 = none)
               --connect-timeout <millis>   outbound connect timeout (default 40000)
+              --request-head-timeout <millis>  longest HTTP/1 request head (default 30000, 0 = none)
               --tls-handshake-timeout <millis>  longest TLS handshake (default 10000, 0 = none)
               --tls-protocols <list>       TLS versions allowed on every TLS connection
                                            (default TLSv1.3,TLSv1.2; "" = JDK defaults)
@@ -576,6 +577,7 @@ public final class Launcher {
                 case "--tls-protocols" -> bootstrap.withTlsProtocols(value(queue, arg).split(","));
                 case "--tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(true);
                 case "--no-tls-retry-without-sni" -> bootstrap.withTlsRetryWithoutSni(false);
+                case "--request-head-timeout" -> bootstrap.withRequestHeadTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--tls-handshake-timeout" -> bootstrap.withTlsHandshakeTimeout(Duration.ofMillis(longValue(queue, arg)));
                 case "--proxy-alias" -> bootstrap.withProxyAlias(value(queue, arg));
                 case "--throttle" -> bootstrap.withThrottling(longValue(queue, arg), longValue(queue, arg));

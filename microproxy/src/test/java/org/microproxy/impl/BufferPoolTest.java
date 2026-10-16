@@ -2,6 +2,7 @@ package org.microproxy.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -12,6 +13,9 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.microproxy.HttpProxyServer;
 import org.microproxy.MicroProxy;
@@ -59,6 +63,56 @@ class BufferPoolTest {
         assertEquals(0, pool.outstanding());
         in.awaitNext();
         assertEquals(-1, in.read());
+        assertEquals(0, pool.outstanding());
+    }
+
+    @Test
+    void requestHeadReaderReleasesItsBufferWhileWaitingForMoreHeaderBytes() throws Exception {
+        BufferPool pool = new BufferPool(128, 1);
+        byte[] prefix = "GET / HTTP/1.1\r\nHost: example.test\r\nX-Slow: x"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        CountDownLatch blocked = new CountDownLatch(1);
+        CountDownLatch continueRead = new CountDownLatch(1);
+        AtomicBoolean supplied = new AtomicBoolean();
+        InputStream source = new InputStream() {
+            @Override
+            public int read() throws java.io.IOException {
+                blocked.countDown();
+                try {
+                    continueRead.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new java.io.IOException(e);
+                }
+                return -1;
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) throws java.io.IOException {
+                if (supplied.compareAndSet(false, true)) {
+                    System.arraycopy(prefix, 0, b, off, prefix.length);
+                    return prefix.length;
+                }
+                return super.read(b, off, len);
+            }
+        };
+        ByteReader reader = new ByteReader(source, pool).strictLineEndings();
+        Thread parser = Thread.ofVirtual().start(() -> {
+            try {
+                HttpCodec.readRequest(reader, new HttpCodec.Limits(1024, 1024, 1024));
+            } catch (java.io.IOException expectedAtEndOfTest) {
+                // The test releases the blocked read with EOF after checking the pool.
+            }
+        });
+        try {
+            assertTrue(blocked.await(5, TimeUnit.SECONDS), "parser should wait for the rest of the header");
+            assertEquals(0, pool.outstanding(), "a stalled request head must not pin its I/O buffer");
+        } finally {
+            continueRead.countDown();
+            parser.join(5_000);
+            reader.release();
+        }
+        assertFalse(parser.isAlive(), "parser should leave after the test supplies EOF");
         assertEquals(0, pool.outstanding());
     }
 

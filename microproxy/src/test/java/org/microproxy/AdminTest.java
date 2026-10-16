@@ -482,6 +482,9 @@ class AdminTest {
         List<?> configs = (List<?>) doc.get("configs");
         Map<?, ?> boot = (Map<?, ?>) ((Map<?, ?>) configs.get(0)).get("bootstrap");
         assertEquals("type.microproxy/BootstrapConfigDump", ((Map<?, ?>) configs.get(0)).get("@type"));
+        assertEquals("PT30S", ((Map<?, ?>) boot.get("timeouts")).get("request_head"));
+        Map<?, ?> policies = (Map<?, ?>) boot.get("protocol_policies");
+        assertEquals("PT30S", ((Map<?, ?>) policies.get("http1")).get("request_head_timeout"));
         assertEquals("[redacted]", ((Map<?, ?>) boot.get("listener_tls")).get("key_store_password"));
         assertEquals("[redacted]", ((Map<?, ?>) boot.get("proxy_authentication")).get("credentials"));
         Map<?, ?> mitm = (Map<?, ?>) boot.get("mitm");
