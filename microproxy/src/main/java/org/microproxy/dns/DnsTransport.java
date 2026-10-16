@@ -76,6 +76,43 @@ public interface DnsTransport {
     }
 
     /**
+     * Each of {@code transports} in turn: a query that fails with an {@link IOException} (a
+     * resolver that cannot be reached, times out or answers with an HTTP error) is sent to the
+     * next, and only when every one has failed does the query fail, with the last failure and the
+     * earlier ones suppressed in it. Each query starts at the transport that answered last, so a
+     * resolver that is down costs its timeout once rather than on every query; one that answers
+     * again is used again once the others fail. Responses are validated locally either way, so
+     * mixing resolvers within a lookup is safe.
+     *
+     * @param transports the transports to try, in order; at least one
+     * @return the failover transport
+     */
+    static DnsTransport failover(List<DnsTransport> transports) {
+        List<DnsTransport> all = List.copyOf(transports);
+        if (all.isEmpty()) throw new IllegalArgumentException("no transports");
+        if (all.size() == 1) return all.get(0);
+        java.util.concurrent.atomic.AtomicInteger preferred = new java.util.concurrent.atomic.AtomicInteger();
+        return query -> {
+            int start = preferred.get();
+            IOException failure = null;
+            for (int i = 0; i < all.size(); i++) {
+                int index = (start + i) % all.size();
+                try {
+                    byte[] response = all.get(index).exchange(query);
+                    preferred.set(index);
+                    return response;
+                } catch (InterruptedIOException e) {
+                    throw e;
+                } catch (IOException e) {
+                    if (failure != null) e.addSuppressed(failure);
+                    failure = e;
+                }
+            }
+            throw failure;
+        };
+    }
+
+    /**
      * The {@code nameserver}s of {@code /etc/resolv.conf}, or Google and Cloudflare public
      * resolvers when that file is unavailable.
      *

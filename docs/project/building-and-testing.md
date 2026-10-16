@@ -57,7 +57,9 @@ DNSSEC is tested in three ways, all offline:
 - **Published values:** the IANA root key's tag and digest, and the RFC 5155 hash vectors.
 
 Live validation is opt-in locally (CI runs it on every push and pull request), and so is
-re-recording:
+re-recording. It asks Cloudflare, Google and Quad9 over DNS over HTTPS, by name and then by
+address (1.1.1.1, 8.8.8.8, 8.8.4.4, 9.9.9.9), each in turn when the one before cannot answer
+(`DnsTransport.failover`); a comma-separated `-Dmicroproxy.dns.doh` replaces the list:
 
 ```bash
 mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.record=true]
