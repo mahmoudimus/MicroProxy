@@ -236,8 +236,9 @@ both sides, as with `--mitm` and the HTTP/2 defaults, and trusts the server's CA
 They run as they are, through a Java `FrameInterceptor` that passes every frame on unchanged
 (and checks that the deadline, the cancellations and the trailers crossed both hops), and, in
 `microproxy-starlark`'s `ScriptedGrpcInteropTest`, through an `on_frame` script that does the
-same. CI runs them on every push and pull request (the `grpc-interop` job of
-[`.github/workflows/ci.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/ci.yml), with `grpcio==1.84.0`). Elsewhere they
+same. CI runs them on every push and pull request (the `test` job of
+[`.github/workflows/ci.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/ci.yml), on JDK 21 and 25, with `grpcio==1.84.0`
+and `-Dgrpc.interop.required=true`, so a missing grpcio fails the build). Elsewhere they
 are skipped unless Python has grpcio:
 
 ```bash
