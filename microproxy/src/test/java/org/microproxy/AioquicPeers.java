@@ -160,7 +160,7 @@ public final class AioquicPeers {
         if (!Boolean.TRUE.equals(json.get("ok"))) {
             String error = String.valueOf(json.get("error"));
             throw new AssertionError("aioquic client failed: " + error + "\n" + output
-                    + (error.startsWith("TimeoutError") ? proxyThreads(dir) : ""));
+                    + (error.startsWith("TimeoutError") || error.startsWith("ConnectionError") ? proxyThreads(dir) : ""));
         }
         return (List<Map<String, Object>>) json.get("responses");
     }
