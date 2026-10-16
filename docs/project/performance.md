@@ -36,14 +36,22 @@ holding it alone:
   12.0 to 14.1 KB across runs, against 15.8 KB for Envoy, 17.9 KB for LittleProxy, 20.7 KB for
   goproxy, 29.1 KB for Squid and 49.9 KB for g3proxy). At 8,000 idle connections goproxy
   (174.6 MB) and MicroProxy (178.6 MB) hold the least, within run-to-run noise of each other.
-- **Parallel large uploads and downloads: LittleProxy ran out of memory in every run** (437 MB
-  of its 512 MB cap), where MicroProxy peaked at 82.7 MB, Envoy at 127.8 MB and Squid at 178.8 MB;
-  goproxy (16.7 MB) and g3proxy (28.4 MB) held less than MicroProxy.
-- **Slowloris is MicroProxy's weakest memory result**: 135.4 MB for 2,000 trickling connections,
-  the highest after Squid's 181.9 MB, against 34.2 MB for goproxy.
-- **Slow readers were not measured on this machine**: its kernel charges TCP socket buffers to
-  the proxy's memory cgroup, and they alone filled it (see
-  [Adversarial clients](#adversarial-clients-under-a-memory-cap)).
+- **Slow readers: MicroProxy holds about 150 KB per reader, LittleProxy about 1.1 MB and Envoy
+  about 1.5 MB.** With 200 clients reading 16 MB responses at 8 KB/s, MicroProxy peaked at
+  83.8 MB, LittleProxy at 279.9 MB (closing some of the readers itself in three of five runs) and
+  Envoy at 360.1 MB of its 512 MB cap. goproxy (101 KB per reader) and g3proxy (75 KB) held less
+  than MicroProxy, Squid more (466 KB).
+- **The kernel holds the rest of what a slow reader has not taken**: 520 to 570 MB of socket
+  buffers for 200 readers with MicroProxy, Envoy, goproxy and g3proxy, which stop reading the
+  origin and leave the bytes in flight there; 354 MB with Squid, and 184 MB with LittleProxy,
+  which keeps more of it in its own memory. A container whose memory limit counts socket buffers
+  counts these too (see [Adversarial clients](#adversarial-clients-under-a-memory-cap)).
+- **Parallel large uploads and downloads: LittleProxy ran out of memory in every run**, its own
+  memory passing the 512 MB cap (it peaked at 457.5 MB of RSS in the runs that sampled it), where
+  MicroProxy peaked at 84.1 MB, Envoy at 125.1 MB and Squid at 178.7 MB; goproxy (16.4 MB) and
+  g3proxy (25.5 MB) held less than MicroProxy.
+- **Slowloris is MicroProxy's weakest memory result**: 129.1 MB for 2,000 trickling connections,
+  the highest after Squid's 181.8 MB, against 33.8 MB for goproxy.
 - **Every proxy stayed up and bounded** through the faults and the soak, with no leak flagged.
 
 ## Scoreboard
@@ -65,10 +73,12 @@ the measure does not apply or was not measured.
 | Idle RSS (MB) | 58.8 | 77.3 | 67.5 | **9.5** | 25.1 | 170.2 |
 | RSS per idle connection (KB) | **13.5** | 17.9 | 15.8 | 20.7 | 49.9 | 29.1 |
 | RSS holding 8,000 idle connections (MB) | 178.6 | 229.9 | 191.3 | 174.6 | 416.2 | 398.4 |
-| Peak RSS under slowloris (MB, 512 MB cap) | 135.4 | 109.0 | 106.3 | **34.2** | 109.3 | 181.9 |
-| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 82.7 | 437.0 | 127.8 | **16.7** | 28.4 | 178.8 |
+| Peak RSS under slowloris (MB, 512 MB cap) | 129.1 | 112.4 | 100.0 | **33.8** | 106.5 | 181.8 |
+| RSS per slow reader, 200 readers (KB) | 148 | 1,094 | 1,545 | 101 | **75** | 466 |
+| Peak RSS under slow readers (MB, 512 MB cap) | 83.8 | 279.9 | 360.1 | **28.1** | 35.5 | 259.1 |
+| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 84.1 | 457.5 ‡ | 125.1 | **16.4** | 25.5 | 178.7 |
 
-Not measured on this machine: slow readers (see [Adversarial clients](#adversarial-clients-under-a-memory-cap)).
+‡ Measured in fewer runs than all, because in the others the proxy ran out of memory before the first memory sample: LittleProxy under parallel large uploads and downloads (3 of 5 runs).
 
 <!-- /perf:scoreboard -->
 
@@ -239,17 +249,24 @@ other proxies' ramps; their other four runs held all 8,000.
 
 <div class="mp-perf-chart" data-chart="race"></div>
 
-The slow-reader workload (200 clients reading 16 MB responses at 8 KB/s) is not reported from
-these runs. On this machine the kernel charges each connection's TCP socket buffers to the proxy's
-memory cgroup, and a follow-up that watched the cgroup found the buffers alone at 290 to 490 MB
-within a second, while the proxy's own memory stayed at 16 to 56 MB: the cgroup's OOM killer ended
-the run for every proxy but LittleProxy, whatever the proxy itself held, and lowering the kernel's
-buffer limits to the upstream defaults did not change that. The proxies' own memory under slow
-readers needs a harness that keeps the kernel's buffers out of the cap, which it now does
-(`--attack-cgroup-sockets`, see [the load-testing page](load-testing.md#how-memory-growth-is-judged));
-the slow-reader rows return with the next run. Until then, the
-[backpressure section of the architecture page](../architecture.md) describes how each proxy
-stops reading.
+<div class="mp-perf-static" markdown>
+
+![RSS over time under slow readers, each proxy capped at 512 MB](../assets/perf/slowread-rss.svg)
+
+</div>
+
+Each proxy's cap holds its own memory. The TCP socket buffers of its connections, which cgroup v2
+also charges to the proxy's group, are kept out of the cap and shown beside it (the "Kernel socket
+buffers" column): how much a slow reader leaves there is set mostly by the kernel, about 2.6 to
+2.9 MB a reader on this machine once the proxy stops reading, so 200 readers fill a 512 MB cap on
+their own. Counted inside the cap, as in the campaign's first runs, they had the cgroup's OOM
+killer end five of the six proxies within a second, whatever the proxies held. A proxy in a
+container whose memory limit counts socket buffers lives under that sum, and the harness measures
+it that way with `--attack-cgroup-sockets include` (see
+[the load-testing page](load-testing.md#how-memory-growth-is-judged)). The memory figures here come
+from five runs of the memory scenario made on the same machine after that change (harness at
+39aa8c5, the proxies and their settings unchanged); every other figure comes from the campaign's
+five runs.
 
 Every workload, median of the runs, with the harness's verdict (see
 [how memory growth is judged](load-testing.md#how-memory-growth-is-judged)); a verdict stands alone
@@ -258,23 +275,28 @@ baseline, divided by the workload's connections:
 
 <!-- perf:memory -->
 
-| Workload | Proxy | Verdict | Peak RSS (MB) | RSS per connection (KB) | Honest probes answered | Proxy at the end |
-|---|---|---|---|---|---|---|
-| slowloris | MicroProxy | bounded | 135.4 | 37 | 100% | running |
-| slowloris | LittleProxy | bounded | 109.0 | 13 | 100% | running |
-| slowloris | Envoy | bounded | 106.3 | 19 | 100% | running |
-| slowloris | goproxy (Go) | bounded | 34.2 | 13 | 100% | running |
-| slowloris | g3proxy (Rust) | bounded | 109.3 | 43 | 100% | running |
-| slowloris | Squid | bounded | 181.9 | 6 | 100% | running |
-| updown | MicroProxy | bounded | 82.7 | 774 | 100% | running |
-| updown | LittleProxy | oom | 437.0 | 11,668 | 100% | oom |
-| updown | Envoy | bounded | 127.8 | 2,013 | 100% | running |
-| updown | goproxy (Go) | bounded | 16.7 | 254 | 100% | running |
-| updown | g3proxy (Rust) | bounded | 28.4 | 148 | 100% | running |
-| updown | Squid | bounded | 178.8 | 340 | 100% | running |
-| slowread | every proxy | not measured (see below) | n/a | n/a | n/a | n/a |
+| Workload | Proxy | Verdict | Peak RSS (MB) | RSS per connection (KB) | Kernel socket buffers, peak (MB) | Honest probes answered | Proxy at the end |
+|---|---|---|---|---|---|---|---|
+| slowloris | MicroProxy | bounded | 129.1 | 37 | 4.8 | 100% | running |
+| slowloris | LittleProxy | bounded | 112.4 | 18 | 3.0 | 100% | running |
+| slowloris | Envoy | bounded | 100.0 | 20 | 0.1 | 100% | running |
+| slowloris | goproxy (Go) | bounded | 33.8 | 13 | 0.1 | 100% | running |
+| slowloris | g3proxy (Rust) | bounded | 106.5 | 43 | 0.8 | 100% | running |
+| slowloris | Squid | bounded | 181.8 | 6 | 0.0 | 100% | running |
+| slowread | MicroProxy | bounded | 83.8 | 148 | 565.3 | 100% | running |
+| slowread | LittleProxy | bounded ×2, shedding ×3 | 279.9 | 1,094 | 183.7 | 100% | running |
+| slowread | Envoy | bounded | 360.1 | 1,545 | 572.4 | 100% | running |
+| slowread | goproxy (Go) | bounded | 28.1 | 101 | 520.5 | 100% | running |
+| slowread | g3proxy (Rust) | bounded | 35.5 | 75 | 520.5 | 100% | running |
+| slowread | Squid | bounded | 259.1 | 466 | 354.3 | 100% | running |
+| updown | MicroProxy | bounded | 84.1 | 941 | 13.3 | 100% | running |
+| updown | LittleProxy | oom | 457.5 ‡ | 12,506 ‡ | 7.9 | 85% ‡ | oom |
+| updown | Envoy | bounded | 125.1 | 2,144 | 21.2 | 100% | running |
+| updown | goproxy (Go) | bounded | 16.4 | 257 | 18.5 | 100% | running |
+| updown | g3proxy (Rust) | bounded | 25.5 | 145 | 4.2 | 100% | running |
+| updown | Squid | bounded | 178.7 | 337 | 7.8 | 100% | running |
 
-Slow readers were not measured on this machine: its kernel (Linux 7.0) charges TCP socket buffers to the proxy's memory cgroup, and with 200 slow readers the buffers alone filled most of the 512 MB cap within a second (290 to 490 MB, against 16 to 56 MB of the proxy's own memory), so the cgroup's OOM killer ended the run for five of the six proxies whatever the proxy itself held.
+‡ Measured in fewer runs than all, because in the others the proxy ran out of memory before the first memory sample: LittleProxy under parallel large uploads and downloads (3 of 5 runs).
 
 <!-- /perf:memory -->
 
@@ -332,6 +354,7 @@ client:
 | CPU split (taskset) | proxy 1, origin 2, client 3,4,5,6,7,8 |
 | Runs | 5 (20261015-215158, 20261015-224705, 20261015-234222, 20261016-003717, 20261016-013155 UTC) |
 | Harness commit | bfe751dcc0e4ec03b669031c7e9c782607906270 |
+| Memory scenario runs | 5 (20261016-153422, 20261016-154722, 20261016-160022, 20261016-161320, 20261016-162620 UTC), run separately with the harness at 39aa8c54878b150b2dce8304e54ed23b73cf3c15 |
 
 <!-- /perf:machine -->
 
@@ -364,6 +387,11 @@ The runs that are published, and what else ran during each:
 | 20261015-234222 | 6.0% / 43.8% / 197.7% | 1.63 / 11.87 | kernel thread 6.4%, sshd 0.1% | 5.1 s | accepted |
 | 20261016-003717 | 5.3% / 42.3% / 188.6% | 1.74 / 15.19 | kernel thread 4.6%, sshd 0.1% | 5.1 s | accepted |
 | 20261016-013155 | 7.6% / 53.6% / 495.4% | 1.69 / 14.27 | kernel thread 5.0%, sshd 0.1% | 5.1 s | accepted |
+| 20261016-153422 (memory) | 8.4% / 68.5% / 147.5% | 0.95 / 2.19 | kernel thread 0.4%, python3 0.3%, agent session 0.2% | 5.5 s | accepted |
+| 20261016-154722 (memory) | 5.7% / 22.6% / 152.3% | 1.06 / 2.66 | kernel thread 0.2% | 5.1 s | accepted |
+| 20261016-160022 (memory) | 6.0% / 26.6% / 151.9% | 1.17 / 2.63 | none | 5.1 s | accepted |
+| 20261016-161320 (memory) | 4.8% / 23.0% / 100.5% | 0.91 / 2.11 | kernel thread 1.0% | 5.1 s | accepted |
+| 20261016-162620 (memory) | 4.7% / 18.1% / 113.7% | 0.78 / 1.90 | kernel thread 1.8%, agent session 0.2% | 5.1 s | accepted |
 
 <!-- /perf:contamination -->
 
@@ -479,9 +507,11 @@ Some differences cannot be made equal, and are part of what is measured:
   largest step is a setting of the comparison, not a limit any proxy reached. `bootstrap.sh` widens
   the machine's ephemeral port range to 15000-64999 and turns on `TIME_WAIT` reuse, so that the
   sockets one proxy's ramp leaves behind do not use up the ports of the next.
-- **Adversarial clients**: RSS every 5 s while each workload runs for 40 s, with a fresh proxy in a
-  512 MB memory cgroup for each workload: 2,000 slowloris connections, and 16 parallel 64 MB
-  uploads and downloads (200 slow readers too, not reported from these runs: see
+- **Adversarial clients**: RSS every 5 s while each workload runs for 40 s, with a fresh proxy for
+  each workload whose own memory is capped at 512 MB (its kernel socket buffers beside the cap,
+  their peak read from the cgroup every 100 ms): 200 slow readers (16 MB each, read at 8 KB/s),
+  2,000 slowloris connections, and 16 parallel 64 MB uploads and downloads. These come from five
+  separate runs of the memory scenario on the same machine (see
   [Adversarial clients](#adversarial-clients-under-a-memory-cap)).
 
 ### Repetitions and spread
@@ -507,8 +537,10 @@ value. The lowest and highest run behind every median of the scoreboard:
 | Idle RSS (MB) | 58.8–58.9 | 76.6–77.8 | 66.9–68.1 | 9.4–9.5 | 23.8–25.3 | 170.1–170.3 |
 | RSS per idle connection (KB) | 12.0–14.1 | 16.9–20.3 | 15.8–15.8 | 20.6–21.0 | 49.9–50.0 | 29.1–29.2 |
 | RSS holding 8,000 idle connections (MB) | 169.8–190.4 | 221.5–236.9 | 190.7–191.8 | 171.3–174.7 | 414.6–416.5 | 397.9–398.9 |
-| Peak RSS under slowloris (MB, 512 MB cap) | 131.8–141.1 | 103.1–111.4 | 105.8–106.5 | 33.9–34.3 | 109.2–110.0 | 181.8–182.1 |
-| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 80.3–86.0 | 417.2–453.2 | 127.1–131.6 | 16.4–16.8 | 28.4–28.5 | 178.6–179.1 |
+| Peak RSS under slowloris (MB, 512 MB cap) | 128.6–159.0 | 110.3–114.5 | 98.6–100.4 | 33.6–34.1 | 106.4–106.8 | 181.7–181.9 |
+| RSS per slow reader, 200 readers (KB) | 146–167 | 962–1,207 | 1,435–1,603 | 99–102 | 74–76 | 466–467 |
+| Peak RSS under slow readers (MB, 512 MB cap) | 83.4–87.9 | 254.3–302.3 | 339.2–372.1 | 27.8–28.2 | 35.4–35.6 | 258.9–259.2 |
+| Peak RSS under parallel large uploads and downloads (MB, 512 MB cap) | 82.3–87.1 | 407.7–492.3 (3 of 5 runs) | 121.0–127.8 | 16.2–16.7 | 25.3–25.6 | 178.4–178.9 |
 
 <!-- /perf:spread -->
 
@@ -563,7 +595,10 @@ the environment (see the script's header), and `PUBLISH=0` keeps the results out
 that fails the contamination guard stops the publication: run it again, and list the failed one
 under `"rejected"` (with its `rep` and a `reason`) in the results directory's `run-info.json`. A
 memory workload that the machine itself makes meaningless goes under `"notMeasured"` (with its
-`scenario`, `attack` and `reason`), and the tables give the reason in its place.
+`scenario`, `attack` and `reason`), and the tables give the reason in its place. A memory scenario
+run again on its own (after a harness change, say) is named by `"memoryFrom"` in `run-info.json`
+(a results directory relative to it); its runs then give every memory figure, pass the same guard,
+and are published under `raw/memory/`.
 
 ### The raw data
 

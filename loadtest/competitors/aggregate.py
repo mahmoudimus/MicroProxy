@@ -22,6 +22,12 @@ not refined. A run whose sweep the load generator ended (client-bound) is left o
 figure, and each latency and CPU curve uses the same runs at every point: it stops at the highest
 offered rate every one of those runs sustained.
 
+The memory figures can come from other runs than the rest: "memoryFrom" in run-info.json names a
+results directory (relative to this one, in either layout) whose runs, with their own run-info.json
+and host monitor log, give every memory-under-attack figure; they pass the same guard, and are
+published under raw/memory/. That is for a memory scenario run again on the same machine after a
+harness change, without repeating the hours of the other scenarios.
+
 A memory workload listed under "notMeasured" in run-info.json ({"scenario": "memory", "attack": ...,
 "reason": ...}) is left out of every figure, and the tables give its reason instead: for a workload
 the machine itself made meaningless (not a run that was disturbed, which is "rejected").
@@ -109,17 +115,23 @@ def parse_utc(text):
         return None
 
 
-def load_runs(runs_dir):
+def is_raw_dir(runs_dir):
+    """Whether runs_dir holds published raw files (<rep>-<timestamp>.json) rather than rep*/<timestamp>/."""
+    return any(re.match(r"^rep\d+-", os.path.basename(p)) for p in glob.glob(os.path.join(runs_dir, "*-*.json")))
+
+
+def load_runs(runs_dir, raw=None):
     """Every rep*/<timestamp>/results.json (or, with --raw, every <rep>-<timestamp>.json), except the
-    runs that run-info.json rejects, in start order."""
+    runs that run-info.json rejects, in start order. raw overrides --raw for this directory."""
+    raw = RAW[0] if raw is None else raw
     rejected = {r["rep"] for r in run_info(runs_dir).get("rejected", [])}
-    if RAW[0]:
+    if raw:
         files = sorted(p for p in glob.glob(os.path.join(runs_dir, "*-*.json")) if re.match(r"^rep\d+-", os.path.basename(p)))
     else:
         files = sorted(set(os.path.realpath(p) for p in glob.glob(os.path.join(runs_dir, "rep*", "*", "results.json"))))
     runs = []
     for f in files:
-        if RAW[0]:
+        if raw:
             rep = os.path.basename(f).split("-", 1)[0]
         else:
             rep = os.path.basename(os.path.dirname(os.path.dirname(f)))
@@ -129,7 +141,7 @@ def load_runs(runs_dir):
             data = json.load(fh)
         runs.append({"id": rep + "-" + data["timestamp"], "rep": rep, "file": f, "data": data,
                      "start": datetime.strptime(data["timestamp"], "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc).timestamp(),
-                     "end": parse_utc(data.get("finished")) or (None if RAW[0] else os.path.getmtime(f))})
+                     "end": parse_utc(data.get("finished")) or (None if raw else os.path.getmtime(f))})
     if not runs:
         sys.exit("no runs under " + runs_dir)
     runs.sort(key=lambda r: r["start"])
@@ -561,6 +573,11 @@ def aggregate_memory(runs, proxies, excluded=None):
                       "probeOkRatio": stats(probes), "shedRatio": stats(shed), "cap": caps[0] if caps else None,
                       "peakSockMb": stats(socks), "sockKbPerConnection": stats(sock_per_conn),
                       "series": median_series, "allSeries": series}
+        # Each figure's run count, against the memory runs' own (which can be other runs than the rest).
+        for v in per.values():
+            for st in v.values():
+                if isinstance(st, dict) and "med" in st:
+                    st["of"] = len(runs)
         out[attack] = per
     return out
 
@@ -665,6 +682,28 @@ def proxies_meta(runs, proxies):
     return meta
 
 
+# The settings of the memory scenario, taken from its own runs when they are not the rest's.
+MEMORY_SETTINGS = ("attack", "attacks", "slowloris", "slowread", "updown", "rapidreset", "nmt-every")
+
+
+def memory_dir(runs_dir):
+    """The results directory "memoryFrom" in run-info.json names (relative to runs_dir), or None."""
+    rel = run_info(runs_dir).get("memoryFrom")
+    if not rel:
+        return None
+    path = os.path.normpath(os.path.join(runs_dir, rel))
+    if not os.path.isdir(path):
+        sys.exit(f"run-info.json: memoryFrom {rel!r} is not a directory under {runs_dir}")
+    return path
+
+
+def run_list(runs, hosts, raw_prefix):
+    return [{"id": r["id"], "timestamp": r["data"]["timestamp"], "order": r["data"]["proxies"],
+             "end": datetime.fromtimestamp(r["end"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if r["end"] else None,
+             "raw": raw_prefix + r["id"] + ".json", "harnessOk": r["data"].get("harnessOk"),
+             "notes": r["data"].get("notes"), "hostLoad": hosts.get(r["id"])} for r in runs]
+
+
 def build(runs_dir):
     runs = load_runs(runs_dir)
     proxies = proxy_order(runs)
@@ -685,13 +724,25 @@ def build(runs_dir):
     run_info_commit[0] = info.get("commit")
     hosts = host_load(runs_dir, runs)
     env = first.get("environment", {})
+    # The memory figures, from this directory's runs or from the one "memoryFrom" names.
+    mem_dir = memory_dir(runs_dir)
+    mem_runs, mem_info, mem_hosts = runs, info, hosts
+    if mem_dir:
+        mem_runs = load_runs(mem_dir, is_raw_dir(mem_dir))
+        mem_info = run_info(mem_dir)
+        mem_hosts = host_load(mem_dir, mem_runs)
+        # The memory scenario's own settings (its workloads, caps and sampling) come from its runs.
+        mem_settings = mem_runs[0]["data"].get("settings", {})
+        settings = dict(settings)
+        for k, v in mem_settings.items():
+            if k.startswith(MEMORY_SETTINGS):
+                settings[k] = v
     return {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "runInfo": info,
-        "runs": [{"id": r["id"], "timestamp": r["data"]["timestamp"], "order": r["data"]["proxies"],
-                  "end": datetime.fromtimestamp(r["end"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if r["end"] else None,
-                  "raw": "raw/" + r["id"] + ".json", "harnessOk": r["data"].get("harnessOk"),
-                  "notes": r["data"].get("notes"), "hostLoad": hosts.get(r["id"])} for r in runs],
+        "runs": run_list(runs, hosts, "raw/"),
+        "memoryRuns": run_list(mem_runs, mem_hosts, "raw/memory/") if mem_dir else None,
+        "memoryRunInfo": mem_info if mem_dir else None,
         "guard": {"foreignCpuMeanMax": GUARD_MEAN, "foreignCpuP95Max": GUARD_P95, "largestGapMaxS": GUARD_MAX_GAP_S,
                   "rejected": info.get("rejected", [])},
         "machine": {"cpuModel": env.get("cpuModel"), "cpus": len(env.get("cpus") or []), "memTotalMb": round((env.get("memTotalKb") or 0) / 1024),
@@ -704,8 +755,8 @@ def build(runs_dir):
         "commonRate": rate,
         "sweep": sweep,
         "ramp": aggregate_ramp(runs, proxies),
-        "memory": aggregate_memory(runs, proxies, not_measured(info)),
-        "memoryNotMeasured": not_measured(info),
+        "memory": aggregate_memory(mem_runs, proxies, not_measured(mem_info)),
+        "memoryNotMeasured": not_measured(mem_info),
         "soak": aggregate_soak(runs, proxies),
         "faults": aggregate_faults(runs, proxies),
     }
@@ -727,8 +778,9 @@ RUNS = [0]
 
 def fewer(st):
     """' (n of N runs)' when fewer runs than all measured it (some were left out), else ''."""
-    if st and 0 < st["n"] < RUNS[0]:
-        return f" ({st['n']} of {RUNS[0]} runs)"
+    of = st.get("of", RUNS[0]) if st else 0
+    if st and 0 < st["n"] < of:
+        return f" ({st['n']} of {of} runs)"
     return ""
 
 
@@ -835,11 +887,12 @@ def table(header, rows):
     return "\n".join(out)
 
 
-def tally(c):
-    """Verdict counts: the verdict alone when every run agreed, else each with its count."""
+def tally(c, runs=None):
+    """Verdict counts: the verdict alone when every run (of runs, by default all) agreed, else each with its count."""
+    runs = RUNS[0] if runs is None else runs
     if not c:
         return "n/a"
-    if len(c) == 1 and RUNS[0] > 0 and list(c.values())[0] == RUNS[0]:
+    if len(c) == 1 and runs > 0 and list(c.values())[0] == runs:
         return list(c)[0]
     return ", ".join(f"{k} ×{v}" for k, v in c.items())
 
@@ -867,6 +920,21 @@ def excluded_note(d, labels, ids, mark=True):
         return ""
     return (("‡ " if mark else "") + "A run whose sweep the load generator ended (it could not keep its own schedule) is left out of every sweep "
             "figure; runs used: " + "; ".join(parts) + ".")
+
+
+def memory_fewer_note(d, labels, ids):
+    """A sentence naming the memory figures that fewer runs measured (the proxy ended before the
+    first memory sample), or ''."""
+    parts = []
+    for attack, per in d["memory"].items():
+        for p in ids:
+            st = per[p].get("peakRssMb")
+            if st and fewer(st):
+                parts.append(f"{labels[p]} under {ATTACK_NAMES.get(attack, attack)} ({st['n']} of {st['of']} runs)")
+    if not parts:
+        return ""
+    return ("‡ Measured in fewer runs than all, because in the others the proxy ran out of memory before the first "
+            "memory sample: " + "; ".join(parts) + ".")
 
 
 def tables(d):
@@ -898,6 +966,9 @@ def tables(d):
     ex = excluded_note(d, labels, ids)
     if ex:
         notes.append(ex)
+    mem_note = memory_fewer_note(d, labels, ids)
+    if mem_note:
+        notes.append(mem_note)
     gone = d.get("memoryNotMeasured") or {}
     if gone:
         notes.append("Not measured on this machine: " + ", ".join(ATTACK_NAMES.get(a, a) for a in gone)
@@ -969,6 +1040,7 @@ def tables(d):
     rows = []
     # The socket-buffer column only for runs that measured them (a memory cgroup on cgroup v2 or v1).
     with_sock = any((per[p].get("peakSockMb") or {}).get("n") for per in d["memory"].values() for p in ids)
+    mem_runs = len(d.get("memoryRuns") or d["runs"])
     for attack, per in d["memory"].items():
         for p in ids:
             m = per[p]
@@ -976,8 +1048,8 @@ def tables(d):
                 rows.append([attack, labels[p], "not supported: " + m["skipped"], "n/a", "n/a", "n/a", "n/a", "n/a"])
                 continue
             probes = m["probeOkRatio"] and {**m["probeOkRatio"], "med": m["probeOkRatio"]["med"] * 100}
-            rows.append([attack, labels[p], tally(m["verdicts"]), med(m["peakRssMb"], 1), med(m["rssKbPerConnection"]),
-                         med(m.get("peakSockMb"), 1), med(probes, 0, "%"), tally(m["states"])])
+            rows.append([attack, labels[p], tally(m["verdicts"], mem_runs), med(m["peakRssMb"], 1), med(m["rssKbPerConnection"]),
+                         med(m.get("peakSockMb"), 1), med(probes, 0, "%"), tally(m["states"], mem_runs)])
     gone = d.get("memoryNotMeasured") or {}
     for attack in gone:
         rows.append([attack, "every proxy", "not measured (see below)", "n/a", "n/a", "n/a", "n/a", "n/a"])
@@ -987,6 +1059,8 @@ def tables(d):
         header.pop(5)
         rows = [r[:5] + r[6:] for r in rows]
     t["memory"] = table(header, rows)
+    if mem_note:
+        t["memory"] += "\n\n" + mem_note
     for attack, reason in gone.items():
         t["memory"] += f"\n\n{ATTACK_NAMES.get(attack, attack).capitalize()} were not measured on this machine: {reason}."
 
@@ -1028,7 +1102,7 @@ def tables(d):
 
     # What else used the machine during each run (the host monitor), and the guard's verdict.
     rows = []
-    for r in d["runs"]:
+    for r in d["runs"] + [{**m, "timestamp": m["timestamp"] + " (memory)"} for m in d.get("memoryRuns") or []]:
         h = r.get("hostLoad") or {}
         if not h.get("samples"):
             rows.append([r["timestamp"], "n/a", "n/a", "n/a", "n/a", "no monitor samples"])
@@ -1047,9 +1121,10 @@ def tables(d):
     lp, mp = (slow.get("littleproxy") or {}).get("rssKbPerConnection"), (slow.get("microproxy") or {}).get("rssKbPerConnection")
     if lp and mp:
         readers = d["settings"].get("slowread-connections")
+        n = len(d.get("memoryRuns") or d["runs"])
         t["arch-slowread"] = (f"Measured with {readers} slow readers and each proxy capped at 512 MB, RSS rose by about "
                               f"{med_range(lp)} KB per reader for LittleProxy and {med_range(mp)} KB for MicroProxy (median of "
-                              f"{len(d['runs'])} runs, lowest–highest in parentheses).")
+                              f"{n} runs, lowest–highest in parentheses).")
     elif "slowread" in (d.get("memoryNotMeasured") or {}):
         t["arch-slowread"] = ("The slow-reader workload was not measured on the machine of the current comparison: "
                               + d["memoryNotMeasured"]["slowread"] + ".")
@@ -1063,6 +1138,10 @@ def tables(d):
             ["Runs", f"{len(d['runs'])} ({', '.join(r['timestamp'] for r in d['runs'])} UTC)"]]
     if d["runInfo"].get("commit"):
         rows.append(["Harness commit", d["runInfo"]["commit"]])
+    if d.get("memoryRuns"):
+        mem = d["memoryRuns"]
+        rows.append(["Memory scenario runs", f"{len(mem)} ({', '.join(r['timestamp'] for r in mem)} UTC), run separately"
+                     + (f" with the harness at {d['memoryRunInfo']['commit']}" if (d.get("memoryRunInfo") or {}).get("commit") else "")])
     t["machine"] = table(["", ""], rows)
     return t
 
@@ -1305,8 +1384,11 @@ def charts(d):
             if s:
                 series.append((m, s["points"], s["end"]))
         readers = d["settings"].get("slowread-connections")
+        beside = any((per[m["id"]].get("cap") or {}).get("socketBuffers") == "beside the limit" for m in meta)
+        cap = ("Each proxy's own memory capped at 512 MB, its kernel socket buffers beside the cap" if beside
+               else "Each proxy in a 512 MB memory cgroup")
         out["slowread-rss.svg"] = line_chart(f"RSS while {readers} slow readers download (lower is better)",
-                                             "Each proxy in a 512 MB memory cgroup; the run with the median peak; ✕ = out of memory or crash.",
+                                             cap + "; the run with the median peak; ✕ = out of memory or crash.",
                                              "seconds since the readers started", "RSS (MB)", series, ymax=560,
                                              hline=(512, "512 MB cgroup limit"))
     return out
@@ -1338,7 +1420,7 @@ def main(argv):
     runs_dir = raw_dir or argv[1]
     publish = option(argv, "--publish")
     data = build(runs_dir)
-    unclean = [r["id"] for r in data["runs"] if not (r.get("hostLoad") or {}).get("accepted")]
+    unclean = [r["id"] for r in data["runs"] + (data["memoryRuns"] or []) if not (r.get("hostLoad") or {}).get("accepted")]
     if publish and unclean and "--allow-unguarded" not in argv:
         sys.exit("not publishing: runs failed the contamination guard or have no host monitor samples: "
                  + ", ".join(unclean) + " (reject them in run-info.json, or pass --allow-unguarded for a local preview)")
@@ -1373,7 +1455,16 @@ def main(argv):
             if os.path.basename(old) not in svgs:
                 os.remove(old)
         if not (RAW[0] and os.path.realpath(runs_dir) == os.path.realpath(os.path.join(assets, "raw"))):
-            publish_raw(runs_dir, assets)
+            publish_raw(runs_dir, os.path.join(assets, "raw"))
+            mem_dir = memory_dir(runs_dir)
+            if mem_dir:
+                # Published beside the rest, and run-info.json pointed at the copy.
+                publish_raw(mem_dir, os.path.join(assets, "raw", "memory"))
+                info_path = os.path.join(assets, "raw", "run-info.json")
+                info = run_info(os.path.join(assets, "raw"))
+                info["memoryFrom"] = "memory"
+                with open(info_path, "w", encoding="utf-8") as f:
+                    f.write(json.dumps(info, indent=1, ensure_ascii=False) + "\n")
         page_md = os.path.join(publish, "project", "performance.md")
         if os.path.exists(page_md):
             replace_markers(page_md, tbl)
@@ -1383,24 +1474,25 @@ def main(argv):
         print(f"published into {assets} and {page_md}")
 
 
-def publish_raw(runs_dir, assets):
+def publish_raw(runs_dir, dest):
     """Each run's raw results (minified, repository paths made relative), what was run, and the host
-    monitor's log, beside the page's data."""
-    for r in load_runs(runs_dir):
+    monitor's log, into dest (the page's raw/ directory, or a directory under it)."""
+    os.makedirs(dest, exist_ok=True)
+    for r in load_runs(runs_dir, is_raw_dir(runs_dir)):
         with open(r["file"], encoding="utf-8") as f:
             raw = json.load(f)
-        with open(os.path.join(assets, "raw", r["id"] + ".json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(dest, r["id"] + ".json"), "w", encoding="utf-8") as f:
             f.write(strip_root(json.dumps(raw, separators=(",", ":"), ensure_ascii=False)))
             f.write("\n")
     # The guard's evidence and what was run, beside the raw results.
     info_src = os.path.join(runs_dir, "run-info.json")
     if os.path.exists(info_src):
-        shutil.copy(info_src, os.path.join(assets, "raw", "run-info.json"))
+        shutil.copy(info_src, os.path.join(dest, "run-info.json"))
     # The host monitor's log, with other processes' command lines reduced to their program names
     # (they hold paths of other work on the machine, which is not this page's to publish).
     mon_src = os.path.join(runs_dir, "hostmon.jsonl")
     if os.path.exists(mon_src):
-        with open(mon_src, encoding="utf-8") as fin, open(os.path.join(assets, "raw", "hostmon.jsonl"), "w", encoding="utf-8") as fout:
+        with open(mon_src, encoding="utf-8") as fin, open(os.path.join(dest, "hostmon.jsonl"), "w", encoding="utf-8") as fout:
             for line in fin:
                 if not line.strip():
                     continue
@@ -1412,7 +1504,7 @@ def publish_raw(runs_dir, assets):
     # not this page's to publish).
     win_src = os.path.join(runs_dir, "winmon.jsonl")
     if os.path.exists(win_src):
-        with open(win_src, encoding="utf-8") as fin, open(os.path.join(assets, "raw", "winmon.jsonl"), "w", encoding="utf-8") as fout:
+        with open(win_src, encoding="utf-8") as fin, open(os.path.join(dest, "winmon.jsonl"), "w", encoding="utf-8") as fout:
             for line in fin:
                 if line.strip():
                     x = json.loads(line)

@@ -1021,7 +1021,7 @@
     }
     var chart = new Chart(root, d, {
       title: "Memory under adversarial clients, in a 512 MB cgroup (lower is better)",
-      sub: "RSS over time while the workload runs, every proxy in the same 512 MB memory cgroup (the JVMs additionally capped at a 256 MB heap and 128 MB of direct memory inside it). One line per proxy: the run with the median peak.",
+      sub: "RSS over time while the workload runs, every proxy's memory capped at 512 MB in a memory cgroup (the JVMs additionally capped at a 256 MB heap and 128 MB of direct memory inside it; the kernel's socket buffers for the proxy's connections are kept out of the cap where the table shows them). One line per proxy: the run with the median peak.",
       note: baseNote,
       duration: 1800
     });
