@@ -57,9 +57,29 @@ class H3ClientProtocol(QuicConnectionProtocol):
             if getattr(h3_event, "stream_ended", False) and not response["done"].done():
                 response["done"].set_result(None)
 
+    def stalled(self):
+        """What each unfinished response and its stream had got to, for a request that timed out."""
+        quic = self._quic
+        lines = ["connection: sent %d of max_data %d, received %d of max_data %d" % (
+            quic._remote_max_data_used, quic._remote_max_data, quic._local_max_data.used, quic._local_max_data.value)]
+        for sid, response in sorted(self._responses.items()):
+            if response["done"].done():
+                continue
+            stream = quic._streams.get(sid)
+            state = "stream %d (%s): headers %s, %d body bytes" % (
+                sid, response["path"], "received" if response["headers"] is not None else "not received",
+                len(response["body"]))
+            if stream is not None:
+                state += "; sent to %d (fin %s, acked to %d) of max_stream_data %d; received to %d" % (
+                    stream.sender.highest_offset, stream.sender.is_finished,
+                    stream.sender._buffer_start,
+                    stream.max_stream_data_remote, stream.receiver.highest_offset)
+            lines.append(state)
+        return "; ".join(lines)
+
     async def request(self, authority, spec):
         sid = self._quic.get_next_available_stream_id()
-        response = {"headers": None, "trailers": [], "body": b"", "reset": None,
+        response = {"path": spec.get("path", "/"), "headers": None, "trailers": [], "body": b"", "reset": None,
                     "done": asyncio.get_running_loop().create_future()}
         self._responses[sid] = response
         if "body_size" in spec:
@@ -84,7 +104,10 @@ class H3ClientProtocol(QuicConnectionProtocol):
         if trailers:
             self._http.send_headers(stream_id=sid, headers=trailers, end_stream=True)
         self.transmit()
-        await asyncio.wait_for(response["done"], 120)
+        try:
+            await asyncio.wait_for(response["done"], 120)
+        except asyncio.TimeoutError:
+            raise TimeoutError(self.stalled()) from None
         data = response["body"]
         result = {
             "status": None,
