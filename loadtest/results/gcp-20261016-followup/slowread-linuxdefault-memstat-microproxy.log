@@ -1,0 +1,476 @@
+== 2026-10-16T03:50:26.168Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 23388160
+file 1421312
+kernel 909312
+kernel_stack 278528
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:26.373Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 35057664
+file 2023424
+kernel 1134592
+kernel_stack 360448
+percpu 208
+sock 12288
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:26.577Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 37457920
+file 2301952
+kernel 1138688
+kernel_stack 360448
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:26.782Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 38920192
+file 2301952
+kernel 1187840
+kernel_stack 376832
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:26.987Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 40140800
+file 2301952
+kernel 1822720
+kernel_stack 393216
+percpu 208
+sock 18526208
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:27.191Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 46014464
+file 2301952
+kernel 2867200
+kernel_stack 393216
+percpu 208
+sock 136974336
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:27.397Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 58867712
+file 2301952
+kernel 2916352
+kernel_stack 393216
+percpu 208
+sock 379932672
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:27.602Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:27.806Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:28.011Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:28.216Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:28.421Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:28.625Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:28.830Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:29.034Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:29.239Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 416940032
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:29.444Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:29.648Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:29.853Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:30.058Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:30.263Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:30.467Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:30.672Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:30.877Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:31.081Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 454656
+kernel_stack 0
+percpu 208
+sock 414130176
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:31.286Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 446464
+kernel_stack 0
+percpu 0
+sock 409387008
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:31.491Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 446464
+kernel_stack 0
+percpu 0
+sock 409362432
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:31.696Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 446464
+kernel_stack 0
+percpu 0
+sock 409362432
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:31.900Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 446464
+kernel_stack 0
+percpu 0
+sock 409362432
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:32.105Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 16384
+kernel_stack 0
+percpu 0
+sock 0
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:32.310Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 16384
+kernel_stack 0
+percpu 0
+sock 0
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:32.514Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 16384
+kernel_stack 0
+percpu 0
+sock 0
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:32.719Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 16384
+kernel_stack 0
+percpu 0
+sock 0
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43
+== 2026-10-16T03:50:32.923Z microproxy-loadtest-3715-microproxy-memory-slowread
+anon 0
+file 16384
+kernel 16384
+kernel_stack 0
+percpu 0
+sock 0
+events: low 0
+events: high 0
+events: max 89
+events: oom 1
+events: oom_kill 1
+events: oom_group_kill 0
+events: sock_throttled 43

@@ -1,0 +1,2 @@
+{"t":1792122638.5,"utc":"2026-10-16T03:50:38Z","loadavg":[0.25,0.14,0.05],"machineCpuPct":40.8,"benchmarkCpuPct":29.4,"foreignCpuPct":11.5,"interruptCpuPct":2.8,"stealCpuPct":0.0,"topForeign":[{"cpuPct":3.6,"program":"agent session"}]}
+{"t":1792122643.5,"utc":"2026-10-16T03:50:43Z","loadavg":[0.23,0.14,0.05],"machineCpuPct":9.8,"benchmarkCpuPct":0.0,"foreignCpuPct":9.8,"interruptCpuPct":1.6,"stealCpuPct":0.0,"topForeign":[{"cpuPct":4.4,"program":"agent session"}]}

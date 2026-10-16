@@ -1,0 +1,3290 @@
+== 2026-10-16T03:49:20.553Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 3723264
+file 8790016
+kernel 487424
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:20.758Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 3899392
+file 10694656
+kernel 507904
+kernel_stack 114688
+percpu 208
+sock 8192
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:20.963Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 16011264
+file 10891264
+kernel 2150400
+kernel_stack 114688
+percpu 208
+sock 191102976
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:21.168Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17571840
+file 10891264
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 499240960
+events: low 0
+events: high 0
+events: max 0
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:21.373Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 413696
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515448832
+events: low 0
+events: high 0
+events: max 278
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:21.577Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 159744
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515522560
+events: low 0
+events: high 0
+events: max 557
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:21.782Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 339968
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516259840
+events: low 0
+events: high 0
+events: max 779
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:21.987Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 376832
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516440064
+events: low 0
+events: high 0
+events: max 984
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:22.192Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 204800
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516669440
+events: low 0
+events: high 0
+events: max 1242
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:22.399Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 77824
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516861952
+events: low 0
+events: high 0
+events: max 1580
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:22.603Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 77824
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516861952
+events: low 0
+events: high 0
+events: max 2111
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:22.808Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 77824
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516849664
+events: low 0
+events: high 0
+events: max 2569
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:23.013Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 139264
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516849664
+events: low 0
+events: high 0
+events: max 2921
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:23.218Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 704512
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515682304
+events: low 0
+events: high 0
+events: max 3211
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:23.423Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 1179648
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515313664
+events: low 0
+events: high 0
+events: max 3375
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:23.628Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 487424
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515948544
+events: low 0
+events: high 0
+events: max 3549
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:23.832Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 159744
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516243456
+events: low 0
+events: high 0
+events: max 3762
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:24.037Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 143360
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516284416
+events: low 0
+events: high 0
+events: max 4112
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:24.242Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 528384
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515493888
+events: low 0
+events: high 0
+events: max 4414
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:24.447Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 659456
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515387392
+events: low 0
+events: high 0
+events: max 4569
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:24.651Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 479232
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515932160
+events: low 0
+events: high 0
+events: max 4732
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:24.856Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 221184
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516161536
+events: low 0
+events: high 0
+events: max 4929
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:25.061Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 143360
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516280320
+events: low 0
+events: high 0
+events: max 5217
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:25.266Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 401408
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516595712
+events: low 0
+events: high 0
+events: max 5373
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:25.471Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 151552
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516820992
+events: low 0
+events: high 0
+events: max 5643
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:25.676Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 77824
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 516722688
+events: low 0
+events: high 0
+events: max 6890
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:25.880Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 765952
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515878912
+events: low 0
+events: high 0
+events: max 7093
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:26.085Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 401408
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515481600
+events: low 0
+events: high 0
+events: max 7233
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:26.290Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 352256
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515768320
+events: low 0
+events: high 0
+events: max 7402
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:26.495Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 135168
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515903488
+events: low 0
+events: high 0
+events: max 7674
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:26.700Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 77824
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515903488
+events: low 0
+events: high 0
+events: max 8022
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:26.905Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 139264
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515903488
+events: low 0
+events: high 0
+events: max 8373
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:27.110Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 73728
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 515887104
+events: low 0
+events: high 0
+events: max 8730
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:27.314Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17719296
+file 499712
+kernel 2154496
+kernel_stack 114688
+percpu 208
+sock 514879488
+events: low 0
+events: high 0
+events: max 8971
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:27.519Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17760256
+file 1155072
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 514682880
+events: low 0
+events: high 0
+events: max 9139
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:27.724Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17879040
+file 708608
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 514961408
+events: low 0
+events: high 0
+events: max 9327
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:27.929Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17924096
+file 458752
+kernel 2183168
+kernel_stack 114688
+percpu 208
+sock 515133440
+events: low 0
+events: high 0
+events: max 9517
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:28.134Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17924096
+file 430080
+kernel 2183168
+kernel_stack 114688
+percpu 208
+sock 515432448
+events: low 0
+events: high 0
+events: max 9645
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:28.339Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17924096
+file 352256
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 515547136
+events: low 0
+events: high 0
+events: max 9852
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:28.543Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17928192
+file 139264
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515645440
+events: low 0
+events: high 0
+events: max 10067
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:28.748Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17928192
+file 1048576
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515080192
+events: low 0
+events: high 0
+events: max 10275
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:28.953Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17952768
+file 1724416
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 514379776
+events: low 0
+events: high 0
+events: max 10454
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:29.158Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17969152
+file 667648
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515452928
+events: low 0
+events: high 0
+events: max 10638
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:29.363Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 491520
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515854336
+events: low 0
+events: high 0
+events: max 10810
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:29.567Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 430080
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515850240
+events: low 0
+events: high 0
+events: max 10972
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:29.772Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 266240
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 516124672
+events: low 0
+events: high 0
+events: max 11142
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:29.977Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 143360
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 516268032
+events: low 0
+events: high 0
+events: max 11462
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:30.182Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 139264
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 516210688
+events: low 0
+events: high 0
+events: max 11681
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:30.387Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 790528
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 515522560
+events: low 0
+events: high 0
+events: max 11839
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:30.592Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 724992
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 515104768
+events: low 0
+events: high 0
+events: max 12002
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:30.797Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 319488
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 515162112
+events: low 0
+events: high 0
+events: max 12186
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:31.002Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 401408
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 515473408
+events: low 0
+events: high 0
+events: max 12348
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:31.207Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17985536
+file 311296
+kernel 2183168
+kernel_stack 114688
+percpu 208
+sock 515522560
+events: low 0
+events: high 0
+events: max 12570
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:31.412Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 17993728
+file 258048
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 515522560
+events: low 0
+events: high 0
+events: max 12803
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:31.616Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 143360
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 515624960
+events: low 0
+events: high 0
+events: max 13048
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:31.821Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 794624
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 515010560
+events: low 0
+events: high 0
+events: max 13248
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:32.026Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 2416640
+kernel 2191360
+kernel_stack 114688
+percpu 208
+sock 513839104
+events: low 0
+events: high 0
+events: max 13430
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:32.231Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 167936
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 515551232
+events: low 0
+events: high 0
+events: max 13633
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:32.436Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 290816
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 515514368
+events: low 0
+events: high 0
+events: max 13799
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:32.640Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 217088
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 515649536
+events: low 0
+events: high 0
+events: max 13986
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:32.845Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 593920
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 516042752
+events: low 0
+events: high 0
+events: max 14228
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:33.050Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 368640
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 516280320
+events: low 0
+events: high 0
+events: max 14398
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:33.255Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18006016
+file 708608
+kernel 2195456
+kernel_stack 114688
+percpu 208
+sock 515309568
+events: low 0
+events: high 0
+events: max 14601
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:33.460Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 1511424
+kernel 2179072
+kernel_stack 114688
+percpu 208
+sock 514273280
+events: low 0
+events: high 0
+events: max 14773
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:33.665Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 675840
+kernel 2179072
+kernel_stack 114688
+percpu 208
+sock 515354624
+events: low 0
+events: high 0
+events: max 14964
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:33.870Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 692224
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515416064
+events: low 0
+events: high 0
+events: max 15130
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:34.075Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 274432
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515682304
+events: low 0
+events: high 0
+events: max 15274
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:34.279Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 151552
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515915776
+events: low 0
+events: high 0
+events: max 15509
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:34.484Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 417792
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516235264
+events: low 0
+events: high 0
+events: max 15699
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:34.689Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 135168
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516317184
+events: low 0
+events: high 0
+events: max 15944
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:34.894Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 475136
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515579904
+events: low 0
+events: high 0
+events: max 16125
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:35.099Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 471040
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515211264
+events: low 0
+events: high 0
+events: max 16284
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:35.304Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 266240
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515399680
+events: low 0
+events: high 0
+events: max 16454
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:35.508Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 835584
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515760128
+events: low 0
+events: high 0
+events: max 16717
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:35.713Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 446464
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516247552
+events: low 0
+events: high 0
+events: max 16865
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:35.918Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 143360
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516517888
+events: low 0
+events: high 0
+events: max 17109
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:36.123Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 77824
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516538368
+events: low 0
+events: high 0
+events: max 17454
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:36.327Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 876544
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515575808
+events: low 0
+events: high 0
+events: max 17687
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:36.532Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 954368
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515407872
+events: low 0
+events: high 0
+events: max 17842
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:36.737Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 266240
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515928064
+events: low 0
+events: high 0
+events: max 18014
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:36.942Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 143360
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516083712
+events: low 0
+events: high 0
+events: max 18279
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:37.146Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 135168
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516190208
+events: low 0
+events: high 0
+events: max 18538
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:37.351Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 180224
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516411392
+events: low 0
+events: high 0
+events: max 18715
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:37.556Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 45056
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 516628480
+events: low 0
+events: high 0
+events: max 19465
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:37.761Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 741376
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 515547136
+events: low 0
+events: high 0
+events: max 20843
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:37.966Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 786432
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 514965504
+events: low 0
+events: high 0
+events: max 20996
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:38.171Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 786432
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 514965504
+events: low 0
+events: high 0
+events: max 20996
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:38.375Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18018304
+file 786432
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 514965504
+events: low 0
+events: high 0
+events: max 20996
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:38.580Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18034688
+file 1605632
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 514150400
+events: low 0
+events: high 0
+events: max 21023
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:38.785Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18063360
+file 1589248
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 514134016
+events: low 0
+events: high 0
+events: max 21233
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:38.990Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18063360
+file 1511424
+kernel 2199552
+kernel_stack 114688
+percpu 208
+sock 514134016
+events: low 0
+events: high 0
+events: max 21455
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:39.194Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18063360
+file 1527808
+kernel 2187264
+kernel_stack 114688
+percpu 208
+sock 513949696
+events: low 0
+events: high 0
+events: max 21665
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:39.399Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 2904064
+kernel 2203648
+kernel_stack 114688
+percpu 208
+sock 512483328
+events: low 0
+events: high 0
+events: max 21883
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:39.604Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511561728
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:39.809Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511561728
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:40.013Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:40.218Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:40.423Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:40.627Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:40.832Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:41.036Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:41.241Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:41.445Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:41.650Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:41.854Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 511414272
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:42.059Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 508170240
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:42.264Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 508170240
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:42.468Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:42.673Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:42.878Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:43.082Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:43.287Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:43.491Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:43.696Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:43.900Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 505520128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:44.104Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 502034432
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:44.309Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18067456
+file 3796992
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 502034432
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:44.513Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 501886976
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:44.718Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 501886976
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:44.922Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 501886976
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:45.127Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 501886976
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:45.331Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 501886976
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:45.536Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499310592
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:45.740Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499310592
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:45.945Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499310592
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:46.149Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:46.354Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:46.558Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:46.763Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:46.967Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:47.172Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:47.376Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:47.581Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:47.786Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:47.990Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 499142656
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:48.195Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:48.399Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:48.604Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:48.808Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:49.013Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:49.218Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:49.422Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18120704
+file 7049216
+kernel 2158592
+kernel_stack 114688
+percpu 208
+sock 495718400
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:49.627Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 492855296
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:49.831Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 492855296
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:50.036Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490299392
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:50.240Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:50.445Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:50.650Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:50.854Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:51.059Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:51.263Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:51.468Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:51.672Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:51.877Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:52.082Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 490233856
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:52.286Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 486895616
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:52.491Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 486895616
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:52.696Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 486895616
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:52.900Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 486895616
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:53.105Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:53.309Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:53.514Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:53.718Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:53.923Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:54.127Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 483999744
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:54.332Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:54.536Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:54.741Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:54.946Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:55.150Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:55.355Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:55.559Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18124800
+file 7049216
+kernel 2166784
+kernel_stack 114688
+percpu 208
+sock 482136064
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:55.764Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 479363072
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:55.968Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 479363072
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:56.173Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 479363072
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:56.377Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:56.582Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:56.787Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:56.991Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:57.195Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:57.400Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 477990912
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:57.605Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474980352
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:57.809Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474980352
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:58.014Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474980352
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:58.218Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474980352
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:58.423Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474980352
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:58.627Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474800128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:58.832Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474800128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:59.036Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474800128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:59.241Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474800128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:59.445Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2174976
+kernel_stack 114688
+percpu 208
+sock 474800128
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:59.649Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 471572480
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:49:59.854Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 471572480
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:00.059Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 471572480
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:00.264Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 471572480
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:00.468Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:00.673Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:00.878Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:01.082Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:01.287Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:01.492Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:01.697Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:01.901Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:02.106Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:02.310Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:02.514Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 469237760
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:02.719Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:02.923Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:03.128Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:03.332Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:03.536Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:03.741Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 465596416
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:03.945Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 462573568
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:04.150Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 462573568
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:04.354Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7049216
+kernel 2170880
+kernel_stack 114688
+percpu 208
+sock 462573568
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:04.558Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 1236992
+kernel_stack 114688
+percpu 208
+sock 102121472
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:04.763Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:04.968Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:05.172Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:05.377Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:05.581Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:05.786Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:05.990Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:06.195Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:06.399Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:06.604Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7090176
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:06.808Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:07.012Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:07.217Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:07.421Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:07.625Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:07.830Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:08.035Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:08.239Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0
+== 2026-10-16T03:50:08.444Z microproxy-loadtest-2339-g3proxy-memory-slowread
+anon 18145280
+file 7598080
+kernel 557056
+kernel_stack 114688
+percpu 208
+sock 0
+events: low 0
+events: high 0
+events: max 21967
+events: oom 0
+events: oom_kill 0
+events: oom_group_kill 0
+events: sock_throttled 0

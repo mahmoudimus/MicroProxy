@@ -1,0 +1,7 @@
+{
+ "commit": "7a584c19b36051524e0ac1594ea19f5a9142841d",
+ "uncommittedLoadtestChanges": 0,
+ "command": "REPS=3 PROXIES=microproxy,g3proxy,littleproxy SCENARIOS=sweep loadtest/competitors/run-all.sh ",
+ "started": "2026-10-16T03:50:49Z",
+ "wsl": false
+}

@@ -1,0 +1,7 @@
+{
+ "commit": "7a584c19b36051524e0ac1594ea19f5a9142841d",
+ "uncommittedLoadtestChanges": 0,
+ "command": "REPS=1 PROXIES=g3proxy SCENARIOS=memory loadtest/competitors/run-all.sh --attacks slowread",
+ "started": "2026-10-16T03:50:33Z",
+ "wsl": false
+}

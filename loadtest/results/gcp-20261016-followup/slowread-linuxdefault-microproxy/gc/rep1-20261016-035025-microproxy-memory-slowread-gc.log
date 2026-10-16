@@ -1,0 +1,29 @@
+[0.002s][info][gc] Using G1
+[0.247s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 5M->1M(10M) 4.826ms
+[0.432s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 4M->2M(10M) 3.575ms
+[0.737s][info][gc] GC(2) Pause Full (Diagnostic Command) 4M->2M(10M) 6.721ms
+[1.055s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 5M->4M(10M) 2.878ms
+[1.077s][info][gc] GC(4) Pause Young (Concurrent Start) (G1 Evacuation Pause) 5M->5M(10M) 1.567ms
+[1.077s][info][gc] GC(5) Concurrent Mark Cycle
+[1.090s][info][gc] GC(5) Pause Remark 6M->6M(12M) 1.017ms
+[1.096s][info][gc] GC(5) Pause Cleanup 6M->6M(12M) 0.011ms
+[1.097s][info][gc] GC(5) Concurrent Mark Cycle 19.203ms
+[1.105s][info][gc] GC(6) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 6M->6M(12M) 1.422ms
+[1.125s][info][gc] GC(7) Pause Young (Mixed) (G1 Evacuation Pause) 7M->7M(12M) 1.594ms
+[1.155s][info][gc] GC(8) Pause Young (Concurrent Start) (G1 Evacuation Pause) 8M->8M(22M) 1.210ms
+[1.155s][info][gc] GC(9) Concurrent Mark Cycle
+[1.175s][info][gc] GC(9) Pause Remark 9M->9M(22M) 1.005ms
+[1.177s][info][gc] GC(9) Pause Cleanup 9M->9M(22M) 0.008ms
+[1.180s][info][gc] GC(9) Concurrent Mark Cycle 25.327ms
+[1.283s][info][gc] GC(10) Pause Young (Normal) (G1 Evacuation Pause) 12M->12M(22M) 2.681ms
+[1.341s][info][gc] GC(11) Pause Young (Concurrent Start) (G1 Evacuation Pause) 14M->14M(22M) 5.089ms
+[1.341s][info][gc] GC(12) Concurrent Mark Cycle
+[1.358s][info][gc] GC(12) Pause Remark 15M->15M(25M) 1.174ms
+[1.360s][info][gc] GC(12) Pause Cleanup 15M->15M(25M) 0.010ms
+[1.363s][info][gc] GC(12) Concurrent Mark Cycle 21.835ms
+[1.407s][info][gc] GC(13) Pause Young (Normal) (G1 Evacuation Pause) 16M->16M(25M) 4.914ms
+[1.479s][info][gc] GC(14) Pause Young (Concurrent Start) (G1 Evacuation Pause) 18M->18M(25M) 1.946ms
+[1.479s][info][gc] GC(15) Concurrent Mark Cycle
+[1.492s][info][gc] GC(15) Pause Remark 19M->19M(32M) 1.192ms
+[1.493s][info][gc] GC(15) Pause Cleanup 19M->19M(32M) 0.006ms
+[1.495s][info][gc] GC(15) Concurrent Mark Cycle 15.611ms
