@@ -422,12 +422,16 @@ final class Http3Connection extends Http3Endpoint {
         } else {
             if (!reader.endsHere()) reader.awaitNext(END_GRACE_NANOS);
             proxyRequest = role == Role.INTERCEPTED && "http".equalsIgnoreCase(request.scheme());
+            // Decided once: the stream's end may come any time now, and the body must be sent as
+            // the head is framed (an HTTP/1.1 server told "chunked" waits for the chunks)
+            boolean bodyFollows = !reader.endsHere();
             try {
-                http1 = Http3Messages.toHttp1(request, !reader.endsHere(), role == Role.FORWARD || proxyRequest);
+                http1 = Http3Messages.toHttp1(request, bodyFollows, role == Role.FORWARD || proxyRequest);
             } catch (IllegalArgumentException e) {
                 s.resetStream(Http3ErrorCode.H3_MESSAGE_ERROR);
                 return null;
             }
+            if (bodyFollows) reader.announceBody();
         }
         if (reader.stream.receivedEarlyData()) {
             stats.earlyDataRequests.inc();
