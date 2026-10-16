@@ -515,14 +515,6 @@ value. The lowest and highest run behind every median of the scoreboard:
 - One machine, one moment: a dedicated 11-core cloud VM (Xeon Platinum 8481C, Linux 7.0).
   Another machine, kernel or CPU will give other numbers, and possibly another order. Compare the
   proxies with each other, not with numbers from elsewhere.
-- Another order did come from another machine. An earlier campaign of the same source on a
-  Windows workstation under WSL2 (an i9-13900K) is not used here: MicroProxy stalled there for
-  about a second at a time on some sweep steps, on JDK 21 and 25 alike, which the same source never
-  did in this machine's fifteen diagnosis runs, so the stall belongs to that platform; and the
-  other proxies ranked differently there (Envoy, goproxy, g3proxy and Squid faster, LittleProxy
-  slower). Its raw results are on the
-  [`perf/al-khwarizmi-20261013`](https://github.com/mahmoudimus/MicroProxy/tree/perf/al-khwarizmi-20261013/loadtest/results)
-  branch.
 - Loopback only, 128-byte responses for the rate sweep, HTTP/1.1, no TLS: the proxy's per-request
   overhead dominates. Large bodies, real networks, TLS, HTTP/2 and MITM are not compared here.
 - One CPU per proxy: multi-core scaling, where the native proxies' event loops and MicroProxy's
