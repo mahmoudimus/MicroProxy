@@ -756,7 +756,7 @@ mvn -pl quic -am test -Dtest=AioquicInteropTest -Dsurefire.failIfNoSpecifiedTest
 ```
 
 `QUIC_INTEROP_PYTHON` works as well as `-Dquic.interop.python`; `-Dquic.interop.required=true`
-turns a missing aioquic into a failure, as the `quic-interop` CI job does.
+turns a missing aioquic into a failure, as CI's `test` job does on JDK 21 and 25.
 
 ### Not yet
 

@@ -75,7 +75,7 @@ Each scenario runs once for MicroProxy and once for LittleProxy, each in a fresh
 
 | Scenario | What it does | What it proves | Verdicts |
 |---|---|---|---|
-| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step (data). Verdict: the proxy survived, or crashed / ran out of memory |
+| **Rate sweep** | open-loop load over keep-alive connections with small responses, the rate multiplied each step | the maximum sustainable rate (the knee) and the latency curve | the knee is where p99 passes the SLO or errors start; the max sustainable rate is the last good step, refined by bisecting between it and the knee (data), with the proxy's CPU time per request at every step. Verdict: the proxy survived, or crashed / ran out of memory |
 | **Connection ramp** | idle keep-alive connections held in steps (1k, 5k, 10k …), from many loopback source addresses | memory per idle connection, the connection limit, and how it is reached | records RSS, NMT, heap-after-GC, fds, threads and a probe's latency; stops at the first step it cannot complete and says how (refused, unresponsive, crashed, OOM, or the client's own limit). The limit is data; the verdict is whether the proxy survived |
 | **Memory under adversarial clients** | the proxy capped in memory, then slowloris, slow readers, parallel large up/down, and an h2c rapid-reset flood | whether backpressure and per-connection caps keep memory bounded | **bounded** or **shedding** pass; **unbounded-growth**, **oom** or **crashed** fail; **inconclusive** when the window is too short (see [below](#how-memory-growth-is-judged)) |
 | **Soak** | a fixed moderate rate held for a configurable duration | leaks: memory, fds or threads that climb monotonically | **possible-leak** (fail) when a series climbs steadily after the warm-up, **no-leak** (pass), or **inconclusive** for a soak too short to judge |
@@ -125,6 +125,20 @@ stayed up, the verdict is **shedding**. If fewer than 5 samples or 20 s remain a
 the window cannot tell growth from warm-up, so the verdict is **inconclusive**. An out-of-memory error
 (in the proxy's log, or a cgroup OOM kill) is **oom**, even if the process kept running, and an exit
 is **crashed**.
+
+**Socket buffers.** cgroup v2 charges a group for its sockets' TCP buffers as well as for its
+processes' memory, and a kernel limit covers both. How much a slow client leaves in those buffers
+is set mostly by the kernel (`tcp_rmem`, `tcp_wmem` and their autotuning; newer kernels let a
+receive buffer grow to 32 MB), and with a few hundred slow readers the buffers alone can fill a
+512 MB limit and have the OOM killer end the proxy whatever the proxy holds. So by default
+(`--attack-cgroup-sockets exclude`) the cgroup gets no kernel limit: the harness reads its
+`memory.current` and `memory.stat` every 100 ms, holds the memory other than the socket buffers
+(the processes' own, and the kernel's on their behalf) to `--attack-cgroup-limit`, killing the
+proxy as the OOM killer would when it passes it (verdict **oom**, saying so), and reports the
+socket buffers' peak beside the proxy's memory. `--attack-cgroup-sockets include` keeps the
+kernel's limit over both, which is what a proxy in a container with that memory limit lives
+under. cgroup v1 keeps TCP buffers out of its memory limit either way, and reports them apart
+(`memory.kmem.tcp.usage_in_bytes`). The run records the machine's `tcp_rmem` and `tcp_wmem`.
 
 The smoke preset's workloads last a few seconds, shorter than the warm-up, so its memory verdicts are
 always inconclusive (the same holds for its 10 s soak). They are reported, never gating, and they do
@@ -303,8 +317,9 @@ HTTP/2 over h2c and so runs against MicroProxy only.
 
 **In a container with a memory cap.** Give the proxy a cgroup limit so an out-of-memory is contained
 and observable, for example `--proxy-cgroup-limit 2g` (every scenario) or `--attack-cgroup-limit 512m`
-(the adversarial scenario); where no writable cgroup is available the harness falls back to
-`-XX:MaxRAM` and notes it. The proxy's heap and direct-memory caps are `--proxy-heap`, `--proxy-direct`,
+(the adversarial scenario, whose limit leaves the kernel's socket buffers out unless
+`--attack-cgroup-sockets include`; see [socket buffers](#how-memory-growth-is-judged)); where no
+writable cgroup is available the harness falls back to `-XX:MaxRAM` and notes it. The proxy's heap and direct-memory caps are `--proxy-heap`, `--proxy-direct`,
 `--attack-heap` and `--attack-direct`.
 
 **On a shared machine.** Other work on the same machine competes for the CPUs the harness pins its
@@ -316,6 +331,17 @@ default of most Linux kernels) the CPU is first shared equally between sessions,
 nice value alone does not make other sessions yield. A single noisy step can still spike a step's
 p99; `--sweep-knee-confirm 2` makes the knee the first of two unsustained steps in a row, so one
 step that the next recovers from is recorded as unsustained but does not end the sweep.
+
+**Knee refinement.** The sweep's steps multiply the rate (by 1.5, or 1.25 in the comparison runs),
+so on their own they bracket the maximum sustainable rate only to within one step. Once the proxy
+has made the knee, the sweep bisects between the last sustained step and the knee with up to
+`--sweep-refine-steps` more recorded steps, judged by the same rules, until the bracket is within
+`--sweep-refine-precision` (2%). Each probe follows `--sweep-refine-settle-seconds` of unrecorded
+load at the bracket's lower rate, and an unsustained probe is repeated like a knee step (up to
+`--sweep-knee-confirm` times in all). The results keep every probe (`refine.probes`), the refined
+`maxSustainableRate`, its `maxSustainableBracket` and the unrefined `maxSustainableRateCoarse`.
+Every step and probe also records the proxy's CPU time over it, read from `/proc`, and per
+completed request (`proxy.cpuUsPerRequest`).
 
 **On a big runner.** The [`loadtest.yml`](https://github.com/mahmoudimus/MicroProxy/blob/main/.github/workflows/loadtest.yml)
 workflow runs on demand (`workflow_dispatch`) with inputs for the preset, the scenarios, the proxies,

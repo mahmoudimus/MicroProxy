@@ -62,6 +62,9 @@ public final class Settings {
         {"sweep-response-bytes", "128", "128", "128", "the response body size"},
         {"sweep-steps-after-knee", "1", "1", "2", "steps to run past the knee, to show the curve"},
         {"sweep-knee-confirm", "1", "1", "1", "unsustainable steps in a row that make the knee (2 or more lets a lone noisy step pass)"},
+        {"sweep-refine-steps", "2", "4", "6", "after the knee, probes bisecting between the last sustained step and the knee (0: off); an unsustained probe is repeated like a knee step"},
+        {"sweep-refine-precision", "0.02", "0.02", "0.02", "refinement stops once the knee's bracket (highest sustained to lowest unsustained rate) is within this ratio"},
+        {"sweep-refine-settle-seconds", "1", "2", "3", "unrecorded load at the bracket's lower rate before each refinement probe"},
         // Connection ramp
         {"ramp-steps", "200,500,1000", "1000,5000,10000,25000,50000", "1000,5000,10000,25000,50000,100000,150000,200000", "idle connections to hold at each step"},
         {"ramp-warm", "true", "true", "true", "send one request on each connection before it idles (so the proxy also holds an upstream connection)"},
@@ -77,6 +80,7 @@ public final class Settings {
         {"attack-heap", "128m", "256m", "512m", "the proxy's -Xmx while capped"},
         {"attack-direct", "64m", "128m", "256m", "the proxy's -XX:MaxDirectMemorySize while capped"},
         {"attack-cgroup-limit", "", "", "", "a memory cgroup limit for the capped proxy (e.g. 512m), empty for none"},
+        {"attack-cgroup-sockets", "exclude", "exclude", "exclude", "whether the proxy's TCP socket buffers count against attack-cgroup-limit (cgroup v2 charges them): exclude (the limit holds the proxy's own memory; the buffers are measured beside it) or include (the kernel's limit covers both, as in a container)"},
         {"nmt-every-seconds", "1", "5", "15", "NMT and RSS samples during a workload, every this many seconds"},
         {"slowloris-connections", "100", "2000", "10000", "connections trickling their request headers"},
         {"slowloris-interval-ms", "1000", "5000", "10000", "milliseconds between one connection's header lines"},

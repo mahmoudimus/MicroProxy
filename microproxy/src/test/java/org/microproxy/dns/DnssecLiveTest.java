@@ -9,6 +9,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.Test;
@@ -22,14 +23,26 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 @EnabledIfSystemProperty(named = "microproxy.dns.live", matches = "true")
 class DnssecLiveTest {
 
-    static final String DOH = System.getProperty("microproxy.dns.doh", "https://cloudflare-dns.com/dns-query");
+    /**
+     * The DNS-over-HTTPS resolvers tried in turn, so that one resolver's bad moment does not fail
+     * the test: Cloudflare, Google and Quad9 by name, then by address (1.1.1.1, 8.8.8.8, 8.8.4.4,
+     * 9.9.9.9) in case the machine's own resolver cannot look the names up. A comma-separated
+     * {@code -Dmicroproxy.dns.doh} replaces the list.
+     */
+    static final List<String> DOH = List.of(System.getProperty("microproxy.dns.doh",
+            "https://cloudflare-dns.com/dns-query,https://dns.google/dns-query,https://dns.quad9.net/dns-query,"
+                    + "https://1.1.1.1/dns-query,https://8.8.8.8/dns-query,https://8.8.4.4/dns-query,https://9.9.9.9/dns-query")
+            .split(","));
 
     @Test
     void realWorldDomains() throws Exception {
         Map<String, byte[]> recorded = new ConcurrentHashMap<>();
         long recordedAt = Instant.now().getEpochSecond();
+        DnsTransport doh = DnsTransport.failover(DOH.stream()
+                .map(url -> DnsTransport.https(URI.create(url.strip()), Duration.ofSeconds(10)))
+                .toList());
         DnssecHostResolver resolver = DnssecHostResolver.builder()
-                .transport(DnsTestSupport.recording(DnsTransport.https(URI.create(DOH), Duration.ofSeconds(10)), recorded))
+                .transport(DnsTestSupport.recording(doh, recorded))
                 .build();
         RecordedExpectations.check(resolver);
         if (Boolean.getBoolean("microproxy.dns.record")) {

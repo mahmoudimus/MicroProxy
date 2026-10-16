@@ -1,0 +1,7 @@
+{
+ "commit": "39aa8c54878b150b2dce8304e54ed23b73cf3c15",
+ "uncommittedLoadtestChanges": 0,
+ "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh ",
+ "started": "2026-10-16T15:34:22Z",
+ "wsl": false
+}

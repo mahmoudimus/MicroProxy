@@ -59,7 +59,7 @@ final class ConnectionRamp extends Scenario {
 
         ProxyProcess.Options base = ProxyProcess.defaults(s);
         ProxyProcess.Options o = new ProxyProcess.Options(s.getInt("ramp-idle-timeout"), base.heap(), base.direct(),
-                base.cgroupLimit(), false);
+                base.cgroupLimit(), base.socketsInLimit(), false);
         try (ProxyProcess p = ProxyProcess.start(ctx, proxy, name(), o);
                 ClientControl client = ctx.startClient(proxy + "-" + name(), p.port, sources);
                 ClientControl prober = ctx.startClient(proxy + "-" + name() + "-probe", p.port, List.of());

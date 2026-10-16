@@ -3,12 +3,14 @@ package org.microproxy;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.management.HotSpotDiagnosticMXBean;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -155,8 +157,33 @@ public final class AioquicPeers {
         String result = output.toString().lines().filter(l -> l.startsWith("RESULT ")).findFirst()
                 .orElseThrow(() -> new AssertionError("no result from the aioquic client:\n" + output));
         Map<String, Object> json = (Map<String, Object>) parseJson(result.substring("RESULT ".length()));
-        assertTrue(Boolean.TRUE.equals(json.get("ok")), "aioquic client failed: " + json.get("error") + "\n" + output);
+        if (!Boolean.TRUE.equals(json.get("ok"))) {
+            String error = String.valueOf(json.get("error"));
+            throw new AssertionError("aioquic client failed: " + error + "\n" + output
+                    + (error.startsWith("TimeoutError") || error.startsWith("ConnectionError") ? proxyThreads(dir) : ""));
+        }
         return (List<Map<String, Object>>) json.get("responses");
+    }
+
+    /**
+     * The stacks of this JVM's threads, virtual ones included, that are in the proxy or its QUIC
+     * stack: where the proxy was when a client timed out waiting on it.
+     */
+    static String proxyThreads(Path dir) {
+        try {
+            Path file = dir.resolve("threads-" + System.nanoTime() + ".txt").toAbsolutePath();
+            ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class)
+                    .dumpThreads(file.toString(), HotSpotDiagnosticMXBean.ThreadDumpFormat.TEXT_PLAIN);
+            StringBuilder sb = new StringBuilder("\nproxy threads:\n");
+            for (String block : Files.readString(file).split("\n\n")) {
+                if (block.contains("org.microproxy.impl") || block.contains("io.github.mahmoudimus.quic")) {
+                    sb.append(block).append("\n\n");
+                }
+            }
+            return sb.toString();
+        } catch (IOException | RuntimeException e) {
+            return "\n(no thread dump: " + e + ")";
+        }
     }
 
     /**

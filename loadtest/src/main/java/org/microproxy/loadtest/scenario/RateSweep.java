@@ -7,6 +7,7 @@ import java.util.Map;
 import org.microproxy.loadtest.Json;
 import org.microproxy.loadtest.client.ClientControl;
 import org.microproxy.loadtest.proc.GcLog;
+import org.microproxy.loadtest.proc.ProcStats;
 import org.microproxy.loadtest.proc.Sampler;
 
 /**
@@ -14,11 +15,20 @@ import org.microproxy.loadtest.proc.Sampler;
  * multiplied at each step, to find the knee. A step is sustainable when its p99 is within the SLO,
  * its error ratio within the tolerance, it achieved at least 95% of its target rate and left
  * almost nothing unsent; the knee is the first step of {@code sweep-knee-confirm} unsustainable
- * steps in a row (1: the first unsustainable step), and the maximum sustainable rate is the achieved
- * rate of the highest sustainable step before it. With a confirmation of 2 or more, a lone
+ * steps in a row (1: the first unsustainable step). With a confirmation of 2 or more, a lone
  * unsustainable step that the next step recovers from (a GC pause, or a burst of other work on a
- * shared machine) is kept in the results as such, but does not end the sweep. A step where the load generator could not keep
- * its own schedule ends the sweep as client-bound: its numbers say nothing about the proxy.
+ * shared machine) is kept in the results as such, but does not end the sweep. A step where the load
+ * generator could not keep its own schedule ends the sweep as client-bound: its numbers say nothing
+ * about the proxy.
+ *
+ * <p>The geometric steps only bracket the maximum sustainable rate to within one step, so when the
+ * proxy made the knee, the sweep then refines it: it bisects between the highest sustained step
+ * before the knee and the knee with more recorded steps ({@code refine.probes}), judged by the same
+ * rules, until the bracket is within {@code sweep-refine-precision} or {@code sweep-refine-steps}
+ * probes have run. The maximum sustainable rate is then the achieved rate of the highest sustained
+ * step or probe, {@code maxSustainableBracket} the offered rates it lies between, and
+ * {@code maxSustainableRateCoarse} the unrefined figure. Every step and probe records the proxy's CPU
+ * time over it and per completed request.
  */
 final class RateSweep extends Scenario {
 
@@ -64,42 +74,10 @@ final class RateSweep extends Scenario {
             String streakReason = null;
             List<Integer> transients = new ArrayList<>();
             for (int i = 0; i < s.getInt("sweep-max-steps") && rate <= s.getDouble("sweep-max-rate"); i++) {
-                double from = sampler.elapsed();
-                double upFrom = p.uptime();
-                Map<String, Object> r = client.call(Json.obj("cmd", "rate", "url", url, "expectLength", size, "rate", rate,
-                        "connections", connections, "durationMs", stepSeconds * 1000L), timeout(stepSeconds));
-                double upTo = p.uptime();
-                r.remove("self");
-                Map<String, Object> step = new LinkedHashMap<>(r);
-                Map<String, Object> resources = new LinkedHashMap<>();
-                resources.put("cpuPct", Trend.round(sampler.mean("proxy", "cpuPct", from)));
-                resources.put("clientCpuPct", Trend.round(sampler.mean("client", "cpuPct", from)));
-                resources.put("originCpuPct", Trend.round(sampler.mean("origin", "cpuPct", from)));
-                // CPU the machine spent on anything but the proxy, origin and load generator (a shared machine).
-                resources.put("foreignCpuPct", Trend.round(sampler.mean(Sampler.SYSTEM, "foreignCpuPct", from)));
-                resources.put("gc", GcLog.summary(p.gcEvents(), upFrom, upTo));
-                resources.putAll(p.memorySnapshot(false));
-                if (p.adminPort > 0) resources.put("microproxyStats", p.adminStats());
-                step.put("proxy", resources);
-
-                Map<String, Object> lat = Json.getObject(r, "latencyMs");
-                double p99 = Json.getDouble(lat, "p99", Double.MAX_VALUE);
-                long attempted = Json.getLong(r, "attempted", 0);
-                long errors = Json.getLong(r, "errorCount", 0);
-                long intended = Math.max(1, Json.getLong(r, "intended", 1));
-                double errorRatio = attempted == 0 ? 1 : (double) errors / attempted;
-                double achieved = Json.getDouble(r, "achievedRate", 0);
-                List<String> why = new ArrayList<>();
-                if (p99 > sloMs) why.add("p99 " + p99 + " ms > SLO " + sloMs + " ms");
-                if (errorRatio > tolerance) why.add("errors " + errors + "/" + attempted);
-                if (achieved < 0.95 * rate) why.add("achieved " + achieved + "/s < 95% of " + Math.round(rate) + "/s");
-                if (Json.getLong(r, "backlog", 0) > intended / 100) why.add("backlog " + r.get("backlog"));
-                boolean saturated = Json.getBool(r, "clientSaturated", false);
-                step.put("sustainable", why.isEmpty() && !saturated);
-                step.put("why", String.join("; ", why));
+                Map<String, Object> step = step(proxy, p, client, sampler, url, size, rate, connections, stepSeconds, sloMs, tolerance);
                 steps.add(step);
-                RunContext.log(proxy + " sweep " + Math.round(rate) + "/s: achieved " + achieved + "/s p99 " + p99 + " ms"
-                        + (why.isEmpty() ? "" : " (" + String.join("; ", why) + ")") + (saturated ? " [client saturated]" : ""));
+                String why = Json.getString(step, "why", "");
+                boolean saturated = Json.getBool(step, "clientSaturated", false);
                 if (!p.alive()) {
                     stopReason = "proxy " + p.state();
                     if (knee == null) {
@@ -123,7 +101,7 @@ final class RateSweep extends Scenario {
                     } else {
                         if (streak++ == 0) {
                             streakStart = i;
-                            streakReason = String.join("; ", why);
+                            streakReason = why;
                         }
                         if (streak >= confirm) {
                             knee = streakStart;
@@ -135,7 +113,7 @@ final class RateSweep extends Scenario {
                     stopReason = "past the knee";
                     break;
                 }
-                if (errorRatio > 0.5) {
+                if (errorRatio(step) > 0.5) {
                     stopReason = "more than half the requests failed";
                     break;
                 }
@@ -146,10 +124,33 @@ final class RateSweep extends Scenario {
                 knee = streakStart;
                 kneeReason = streakReason;
             }
-            Double max = null;
+            Double coarseMax = null;
+            int lastSustained = -1;
             int bound = knee == null ? steps.size() : knee;
-            for (int j = bound - 1; j >= 0 && max == null; j--) {
-                if (Json.getBool(steps.get(j), "sustainable", false)) max = Json.getDouble(steps.get(j), "achievedRate", 0);
+            for (int j = bound - 1; j >= 0 && coarseMax == null; j--) {
+                if (Json.getBool(steps.get(j), "sustainable", false)) {
+                    coarseMax = Json.getDouble(steps.get(j), "achievedRate", 0);
+                    lastSustained = j;
+                }
+            }
+            // Knee refinement: the geometric steps only bracket the maximum to within one step (a
+            // factor of sweep-factor), so bisect between the last sustained step and the knee.
+            Double max = coarseMax;
+            List<Object> bracket = null;
+            Map<String, Object> refine = null;
+            boolean proxyKnee = knee != null && kneeReason != null && !kneeReason.startsWith("client-bound")
+                    && !kneeReason.startsWith("proxy ");
+            if (proxyKnee && lastSustained >= 0 && p.alive()) {
+                double lo = Json.getDouble(steps.get(lastSustained), "targetRate", 0);
+                double hi = Json.getDouble(steps.get(knee), "targetRate", 0);
+                refine = refine(p, client, sampler, url, size, connections, stepSeconds, sloMs, tolerance, confirm, lo, hi,
+                        coarseMax, proxy);
+                if (Json.getBool(refine, "used", false)) {
+                    max = Json.getDouble(refine, "maxSustainableRate", coarseMax);
+                    bracket = List.of(refine.get("low"), refine.get("high"));
+                } else {
+                    bracket = List.of(lo, hi);
+                }
             }
             result.put("sloP99Ms", sloMs);
             result.put("errorTolerance", tolerance);
@@ -162,7 +163,14 @@ final class RateSweep extends Scenario {
             result.put("kneeConfirm", confirm);
             // Unsustainable steps before the knee that the next step recovered from.
             result.put("transientSteps", transients);
+            // The highest sustained achieved rate: refined when the knee was bisected, else the coarse step.
             result.put("maxSustainableRate", max);
+            result.put("maxSustainableRateCoarse", coarseMax);
+            // The offered rates between which the maximum lies: the highest sustained and the lowest
+            // unsustained one above it (null when no proxy-made knee was found).
+            result.put("maxSustainableBracket", bracket);
+            result.put("refined", refine != null && Json.getBool(refine, "used", false));
+            result.put("refine", refine);
             result.put("stopReason", stopReason);
             boolean anyOk = steps.stream().anyMatch(st -> Json.getLong(st, "ok", 0) > 0);
             ctx.check(proxy, name(), "steps ran and returned valid responses", !steps.isEmpty() && anyOk,
@@ -186,7 +194,7 @@ final class RateSweep extends Scenario {
         if (proxy.equals("microproxy") && ExternalTools.available(ctx).contains("h2load")) {
             ProxyProcess.Options o = ProxyProcess.defaults(s);
             try (ProxyProcess p = ProxyProcess.start(ctx, proxy, "h2load", new ProxyProcess.Options(o.idleTimeoutSeconds(),
-                    o.heap(), o.direct(), o.cgroupLimit(), true))) {
+                    o.heap(), o.direct(), o.cgroupLimit(), o.socketsInLimit(), true))) {
                 Double max = (Double) result.get("maxSustainableRate");
                 double crossRate = max != null ? Math.max(1, max / 2) : s.getDouble("sweep-start-rate");
                 @SuppressWarnings("unchecked")
@@ -196,5 +204,142 @@ final class RateSweep extends Scenario {
             }
         }
         return result;
+    }
+
+    /**
+     * Runs one recorded step at {@code rate} and judges it: the load generator's results plus the
+     * proxy's resources over the step (its CPU time read from /proc before and after, so the CPU per
+     * completed request is exact to the clock tick), {@code sustainable} and, when not, {@code why}.
+     */
+    private Map<String, Object> step(String proxy, ProxyProcess p, ClientControl client, Sampler sampler, String url, long size,
+            double rate, int connections, int stepSeconds, double sloMs, double tolerance) throws Exception {
+        double from = sampler.elapsed();
+        double upFrom = p.uptime();
+        long cpuFrom = ProcStats.cpuMs(p.pid());
+        long wallFrom = System.nanoTime();
+        Map<String, Object> r = client.call(Json.obj("cmd", "rate", "url", url, "expectLength", size, "rate", rate,
+                "connections", connections, "durationMs", stepSeconds * 1000L), timeout(stepSeconds));
+        long cpuTo = ProcStats.cpuMs(p.pid());
+        long wallTo = System.nanoTime();
+        double upTo = p.uptime();
+        r.remove("self");
+        Map<String, Object> step = new LinkedHashMap<>(r);
+        Map<String, Object> resources = new LinkedHashMap<>();
+        resources.put("cpuPct", Trend.round(sampler.mean("proxy", "cpuPct", from)));
+        long ok = Json.getLong(r, "ok", 0);
+        if (cpuFrom >= 0 && cpuTo >= cpuFrom) {
+            long cpuMs = cpuTo - cpuFrom;
+            resources.put("cpuMs", cpuMs);
+            resources.put("cpuWallPct", Trend.round(cpuMs * 1e8 / Math.max(1, wallTo - wallFrom)));
+            // Proxy CPU time (user and system, every thread: GC and JIT included) per completed request.
+            if (ok > 0) resources.put("cpuUsPerRequest", Trend.round(cpuMs * 1000.0 / ok));
+        }
+        resources.put("clientCpuPct", Trend.round(sampler.mean("client", "cpuPct", from)));
+        resources.put("originCpuPct", Trend.round(sampler.mean("origin", "cpuPct", from)));
+        // CPU the machine spent on anything but the proxy, origin and load generator (a shared machine).
+        resources.put("foreignCpuPct", Trend.round(sampler.mean(Sampler.SYSTEM, "foreignCpuPct", from)));
+        resources.put("gc", GcLog.summary(p.gcEvents(), upFrom, upTo));
+        resources.putAll(p.memorySnapshot(false));
+        if (p.adminPort > 0) resources.put("microproxyStats", p.adminStats());
+        step.put("proxy", resources);
+
+        Map<String, Object> lat = Json.getObject(r, "latencyMs");
+        double p99 = Json.getDouble(lat, "p99", Double.MAX_VALUE);
+        long attempted = Json.getLong(r, "attempted", 0);
+        long errors = Json.getLong(r, "errorCount", 0);
+        long intended = Math.max(1, Json.getLong(r, "intended", 1));
+        double achieved = Json.getDouble(r, "achievedRate", 0);
+        List<String> why = new ArrayList<>();
+        if (p99 > sloMs) why.add("p99 " + p99 + " ms > SLO " + sloMs + " ms");
+        if (errorRatio(r) > tolerance) why.add("errors " + errors + "/" + attempted);
+        if (achieved < 0.95 * rate) why.add("achieved " + achieved + "/s < 95% of " + Math.round(rate) + "/s");
+        if (Json.getLong(r, "backlog", 0) > intended / 100) why.add("backlog " + r.get("backlog"));
+        boolean saturated = Json.getBool(r, "clientSaturated", false);
+        step.put("sustainable", why.isEmpty() && !saturated);
+        step.put("why", String.join("; ", why));
+        RunContext.log(proxy + " sweep " + Math.round(rate) + "/s: achieved " + achieved + "/s p99 " + p99 + " ms"
+                + (resources.get("cpuUsPerRequest") != null ? " cpu " + resources.get("cpuUsPerRequest") + " us/req" : "")
+                + (why.isEmpty() ? "" : " (" + String.join("; ", why) + ")") + (saturated ? " [client saturated]" : ""));
+        return step;
+    }
+
+    private static double errorRatio(Map<String, Object> r) {
+        long attempted = Json.getLong(r, "attempted", 0);
+        return attempted == 0 ? 1 : (double) Json.getLong(r, "errorCount", 0) / attempted;
+    }
+
+    /**
+     * Bisects (geometrically) between {@code lo}, the highest sustained offered rate, and {@code hi},
+     * the knee's, with recorded steps judged exactly like the sweep's, until the bracket is within
+     * {@code sweep-refine-precision} or {@code sweep-refine-steps} probes have run. Each probe follows
+     * {@code sweep-refine-settle-seconds} of unrecorded load at the bracket's lower rate, so that like
+     * a sweep step it comes after sustained load rather than after an overload. An unsustained probe
+     * is repeated up to {@code sweep-knee-confirm - 1} times, and counts as sustained if a repeat is:
+     * the same allowance the sweep gives a lone noisy step. Returns every probe, the final bracket and
+     * the maximum (the highest sustained achieved rate, never below the coarse one).
+     */
+    private Map<String, Object> refine(ProxyProcess p, ClientControl client, Sampler sampler, String url, long size,
+            int connections, int stepSeconds, double sloMs, double tolerance, int confirm, double lo, double hi,
+            double coarseMax, String proxy) throws Exception {
+        int maxProbes = s.getInt("sweep-refine-steps");
+        double precision = s.getDouble("sweep-refine-precision");
+        int settle = s.getInt("sweep-refine-settle-seconds");
+        Map<String, Object> out = new LinkedHashMap<>();
+        List<Map<String, Object>> probes = new ArrayList<>();
+        double best = coarseMax;
+        int rounds = 0;
+        String stop = null;
+        boolean usable = true;
+        while (stop == null) {
+            if (hi / lo - 1 <= precision) {
+                stop = "bracket within " + precision * 100 + "%";
+                break;
+            }
+            if (rounds >= maxProbes) {
+                stop = maxProbes == 0 ? "refinement off" : "probe limit (" + maxProbes + ")";
+                break;
+            }
+            rounds++;
+            double mid = Math.round(Math.sqrt(lo * hi));
+            boolean sustained = false;
+            for (int attempt = 1; attempt <= confirm && !sustained; attempt++) {
+                if (settle > 0) {
+                    client.call(Json.obj("cmd", "rate", "url", url, "expectLength", size, "rate", lo, "connections",
+                            connections, "durationMs", settle * 1000L), timeout(settle));
+                }
+                Map<String, Object> probe = step(proxy, p, client, sampler, url, size, mid, connections, stepSeconds, sloMs, tolerance);
+                probe.put("round", rounds);
+                probe.put("attempt", attempt);
+                probes.add(probe);
+                if (!p.alive()) {
+                    stop = "proxy " + p.state();
+                    usable = false;
+                    break;
+                }
+                if (Json.getBool(probe, "clientSaturated", false)) {
+                    stop = "client-bound at " + Math.round(mid) + "/s";
+                    usable = false;
+                    break;
+                }
+                if (Json.getBool(probe, "sustainable", false)) {
+                    sustained = true;
+                    best = Math.max(best, Json.getDouble(probe, "achievedRate", 0));
+                }
+            }
+            if (!usable) break;
+            if (sustained) lo = mid;
+            else hi = mid;
+        }
+        RunContext.log(proxy + " sweep refined: sustained " + Math.round(lo) + "/s, not " + Math.round(hi) + "/s (" + stop + ")");
+        out.put("used", usable && rounds > 0);
+        out.put("low", lo);
+        out.put("high", hi);
+        out.put("maxSustainableRate", best);
+        out.put("rounds", rounds);
+        out.put("precision", precision);
+        out.put("settleSeconds", settle);
+        out.put("stopReason", stop);
+        out.put("probes", probes);
+        return out;
     }
 }

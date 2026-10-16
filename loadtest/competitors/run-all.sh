@@ -6,9 +6,9 @@
 # else uses the machine; aggregate.py publishes only runs that pass that contamination guard.
 #
 #   loadtest/competitors/setup.sh            # once: the external proxies, into .tools/
-#   loadtest/competitors/run-all.sh          # about three hours on a 4-vCPU machine
+#   loadtest/competitors/run-all.sh          # about five hours on a 4-vCPU machine (five repetitions)
 #
-# Environment overrides: REPS (3), PROXIES, SCENARIOS, OUT (loadtest/results/perf-<UTC time>),
+# Environment overrides: REPS (5), PROXIES, SCENARIOS, OUT (loadtest/results/perf-<UTC time>),
 # CPUS_PROXY (0), CPUS_ORIGIN (1), CPUS_CLIENT (2-3), NICE (-20; empty for none), PUBLISH (1: write
 # docs/assets/perf/; 0: aggregate into $OUT only). Extra arguments go to every harness run.
 set -euo pipefail
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 cd "$ROOT"
 
-REPS=${REPS:-3}
+REPS=${REPS:-5}
 PROXIES=${PROXIES:-microproxy,littleproxy,envoy,goproxy,g3proxy,squid}
 SCENARIOS=${SCENARIOS:-sweep,ramp,memory,faults,soak}
 OUT=${OUT:-loadtest/results/perf-$(date -u +%Y%m%d-%H%M%S)}
@@ -49,12 +49,18 @@ SETTINGS=(
     --sweep-start-rate 2000 --sweep-factor 1.25 --sweep-step-seconds 8 --sweep-warmup-seconds 15
     --sweep-max-steps 24 --sweep-connections 128 --sweep-knee-confirm 2 --sweep-steps-after-knee 1
     --slo-p99-ms 50
+    # Knee refinement: the x1.25 steps only bracket the maximum to within 25%, so up to 4 more 8 s
+    # steps bisect between the last sustained step and the knee (to within 2%: 1.25^(1/16) is 1.4%),
+    # each after 2 s at the bracket's lower rate; an unsustained probe is repeated once, like the knee.
+    --sweep-refine-steps 4 --sweep-refine-precision 0.02 --sweep-refine-settle-seconds 2
     # Connection ramp: the container's open-file limit (20,000 per process) bounds the largest step.
     --ramp-steps 1000,2000,4000,6000,8000
     # Memory under adversarial clients: every proxy in a 512 MB memory cgroup (the JVMs also keep the
     # standard preset's 256 MB heap and 128 MB direct-memory caps inside it). Rapid reset needs h2c,
-    # which only MicroProxy is set up for, so it is left out of the comparison.
-    --attacks slowloris,slowread,updown --attack-seconds 40 --attack-cgroup-limit 512m
+    # which only MicroProxy is set up for, so it is left out of the comparison. The limit holds each
+    # proxy's own memory; the kernel's TCP buffers for its sockets, which cgroup v2 also charges to the
+    # group, are measured beside it (--attack-cgroup-sockets, exclude by default).
+    --attacks slowloris,slowread,updown --attack-seconds 40 --attack-cgroup-limit 512m --attack-cgroup-sockets exclude
     # Soak: 100 s at 2,000 req/s; memory sampled every 10 s after a 30 s warm-up.
     --soak-seconds 100 --soak-rate 2000 --soak-sample-seconds 10
 )
@@ -69,11 +75,20 @@ cat > "$OUT/run-info.json" <<JSON
  "commit": "$(git rev-parse HEAD)",
  "uncommittedLoadtestChanges": $dirty,
  "command": "REPS=$REPS PROXIES=$PROXIES SCENARIOS=$SCENARIOS loadtest/competitors/run-all.sh $*",
- "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+ "wsl": $(grep -qi microsoft /proc/version && echo true || echo false)
 }
 JSON
 # The contamination guard's log: load average and foreign CPU every 5 s, until this script exits.
 python3 -I "$HERE/hostmon.py" $$ "$OUT/hostmon.jsonl" 5 &
+# On WSL2, also what the Windows host runs: it shares the cores but is invisible to hostmon.py.
+# Without it every run is rejected (aggregate.py), so refuse to start rather than run for hours.
+if grep -qi microsoft /proc/version; then
+    command -v powershell.exe >/dev/null || { echo "WSL2 without powershell.exe: the Windows host cannot be monitored" >&2; exit 1; }
+    python3 -I "$HERE/winmon.py" $$ "$OUT/winmon.jsonl" 5 &
+    sleep 15
+    [ -s "$OUT/winmon.jsonl" ] || { echo "the Windows host monitor wrote nothing in 15 s (see winmon.py)" >&2; exit 1; }
+fi
 for ((rep = 1; rep <= REPS; rep++)); do
     # Rotate the order, so no proxy always runs first (or last) in a repetition.
     shift_by=$(( (rep - 1) % ${#list[@]} ))

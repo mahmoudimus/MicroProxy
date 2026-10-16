@@ -1,26 +1,9 @@
 {
- "commit": "acf503ec9850c408a65b2be8504262db1394ad3f",
- "commitNote": "The harness and loadtest/competitors/ at this commit; the tree had no other changes to them.",
- "command": "OUT=loadtest/results/perf-final PUBLISH=0 loadtest/competitors/run-all.sh",
- "started": "2026-10-13T04:22:16Z",
- "environmentChanges": [
-  {
-   "at": "2026-10-13T04:51:17Z",
-   "change": "net.ipv4.ip_local_port_range widened from '32768 60999' to '1024 65535' during repetition 1 (after its connection ramps), so that sockets left in TIME_WAIT by one proxy's ramp do not exhaust the ports of the next proxy's ramp; repetitions 2 and 3 ran with the wider range. Each run's results.json records the range in effect (environment.limits)."
-  }
- ],
- "rejected": [
-  {
-   "rep": "rep1",
-   "reason": "Contaminated: it ran (04:22-05:12 UTC) while other sessions on the machine ran CPU-bound loops and test suites, before the host monitor existed; the harness's per-core samples show other work on the proxy's CPU averaging 12-75% depending on the scenario, and its connection ramps hit the ephemeral-port limit (see environmentChanges). It was repeated as rep4, with the same jar, settings and proxy order."
-  }
- ],
- "repeated": [
-  {
-   "rep": "rep4",
-   "replaces": "rep1",
-   "started": "2026-10-13T06:51:46Z",
-   "command": "REPS=1 OUT=loadtest/results/perf-rep4 PUBLISH=0 loadtest/competitors/run-all.sh (the same jar, built at acf503e, and the same settings and proxy order as rep1; moved here as rep4)"
-  }
- ]
+ "commit": "bfe751dcc0e4ec03b669031c7e9c782607906270",
+ "uncommittedLoadtestChanges": 0,
+ "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=sweep,ramp,memory,faults,soak loadtest/competitors/run-all.sh ",
+ "started": "2026-10-15T21:51:58Z",
+ "wsl": false,
+ "commitNote": "The harness, loadtest/competitors/ and MicroProxy at this commit, run through loadtest/competitors/dedicated/bootstrap.sh (RUN=1, JDK=25). The memory scenario was run again on the same machine with the harness at 39aa8c5, which keeps the kernel's TCP socket buffers out of the proxy's memory limit; its runs (memoryFrom) give every memory-under-attack figure. The raw results, GC logs and the follow-up runs are on the perf/gcp-20261016 branch.",
+ "memoryFrom": "memory"
 }

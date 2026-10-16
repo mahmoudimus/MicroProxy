@@ -36,6 +36,9 @@ public final class Environment {
         limits.put("ip_local_port_range", sysctl("net/ipv4/ip_local_port_range"));
         limits.put("tcp_tw_reuse", sysctl("net/ipv4/tcp_tw_reuse"));
         limits.put("tcp_max_syn_backlog", sysctl("net/ipv4/tcp_max_syn_backlog"));
+        // The socket buffers' ceilings: how much a slow peer can leave in the kernel per connection.
+        limits.put("tcp_rmem", sysctl("net/ipv4/tcp_rmem"));
+        limits.put("tcp_wmem", sysctl("net/ipv4/tcp_wmem"));
         limits.put("file-max", sysctl("fs/file-max"));
         limits.put("nr_open", sysctl("fs/nr_open"));
         m.put("limits", limits);
@@ -172,14 +175,20 @@ public final class Environment {
     /**
      * Creates a memory cgroup named {@code name} limited to {@code limitBytes}; returns its
      * {@code cgroup.procs} file, or null if the harness cannot.
+     *
+     * <p>cgroup v2 charges a group for the TCP socket buffers of its sockets as well as for its
+     * processes' memory, and its limit covers both. With {@code socketsInLimit} false the group gets
+     * no kernel limit at all, and the caller holds its other memory to {@code limitBytes} itself
+     * ({@link CgroupWatch}). cgroup v1 keeps TCP buffers out of its limit (they have one of their
+     * own, {@code memory.kmem.tcp}, unset here), so there the limit is always written.
      */
-    public static Path createMemoryCgroup(String name, long limitBytes) {
+    public static Path createMemoryCgroup(String name, long limitBytes, boolean socketsInLimit) {
         try {
             switch (cgroupKind()) {
                 case "v2" -> {
                     Path dir = Path.of("/sys/fs/cgroup", name);
                     Files.createDirectories(dir);
-                    Files.writeString(dir.resolve("memory.max"), Long.toString(limitBytes));
+                    Files.writeString(dir.resolve("memory.max"), socketsInLimit ? Long.toString(limitBytes) : "max");
                     Path swap = dir.resolve("memory.swap.max");
                     if (Files.exists(swap)) Files.writeString(swap, "0");
                     return dir.resolve("cgroup.procs");
@@ -197,6 +206,43 @@ public final class Environment {
         } catch (IOException | RuntimeException e) {
             return null;
         }
+    }
+
+    /**
+     * What a cgroup is charged now: {@code ownBytes}, its processes' memory and the kernel's on
+     * their behalf, and {@code sockBytes}, its TCP socket buffers.
+     */
+    public record CgroupMemory(long ownBytes, long sockBytes) {}
+
+    /** What the cgroup of {@code procs} is charged now, or null if it cannot be read. */
+    public static CgroupMemory cgroupMemory(Path procs) {
+        if (procs == null) return null;
+        Path dir = procs.getParent();
+        try {
+            Path current = dir.resolve("memory.current");
+            if (Files.exists(current)) {
+                // v2: memory.current includes the socket buffers that memory.stat's "sock" counts.
+                long sock = 0;
+                for (String line : Files.readAllLines(dir.resolve("memory.stat"))) {
+                    if (line.startsWith("sock ")) {
+                        sock = Long.parseLong(line.substring(5).trim());
+                        break;
+                    }
+                }
+                long all = Long.parseLong(Files.readString(current).trim());
+                return new CgroupMemory(Math.max(0, all - sock), sock);
+            }
+            Path usage = dir.resolve("memory.usage_in_bytes");
+            if (Files.exists(usage)) {
+                // v1: the TCP buffers are a separate counter, not part of the usage.
+                Path tcp = dir.resolve("memory.kmem.tcp.usage_in_bytes");
+                long sock = Files.exists(tcp) ? Long.parseLong(Files.readString(tcp).trim()) : 0;
+                return new CgroupMemory(Long.parseLong(Files.readString(usage).trim()), sock);
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+        return null;
     }
 
     /** Whether the cgroup of {@code procs} saw an OOM kill. */

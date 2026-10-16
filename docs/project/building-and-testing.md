@@ -56,7 +56,10 @@ DNSSEC is tested in three ways, all offline:
   and forgeries.
 - **Published values:** the IANA root key's tag and digest, and the RFC 5155 hash vectors.
 
-Live validation and re-recording are opt-in:
+Live validation is opt-in locally (CI runs it on every push and pull request), and so is
+re-recording. It asks Cloudflare, Google and Quad9 over DNS over HTTPS, by name and then by
+address (1.1.1.1, 8.8.8.8, 8.8.4.4, 9.9.9.9), each in turn when the one before cannot answer
+(`DnsTransport.failover`); a comma-separated `-Dmicroproxy.dns.doh` replaces the list:
 
 ```bash
 mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.record=true]
@@ -64,10 +67,12 @@ mvn test -Dtest=DnssecLiveTest -Dmicroproxy.dns.live=true [-Dmicroproxy.dns.reco
 
 ## Interop and conformance in CI
 
-Besides `mvn verify` on JDK 21 and 25, CI (`.github/workflows/ci.yml`) runs
-[h2spec](../guides/http2.md#conformance-h2spec) against the `h2c` listener, QUIC and HTTP/3
-interop with aioquic (and the OTLP encodings against opentelemetry-proto), [gRPC
-interop](../guides/http2.md#grpc-interop-grpcio) with grpcio, a check of the Maven Central sources
-and Javadoc, and the documentation build (`mkdocs build --strict`, the link check and the
+CI (`.github/workflows/ci.yml`) runs `mvn verify` on JDK 21 and 25 with every test, skipping
+none: its Python peers are installed (aioquic for QUIC and HTTP/3 interop, opentelemetry-proto
+for the OTLP encodings, grpcio for [gRPC interop](../guides/http2.md#grpc-interop-grpcio)) and
+required (`-Dquic.interop.required=true`, `-Dotel.interop.required=true`,
+`-Dgrpc.interop.required=true`, so a missing peer fails the build), and the live DNSSEC test runs
+too (`-Dmicroproxy.dns.live=true`). It also runs [h2spec](../guides/http2.md#conformance-h2spec)
+against the `h2c` listener, a check of the Maven Central sources and Javadoc, and the documentation build (`mkdocs build --strict`, the link check and the
 `llms.txt` check; see [Writing documentation](../CONTRIBUTING-DOCS.md)). `DocsDriftTest` fails
 when a launcher flag or a properties key is missing from the reference pages.
