@@ -48,6 +48,7 @@ replay](../guides/addons.md)), and so are `--mitm` and its CA options.
 | `quic_max_message_size` / `quic_message_error_code` | the largest framed QUIC message, in bytes, and the error code of the reset of a stream that sends a larger one | `1048576` / `2` |
 | `idle_connection_timeout` | seconds, 0 = none | `70` |
 | `connect_timeout` | milliseconds; filters can shorten it per request (`proxyToServerConnectTimeout`) | `40000` |
+| `request_head_timeout` | milliseconds for the whole HTTP/1 request head, from its first byte (`0` = none); expired heads receive `408` and the connection closes | `30000` |
 | `littleproxy_compatibility` | make LittleProxy's behaviour HTTP/1 clients' default where MicroProxy differs: the `littleproxy` [protocol policy](../guides/protocol-policies.md) preset, under every field set explicitly | `false` |
 | `tls_handshake_timeout` | milliseconds for a whole TLS handshake, with clients or servers (`0` = none); filters can change it per request for upstream handshakes (`proxyToServerTlsHandshakeTimeout`) | `10000` |
 | `tls_protocols` | TLS versions allowed on every TLS connection the proxy makes (empty = each context's defaults; see [TLS protocol versions](../guides/mitm.md#tls-protocol-versions)) | `TLSv1.3,TLSv1.2` |
@@ -142,6 +143,7 @@ behave in more than one way. `policy.<field>` sets a field for every client prot
 | serve plain HTTP sent after a `CONNECT` as HTTP rather than relay it | `policy.serve_plain_http_after_connect` | `policy.http1.serve_plain_http_after_connect` | `policy.http2.serve_plain_http_after_connect` | `policy.http3.serve_plain_http_after_connect` | `true` |
 | the destination of a PROXY header sent to a server: `local_address` or `server_address` | `policy.proxy_protocol_destination` | `policy.http1.proxy_protocol_destination` | `policy.http2.proxy_protocol_destination` | `policy.http3.proxy_protocol_destination` | `local_address` |
 | retry TLS with a server without SNI after its `unrecognized_name` alert | `policy.tls_retry_without_sni` | `policy.http1.tls_retry_without_sni` | `policy.http2.tls_retry_without_sni` | `policy.http3.tls_retry_without_sni` | `false` |
+| whole HTTP/1 request-head deadline in milliseconds (`0` = none; other protocols ignore it) | `policy.request_head_timeout` | `policy.http1.request_head_timeout` | `policy.http2.request_head_timeout` | `policy.http3.request_head_timeout` | `30000` |
 | what `proxyToClientResponse` may do with the proxy's own responses: `replaceable`, `in_place` or `skip` | `policy.generated_responses` | `policy.http1.generated_responses` | `policy.http2.generated_responses` | `policy.http3.generated_responses` | `replaceable` |
 | when the server's TLS handshake runs for an intercepted `CONNECT`: `deferred` or `eager` | `policy.mitm_server_handshake` | `policy.http1.mitm_server_handshake` | `policy.http2.mitm_server_handshake` | `policy.http3.mitm_server_handshake` | `deferred` |
 | accept requests with both `Transfer-Encoding` and `Content-Length` (HTTP/1 only) | | `policy.http1.allow_chunked_length` | | | `allow_chunked_length` |

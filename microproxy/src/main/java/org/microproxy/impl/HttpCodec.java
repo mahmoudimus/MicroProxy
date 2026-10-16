@@ -40,6 +40,17 @@ final class HttpCodec {
      * @return the request, or {@code null} if the connection closed cleanly before a request
      */
     static HttpRequest readRequest(ByteReader in, Limits limits) throws IOException {
+        in.beginRequestHead();
+        try {
+            HttpRequest request = readRequestHead(in, limits);
+            in.checkRequestHeadDeadline();
+            return request;
+        } finally {
+            in.endRequestHead();
+        }
+    }
+
+    private static HttpRequest readRequestHead(ByteReader in, Limits limits) throws IOException {
         int first = in.peek();
         if (first < 0) return null;
         if (!isRequestStart(first)) {

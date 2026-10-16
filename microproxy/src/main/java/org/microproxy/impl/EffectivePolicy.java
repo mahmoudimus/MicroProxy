@@ -1,5 +1,6 @@
 package org.microproxy.impl;
 
+import java.time.Duration;
 import org.microproxy.ProtocolPolicy;
 import org.microproxy.ProxyProtocolDestination;
 
@@ -14,6 +15,7 @@ record EffectivePolicy(
         boolean servePlainHttpAfterConnect,
         ProxyProtocolDestination proxyProtocolDestination,
         boolean tlsRetryWithoutSni,
+        Duration requestHeadTimeout,
         boolean allowChunkedLength,
         org.microproxy.GeneratedResponses generatedResponses,
         org.microproxy.MitmServerHandshake mitmServerHandshake) {
@@ -26,6 +28,7 @@ record EffectivePolicy(
                 policy.servePlainHttpAfterConnect().orElseThrow(),
                 policy.proxyProtocolDestination().orElseThrow(),
                 policy.tlsRetryWithoutSni().orElseThrow(),
+                policy.requestHeadTimeout().orElseThrow(),
                 policy.allowChunkedLength().orElse(false),
                 policy.generatedResponses().orElseThrow(),
                 policy.mitmServerHandshake().orElseThrow());

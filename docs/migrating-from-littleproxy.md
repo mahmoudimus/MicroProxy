@@ -197,9 +197,11 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 
 Where MicroProxy deliberately behaves otherwise than LittleProxy and a filter may depend on it,
 a [protocol policy](guides/protocol-policies.md) field chooses, for HTTP/1, HTTP/2 or HTTP/3
-clients separately. `ProtocolPolicy.littleProxy()` sets every such field as LittleProxy does, and
-`withLittleProxyCompatibility()` (`--littleproxy-compat`, `littleproxy_compatibility=true`) makes it
-the default of HTTP/1 clients, the only ones LittleProxy ever served. Any field can still be set
+clients separately. `ProtocolPolicy.littleProxy()` sets the behavior fields below to LittleProxy's
+values; MicroProxy's 30-second `request_head_timeout` remains enabled because LittleProxy has no
+equivalent setting. `withLittleProxyCompatibility()` (`--littleproxy-compat`,
+`littleproxy_compatibility=true`) makes the preset the default of HTTP/1 clients, the only ones
+LittleProxy ever served. Any field can still be set
 on its own, for HTTP/1 (`onHttp1`, `--http1-policy`, `policy.http1.<field>`) or for every protocol
 (`onAllProtocols`, `--policy`, `policy.<field>`), over the preset:
 
@@ -219,6 +221,7 @@ MicroProxy.bootstrap()
 | `generated_responses` | `replaceable`: `ClientToProxyConnection.respondWithShortCircuitResponse`, which writes the proxy's error responses (`writeBadGateway`, `writeBadRequest`, `writeGatewayTimeout`) and filters' short-circuit responses, passes them through `proxyToClientResponse` and writes the response it returns. LittleProxy 1.x (`org.littleshoot:littleproxy` 1.1.2) wrote the response it was given, so a filter could only change it in place or drop it: forks descended from it want `in_place` | `replaceable` |
 | `mitm_server_handshake` | `eager`: `ProxyToServerConnection.initializeConnectionFlow` runs the server's `EncryptChannel` step before `ClientToProxyConnection.RespondCONNECTSuccessful`, so that `MitmManager.clientSslEngineFor(HttpRequest, SSLSession)` gets the server's session; a server TLS failure goes through `ConnectionFlow.fail` and `ProxyToServerConnection.connectionFailed` to the next chained proxy, and the last one answers the `CONNECT` `502` (`writeBadGateway`) | `deferred`: the server's handshake waits for the client's ClientHello so it can mirror its ALPN and SNI; a failure fails over just the same, and the last one answers the session's first request `502` (see [Server TLS failures](guides/mitm.md#server-tls-failures)) |
 | `tls_retry_without_sni` | `true`: `ProxyToServerConnection.connectionFailed` connects again without SNI after an `unrecognized_name` handshake failure (see [TLS to servers](#tls-to-servers)) | `false` |
+| `request_head_timeout` | no equivalent setting | 30 seconds for an HTTP/1 request head; a timeout receives `408` and closes the connection, including under the LittleProxy preset |
 
 With `filter_connect_answer` off, trackers and the hooks LittleProxy does not have
 (`proxyToClientResponseSent`, `exchangeEnded`) still see the `CONNECT`'s answer. An HTTP chained

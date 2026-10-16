@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import org.microproxy.http.HttpResponseStatus;
 import org.microproxy.simd.Simd;
 
@@ -27,8 +29,17 @@ final class ByteReader {
     private int pos;
     private int limit;
     private boolean strictLineEndings;
+    /** Whether fills should wait without retaining a buffer, while the HTTP/1 request head parses. */
+    private boolean requestHead;
     /** The plain socket {@link #in} reads, when {@link #awaitNext()} waits through {@link IdleWaits}. */
     private Socket idleSocket;
+    /** The socket and absolute deadline used while a request head is being read, when enabled. */
+    private Socket requestHeadSocket;
+    private int requestHeadOriginalTimeout;
+    private long requestHeadStartedNanos;
+    private long requestHeadTimeoutNanos;
+    private boolean requestHeadDeadlineEnabled;
+    private boolean requestHeadReadDeadlineBound;
 
     ByteReader(InputStream in, BufferPool pool) {
         this.in = in;
@@ -52,6 +63,57 @@ final class ByteReader {
     ByteReader idleWaitsOn(Socket socket) {
         this.idleSocket = IdleWaits.supports(socket) ? socket : null;
         return this;
+    }
+
+    /** Makes any fill during a request head wait without holding a pooled buffer. */
+    void beginRequestHead() {
+        requestHead = true;
+    }
+
+    /** Ends the parser's request-head mode; later body reads use the ordinary buffered path. */
+    void endRequestHead() {
+        requestHead = false;
+    }
+
+    /** Starts an absolute request-head deadline without changing the socket's timeout yet. */
+    void beginRequestHeadDeadline(Socket socket, Duration timeout, long startedNanos) throws IOException {
+        if (timeout.isZero()) return;
+        int originalTimeout = socket.getSoTimeout();
+        requestHeadSocket = socket;
+        requestHeadOriginalTimeout = originalTimeout;
+        long timeoutNanos;
+        try {
+            timeoutNanos = timeout.toNanos();
+        } catch (ArithmeticException tooLong) {
+            timeoutNanos = Long.MAX_VALUE;
+        }
+        requestHeadStartedNanos = startedNanos;
+        requestHeadTimeoutNanos = timeoutNanos;
+        requestHeadDeadlineEnabled = true;
+    }
+
+    /** Fails if parsing finished only after the absolute request-head deadline. */
+    void checkRequestHeadDeadline() throws RequestHeadTimeoutException {
+        if (requestHeadDeadlineEnabled
+                && requestHeadTimeoutNanos - (System.nanoTime() - requestHeadStartedNanos) <= 0) {
+            throw new RequestHeadTimeoutException();
+        }
+    }
+
+    /** Restores the connection's idle timeout after the request head has been parsed. */
+    void endRequestHeadDeadline() {
+        Socket socket = requestHeadSocket;
+        int originalTimeout = requestHeadOriginalTimeout;
+        requestHeadDeadlineEnabled = false;
+        requestHeadReadDeadlineBound = false;
+        requestHeadSocket = null;
+        if (socket != null && !socket.isClosed()) {
+            try {
+                socket.setSoTimeout(originalTimeout);
+            } catch (IOException ignored) {
+                // The connection is already closing or its read has failed.
+            }
+        }
     }
 
     /** A reader with its own (unshared) buffers of {@code bufferSize} bytes. */
@@ -91,7 +153,13 @@ final class ByteReader {
     void awaitNext() throws IOException {
         if (pos < limit) return;
         release();
-        int first = idleSocket != null ? IdleWaits.readFirst(idleSocket, in) : in.read();
+        int first;
+        try {
+            prepareRequestHeadRead();
+            first = idleSocket != null ? IdleWaits.readFirst(idleSocket, in) : in.read();
+        } catch (SocketTimeoutException e) {
+            throw requestHeadTimeoutIfExpired(e);
+        }
         if (first < 0) return;
         buf = pool.take();
         buf[0] = (byte) first;
@@ -99,7 +167,13 @@ final class ByteReader {
         limit = 1;
         int available = in.available();
         if (available > 0) {
-            int n = in.read(buf, 1, Math.min(available, buf.length - 1));
+            int n;
+            try {
+                prepareRequestHeadRead();
+                n = in.read(buf, 1, Math.min(available, buf.length - 1));
+            } catch (SocketTimeoutException e) {
+                throw requestHeadTimeoutIfExpired(e);
+            }
             if (n > 0) limit += n;
         }
     }
@@ -305,6 +379,10 @@ final class ByteReader {
     }
 
     private boolean fill() throws IOException {
+        if (requestHead) {
+            awaitNext();
+            return pos < limit;
+        }
         if (buf == null) buf = pool.take();
         pos = 0;
         limit = 0;
@@ -312,5 +390,30 @@ final class ByteReader {
         if (n <= 0) return false;
         limit = n;
         return true;
+    }
+
+    /** Lowers SO_TIMEOUT to the remaining total head deadline, preserving the idle timeout. */
+    private void prepareRequestHeadRead() throws IOException {
+        if (!requestHeadDeadlineEnabled) return;
+        long elapsed = System.nanoTime() - requestHeadStartedNanos;
+        long remaining = requestHeadTimeoutNanos - elapsed;
+        if (remaining <= 0) throw new RequestHeadTimeoutException();
+        long remainingMillis = Math.max(1, remaining / 1_000_000L + (remaining % 1_000_000L == 0 ? 0 : 1));
+        requestHeadReadDeadlineBound = remainingMillis <= Integer.MAX_VALUE
+                && (requestHeadOriginalTimeout == 0
+                        || remaining <= TimeUnit.MILLISECONDS.toNanos(requestHeadOriginalTimeout));
+        int deadlineMillis = (int) Math.min(Integer.MAX_VALUE, remainingMillis);
+        int effective = requestHeadOriginalTimeout > 0
+                ? Math.min(requestHeadOriginalTimeout, deadlineMillis)
+                : deadlineMillis;
+        requestHeadSocket.setSoTimeout(Math.max(1, effective));
+    }
+
+    private IOException requestHeadTimeoutIfExpired(SocketTimeoutException cause) {
+        long elapsed = System.nanoTime() - requestHeadStartedNanos;
+        if (requestHeadDeadlineEnabled && (requestHeadReadDeadlineBound || requestHeadTimeoutNanos - elapsed <= 0)) {
+            return new RequestHeadTimeoutException(cause);
+        }
+        return cause;
     }
 }

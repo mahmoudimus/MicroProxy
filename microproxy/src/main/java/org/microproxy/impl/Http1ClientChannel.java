@@ -65,6 +65,8 @@ final class Http1ClientChannel implements ClientChannel {
      * DefaultHttpProxyServer#allowChunkedLength}): the connection closes after its response.
      */
     private boolean closeAfterResponse;
+    /** When the current request's first byte arrived, for its whole-head deadline. */
+    private long requestHeadStartedNanos;
     /** What counts the bytes read from and written to the client, or null when nothing does. */
     private java.util.function.IntConsumer rxBytes;
     private java.util.function.IntConsumer txBytes;
@@ -232,7 +234,9 @@ final class Http1ClientChannel implements ClientChannel {
      */
     boolean awaitRequest() throws IOException {
         in.awaitNext();
-        return in.buffered() > 0;
+        boolean arrived = in.buffered() > 0;
+        requestHeadStartedNanos = arrived ? System.nanoTime() : 0;
+        return arrived;
     }
 
     /**
@@ -281,7 +285,14 @@ final class Http1ClientChannel implements ClientChannel {
      * @return the request, or {@code null} if the client closed the connection cleanly instead
      */
     HttpRequest readRequest() throws IOException {
-        return HttpCodec.readRequest(in, server.limits);
+        long started = requestHeadStartedNanos != 0 ? requestHeadStartedNanos : System.nanoTime();
+        try {
+            in.beginRequestHeadDeadline(socket, server.policy(1).requestHeadTimeout(), started);
+            return HttpCodec.readRequest(in, server.limits);
+        } finally {
+            in.endRequestHeadDeadline();
+            requestHeadStartedNanos = 0;
+        }
     }
 
     /** Closes the socket; {@link #close()} closes the whole client connection. */

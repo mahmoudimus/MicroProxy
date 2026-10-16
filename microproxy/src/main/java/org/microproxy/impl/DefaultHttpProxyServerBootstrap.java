@@ -332,6 +332,9 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
         if (p.containsKey("connect_timeout")) {
             withConnectTimeout(Integer.parseInt(p.getProperty("connect_timeout").strip()));
         }
+        if (p.containsKey("request_head_timeout")) {
+            withRequestHeadTimeout(Duration.ofMillis(Long.parseLong(p.getProperty("request_head_timeout").strip())));
+        }
         if (p.containsKey("littleproxy_compatibility")) {
             withLittleProxyCompatibility(bool(p, "littleproxy_compatibility"));
         }
@@ -904,6 +907,12 @@ public final class DefaultHttpProxyServerBootstrap implements HttpProxyServerBoo
     public HttpProxyServerBootstrap withTlsHandshakeTimeout(Duration timeout) {
         if (timeout.isNegative()) throw new IllegalArgumentException("negative TLS handshake timeout");
         this.tlsHandshakeTimeout = timeout;
+        return this;
+    }
+
+    @Override
+    public HttpProxyServerBootstrap withRequestHeadTimeout(Duration timeout) {
+        allProtocolsPolicy.requestHeadTimeout(timeout);
         return this;
     }
 

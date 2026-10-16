@@ -1,8 +1,11 @@
 package org.microproxy;
 
+import java.time.Duration;
+
 /**
  * Builds the {@link ProtocolPolicy} of HTTP/1.x clients ({@link HttpProxyServerBootstrap#onHttp1}):
- * the fields every protocol has, and those only HTTP/1 has, such as {@link #allowChunkedLength}.
+ * the fields every protocol has, and HTTP/1-specific fields such as {@link #requestHeadTimeout}
+ * and {@link #allowChunkedLength}.
  */
 public final class Http1PolicyBuilder extends ProtocolPolicy.Builder {
 
@@ -42,6 +45,12 @@ public final class Http1PolicyBuilder extends ProtocolPolicy.Builder {
     @Override
     public Http1PolicyBuilder tlsRetryWithoutSni(boolean retry) {
         super.tlsRetryWithoutSni(retry);
+        return this;
+    }
+
+    @Override
+    public Http1PolicyBuilder requestHeadTimeout(Duration timeout) {
+        super.requestHeadTimeout(timeout);
         return this;
     }
 

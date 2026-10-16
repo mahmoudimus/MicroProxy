@@ -1496,6 +1496,12 @@ final class ClientConnection implements Runnable {
                     flowContext.startExchange();
                 }
                 request = http1.readRequest();
+            } catch (RequestHeadTimeoutException e) {
+                flowContext.setResponseCodeDetails("downstream_rq_head_timeout");
+                server.stats.http.rqHeadTimeout.inc();
+                http1.reject(HttpResponseStatus.REQUEST_TIMEOUT);
+                recordRejected(flowContext, FlowRecord.Kind.HTTP1, null, HttpResponseStatus.REQUEST_TIMEOUT);
+                return;
             } catch (HttpParseException e) {
                 if (LOG.isLoggable(Level.DEBUG)) {
                     LOG.log(Level.DEBUG, logPrefix + "bad request from client: " + e.getMessage());

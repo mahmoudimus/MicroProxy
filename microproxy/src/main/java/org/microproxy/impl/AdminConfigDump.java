@@ -60,6 +60,7 @@ final class AdminConfigDump {
         Map<String, Object> timeouts = new LinkedHashMap<>();
         timeouts.put("idle_connection", duration(server.getIdleConnectionTimeout()));
         timeouts.put("connect", duration(Duration.ofMillis(server.getConnectTimeout())));
+        timeouts.put("request_head", duration(server.policy(1).requestHeadTimeout()));
         timeouts.put("tls_handshake", duration(b.tlsHandshakeTimeout));
         boot.put("timeouts", timeouts);
         boot.put("tls_protocols", b.tlsProtocols);
@@ -74,6 +75,7 @@ final class AdminConfigDump {
             fields.put("proxy_protocol_destination", p.proxyProtocolDestination()
                     .map(d -> d.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
             fields.put("tls_retry_without_sni", p.tlsRetryWithoutSni().orElse(null));
+            fields.put("request_head_timeout", p.requestHeadTimeout().map(AdminConfigDump::duration).orElse(null));
             fields.put("generated_responses", p.generatedResponses().map(v -> v.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
             fields.put("mitm_server_handshake", p.mitmServerHandshake()
                     .map(v -> v.name().toLowerCase(java.util.Locale.ROOT)).orElse(null));
