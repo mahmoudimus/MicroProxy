@@ -83,7 +83,7 @@ pool records, and so on (19 in all).
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.4.0
+MICROPROXY_VERSION=0.4.1-SNAPSHOT
 # JAVA_HOME = a JDK 28 early-access build (https://jdk.java.net/28/)
 mvn -Pvalhalla -pl zstd-decoder,microproxy verify     # all tests pass with value classes
 java --enable-preview -cp microproxy/target/microproxy-${MICROPROXY_VERSION}-valhalla.jar org.microproxy.Launcher
