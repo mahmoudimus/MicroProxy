@@ -1,5 +1,5 @@
 {
-  "_comment": "External (non-JVM) proxies for the load-testing harness: java -jar loadtest/target/microproxy-loadtest.jar run --external-proxies loadtest/competitors/proxies.json --proxies microproxy,littleproxy,envoy,... . setup.sh builds or downloads each one into .tools/ (git-ignored). Placeholders: {{port}}, {{idleSeconds}}, {{connectTimeoutMs}}, {{connectTimeoutSeconds}}, {{workers}} (CPUs the proxy is pinned to), {{config}} (the rendered config file), {{logs}}, {{name}}, {{home}} (this directory) and {{tools}} (this directory's .tools). See docs/project/performance.md.",
+  "_comment": "External (non-JVM) proxies for the load-testing harness: java -jar loadtest/target/microproxy-loadtest.jar run --external-proxies loadtest/competitors/proxies.json --proxies microproxy,littleproxy,envoy,... . setup.sh builds or downloads each one into .tools/ (git-ignored). Placeholders: {{port}}, {{idleSeconds}}, {{headSeconds}} (the request head timeout), {{connectTimeoutMs}}, {{connectTimeoutSeconds}}, {{workers}} (CPUs the proxy is pinned to), {{config}} (the rendered config file), {{logs}}, {{name}}, {{home}} (this directory) and {{tools}} (this directory's .tools). See docs/project/performance.md.",
   "envoy": {
     "label": "Envoy",
     "language": "C++",
@@ -15,7 +15,7 @@
     "language": "Go",
     "version": "github.com/elazarl/goproxy v1.9.2, Go 1.27.2",
     "command": ["{{tools}}/bin/goproxy-proxy", "-addr", "127.0.0.1:{{port}}", "-idle-timeout", "{{idleSeconds}}s",
-      "-connect-timeout", "{{connectTimeoutMs}}ms"],
+      "-head-timeout", "{{headSeconds}}s", "-connect-timeout", "{{connectTimeoutMs}}ms"],
     "versionCommand": ["{{tools}}/bin/goproxy-proxy", "-version"],
     "notes": "goproxy/main.go: a minimal goproxy server, logging off; GOMAXPROCS follows the pinned CPUs (Go's default)."
   },

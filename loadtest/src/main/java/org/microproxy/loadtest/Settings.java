@@ -40,6 +40,7 @@ public final class Settings {
         {"jfr", "false", "false", "false", "record a JFR file (profile settings) of each proxy run"},
         {"idle-timeout", "70", "70", "70", "both proxies' idle connection timeout in seconds (matches the JMH benchmarks)"},
         {"connect-timeout-ms", "40000", "40000", "40000", "both proxies' upstream connect timeout in ms (matches the JMH benchmarks)"},
+        {"head-timeout", "idle", "idle", "idle", "every proxy's limit in seconds on a whole HTTP/1 request head, first byte to last (slowloris); idle = the scenario's idle timeout; LittleProxy has none"},
         {"lp-workers", "0", "0", "0", "LittleProxy's client-to-proxy and proxy-to-server worker threads (0 = Netty's defaults)"},
         {"mp-admin", "true", "false", "false", "enable MicroProxy's admin listener (implies its metrics) to read /stats?format=json"},
         {"mp-args", "", "", "", "extra MicroProxy launcher flags, space-separated"},

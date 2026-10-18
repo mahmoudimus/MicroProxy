@@ -22,6 +22,7 @@ import (
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	idle := flag.Duration("idle-timeout", 70*time.Second, "idle connection timeout, client and upstream side")
+	head := flag.Duration("head-timeout", 0, "longest a whole request head may take (default: the idle timeout)")
 	connect := flag.Duration("connect-timeout", 40*time.Second, "upstream connect timeout")
 	version := flag.Bool("version", false, "print the goproxy and Go versions and exit")
 	flag.Parse()
@@ -52,7 +53,7 @@ func main() {
 		Addr:              *addr,
 		Handler:           proxy,
 		IdleTimeout:       *idle,
-		ReadHeaderTimeout: *idle,
+		ReadHeaderTimeout: headTimeout(*head, *idle),
 		MaxHeaderBytes:    8192 + 16384,
 		ErrorLog:          log.New(io.Discard, "", 0),
 	}
@@ -62,6 +63,14 @@ func main() {
 	}
 	os.Stdout.WriteString("goproxy listening on " + ln.Addr().String() + "\n")
 	log.Fatal(server.Serve(ln))
+}
+
+// headTimeout is the request head limit: head when set, else the idle timeout.
+func headTimeout(head, idle time.Duration) time.Duration {
+	if head > 0 {
+		return head
+	}
+	return idle
 }
 
 // printVersion prints the goproxy module version this binary was built with, and the Go version.

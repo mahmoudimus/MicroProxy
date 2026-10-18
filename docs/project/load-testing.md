@@ -91,10 +91,12 @@ Besides MicroProxy and LittleProxy, the harness can test any proxy that runs as 
 native binary such as Envoy, or a proxy written in Go or Rust. A JSON file named by
 `--external-proxies` describes each one: its command line, an optional configuration template, its
 environment, a command that prints its version, and the scenarios or workloads it cannot run.
-Placeholders in the command and the template (`{{port}}`, `{{idleSeconds}}`, `{{connectTimeoutMs}}`,
-`{{connectTimeoutSeconds}}`, `{{workers}}`, `{{config}}`, `{{logs}}`, `{{name}}`, `{{home}}` and
-`{{tools}}`) are filled in per run, so every proxy gets the same port handling, timeouts and worker
-count (`{{workers}}` is the number of CPUs the proxy is pinned to).
+Placeholders in the command and the template (`{{port}}`, `{{idleSeconds}}`, `{{headSeconds}}`,
+`{{connectTimeoutMs}}`, `{{connectTimeoutSeconds}}`, `{{workers}}`, `{{config}}`, `{{logs}}`,
+`{{name}}`, `{{home}}` and `{{tools}}`) are filled in per run, so every proxy gets the same port
+handling, timeouts and worker count (`{{workers}}` is the number of CPUs the proxy is pinned to, and
+`{{headSeconds}}` the limit on a whole request head, `--head-timeout`, which is the idle timeout
+unless set; LittleProxy has no such limit).
 
 An external proxy is started like the JVM proxies: pinned to the proxy's CPUs, inside the memory
 cgroup when a scenario caps memory, and ready once its port accepts connections. Its memory comes

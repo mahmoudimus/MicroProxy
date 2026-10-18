@@ -4,6 +4,7 @@
 #
 #   sudo loadtest/competitors/dedicated/bootstrap.sh            # prepare only
 #   sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh      # prepare, then run the campaign
+#   sudo RUN=1 loadtest/competitors/dedicated/bootstrap.sh --head-timeout 30   # arguments go to every harness run
 #
 # It installs the build and proxy dependencies, two pinned JDKs (Temurin 21 and 25, checked against
 # their SHA-256), the external proxies (setup.sh), applies the kernel and CPU settings the runs
@@ -113,6 +114,6 @@ log "local ports: $(sysctl -n net.ipv4.ip_local_port_range | tr '\t' ' '); prepa
 if [ "${RUN:-0}" = 1 ]; then
     cd "$ROOT"
     export OUT=${OUT:-loadtest/results/dedicated-$(date -u +%Y%m%d-%H%M%S)} PUBLISH=0
-    "$HERE/../run-all.sh"
+    "$HERE/../run-all.sh" "$@"
     log "done: results in $OUT; aggregate with python3 -I loadtest/competitors/aggregate.py $OUT --publish docs"
 fi
