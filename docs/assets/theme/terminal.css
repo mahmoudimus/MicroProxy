@@ -1,0 +1,45 @@
+/* The site's adjustments to the mkdocs-terminal theme (mkdocs.yml). The theme takes one palette;
+   this keeps its light one (default) and, when the reader's system prefers dark, switches to the
+   colors of its dark palette (terminal/css/palettes/dark.css in the theme). */
+:root {
+  /* The theme's 60em leaves little room for the wide tables and charts beside the navigation. */
+  --page-width: 80em;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background-color: #222225;
+    --font-color: #e8e9ed;
+    --invert-font-color: #222225;
+    --secondary-color: #a3abba;
+    --tertiary-color: #a3abba;
+    --primary-color: #62c4ff;
+    --error-color: #ff3c74;
+    --progress-bar-background: #3f3f44;
+    --progress-bar-fill: #62c4ff;
+    --code-bg-color: #3f3f44;
+    color-scheme: dark;
+  }
+}
+
+/* The theme's grid columns are as wide as their widest code block or table, which widens the page
+   past a phone's screen and squeezes the navigation beside a wide chart: let the content column
+   shrink, give the navigation a fixed width, and scroll wide tables and code inside the page. */
+.terminal-mkdocs-main-grid > * {
+  min-width: 0;
+}
+@media only screen and (min-width: 70em) {
+  .terminal-mkdocs-main-grid {
+    grid-template-columns: 18em minmax(0, 1fr);
+  }
+}
+#terminal-mkdocs-main-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+#terminal-mkdocs-main-content pre {
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+  word-wrap: normal;
+}

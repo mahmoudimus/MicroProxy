@@ -164,7 +164,7 @@ jobs:
         run: mvn --batch-mode -Pcentral -Dgpg.skip=true -DskipTests verify
 
   docs:
-    # The documentation site: MkDocs Material (pinned in docs/requirements.txt) in strict mode, so a
+    # The documentation site: MkDocs with the mkdocs-terminal theme (pinned in docs/requirements.txt) in strict mode, so a
     # broken link or anchor fails; the links of the Markdown outside docs/; and llms.txt, which the
     # build writes with llms-full.txt (docs/llms.txt is the committed copy, which must be current).
     runs-on: ubuntu-24.04

@@ -10,7 +10,7 @@
   color: var(--mp-text);
 }
 .mp-arch:empty { display: none; }
-.mp-arch h4.mp-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 600; color: var(--mp-text); }
+.mp-arch h4.mp-title { margin: 0 0 6px; font-size: 1rem; font-weight: 600; color: var(--mp-text); }
 .mp-arch-ready .mp-arch-static { display: none; }
 .mp-arch .mp-a-count { color: var(--mp-muted); font-variant-numeric: tabular-nums; }
 .mp-arch button.mp-btn:disabled { opacity: 0.4; cursor: default; }
@@ -20,7 +20,7 @@
 .mp-a-panel svg { display: block; width: 100%; height: auto; overflow: visible; }
 .mp-a-panel .mp-a-caption {
   margin: 6px 2px 4px;
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   color: var(--mp-text-2);
   min-height: 6em;

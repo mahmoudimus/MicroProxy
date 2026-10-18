@@ -17,28 +17,13 @@ exclude_docs: |
   requirements.txt
 
 theme:
-  name: material
+  # mkdocs-terminal (https://github.com/ntno/mkdocs-terminal): its light palette, and its dark one
+  # when the reader's system prefers dark (docs/assets/theme/terminal.css).
+  name: terminal
+  palette: default
   features:
-    - content.code.copy
-    - navigation.footer
-    - navigation.indexes
-    - navigation.sections
-    - navigation.top
-    - navigation.tracking
-    - search.highlight
-    - search.suggest
-    - toc.follow
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+    - footer.prev_next
+    - navigation.side.indexes
 
 markdown_extensions:
   - admonition
@@ -58,10 +43,11 @@ markdown_extensions:
 plugins:
   - search
 
-# The performance page's interactive charts (docs/project/performance.md) and the architecture
-# page's animated diagrams (docs/architecture.md); each acts only on its own elements, and
-# re-initialises on Material's instant navigation.
+# The theme's dark palette and page width, then the performance page's interactive charts
+# (docs/project/performance.md) and the architecture page's animated diagrams
+# (docs/architecture.md), each of which acts only on its own elements.
 extra_css:
+  - assets/theme/terminal.css
   - assets/perf/perf.css
   - assets/arch/arch.css
 extra_javascript:

@@ -1,7 +1,7 @@
 # Documentation tooling, for CI and local previews only (never a dependency of the Java modules).
 # Pinned; update deliberately and check that `mkdocs build --strict` still passes.
 mkdocs==1.6.1
-mkdocs-material==9.7.7
+mkdocs-terminal==4.8.0
 pymdown-extensions==12.2
 Markdown==3.11
 Pygments==2.21.0
