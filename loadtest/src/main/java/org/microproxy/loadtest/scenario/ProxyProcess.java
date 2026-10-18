@@ -330,5 +330,7 @@ public final class ProxyProcess implements AutoCloseable {
         process.stop(Duration.ofSeconds(3));
         if (watch != null) watch.close();
         Environment.removeCgroup(cgroupProcs);
+        // Its log is committed with the raw results: no names of this machine or its network in it
+        Environment.scrubMachineNames(process.log());
     }
 }

@@ -1,12 +1,12 @@
 {
- "generated": "2026-10-16T17:24:10Z",
+ "generated": "2026-10-18T20:08:47Z",
  "runInfo": {
   "commit": "bfe751dcc0e4ec03b669031c7e9c782607906270",
   "uncommittedLoadtestChanges": 0,
   "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=sweep,ramp,memory,faults,soak loadtest/competitors/run-all.sh ",
   "started": "2026-10-15T21:51:58Z",
   "wsl": false,
-  "commitNote": "The harness, loadtest/competitors/ and MicroProxy at this commit, run through loadtest/competitors/dedicated/bootstrap.sh (RUN=1, JDK=25). The memory scenario was run again on the same machine with the harness at 39aa8c5, which keeps the kernel's TCP socket buffers out of the proxy's memory limit; its runs (memoryFrom) give every memory-under-attack figure. The raw results, GC logs and the follow-up runs are on the perf/gcp-20261016 branch.",
+  "commitNote": "The harness, loadtest/competitors/ and MicroProxy at this commit, run through loadtest/competitors/dedicated/bootstrap.sh (RUN=1, JDK=25). The memory scenario was run again on a machine of the same shape with the harness and MicroProxy at 471ba13, which add MicroProxy's request head timeout (and its wait for a head's next bytes without a buffer) and give every proxy the same head timeout (--head-timeout 70, the idle timeout, so none fires during the 40 s attacks); its runs (memoryFrom) give every memory-under-attack figure. The raw results of the first campaign are on the perf/gcp-20261016 branch, those of the memory runs on perf/slowloris-20261018.",
   "memoryFrom": "memory"
  },
  "runs": [
@@ -47,7 +47,7 @@
       "meanCpuPct": 5.3
      },
      {
-      "process": "agent session",
+      "process": "interactive session",
       "meanCpuPct": 0.0
      },
      {
@@ -190,7 +190,7 @@
       "meanCpuPct": 0.1
      },
      {
-      "process": "agent session",
+      "process": "interactive session",
       "meanCpuPct": 0.0
      }
     ],
@@ -239,7 +239,7 @@
       "meanCpuPct": 0.1
      },
      {
-      "process": "agent session",
+      "process": "interactive session",
       "meanCpuPct": 0.0
      }
     ],
@@ -250,8 +250,8 @@
  ],
  "memoryRuns": [
   {
-   "id": "rep1-20261016-153422",
-   "timestamp": "20261016-153422",
+   "id": "rep1-20261018-170711",
+   "timestamp": "20261018-170711",
    "order": [
     "microproxy",
     "littleproxy",
@@ -260,8 +260,8 @@
     "g3proxy",
     "squid"
    ],
-   "end": "2026-10-16T15:47:22Z",
-   "raw": "raw/memory/rep1-20261016-153422.json",
+   "end": "2026-10-18T17:20:10Z",
+   "raw": "raw/memory/rep1-20261018-170711.json",
    "harnessOk": true,
    "notes": [
     "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
@@ -269,46 +269,34 @@
    "hostLoad": {
     "samples": 155,
     "foreignCpuPct": {
-     "mean": 8.4,
-     "p95": 68.5,
-     "max": 147.5
+     "mean": 5.0,
+     "p95": 22.0,
+     "max": 102.7
     },
     "windowsHost": null,
     "loadavg1": {
-     "mean": 0.95,
-     "max": 2.19
+     "mean": 1.07,
+     "max": 3.44
     },
-    "interruptCpuPct": 8.1,
+    "interruptCpuPct": 8.2,
     "stealCpuPct": 0.0,
     "topForeign": [
      {
       "process": "kernel thread",
-      "meanCpuPct": 0.4
+      "meanCpuPct": 4.6
      },
      {
-      "process": "python3",
-      "meanCpuPct": 0.3
-     },
-     {
-      "process": "agent session",
+      "process": "process",
       "meanCpuPct": 0.2
-     },
-     {
-      "process": "systemd",
-      "meanCpuPct": 0.0
-     },
-     {
-      "process": "mandb",
-      "meanCpuPct": 0.0
      }
     ],
-    "largestGapS": 5.5,
+    "largestGapS": 5.1,
     "accepted": true
    }
   },
   {
-   "id": "rep2-20261016-154722",
-   "timestamp": "20261016-154722",
+   "id": "rep2-20261018-172010",
+   "timestamp": "20261018-172010",
    "order": [
     "littleproxy",
     "envoy",
@@ -317,33 +305,33 @@
     "squid",
     "microproxy"
    ],
-   "end": "2026-10-16T16:00:21Z",
-   "raw": "raw/memory/rep2-20261016-154722.json",
+   "end": "2026-10-18T17:33:07Z",
+   "raw": "raw/memory/rep2-20261018-172010.json",
    "harnessOk": true,
    "notes": [
     "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
    ],
    "hostLoad": {
-    "samples": 156,
+    "samples": 155,
     "foreignCpuPct": {
-     "mean": 5.7,
+     "mean": 5.0,
      "p95": 22.6,
-     "max": 152.3
+     "max": 125.7
     },
     "windowsHost": null,
     "loadavg1": {
-     "mean": 1.06,
-     "max": 2.66
+     "mean": 0.97,
+     "max": 2.28
     },
-    "interruptCpuPct": 8.2,
+    "interruptCpuPct": 8.6,
     "stealCpuPct": 0.0,
     "topForeign": [
      {
       "process": "kernel thread",
-      "meanCpuPct": 0.2
+      "meanCpuPct": 2.2
      },
      {
-      "process": "agent session",
+      "process": "process",
       "meanCpuPct": 0.0
      }
     ],
@@ -352,8 +340,8 @@
    }
   },
   {
-   "id": "rep3-20261016-160022",
-   "timestamp": "20261016-160022",
+   "id": "rep3-20261018-173308",
+   "timestamp": "20261018-173308",
    "order": [
     "envoy",
     "goproxy",
@@ -362,34 +350,30 @@
     "microproxy",
     "littleproxy"
    ],
-   "end": "2026-10-16T16:13:20Z",
-   "raw": "raw/memory/rep3-20261016-160022.json",
+   "end": "2026-10-18T17:46:06Z",
+   "raw": "raw/memory/rep3-20261018-173308.json",
    "harnessOk": true,
    "notes": [
     "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
    ],
    "hostLoad": {
-    "samples": 156,
+    "samples": 155,
     "foreignCpuPct": {
-     "mean": 6.0,
-     "p95": 26.6,
-     "max": 151.9
+     "mean": 4.0,
+     "p95": 11.6,
+     "max": 84.6
     },
     "windowsHost": null,
     "loadavg1": {
-     "mean": 1.17,
-     "max": 2.63
+     "mean": 1.11,
+     "max": 2.85
     },
-    "interruptCpuPct": 8.4,
+    "interruptCpuPct": 8.3,
     "stealCpuPct": 0.0,
     "topForeign": [
      {
       "process": "kernel thread",
-      "meanCpuPct": 0.0
-     },
-     {
-      "process": "agent session",
-      "meanCpuPct": 0.0
+      "meanCpuPct": 1.4
      }
     ],
     "largestGapS": 5.1,
@@ -397,8 +381,8 @@
    }
   },
   {
-   "id": "rep4-20261016-161320",
-   "timestamp": "20261016-161320",
+   "id": "rep4-20261018-174606",
+   "timestamp": "20261018-174606",
    "order": [
     "goproxy",
     "g3proxy",
@@ -407,33 +391,33 @@
     "littleproxy",
     "envoy"
    ],
-   "end": "2026-10-16T16:26:20Z",
-   "raw": "raw/memory/rep4-20261016-161320.json",
+   "end": "2026-10-18T17:59:05Z",
+   "raw": "raw/memory/rep4-20261018-174606.json",
    "harnessOk": true,
    "notes": [
     "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
    ],
    "hostLoad": {
-    "samples": 155,
+    "samples": 156,
     "foreignCpuPct": {
-     "mean": 4.8,
-     "p95": 23.0,
-     "max": 100.5
+     "mean": 3.8,
+     "p95": 20.4,
+     "max": 49.1
     },
     "windowsHost": null,
     "loadavg1": {
-     "mean": 0.91,
-     "max": 2.11
+     "mean": 0.83,
+     "max": 2.0
     },
     "interruptCpuPct": 8.2,
     "stealCpuPct": 0.0,
     "topForeign": [
      {
       "process": "kernel thread",
-      "meanCpuPct": 1.0
+      "meanCpuPct": 3.0
      },
      {
-      "process": "systemd",
+      "process": "process",
       "meanCpuPct": 0.0
      }
     ],
@@ -442,8 +426,8 @@
    }
   },
   {
-   "id": "rep5-20261016-162620",
-   "timestamp": "20261016-162620",
+   "id": "rep5-20261018-175905",
+   "timestamp": "20261018-175905",
    "order": [
     "g3proxy",
     "squid",
@@ -452,34 +436,34 @@
     "envoy",
     "goproxy"
    ],
-   "end": "2026-10-16T16:39:13Z",
-   "raw": "raw/memory/rep5-20261016-162620.json",
+   "end": "2026-10-18T18:12:16Z",
+   "raw": "raw/memory/rep5-20261018-175905.json",
    "harnessOk": true,
    "notes": [
     "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
    ],
    "hostLoad": {
-    "samples": 155,
+    "samples": 158,
     "foreignCpuPct": {
-     "mean": 4.7,
-     "p95": 18.1,
-     "max": 113.7
+     "mean": 4.1,
+     "p95": 17.8,
+     "max": 121.2
     },
     "windowsHost": null,
     "loadavg1": {
-     "mean": 0.78,
-     "max": 1.9
+     "mean": 0.88,
+     "max": 2.46
     },
-    "interruptCpuPct": 8.3,
+    "interruptCpuPct": 8.4,
     "stealCpuPct": 0.0,
     "topForeign": [
      {
       "process": "kernel thread",
-      "meanCpuPct": 1.8
+      "meanCpuPct": 3.6
      },
      {
-      "process": "agent session",
-      "meanCpuPct": 0.2
+      "process": "process",
+      "meanCpuPct": 0.0
      }
     ],
     "largestGapS": 5.1,
@@ -488,10 +472,10 @@
   }
  ],
  "memoryRunInfo": {
-  "commit": "39aa8c54878b150b2dce8304e54ed23b73cf3c15",
+  "commit": "471ba13a820bdb14d9ef4adbbd791b17760c0048",
   "uncommittedLoadtestChanges": 0,
-  "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh ",
-  "started": "2026-10-16T15:34:22Z",
+  "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh --head-timeout 70",
+  "started": "2026-10-18T17:07:11Z",
   "wsl": false
  },
  "guard": {
@@ -26992,44 +26976,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 129.074,
-     "min": 128.559,
-     "max": 159.004,
+     "med": 102.07,
+     "min": 99.895,
+     "max": 114.117,
      "n": 5,
      "values": [
-      128.789,
-      159.004,
-      129.074,
-      128.559,
-      132.375
+      102.07,
+      101.348,
+      112.625,
+      114.117,
+      99.895
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 57.664,
-     "min": 57.574,
-     "max": 57.723,
+     "med": 58.375,
+     "min": 58.145,
+     "max": 58.523,
      "n": 5,
      "values": [
-      57.668,
-      57.664,
-      57.723,
-      57.574,
-      57.574
+      58.434,
+      58.375,
+      58.145,
+      58.211,
+      58.523
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 36.532,
-     "min": 36.344,
-     "max": 51.886,
+     "med": 22.342,
+     "min": 21.182,
+     "max": 28.624,
      "n": 5,
      "values": [
-      36.414,
-      51.886,
-      36.532,
-      36.344,
-      38.298
+      22.342,
+      22.002,
+      27.894,
+      28.624,
+      21.182
      ],
      "of": 5
     },
@@ -27065,79 +27049,79 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-microproxy-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-microproxy-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 4.754,
-     "min": 3.785,
-     "max": 6.535,
+     "med": 4.383,
+     "min": 3.699,
+     "max": 6.668,
      "n": 5,
      "values": [
-      4.457,
-      4.754,
-      6.41,
-      3.785,
-      6.535
+      6.668,
+      4.008,
+      4.711,
+      4.383,
+      3.699
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 2.434,
-     "min": 1.938,
-     "max": 3.346,
+     "med": 2.244,
+     "min": 1.894,
+     "max": 3.414,
      "n": 5,
      "values": [
-      2.282,
-      2.434,
-      3.282,
-      1.938,
-      3.346
+      3.414,
+      2.052,
+      2.412,
+      2.244,
+      1.894
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       57.7
+       58.4
       ],
       [
        5,
-       128.2
+       94.7
       ],
       [
        10.3,
-       128.8
+       99.5
       ],
       [
        15.6,
-       129
+       101.9
       ],
       [
-       21.0,
-       129
+       20.9,
+       102
       ],
       [
-       26.3,
-       129
+       26.2,
+       102
       ],
       [
        31.6,
-       129
+       102
       ],
       [
        36.9,
-       129.1
+       102.1
       ],
       [
        42.2,
-       129.1
+       102.1
       ]
      ],
      "end": null,
-     "peakMb": 129.1
+     "peakMb": 102.1
     }
    },
    "littleproxy": {
@@ -27149,44 +27133,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 112.363,
-     "min": 110.281,
-     "max": 114.539,
+     "med": 113.422,
+     "min": 109.117,
+     "max": 122.711,
      "n": 5,
      "values": [
-      113.348,
-      111.367,
-      112.363,
-      114.539,
-      110.281
+      122.105,
+      122.711,
+      109.117,
+      111.738,
+      113.422
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 77.004,
-     "min": 76.836,
-     "max": 78.504,
+     "med": 77.629,
+     "min": 77.016,
+     "max": 78.0,
      "n": 5,
      "values": [
-      78.504,
-      76.992,
-      77.004,
-      76.836,
-      77.477
+      78.0,
+      77.016,
+      77.641,
+      77.629,
+      77.102
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 17.84,
-     "min": 16.796,
-     "max": 19.304,
+     "med": 18.596,
+     "min": 16.116,
+     "max": 23.396,
      "n": 5,
      "values": [
-      17.84,
-      17.6,
-      18.104,
-      19.304,
-      16.796
+      22.582,
+      23.396,
+      16.116,
+      17.464,
+      18.596
      ],
      "of": 5
     },
@@ -27222,79 +27206,79 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-littleproxy-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-littleproxy-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 2.957,
-     "min": 1.871,
-     "max": 5.918,
+     "med": 2.246,
+     "min": 1.781,
+     "max": 5.641,
      "n": 5,
      "values": [
-      1.871,
-      5.918,
-      2.957,
-      2.16,
-      5.148
+      2.246,
+      5.641,
+      2.195,
+      1.781,
+      4.945
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 1.514,
-     "min": 0.958,
-     "max": 3.03,
+     "med": 1.15,
+     "min": 0.912,
+     "max": 2.888,
      "n": 5,
      "values": [
-      0.958,
-      3.03,
-      1.514,
-      1.106,
-      2.636
+      1.15,
+      2.888,
+      1.124,
+      0.912,
+      2.532
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep5-20261018-175905",
      "points": [
       [
        0,
-       77.0
+       77.1
       ],
       [
        5,
-       95.5
+       93.9
       ],
       [
-       10.4,
-       98.8
+       10.3,
+       97.5
       ],
       [
-       15.7,
-       99.0
+       15.6,
+       102.6
       ],
       [
-       21.0,
-       100.2
+       20.9,
+       103.6
       ],
       [
-       26.4,
-       102.4
+       26.3,
+       111.9
       ],
       [
-       31.7,
-       110.9
+       31.6,
+       111.9
       ],
       [
-       37.0,
-       112.1
+       36.9,
+       113.2
       ],
       [
-       42.4,
-       112.4
+       42.2,
+       113.4
       ]
      ],
      "end": null,
-     "peakMb": 112.4
+     "peakMb": 113.4
     }
    },
    "envoy": {
@@ -27306,44 +27290,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 100.016,
-     "min": 98.617,
-     "max": 100.395,
+     "med": 105.777,
+     "min": 104.141,
+     "max": 106.473,
      "n": 5,
      "values": [
-      99.742,
-      100.395,
-      98.617,
-      100.348,
-      100.016
+      104.156,
+      105.941,
+      105.777,
+      106.473,
+      104.141
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 62.047,
-     "min": 59.605,
-     "max": 62.398,
+     "med": 66.227,
+     "min": 65.539,
+     "max": 67.793,
      "n": 5,
      "values": [
-      61.316,
-      62.398,
-      59.605,
-      62.234,
-      62.047
+      65.738,
+      66.32,
+      66.227,
+      67.793,
+      65.539
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 19.514,
-     "min": 19.44,
-     "max": 19.974,
+     "med": 19.804,
+     "min": 19.67,
+     "max": 20.286,
      "n": 5,
      "values": [
-      19.674,
-      19.454,
-      19.974,
-      19.514,
-      19.44
+      19.67,
+      20.286,
+      20.25,
+      19.804,
+      19.764
      ],
      "of": 5
     },
@@ -27379,79 +27363,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-envoy-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-envoy-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 0.145,
-     "min": 0.012,
-     "max": 2.016,
+     "med": 0.508,
+     "min": 0.027,
+     "max": 4.652,
      "n": 5,
      "values": [
-      0.145,
-      2.016,
-      0.02,
-      0.445,
-      0.012
+      0.09,
+      3.801,
+      0.508,
+      0.027,
+      4.652
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 0.074,
-     "min": 0.006,
-     "max": 1.032,
+     "med": 0.26,
+     "min": 0.014,
+     "max": 2.382,
      "n": 5,
      "values": [
-      0.074,
-      1.032,
-      0.01,
-      0.228,
-      0.006
+      0.046,
+      1.946,
+      0.26,
+      0.014,
+      2.382
      ],
      "of": 5
     },
     "series": {
-     "run": "rep5-20261016-162620",
+     "run": "rep3-20261018-173308",
      "points": [
       [
        0,
-       62.0
+       66.2
       ],
       [
        5,
-       99.0
+       104.8
       ],
       [
        10.0,
-       99.2
+       105
       ],
       [
        15.0,
-       99.3
+       105.1
       ],
       [
        20.0,
-       99.5
+       105.3
       ],
       [
        25.0,
-       99.5
+       105.3
       ],
       [
        30.0,
-       99.5
+       105.3
       ],
       [
-       35.0,
-       99.9
+       35.1,
+       105.6
       ],
       [
-       40.0,
-       100
+       40.1,
+       105.8
       ]
      ],
      "end": null,
-     "peakMb": 100
+     "peakMb": 105.8
     }
    },
    "goproxy": {
@@ -27463,44 +27447,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 33.785,
-     "min": 33.574,
-     "max": 34.094,
+     "med": 34.02,
+     "min": 33.781,
+     "max": 34.102,
      "n": 5,
      "values": [
-      33.629,
-      34.094,
-      33.785,
-      33.988,
-      33.574
+      34.047,
+      33.781,
+      34.102,
+      34.02,
+      33.922
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 9.172,
-     "min": 9.137,
-     "max": 9.176,
+     "med": 9.41,
+     "min": 9.398,
+     "max": 9.414,
      "n": 5,
      "values": [
-      9.137,
-      9.176,
-      9.156,
-      9.176,
-      9.172
+      9.414,
+      9.414,
+      9.41,
+      9.41,
+      9.398
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 12.61,
-     "min": 12.494,
-     "max": 12.758,
+     "med": 12.6,
+     "min": 12.476,
+     "max": 12.642,
      "n": 5,
      "values": [
-      12.54,
-      12.758,
-      12.61,
-      12.704,
-      12.494
+      12.612,
+      12.476,
+      12.642,
+      12.6,
+      12.556
      ],
      "of": 5
     },
@@ -27536,79 +27520,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-goproxy-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-goproxy-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 0.086,
-     "min": 0.016,
-     "max": 1.023,
+     "med": 0.07,
+     "min": 0.004,
+     "max": 4.578,
      "n": 5,
      "values": [
-      0.016,
-      1.023,
-      0.086,
-      1.012,
-      0.016
+      0.031,
+      0.215,
+      0.004,
+      4.578,
+      0.07
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 0.044,
-     "min": 0.008,
-     "max": 0.524,
+     "med": 0.036,
+     "min": 0.002,
+     "max": 2.344,
      "n": 5,
      "values": [
-      0.008,
-      0.524,
-      0.044,
-      0.518,
-      0.008
+      0.016,
+      0.11,
+      0.002,
+      2.344,
+      0.036
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       9.2
+       9.4
       ],
       [
        5,
-       31.6
+       31.9
       ],
       [
        10.0,
-       32.6
-      ],
-      [
-       15.0,
        32.8
       ],
       [
-       20.0,
-       33.0
+       15.0,
+       33.1
       ],
       [
-       25.0,
+       20.0,
        33.2
       ],
       [
-       30.0,
+       25.0,
        33.4
       ],
       [
-       35.0,
+       30.0,
        33.6
       ],
       [
+       35.0,
+       33.9
+      ],
+      [
        40.0,
-       33.8
+       34.0
       ]
      ],
      "end": null,
-     "peakMb": 33.8
+     "peakMb": 34.0
     }
    },
    "g3proxy": {
@@ -27620,44 +27604,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 106.496,
-     "min": 106.367,
-     "max": 106.758,
+     "med": 109.578,
+     "min": 109.344,
+     "max": 109.676,
      "n": 5,
      "values": [
-      106.367,
-      106.422,
-      106.496,
-      106.758,
-      106.59
+      109.648,
+      109.676,
+      109.578,
+      109.426,
+      109.344
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 22.297,
-     "min": 22.184,
-     "max": 22.512,
+     "med": 25.277,
+     "min": 25.152,
+     "max": 25.465,
      "n": 5,
      "values": [
-      22.215,
-      22.184,
-      22.352,
-      22.512,
-      22.297
+      25.363,
+      25.465,
+      25.277,
+      25.184,
+      25.152
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 43.13,
-     "min": 43.082,
-     "max": 43.158,
+     "med": 43.132,
+     "min": 43.106,
+     "max": 43.162,
      "n": 5,
      "values": [
-      43.086,
-      43.13,
-      43.082,
-      43.134,
-      43.158
+      43.154,
+      43.116,
+      43.162,
+      43.132,
+      43.106
      ],
      "of": 5
     },
@@ -27693,79 +27677,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-g3proxy-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-g3proxy-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 0.758,
-     "min": 0.012,
-     "max": 1.594,
+     "med": 0.961,
+     "min": 0.16,
+     "max": 4.422,
      "n": 5,
      "values": [
-      1.48,
-      0.074,
-      1.594,
-      0.758,
-      0.012
+      0.961,
+      1.301,
+      0.316,
+      0.16,
+      4.422
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 0.388,
-     "min": 0.006,
-     "max": 0.816,
+     "med": 0.492,
+     "min": 0.082,
+     "max": 2.264,
      "n": 5,
      "values": [
-      0.758,
-      0.038,
-      0.816,
-      0.388,
-      0.006
+      0.492,
+      0.666,
+      0.162,
+      0.082,
+      2.264
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       22.4
+       25.4
       ],
       [
        5,
-       102.6
+       105.8
       ],
       [
        10.0,
-       102.9
+       106
       ],
       [
        15.0,
-       103.1
-      ],
-      [
-       20.0,
-       103.2
-      ],
-      [
-       25.0,
-       103.4
-      ],
-      [
-       30.0,
-       104.8
-      ],
-      [
-       35.0,
        106.2
       ],
       [
-       40.0,
+       20.0,
+       106.4
+      ],
+      [
+       25.0,
        106.5
+      ],
+      [
+       30.0,
+       108
+      ],
+      [
+       35.0,
+       109.4
+      ],
+      [
+       40.0,
+       109.6
       ]
      ],
      "end": null,
-     "peakMb": 106.5
+     "peakMb": 109.6
     }
    },
    "squid": {
@@ -27777,44 +27761,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 181.785,
-     "min": 181.742,
-     "max": 181.91,
+     "med": 182.148,
+     "min": 182.047,
+     "max": 182.297,
      "n": 5,
      "values": [
-      181.742,
-      181.816,
-      181.785,
-      181.77,
-      181.91
+      182.047,
+      182.148,
+      182.273,
+      182.07,
+      182.297
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 169.961,
-     "min": 169.891,
-     "max": 170.07,
+     "med": 170.324,
+     "min": 170.219,
+     "max": 170.453,
      "n": 5,
      "values": [
-      169.891,
-      170.031,
-      169.961,
-      169.945,
-      170.07
+      170.219,
+      170.324,
+      170.453,
+      170.258,
+      170.434
      ],
      "of": 5
     },
     "rssKbPerConnection": {
      "med": 6.054,
-     "min": 6.034,
-     "max": 6.068,
+     "min": 6.048,
+     "max": 6.074,
      "n": 5,
      "values": [
-      6.068,
-      6.034,
+      6.056,
       6.054,
-      6.054,
-      6.062
+      6.052,
+      6.048,
+      6.074
      ],
      "of": 5
     },
@@ -27850,79 +27834,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-squid-memory-slowloris",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-squid-memory-slowloris",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
      "med": 0.008,
      "min": 0.0,
-     "max": 0.812,
+     "max": 0.883,
      "n": 5,
      "values": [
+      0.008,
+      0.004,
+      0.02,
       0.0,
-      0.008,
-      0.008,
-      0.008,
-      0.812
+      0.883
      ],
      "of": 5
     },
     "sockKbPerConnection": {
      "med": 0.004,
      "min": 0.0,
-     "max": 0.416,
+     "max": 0.452,
      "n": 5,
      "values": [
+      0.004,
+      0.002,
+      0.01,
       0.0,
-      0.004,
-      0.004,
-      0.004,
-      0.416
+      0.452
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep4-20261018-174606",
      "points": [
       [
        0,
-       170
+       170.3
       ],
       [
        5,
-       181.6
+       181.9
       ],
       [
        10.0,
-       181.8
+       182.1
       ],
       [
        15.0,
-       181.8
+       182.1
       ],
       [
        20.0,
-       181.8
+       182.1
       ],
       [
        25.0,
-       181.8
+       182.1
       ],
       [
        30.0,
-       181.8
+       182.1
       ],
       [
        35.0,
-       181.8
+       182.1
       ],
       [
        40.0,
-       181.8
+       182.1
       ]
      ],
      "end": null,
-     "peakMb": 181.8
+     "peakMb": 182.1
     }
    }
   },
@@ -27936,44 +27920,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 83.754,
-     "min": 83.426,
-     "max": 87.859,
+     "med": 84.902,
+     "min": 83.754,
+     "max": 85.816,
      "n": 5,
      "values": [
-      84.363,
-      83.48,
-      83.426,
-      87.859,
+      84.078,
+      84.902,
+      85.816,
+      85.191,
       83.754
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 54.879,
-     "min": 54.832,
-     "max": 55.234,
+     "med": 55.402,
+     "min": 55.145,
+     "max": 55.512,
      "n": 5,
      "values": [
-      54.832,
-      54.879,
-      54.867,
-      55.234,
-      54.938
+      55.414,
+      55.402,
+      55.512,
+      55.312,
+      55.145
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 147.54,
-     "min": 146.22,
-     "max": 167.04,
+     "med": 151.04,
+     "min": 146.48,
+     "max": 155.16,
      "n": 5,
      "values": [
-      151.2,
-      146.44,
-      146.22,
-      167.04,
-      147.54
+      146.76,
+      151.04,
+      155.16,
+      152.98,
+      146.48
      ],
      "of": 5
     },
@@ -28009,129 +27993,129 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-microproxy-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-microproxy-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 565.289,
-     "min": 559.734,
-     "max": 566.609,
+     "med": 563.871,
+     "min": 562.422,
+     "max": 566.266,
      "n": 5,
      "values": [
-      566.609,
-      560.801,
-      559.734,
-      565.383,
-      565.289
+      564.52,
+      566.266,
+      562.422,
+      563.246,
+      563.871
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 2894.28,
-     "min": 2865.84,
-     "max": 2901.04,
+     "med": 2887.02,
+     "min": 2879.6,
+     "max": 2899.28,
      "n": 5,
      "values": [
-      2901.04,
-      2871.3,
-      2865.84,
-      2894.76,
-      2894.28
+      2890.34,
+      2899.28,
+      2879.6,
+      2883.82,
+      2887.02
      ],
      "of": 5
     },
     "series": {
-     "run": "rep5-20261016-162620",
+     "run": "rep2-20261018-172010",
      "points": [
       [
        0,
-       54.9
+       55.4
       ],
       [
        5,
-       83.0
+       83.6
       ],
       [
-       10.3,
-       83.3
+       10.4,
+       84.8
       ],
       [
        15.6,
-       83.4
+       84.8
       ],
       [
        20.9,
-       83.4
+       84.8
       ],
       [
        26.2,
-       83.4
+       84.8
       ],
       [
        31.5,
-       83.4
+       84.8
       ],
       [
        36.8,
-       83.8
+       84.9
       ],
       [
        42.0,
-       83.8
+       84.9
       ]
      ],
      "end": null,
-     "peakMb": 83.8
+     "peakMb": 84.9
     }
    },
    "littleproxy": {
     "skipped": null,
     "verdicts": {
-     "bounded": 2,
-     "shedding": 3
+     "bounded": 3,
+     "shedding": 2
     },
     "states": {
      "running": 5
     },
     "peakRssMb": {
-     "med": 279.871,
-     "min": 254.281,
-     "max": 302.281,
+     "med": 270.875,
+     "min": 259.496,
+     "max": 285.828,
      "n": 5,
      "values": [
-      254.281,
-      296.094,
-      262.898,
-      279.871,
-      302.281
+      270.875,
+      275.582,
+      269.902,
+      285.828,
+      259.496
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 66.473,
-     "min": 66.297,
-     "max": 66.715,
+     "med": 67.133,
+     "min": 66.984,
+     "max": 67.199,
      "n": 5,
      "values": [
-      66.344,
-      66.473,
-      66.715,
-      66.297,
-      66.633
+      66.984,
+      67.141,
+      67.133,
+      66.992,
+      67.199
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 1093.5,
-     "min": 962.24,
-     "max": 1206.52,
+     "med": 1043.92,
+     "min": 984.56,
+     "max": 1120.44,
      "n": 5,
      "values": [
-      962.24,
-      1175.66,
-      1004.46,
-      1093.5,
-      1206.52
+      1043.92,
+      1067.22,
+      1038.18,
+      1120.44,
+      984.56
      ],
      "of": 5
     },
@@ -28150,16 +28134,16 @@
      "of": 5
     },
     "shedRatio": {
-     "med": 0.11,
+     "med": 0.06,
      "min": 0.0,
-     "max": 0.26,
+     "max": 0.275,
      "n": 5,
      "values": [
-      0.0,
-      0.13,
-      0.0,
-      0.11,
-      0.26
+      0.06,
+      0.245,
+      0.01,
+      0.275,
+      0.0
      ],
      "of": 5
     },
@@ -28167,79 +28151,79 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-littleproxy-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-littleproxy-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 183.703,
-     "min": 144.855,
-     "max": 229.895,
+     "med": 178.848,
+     "min": 165.41,
+     "max": 184.363,
      "n": 5,
      "values": [
-      162.711,
-      183.703,
-      144.855,
-      188.055,
-      229.895
+      165.41,
+      184.363,
+      175.148,
+      181.25,
+      178.848
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 940.56,
-     "min": 741.66,
-     "max": 1177.06,
+     "med": 915.7,
+     "min": 846.9,
+     "max": 943.94,
      "n": 5,
      "values": [
-      833.08,
-      940.56,
-      741.66,
-      962.84,
-      1177.06
+      846.9,
+      943.94,
+      896.76,
+      928,
+      915.7
      ],
      "of": 5
     },
     "series": {
-     "run": "rep4-20261016-161320",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       66.3
+       67.0
       ],
       [
        5,
-       279.3
+       270.5
       ],
       [
        10.4,
-       279.5
+       270.5
       ],
       [
        15.7,
-       279.5
+       270.6
       ],
       [
        21.0,
-       279.5
+       270.6
       ],
       [
        26.3,
-       279.5
+       270.6
       ],
       [
        31.6,
-       279.7
+       270.7
       ],
       [
        36.9,
-       279.8
+       270.8
       ],
       [
        42.2,
-       279.9
+       270.9
       ]
      ],
      "end": null,
-     "peakMb": 279.9
+     "peakMb": 270.9
     }
    },
    "envoy": {
@@ -28251,44 +28235,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 360.051,
-     "min": 339.215,
-     "max": 372.086,
+     "med": 349.723,
+     "min": 340.953,
+     "max": 376.137,
      "n": 5,
      "values": [
-      351.137,
-      339.215,
-      365.125,
-      360.051,
-      372.086
+      374.113,
+      340.953,
+      376.137,
+      349.723,
+      343.652
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 58.852,
-     "min": 58.281,
-     "max": 59.035,
+     "med": 64.539,
+     "min": 61.852,
+     "max": 64.914,
      "n": 5,
      "values": [
-      58.852,
-      59.035,
-      58.711,
-      58.281,
-      59.008
+      64.539,
+      61.852,
+      64.914,
+      64.871,
+      64.523
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 1545.06,
-     "min": 1434.52,
-     "max": 1602.96,
+     "med": 1458.44,
+     "min": 1429,
+     "max": 1593.46,
      "n": 5,
      "values": [
-      1496.5,
-      1434.52,
-      1568.84,
-      1545.06,
-      1602.96
+      1585.02,
+      1429,
+      1593.46,
+      1458.44,
+      1429.14
      ],
      "of": 5
     },
@@ -28324,79 +28308,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-envoy-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-envoy-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 572.359,
-     "min": 571.016,
-     "max": 589.074,
+     "med": 571.18,
+     "min": 570.594,
+     "max": 587.559,
      "n": 5,
      "values": [
-      571.016,
-      572.359,
-      589.074,
-      573.387,
-      571.461
+      571.18,
+      574.934,
+      587.559,
+      570.973,
+      570.594
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 2930.48,
-     "min": 2923.6,
-     "max": 3016.06,
+     "med": 2924.44,
+     "min": 2921.44,
+     "max": 3008.3,
      "n": 5,
      "values": [
-      2923.6,
-      2930.48,
-      3016.06,
-      2935.74,
-      2925.88
+      2924.44,
+      2943.66,
+      3008.3,
+      2923.38,
+      2921.44
      ],
      "of": 5
     },
     "series": {
-     "run": "rep4-20261016-161320",
+     "run": "rep4-20261018-174606",
      "points": [
       [
        0,
-       58.3
+       64.9
       ],
       [
        5,
-       360
+       349.6
       ],
       [
        10.1,
-       360
+       349.7
       ],
       [
        15.1,
-       360
+       349.7
       ],
       [
        20.1,
-       360
+       349.7
       ],
       [
        25.1,
-       360
+       349.7
       ],
       [
        30.1,
-       360
+       349.7
       ],
       [
        35.1,
-       360
+       349.7
       ],
       [
        40.1,
-       360.1
+       349.7
       ]
      ],
      "end": null,
-     "peakMb": 360.1
+     "peakMb": 349.7
     }
    },
    "goproxy": {
@@ -28408,44 +28392,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 28.117,
-     "min": 27.812,
-     "max": 28.223,
+     "med": 28.312,
+     "min": 28.012,
+     "max": 28.684,
      "n": 5,
      "values": [
-      28.223,
+      28.012,
+      28.312,
+      28.363,
       28.117,
-      27.906,
-      27.812,
-      28.223
+      28.684
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 8.43,
-     "min": 8.395,
-     "max": 8.434,
+     "med": 8.598,
+     "min": 8.594,
+     "max": 8.602,
      "n": 5,
      "values": [
-      8.395,
-      8.43,
-      8.43,
-      8.434,
-      8.434
+      8.598,
+      8.602,
+      8.598,
+      8.594,
+      8.594
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 100.8,
-     "min": 99.22,
-     "max": 101.52,
+     "med": 100.92,
+     "min": 99.4,
+     "max": 102.86,
      "n": 5,
      "values": [
-      101.52,
-      100.8,
-      99.72,
-      99.22,
-      101.32
+      99.4,
+      100.92,
+      101.2,
+      99.96,
+      102.86
      ],
      "of": 5
     },
@@ -28481,79 +28465,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-goproxy-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-goproxy-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 520.539,
-     "min": 519.738,
-     "max": 522.289,
+     "med": 520.039,
+     "min": 519.84,
+     "max": 521.016,
      "n": 5,
      "values": [
-      520.539,
-      520.582,
-      520.418,
-      522.289,
-      519.738
+      520.637,
+      520.039,
+      519.91,
+      521.016,
+      519.84
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 2665.16,
-     "min": 2661.06,
-     "max": 2674.12,
+     "med": 2662.6,
+     "min": 2661.58,
+     "max": 2667.6,
      "n": 5,
      "values": [
-      2665.16,
-      2665.38,
-      2664.54,
-      2674.12,
-      2661.06
+      2665.66,
+      2662.6,
+      2661.94,
+      2667.6,
+      2661.58
      ],
      "of": 5
     },
     "series": {
-     "run": "rep2-20261016-154722",
+     "run": "rep2-20261018-172010",
      "points": [
       [
        0,
-       8.4
+       8.6
       ],
       [
        5,
-       27.6
+       27.8
       ],
       [
        10.1,
-       27.8
-      ],
-      [
-       15.1,
-       27.8
-      ],
-      [
-       20.1,
-       27.9
-      ],
-      [
-       25.1,
-       27.9
-      ],
-      [
-       30.1,
        28.0
       ],
       [
-       35.1,
+       15.1,
+       28.0
+      ],
+      [
+       20.1,
        28.1
       ],
       [
-       40.1,
+       25.1,
        28.1
+      ],
+      [
+       30.1,
+       28.2
+      ],
+      [
+       35.1,
+       28.2
+      ],
+      [
+       40.1,
+       28.3
       ]
      ],
      "end": null,
-     "peakMb": 28.1
+     "peakMb": 28.3
     }
    },
    "g3proxy": {
@@ -28565,44 +28549,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 35.477,
-     "min": 35.391,
-     "max": 35.598,
+     "med": 38.461,
+     "min": 37.168,
+     "max": 38.504,
      "n": 5,
      "values": [
-      35.594,
-      35.598,
-      35.426,
-      35.391,
-      35.477
+      38.461,
+      38.504,
+      37.168,
+      38.496,
+      38.25
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 20.875,
-     "min": 20.617,
-     "max": 21.062,
+     "med": 23.594,
+     "min": 22.07,
+     "max": 23.871,
      "n": 5,
      "values": [
-      20.875,
-      20.906,
-      20.617,
-      20.715,
-      21.062
+      23.602,
+      23.594,
+      22.07,
+      23.871,
+      23.438
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 75.22,
-     "min": 73.8,
-     "max": 75.82,
+     "med": 76.08,
+     "min": 74.88,
+     "max": 77.3,
      "n": 5,
      "values": [
-      75.36,
-      75.22,
-      75.82,
-      75.14,
-      73.8
+      76.08,
+      76.34,
+      77.3,
+      74.88,
+      75.84
      ],
      "of": 5
     },
@@ -28638,79 +28622,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-g3proxy-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-g3proxy-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 520.488,
-     "min": 519.578,
-     "max": 521.09,
+     "med": 520.477,
+     "min": 519.633,
+     "max": 520.953,
      "n": 5,
      "values": [
-      521.09,
-      520.434,
-      520.488,
-      520.695,
-      519.578
+      520.953,
+      520.516,
+      520.445,
+      520.477,
+      519.633
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 2664.9,
-     "min": 2660.24,
-     "max": 2667.98,
+     "med": 2664.84,
+     "min": 2660.52,
+     "max": 2667.28,
      "n": 5,
      "values": [
-      2667.98,
-      2664.62,
-      2664.9,
-      2665.96,
-      2660.24
+      2667.28,
+      2665.04,
+      2664.68,
+      2664.84,
+      2660.52
      ],
      "of": 5
     },
     "series": {
-     "run": "rep5-20261016-162620",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       21.1
+       23.6
       ],
       [
        5,
-       35.0
+       38.0
       ],
       [
        10.1,
-       35.4
+       38.4
       ],
       [
        15.1,
-       35.5
+       38.5
       ],
       [
        20.1,
-       35.5
+       38.5
       ],
       [
        25.1,
-       35.5
+       38.5
       ],
       [
        30.1,
-       35.5
+       38.5
       ],
       [
        35.1,
-       35.5
+       38.5
       ],
       [
        40.1,
-       35.5
+       38.5
       ]
      ],
      "end": null,
-     "peakMb": 35.5
+     "peakMb": 38.5
     }
    },
    "squid": {
@@ -28722,44 +28706,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 259.113,
-     "min": 258.93,
-     "max": 259.223,
+     "med": 259.199,
+     "min": 259.008,
+     "max": 259.352,
      "n": 5,
      "values": [
-      259.156,
-      259.223,
-      259.113,
-      258.977,
-      258.93
+      259.199,
+      259.184,
+      259.227,
+      259.008,
+      259.352
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 168.094,
-     "min": 167.863,
-     "max": 168.191,
+     "med": 168.148,
+     "min": 168.051,
+     "max": 168.195,
      "n": 5,
      "values": [
+      168.051,
       168.191,
-      168.094,
-      168.125,
-      168,
-      167.863
+      168.148,
+      168.109,
+      168.195
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 465.86,
-     "min": 465.74,
-     "max": 466.58,
+     "med": 466.32,
+     "min": 465.4,
+     "max": 466.72,
      "n": 5,
      "values": [
-      465.74,
-      466.58,
-      465.86,
-      465.8,
-      466.26
+      466.68,
+      465.88,
+      466.32,
+      465.4,
+      466.72
      ],
      "of": 5
     },
@@ -28795,79 +28779,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-squid-memory-slowread",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-squid-memory-slowread",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 354.281,
-     "min": 354.168,
-     "max": 354.348,
+     "med": 354.391,
+     "min": 354.191,
+     "max": 354.547,
      "n": 5,
      "values": [
-      354.281,
-      354.348,
-      354.281,
-      354.262,
-      354.168
+      354.305,
+      354.191,
+      354.449,
+      354.547,
+      354.391
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 1813.92,
-     "min": 1813.34,
-     "max": 1814.26,
+     "med": 1814.48,
+     "min": 1813.46,
+     "max": 1815.28,
      "n": 5,
      "values": [
-      1813.92,
-      1814.26,
-      1813.92,
-      1813.82,
-      1813.34
+      1814.04,
+      1813.46,
+      1814.78,
+      1815.28,
+      1814.48
      ],
      "of": 5
     },
     "series": {
-     "run": "rep3-20261016-160022",
+     "run": "rep2-20261018-172010",
      "points": [
       [
        0,
-       168.1
+       168.2
       ],
       [
        5,
-       245.6
+       249
       ],
       [
        10.1,
-       245.8
+       249.3
       ],
       [
        15.1,
-       245.8
+       249.3
       ],
       [
        20.1,
-       245.8
+       249.3
       ],
       [
        25.1,
-       245.8
+       249.3
       ],
       [
        30.1,
-       246.3
+       249.3
       ],
       [
        35.1,
-       259
+       259.1
       ],
       [
        40.1,
-       259.1
+       259.2
       ]
      ],
      "end": null,
-     "peakMb": 259.1
+     "peakMb": 259.2
     }
    }
   },
@@ -28881,44 +28865,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 84.129,
-     "min": 82.344,
-     "max": 87.059,
+     "med": 81.113,
+     "min": 80.836,
+     "max": 83.957,
      "n": 5,
      "values": [
-      84.129,
-      86.699,
-      82.824,
-      82.344,
-      87.059
+      81.383,
+      81.109,
+      80.836,
+      83.957,
+      81.113
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 54.793,
-     "min": 54.73,
-     "max": 54.867,
+     "med": 55.41,
+     "min": 55.211,
+     "max": 55.465,
      "n": 5,
      "values": [
-      54.73,
-      54.781,
-      54.867,
-      54.793,
-      54.844
+      55.465,
+      55.211,
+      55.41,
+      55.312,
+      55.461
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 940.75,
-     "min": 881.625,
-     "max": 1030.875,
+     "med": 828.75,
+     "min": 813.625,
+     "max": 916.625,
      "n": 5,
      "values": [
-      940.75,
-      1021.375,
-      894.625,
-      881.625,
-      1030.875
+      829.375,
+      828.75,
+      813.625,
+      916.625,
+      820.875
      ],
      "of": 5
     },
@@ -28941,75 +28925,75 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-microproxy-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-microproxy-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 13.301,
-     "min": 11.668,
-     "max": 19.539,
+     "med": 18.262,
+     "min": 12.648,
+     "max": 30.828,
      "n": 5,
      "values": [
-      12.215,
-      11.668,
-      13.301,
-      19.539,
-      14.359
+      18.844,
+      18.262,
+      12.648,
+      30.828,
+      16.816
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 425.625,
-     "min": 373.375,
-     "max": 625.25,
+     "med": 584.375,
+     "min": 404.75,
+     "max": 986.5,
      "n": 5,
      "values": [
-      390.875,
-      373.375,
-      425.625,
-      625.25,
-      459.5
+      603,
+      584.375,
+      404.75,
+      986.5,
+      538.125
      ],
      "of": 5
     },
     "series": {
-     "run": "rep1-20261016-153422",
+     "run": "rep5-20261018-175905",
      "points": [
       [
        0,
-       54.7
+       55.5
       ],
       [
        5,
-       72.9
+       74.6
       ],
       [
-       11.5,
-       73.6
+       11.9,
+       75.3
       ],
       [
-       18.0,
+       18.4,
        75.7
       ],
       [
-       24.3,
-       76.2
+       24.5,
+       75.8
       ],
       [
-       30.5,
-       76.2
+       31.3,
+       75.8
       ],
       [
-       36.8,
-       76.3
+       37.5,
+       75.9
       ],
       [
-       43.1,
-       84.1
+       44.3,
+       81.1
       ]
      ],
      "end": null,
-     "peakMb": 84.1
+     "peakMb": 81.1
     }
    },
    "littleproxy": {
@@ -29021,53 +29005,58 @@
      "oom": 5
     },
     "peakRssMb": {
-     "med": 457.457,
-     "min": 407.738,
-     "max": 492.312,
-     "n": 3,
+     "med": 511.727,
+     "min": 379.883,
+     "max": 524.926,
+     "n": 5,
      "values": [
-      407.738,
-      492.312,
-      457.457
+      511.727,
+      520.863,
+      390.27,
+      379.883,
+      524.926
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 66.652,
-     "min": 66.25,
-     "max": 66.738,
+     "med": 67.07,
+     "min": 66.812,
+     "max": 67.129,
      "n": 5,
      "values": [
-      66.594,
-      66.652,
-      66.738,
-      66.66,
-      66.25
+      67.113,
+      67.129,
+      67.07,
+      66.812,
+      67.012
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 12505.5,
-     "min": 10916.625,
-     "max": 13621.125,
-     "n": 3,
+     "med": 14227.625,
+     "min": 10018.25,
+     "max": 14653.25,
+     "n": 5,
      "values": [
-      10916.625,
-      13621.125,
-      12505.5
+      14227.625,
+      14519.5,
+      10342.375,
+      10018.25,
+      14653.25
      ],
      "of": 5
     },
     "probeOkRatio": {
-     "med": 0.85,
-     "min": 0.0,
+     "med": 0.967,
+     "min": 0.9,
      "max": 1.0,
-     "n": 4,
+     "n": 5,
      "values": [
-      0.8,
+      0.9,
+      0.9,
       1.0,
-      0.0,
-      0.9
+      1.0,
+      0.967
      ],
      "of": 5
     },
@@ -29076,47 +29065,47 @@
      "heap": "256m",
      "direct": "128m",
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-littleproxy-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-littleproxy-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 7.922,
-     "min": 7.008,
-     "max": 9.207,
+     "med": 7.043,
+     "min": 5.523,
+     "max": 7.934,
      "n": 5,
      "values": [
-      7.324,
-      7.008,
-      8.312,
-      9.207,
-      7.922
+      5.523,
+      7.082,
+      7.934,
+      6.07,
+      7.043
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 253.5,
-     "min": 224.25,
-     "max": 294.625,
+     "med": 225.375,
+     "min": 176.75,
+     "max": 253.875,
      "n": 5,
      "values": [
-      234.375,
-      224.25,
-      266,
-      294.625,
-      253.5
+      176.75,
+      226.625,
+      253.875,
+      194.25,
+      225.375
      ],
      "of": 5
     },
     "series": {
-     "run": "rep2-20261016-154722",
+     "run": "rep1-20261018-170711",
      "points": [
       [
        0,
-       66.7
+       67.1
       ],
       [
        5,
-       492.3
+       511.7
       ]
      ],
      "end": {
@@ -29124,7 +29113,7 @@
       "t": 5,
       "state": "oom"
      },
-     "peakMb": 492.3
+     "peakMb": 511.7
     }
    },
    "envoy": {
@@ -29136,44 +29125,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 125.145,
-     "min": 121.047,
-     "max": 127.801,
+     "med": 129.711,
+     "min": 126.773,
+     "max": 131.652,
      "n": 5,
      "values": [
-      125.062,
-      121.047,
-      127.801,
-      127.453,
-      125.145
+      126.773,
+      129.711,
+      131.617,
+      131.652,
+      127.18
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 58.188,
-     "min": 58.051,
-     "max": 59.008,
+     "med": 64.711,
+     "min": 63.945,
+     "max": 64.93,
      "n": 5,
      "values": [
-      58.051,
-      58.07,
-      59.008,
-      58.566,
-      58.188
+      63.945,
+      64.859,
+      64.711,
+      64.93,
+      64.383
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 2144.375,
-     "min": 2015.25,
-     "max": 2204.375,
+     "med": 2075.25,
+     "min": 2009.5,
+     "max": 2141,
      "n": 5,
      "values": [
-      2144.375,
-      2015.25,
-      2201.375,
-      2204.375,
-      2142.625
+      2010.5,
+      2075.25,
+      2141,
+      2135.125,
+      2009.5
      ],
      "of": 5
     },
@@ -29196,79 +29185,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-envoy-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-envoy-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 21.242,
-     "min": 20.887,
-     "max": 24.09,
+     "med": 21.68,
+     "min": 21.109,
+     "max": 23.59,
      "n": 5,
      "values": [
-      21.242,
-      21.418,
-      24.09,
-      20.887,
-      21.016
+      22.402,
+      21.621,
+      21.68,
+      21.109,
+      23.59
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 679.75,
-     "min": 668.375,
-     "max": 770.875,
+     "med": 693.75,
+     "min": 675.5,
+     "max": 754.875,
      "n": 5,
      "values": [
-      679.75,
-      685.375,
-      770.875,
-      668.375,
-      672.5
+      716.875,
+      691.875,
+      693.75,
+      675.5,
+      754.875
      ],
      "of": 5
     },
     "series": {
-     "run": "rep5-20261016-162620",
+     "run": "rep2-20261018-172010",
      "points": [
       [
        0,
-       58.2
+       64.9
       ],
       [
        5,
-       125.1
+       127.6
       ],
       [
        10.2,
-       125.1
+       127.7
       ],
       [
        15.4,
-       125.1
+       127.7
       ],
       [
-       20.6,
-       125.1
+       20.5,
+       127.7
       ],
       [
        25.7,
-       125.1
+       129.7
       ],
       [
-       30.9,
-       125.1
+       30.8,
+       129.7
       ],
       [
-       36.1,
-       125.1
+       36.0,
+       129.7
       ],
       [
-       41.2,
-       125.1
+       41.1,
+       129.7
       ]
      ],
      "end": null,
-     "peakMb": 125.1
+     "peakMb": 129.7
     }
    },
    "goproxy": {
@@ -29280,44 +29269,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 16.418,
-     "min": 16.246,
-     "max": 16.719,
+     "med": 16.629,
+     "min": 16.574,
+     "max": 16.973,
      "n": 5,
      "values": [
-      16.418,
-      16.355,
-      16.719,
-      16.5,
-      16.246
+      16.574,
+      16.973,
+      16.598,
+      16.629,
+      16.73
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 8.434,
-     "min": 8.395,
-     "max": 8.441,
+     "med": 8.594,
+     "min": 8.59,
+     "max": 8.594,
      "n": 5,
      "values": [
-      8.395,
-      8.434,
-      8.434,
-      8.441,
-      8.434
+      8.594,
+      8.594,
+      8.594,
+      8.59,
+      8.59
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 256.75,
-     "min": 250,
-     "max": 265.125,
+     "med": 257.25,
+     "min": 255.375,
+     "max": 268.125,
      "n": 5,
      "values": [
-      256.75,
-      253.5,
-      265.125,
-      257.875,
-      250
+      255.375,
+      268.125,
+      256.125,
+      257.25,
+      260.5
      ],
      "of": 5
     },
@@ -29340,79 +29329,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-goproxy-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-goproxy-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 18.492,
-     "min": 16.176,
-     "max": 41.859,
+     "med": 21.82,
+     "min": 16.715,
+     "max": 99.086,
      "n": 5,
      "values": [
-      21.465,
-      18.492,
-      16.176,
-      41.859,
-      16.379
+      24.422,
+      20.199,
+      99.086,
+      16.715,
+      21.82
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 591.75,
-     "min": 517.625,
-     "max": 1339.5,
+     "med": 698.25,
+     "min": 534.875,
+     "max": 3170.75,
      "n": 5,
      "values": [
-      686.875,
-      591.75,
-      517.625,
-      1339.5,
-      524.125
+      781.5,
+      646.375,
+      3170.75,
+      534.875,
+      698.25
      ],
      "of": 5
     },
     "series": {
-     "run": "rep2-20261016-154722",
+     "run": "rep4-20261018-174606",
      "points": [
       [
        0,
-       8.4
+       8.6
       ],
       [
        5,
-       15.6
-      ],
-      [
-       10.3,
        16.0
       ],
       [
-       15.7,
-       16.1
-      ],
-      [
-       21.1,
+       10.6,
        16.2
       ],
       [
-       26.7,
-       16.1
-      ],
-      [
-       32.1,
+       16.0,
        16.2
       ],
       [
-       37.6,
+       21.7,
        16.3
       ],
       [
-       43.0,
-       16.4
+       27.1,
+       16.3
+      ],
+      [
+       32.6,
+       16.3
+      ],
+      [
+       38.2,
+       16.2
+      ],
+      [
+       43.9,
+       16.6
       ]
      ],
      "end": null,
-     "peakMb": 16.4
+     "peakMb": 16.6
     }
    },
    "g3proxy": {
@@ -29424,44 +29413,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 25.535,
-     "min": 25.273,
-     "max": 25.609,
+     "med": 28.602,
+     "min": 28.41,
+     "max": 28.836,
      "n": 5,
      "values": [
-      25.582,
-      25.535,
-      25.609,
-      25.273,
-      25.383
+      28.59,
+      28.41,
+      28.602,
+      28.738,
+      28.836
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 21.027,
-     "min": 20.855,
-     "max": 21.145,
+     "med": 24.016,
+     "min": 23.629,
+     "max": 24.32,
      "n": 5,
      "values": [
-      20.918,
-      21.141,
-      21.027,
-      21.145,
-      20.855
+      24.016,
+      23.629,
+      23.918,
+      24.113,
+      24.32
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 144.875,
-     "min": 132.125,
-     "max": 149.25,
+     "med": 148,
+     "min": 144.5,
+     "max": 153,
      "n": 5,
      "values": [
-      149.25,
-      140.625,
-      146.625,
-      132.125,
-      144.875
+      146.375,
+      153,
+      149.875,
+      148,
+      144.5
      ],
      "of": 5
     },
@@ -29484,79 +29473,79 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-g3proxy-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-g3proxy-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 4.23,
-     "min": 4.188,
-     "max": 17.414,
+     "med": 4.617,
+     "min": 4.102,
+     "max": 17.441,
      "n": 5,
      "values": [
-      4.188,
-      4.23,
-      6.266,
-      4.203,
-      17.414
+      4.102,
+      4.578,
+      4.75,
+      4.617,
+      17.441
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 135.375,
-     "min": 134,
-     "max": 557.25,
+     "med": 147.75,
+     "min": 131.25,
+     "max": 558.125,
      "n": 5,
      "values": [
-      134,
-      135.375,
-      200.5,
-      134.5,
-      557.25
+      131.25,
+      146.5,
+      152,
+      147.75,
+      558.125
      ],
      "of": 5
     },
     "series": {
-     "run": "rep2-20261016-154722",
+     "run": "rep3-20261018-173308",
      "points": [
       [
        0,
-       21.1
+       23.9
       ],
       [
        5,
-       25.1
+       28.0
       ],
       [
        10.1,
-       25.2
+       28.3
       ],
       [
        15.1,
-       25.3
+       28.4
       ],
       [
        20.1,
-       25.4
+       28.5
       ],
       [
        25.2,
-       25.5
+       28.5
       ],
       [
        30.2,
-       25.5
+       28.5
       ],
       [
        35.2,
-       25.5
+       28.6
       ],
       [
        40.2,
-       25.5
+       28.6
       ]
      ],
      "end": null,
-     "peakMb": 25.5
+     "peakMb": 28.6
     }
    },
    "squid": {
@@ -29568,44 +29557,44 @@
      "running": 5
     },
     "peakRssMb": {
-     "med": 178.734,
-     "min": 178.391,
-     "max": 178.883,
+     "med": 178.875,
+     "min": 178.598,
+     "max": 179.043,
      "n": 5,
      "values": [
-      178.734,
-      178.738,
-      178.883,
-      178.391,
-      178.461
+      179.043,
+      178.891,
+      178.875,
+      178.598,
+      178.852
      ],
      "of": 5
     },
     "baselineRssMb": {
-     "med": 168.074,
-     "min": 167.945,
-     "max": 168.215,
+     "med": 168.168,
+     "min": 167.934,
+     "max": 168.293,
      "n": 5,
      "values": [
-      168.215,
-      168.074,
-      167.945,
-      167.961,
-      168.086
+      168.293,
+      168.234,
+      168.168,
+      167.934,
+      168.09
      ],
      "of": 5
     },
     "rssKbPerConnection": {
-     "med": 336.625,
-     "min": 332,
-     "max": 350,
+     "med": 342.625,
+     "min": 341,
+     "max": 344.375,
      "n": 5,
      "values": [
-      336.625,
+      344,
+      341,
+      342.625,
       341.25,
-      350,
-      333.75,
-      332
+      344.375
      ],
      "of": 5
     },
@@ -29628,39 +29617,39 @@
      "heap": null,
      "direct": null,
      "cgroupLimit": "512m",
-     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-3933-squid-memory-updown",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-14951-squid-memory-updown",
      "socketBuffers": "beside the limit"
     },
     "peakSockMb": {
-     "med": 7.832,
-     "min": 7.242,
-     "max": 9.402,
+     "med": 7.516,
+     "min": 7.055,
+     "max": 7.91,
      "n": 5,
      "values": [
-      7.832,
-      9.402,
-      8.371,
-      7.383,
-      7.242
+      7.055,
+      7.805,
+      7.91,
+      7.516,
+      7.156
      ],
      "of": 5
     },
     "sockKbPerConnection": {
-     "med": 250.625,
-     "min": 231.75,
-     "max": 300.875,
+     "med": 240.5,
+     "min": 225.75,
+     "max": 253.125,
      "n": 5,
      "values": [
-      250.625,
-      300.875,
-      267.875,
-      236.25,
-      231.75
+      225.75,
+      249.75,
+      253.125,
+      240.5,
+      229
      ],
      "of": 5
     },
     "series": {
-     "run": "rep1-20261016-153422",
+     "run": "rep3-20261018-173308",
      "points": [
       [
        0,
@@ -29668,39 +29657,39 @@
       ],
       [
        5,
-       178.1
+       178.5
       ],
       [
        10.1,
-       178.6
+       178.8
       ],
       [
        15.1,
-       178.7
+       178.8
       ],
       [
        20.1,
-       178.7
+       178.8
       ],
       [
        25.1,
-       178.7
+       178.8
       ],
       [
        30.1,
-       178.7
+       178.9
       ],
       [
        35.1,
-       178.7
+       178.9
       ],
       [
        40.1,
-       178.7
+       178.9
       ]
      ],
      "end": null,
-     "peakMb": 178.7
+     "peakMb": 178.9
     }
    }
   }

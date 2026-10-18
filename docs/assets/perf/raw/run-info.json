@@ -4,6 +4,6 @@
  "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=sweep,ramp,memory,faults,soak loadtest/competitors/run-all.sh ",
  "started": "2026-10-15T21:51:58Z",
  "wsl": false,
- "commitNote": "The harness, loadtest/competitors/ and MicroProxy at this commit, run through loadtest/competitors/dedicated/bootstrap.sh (RUN=1, JDK=25). The memory scenario was run again on the same machine with the harness at 39aa8c5, which keeps the kernel's TCP socket buffers out of the proxy's memory limit; its runs (memoryFrom) give every memory-under-attack figure. The raw results, GC logs and the follow-up runs are on the perf/gcp-20261016 branch.",
+ "commitNote": "The harness, loadtest/competitors/ and MicroProxy at this commit, run through loadtest/competitors/dedicated/bootstrap.sh (RUN=1, JDK=25). The memory scenario was run again on a machine of the same shape with the harness and MicroProxy at 471ba13, which add MicroProxy's request head timeout (and its wait for a head's next bytes without a buffer) and give every proxy the same head timeout (--head-timeout 70, the idle timeout, so none fires during the 40 s attacks); its runs (memoryFrom) give every memory-under-attack figure. The raw results of the first campaign are on the perf/gcp-20261016 branch, those of the memory runs on perf/slowloris-20261018.",
  "memoryFrom": "memory"
 }

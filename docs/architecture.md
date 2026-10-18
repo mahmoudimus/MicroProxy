@@ -64,7 +64,7 @@ buffers, and TCP flow control slows the server. The cost per slow reader is meas
 [Performance against other proxies](project/performance.md#adversarial-clients-under-a-memory-cap).
 <!-- perf:arch-slowread -->
 
-Measured with 200 slow readers and each proxy capped at 512 MB, RSS rose by about 1,094 (962–1,207) KB per reader for LittleProxy and 148 (146–167) KB for MicroProxy (median of 5 runs, lowest–highest in parentheses).
+Measured with 200 slow readers and each proxy capped at 512 MB, RSS rose by about 1,044 (985–1,120) KB per reader for LittleProxy and 151 (146–155) KB for MicroProxy (median of 5 runs, lowest–highest in parentheses).
 
 <!-- /perf:arch-slowread -->
 

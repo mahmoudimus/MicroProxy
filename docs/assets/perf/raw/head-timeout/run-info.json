@@ -1,0 +1,7 @@
+{
+ "commit": "471ba13a820bdb14d9ef4adbbd791b17760c0048",
+ "uncommittedLoadtestChanges": 0,
+ "command": "REPS=3 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh --head-timeout 30 --attacks slowloris --attack-seconds 90",
+ "started": "2026-10-18T18:15:08Z",
+ "wsl": false
+}
