@@ -1,0 +1,48 @@
+# g3proxy (github.com/bytedance/g3, Rust on tokio) as a plain HTTP forward proxy for the
+# load-testing comparison (docs/project/performance.md). A template: the harness replaces 30623,
+# 70, 40 and 1 (the CPUs the proxy is pinned to).
+# Logs are discarded (g3proxy's default: no access log), no statistics are emitted, and the
+# timeouts match the other proxies': idle client connections, a stalled transfer, waiting for
+# request and response headers, and the upstream connect.
+runtime:
+  thread_number: 1
+
+log: discard
+
+resolver:
+  # Never queried here: the origin is addressed by IP.
+  - name: default
+    type: hickory
+    server: 127.0.0.1
+
+escaper:
+  - name: direct
+    type: direct_fixed
+    resolver: default
+    resolve_strategy: IPv4Only
+    no_ipv6: true
+    tcp_connect:
+      each_timeout: 40s
+    # The origin is on loopback addresses, which g3proxy forbids by default.
+    egress_network_filter:
+      default: allow
+      allow:
+        - 127.0.0.0/8
+
+server:
+  - name: http
+    type: http_proxy
+    escaper: direct
+    listen:
+      address: "127.0.0.1:30623"
+    # The load generator connects from many loopback addresses (127.0.0.2, ...); g3proxy admits
+    # only 127.0.0.1 and ::1 by default.
+    ingress_network_filter:
+      default: forbid
+      allow:
+        - 127.0.0.0/8
+    pipeline_read_idle_timeout: 70s
+    req_header_recv_timeout: 70s
+    rsp_header_recv_timeout: 70s
+    task_idle_check_duration: 70s
+    task_idle_max_count: 1

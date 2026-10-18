@@ -1,0 +1,31 @@
+# sh -c echo $$ > '/sys/fs/cgroup/microproxy-loadtest-39868-squid-memory-slowloris/cgroup.procs' && exec "$@" sh nice -n -20 taskset -c 1 /usr/sbin/squid -N -d 1 -f /root/MicroProxy/loadtest/results/dedicated-memory-B-20261018/rep1/20261018-181509/logs/squid-memory-slowloris-squid.conf
+2026/10/18 18:22:53| Processing Configuration File: /root/MicroProxy/loadtest/results/dedicated-memory-B-20261018/rep1/20261018-181509/logs/squid-memory-slowloris-squid.conf (depth 0)
+2026/10/18 18:22:53| Current Directory is /root/MicroProxy
+2026/10/18 18:22:53| Starting Squid Cache version 6.14 for x86_64-pc-linux-gnu...
+2026/10/18 18:22:53| Service Name: squid
+2026/10/18 18:22:53| Process ID 42909
+2026/10/18 18:22:53| Process Roles: master worker
+2026/10/18 18:22:53| With 1048576 file descriptors available
+2026/10/18 18:22:53| Initializing IP Cache...
+2026/10/18 18:22:53| DNS IPv6 socket created at [::], FD 8
+2026/10/18 18:22:53| DNS IPv4 socket created at 0.0.0.0, FD 9
+2026/10/18 18:22:53| Adding nameserver 127.0.0.53 from /etc/resolv.conf
+2026/10/18 18:22:53| Adding domain <redacted> from /etc/resolv.conf
+2026/10/18 18:22:53| Adding domain <redacted> from /etc/resolv.conf
+2026/10/18 18:22:53| Adding domain <redacted> from /etc/resolv.conf
+2026/10/18 18:22:53| Local cache digest enabled; rebuild/rewrite every 3600/3600 sec
+2026/10/18 18:22:53| Store logging disabled
+2026/10/18 18:22:53| Swap maxSize 0 + 0 KB, estimated 0 objects
+2026/10/18 18:22:53| Target number of buckets: 0
+2026/10/18 18:22:53| Using 8192 Store buckets
+2026/10/18 18:22:53| Max Mem  size: 0 KB
+2026/10/18 18:22:53| Max Swap size: 0 KB
+2026/10/18 18:22:53| Using Least Load store dir selection
+2026/10/18 18:22:53| Current Directory is /root/MicroProxy
+2026/10/18 18:22:53| Finished loading MIME types and icons.
+2026/10/18 18:22:53| HTCP Disabled.
+2026/10/18 18:22:53| Squid plugin modules loaded: 0
+2026/10/18 18:22:53| Adaptation support is off.
+2026/10/18 18:22:53| Accepting HTTP Socket connections at conn3 local=127.0.0.1:25105 remote=[::] FD 10 flags=9
+    listening port: 127.0.0.1:25105
+2026/10/18 18:22:54| storeLateRelease: released 0 objects

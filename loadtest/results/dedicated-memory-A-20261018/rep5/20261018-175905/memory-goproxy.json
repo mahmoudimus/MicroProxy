@@ -1,0 +1,4092 @@
+{
+  "validation": {
+    "ok": true,
+    "cases": {
+      "http://127.0.0.1:23661/bytes/0": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/bytes/1": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/bytes/1000": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/bytes/65536": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/bytes/1048576": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/chunked/100000": {
+        "OK": 3
+      },
+      "http://127.0.0.1:23661/upload (upload 100000)": {
+        "OK": 3
+      }
+    }
+  },
+  "attacks": [
+    {
+      "attack": "slowloris",
+      "cap": {
+        "heap": null,
+        "direct": null,
+        "cgroupLimit": "512m",
+        "cgroup": "/sys/fs/cgroup/microproxy-loadtest-34123-goproxy-memory-slowloris",
+        "socketBuffers": "beside the limit"
+      },
+      "baseline": {
+        "nmt": {},
+        "rssKb": 9624,
+        "hwmKb": 9624,
+        "threads": 4,
+        "fds": 9,
+        "cpuMs": 0
+      },
+      "workload": {
+        "connectionsActive": 0,
+        "headerLinesSent": 15525,
+        "closedByProxy": 0,
+        "connections": 2000
+      },
+      "memSeries": [
+        {
+          "t": 5,
+          "cgroupOwnKb": 33736,
+          "sockKb": 0,
+          "rssKb": 32548,
+          "fds": 2009,
+          "threads": 4
+        },
+        {
+          "t": 10.009,
+          "cgroupOwnKb": 34872,
+          "sockKb": 0,
+          "rssKb": 33520,
+          "fds": 2010,
+          "threads": 4
+        },
+        {
+          "t": 15.014,
+          "cgroupOwnKb": 34992,
+          "sockKb": 4,
+          "rssKb": 33712,
+          "fds": 2011,
+          "threads": 4
+        },
+        {
+          "t": 20.02,
+          "cgroupOwnKb": 35364,
+          "sockKb": 0,
+          "rssKb": 33900,
+          "fds": 2011,
+          "threads": 4
+        },
+        {
+          "t": 25.026,
+          "cgroupOwnKb": 35412,
+          "sockKb": 72,
+          "rssKb": 34104,
+          "fds": 2011,
+          "threads": 4
+        },
+        {
+          "t": 30.031,
+          "cgroupOwnKb": 36084,
+          "sockKb": 24,
+          "rssKb": 34324,
+          "fds": 2011,
+          "threads": 4
+        },
+        {
+          "t": 35.036,
+          "cgroupOwnKb": 35716,
+          "sockKb": 0,
+          "rssKb": 34576,
+          "fds": 2011,
+          "threads": 4
+        },
+        {
+          "t": 40.041,
+          "cgroupOwnKb": 35848,
+          "sockKb": 0,
+          "rssKb": 34736,
+          "fds": 2011,
+          "threads": 4
+        }
+      ],
+      "afterStop": {
+        "t": 45.047,
+        "cgroupOwnKb": 28456,
+        "sockKb": 0,
+        "rssKb": 35188,
+        "fds": 11,
+        "threads": 4
+      },
+      "judgement": {
+        "warmupS": 10,
+        "windowS": 30.032,
+        "rssFit": {
+          "key": "rssKb",
+          "samples": 7,
+          "windowS": 30.032,
+          "mean": 34124.6,
+          "slopePerS": 41.384,
+          "slopePerHour": 148982,
+          "growth": 1242.84,
+          "growthPct": 3.642,
+          "r2": 0.998,
+          "flagged": false
+        },
+        "nmtFit": {
+          "key": "nmtTotalKb",
+          "samples": 0,
+          "flagged": false
+        },
+        "verdict": "bounded",
+        "pass": true,
+        "detail": "RSS slope 41.384 KB/s (R² 0.998, growth 1242.842 KB), NMT slope null KB/s (R² null); peak RSS 33 MB, peak NMT other (direct) 0 MB, peak socket buffers 0 MB; closed by the proxy 0 of 2000; probe 80/80 ok"
+      },
+      "probes": [
+        {
+          "t": 5,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 1.015,
+            "p90": 2.895,
+            "p99": 2.911,
+            "p999": 2.911,
+            "p9999": 2.911,
+            "max": 2.911,
+            "mean": 1.763
+          }
+        },
+        {
+          "t": 10.009,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.783,
+            "p90": 1.179,
+            "p99": 1.225,
+            "p999": 1.225,
+            "p9999": 1.225,
+            "max": 1.225,
+            "mean": 0.885
+          }
+        },
+        {
+          "t": 15.014,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 1.002,
+            "p90": 1.129,
+            "p99": 1.438,
+            "p999": 1.438,
+            "p9999": 1.438,
+            "max": 1.438,
+            "mean": 1.052
+          }
+        },
+        {
+          "t": 20.02,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.777,
+            "p90": 1.103,
+            "p99": 1.373,
+            "p999": 1.373,
+            "p9999": 1.373,
+            "max": 1.373,
+            "mean": 0.817
+          }
+        },
+        {
+          "t": 25.026,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.891,
+            "p90": 1.074,
+            "p99": 1.183,
+            "p999": 1.183,
+            "p9999": 1.183,
+            "max": 1.183,
+            "mean": 0.78
+          }
+        },
+        {
+          "t": 30.031,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.526,
+            "p90": 0.802,
+            "p99": 0.958,
+            "p999": 0.958,
+            "p9999": 0.958,
+            "max": 0.958,
+            "mean": 0.599
+          }
+        },
+        {
+          "t": 35.036,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.548,
+            "p90": 0.929,
+            "p99": 1.324,
+            "p999": 1.324,
+            "p9999": 1.324,
+            "max": 1.324,
+            "mean": 0.718
+          }
+        },
+        {
+          "t": 40.041,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.561,
+            "p90": 0.867,
+            "p99": 1.205,
+            "p999": 1.205,
+            "p9999": 1.205,
+            "max": 1.205,
+            "mean": 0.676
+          }
+        }
+      ],
+      "peakRssKb": 34736,
+      "peakNmtTotalKb": -1,
+      "peakHeapAfterGcKb": -1,
+      "peakOtherKb": -1,
+      "peakCgroupOwnKb": 35928,
+      "peakSockKb": 72,
+      "rssGrowthKb": 2188,
+      "outcome": "bounded",
+      "pass": true,
+      "proxyState": "running",
+      "series": {
+        "proxy": [
+          {
+            "t": 0,
+            "rssKb": 8804,
+            "hwmKb": 8804,
+            "threads": 4,
+            "fds": 6,
+            "cpuMs": 0
+          },
+          {
+            "t": 1,
+            "rssKb": 32520,
+            "hwmKb": 32520,
+            "threads": 4,
+            "fds": 2009,
+            "cpuMs": 50,
+            "cpuPct": 5
+          },
+          {
+            "t": 2,
+            "rssKb": 32520,
+            "hwmKb": 32520,
+            "threads": 4,
+            "fds": 2009,
+            "cpuMs": 50,
+            "cpuPct": 0
+          },
+          {
+            "t": 3,
+            "rssKb": 32520,
+            "hwmKb": 32520,
+            "threads": 4,
+            "fds": 2009,
+            "cpuMs": 50,
+            "cpuPct": 0
+          },
+          {
+            "t": 4,
+            "rssKb": 32520,
+            "hwmKb": 32520,
+            "threads": 4,
+            "fds": 2009,
+            "cpuMs": 50,
+            "cpuPct": 0
+          },
+          {
+            "t": 5,
+            "rssKb": 32520,
+            "hwmKb": 32520,
+            "threads": 4,
+            "fds": 2009,
+            "cpuMs": 50,
+            "cpuPct": 0
+          },
+          {
+            "t": 6,
+            "rssKb": 33496,
+            "hwmKb": 33496,
+            "threads": 4,
+            "fds": 2010,
+            "cpuMs": 60,
+            "cpuPct": 1
+          },
+          {
+            "t": 7,
+            "rssKb": 33496,
+            "hwmKb": 33496,
+            "threads": 4,
+            "fds": 2010,
+            "cpuMs": 60,
+            "cpuPct": 0
+          },
+          {
+            "t": 8,
+            "rssKb": 33496,
+            "hwmKb": 33496,
+            "threads": 4,
+            "fds": 2010,
+            "cpuMs": 60,
+            "cpuPct": 0
+          },
+          {
+            "t": 9,
+            "rssKb": 33496,
+            "hwmKb": 33496,
+            "threads": 4,
+            "fds": 2010,
+            "cpuMs": 60,
+            "cpuPct": 0
+          },
+          {
+            "t": 10,
+            "rssKb": 33496,
+            "hwmKb": 33496,
+            "threads": 4,
+            "fds": 2010,
+            "cpuMs": 60,
+            "cpuPct": 0
+          },
+          {
+            "t": 11,
+            "rssKb": 33688,
+            "hwmKb": 33688,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 80,
+            "cpuPct": 2
+          },
+          {
+            "t": 12,
+            "rssKb": 33688,
+            "hwmKb": 33688,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 80,
+            "cpuPct": 0
+          },
+          {
+            "t": 13,
+            "rssKb": 33688,
+            "hwmKb": 33688,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 80,
+            "cpuPct": 0
+          },
+          {
+            "t": 14,
+            "rssKb": 33688,
+            "hwmKb": 33688,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 80,
+            "cpuPct": 0
+          },
+          {
+            "t": 15.1,
+            "rssKb": 33688,
+            "hwmKb": 33688,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 80,
+            "cpuPct": 0
+          },
+          {
+            "t": 16.1,
+            "rssKb": 33860,
+            "hwmKb": 33860,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 100,
+            "cpuPct": 2
+          },
+          {
+            "t": 17.1,
+            "rssKb": 33860,
+            "hwmKb": 33860,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 100,
+            "cpuPct": 0
+          },
+          {
+            "t": 18.1,
+            "rssKb": 33860,
+            "hwmKb": 33860,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 100,
+            "cpuPct": 0
+          },
+          {
+            "t": 19.1,
+            "rssKb": 33860,
+            "hwmKb": 33860,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 100,
+            "cpuPct": 0
+          },
+          {
+            "t": 20.1,
+            "rssKb": 33860,
+            "hwmKb": 33860,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 100,
+            "cpuPct": 0
+          },
+          {
+            "t": 21.1,
+            "rssKb": 34064,
+            "hwmKb": 34064,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 1
+          },
+          {
+            "t": 22.1,
+            "rssKb": 34064,
+            "hwmKb": 34064,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 23.1,
+            "rssKb": 34064,
+            "hwmKb": 34064,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 24.1,
+            "rssKb": 34064,
+            "hwmKb": 34064,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 25.1,
+            "rssKb": 34064,
+            "hwmKb": 34064,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 26.1,
+            "rssKb": 34212,
+            "hwmKb": 34212,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 27.1,
+            "rssKb": 34212,
+            "hwmKb": 34212,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 28.1,
+            "rssKb": 34212,
+            "hwmKb": 34212,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 29.1,
+            "rssKb": 34212,
+            "hwmKb": 34212,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 30.1,
+            "rssKb": 34212,
+            "hwmKb": 34212,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 110,
+            "cpuPct": 0
+          },
+          {
+            "t": 31.1,
+            "rssKb": 34520,
+            "hwmKb": 34520,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 130,
+            "cpuPct": 2
+          },
+          {
+            "t": 32.1,
+            "rssKb": 34520,
+            "hwmKb": 34520,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 130,
+            "cpuPct": 0
+          },
+          {
+            "t": 33.1,
+            "rssKb": 34520,
+            "hwmKb": 34520,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 130,
+            "cpuPct": 0
+          },
+          {
+            "t": 34.1,
+            "rssKb": 34520,
+            "hwmKb": 34520,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 130,
+            "cpuPct": 0
+          },
+          {
+            "t": 35.1,
+            "rssKb": 34536,
+            "hwmKb": 34536,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 130,
+            "cpuPct": 0
+          },
+          {
+            "t": 36.1,
+            "rssKb": 34672,
+            "hwmKb": 34672,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 140,
+            "cpuPct": 1
+          },
+          {
+            "t": 37.1,
+            "rssKb": 34672,
+            "hwmKb": 34672,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 140,
+            "cpuPct": 0
+          },
+          {
+            "t": 38.1,
+            "rssKb": 34672,
+            "hwmKb": 34672,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 140,
+            "cpuPct": 0
+          },
+          {
+            "t": 39.1,
+            "rssKb": 34672,
+            "hwmKb": 34672,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 140,
+            "cpuPct": 0
+          },
+          {
+            "t": 40.1,
+            "rssKb": 34720,
+            "hwmKb": 34720,
+            "threads": 4,
+            "fds": 2011,
+            "cpuMs": 140,
+            "cpuPct": 0
+          },
+          {
+            "t": 41.1,
+            "rssKb": 35188,
+            "hwmKb": 35188,
+            "threads": 4,
+            "fds": 11,
+            "cpuMs": 200,
+            "cpuPct": 6
+          },
+          {
+            "t": 42.1,
+            "rssKb": 35188,
+            "hwmKb": 35188,
+            "threads": 4,
+            "fds": 11,
+            "cpuMs": 200,
+            "cpuPct": 0
+          },
+          {
+            "t": 43.1,
+            "rssKb": 35188,
+            "hwmKb": 35188,
+            "threads": 4,
+            "fds": 11,
+            "cpuMs": 200,
+            "cpuPct": 0
+          },
+          {
+            "t": 44.1,
+            "rssKb": 35188,
+            "hwmKb": 35188,
+            "threads": 4,
+            "fds": 11,
+            "cpuMs": 200,
+            "cpuPct": 0
+          },
+          {
+            "t": 45.1,
+            "rssKb": 35188,
+            "hwmKb": 35188,
+            "threads": 4,
+            "fds": 11,
+            "cpuMs": 200,
+            "cpuPct": 0
+          }
+        ],
+        "client": [
+          {
+            "t": 0,
+            "rssKb": 46812,
+            "hwmKb": 46812,
+            "threads": 15,
+            "fds": 5,
+            "cpuMs": 60
+          },
+          {
+            "t": 1,
+            "rssKb": 80256,
+            "hwmKb": 80256,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 500,
+            "cpuPct": 44
+          },
+          {
+            "t": 2,
+            "rssKb": 80256,
+            "hwmKb": 80256,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 500,
+            "cpuPct": 0
+          },
+          {
+            "t": 3,
+            "rssKb": 80256,
+            "hwmKb": 80256,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 500,
+            "cpuPct": 0
+          },
+          {
+            "t": 4,
+            "rssKb": 80256,
+            "hwmKb": 80256,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 500,
+            "cpuPct": 0
+          },
+          {
+            "t": 5,
+            "rssKb": 79756,
+            "hwmKb": 79832,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 500,
+            "cpuPct": 0
+          },
+          {
+            "t": 6,
+            "rssKb": 86232,
+            "hwmKb": 86232,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 650,
+            "cpuPct": 14.9
+          },
+          {
+            "t": 7,
+            "rssKb": 86232,
+            "hwmKb": 86232,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 650,
+            "cpuPct": 0
+          },
+          {
+            "t": 8,
+            "rssKb": 86232,
+            "hwmKb": 86232,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 650,
+            "cpuPct": 0
+          },
+          {
+            "t": 9,
+            "rssKb": 86232,
+            "hwmKb": 86232,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 650,
+            "cpuPct": 0
+          },
+          {
+            "t": 10,
+            "rssKb": 85260,
+            "hwmKb": 85856,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 650,
+            "cpuPct": 0
+          },
+          {
+            "t": 11,
+            "rssKb": 88156,
+            "hwmKb": 88156,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 760,
+            "cpuPct": 11
+          },
+          {
+            "t": 12,
+            "rssKb": 88156,
+            "hwmKb": 88156,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 760,
+            "cpuPct": 0
+          },
+          {
+            "t": 13,
+            "rssKb": 88156,
+            "hwmKb": 88156,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 760,
+            "cpuPct": 0
+          },
+          {
+            "t": 14,
+            "rssKb": 88156,
+            "hwmKb": 88156,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 760,
+            "cpuPct": 0
+          },
+          {
+            "t": 15.1,
+            "rssKb": 88156,
+            "hwmKb": 88156,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 760,
+            "cpuPct": 0
+          },
+          {
+            "t": 16.1,
+            "rssKb": 88904,
+            "hwmKb": 88904,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 870,
+            "cpuPct": 11
+          },
+          {
+            "t": 17.1,
+            "rssKb": 88904,
+            "hwmKb": 88904,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 870,
+            "cpuPct": 0
+          },
+          {
+            "t": 18.1,
+            "rssKb": 88904,
+            "hwmKb": 88904,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 870,
+            "cpuPct": 0
+          },
+          {
+            "t": 19.1,
+            "rssKb": 88904,
+            "hwmKb": 88904,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 870,
+            "cpuPct": 0
+          },
+          {
+            "t": 20.1,
+            "rssKb": 88284,
+            "hwmKb": 88480,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 870,
+            "cpuPct": 0
+          },
+          {
+            "t": 21.1,
+            "rssKb": 89680,
+            "hwmKb": 89680,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 990,
+            "cpuPct": 12
+          },
+          {
+            "t": 22.1,
+            "rssKb": 89680,
+            "hwmKb": 89680,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 990,
+            "cpuPct": 0
+          },
+          {
+            "t": 23.1,
+            "rssKb": 89680,
+            "hwmKb": 89680,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 990,
+            "cpuPct": 0
+          },
+          {
+            "t": 24.1,
+            "rssKb": 89680,
+            "hwmKb": 89680,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 990,
+            "cpuPct": 0
+          },
+          {
+            "t": 25.1,
+            "rssKb": 88780,
+            "hwmKb": 89100,
+            "threads": 23,
+            "fds": 2006,
+            "cpuMs": 990,
+            "cpuPct": 0
+          },
+          {
+            "t": 26.1,
+            "rssKb": 89240,
+            "hwmKb": 89240,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1020,
+            "cpuPct": 3
+          },
+          {
+            "t": 27.1,
+            "rssKb": 89240,
+            "hwmKb": 89240,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1020,
+            "cpuPct": 0
+          },
+          {
+            "t": 28.1,
+            "rssKb": 89240,
+            "hwmKb": 89240,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1020,
+            "cpuPct": 0
+          },
+          {
+            "t": 29.1,
+            "rssKb": 89240,
+            "hwmKb": 89240,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1020,
+            "cpuPct": 0
+          },
+          {
+            "t": 30.1,
+            "rssKb": 89240,
+            "hwmKb": 89240,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1020,
+            "cpuPct": 0
+          },
+          {
+            "t": 31.1,
+            "rssKb": 89708,
+            "hwmKb": 89708,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1070,
+            "cpuPct": 5
+          },
+          {
+            "t": 32.1,
+            "rssKb": 89708,
+            "hwmKb": 89708,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1070,
+            "cpuPct": 0
+          },
+          {
+            "t": 33.1,
+            "rssKb": 89708,
+            "hwmKb": 89708,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1070,
+            "cpuPct": 0
+          },
+          {
+            "t": 34.1,
+            "rssKb": 89708,
+            "hwmKb": 89708,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1070,
+            "cpuPct": 0
+          },
+          {
+            "t": 35.1,
+            "rssKb": 89812,
+            "hwmKb": 89812,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1080,
+            "cpuPct": 1
+          },
+          {
+            "t": 36.1,
+            "rssKb": 90160,
+            "hwmKb": 90160,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1120,
+            "cpuPct": 4
+          },
+          {
+            "t": 37.1,
+            "rssKb": 90160,
+            "hwmKb": 90160,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1120,
+            "cpuPct": 0
+          },
+          {
+            "t": 38.1,
+            "rssKb": 90160,
+            "hwmKb": 90160,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1120,
+            "cpuPct": 0
+          },
+          {
+            "t": 39.1,
+            "rssKb": 90160,
+            "hwmKb": 90160,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1120,
+            "cpuPct": 0
+          },
+          {
+            "t": 40.1,
+            "rssKb": 93832,
+            "hwmKb": 93832,
+            "threads": 22,
+            "fds": 2006,
+            "cpuMs": 1170,
+            "cpuPct": 5
+          },
+          {
+            "t": 41.1,
+            "rssKb": 98872,
+            "hwmKb": 98872,
+            "threads": 23,
+            "fds": 6,
+            "cpuMs": 1250,
+            "cpuPct": 8
+          },
+          {
+            "t": 42.1,
+            "rssKb": 98872,
+            "hwmKb": 98872,
+            "threads": 23,
+            "fds": 6,
+            "cpuMs": 1250,
+            "cpuPct": 0
+          },
+          {
+            "t": 43.1,
+            "rssKb": 98872,
+            "hwmKb": 98872,
+            "threads": 23,
+            "fds": 6,
+            "cpuMs": 1250,
+            "cpuPct": 0
+          },
+          {
+            "t": 44.1,
+            "rssKb": 98872,
+            "hwmKb": 98872,
+            "threads": 23,
+            "fds": 6,
+            "cpuMs": 1250,
+            "cpuPct": 0
+          },
+          {
+            "t": 45.1,
+            "rssKb": 94528,
+            "hwmKb": 98608,
+            "threads": 22,
+            "fds": 6,
+            "cpuMs": 1290,
+            "cpuPct": 4
+          }
+        ],
+        "system": [
+          {
+            "t": 1,
+            "cpuBusyPct": [0, 4, 1, 10, 8.9, 11, 10.9, 8.9, 11, 0, 0],
+            "busyPct": 65.7,
+            "interruptPct": 1,
+            "foreignCpuPct": 16.8
+          },
+          {
+            "t": 2,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            "busyPct": 2,
+            "interruptPct": 0,
+            "foreignCpuPct": 2
+          },
+          {
+            "t": 3,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 4,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 5,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 6,
+            "cpuBusyPct": [0, 2, 0, 4, 1, 2, 2.9, 4, 1, 2, 1],
+            "busyPct": 19.8,
+            "interruptPct": 2,
+            "foreignCpuPct": 3.9
+          },
+          {
+            "t": 7,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 8,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 9,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 10,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 11,
+            "cpuBusyPct": [1, 1, 0, 5, 1, 1, 0, 0, 1, 0, 0],
+            "busyPct": 10,
+            "interruptPct": 1,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 12,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 13,
+            "cpuBusyPct": [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 2,
+            "interruptPct": 0,
+            "foreignCpuPct": 2
+          },
+          {
+            "t": 14,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 15.1,
+            "cpuBusyPct": [1, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0],
+            "busyPct": 3.9,
+            "interruptPct": 0,
+            "foreignCpuPct": 3.9
+          },
+          {
+            "t": 16.1,
+            "cpuBusyPct": [0, 1, 0, 3, 2, 1, 2, 2, 1, 0, 0],
+            "busyPct": 12,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 17.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 18.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 19.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 20.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 21.1,
+            "cpuBusyPct": [1, 1, 0, 4, 2, 2, 2, 2, 2, 0, 0],
+            "busyPct": 15.9,
+            "interruptPct": 0,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 22.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 23.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 24.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 25.1,
+            "cpuBusyPct": [3, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0],
+            "busyPct": 5,
+            "interruptPct": 0,
+            "foreignCpuPct": 5
+          },
+          {
+            "t": 26.1,
+            "cpuBusyPct": [0, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+            "busyPct": 4,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 27.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 28.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 29.1,
+            "cpuBusyPct": [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+            "busyPct": 4,
+            "interruptPct": 0,
+            "foreignCpuPct": 4
+          },
+          {
+            "t": 30.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 31.1,
+            "cpuBusyPct": [1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0],
+            "busyPct": 4,
+            "interruptPct": 2,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 32.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 33.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 34.1,
+            "cpuBusyPct": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 35.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            "busyPct": 2,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 36.1,
+            "cpuBusyPct": [0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 2],
+            "busyPct": 8,
+            "interruptPct": 0,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 37.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 38.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 39.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 40.1,
+            "cpuBusyPct": [0, 1, 0, 0, 1, 2, 0, 0, 2, 1, 1],
+            "busyPct": 8,
+            "interruptPct": 0,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 41.1,
+            "cpuBusyPct": [0, 4, 0, 1, 2, 5.9, 2, 1, 0, 0, 0],
+            "busyPct": 15.9,
+            "interruptPct": 3,
+            "foreignCpuPct": 1.9
+          },
+          {
+            "t": 42.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 43.1,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 44.1,
+            "cpuBusyPct": [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 45.1,
+            "cpuBusyPct": [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          }
+        ]
+      },
+      "gcEvents": []
+    },
+    {
+      "attack": "slowread",
+      "cap": {
+        "heap": null,
+        "direct": null,
+        "cgroupLimit": "512m",
+        "cgroup": "/sys/fs/cgroup/microproxy-loadtest-34123-goproxy-memory-slowread",
+        "socketBuffers": "beside the limit"
+      },
+      "baseline": {
+        "nmt": {},
+        "rssKb": 8800,
+        "hwmKb": 8800,
+        "threads": 4,
+        "fds": 6,
+        "cpuMs": 0
+      },
+      "workload": {
+        "connectionsActive": 0,
+        "bytesRead": 65945600,
+        "completed": 0,
+        "closedByProxy": 0,
+        "connections": 200
+      },
+      "memSeries": [
+        {
+          "t": 5,
+          "cgroupOwnKb": 21976,
+          "sockKb": 525432,
+          "rssKb": 28828,
+          "fds": 406,
+          "threads": 4
+        },
+        {
+          "t": 10.072,
+          "cgroupOwnKb": 21752,
+          "sockKb": 514920,
+          "rssKb": 29056,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 15.077,
+          "cgroupOwnKb": 24216,
+          "sockKb": 502716,
+          "rssKb": 29088,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 20.082,
+          "cgroupOwnKb": 24000,
+          "sockKb": 494144,
+          "rssKb": 29128,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 25.086,
+          "cgroupOwnKb": 21716,
+          "sockKb": 484592,
+          "rssKb": 29188,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 30.091,
+          "cgroupOwnKb": 24460,
+          "sockKb": 473180,
+          "rssKb": 29248,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 35.095,
+          "cgroupOwnKb": 24740,
+          "sockKb": 464236,
+          "rssKb": 29316,
+          "fds": 411,
+          "threads": 4
+        },
+        {
+          "t": 40.099,
+          "cgroupOwnKb": 24844,
+          "sockKb": 452316,
+          "rssKb": 29372,
+          "fds": 411,
+          "threads": 4
+        }
+      ],
+      "afterStop": {
+        "t": 40.508,
+        "cgroupOwnKb": 23112,
+        "sockKb": 0,
+        "rssKb": 29492,
+        "fds": 11,
+        "threads": 4
+      },
+      "judgement": {
+        "warmupS": 10,
+        "windowS": 30.027,
+        "rssFit": {
+          "key": "rssKb",
+          "samples": 7,
+          "windowS": 30.027,
+          "mean": 29199.4,
+          "slopePerS": 10.876,
+          "slopePerHour": 39153.2,
+          "growth": 326.57,
+          "growthPct": 1.118,
+          "r2": 0.988,
+          "flagged": false
+        },
+        "nmtFit": {
+          "key": "nmtTotalKb",
+          "samples": 0,
+          "flagged": false
+        },
+        "verdict": "bounded",
+        "pass": true,
+        "detail": "RSS slope 10.876 KB/s (R² 0.988, growth 326.57 KB), NMT slope null KB/s (R² null); peak RSS 28 MB, peak NMT other (direct) 0 MB, peak socket buffers 519 MB; closed by the proxy 0 of 200; probe 80/80 ok"
+      },
+      "probes": [
+        {
+          "t": 5,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.589,
+            "p90": 37.855,
+            "p99": 37.951,
+            "p999": 37.951,
+            "p9999": 37.951,
+            "max": 37.951,
+            "mean": 19.188
+          }
+        },
+        {
+          "t": 10.072,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.944,
+            "p90": 1.226,
+            "p99": 1.227,
+            "p999": 1.227,
+            "p9999": 1.227,
+            "max": 1.227,
+            "mean": 0.932
+          }
+        },
+        {
+          "t": 15.077,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 1.004,
+            "p90": 1.379,
+            "p99": 1.636,
+            "p999": 1.636,
+            "p9999": 1.636,
+            "max": 1.636,
+            "mean": 0.929
+          }
+        },
+        {
+          "t": 20.082,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.862,
+            "p90": 1.245,
+            "p99": 1.26,
+            "p999": 1.26,
+            "p9999": 1.26,
+            "max": 1.26,
+            "mean": 0.942
+          }
+        },
+        {
+          "t": 25.086,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.56,
+            "p90": 1.146,
+            "p99": 1.189,
+            "p999": 1.189,
+            "p9999": 1.189,
+            "max": 1.189,
+            "mean": 0.797
+          }
+        },
+        {
+          "t": 30.091,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.869,
+            "p90": 1.309,
+            "p99": 1.53,
+            "p999": 1.53,
+            "p9999": 1.53,
+            "max": 1.53,
+            "mean": 0.949
+          }
+        },
+        {
+          "t": 35.095,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.873,
+            "p90": 1.029,
+            "p99": 1.203,
+            "p999": 1.203,
+            "p9999": 1.203,
+            "max": 1.203,
+            "mean": 0.775
+          }
+        },
+        {
+          "t": 40.099,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 0.487,
+            "p90": 0.993,
+            "p99": 1.134,
+            "p999": 1.134,
+            "p9999": 1.134,
+            "max": 1.134,
+            "mean": 0.717
+          }
+        }
+      ],
+      "peakRssKb": 29372,
+      "peakNmtTotalKb": -1,
+      "peakHeapAfterGcKb": -1,
+      "peakOtherKb": -1,
+      "peakCgroupOwnKb": 24888,
+      "peakSockKb": 532316,
+      "rssGrowthKb": 544,
+      "outcome": "bounded",
+      "pass": true,
+      "proxyState": "running",
+      "series": {
+        "proxy": [
+          {
+            "t": 0,
+            "rssKb": 8800,
+            "hwmKb": 8800,
+            "threads": 4,
+            "fds": 6,
+            "cpuMs": 0
+          },
+          {
+            "t": 1,
+            "rssKb": 28828,
+            "hwmKb": 28828,
+            "threads": 4,
+            "fds": 406,
+            "cpuMs": 240,
+            "cpuPct": 24
+          },
+          {
+            "t": 2,
+            "rssKb": 28828,
+            "hwmKb": 28828,
+            "threads": 4,
+            "fds": 406,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 3,
+            "rssKb": 28828,
+            "hwmKb": 28828,
+            "threads": 4,
+            "fds": 406,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 4,
+            "rssKb": 28828,
+            "hwmKb": 28828,
+            "threads": 4,
+            "fds": 406,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 5,
+            "rssKb": 28828,
+            "hwmKb": 28828,
+            "threads": 4,
+            "fds": 406,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 6,
+            "rssKb": 29056,
+            "hwmKb": 29056,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 7,
+            "rssKb": 29056,
+            "hwmKb": 29056,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 8,
+            "rssKb": 29056,
+            "hwmKb": 29056,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 9,
+            "rssKb": 29056,
+            "hwmKb": 29056,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 10,
+            "rssKb": 29056,
+            "hwmKb": 29056,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 11,
+            "rssKb": 29088,
+            "hwmKb": 29088,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 12,
+            "rssKb": 29088,
+            "hwmKb": 29088,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 13,
+            "rssKb": 29088,
+            "hwmKb": 29088,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 14,
+            "rssKb": 29088,
+            "hwmKb": 29088,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 15,
+            "rssKb": 29088,
+            "hwmKb": 29088,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 16,
+            "rssKb": 29128,
+            "hwmKb": 29128,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 17,
+            "rssKb": 29128,
+            "hwmKb": 29128,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 18,
+            "rssKb": 29128,
+            "hwmKb": 29128,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 19,
+            "rssKb": 29128,
+            "hwmKb": 29128,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 20,
+            "rssKb": 29128,
+            "hwmKb": 29128,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 21,
+            "rssKb": 29188,
+            "hwmKb": 29188,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 22,
+            "rssKb": 29188,
+            "hwmKb": 29188,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 23,
+            "rssKb": 29188,
+            "hwmKb": 29188,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 24,
+            "rssKb": 29188,
+            "hwmKb": 29188,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 25,
+            "rssKb": 29188,
+            "hwmKb": 29188,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 26,
+            "rssKb": 29248,
+            "hwmKb": 29248,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 27,
+            "rssKb": 29248,
+            "hwmKb": 29248,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 28,
+            "rssKb": 29248,
+            "hwmKb": 29248,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 29,
+            "rssKb": 29248,
+            "hwmKb": 29248,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 30,
+            "rssKb": 29248,
+            "hwmKb": 29248,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 31,
+            "rssKb": 29316,
+            "hwmKb": 29316,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 32,
+            "rssKb": 29316,
+            "hwmKb": 29316,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 33,
+            "rssKb": 29316,
+            "hwmKb": 29316,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 34,
+            "rssKb": 29316,
+            "hwmKb": 29316,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 35,
+            "rssKb": 29316,
+            "hwmKb": 29316,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 36,
+            "rssKb": 29372,
+            "hwmKb": 29372,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 37,
+            "rssKb": 29372,
+            "hwmKb": 29372,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 38,
+            "rssKb": 29372,
+            "hwmKb": 29372,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 39,
+            "rssKb": 29372,
+            "hwmKb": 29372,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          },
+          {
+            "t": 40,
+            "rssKb": 29372,
+            "hwmKb": 29372,
+            "threads": 4,
+            "fds": 411,
+            "cpuMs": 240,
+            "cpuPct": 0
+          }
+        ],
+        "client": [
+          {
+            "t": 0,
+            "rssKb": 46864,
+            "hwmKb": 46864,
+            "threads": 15,
+            "fds": 5,
+            "cpuMs": 60
+          },
+          {
+            "t": 1,
+            "rssKb": 75524,
+            "hwmKb": 75524,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 370,
+            "cpuPct": 31
+          },
+          {
+            "t": 2,
+            "rssKb": 75716,
+            "hwmKb": 75716,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 410,
+            "cpuPct": 4
+          },
+          {
+            "t": 3,
+            "rssKb": 75852,
+            "hwmKb": 75852,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 450,
+            "cpuPct": 4
+          },
+          {
+            "t": 4,
+            "rssKb": 75984,
+            "hwmKb": 75984,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 490,
+            "cpuPct": 4
+          },
+          {
+            "t": 5,
+            "rssKb": 76748,
+            "hwmKb": 77304,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 560,
+            "cpuPct": 7
+          },
+          {
+            "t": 6,
+            "rssKb": 79488,
+            "hwmKb": 79488,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 610,
+            "cpuPct": 5
+          },
+          {
+            "t": 7,
+            "rssKb": 79632,
+            "hwmKb": 79632,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 670,
+            "cpuPct": 6
+          },
+          {
+            "t": 8,
+            "rssKb": 79740,
+            "hwmKb": 79740,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 710,
+            "cpuPct": 4
+          },
+          {
+            "t": 9,
+            "rssKb": 79836,
+            "hwmKb": 79836,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 740,
+            "cpuPct": 3
+          },
+          {
+            "t": 10,
+            "rssKb": 78984,
+            "hwmKb": 79372,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 770,
+            "cpuPct": 3
+          },
+          {
+            "t": 11,
+            "rssKb": 79072,
+            "hwmKb": 79372,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 790,
+            "cpuPct": 2
+          },
+          {
+            "t": 12,
+            "rssKb": 79260,
+            "hwmKb": 79372,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 830,
+            "cpuPct": 4
+          },
+          {
+            "t": 13,
+            "rssKb": 79364,
+            "hwmKb": 79372,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 850,
+            "cpuPct": 2
+          },
+          {
+            "t": 14,
+            "rssKb": 80536,
+            "hwmKb": 80536,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 910,
+            "cpuPct": 6
+          },
+          {
+            "t": 15,
+            "rssKb": 79532,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 940,
+            "cpuPct": 3
+          },
+          {
+            "t": 16,
+            "rssKb": 79660,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 970,
+            "cpuPct": 3
+          },
+          {
+            "t": 17,
+            "rssKb": 79748,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1000,
+            "cpuPct": 3
+          },
+          {
+            "t": 18,
+            "rssKb": 79844,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1030,
+            "cpuPct": 3
+          },
+          {
+            "t": 19,
+            "rssKb": 79932,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1050,
+            "cpuPct": 2
+          },
+          {
+            "t": 20,
+            "rssKb": 80016,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1080,
+            "cpuPct": 3
+          },
+          {
+            "t": 21,
+            "rssKb": 80108,
+            "hwmKb": 80180,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1100,
+            "cpuPct": 2
+          },
+          {
+            "t": 22,
+            "rssKb": 80196,
+            "hwmKb": 80196,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1120,
+            "cpuPct": 2
+          },
+          {
+            "t": 23,
+            "rssKb": 80284,
+            "hwmKb": 80284,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1140,
+            "cpuPct": 2
+          },
+          {
+            "t": 24,
+            "rssKb": 80368,
+            "hwmKb": 80368,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1160,
+            "cpuPct": 2
+          },
+          {
+            "t": 25,
+            "rssKb": 80452,
+            "hwmKb": 80452,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1190,
+            "cpuPct": 3
+          },
+          {
+            "t": 26,
+            "rssKb": 83200,
+            "hwmKb": 83200,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1240,
+            "cpuPct": 5
+          },
+          {
+            "t": 27,
+            "rssKb": 83284,
+            "hwmKb": 83284,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1270,
+            "cpuPct": 3
+          },
+          {
+            "t": 28,
+            "rssKb": 83760,
+            "hwmKb": 83760,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1320,
+            "cpuPct": 5
+          },
+          {
+            "t": 29,
+            "rssKb": 83856,
+            "hwmKb": 83856,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1340,
+            "cpuPct": 2
+          },
+          {
+            "t": 30,
+            "rssKb": 82708,
+            "hwmKb": 83448,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1370,
+            "cpuPct": 3
+          },
+          {
+            "t": 31,
+            "rssKb": 83552,
+            "hwmKb": 83552,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1420,
+            "cpuPct": 5
+          },
+          {
+            "t": 32,
+            "rssKb": 83644,
+            "hwmKb": 83644,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1450,
+            "cpuPct": 3
+          },
+          {
+            "t": 33,
+            "rssKb": 83732,
+            "hwmKb": 83732,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1470,
+            "cpuPct": 2
+          },
+          {
+            "t": 34,
+            "rssKb": 83812,
+            "hwmKb": 83812,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1490,
+            "cpuPct": 2
+          },
+          {
+            "t": 35,
+            "rssKb": 83900,
+            "hwmKb": 83900,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1510,
+            "cpuPct": 2
+          },
+          {
+            "t": 36,
+            "rssKb": 83996,
+            "hwmKb": 83996,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1540,
+            "cpuPct": 3
+          },
+          {
+            "t": 37,
+            "rssKb": 84076,
+            "hwmKb": 84076,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1560,
+            "cpuPct": 2
+          },
+          {
+            "t": 38,
+            "rssKb": 84168,
+            "hwmKb": 84168,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1580,
+            "cpuPct": 2
+          },
+          {
+            "t": 39,
+            "rssKb": 84252,
+            "hwmKb": 84252,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1610,
+            "cpuPct": 3
+          },
+          {
+            "t": 40,
+            "rssKb": 84344,
+            "hwmKb": 84344,
+            "threads": 23,
+            "fds": 212,
+            "cpuMs": 1630,
+            "cpuPct": 2
+          }
+        ],
+        "system": [
+          {
+            "t": 1,
+            "cpuBusyPct": [0, 22, 20.8, 2, 5.9, 7, 4, 6, 5, 0, 3],
+            "busyPct": 75.7,
+            "interruptPct": 2,
+            "foreignCpuPct": 20.8
+          },
+          {
+            "t": 2,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+            "busyPct": 4,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 3,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 1,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 4,
+            "cpuBusyPct": [0, 0, 0, 2, 1, 0, 1, 1, 1, 1, 0],
+            "busyPct": 7,
+            "interruptPct": 1,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 5,
+            "cpuBusyPct": [0, 0, 0, 1, 0, 1, 5.9, 0, 0, 0, 0],
+            "busyPct": 7.9,
+            "interruptPct": 0,
+            "foreignCpuPct": 0.9
+          },
+          {
+            "t": 6,
+            "cpuBusyPct": [0, 0, 0, 4, 1, 5, 5.1, 2, 0, 0, 0],
+            "busyPct": 17.1,
+            "interruptPct": 0,
+            "foreignCpuPct": 12.1
+          },
+          {
+            "t": 7,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 2, 2, 1, 0, 1],
+            "busyPct": 6,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 8,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 0],
+            "busyPct": 5,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 9,
+            "cpuBusyPct": [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 10,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 11,
+            "cpuBusyPct": [0, 1, 0, 2, 1, 1, 1, 1, 1, 0, 0],
+            "busyPct": 8,
+            "interruptPct": 0,
+            "foreignCpuPct": 6
+          },
+          {
+            "t": 12,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 2, 1, 0, 1, 0, 2],
+            "busyPct": 7,
+            "interruptPct": 0,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 13,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 14,
+            "cpuBusyPct": [1, 0, 0, 0, 0, 1, 4, 0, 0, 1, 1],
+            "busyPct": 8,
+            "interruptPct": 0,
+            "foreignCpuPct": 2
+          },
+          {
+            "t": 15,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 16,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+            "busyPct": 4,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 17,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 18,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0],
+            "busyPct": 4,
+            "interruptPct": 1,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 19,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 20,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 21,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 1,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 22,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 23,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 0, 2, 0, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 0,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 24,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+            "busyPct": 2,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 25,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+            "busyPct": 2,
+            "interruptPct": 1,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 26,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 0, 0, 3, 1, 0, 0],
+            "busyPct": 6,
+            "interruptPct": 1,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 27,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 28,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 5, 0, 0, 0, 0],
+            "busyPct": 5.9,
+            "interruptPct": 0,
+            "foreignCpuPct": 0.9
+          },
+          {
+            "t": 29,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            "busyPct": 2,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 30,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 31,
+            "cpuBusyPct": [1, 1, 0, 0, 0, 0, 3.1, 0, 1, 0, 0],
+            "busyPct": 6.1,
+            "interruptPct": 0,
+            "foreignCpuPct": 1.1
+          },
+          {
+            "t": 32,
+            "cpuBusyPct": [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 2],
+            "busyPct": 5,
+            "interruptPct": 0,
+            "foreignCpuPct": 2
+          },
+          {
+            "t": 33,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 34,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0],
+            "busyPct": 5,
+            "interruptPct": 0,
+            "foreignCpuPct": 3
+          },
+          {
+            "t": 35,
+            "cpuBusyPct": [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+            "busyPct": 3,
+            "interruptPct": 1,
+            "foreignCpuPct": 1
+          },
+          {
+            "t": 36,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0],
+            "busyPct": 3,
+            "interruptPct": 2,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 37,
+            "cpuBusyPct": [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 38,
+            "cpuBusyPct": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            "busyPct": 1,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 39,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          },
+          {
+            "t": 40,
+            "cpuBusyPct": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "busyPct": 0,
+            "interruptPct": 0,
+            "foreignCpuPct": 0
+          }
+        ]
+      },
+      "gcEvents": []
+    },
+    {
+      "attack": "updown",
+      "cap": {
+        "heap": null,
+        "direct": null,
+        "cgroupLimit": "512m",
+        "cgroup": "/sys/fs/cgroup/microproxy-loadtest-34123-goproxy-memory-updown",
+        "socketBuffers": "beside the limit"
+      },
+      "baseline": {
+        "nmt": {},
+        "rssKb": 8796,
+        "hwmKb": 8796,
+        "threads": 4,
+        "fds": 6,
+        "cpuMs": 0
+      },
+      "workload": {
+        "uploads": 184,
+        "downloads": 1744,
+        "errors": 0,
+        "connections": 32
+      },
+      "memSeries": [
+        {
+          "t": 5,
+          "cgroupOwnKb": 10180,
+          "sockKb": 6908,
+          "rssKb": 16240,
+          "fds": 72,
+          "threads": 6
+        },
+        {
+          "t": 10.42,
+          "cgroupOwnKb": 9940,
+          "sockKb": 7132,
+          "rssKb": 16660,
+          "fds": 76,
+          "threads": 6
+        },
+        {
+          "t": 15.739,
+          "cgroupOwnKb": 10632,
+          "sockKb": 9652,
+          "rssKb": 16644,
+          "fds": 76,
+          "threads": 6
+        },
+        {
+          "t": 21.232,
+          "cgroupOwnKb": 10812,
+          "sockKb": 11060,
+          "rssKb": 16700,
+          "fds": 80,
+          "threads": 6
+        },
+        {
+          "t": 26.809,
+          "cgroupOwnKb": 11136,
+          "sockKb": 11928,
+          "rssKb": 16940,
+          "fds": 78,
+          "threads": 6
+        },
+        {
+          "t": 32.252,
+          "cgroupOwnKb": 10696,
+          "sockKb": 7760,
+          "rssKb": 16892,
+          "fds": 76,
+          "threads": 7
+        },
+        {
+          "t": 37.583,
+          "cgroupOwnKb": 11252,
+          "sockKb": 10368,
+          "rssKb": 16920,
+          "fds": 76,
+          "threads": 7
+        },
+        {
+          "t": 43.083,
+          "cgroupOwnKb": 11272,
+          "sockKb": 12328,
+          "rssKb": 17132,
+          "fds": 76,
+          "threads": 7
+        }
+      ],
+      "afterStop": {
+        "t": 43.439,
+        "cgroupOwnKb": 10976,
+        "sockKb": 11820,
+        "rssKb": 17136,
+        "fds": 76,
+        "threads": 7
+      },
+      "judgement": {
+        "warmupS": 10,
+        "windowS": 32.663,
+        "rssFit": {
+          "key": "rssKb",
+          "samples": 7,
+          "windowS": 32.663,
+          "mean": 16841.1,
+          "slopePerS": 14.168,
+          "slopePerHour": 51003.3,
+          "growth": 462.756,
+          "growthPct": 2.748,
+          "r2": 0.858,
+          "flagged": false
+        },
+        "nmtFit": {
+          "key": "nmtTotalKb",
+          "samples": 0,
+          "flagged": false
+        },
+        "verdict": "bounded",
+        "pass": true,
+        "detail": "RSS slope 14.168 KB/s (R² 0.858, growth 462.756 KB), NMT slope null KB/s (R² null); peak RSS 16 MB, peak NMT other (direct) 0 MB, peak socket buffers 21 MB; transfer errors 0; probe 80/80 ok"
+      },
+      "probes": [
+        {
+          "t": 5,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 167.039,
+            "p90": 218.623,
+            "p99": 218.751,
+            "p999": 218.751,
+            "p9999": 218.751,
+            "max": 218.751,
+            "mean": 160.507
+          }
+        },
+        {
+          "t": 10.42,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 80.895,
+            "p90": 231.295,
+            "p99": 233.727,
+            "p999": 233.727,
+            "p9999": 233.727,
+            "max": 233.727,
+            "mean": 156.208
+          }
+        },
+        {
+          "t": 15.739,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 200.191,
+            "p90": 289.279,
+            "p99": 289.535,
+            "p999": 289.535,
+            "p9999": 289.535,
+            "max": 289.535,
+            "mean": 244.614
+          }
+        },
+        {
+          "t": 21.232,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 193.663,
+            "p90": 377.855,
+            "p99": 377.855,
+            "p999": 377.855,
+            "p9999": 377.855,
+            "max": 377.855,
+            "mean": 285.446
+          }
+        },
+        {
+          "t": 26.809,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 175.359,
+            "p90": 264.191,
+            "p99": 264.447,
+            "p999": 264.447,
+            "p9999": 264.447,
+            "max": 264.447,
+            "mean": 219.629
+          }
+        },
+        {
+          "t": 32.252,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 161.279,
+            "p90": 164.735,
+            "p99": 164.991,
+            "p999": 164.991,
+            "p9999": 164.991,
+            "max": 164.991,
+            "mean": 162.88
+          }
+        },
+        {
+          "t": 37.583,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 151.423,
+            "p90": 344.575,
+            "p99": 344.831,
+            "p999": 344.831,
+            "p9999": 344.831,
+            "max": 344.831,
+            "mean": 247.827
+          }
+        },
+        {
+          "t": 43.083,
+          "outcomes": {
+            "OK": 10
+          },
+          "durationMs": {
+            "count": 10,
+            "p50": 157.695,
+            "p90": 190.591,
+            "p99": 191.103,
+            "p999": 191.103,
+            "p9999": 191.103,
+            "max": 191.103,
+            "mean": 161.154
+          }
+        }
+      ],
+      "peakRssKb": 17132,
+      "peakNmtTotalKb": -1,
+      "peakHeapAfterGcKb": -1,
+      "peakOtherKb": -1,
+      "peakCgroupOwnKb": 11856,
+      "peakSockKb": 22344,
+      "rssGrowthKb": 892,
+      "outcome": "bounded",
+      "pass": true,
+      "proxyState": "running",
+      "series": {
+        "proxy": [
+          {
+            "t": 0,
+            "rssKb": 8796,
+            "hwmKb": 8796,
+            "threads": 4,
+            "fds": 6,
+            "cpuMs": 0
+          },
+          {
+            "t": 1,
+            "rssKb": 12800,
+            "hwmKb": 12800,
+            "threads": 5,
+            "fds": 71,
+            "cpuMs": 950,
+            "cpuPct": 95
+          },
+          {
+            "t": 2,
+            "rssKb": 14592,
+            "hwmKb": 14592,
+            "threads": 5,
+            "fds": 71,
+            "cpuMs": 1950,
+            "cpuPct": 99.9
+          },
+          {
+            "t": 3,
+            "rssKb": 15748,
+            "hwmKb": 15748,
+            "threads": 5,
+            "fds": 70,
+            "cpuMs": 2950,
+            "cpuPct": 100
+          },
+          {
+            "t": 4,
+            "rssKb": 16096,
+            "hwmKb": 16096,
+            "threads": 5,
+            "fds": 72,
+            "cpuMs": 3950,
+            "cpuPct": 100
+          },
+          {
+            "t": 5,
+            "rssKb": 16240,
+            "hwmKb": 16240,
+            "threads": 6,
+            "fds": 72,
+            "cpuMs": 4950,
+            "cpuPct": 100
+          },
+          {
+            "t": 6,
+            "rssKb": 16312,
+            "hwmKb": 16312,
+            "threads": 6,
+            "fds": 77,
+            "cpuMs": 5950,
+            "cpuPct": 100
+          },
+          {
+            "t": 7,
+            "rssKb": 16316,
+            "hwmKb": 16316,
+            "threads": 6,
+            "fds": 81,
+            "cpuMs": 6950,
+            "cpuPct": 100
+          },
+          {
+            "t": 8,
+            "rssKb": 16444,
+            "hwmKb": 16444,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 7950,
+            "cpuPct": 100
+          },
+          {
+            "t": 9,
+            "rssKb": 16452,
+            "hwmKb": 16452,
+            "threads": 6,
+            "fds": 77,
+            "cpuMs": 8960,
+            "cpuPct": 101
+          },
+          {
+            "t": 10,
+            "rssKb": 16660,
+            "hwmKb": 16660,
+            "threads": 6,
+            "fds": 80,
+            "cpuMs": 9960,
+            "cpuPct": 99.9
+          },
+          {
+            "t": 11,
+            "rssKb": 16548,
+            "hwmKb": 16548,
+            "threads": 6,
+            "fds": 79,
+            "cpuMs": 10960,
+            "cpuPct": 100
+          },
+          {
+            "t": 12,
+            "rssKb": 16580,
+            "hwmKb": 16580,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 11960,
+            "cpuPct": 100
+          },
+          {
+            "t": 13,
+            "rssKb": 16580,
+            "hwmKb": 16580,
+            "threads": 6,
+            "fds": 84,
+            "cpuMs": 12960,
+            "cpuPct": 100
+          },
+          {
+            "t": 14,
+            "rssKb": 16580,
+            "hwmKb": 16580,
+            "threads": 6,
+            "fds": 81,
+            "cpuMs": 13950,
+            "cpuPct": 99
+          },
+          {
+            "t": 15,
+            "rssKb": 16644,
+            "hwmKb": 16644,
+            "threads": 6,
+            "fds": 77,
+            "cpuMs": 14950,
+            "cpuPct": 100
+          },
+          {
+            "t": 16,
+            "rssKb": 16644,
+            "hwmKb": 16644,
+            "threads": 6,
+            "fds": 81,
+            "cpuMs": 15960,
+            "cpuPct": 101
+          },
+          {
+            "t": 17,
+            "rssKb": 16644,
+            "hwmKb": 16644,
+            "threads": 6,
+            "fds": 77,
+            "cpuMs": 16960,
+            "cpuPct": 100
+          },
+          {
+            "t": 18,
+            "rssKb": 16644,
+            "hwmKb": 16644,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 17960,
+            "cpuPct": 99.9
+          },
+          {
+            "t": 19,
+            "rssKb": 16644,
+            "hwmKb": 16644,
+            "threads": 6,
+            "fds": 78,
+            "cpuMs": 18960,
+            "cpuPct": 100
+          },
+          {
+            "t": 20,
+            "rssKb": 16700,
+            "hwmKb": 16700,
+            "threads": 6,
+            "fds": 78,
+            "cpuMs": 19960,
+            "cpuPct": 100
+          },
+          {
+            "t": 21,
+            "rssKb": 16700,
+            "hwmKb": 16700,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 20950,
+            "cpuPct": 99
+          },
+          {
+            "t": 22,
+            "rssKb": 16732,
+            "hwmKb": 16732,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 21960,
+            "cpuPct": 101
+          },
+          {
+            "t": 23,
+            "rssKb": 16736,
+            "hwmKb": 16736,
+            "threads": 6,
+            "fds": 75,
+            "cpuMs": 22960,
+            "cpuPct": 100
+          },
+          {
+            "t": 24,
+            "rssKb": 16900,
+            "hwmKb": 16900,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 23960,
+            "cpuPct": 100
+          },
+          {
+            "t": 25,
+            "rssKb": 16912,
+            "hwmKb": 16912,
+            "threads": 6,
+            "fds": 84,
+            "cpuMs": 24960,
+            "cpuPct": 100
+          },
+          {
+            "t": 26,
+            "rssKb": 16912,
+            "hwmKb": 16912,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 25960,
+            "cpuPct": 100
+          },
+          {
+            "t": 27,
+            "rssKb": 16940,
+            "hwmKb": 16940,
+            "threads": 6,
+            "fds": 81,
+            "cpuMs": 26960,
+            "cpuPct": 100
+          },
+          {
+            "t": 28,
+            "rssKb": 16940,
+            "hwmKb": 16940,
+            "threads": 6,
+            "fds": 76,
+            "cpuMs": 27960,
+            "cpuPct": 100
+          },
+          {
+            "t": 29,
+            "rssKb": 16956,
+            "hwmKb": 16956,
+            "threads": 7,
+            "fds": 77,
+            "cpuMs": 28960,
+            "cpuPct": 100
+          },
+          {
+            "t": 30,
+            "rssKb": 16956,
+            "hwmKb": 16956,
+            "threads": 7,
+            "fds": 83,
+            "cpuMs": 29960,
+            "cpuPct": 100
+          },
+          {
+            "t": 31,
+            "rssKb": 16956,
+            "hwmKb": 16956,
+            "threads": 7,
+            "fds": 77,
+            "cpuMs": 30960,
+            "cpuPct": 100
+          },
+          {
+            "t": 32,
+            "rssKb": 16892,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 75,
+            "cpuMs": 31960,
+            "cpuPct": 100
+          },
+          {
+            "t": 33,
+            "rssKb": 16892,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 76,
+            "cpuMs": 32960,
+            "cpuPct": 100
+          },
+          {
+            "t": 34,
+            "rssKb": 16920,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 77,
+            "cpuMs": 33960,
+            "cpuPct": 100
+          },
+          {
+            "t": 35,
+            "rssKb": 16920,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 76,
+            "cpuMs": 34960,
+            "cpuPct": 100
+          },
+          {
+            "t": 36,
+            "rssKb": 16920,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 80,
+            "cpuMs": 35970,
+            "cpuPct": 101
+          },
+          {
+            "t": 37,
+            "rssKb": 16920,
+            "hwmKb": 16928,
+            "threads": 7,
+            "fds": 78,
+            "cpuMs": 36960,
+            "cpuPct": 99
+          },
+          {
+            "t": 38,
+            "rssKb": 16932,
+            "hwmKb": 16932,
+            "threads": 7,
+            "fds": 82,
+            "cpuMs": 37970,
+            "cpuPct": 101
+          },
+          {
+            "t": 39,
+            "rssKb": 16936,
+            "hwmKb": 16936,
+            "threads": 7,
+            "fds": 76,
+            "cpuMs": 38970,
+            "cpuPct": 100
+          },
+          {
+            "t": 40,
+            "rssKb": 16944,
+            "hwmKb": 16944,
+            "threads": 7,
+            "fds": 79,
+            "cpuMs": 39960,
+            "cpuPct": 99
+          },
+          {
+            "t": 41,
+            "rssKb": 17104,
+            "hwmKb": 17104,
+            "threads": 7,
+            "fds": 78,
+            "cpuMs": 40960,
+            "cpuPct": 100
+          },
+          {
+            "t": 42,
+            "rssKb": 17104,
+            "hwmKb": 17104,
+            "threads": 7,
+            "fds": 76,
+            "cpuMs": 41960,
+            "cpuPct": 99.9
+          },
+          {
+            "t": 43,
+            "rssKb": 17132,
+            "hwmKb": 17132,
+            "threads": 7,
+            "fds": 76,
+            "cpuMs": 42970,
+            "cpuPct": 100.9
+          }
+        ],
+        "client": [
+          {
+            "t": 0,
+            "rssKb": 46832,
+            "hwmKb": 46832,
+            "threads": 15,
+            "fds": 5,
+            "cpuMs": 60
+          },
+          {
+            "t": 1,
+            "rssKb": 68868,
+            "hwmKb": 68868,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 1600,
+            "cpuPct": 153.9
+          },
+          {
+            "t": 2,
+            "rssKb": 76120,
+            "hwmKb": 76120,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 2820,
+            "cpuPct": 121.9
+          },
+          {
+            "t": 3,
+            "rssKb": 84240,
+            "hwmKb": 84240,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 4140,
+            "cpuPct": 131.9
+          },
+          {
+            "t": 4,
+            "rssKb": 93044,
+            "hwmKb": 93044,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 5490,
+            "cpuPct": 134.9
+          },
+          {
+            "t": 5,
+            "rssKb": 101412,
+            "hwmKb": 101412,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 6750,
+            "cpuPct": 125.9
+          },
+          {
+            "t": 6,
+            "rssKb": 109988,
+            "hwmKb": 109988,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 8000,
+            "cpuPct": 124.9
+          },
+          {
+            "t": 7,
+            "rssKb": 118020,
+            "hwmKb": 118020,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 9270,
+            "cpuPct": 126.9
+          },
+          {
+            "t": 8,
+            "rssKb": 127228,
+            "hwmKb": 127228,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 10550,
+            "cpuPct": 127.9
+          },
+          {
+            "t": 9,
+            "rssKb": 141824,
+            "hwmKb": 141824,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 11880,
+            "cpuPct": 132.9
+          },
+          {
+            "t": 10,
+            "rssKb": 149284,
+            "hwmKb": 151544,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 13190,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 11,
+            "rssKb": 158016,
+            "hwmKb": 158016,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 14480,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 12,
+            "rssKb": 171664,
+            "hwmKb": 171664,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 15840,
+            "cpuPct": 135.9
+          },
+          {
+            "t": 13,
+            "rssKb": 180596,
+            "hwmKb": 180596,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 17140,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 14,
+            "rssKb": 189152,
+            "hwmKb": 189152,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 18430,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 15,
+            "rssKb": 195908,
+            "hwmKb": 196792,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 19730,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 16,
+            "rssKb": 204572,
+            "hwmKb": 204572,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 21040,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 17,
+            "rssKb": 213232,
+            "hwmKb": 213232,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 22320,
+            "cpuPct": 127.9
+          },
+          {
+            "t": 18,
+            "rssKb": 222380,
+            "hwmKb": 222380,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 23620,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 19,
+            "rssKb": 230896,
+            "hwmKb": 230896,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 24880,
+            "cpuPct": 125.9
+          },
+          {
+            "t": 20,
+            "rssKb": 239656,
+            "hwmKb": 239656,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 26170,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 21,
+            "rssKb": 248208,
+            "hwmKb": 248208,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 27460,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 22,
+            "rssKb": 257056,
+            "hwmKb": 257056,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 28740,
+            "cpuPct": 127.9
+          },
+          {
+            "t": 23,
+            "rssKb": 265952,
+            "hwmKb": 265952,
+            "threads": 23,
+            "fds": 43,
+            "cpuMs": 30030,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 24,
+            "rssKb": 274576,
+            "hwmKb": 274576,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 31350,
+            "cpuPct": 131.9
+          },
+          {
+            "t": 25,
+            "rssKb": 283444,
+            "hwmKb": 283444,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 32630,
+            "cpuPct": 127.9
+          },
+          {
+            "t": 26,
+            "rssKb": 292084,
+            "hwmKb": 292084,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 33920,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 27,
+            "rssKb": 300668,
+            "hwmKb": 300668,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 35230,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 28,
+            "rssKb": 309352,
+            "hwmKb": 309352,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 36520,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 29,
+            "rssKb": 318072,
+            "hwmKb": 318072,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 37800,
+            "cpuPct": 127.9
+          },
+          {
+            "t": 30,
+            "rssKb": 326720,
+            "hwmKb": 326720,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 39110,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 31,
+            "rssKb": 335444,
+            "hwmKb": 335444,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 40410,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 32,
+            "rssKb": 344220,
+            "hwmKb": 344220,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 41730,
+            "cpuPct": 131.9
+          },
+          {
+            "t": 33,
+            "rssKb": 352908,
+            "hwmKb": 352908,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 43040,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 34,
+            "rssKb": 361680,
+            "hwmKb": 361680,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 44350,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 35,
+            "rssKb": 370352,
+            "hwmKb": 370352,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 45650,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 36,
+            "rssKb": 379296,
+            "hwmKb": 379296,
+            "threads": 23,
+            "fds": 44,
+            "cpuMs": 46960,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 37,
+            "rssKb": 388984,
+            "hwmKb": 388984,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 48270,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 38,
+            "rssKb": 394324,
+            "hwmKb": 394324,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 49560,
+            "cpuPct": 128.9
+          },
+          {
+            "t": 39,
+            "rssKb": 399604,
+            "hwmKb": 399604,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 50860,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 40,
+            "rssKb": 401952,
+            "hwmKb": 401952,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 52170,
+            "cpuPct": 130.9
+          },
+          {
+            "t": 41,
+            "rssKb": 402656,
+            "hwmKb": 402656,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 53490,
+            "cpuPct": 131.9
+          },
+          {
+            "t": 42,
+            "rssKb": 403296,
+            "hwmKb": 403296,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 54790,
+            "cpuPct": 129.9
+          },
+          {
+            "t": 43,
+            "rssKb": 404756,
+            "hwmKb": 404756,
+            "threads": 28,
+            "fds": 44,
+            "cpuMs": 56100,
+            "cpuPct": 130.9
+          }
+        ],
+        "system": [
+          {
+            "t": 1,
+            "cpuBusyPct": [1.9, 77, 61.4, 22.7, 24.7, 25, 28.9, 23.2, 25, 0, 0],
+            "busyPct": 289.8,
+            "interruptPct": 26,
+            "foreignCpuPct": 41
+          },
+          {
+            "t": 2,
+            "cpuBusyPct": [0, 80, 59.8, 19.8, 15.8, 14.7, 15.6, 23.7, 20.6, 0, 2],
+            "busyPct": 252.1,
+            "interruptPct": 37.8,
+            "foreignCpuPct": 30.2
+          },
+          {
+            "t": 3,
+            "cpuBusyPct": [0, 79, 60.4, 16.1, 19.8, 24.7, 16, 24.7, 21.4, 1, 1],
+            "busyPct": 264.2,
+            "interruptPct": 36.6,
+            "foreignCpuPct": 32.3
+          },
+          {
+            "t": 4,
+            "cpuBusyPct": [0, 79, 58.8, 28.9, 15.8, 16, 22.7, 24.5, 17, 0, 0],
+            "busyPct": 262.6,
+            "interruptPct": 35.7,
+            "foreignCpuPct": 27.7
+          },
+          {
+            "t": 5,
+            "cpuBusyPct": [0, 80, 55.7, 16.3, 15.1, 18.9, 20.8, 21.5, 22.7, 0, 0],
+            "busyPct": 251,
+            "interruptPct": 36.9,
+            "foreignCpuPct": 25.1
+          },
+          {
+            "t": 6,
+            "cpuBusyPct": [0, 80.2, 59.4, 23.7, 15.8, 22.9, 17.7, 28.3, 22.7, 0, 0],
+            "busyPct": 270.6,
+            "interruptPct": 38.3,
+            "foreignCpuPct": 45.7
+          },
+          {
+            "t": 7,
+            "cpuBusyPct": [0, 78, 58.8, 18.9, 27.4, 16.7, 18.6, 19.4, 14.7, 0, 0],
+            "busyPct": 252.4,
+            "interruptPct": 33.3,
+            "foreignCpuPct": 25.5
+          },
+          {
+            "t": 8,
+            "cpuBusyPct": [0, 80, 56.1, 17, 20.8, 22.7, 22.9, 12.9, 19.1, 1, 1],
+            "busyPct": 253.6,
+            "interruptPct": 34,
+            "foreignCpuPct": 25.7
+          },
+          {
+            "t": 9,
+            "cpuBusyPct": [0, 78.8, 56.3, 19.8, 21.6, 19.6, 29.6, 18.1, 14.9, 0, 0],
+            "busyPct": 258.6,
+            "interruptPct": 38,
+            "foreignCpuPct": 24.8
+          },
+          {
+            "t": 10,
+            "cpuBusyPct": [1, 79, 53.6, 16.8, 25.5, 22.3, 23.4, 16.8, 15.8, 0, 0],
+            "busyPct": 254.3,
+            "interruptPct": 33.1,
+            "foreignCpuPct": 23.4
+          },
+          {
+            "t": 11,
+            "cpuBusyPct": [1, 80, 55.6, 18.8, 21.5, 19.1, 21.1, 17.9, 17.2, 0, 0],
+            "busyPct": 252.1,
+            "interruptPct": 29.3,
+            "foreignCpuPct": 23.2
+          },
+          {
+            "t": 12,
+            "cpuBusyPct": [0, 77.2, 55.1, 19.1, 21.1, 20.2, 32.3, 13.4, 18.6, 0, 1],
+            "busyPct": 258,
+            "interruptPct": 34.1,
+            "foreignCpuPct": 22.1
+          },
+          {
+            "t": 13,
+            "cpuBusyPct": [0, 78, 56.4, 21.3, 14.9, 16.8, 22.1, 22.6, 14.9, 0, 0],
+            "busyPct": 247,
+            "interruptPct": 32.4,
+            "foreignCpuPct": 17.1
+          },
+          {
+            "t": 14,
+            "cpuBusyPct": [0, 78, 55.6, 27.1, 11.6, 20.4, 17.5, 17.9, 25, 0, 0],
+            "busyPct": 253.1,
+            "interruptPct": 32.3,
+            "foreignCpuPct": 25.2
+          },
+          {
+            "t": 15,
+            "cpuBusyPct": [0, 81.8, 54.1, 17.7, 20.2, 25.3, 21.3, 16.7, 16, 0, 0],
+            "busyPct": 253,
+            "interruptPct": 28.6,
+            "foreignCpuPct": 23.1
+          },
+          {
+            "t": 16,
+            "cpuBusyPct": [0, 78.2, 52.1, 16.7, 28.7, 14.9, 21.1, 16.3, 19.4, 0, 0],
+            "busyPct": 247.4,
+            "interruptPct": 31.2,
+            "foreignCpuPct": 15.5
+          },
+          {
+            "t": 17,
+            "cpuBusyPct": [0, 79.8, 54.5, 18.3, 21.6, 24.7, 15.6, 21.9, 18.9, 0, 0],
+            "busyPct": 255.5,
+            "interruptPct": 27.4,
+            "foreignCpuPct": 27.6
+          },
+          {
+            "t": 18,
+            "cpuBusyPct": [1.9, 79.2, 55.6, 24.2, 23.4, 16, 19.8, 19.2, 17, 0, 0],
+            "busyPct": 256.3,
+            "interruptPct": 31,
+            "foreignCpuPct": 26.4
+          },
+          {
+            "t": 19,
+            "cpuBusyPct": [0, 79, 54.3, 16.8, 18.8, 27.4, 15.6, 17.4, 16.8, 0, 0],
+            "busyPct": 246.1,
+            "interruptPct": 30.4,
+            "foreignCpuPct": 20.2
+          },
+          {
+            "t": 20,
+            "cpuBusyPct": [0, 82, 57, 21.1, 17.9, 20, 17, 16.8, 21.9, 0, 0],
+            "busyPct": 253.7,
+            "interruptPct": 26.3,
+            "foreignCpuPct": 24.8
+          },
+          {
+            "t": 21,
+            "cpuBusyPct": [0, 82, 56.7, 20, 17.7, 19.1, 24, 22.9, 16.8, 0, 0],
+            "busyPct": 259.3,
+            "interruptPct": 26.2,
+            "foreignCpuPct": 31.4
+          },
+          {
+            "t": 22,
+            "cpuBusyPct": [0, 78, 56.4, 20.2, 23.4, 18.1, 14.7, 25, 15.6, 0, 3],
+            "busyPct": 254.5,
+            "interruptPct": 32.2,
+            "foreignCpuPct": 25.6
+          },
+          {
+            "t": 23,
+            "cpuBusyPct": [0, 79.2, 56.7, 17.9, 20.2, 17.7, 19.1, 22.3, 18.9, 1, 0],
+            "busyPct": 253.2,
+            "interruptPct": 36.6,
+            "foreignCpuPct": 24.3
+          },
+          {
+            "t": 24,
+            "cpuBusyPct": [0, 81.8, 54.6, 22.9, 17, 25, 21.6, 16.5, 21.1, 0, 0],
+            "busyPct": 260.6,
+            "interruptPct": 33.1,
+            "foreignCpuPct": 28.7
+          },
+          {
+            "t": 25,
+            "cpuBusyPct": [0, 81.2, 56.3, 20, 21.3, 15.8, 16.7, 21.6, 22.7, 0, 0],
+            "busyPct": 255.6,
+            "interruptPct": 35.4,
+            "foreignCpuPct": 27.7
+          },
+          {
+            "t": 26,
+            "cpuBusyPct": [0, 79, 56.4, 21.1, 17.7, 20.4, 13.7, 22.9, 21.1, 0, 0],
+            "busyPct": 252.3,
+            "interruptPct": 35.8,
+            "foreignCpuPct": 23.4
+          },
+          {
+            "t": 27,
+            "cpuBusyPct": [0.9, 79.8, 54.1, 16.5, 17, 24.2, 20, 21.3, 18.3, 0, 0],
+            "busyPct": 252.1,
+            "interruptPct": 36.3,
+            "foreignCpuPct": 21.2
+          },
+          {
+            "t": 28,
+            "cpuBusyPct": [0, 79, 56, 21.3, 19.1, 19.1, 20.2, 15.6, 23.7, 0, 0],
+            "busyPct": 254.1,
+            "interruptPct": 29.2,
+            "foreignCpuPct": 25.2
+          },
+          {
+            "t": 29,
+            "cpuBusyPct": [1, 80, 56, 19.1, 24.7, 16.7, 16.7, 20, 21.1, 1, 0],
+            "busyPct": 256.2,
+            "interruptPct": 30.2,
+            "foreignCpuPct": 28.3
+          },
+          {
+            "t": 30,
+            "cpuBusyPct": [0, 78.2, 56.9, 16.8, 22.3, 12.9, 18.5, 23.2, 21.1, 0, 0],
+            "busyPct": 249.9,
+            "interruptPct": 31.1,
+            "foreignCpuPct": 19
+          },
+          {
+            "t": 31,
+            "cpuBusyPct": [0, 77.8, 55.1, 19.1, 26.3, 16.5, 17.7, 20.8, 21.9, 0, 0],
+            "busyPct": 255.3,
+            "interruptPct": 29.4,
+            "foreignCpuPct": 25.4
+          },
+          {
+            "t": 32,
+            "cpuBusyPct": [0, 81.2, 56.3, 16.1, 17.5, 32, 17.2, 22.1, 15.5, 0, 0],
+            "busyPct": 257.9,
+            "interruptPct": 27,
+            "foreignCpuPct": 26
+          },
+          {
+            "t": 33,
+            "cpuBusyPct": [0, 80, 54.5, 30.2, 18.1, 15.8, 18.9, 18.3, 21.1, 2, 3],
+            "busyPct": 261.8,
+            "interruptPct": 32.8,
+            "foreignCpuPct": 30.9
+          },
+          {
+            "t": 34,
+            "cpuBusyPct": [0.9, 80, 55, 16.8, 16.8, 22.1, 22.1, 18.8, 25.8, 0, 0],
+            "busyPct": 258.4,
+            "interruptPct": 34.8,
+            "foreignCpuPct": 27.5
+          },
+          {
+            "t": 35,
+            "cpuBusyPct": [0, 77, 53.6, 22.8, 18.9, 23.4, 11.6, 17, 18.1, 0, 0],
+            "busyPct": 242.5,
+            "interruptPct": 38.1,
+            "foreignCpuPct": 12.6
+          },
+          {
+            "t": 36,
+            "cpuBusyPct": [0, 79.8, 53.1, 19.6, 19.8, 21.3, 21.1, 17.9, 21.7, 0, 0],
+            "busyPct": 254.2,
+            "interruptPct": 33.1,
+            "foreignCpuPct": 22.3
+          },
+          {
+            "t": 37,
+            "cpuBusyPct": [0, 81.2, 55, 21.1, 15.6, 16.5, 22.9, 27.1, 19.8, 0, 0],
+            "busyPct": 259.2,
+            "interruptPct": 29.1,
+            "foreignCpuPct": 29.3
+          },
+          {
+            "t": 38,
+            "cpuBusyPct": [0, 78, 54.5, 18.9, 23.2, 22.3, 19.6, 13.8, 19.6, 0, 0],
+            "busyPct": 250,
+            "interruptPct": 32.3,
+            "foreignCpuPct": 20.1
+          },
+          {
+            "t": 39,
+            "cpuBusyPct": [0, 79, 52.1, 19.8, 21.6, 24.7, 18.5, 21.1, 17, 0, 0],
+            "busyPct": 253.8,
+            "interruptPct": 30.3,
+            "foreignCpuPct": 23.9
+          },
+          {
+            "t": 40,
+            "cpuBusyPct": [2, 79, 55.1, 18.8, 20.8, 17, 20.8, 18.9, 22.3, 0, 0],
+            "busyPct": 254.8,
+            "interruptPct": 31.4,
+            "foreignCpuPct": 24.9
+          },
+          {
+            "t": 41,
+            "cpuBusyPct": [0, 79.2, 54.1, 15.8, 25.3, 23.5, 21.1, 18.1, 18.1, 0, 0],
+            "busyPct": 255,
+            "interruptPct": 28,
+            "foreignCpuPct": 23.1
+          },
+          {
+            "t": 42,
+            "cpuBusyPct": [0, 78.8, 55.3, 23.4, 13.7, 19.1, 20.6, 20.8, 22.7, 0, 0],
+            "busyPct": 254.5,
+            "interruptPct": 30.3,
+            "foreignCpuPct": 24.6
+          },
+          {
+            "t": 43,
+            "cpuBusyPct": [2, 78, 58.1, 21.6, 16.8, 21.1, 20.8, 15.8, 23.4, 0, 0],
+            "busyPct": 257.6,
+            "interruptPct": 31.1,
+            "foreignCpuPct": 25.8
+          }
+        ]
+      },
+      "gcEvents": []
+    }
+  ]
+}

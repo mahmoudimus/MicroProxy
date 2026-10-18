@@ -1,0 +1,1647 @@
+{
+ "generated": "2026-10-18T18:43:04Z",
+ "runInfo": {
+  "commit": "471ba13a820bdb14d9ef4adbbd791b17760c0048",
+  "uncommittedLoadtestChanges": 0,
+  "command": "REPS=3 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh --head-timeout 30 --attacks slowloris --attack-seconds 90",
+  "started": "2026-10-18T18:15:08Z",
+  "wsl": false
+ },
+ "runs": [
+  {
+   "id": "rep1-20261018-181509",
+   "timestamp": "20261018-181509",
+   "order": [
+    "microproxy",
+    "littleproxy",
+    "envoy",
+    "goproxy",
+    "g3proxy",
+    "squid"
+   ],
+   "end": "2026-10-18T18:24:27Z",
+   "raw": "raw/rep1-20261018-181509.json",
+   "harnessOk": true,
+   "notes": [
+    "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
+   ],
+   "hostLoad": {
+    "samples": 111,
+    "foreignCpuPct": {
+     "mean": 4.0,
+     "p95": 12.2,
+     "max": 32.0
+    },
+    "windowsHost": null,
+    "loadavg1": {
+     "mean": 0.1,
+     "max": 0.48
+    },
+    "interruptCpuPct": 0.2,
+    "stealCpuPct": 0.0,
+    "topForeign": [
+     {
+      "process": "kernel thread",
+      "meanCpuPct": 5.5
+     },
+     {
+      "process": "process command line redacted",
+      "meanCpuPct": 0.1
+     }
+    ],
+    "largestGapS": 5.1,
+    "accepted": true
+   }
+  },
+  {
+   "id": "rep2-20261018-182427",
+   "timestamp": "20261018-182427",
+   "order": [
+    "littleproxy",
+    "envoy",
+    "goproxy",
+    "g3proxy",
+    "squid",
+    "microproxy"
+   ],
+   "end": "2026-10-18T18:33:45Z",
+   "raw": "raw/rep2-20261018-182427.json",
+   "harnessOk": true,
+   "notes": [
+    "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
+   ],
+   "hostLoad": {
+    "samples": 112,
+    "foreignCpuPct": {
+     "mean": 4.0,
+     "p95": 11.6,
+     "max": 20.8
+    },
+    "windowsHost": null,
+    "loadavg1": {
+     "mean": 0.09,
+     "max": 0.49
+    },
+    "interruptCpuPct": 0.2,
+    "stealCpuPct": 0.0,
+    "topForeign": [
+     {
+      "process": "kernel thread",
+      "meanCpuPct": 5.8
+     },
+     {
+      "process": "process command line redacted",
+      "meanCpuPct": 0.1
+     }
+    ],
+    "largestGapS": 5.1,
+    "accepted": true
+   }
+  },
+  {
+   "id": "rep3-20261018-183345",
+   "timestamp": "20261018-183345",
+   "order": [
+    "envoy",
+    "goproxy",
+    "g3proxy",
+    "squid",
+    "microproxy",
+    "littleproxy"
+   ],
+   "end": "2026-10-18T18:43:04Z",
+   "raw": "raw/rep3-20261018-183345.json",
+   "harnessOk": true,
+   "notes": [
+    "Ran at nice -20, with the harness's scheduling autogroup at nice -20."
+   ],
+   "hostLoad": {
+    "samples": 112,
+    "foreignCpuPct": {
+     "mean": 3.9,
+     "p95": 11.0,
+     "max": 30.0
+    },
+    "windowsHost": null,
+    "loadavg1": {
+     "mean": 0.22,
+     "max": 1.75
+    },
+    "interruptCpuPct": 0.2,
+    "stealCpuPct": 0.0,
+    "topForeign": [
+     {
+      "process": "kernel thread",
+      "meanCpuPct": 4.4
+     }
+    ],
+    "largestGapS": 5.1,
+    "accepted": true
+   }
+  }
+ ],
+ "memoryRuns": null,
+ "memoryRunInfo": null,
+ "guard": {
+  "foreignCpuMeanMax": 50.0,
+  "foreignCpuP95Max": 100.0,
+  "largestGapMaxS": 10.0,
+  "rejected": []
+ },
+ "machine": {
+  "cpuModel": "Intel(R) Xeon(R) Platinum 8481C CPU @ 2.70GHz",
+  "cpus": 11,
+  "memTotalMb": 88486,
+  "kernel": "7.0.0-1014-gcp",
+  "distribution": "Ubuntu 24.04.5 LTS",
+  "os": "Linux 7.0.0-1014-gcp amd64",
+  "java": "OpenJDK 64-Bit Server VM 25.0.4.1+1-LTS",
+  "cgroup": "v2",
+  "limits": {
+   "nofile": 1048576,
+   "somaxconn": "65535",
+   "ip_local_port_range": "15000 64999",
+   "tcp_tw_reuse": "1",
+   "tcp_max_syn_backlog": "65535",
+   "tcp_rmem": "4096 131072 33554432",
+   "tcp_wmem": "4096 16384 4194304",
+   "file-max": "2097152",
+   "nr_open": "2097152"
+  },
+  "cpuSplit": {
+   "proxy": "1",
+   "origin": "2",
+   "client": "3,4,5,6,7,8"
+  }
+ },
+ "settings": {
+  "preset": "standard",
+  "proxies": "microproxy,littleproxy,envoy,goproxy,g3proxy,squid",
+  "external-proxies": "loadtest/competitors/proxies.json",
+  "scenarios": "memory",
+  "gate": "none",
+  "pin": "auto",
+  "cpus-proxy": "1",
+  "cpus-origin": "2",
+  "cpus-client": "3,4,5,6,7,8",
+  "nice": "-20",
+  "proxy-heap": "1g",
+  "proxy-direct": "",
+  "proxy-max-ram": "",
+  "proxy-cgroup-limit": "",
+  "proxy-gc": "G1",
+  "proxy-jvm-args": "",
+  "proxy-java": "",
+  "proxy-log-level": "error",
+  "jfr": "false",
+  "idle-timeout": "70",
+  "connect-timeout-ms": "40000",
+  "head-timeout": "30",
+  "lp-workers": "0",
+  "mp-admin": "false",
+  "mp-args": "",
+  "client-heap": "2g",
+  "origin-heap": "1g",
+  "request-timeout-ms": "10000",
+  "slo-p99-ms": "50",
+  "error-tolerance": "0.001",
+  "external": "off",
+  "crosscheck-seconds": "15",
+  "charts": "true",
+  "sweep-start-rate": "2000",
+  "sweep-factor": "1.25",
+  "sweep-max-rate": "1000000",
+  "sweep-max-steps": "24",
+  "sweep-step-seconds": "8",
+  "sweep-warmup-seconds": "15",
+  "sweep-connections": "128",
+  "sweep-response-bytes": "128",
+  "sweep-steps-after-knee": "1",
+  "sweep-knee-confirm": "2",
+  "sweep-refine-steps": "4",
+  "sweep-refine-precision": "0.02",
+  "sweep-refine-settle-seconds": "2",
+  "ramp-steps": "1000,2000,4000,6000,8000",
+  "ramp-warm": "true",
+  "ramp-parallel": "64",
+  "ramp-probe-rate": "20",
+  "ramp-probe-seconds": "10",
+  "ramp-idle-timeout": "3600",
+  "ramp-failure-threshold": "0.01",
+  "ramp-per-source": "25000",
+  "attacks": "slowloris",
+  "attack-seconds": "90",
+  "attack-heap": "256m",
+  "attack-direct": "128m",
+  "attack-cgroup-limit": "512m",
+  "attack-cgroup-sockets": "exclude",
+  "nmt-every-seconds": "5",
+  "slowloris-connections": "2000",
+  "slowloris-interval-ms": "5000",
+  "slowread-connections": "200",
+  "slowread-bytes": "16m",
+  "slowread-rate": "8192",
+  "updown-connections": "16",
+  "updown-bytes": "64m",
+  "rapidreset-connections": "8",
+  "attack-probe-rate": "10",
+  "soak-rate": "2000",
+  "soak-seconds": "100",
+  "soak-connections": "64",
+  "soak-window-seconds": "10",
+  "soak-sample-seconds": "10",
+  "fault-idle-timeout": "5",
+  "fault-requests": "20",
+  "fault-concurrency": "4",
+  "fault-latency-ms": "200",
+  "fault-bandwidth-bps": "262144"
+ },
+ "proxies": [
+  {
+   "id": "microproxy",
+   "label": "MicroProxy",
+   "language": "Java (virtual threads)",
+   "version": "MicroProxy 0.4.1-SNAPSHOT (this repository at 471ba13)",
+   "jvm": true,
+   "slot": 0,
+   "notes": null,
+   "config": null,
+   "colorLight": "#2a78d6",
+   "colorDark": "#3987e5"
+  },
+  {
+   "id": "littleproxy",
+   "label": "LittleProxy",
+   "language": "Java (Netty)",
+   "version": "io.github.littleproxy:littleproxy 2.9.1",
+   "jvm": true,
+   "slot": 1,
+   "notes": null,
+   "config": null,
+   "colorLight": "#eb6834",
+   "colorDark": "#d95926"
+  },
+  {
+   "id": "envoy",
+   "label": "Envoy",
+   "language": "C++",
+   "version": "Envoy 1.39.4",
+   "jvm": false,
+   "slot": 2,
+   "notes": "Official release binary; dynamic forward proxy filter and cluster; one worker thread per pinned CPU (--concurrency).",
+   "config": "envoy/envoy.yaml",
+   "colorLight": "#1baf7a",
+   "colorDark": "#199e70"
+  },
+  {
+   "id": "goproxy",
+   "label": "goproxy (Go)",
+   "language": "Go",
+   "version": "github.com/elazarl/goproxy v1.9.2 (go1.27.2)",
+   "jvm": false,
+   "slot": 3,
+   "notes": "goproxy/main.go: a minimal goproxy server, logging off; GOMAXPROCS follows the pinned CPUs (Go's default).",
+   "config": null,
+   "colorLight": "#eda100",
+   "colorDark": "#c98500"
+  },
+  {
+   "id": "g3proxy",
+   "label": "g3proxy (Rust)",
+   "language": "Rust",
+   "version": "g3proxy 1.12.4",
+   "jvm": false,
+   "slot": 4,
+   "notes": "ByteDance's g3proxy (tokio), built from the g3proxy-v1.12.4 tag with --no-default-features --features rustls-ring; one worker runtime thread per pinned CPU.",
+   "config": "g3proxy/g3proxy.yaml",
+   "colorLight": "#e87ba4",
+   "colorDark": "#d55181"
+  },
+  {
+   "id": "squid",
+   "label": "Squid",
+   "language": "C++",
+   "version": "Squid Cache: Version 6.14",
+   "jvm": false,
+   "slot": 5,
+   "notes": "One process in the foreground (-N), caching and the access log off. Squid is single-threaded, so it uses one of the pinned CPUs.",
+   "config": "squid/squid.conf",
+   "colorLight": "#008300",
+   "colorDark": "#008300"
+  }
+ ],
+ "commands": {},
+ "sloP99Ms": 50.0,
+ "commonRate": null,
+ "sweep": {
+  "microproxy": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  },
+  "littleproxy": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  },
+  "envoy": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  },
+  "goproxy": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  },
+  "g3proxy": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  },
+  "squid": {
+   "unsupported": null,
+   "runs": [],
+   "curveRuns": [],
+   "maxSustainable": null,
+   "refined": "none",
+   "bracketWidth": null,
+   "curveEndRate": null,
+   "kneeReasons": [],
+   "foreignOnProxyCpuPct": null,
+   "steps": []
+  }
+ },
+ "ramp": {
+  "microproxy": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  },
+  "littleproxy": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  },
+  "envoy": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  },
+  "goproxy": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  },
+  "g3proxy": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  },
+  "squid": {
+   "unsupported": null,
+   "idleRssMb": null,
+   "rssKbPerConn": null,
+   "maxHeld": null,
+   "failureKinds": {},
+   "steps": []
+  }
+ },
+ "memory": {
+  "slowloris": {
+   "microproxy": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 109.609,
+     "min": 107.164,
+     "max": 116.691,
+     "n": 3,
+     "values": [
+      107.164,
+      109.609,
+      116.691
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 58.469,
+     "min": 58.277,
+     "max": 58.496,
+     "n": 3,
+     "values": [
+      58.277,
+      58.496,
+      58.469
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 26.17,
+     "min": 25.03,
+     "max": 29.81,
+     "n": 3,
+     "values": [
+      25.03,
+      26.17,
+      29.81
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": "256m",
+     "direct": "128m",
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-microproxy-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 4.344,
+     "min": 2.789,
+     "max": 4.512,
+     "n": 3,
+     "values": [
+      2.789,
+      4.344,
+      4.512
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 2.224,
+     "min": 1.428,
+     "max": 2.31,
+     "n": 3,
+     "values": [
+      1.428,
+      2.224,
+      2.31
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep2-20261018-182427",
+     "points": [
+      [
+       0,
+       58.5
+      ],
+      [
+       5,
+       86.3
+      ],
+      [
+       10.3,
+       98.5
+      ],
+      [
+       15.6,
+       109.5
+      ],
+      [
+       21.0,
+       109.6
+      ],
+      [
+       26.3,
+       109.6
+      ],
+      [
+       31.6,
+       88.5
+      ],
+      [
+       36.9,
+       88.5
+      ],
+      [
+       42.1,
+       88.5
+      ],
+      [
+       47.4,
+       88.5
+      ],
+      [
+       52.7,
+       88.5
+      ],
+      [
+       57.9,
+       88.5
+      ],
+      [
+       63.2,
+       88.5
+      ],
+      [
+       68.5,
+       88.5
+      ],
+      [
+       73.8,
+       88.5
+      ],
+      [
+       79.0,
+       88.5
+      ],
+      [
+       84.3,
+       88.5
+      ],
+      [
+       89.6,
+       88.5
+      ],
+      [
+       94.9,
+       88.5
+      ]
+     ],
+     "end": null,
+     "peakMb": 109.6
+    }
+   },
+   "littleproxy": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 114.953,
+     "min": 112.711,
+     "max": 115.355,
+     "n": 3,
+     "values": [
+      115.355,
+      112.711,
+      114.953
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 77.223,
+     "min": 77.145,
+     "max": 77.242,
+     "n": 3,
+     "values": [
+      77.223,
+      77.145,
+      77.242
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 19.308,
+     "min": 18.21,
+     "max": 19.524,
+     "n": 3,
+     "values": [
+      19.524,
+      18.21,
+      19.308
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": "256m",
+     "direct": "128m",
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-littleproxy-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 0.582,
+     "min": 0.5,
+     "max": 1.148,
+     "n": 3,
+     "values": [
+      1.148,
+      0.582,
+      0.5
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 0.298,
+     "min": 0.256,
+     "max": 0.588,
+     "n": 3,
+     "values": [
+      0.588,
+      0.298,
+      0.256
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep3-20261018-183345",
+     "points": [
+      [
+       0,
+       77.2
+      ],
+      [
+       5,
+       94.7
+      ],
+      [
+       10.3,
+       97.8
+      ],
+      [
+       15.6,
+       99.7
+      ],
+      [
+       21.0,
+       100.8
+      ],
+      [
+       26.3,
+       101.2
+      ],
+      [
+       31.6,
+       112.3
+      ],
+      [
+       36.9,
+       113.4
+      ],
+      [
+       42.3,
+       113.7
+      ],
+      [
+       47.6,
+       113.8
+      ],
+      [
+       52.9,
+       114.7
+      ],
+      [
+       58.2,
+       114.8
+      ],
+      [
+       63.5,
+       114.9
+      ],
+      [
+       68.8,
+       115
+      ],
+      [
+       74.1,
+       111.8
+      ],
+      [
+       79.4,
+       111.9
+      ],
+      [
+       84.7,
+       111.9
+      ],
+      [
+       90.0,
+       112
+      ]
+     ],
+     "end": null,
+     "peakMb": 115
+    }
+   },
+   "envoy": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 106.473,
+     "min": 106.203,
+     "max": 107.422,
+     "n": 3,
+     "values": [
+      106.473,
+      107.422,
+      106.203
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 67.188,
+     "min": 66.422,
+     "max": 67.465,
+     "n": 3,
+     "values": [
+      67.465,
+      67.188,
+      66.422
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 20.368,
+     "min": 19.972,
+     "max": 20.6,
+     "n": 3,
+     "values": [
+      19.972,
+      20.6,
+      20.368
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": null,
+     "direct": null,
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-envoy-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 1.895,
+     "min": 1.773,
+     "max": 2.117,
+     "n": 3,
+     "values": [
+      2.117,
+      1.895,
+      1.773
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 0.97,
+     "min": 0.908,
+     "max": 1.084,
+     "n": 3,
+     "values": [
+      1.084,
+      0.97,
+      0.908
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep1-20261018-181509",
+     "points": [
+      [
+       0,
+       67.5
+      ],
+      [
+       5,
+       105.4
+      ],
+      [
+       10.0,
+       105.7
+      ],
+      [
+       15.0,
+       105.8
+      ],
+      [
+       20.0,
+       106
+      ],
+      [
+       25.0,
+       106
+      ],
+      [
+       30.0,
+       106.1
+      ],
+      [
+       35.0,
+       106.5
+      ],
+      [
+       40.0,
+       106.5
+      ],
+      [
+       45.1,
+       106.5
+      ],
+      [
+       50.1,
+       106.5
+      ],
+      [
+       55.1,
+       106.5
+      ],
+      [
+       60.1,
+       106.5
+      ],
+      [
+       65.1,
+       106.5
+      ],
+      [
+       70.1,
+       106.5
+      ],
+      [
+       75.1,
+       106.5
+      ],
+      [
+       80.1,
+       106.5
+      ],
+      [
+       85.1,
+       106.5
+      ],
+      [
+       90.1,
+       106.5
+      ]
+     ],
+     "end": null,
+     "peakMb": 106.5
+    }
+   },
+   "goproxy": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 33.879,
+     "min": 33.777,
+     "max": 33.902,
+     "n": 3,
+     "values": [
+      33.879,
+      33.777,
+      33.902
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 9.414,
+     "min": 9.414,
+     "max": 9.418,
+     "n": 3,
+     "values": [
+      9.418,
+      9.414,
+      9.414
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 12.524,
+     "min": 12.474,
+     "max": 12.538,
+     "n": 3,
+     "values": [
+      12.524,
+      12.474,
+      12.538
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": null,
+     "direct": null,
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-goproxy-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 0.023,
+     "min": 0.0,
+     "max": 0.152,
+     "n": 3,
+     "values": [
+      0.0,
+      0.023,
+      0.152
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 0.012,
+     "min": 0.0,
+     "max": 0.078,
+     "n": 3,
+     "values": [
+      0.0,
+      0.012,
+      0.078
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep1-20261018-181509",
+     "points": [
+      [
+       0,
+       9.4
+      ],
+      [
+       5,
+       31.9
+      ],
+      [
+       10.0,
+       32.8
+      ],
+      [
+       15.0,
+       33.0
+      ],
+      [
+       20.0,
+       33.2
+      ],
+      [
+       25.0,
+       33.4
+      ],
+      [
+       30.0,
+       33.8
+      ],
+      [
+       35.0,
+       33.9
+      ],
+      [
+       40.0,
+       33.9
+      ],
+      [
+       45.0,
+       33.9
+      ],
+      [
+       50.0,
+       33.9
+      ],
+      [
+       55.1,
+       33.9
+      ],
+      [
+       60.1,
+       33.9
+      ],
+      [
+       65.1,
+       33.9
+      ],
+      [
+       70.1,
+       33.9
+      ],
+      [
+       75.1,
+       33.9
+      ],
+      [
+       80.1,
+       33.9
+      ],
+      [
+       85.1,
+       33.9
+      ],
+      [
+       90.1,
+       33.9
+      ]
+     ],
+     "end": null,
+     "peakMb": 33.9
+    }
+   },
+   "g3proxy": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 106.562,
+     "min": 106.406,
+     "max": 106.762,
+     "n": 3,
+     "values": [
+      106.562,
+      106.406,
+      106.762
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 25.289,
+     "min": 25.098,
+     "max": 25.594,
+     "n": 3,
+     "values": [
+      25.289,
+      25.098,
+      25.594
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 41.612,
+     "min": 41.558,
+     "max": 41.63,
+     "n": 3,
+     "values": [
+      41.612,
+      41.63,
+      41.558
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": null,
+     "direct": null,
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-g3proxy-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 0.891,
+     "min": 0.43,
+     "max": 1.203,
+     "n": 3,
+     "values": [
+      1.203,
+      0.891,
+      0.43
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 0.456,
+     "min": 0.22,
+     "max": 0.616,
+     "n": 3,
+     "values": [
+      0.616,
+      0.456,
+      0.22
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep1-20261018-181509",
+     "points": [
+      [
+       0,
+       25.3
+      ],
+      [
+       5,
+       105.6
+      ],
+      [
+       10.0,
+       105.9
+      ],
+      [
+       15.0,
+       106.1
+      ],
+      [
+       20.0,
+       106.2
+      ],
+      [
+       25.0,
+       106.4
+      ],
+      [
+       30.0,
+       106.5
+      ],
+      [
+       35.0,
+       106.6
+      ],
+      [
+       40.0,
+       106.6
+      ],
+      [
+       45.1,
+       106.6
+      ],
+      [
+       50.1,
+       106.6
+      ],
+      [
+       55.1,
+       106.6
+      ],
+      [
+       60.1,
+       106.6
+      ],
+      [
+       65.1,
+       106.6
+      ],
+      [
+       70.1,
+       106.6
+      ],
+      [
+       75.1,
+       106.6
+      ],
+      [
+       80.1,
+       106.6
+      ],
+      [
+       85.1,
+       106.6
+      ],
+      [
+       90.1,
+       106.6
+      ]
+     ],
+     "end": null,
+     "peakMb": 106.6
+    }
+   },
+   "squid": {
+    "skipped": null,
+    "verdicts": {
+     "shedding": 3
+    },
+    "states": {
+     "running": 3
+    },
+    "peakRssMb": {
+     "med": 182.031,
+     "min": 182,
+     "max": 182.18,
+     "n": 3,
+     "values": [
+      182.18,
+      182.031,
+      182
+     ],
+     "of": 3
+    },
+    "baselineRssMb": {
+     "med": 170.207,
+     "min": 170.062,
+     "max": 170.277,
+     "n": 3,
+     "values": [
+      170.277,
+      170.207,
+      170.062
+     ],
+     "of": 3
+    },
+    "rssKbPerConnection": {
+     "med": 6.094,
+     "min": 6.054,
+     "max": 6.112,
+     "n": 3,
+     "values": [
+      6.094,
+      6.054,
+      6.112
+     ],
+     "of": 3
+    },
+    "probeOkRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "shedRatio": {
+     "med": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n": 3,
+     "values": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "of": 3
+    },
+    "cap": {
+     "heap": null,
+     "direct": null,
+     "cgroupLimit": "512m",
+     "cgroup": "/sys/fs/cgroup/microproxy-loadtest-39868-squid-memory-slowloris",
+     "socketBuffers": "beside the limit"
+    },
+    "peakSockMb": {
+     "med": 0.012,
+     "min": 0.008,
+     "max": 0.02,
+     "n": 3,
+     "values": [
+      0.012,
+      0.02,
+      0.008
+     ],
+     "of": 3
+    },
+    "sockKbPerConnection": {
+     "med": 0.006,
+     "min": 0.004,
+     "max": 0.01,
+     "n": 3,
+     "values": [
+      0.006,
+      0.01,
+      0.004
+     ],
+     "of": 3
+    },
+    "series": {
+     "run": "rep3-20261018-183345",
+     "points": [
+      [
+       0,
+       170.1
+      ],
+      [
+       5,
+       181.7
+      ],
+      [
+       10.0,
+       181.8
+      ],
+      [
+       15.0,
+       181.9
+      ],
+      [
+       20.0,
+       181.9
+      ],
+      [
+       25.0,
+       181.9
+      ],
+      [
+       30.0,
+       182
+      ],
+      [
+       35.0,
+       182
+      ],
+      [
+       40.0,
+       182
+      ],
+      [
+       45.1,
+       182
+      ],
+      [
+       50.1,
+       182
+      ],
+      [
+       55.1,
+       182
+      ],
+      [
+       60.1,
+       182
+      ],
+      [
+       65.1,
+       182
+      ],
+      [
+       70.1,
+       182
+      ],
+      [
+       75.1,
+       182
+      ],
+      [
+       80.1,
+       182
+      ],
+      [
+       85.1,
+       182
+      ],
+      [
+       90.1,
+       182
+      ]
+     ],
+     "end": null,
+     "peakMb": 182
+    }
+   }
+  }
+ },
+ "memoryNotMeasured": {},
+ "soak": {
+  "microproxy": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  },
+  "littleproxy": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  },
+  "envoy": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  },
+  "goproxy": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  },
+  "g3proxy": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  },
+  "squid": {
+   "unsupported": null,
+   "rssSlopeKbPerHour": null,
+   "rssGrowthKb": null,
+   "verdicts": {},
+   "medianWindowP99Ms": null,
+   "errors": null,
+   "requests": null,
+   "series": []
+  }
+ },
+ "faults": {
+  "microproxy": {
+   "unsupported": null,
+   "faults": {}
+  },
+  "littleproxy": {
+   "unsupported": null,
+   "faults": {}
+  },
+  "envoy": {
+   "unsupported": null,
+   "faults": {}
+  },
+  "goproxy": {
+   "unsupported": null,
+   "faults": {}
+  },
+  "g3proxy": {
+   "unsupported": null,
+   "faults": {}
+  },
+  "squid": {
+   "unsupported": null,
+   "faults": {}
+  }
+ }
+}

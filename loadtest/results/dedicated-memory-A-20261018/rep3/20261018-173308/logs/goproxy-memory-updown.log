@@ -1,0 +1,2 @@
+# sh -c echo $$ > '/sys/fs/cgroup/microproxy-loadtest-24525-goproxy-memory-updown/cgroup.procs' && exec "$@" sh nice -n -20 taskset -c 1 /root/MicroProxy/loadtest/competitors/.tools/bin/goproxy-proxy -addr 127.0.0.1:32189 -idle-timeout 70s -head-timeout 70s -connect-timeout 40000ms
+goproxy listening on 127.0.0.1:32189

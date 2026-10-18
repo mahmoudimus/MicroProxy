@@ -1,0 +1,23 @@
+[loadtest] origin on port 29881 addresses [127.0.0.1] relays [latency, bandwidth, reset-before-headers, reset-mid-body, stall-mid-body, blackhole]
+[loadtest] === memory / microproxy ===
+[loadtest] microproxy memory/slowloris: shedding, peak RSS 109736 KB, peak NMT 156785 KB, proxy running
+[loadtest] === memory / littleproxy ===
+[loadtest] littleproxy memory/slowloris: shedding, peak RSS 118124 KB, peak NMT 116142 KB, proxy running
+[loadtest] === memory / envoy ===
+[loadtest] envoy memory/slowloris: shedding, peak RSS 109028 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / goproxy ===
+[loadtest] goproxy memory/slowloris: shedding, peak RSS 34692 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / g3proxy ===
+[loadtest] g3proxy memory/slowloris: shedding, peak RSS 109120 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / squid ===
+[loadtest] squid memory/slowloris: shedding, peak RSS 186552 KB, peak NMT -1 KB, proxy running
+Results: /root/MicroProxy/loadtest/results/dedicated-memory-B-20261018/rep1/20261018-181509
+Report:  /root/MicroProxy/loadtest/results/dedicated-memory-B-20261018/rep1/20261018-181509/report.md
+Harness self-checks: all passed
+Verdicts (gate: none):
+    ok microproxy/memory/slowloris: shedding
+    ok littleproxy/memory/slowloris: shedding
+    ok envoy/memory/slowloris: shedding
+    ok goproxy/memory/slowloris: shedding
+    ok g3proxy/memory/slowloris: shedding
+    ok squid/memory/slowloris: shedding

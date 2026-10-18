@@ -1,0 +1,1 @@
+# sh -c echo $$ > '/sys/fs/cgroup/microproxy-loadtest-34123-envoy-memory-updown/cgroup.procs' && exec "$@" sh nice -n -20 taskset -c 1 /root/MicroProxy/loadtest/competitors/.tools/bin/envoy -c /root/MicroProxy/loadtest/results/dedicated-memory-A-20261018/rep5/20261018-175905/logs/envoy-memory-updown-envoy.yaml --concurrency 1 --log-level error --disable-hot-restart

@@ -1,0 +1,16 @@
+[0.002s][info][gc] Using G1
+[0.479s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 14M->3M(256M) 4.033ms
+[0.719s][info][gc] GC(1) Pause Full (Diagnostic Command) 10M->4M(17M) 12.268ms
+[1.095s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 9M->5M(17M) 4.642ms
+[1.182s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 10M->6M(17M) 3.561ms
+[1.760s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 11M->9M(17M) 7.128ms
+[2.080s][info][gc] GC(5) Pause Young (Concurrent Start) (G1 Evacuation Pause) 12M->10M(137M) 5.694ms
+[2.080s][info][gc] GC(6) Concurrent Mark Cycle
+[2.115s][info][gc] GC(6) Pause Remark 10M->10M(37M) 2.661ms
+[2.133s][info][gc] GC(6) Pause Cleanup 10M->10M(37M) 0.015ms
+[2.133s][info][gc] GC(6) Concurrent Mark Cycle 53.292ms
+[3.555s][info][gc] GC(7) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 31M->11M(37M) 5.539ms
+[4.735s][info][gc] GC(8) Pause Young (Mixed) (G1 Evacuation Pause) 26M->11M(37M) 6.265ms
+[5.771s][info][gc] GC(9) Pause Young (Normal) (G1 Evacuation Pause) 27M->11M(37M) 2.850ms
+[6.015s][info][gc] GC(10) Pause Full (Diagnostic Command) 15M->8M(30M) 24.806ms
+[6.939s][info][gc] GC(11) Pause Young (Normal) (G1 Evacuation Pause) 22M->9M(30M) 3.077ms

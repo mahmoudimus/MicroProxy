@@ -1,0 +1,1 @@
+# nice -n -20 taskset -c 3,4,5,6,7,8 /root/MicroProxy/loadtest/competitors/.tools/temurin-25/bin/java -Xmx2g -Xss512k -XX:+UseParallelGC -cp /root/MicroProxy/loadtest/target/microproxy-loadtest.jar org.microproxy.loadtest.Main client

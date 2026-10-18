@@ -1,0 +1,1 @@
+# sh -c echo $$ > '/sys/fs/cgroup/microproxy-loadtest-24525-g3proxy-memory-slowloris/cgroup.procs' && exec "$@" sh nice -n -20 taskset -c 1 /root/MicroProxy/loadtest/competitors/.tools/bin/g3proxy -c /root/MicroProxy/loadtest/results/dedicated-memory-A-20261018/rep3/20261018-173308/logs/g3proxy-memory-slowloris-g3proxy.yaml

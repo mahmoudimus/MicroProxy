@@ -1,0 +1,48 @@
+[loadtest] origin on port 31387 addresses [127.0.0.1] relays [latency, bandwidth, reset-before-headers, reset-mid-body, stall-mid-body, blackhole]
+[loadtest] === memory / envoy ===
+[loadtest] envoy memory/slowloris: bounded, peak RSS 108316 KB, peak NMT -1 KB, proxy running
+[loadtest] envoy memory/slowread: bounded, peak RSS 385164 KB, peak NMT -1 KB, proxy running
+[loadtest] envoy memory/updown: bounded, peak RSS 134776 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / goproxy ===
+[loadtest] goproxy memory/slowloris: bounded, peak RSS 34920 KB, peak NMT -1 KB, proxy running
+[loadtest] goproxy memory/slowread: bounded, peak RSS 29044 KB, peak NMT -1 KB, proxy running
+[loadtest] goproxy memory/updown: bounded, peak RSS 16996 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / g3proxy ===
+[loadtest] g3proxy memory/slowloris: bounded, peak RSS 112208 KB, peak NMT -1 KB, proxy running
+[loadtest] g3proxy memory/slowread: bounded, peak RSS 38060 KB, peak NMT -1 KB, proxy running
+[loadtest] g3proxy memory/updown: bounded, peak RSS 29288 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / squid ===
+[loadtest] squid memory/slowloris: bounded, peak RSS 186648 KB, peak NMT -1 KB, proxy running
+[loadtest] squid memory/slowread: bounded, peak RSS 265448 KB, peak NMT -1 KB, proxy running
+[loadtest] squid memory/updown: bounded, peak RSS 183168 KB, peak NMT -1 KB, proxy running
+[loadtest] === memory / microproxy ===
+[loadtest] microproxy memory/slowloris: bounded, peak RSS 115328 KB, peak NMT 159116 KB, proxy running
+[loadtest] microproxy memory/slowread: bounded, peak RSS 87876 KB, peak NMT 103749 KB, proxy running
+[loadtest] microproxy memory/updown: bounded, peak RSS 82776 KB, peak NMT 86336 KB, proxy running
+[loadtest] === memory / littleproxy ===
+[loadtest] littleproxy memory/slowloris: bounded, peak RSS 111736 KB, peak NMT 113569 KB, proxy running
+[loadtest] littleproxy memory/slowread: bounded, peak RSS 276380 KB, peak NMT 197927 KB, proxy running
+[loadtest] littleproxy memory/updown: oom, peak RSS 399636 KB, peak NMT 218399 KB, proxy oom
+[loadtest] verdict: littleproxy/memory/updown = oom: over the limit on its own memory (530 MB of 512 MB, socket buffers aside), killed; peak RSS 390 MB, peak NMT other (direct) 101 MB, peak socket buffers 7 MB; probe 10/10 ok
+Results: /root/MicroProxy/loadtest/results/dedicated-memory-A-20261018/rep3/20261018-173308
+Report:  /root/MicroProxy/loadtest/results/dedicated-memory-A-20261018/rep3/20261018-173308/report.md
+Harness self-checks: all passed
+Verdicts (gate: none):
+    ok envoy/memory/slowloris: bounded
+    ok envoy/memory/slowread: bounded
+    ok envoy/memory/updown: bounded
+    ok goproxy/memory/slowloris: bounded
+    ok goproxy/memory/slowread: bounded
+    ok goproxy/memory/updown: bounded
+    ok g3proxy/memory/slowloris: bounded
+    ok g3proxy/memory/slowread: bounded
+    ok g3proxy/memory/updown: bounded
+    ok squid/memory/slowloris: bounded
+    ok squid/memory/slowread: bounded
+    ok squid/memory/updown: bounded
+    ok microproxy/memory/slowloris: bounded
+    ok microproxy/memory/slowread: bounded
+    ok microproxy/memory/updown: bounded
+    ok littleproxy/memory/slowloris: bounded
+    ok littleproxy/memory/slowread: bounded
+  note littleproxy/memory/updown: oom
