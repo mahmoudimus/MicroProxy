@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* **loadtest:** bootstrap.sh passes its arguments on to every harness run ([3f12766](https://github.com/mahmoudimus/MicroProxy/commit/3f12766dc3dcfa30c6f7413925db734b466e311b))
+* **loadtest:** one request head timeout for every proxy (--head-timeout) ([471ba13](https://github.com/mahmoudimus/MicroProxy/commit/471ba13a820bdb14d9ef4adbbd791b17760c0048))
+* **loadtest:** one request head timeout for every proxy (--head-timeout) ([6af4c18](https://github.com/mahmoudimus/MicroProxy/commit/6af4c188801009db649a20fb52e9bb6807aef079))
+
+
+### Documentation
+
+* **perf:** memory results with MicroProxy's request head timeout, and slowloris past one ([2f89a4e](https://github.com/mahmoudimus/MicroProxy/commit/2f89a4e6f776a924bd32d1d14e037d6ce0a6818a))
+* **perf:** memory results with MicroProxy's request head timeout, and slowloris past one ([907a956](https://github.com/mahmoudimus/MicroProxy/commit/907a95660a3b379e18f93aa927280dbbe3627353))
+* switch the site to the mkdocs-terminal theme ([0c76e00](https://github.com/mahmoudimus/MicroProxy/commit/0c76e0082d99db249960e9135da90a17e807cc1f))
+* switch the site to the mkdocs-terminal theme ([228ef0f](https://github.com/mahmoudimus/MicroProxy/commit/228ef0fcfdba60f317802287754dd5c44ac2e967))
+
 ## [0.4.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.3.0...v0.4.0) (2026-10-16)
 
 
