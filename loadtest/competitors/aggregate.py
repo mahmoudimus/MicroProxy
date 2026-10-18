@@ -199,8 +199,8 @@ def program(cmd):
     if cmd.startswith("["):
         return "kernel thread"
     name = cmd.split()[0].rsplit("/", 1)[-1]
-    # The command-line agent that drove the runs from its own session.
-    return "agent session" if name == "claude" else name
+    # The interactive session that drove the runs from the same machine.
+    return "interactive session" if name == "claude" else name
 
 
 def host_load(runs_dir, runs):
@@ -1454,17 +1454,22 @@ def main(argv):
         for old in glob.glob(os.path.join(assets, "*.svg")):
             if os.path.basename(old) not in svgs:
                 os.remove(old)
-        if not (RAW[0] and os.path.realpath(runs_dir) == os.path.realpath(os.path.join(assets, "raw"))):
-            publish_raw(runs_dir, os.path.join(assets, "raw"))
-            mem_dir = memory_dir(runs_dir)
-            if mem_dir:
-                # Published beside the rest, and run-info.json pointed at the copy.
-                publish_raw(mem_dir, os.path.join(assets, "raw", "memory"))
-                info_path = os.path.join(assets, "raw", "run-info.json")
-                info = run_info(os.path.join(assets, "raw"))
-                info["memoryFrom"] = "memory"
-                with open(info_path, "w", encoding="utf-8") as f:
-                    f.write(json.dumps(info, indent=1, ensure_ascii=False) + "\n")
+        raw_dest = os.path.join(assets, "raw")
+        if not (RAW[0] and os.path.realpath(runs_dir) == os.path.realpath(raw_dest)):
+            publish_raw(runs_dir, raw_dest)
+        mem_dir = memory_dir(runs_dir)
+        mem_dest = os.path.join(raw_dest, "memory")
+        if mem_dir and os.path.realpath(mem_dir) != os.path.realpath(mem_dest):
+            # Published beside the rest (replacing earlier memory runs, also when the other runs are
+            # read from raw/ itself), and run-info.json pointed at the copy.
+            if os.path.isdir(mem_dest):
+                shutil.rmtree(mem_dest)
+            publish_raw(mem_dir, mem_dest)
+            info_path = os.path.join(raw_dest, "run-info.json")
+            info = run_info(raw_dest)
+            info["memoryFrom"] = "memory"
+            with open(info_path, "w", encoding="utf-8") as f:
+                f.write(json.dumps(info, indent=1, ensure_ascii=False) + "\n")
         page_md = os.path.join(publish, "project", "performance.md")
         if os.path.exists(page_md):
             replace_markers(page_md, tbl)

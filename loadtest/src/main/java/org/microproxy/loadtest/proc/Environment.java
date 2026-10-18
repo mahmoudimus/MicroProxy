@@ -278,6 +278,58 @@ public final class Environment {
         }
     }
 
+    /**
+     * The names that identify this machine and the network it is on: the DNS search domains and
+     * local domain of {@code resolv} (on a cloud VM they name its project and zone) and the host's
+     * name, longest first. A proxy may write them into its log (Squid lists the search domains it
+     * reads), and raw results are committed, so {@link #scrubMachineNames} keeps them out.
+     */
+    static List<String> machineNames(Path resolv, Path hostname) {
+        List<String> names = new ArrayList<>();
+        try {
+            for (String line : Files.readAllLines(resolv)) {
+                String[] words = line.strip().split("\\s+");
+                if (words.length > 1 && (words[0].equals("search") || words[0].equals("domain"))) {
+                    for (int i = 1; i < words.length; i++) {
+                        if (!words[i].isBlank() && !words[i].equals(".")) names.add(words[i]);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // no resolver configuration: no search domains
+        }
+        try {
+            String host = Files.readString(hostname).strip();
+            if (!host.isEmpty() && !host.equals("localhost")) names.add(host);
+        } catch (IOException e) {
+            // no host name file
+        }
+        List<String> distinct = new ArrayList<>(new java.util.LinkedHashSet<>(names));
+        distinct.sort((a, b) -> b.length() - a.length());
+        return distinct;
+    }
+
+    /**
+     * Replaces this machine's names ({@link #machineNames}) in {@code file} with {@code
+     * <machine name>}, so that a log committed with the raw results does not say which machine, or
+     * which cloud project and zone, it came from.
+     */
+    public static void scrubMachineNames(Path file) {
+        scrubMachineNames(file, machineNames(Path.of("/etc/resolv.conf"), Path.of("/etc/hostname")));
+    }
+
+    static void scrubMachineNames(Path file, List<String> names) {
+        if (file == null || names.isEmpty() || !Files.isRegularFile(file)) return;
+        try {
+            String text = Files.readString(file, java.nio.charset.StandardCharsets.ISO_8859_1);
+            String scrubbed = text;
+            for (String name : names) scrubbed = scrubbed.replace(name, "<machine name>");
+            if (!scrubbed.equals(text)) Files.writeString(file, scrubbed, java.nio.charset.StandardCharsets.ISO_8859_1);
+        } catch (IOException e) {
+            // left as it is; the run's results do not depend on it
+        }
+    }
+
     /** The CPU's model name from {@code /proc/cpuinfo}, or null. */
     static String cpuModel() {
         try {

@@ -96,7 +96,8 @@ Placeholders in the command and the template (`{{port}}`, `{{idleSeconds}}`, `{{
 `{{name}}`, `{{home}}` and `{{tools}}`) are filled in per run, so every proxy gets the same port
 handling, timeouts and worker count (`{{workers}}` is the number of CPUs the proxy is pinned to, and
 `{{headSeconds}}` the limit on a whole request head, `--head-timeout`, which is the idle timeout
-unless set; LittleProxy has no such limit).
+unless set; LittleProxy has no such setting, but its idle timer sees only whole requests, so it
+ends a head still arriving at its idle timeout).
 
 An external proxy is started like the JVM proxies: pinned to the proxy's CPUs, inside the memory
 cgroup when a scenario caps memory, and ready once its port accepts connections. Its memory comes

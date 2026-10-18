@@ -1,7 +1,7 @@
 {
- "commit": "39aa8c54878b150b2dce8304e54ed23b73cf3c15",
+ "commit": "471ba13a820bdb14d9ef4adbbd791b17760c0048",
  "uncommittedLoadtestChanges": 0,
- "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh ",
- "started": "2026-10-16T15:34:22Z",
+ "command": "REPS=5 PROXIES=microproxy,littleproxy,envoy,goproxy,g3proxy,squid SCENARIOS=memory loadtest/competitors/run-all.sh --head-timeout 70",
+ "started": "2026-10-18T17:07:11Z",
  "wsl": false
 }

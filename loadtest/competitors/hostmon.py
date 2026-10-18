@@ -19,6 +19,18 @@ import time
 CLK = os.sysconf("SC_CLK_TCK")
 
 
+
+def program(cmd):
+    """A process's program, without its arguments or paths: the log never holds another process's
+    command line (they hold paths and options of other work on the machine)."""
+    if not cmd:
+        return "?"
+    if cmd.startswith("["):
+        return "kernel thread"
+    name = cmd.split()[0].rsplit("/", 1)[-1]
+    # The interactive session that drives the runs from the same machine.
+    return "interactive session" if name == "claude" else name
+
 def cpu_total():
     """(process time, total, interrupt time, steal) in ticks over all CPUs. Process time is user,
     nice and system: what processes are charged with. Interrupt work (irq, softirq, much of it
@@ -88,7 +100,7 @@ def main(argv):
                 if pid in ours:
                     own += pct
                 elif pct >= 1.0:
-                    foreign.append({"pid": pid, "cpuPct": round(pct, 1), "cmd": cmd})
+                    foreign.append({"pid": pid, "cpuPct": round(pct, 1), "program": program(cmd)})
             foreign.sort(key=lambda x: -x["cpuPct"])
             with open("/proc/loadavg") as f:
                 load = f.read().split()[:3]
