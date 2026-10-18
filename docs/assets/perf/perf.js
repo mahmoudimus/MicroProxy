@@ -11,8 +11,7 @@
  * as dots rather than whiskers; every value can be read without motion (hover or focus a chart and
  * use the arrow keys, or read the tables beside it). The draw-in animation is decoration only.
  *
- * Works with Material's instant navigation (re-initialises on document$), honours
- * prefers-reduced-motion (the final state, no animation), Material's light and dark schemes (CSS
+ * Honours prefers-reduced-motion (the final state, no animation), the light and dark schemes (CSS
  * tokens in perf.css), keyboard use (every control is a button, checkbox or select; plots take arrow
  * keys) and narrow screens (the SVG is drawn at the container's width).
  */
@@ -1126,12 +1125,7 @@
     });
   }
 
-  if (window.document$ && typeof window.document$.subscribe === "function") {
-    window.document$.subscribe(function () {
-      document.documentElement.classList.remove("mp-perf-ready");
-      init();
-    });
-  } else if (document.readyState === "loading") {
+  if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();

@@ -1,5 +1,5 @@
 /* The interactive charts of docs/project/performance.md (drawn by perf.js from results.json).
-   Colors are tokens, redefined for Material's dark (slate) scheme; the categorical slots are a
+   Colors are tokens, redefined for a dark color scheme; the categorical slots are a
    validated colorblind-safe order (adjacent pairs clear a CVD delta E of 8 in both schemes, and a
    normal-vision delta E of 15). Three light-mode slots sit under 3:1 against the surface, so every
    series also carries a legend entry, a marker shape, a direct label and a table row: color never
@@ -24,24 +24,26 @@
   --mp-c7: #e34948;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-[data-md-color-scheme="slate"] .mp-perf-root {
-  --mp-surface: #1a1a19;
-  --mp-text: #f0efec;
-  --mp-text-2: #c3c2b7;
-  --mp-muted: #9a988f;
-  --mp-grid: #2c2c2a;
-  --mp-axis: #45453f;
-  --mp-ring: rgba(255, 255, 255, 0.10);
-  --mp-wash: rgba(255, 255, 255, 0.05);
-  --mp-cap: #e66767;
-  --mp-c0: #3987e5;
-  --mp-c1: #d95926;
-  --mp-c2: #199e70;
-  --mp-c3: #c98500;
-  --mp-c4: #d55181;
-  --mp-c5: #008300;
-  --mp-c6: #9085e9;
-  --mp-c7: #e66767;
+@media (prefers-color-scheme: dark) {
+  .mp-perf-root {
+    --mp-surface: #1a1a19;
+    --mp-text: #f0efec;
+    --mp-text-2: #c3c2b7;
+    --mp-muted: #9a988f;
+    --mp-grid: #2c2c2a;
+    --mp-axis: #45453f;
+    --mp-ring: rgba(255, 255, 255, 0.10);
+    --mp-wash: rgba(255, 255, 255, 0.05);
+    --mp-cap: #e66767;
+    --mp-c0: #3987e5;
+    --mp-c1: #d95926;
+    --mp-c2: #199e70;
+    --mp-c3: #c98500;
+    --mp-c4: #d55181;
+    --mp-c5: #008300;
+    --mp-c6: #9085e9;
+    --mp-c7: #e66767;
+  }
 }
 
 /* With the charts drawn, the static fallbacks give way to them (the tables stay). */
@@ -61,19 +63,19 @@
 .mp-perf-chart:empty { display: none; }
 .mp-perf-chart h4.mp-title {
   margin: 0 0 2px;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--mp-text);
 }
 .mp-perf-chart .mp-sub {
   margin: 0 0 8px;
-  font-size: 0.68rem;
+  font-size: 0.85rem;
   line-height: 1.4;
   color: var(--mp-text-2);
 }
 .mp-perf-chart .mp-note {
   margin: 6px 0 0;
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   line-height: 1.4;
   color: var(--mp-muted);
 }
@@ -85,14 +87,14 @@
   align-items: center;
   gap: 6px 10px;
   margin: 0 0 8px;
-  font-size: 0.66rem;
+  font-size: 0.825rem;
   color: var(--mp-text-2);
 }
 .mp-row label { display: inline-flex; align-items: center; gap: 6px; }
 .mp-perf-root button.mp-btn,
 .mp-perf-root select.mp-select {
   font: inherit;
-  font-size: 0.66rem;
+  font-size: 0.825rem;
   color: var(--mp-text);
   background: transparent;
   border: 1px solid var(--mp-axis);
@@ -120,7 +122,7 @@
   align-items: center;
   gap: 6px;
   font: inherit;
-  font-size: 0.66rem;
+  font-size: 0.825rem;
   color: var(--mp-text);
   background: transparent;
   border: 1px solid transparent;
@@ -161,7 +163,7 @@
   background: var(--mp-surface);
   color: var(--mp-text);
   box-shadow: 0 0 0 1px var(--mp-ring), 0 4px 14px rgba(0, 0, 0, 0.18);
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 .mp-tip[hidden] { display: none; }

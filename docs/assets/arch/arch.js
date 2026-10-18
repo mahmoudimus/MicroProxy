@@ -11,8 +11,8 @@
  * readers, from the measured data of the performance page (docs/assets/perf/results.json).
  *
  * Shares the performance page's tokens (perf.css: palette, light and dark), honours
- * prefers-reduced-motion (no autoplay, no transitions, the last step shown), re-initialises on
- * Material's instant navigation, and every control is a button.
+ * prefers-reduced-motion (no autoplay, no transitions, the last step shown), and every control is
+ * a button.
  */
 (function () {
   "use strict";
@@ -917,12 +917,7 @@
   // For docs/scripts/render_arch_svgs.js: the scene names.
   window.__mpArchScenes = Object.keys(SCENES);
 
-  if (window.document$ && typeof window.document$.subscribe === "function") {
-    window.document$.subscribe(function () {
-      document.documentElement.classList.remove("mp-arch-ready");
-      init();
-    });
-  } else if (document.readyState === "loading") {
+  if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
