@@ -42,7 +42,7 @@ server:
       allow:
         - 127.0.0.0/8
     pipeline_read_idle_timeout: {{idleSeconds}}s
-    req_header_recv_timeout: {{idleSeconds}}s
+    req_header_recv_timeout: {{headSeconds}}s
     rsp_header_recv_timeout: {{idleSeconds}}s
     task_idle_check_duration: {{idleSeconds}}s
     task_idle_max_count: 1

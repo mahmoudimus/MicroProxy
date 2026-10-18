@@ -84,6 +84,16 @@ public final class ProxyProcess implements AutoCloseable {
         return new Options(s.getInt("idle-timeout"), s.get("proxy-heap"), s.get("proxy-direct"), s.get("proxy-cgroup-limit"), true, false);
     }
 
+    /**
+     * Every proxy's limit on a whole HTTP/1 request head, in seconds: {@code head-timeout}, or the
+     * idle timeout {@code o} gives the proxy when it is {@code idle}, as each proxy's header timeout
+     * followed the idle timeout before the setting existed.
+     */
+    static int headTimeoutSeconds(Settings s, Options o) {
+        String v = s.get("head-timeout").strip();
+        return v.equals("idle") ? o.idleTimeoutSeconds() : Integer.parseInt(v);
+    }
+
     /** Starts {@code kind} for the scenario {@code label} and waits until it accepts connections. */
     static ProxyProcess start(RunContext ctx, String kind, String label, Options o) throws IOException, InterruptedException {
         Settings s = ctx.settings;
@@ -134,7 +144,8 @@ public final class ProxyProcess implements AutoCloseable {
             cmd.add("-Djava.util.logging.config.file=" + logging);
             cmd.addAll(List.of("-cp", ctx.microproxyLib.resolve("*").toString(), "org.microproxy.Launcher",
                     "--port", Integer.toString(port), "--idle-timeout", Integer.toString(o.idleTimeoutSeconds()),
-                    "--connect-timeout", s.get("connect-timeout-ms"), "--proxy-alias", "loadtest"));
+                    "--connect-timeout", s.get("connect-timeout-ms"), "--proxy-alias", "loadtest",
+                    "--request-head-timeout", Long.toString(headTimeoutSeconds(s, o) * 1000L)));
             if (adminPort > 0) cmd.addAll(List.of("--admin-port", Integer.toString(adminPort)));
             if (o.h2c()) cmd.add("--http2-cleartext");
             cmd.addAll(s.getArgs("mp-args"));
@@ -170,6 +181,7 @@ public final class ProxyProcess implements AutoCloseable {
         Map<String, String> values = def.baseValues();
         values.put("port", Integer.toString(port));
         values.put("idleSeconds", Integer.toString(o.idleTimeoutSeconds()));
+        values.put("headSeconds", Integer.toString(headTimeoutSeconds(s, o)));
         long connectMs = s.getLong("connect-timeout-ms");
         values.put("connectTimeoutMs", Long.toString(connectMs));
         values.put("connectTimeoutSeconds", connectMs % 1000 == 0 ? Long.toString(connectMs / 1000)

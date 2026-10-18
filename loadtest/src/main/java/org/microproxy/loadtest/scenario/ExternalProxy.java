@@ -21,7 +21,8 @@ import org.microproxy.loadtest.Json;
  * heap after a GC, the GC log) are absent for it and reported as n/a.
  *
  * <p>Placeholders, written {@code {{name}}}, are replaced in the command, the environment and the
- * configuration template: {@code port}, {@code idleSeconds}, {@code connectTimeoutMs},
+ * configuration template: {@code port}, {@code idleSeconds}, {@code headSeconds} (the request head
+ * timeout), {@code connectTimeoutMs},
  * {@code connectTimeoutSeconds}, {@code workers} (the number of CPUs the proxy is pinned to),
  * {@code config} (the rendered configuration file), {@code logs} (the run's log directory),
  * {@code name} (the proxy and scenario, unique per process), {@code home} (the JSON file's
