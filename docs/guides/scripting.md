@@ -42,7 +42,7 @@ def allow_mitm(req, ctx):
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.5.1-SNAPSHOT
+MICROPROXY_VERSION=0.6.0
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --mitm --script proxy.star
 ```
 <!-- x-release-please-end -->
@@ -149,7 +149,7 @@ def authenticate(req, ctx):
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.5.1-SNAPSHOT
+MICROPROXY_VERSION=0.6.0
 echo "TOKENS=alice:$(printf %s "$ALICE_TOKEN" | sha256sum | cut -d' ' -f1)" > tokens.properties
 java -jar microproxy-starlark/target/microproxy-starlark-${MICROPROXY_VERSION}-all.jar --script auth.star --script-var-file tokens.properties
 ```

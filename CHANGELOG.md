@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.5.0...v0.6.0) (2026-10-20)
+
+
+### Features
+
+* **api:** expose the server's TLS session on FullFlowContext ([5d834c9](https://github.com/mahmoudimus/MicroProxy/commit/5d834c91daf776d9c27089c8335c4a54fe91aa5b))
+* **api:** expose the server's TLS session on FullFlowContext ([b9a1daa](https://github.com/mahmoudimus/MicroProxy/commit/b9a1daa040ad4905e71e390bc45a8a29b06b61d0))
+
 ## [0.5.0](https://github.com/mahmoudimus/MicroProxy/compare/v0.4.0...v0.5.0) (2026-10-18)
 
 
