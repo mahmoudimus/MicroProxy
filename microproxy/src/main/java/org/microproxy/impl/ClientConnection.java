@@ -1847,6 +1847,17 @@ final class ClientConnection implements Runnable {
     }
 
     /**
+     * The TLS session with the server of the connection {@code holder} will hold, for a {@link
+     * FullFlowContext} made before the connection: null until it exists.
+     */
+    private static Supplier<SSLSession> serverSession(ServerConnection[] holder) {
+        return () -> {
+            ServerConnection conn = holder[0];
+            return conn == null ? null : conn.serverSslSession();
+        };
+    }
+
+    /**
      * Records the server connection {@code ex} uses: its address, the proxy's end of it, the
      * chained proxy (or server) it goes to, the protocol spoken to that one, and its TLS session.
      */
@@ -4389,7 +4400,8 @@ final class ClientConnection implements Runnable {
                     : serverConnections.remove(key);
             // (Not one that hands an HTTP chained proxy its requests: the CONNECT is the proxy's.)
             if (idle != null && idle.isOpen() && !idle.inExchange && idle.nextHopIsOrigin()) {
-                idle.flowContext = new FullFlowContext(ex.flow, hop.proxy, idle.chainedProxy, idle.remoteAddress);
+                idle.flowContext = new FullFlowContext(ex.flow, hop.proxy, idle.chainedProxy, idle.remoteAddress,
+                        idle::serverSslSession);
                 // It has waited, and may have been closed meanwhile: the CONNECT may be sent again.
                 idle.used = true;
                 return idle;
@@ -4506,10 +4518,13 @@ final class ClientConnection implements Runnable {
             tunnel.close();
             throw e;
         }
-        FullFlowContext serverContext = new FullFlowContext(ex.flow, hostAndPort, hop.chained, tunnel.remoteAddress);
+        ServerConnection[] holder = new ServerConnection[1];
+        FullFlowContext serverContext = new FullFlowContext(ex.flow, hostAndPort, hop.chained, tunnel.remoteAddress,
+                serverSession(holder));
         ex.attempt = serverContext;
         ServerConnection conn = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, hop.chained, true, carrier,
                 in, out, tunnel.remoteAddress, serverContext, server.trackers);
+        holder[0] = conn;
         conn.through = tunnel;
         conn.cluster = tunnel.cluster;
         conn.tunnelThroughProxy = true;
@@ -5046,7 +5061,9 @@ final class ClientConnection implements Runnable {
     private ServerConnection takeStreamConnection(String key, Exchange ex, String hostAndPort) {
         ServerConnection conn = streamConnections.take(key);
         if (conn != null) {
-            conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress);
+            ServerConnection leased = conn;
+            conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress,
+                    leased::serverSslSession);
         }
         return conn;
     }
@@ -5127,7 +5144,9 @@ final class ClientConnection implements Runnable {
             if (LOG.isLoggable(Level.DEBUG)) {
                 LOG.log(Level.DEBUG, ex.log + "reusing pooled " + conn);
             }
-            conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress);
+            ServerConnection leased = conn;
+            conn.flowContext = new FullFlowContext(ex.flow, hostAndPort, conn.chainedProxy, conn.remoteAddress,
+                    leased::serverSslSession);
         } else {
             try {
                 conn = connect(hostAndPort, ex, route, mode, via, priorFailures, prior);
@@ -5577,7 +5596,8 @@ final class ClientConnection implements Runnable {
                 ex.flow.mark(ClientFlowContext.DNS_END);
             }
         }
-        FullFlowContext serverContext = new FullFlowContext(ex.flow, hostAndPort, proxy, remote);
+        ServerConnection[] holder = new ServerConnection[1];
+        FullFlowContext serverContext = new FullFlowContext(ex.flow, hostAndPort, proxy, remote, serverSession(holder));
         ex.attempt = serverContext;
         ProxyStats.ClusterStats cluster = server.stats.cluster(proxy, hostAndPort);
 
@@ -5630,6 +5650,7 @@ final class ClientConnection implements Runnable {
                 // server, which streams on it reach. Its frames count in the proxy's cluster.
                 ServerConnection carrier = new ServerConnection(proxyKey.toString(), proxyKey.authority(), proxy, false,
                         active, null, null, remote, serverContext, server.trackers);
+                holder[0] = carrier;
                 carrier.http2 = true;
                 carrier.cluster = cluster;
                 if (cluster.enabled) {
@@ -5641,7 +5662,6 @@ final class ClientConnection implements Runnable {
             ChainedProxyType type = proxy == null ? null : proxy.getChainedProxyType();
             boolean socks = type == ChainedProxyType.SOCKS4 || type == ChainedProxyType.SOCKS5;
 
-            ServerConnection[] holder = new ServerConnection[1];
             Supplier<FullFlowContext> currentContext =
                     () -> holder[0] != null ? holder[0].flowContext : serverContext;
             ByteReader reader = new ByteReader(serverInput(active, currentContext, cluster), server.ioBuffers)
@@ -5871,7 +5891,8 @@ final class ClientConnection implements Runnable {
             OutputStream output = new PooledOutputStream(trackedOutput(active.getOutputStream(), currentContext),
                     server.ioBuffers);
             conn = new ServerConnection(mode + "|" + hostAndPort, hostAndPort, proxy, true, active, reader, output,
-                    stream.remoteAddress, serverContext, server.trackers);
+                    stream.remoteAddress, new FullFlowContext(ex.flow, hostAndPort, proxy, stream.remoteAddress,
+                            serverSession(holder)), server.trackers);
             holder[0] = conn;
             ServerConnection created = conn;
             created.through = stream;

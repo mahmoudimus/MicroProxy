@@ -288,7 +288,8 @@ final class Http2Origins {
      */
     private ServerConnection streamOn(Http2UpstreamConnection c, boolean coalesced, ClientFlowContext flow,
             String hostAndPort, String log, boolean headRequest) {
-        FullFlowContext context = new FullFlowContext(flow, hostAndPort, c.carrier.chainedProxy, c.carrier.remoteAddress);
+        FullFlowContext context = new FullFlowContext(flow, hostAndPort, c.carrier.chainedProxy, c.carrier.remoteAddress,
+                () -> c.toProxy ? null : c.carrier.serverSslSession());
         Http2UpstreamConnection.StreamState state = c.reserve(headRequest, log, context);
         if (state == null) return null;
         if (coalesced) server.stats.http2Upstream.coalescedStreams.inc();

@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.ChainedProxy;
 import org.microproxy.ChainedProxyType;
@@ -162,6 +163,16 @@ class ServerConnection {
         this.writer = new HttpCodec.HttpWriter(tlsOut);
         this.tlsPending = false;
         this.tunnelThroughProxy = false;
+    }
+
+    /**
+     * The TLS session with the server this connection reaches, or null: without TLS with the server
+     * (plain HTTP, a tunnel that is not intercepted, TLS only with a chained proxy), or while the
+     * handshake with the server is still pending.
+     */
+    SSLSession serverSslSession() {
+        Socket s = socket;
+        return tlsContext != null && !tlsPending && s instanceof SSLSocket tls ? tls.getSession() : null;
     }
 
     /**

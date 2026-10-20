@@ -1,5 +1,6 @@
 package org.microproxy.impl;
 
+import javax.net.ssl.SSLSession;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.Http2Headers;
 import java.io.IOException;
@@ -85,6 +86,12 @@ final class Http2UpstreamStream extends ServerConnection implements StreamSocket
     /** The connection the stream's HTTP/2 connection runs over. */
     ServerConnection carrier() {
         return connection.carrier;
+    }
+
+    /** The TLS session of the connection the stream is on with the server, or null for a chained proxy's. */
+    @Override
+    SSLSession serverSslSession() {
+        return connection.toProxy ? null : connection.carrier.serverSslSession();
     }
 
     /** Whether the stream is on a connection to a chained proxy, not to an origin server. */
