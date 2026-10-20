@@ -31,6 +31,9 @@ or flow. Use this page to build your own logging or metrics; the [access log](ac
 - **TLS handshakes:** `tlsHandshakeFailed(ctx, clientSide, cause)` reports each failed or timed-out
   handshake: with a client (TLS listener or interception) or with a server or TLS chained proxy
   (then `ctx` is a `FullFlowContext` naming it).
+- **Server TLS session:** `FullFlowContext.getServerSslSession()` is the session with the origin
+  server of the connection a request is sent on, already established in `requestSentToServer`;
+  `null` without TLS with the server ([details](../guides/filters.md#the-servers-tls-session)).
 - **Correlation:** `ctx.getConnectionId()` and `ctx.acceptedAt()` identify the client connection,
   and the proxy's log lines about it start with `[conn <id>]`.
 - **HTTP/2 streams:** `ctx.getStreamId()` names the stream (0 for HTTP/1), and log lines about it

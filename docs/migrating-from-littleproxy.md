@@ -181,6 +181,7 @@ The public API keeps LittleProxy's shape (`HttpProxyServerBootstrap`, `HttpFilte
 | `HttpFiltersSource.filterRequest(req, ChannelHandlerContext)` | `filterRequest(req, FlowContext)` |
 | `HttpFiltersAdapter(req, ctx)` | `HttpFiltersAdapter(req, flowContext)` |
 | `proxyToServerConnectionSucceeded(ChannelHandlerContext)` | `proxyToServerConnectionSucceeded(FullFlowContext)` |
+| `ProxyToServerConnection.getSslEngine().getSession()` (the TLS session with the server; VGS's fork: `FullFlowContext.getServerConnection()`) | `FullFlowContext.getServerSslSession()` ([The server's TLS session](guides/filters.md#the-servers-tls-session)); `null` without TLS with the server |
 | `ctx.channel().localAddress()` (the proxy's address the client connected to) | `FlowContext.getLocalAddress()` ([Addresses of a flow](guides/filters.md#addresses-of-a-flow)) |
 | `ClientToProxyConnection.getHaProxyMessage()` destination | `FlowContext.getProxyProtocolDestinationAddress()`; its source is `getClientAddress()`, the TCP peer `getDirectClientAddress()` |
 | `SslEngineSource` (`SSLEngine`) | `SslContextSource` (`SSLContext`, plus a `configure(SSLSocket, clientMode)` hook) |

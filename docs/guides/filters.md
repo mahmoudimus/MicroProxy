@@ -65,6 +65,33 @@ chained proxy connected to). In LittleProxy the local address came from the
 `ChannelHandlerContext` (`ctx.channel().localAddress()`) and the PROXY header's destination from
 `ClientToProxyConnection.getHaProxyMessage()`.
 
+### The server's TLS session
+
+`FullFlowContext.getServerSslSession()` is the TLS session with the origin server that the flow's
+requests go to, for a tracker or filter that has to know which session carries a request (to log
+the upstream protocol and cipher suite, say):
+
+```java
+public void requestSentToServer(FullFlowContext ctx, HttpRequest request) {
+    SSLSession session = ctx.getServerSslSession();
+    if (session != null) {
+        log.info("{} {} via {} {}", request.method(), request.uri(), session.getProtocol(), session.getCipherSuite());
+    }
+}
+```
+
+- It is the session with the server end to end: through a TLS chained proxy, the session with the
+  server inside the tunnel, not the one with the chained proxy.
+- It is the session of the connection the request is sent on: a reused pooled or keep-alive
+  connection reports its session, a retry without SNI the session of the new connection, and an
+  HTTP/2 stream the one of its connection.
+- It is `null` for plain HTTP, for a tunnel the proxy does not intercept, before the handshake
+  with the server has completed, and for HTTP/3 (QUIC), which has no `SSLSession`.
+
+The session is already established in `requestSentToServer`. The same session ends up in
+[`FlowRecord.upstreamSslSession()`](../observability/activity-tracking.md), but only once the
+exchange has ended.
+
 ## Filters from lambdas
 
 `HttpFilters` keeps LittleProxy's shape: a class that overrides the hooks it needs. For small
