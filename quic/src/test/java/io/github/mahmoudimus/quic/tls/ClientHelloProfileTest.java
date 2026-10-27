@@ -94,4 +94,53 @@ class ClientHelloProfileTest {
                     fixed.clientHello(context(seed)).extensions().stream().map(Extension::type).toList());
         }
     }
+    private static HelloContext chromeContext(long seed) {
+        SplittableRandom rng = new SplittableRandom(seed);
+        return new HelloContext("localhost", List.of("h2", "http/1.1"),
+                Map.of(ProfileExtensions.X25519_MLKEM768, new byte[1216], 0x001d, new byte[32]), Grease.random(rng), rng);
+    }
+
+    private static List<Integer> maskGrease(List<Integer> values) {
+        return values.stream().map(v -> Grease.isGrease(v) ? -1 : v).toList();
+    }
+
+    @Test
+    void chrome156HasTheCapturedCipherSuitesAndExtensionSet() {
+        ClientHello chrome = Chrome156Fixture.hello(0);
+        ClientHello ours = BrowserProfiles.chrome156().clientHello(chromeContext(11));
+        assertEquals(maskGrease(java.util.Arrays.stream(chrome.cipherSuites()).boxed().toList()),
+                maskGrease(java.util.Arrays.stream(ours.cipherSuites()).boxed().toList()));
+        assertEquals(new HashSet<>(maskGrease(chrome.extensions().stream().map(Extension::type).toList())),
+                new HashSet<>(maskGrease(ours.extensions().stream().map(Extension::type).toList())));
+        assertEquals(chrome.extensions().size(), ours.extensions().size());
+        assertEquals(chrome.sessionId().length, ours.sessionId().length);
+    }
+
+    @Test
+    void chrome156IsAsLongAsTheCaptureForTheSameEchPayload() {
+        // hello 0 is 1944 bytes with a 218-byte ECH extension; everything else in it is the same
+        // length for every hello with SNI "localhost" and ALPN h2, http/1.1
+        int chromeWithoutEch = Chrome156Fixture.bytes(0).length
+                - Chrome156Fixture.extension(0, ProfileExtensions.ENCRYPTED_CLIENT_HELLO).length;
+        assertEquals(1726, chromeWithoutEch);
+        for (long seed = 0; seed < 20; seed++) {
+            HelloContext c = chromeContext(seed);
+            ClientHello hello = BrowserProfiles.chrome156().clientHello(c);
+            byte[] ech = Extension.find(hello.extensions(), ProfileExtensions.ENCRYPTED_CLIENT_HELLO);
+            assertEquals(chromeWithoutEch, hello.encode().length - ech.length);
+        }
+    }
+
+    @Test
+    void chrome156BodiesMatchTheCaptureWhenGivenItsGrease() {
+        SplittableRandom rng = new SplittableRandom(5);
+        HelloContext c = new HelloContext("localhost", List.of("h2", "http/1.1"),
+                Map.of(ProfileExtensions.X25519_MLKEM768, new byte[1216], 0x001d, new byte[32]), Chrome156Fixture.GREASE_0, rng);
+        ClientHello ours = BrowserProfiles.chrome156().clientHello(c);
+        Set<Integer> random = Set.of(ExtensionType.KEY_SHARE, ProfileExtensions.ENCRYPTED_CLIENT_HELLO);
+        for (Extension e : Chrome156Fixture.hello(0).extensions()) {
+            if (random.contains(e.type())) continue;
+            assertArrayEquals(e.data(), Extension.find(ours.extensions(), e.type()), "extension " + e.type());
+        }
+    }
 }
