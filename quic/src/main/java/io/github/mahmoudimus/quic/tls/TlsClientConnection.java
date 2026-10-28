@@ -138,7 +138,6 @@ final class TlsClientConnection {
     private byte[] serverApplicationSecret;
     private byte[] resumptionMaster;
     private boolean sentChangeCipherSpec;
-    private boolean receivedChangeCipherSpec;
     private String negotiatedAlpn;
     private byte[] peerApplicationSettings;
     private List<X509Certificate> peerCertificates = List.of();
@@ -722,12 +721,13 @@ final class TlsClientConnection {
                     handshakeBuffer.write(record.fragment());
                 }
                 case TlsRecordLayer.CHANGE_CIPHER_SPEC -> {
-                    // RFC 8446 section 5: one change_cipher_spec of value 1, between ServerHello and Finished
-                    if (handshakeDone || receivedChangeCipherSpec || record.fragment().length != 1
-                            || record.fragment()[0] != 1 || suite == null) {
-                        throw TlsAlert.unexpectedMessage("an unexpected change_cipher_spec");
+                    // RFC 8446 section 5: a change_cipher_spec of the single byte 1, received after the
+                    // first ClientHello and before the server's Finished, is dropped, however many come
+                    // (a server in compatibility mode sends one after a HelloRetryRequest, some again
+                    // after the ServerHello)
+                    if (record.fragment().length != 1 || record.fragment()[0] != 1) {
+                        throw TlsAlert.unexpectedMessage("a change_cipher_spec that is not the single byte 1");
                     }
-                    receivedChangeCipherSpec = true;
                 }
                 case TlsRecordLayer.ALERT -> throw receivedAlert(record.fragment());
                 default -> throw TlsAlert.unexpectedMessage("a record of type " + record.type() + " during the handshake");
