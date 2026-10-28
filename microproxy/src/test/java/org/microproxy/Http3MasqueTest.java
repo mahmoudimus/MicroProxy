@@ -270,6 +270,35 @@ class Http3MasqueTest {
     }
 
     @Test
+    void udpStartEndsBeforeAnythingIsRelayed() throws Exception {
+        // UdpInterceptor.udpStart: "nothing has been relayed yet", however long it takes
+        UdpEcho udp = echo();
+        java.util.concurrent.atomic.AtomicBoolean startDone = new java.util.concurrent.atomic.AtomicBoolean();
+        List<Boolean> seenAfterStart = new java.util.concurrent.CopyOnWriteArrayList<>();
+        proxy = forwardProxy().withUdpInterceptor(new UdpInterceptor() {
+            @Override
+            public void udpStart(UdpContext context) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                startDone.set(true);
+            }
+
+            @Override
+            public byte[] udpMessage(UdpMessage message, UdpContext context) {
+                seenAfterStart.add(startDone.get());
+                return message.data();
+            }
+        }).start();
+        H3TestClient.Tunnel flow = client(true).open(connectUdp(wellKnown("127.0.0.1", udp.port())));
+        flow.sendDatagram(utf8("early"));
+        assertEquals("early", nextDatagram(flow));
+        assertEquals(List.of(true, true), seenAfterStart);
+    }
+
+    @Test
     void theClientsResetEndsTheFlow() throws Exception {
         UdpEcho udp = echo();
         AtomicInteger ended = new AtomicInteger();
