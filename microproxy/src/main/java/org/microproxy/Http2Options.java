@@ -38,6 +38,7 @@ public final class Http2Options {
     private final int maxWindowUpdates;
     private final int maxEmptyFrames;
     private final boolean coalesceConnections;
+    private final io.github.mahmoudimus.http2.Http2ClientProfile upstreamProfile;
 
     private Http2Options(Builder b) {
         maxConcurrentStreams = b.maxConcurrentStreams;
@@ -53,6 +54,7 @@ public final class Http2Options {
         maxWindowUpdates = b.maxWindowUpdates;
         maxEmptyFrames = b.maxEmptyFrames;
         coalesceConnections = b.coalesceConnections;
+        upstreamProfile = b.upstreamProfile;
     }
 
     /**
@@ -84,6 +86,7 @@ public final class Http2Options {
         b.maxWindowUpdates = maxWindowUpdates;
         b.maxEmptyFrames = maxEmptyFrames;
         b.coalesceConnections = coalesceConnections;
+        b.upstreamProfile = upstreamProfile;
         return b;
     }
 
@@ -191,6 +194,16 @@ public final class Http2Options {
         return coalesceConnections;
     }
 
+    /**
+     * The HTTP/2 fingerprint connections to servers present, or null for the proxy's own.
+     *
+     * @return the profile, or null
+     * @see Builder#upstreamProfile(io.github.mahmoudimus.http2.Http2ClientProfile)
+     */
+    public io.github.mahmoudimus.http2.Http2ClientProfile upstreamProfile() {
+        return upstreamProfile;
+    }
+
     @Override
     public String toString() {
         return "Http2Options[maxConcurrentStreams=" + maxConcurrentStreams + ", initialWindowSize=" + initialWindowSize
@@ -216,6 +229,7 @@ public final class Http2Options {
         private int maxWindowUpdates = 10_000;
         private int maxEmptyFrames = 1000;
         private boolean coalesceConnections;
+        private io.github.mahmoudimus.http2.Http2ClientProfile upstreamProfile;
 
         private Builder() {}
 
@@ -387,6 +401,25 @@ public final class Http2Options {
          */
         public Builder coalesceConnections(boolean coalesce) {
             coalesceConnections = coalesce;
+            return this;
+        }
+
+        /**
+         * The HTTP/2 fingerprint of connections to servers (default none: the proxy's own): the
+         * profile's SETTINGS in its order, its connection WINDOW_UPDATE, the priority on request
+         * HEADERS and its pseudo-header order, such as {@link
+         * io.github.mahmoudimus.http2.Http2ClientProfile#chrome156()}, to go with a browser's TLS
+         * fingerprint. The connection holds itself to what the profile advertises: its stream and
+         * connection receive windows become the profile's (in place of {@link #initialWindowSize}
+         * and {@link #connectionWindowSize}), and so does its HPACK table size. With a {@link
+         * HttpProxyServerBootstrap#withFrameInterceptor frame interceptor} the HEADERS carry no
+         * priority.
+         *
+         * @param profile the profile, or null for none
+         * @return this builder
+         */
+        public Builder upstreamProfile(io.github.mahmoudimus.http2.Http2ClientProfile profile) {
+            upstreamProfile = profile;
             return this;
         }
 

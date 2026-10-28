@@ -10,6 +10,7 @@ import io.github.mahmoudimus.http2.HeaderListSizeException;
 import io.github.mahmoudimus.http2.HpackDecoder;
 import io.github.mahmoudimus.http2.Http2Exception;
 import io.github.mahmoudimus.http2.Http2Headers;
+import io.github.mahmoudimus.http2.Http2ClientProfile;
 import io.github.mahmoudimus.http2.Http2Settings;
 import io.github.mahmoudimus.http2.OriginFrame;
 import io.github.mahmoudimus.http2.ResponseHeaders;
@@ -40,6 +41,7 @@ import java.util.concurrent.locks.Condition;
 import javax.net.ssl.SSLSocket;
 import org.microproxy.FlowContext;
 import org.microproxy.FullFlowContext;
+import org.microproxy.Http2Options;
 import org.microproxy.frames.FrameDirection;
 import org.microproxy.frames.Http2Frame;
 import org.microproxy.http.DefaultHttpContent;
@@ -227,12 +229,30 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         }
     }
 
+    /** The HTTP/2 fingerprint this connection presents, or null for the proxy's own. */
+    private final Http2ClientProfile profile;
+
+    /**
+     * The options with a profile's windows in place of the configured ones: a connection with a
+     * fingerprint holds itself to the windows the fingerprint advertises.
+     */
+    private static Http2Options effective(Http2Options options) {
+        Http2ClientProfile p = options.upstreamProfile();
+        if (p == null) return options;
+        Http2Settings advertised = p.localSettings();
+        return options.toBuilder()
+                .initialWindowSize(advertised.initialWindowSize())
+                .connectionWindowSize(Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE + p.connectionWindowIncrement())
+                .build();
+    }
+
     Http2UpstreamConnection(DefaultHttpProxyServer server, Http2Origins origins, ServerConnection carrier,
             Http2Origins.Key key, Object owner) {
         // The larger receive window applies at once: it only lets the server send more sooner.
         super(server, "[h2 " + carrier.hostAndPort + "] ",
-                new FlowController(server.http2Options.initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
-                server.stats.http2Upstream);
+                new FlowController(effective(server.http2Options).initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
+                server.stats.http2Upstream, effective(server.http2Options));
+        this.profile = server.http2Options.upstreamProfile();
         this.origins = origins;
         this.carrier = carrier;
         this.key = key;
@@ -338,11 +358,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         decoder.setMaxHeaderListSize(maxHeaderListSize);
         decoder.setMaxStringLength(maxBlock * 2);
         startWriting(countedOut);
-        Http2Settings ours = Http2Settings.builder()
+        Http2Settings ours = profile != null ? profile.localSettings() : Http2Settings.builder()
                 .enablePush(false)
                 .initialWindowSize(options.initialWindowSize())
                 .maxHeaderListSize(maxHeaderListSize)
                 .build();
+        // the server may use as large a table as we advertise
+        if (profile != null) decoder.setMaxHeaderTableSize((int) ours.headerTableSize());
         int connectionIncrement = options.connectionWindowSize() - Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE;
         stateLock.lock();
         try {
@@ -351,7 +373,11 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             stateLock.unlock();
         }
         try {
-            writePreface(true, ours, connectionIncrement);
+            if (profile != null) {
+                writePreface(true, profile.settings(), connectionIncrement);
+            } else {
+                writePreface(true, ours, connectionIncrement);
+            }
             int idle = server.idleTimeoutMillis();
             socket.setSoTimeout(idle > 0 ? idle : (int) options.settingsAckTimeout().toMillis());
             Frame first = reader.readFrame();
@@ -856,11 +882,13 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             } finally {
                 stateLock.unlock();
             }
+            List<HeaderField> wire = profile != null ? profile.order(fields) : fields;
             if (frames == null) {
-                write(s, () -> writer.writeHeaders(s.id, encoder.encode(fields), endStream), true);
+                Frame.PrioritySpec priority = profile != null ? profile.headersPriority() : null;
+                write(s, () -> writer.writeHeaders(s.id, encoder.encode(wire), endStream, priority), true);
             } else {
                 // Under writeLock, so that ids reach the server in order whatever the interceptor does.
-                List<Http2Frame> out = sent(s, new Http2Frame.Headers(s.id, Http2Frames.fields(fields), endStream));
+                List<Http2Frame> out = sent(s, new Http2Frame.Headers(s.id, Http2Frames.fields(wire), endStream));
                 write(s, () -> writeFrames(out), true);
             }
         } finally {
