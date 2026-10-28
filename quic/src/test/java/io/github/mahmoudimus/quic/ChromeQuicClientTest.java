@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mahmoudimus.quic.connection.ClientConfig;
 import io.github.mahmoudimus.quic.connection.EndpointConfig;
-import io.github.mahmoudimus.quic.connection.InitialPacketShape;
 import io.github.mahmoudimus.quic.connection.TransportConfig;
 import io.github.mahmoudimus.quic.crypto.DirectionalKeys;
 import io.github.mahmoudimus.quic.crypto.Keys;
@@ -15,8 +14,6 @@ import io.github.mahmoudimus.quic.frame.FrameDecoder;
 import io.github.mahmoudimus.quic.packet.Packet;
 import io.github.mahmoudimus.quic.packet.PacketType;
 import io.github.mahmoudimus.quic.packet.ProtectedPacket;
-import io.github.mahmoudimus.quic.params.TransportParameterProfile;
-import io.github.mahmoudimus.quic.tls.BrowserProfiles;
 import io.github.mahmoudimus.quic.tls.TestCerts;
 import io.github.mahmoudimus.quic.tls.TlsConfig;
 import java.net.InetAddress;
@@ -25,7 +22,6 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -39,34 +35,13 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 class ChromeQuicClientTest {
 
-    /** Chrome's transport settings: windows, stream limits, idle timeout, UDP payload and Initial size. */
-    static TransportConfig chromeTransport() {
-        return TransportConfig.builder()
-                .maxIdleTimeout(Duration.ofSeconds(30))
-                .maxConcurrentBidiStreams(100)
-                .maxConcurrentUniStreams(103)
-                .receiveWindow(15_728_640)
-                .streamReceiveWindow(6_291_456)
-                .maxUdpPayloadSize(1472)
-                .initialMtu(1250)
-                .datagramReceiveBufferSize(65_536)
-                .build();
-    }
-
     static ClientConfig chromeClient() {
-        TlsConfig tls = TlsConfig.builder()
+        QuicClientProfile chrome = QuicClientProfile.chrome156();
+        TlsConfig tls = chrome.applyTo(TlsConfig.builder()
                 .serverName("localhost")
                 .trustManager(TestCerts.CA.trustManager())
-                .alpnProtocols(LoopbackTest.ALPN)
-                .clientHelloProfile(BrowserProfiles.chrome156Quic())
-                .applicationSettings(Map.of("h3", new byte[0]))
-                .build();
-        return ClientConfig.builder(tls).transport(chromeTransport())
-                .initialDcidLength(8)
-                .activeMigration(true)
-                .transportParameterProfile(TransportParameterProfile.chrome156())
-                .initialPacketShape(InitialPacketShape.CHROME)
-                .build();
+                .alpnProtocols(LoopbackTest.ALPN), io.github.mahmoudimus.quic.tls.CertificateDecompressor.ZLIB).build();
+        return chrome.applyTo(ClientConfig.builder(tls).transport(chrome.applyTo(TransportConfig.builder()).build())).build();
     }
 
     @Test
@@ -75,7 +50,7 @@ class ChromeQuicClientTest {
         try (EchoServer echo = new EchoServer(LoopbackTest.serverConfig(LoopbackTest.fastTransport()));
                 Relay relay = new Relay(echo.address(), seen);
                 QuicClient client = QuicClient.create(chromeClient(), new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
-                        EndpointConfig.builder().cidLength(0).build())) {
+                        QuicClientProfile.chrome156().endpointConfig())) {
             QuicConnection c = client.connect(relay.address(), "localhost", Duration.ofSeconds(10));
             byte[] data = LoopbackTest.data(11, 200_000);
             assertArrayEquals(LoopbackTest.sha256().digest(data), LoopbackTest.echo(c, data));

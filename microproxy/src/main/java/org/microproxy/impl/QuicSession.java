@@ -120,13 +120,24 @@ final class QuicSession implements QuicContext {
                 .congestionControl(Http3Listener.congestionControl(server.http3Options))
                 .qlog(QlogWriter.sink(server, false))
                 .build();
-        ClientConfig config = ClientConfig.builder(tls.build()).transport(transport).build();
+        org.microproxy.tls.BrowserProfile browser = server.http3Options.upstreamProfile();
+        EndpointConfig endpoint = EndpointConfig.defaults();
+        ClientConfig config;
+        if (browser != null) {
+            io.github.mahmoudimus.quic.QuicClientProfile quic = browser.quicProfile();
+            quic.applyTo(tls, org.microproxy.tls.BrowserProfile.certificateDecompressor());
+            TransportConfig shaped = quic.applyTo(transport.toBuilder()).build();
+            config = quic.applyTo(ClientConfig.builder(tls.build()).transport(shaped)).build();
+            endpoint = quic.endpointConfig();
+        } else {
+            config = ClientConfig.builder(tls.build()).transport(transport).build();
+        }
         boolean ipv6 = address.getAddress() instanceof Inet6Address;
         InetSocketAddress local = server.localAddress;
         InetSocketAddress bind = local != null && (local.getAddress() instanceof Inet6Address) == ipv6
                 ? new InetSocketAddress(local.getAddress(), 0)
                 : new InetSocketAddress(InetAddress.getByName(ipv6 ? "::" : "0.0.0.0"), 0);
-        QuicClient client = QuicClient.create(config, bind, EndpointConfig.defaults());
+        QuicClient client = QuicClient.create(config, bind, endpoint);
         QuicStats.of(server, QuicStats.UPSTREAM).observe(client);
         try {
             return new Upstream(client, client.connect(address, hello.sni(), timeout));

@@ -74,6 +74,8 @@ abstract class Http3Endpoint {
     final QuicConnection quic;
     final String logPrefix;
     final Http3Options options;
+    /** The HTTP/3 fingerprint this end presents, or null for the proxy's own. */
+    final io.github.mahmoudimus.http3.Http3ClientProfile profile;
     /** Runs the frame interceptor; null without one. */
     final Http3Frames frames;
     /** {@code http3.downstream.*} or {@code http3.upstream.*}: this side's codec stats. */
@@ -118,6 +120,17 @@ abstract class Http3Endpoint {
 
     Http3Endpoint(DefaultHttpProxyServer server, QuicConnection quic, String logPrefix, Http3StreamValidator.Role role,
             ProtocolStats.Http3Stats stats) {
+        this(server, quic, logPrefix, role, stats, null);
+    }
+
+    /**
+     * With {@code profile}, a client's connection presents a browser's HTTP/3 fingerprint: the
+     * profile's SETTINGS (whose QPACK and field section limits it then holds to), its GREASE, and
+     * QPACK streams opened when first needed.
+     */
+    Http3Endpoint(DefaultHttpProxyServer server, QuicConnection quic, String logPrefix, Http3StreamValidator.Role role,
+            ProtocolStats.Http3Stats stats, io.github.mahmoudimus.http3.Http3ClientProfile profile) {
+        this.profile = profile;
         this.server = server;
         this.stats = stats;
         this.quic = quic;
@@ -126,13 +139,16 @@ abstract class Http3Endpoint {
         this.role = role;
         this.frames = server.frameInterceptor == null ? null
                 : new Http3Frames(server.frameInterceptor, server.stats.hooks.frameInterceptor);
-        this.maxFieldSectionSize = options.maxFieldSectionSize() > 0 ? options.maxFieldSectionSize()
+        this.maxFieldSectionSize = profile != null && profile.maxFieldSectionSize() > 0 ? profile.maxFieldSectionSize()
+                : options.maxFieldSectionSize() > 0 ? options.maxFieldSectionSize()
                 : server.limits.maxHeaderSize() + server.limits.maxInitialLineLength();
         this.maxFramePayload = (int) Math.min(Integer.MAX_VALUE - 8, Math.max(64 * 1024, maxFieldSectionSize + 4096));
         this.limits = new int[] {options.maxUnknownFrames(), options.maxUnknownStreams(), options.maxRapidResets()};
         this.rateWindowNanos = options.rateWindow().toNanos();
         this.encoder = new QpackEncoder(options.qpackMaxTableCapacity());
-        this.decoder = new QpackDecoder(options.qpackMaxTableCapacity(), options.qpackBlockedStreams());
+        this.decoder = profile != null
+                ? new QpackDecoder(profile.qpackMaxTableCapacity(), (int) profile.qpackBlockedStreams())
+                : new QpackDecoder(options.qpackMaxTableCapacity(), options.qpackBlockedStreams());
         decoder.setMaxFieldSectionSize(maxFieldSectionSize);
         this.uniStreams = new Http3StreamValidator.UnidirectionalStreams(role);
     }
@@ -187,19 +203,25 @@ abstract class Http3Endpoint {
                 .qpackBlockedStreams(options.qpackBlockedStreams());
         extensionSettings(local);
         Http3Settings ours = local.build();
+        java.util.random.RandomGenerator random = new java.security.SecureRandom();
         controlLock.lock();
         try {
             control = w;
             controlStreamId = c.id();
-            Http3Frame.Settings settings = new Http3Frame.Settings(ours.values());
+            Http3Frame.Settings settings = new Http3Frame.Settings(profile != null ? profile.settings(random) : ours.values());
             for (Http3Frame f : frames == null ? List.<Http3Frame>of(settings)
                     : frames.onControl(settings, sentDirection(), frameOrigin(), c.id())) {
                 writeControlFrame(f);
+            }
+            io.github.mahmoudimus.http3.Http3Frame grease = profile != null ? profile.greaseFrame(random) : null;
+            if (grease instanceof io.github.mahmoudimus.http3.Http3Frame.Unknown u) {
+                writeControlFrame(new Http3Frame.Unknown(u.type(), u.payload()));
             }
             w.flush();
         } finally {
             controlLock.unlock();
         }
+        if (profile != null && profile.lazyQpackStreams()) return; // opened by their first instruction
         QuicStream enc = quic.openUnidirectionalStream();
         encoderLock.lock();
         try {
@@ -233,6 +255,21 @@ abstract class Http3Endpoint {
             case Http3Frame.CancelPush c -> control.writeCancelPush(c.pushId());
             case Http3Frame.Unknown u -> control.writeFrame(new io.github.mahmoudimus.http3.Http3Frame.Unknown(u.type(), u.payload()));
             default -> throw new IllegalArgumentException(f.typeName() + " on a control stream");
+        }
+    }
+
+    /** Sends a PRIORITY_UPDATE for request stream {@code streamId} on the control stream (RFC 9218). */
+    void sendPriorityUpdate(long streamId, String priority) throws IOException {
+        if (profile == null) return;
+        io.github.mahmoudimus.http3.Http3Frame.Unknown u =
+                (io.github.mahmoudimus.http3.Http3Frame.Unknown) profile.priorityUpdate(streamId, priority);
+        controlLock.lock();
+        try {
+            if (control == null) return;
+            writeControlFrame(new Http3Frame.Unknown(u.type(), u.payload()));
+            control.flush();
+        } finally {
+            controlLock.unlock();
         }
     }
 
@@ -537,6 +574,11 @@ abstract class Http3Endpoint {
     /** Sends the decoder's queued instructions; holds decoderLock. */
     private void flushDecoderStream() throws IOException {
         byte[] bytes = decoder.decoderStreamBytes();
+        if (bytes.length > 0 && decoderOut == null && profile != null && profile.lazyQpackStreams()) {
+            QuicStream dec = quic.openUnidirectionalStream();
+            decoderOut = dec.getOutputStream();
+            decoderOut.write(Http3StreamType.encode(Http3StreamType.QPACK_DECODER));
+        }
         if (bytes.length > 0 && decoderOut != null) {
             decoderOut.write(bytes);
             decoderOut.flush();
@@ -559,6 +601,11 @@ abstract class Http3Endpoint {
                 throw new IOException("cannot encode the field section: " + e.getMessage(), e);
             }
             byte[] instructions = encoder.encoderStreamBytes();
+            if (instructions.length > 0 && encoderOut == null) {
+                QuicStream enc = quic.openUnidirectionalStream();
+                encoderOut = enc.getOutputStream();
+                encoderOut.write(Http3StreamType.encode(Http3StreamType.QPACK_ENCODER));
+            }
             if (instructions.length > 0) {
                 encoderOut.write(instructions);
                 encoderOut.flush();

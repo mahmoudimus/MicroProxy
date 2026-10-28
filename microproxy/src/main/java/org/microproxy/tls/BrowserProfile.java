@@ -28,7 +28,8 @@ import org.microproxy.thirdparty.jaybrotli.config.Limits;
 
 /**
  * What one browser looks like to a server, as one thing to give the proxy: its TLS ClientHello,
- * its HTTP/2 connection preface and request framing, and its request headers.
+ * its HTTP/2 connection preface and request framing, its QUIC and HTTP/3 connections ({@link
+ * org.microproxy.Http3Options.Builder#upstreamProfile}), and its request headers.
  *
  * <pre>{@code
  * BrowserProfile chrome = BrowserProfile.chrome156();
@@ -52,13 +53,18 @@ public final class BrowserProfile {
     private final ClientHelloProfile tls;
     private final Http2ClientProfile http2;
     private final List<Map.Entry<String, String>> requestHeaders;
+    private final io.github.mahmoudimus.quic.QuicClientProfile quic;
+    private final io.github.mahmoudimus.http3.Http3ClientProfile http3;
 
     private BrowserProfile(String name, ClientHelloProfile tls, Http2ClientProfile http2,
-            List<Map.Entry<String, String>> requestHeaders) {
+            List<Map.Entry<String, String>> requestHeaders, io.github.mahmoudimus.quic.QuicClientProfile quic,
+            io.github.mahmoudimus.http3.Http3ClientProfile http3) {
         this.name = name;
         this.tls = tls;
         this.http2 = http2;
         this.requestHeaders = List.copyOf(requestHeaders);
+        this.quic = quic;
+        this.http3 = http3;
     }
 
     /**
@@ -85,7 +91,9 @@ public final class BrowserProfile {
                 Map.entry("sec-fetch-dest", "document"),
                 Map.entry("accept-encoding", "gzip, deflate, br, zstd"),
                 Map.entry("accept-language", "en-US,en;q=0.9"),
-                Map.entry("priority", "u=0, i")));
+                Map.entry("priority", "u=0, i")),
+                io.github.mahmoudimus.quic.QuicClientProfile.chrome156(),
+                io.github.mahmoudimus.http3.Http3ClientProfile.chrome156());
     }
 
     /** {@return the profile's name, such as {@code chrome-156}} */
@@ -101,6 +109,16 @@ public final class BrowserProfile {
     /** {@return the HTTP/2 profile} */
     public Http2ClientProfile http2Profile() {
         return http2;
+    }
+
+    /** {@return the QUIC client profile: its QUIC hello, transport parameters and Initial packets} */
+    public io.github.mahmoudimus.quic.QuicClientProfile quicProfile() {
+        return quic;
+    }
+
+    /** {@return the HTTP/3 profile} */
+    public io.github.mahmoudimus.http3.Http3ClientProfile http3Profile() {
+        return http3;
     }
 
     /** {@return the browser's request headers, in its order} */

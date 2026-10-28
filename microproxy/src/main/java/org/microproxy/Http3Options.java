@@ -72,6 +72,7 @@ public final class Http3Options {
     private final boolean retry;
     private final boolean zeroRtt;
     private final boolean upstreamZeroRtt;
+    private final org.microproxy.tls.BrowserProfile upstreamProfile;
     private final Duration upstreamHandshakeTimeout;
     private final Duration upstreamFailureTimeout;
     private final boolean altSvc;
@@ -111,6 +112,7 @@ public final class Http3Options {
         retry = b.retry;
         zeroRtt = b.zeroRtt;
         upstreamZeroRtt = b.upstreamZeroRtt;
+        upstreamProfile = b.upstreamProfile;
         upstreamHandshakeTimeout = b.upstreamHandshakeTimeout;
         upstreamFailureTimeout = b.upstreamFailureTimeout;
         altSvc = b.altSvc;
@@ -166,6 +168,7 @@ public final class Http3Options {
         b.retry = retry;
         b.zeroRtt = zeroRtt;
         b.upstreamZeroRtt = upstreamZeroRtt;
+        b.upstreamProfile = upstreamProfile;
         b.upstreamHandshakeTimeout = upstreamHandshakeTimeout;
         b.upstreamFailureTimeout = upstreamFailureTimeout;
         b.altSvc = altSvc;
@@ -261,6 +264,16 @@ public final class Http3Options {
      */
     public boolean zeroRtt() {
         return zeroRtt;
+    }
+
+    /**
+     * The browser whose QUIC and HTTP/3 fingerprint connections to servers present. See {@link
+     * Builder#upstreamProfile(org.microproxy.tls.BrowserProfile)}.
+     *
+     * @return the browser, or null for the proxy's own fingerprint
+     */
+    public org.microproxy.tls.BrowserProfile upstreamProfile() {
+        return upstreamProfile;
     }
 
     /**
@@ -436,6 +449,7 @@ public final class Http3Options {
         private boolean retry;
         private boolean zeroRtt;
         private boolean upstreamZeroRtt = true;
+        private org.microproxy.tls.BrowserProfile upstreamProfile;
         private Duration upstreamHandshakeTimeout = Duration.ofSeconds(1);
         private Duration upstreamFailureTimeout = Duration.ofMinutes(5);
         private boolean altSvc = true;
@@ -949,6 +963,21 @@ public final class Http3Options {
         public Builder qlogMaxFileBytes(long max) {
             if (max <= 0) throw new IllegalArgumentException("qlogMaxFileBytes must be positive: " + max);
             qlogMaxFileBytes = max;
+            return this;
+        }
+
+        /**
+         * The browser whose QUIC and HTTP/3 fingerprint connections to servers present ({@link
+         * org.microproxy.tls.BrowserProfile#chrome156()}): its QUIC ClientHello, transport parameters,
+         * connection IDs and Initial packets, and its HTTP/3 SETTINGS, GREASE and request framing.
+         * Each such connection has a UDP socket of its own, as a browser's does. Default none: the
+         * proxy's own.
+         *
+         * @param profile the browser, or null for none
+         * @return this builder
+         */
+        public Builder upstreamProfile(org.microproxy.tls.BrowserProfile profile) {
+            upstreamProfile = profile;
             return this;
         }
 
