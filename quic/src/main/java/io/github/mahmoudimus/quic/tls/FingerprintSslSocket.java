@@ -36,7 +36,7 @@ import javax.net.ssl.SSLSocket;
  * {@link SSLException} with the {@link SocketException} as its cause, and certificate
  * failures with the trust manager's {@link java.security.cert.CertificateException} as the cause.
  */
-final class FingerprintSslSocket extends SSLSocket {
+final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket {
 
     static final String TLS13 = "TLSv1.3";
     static final String TLS12 = "TLSv1.2";
@@ -75,6 +75,16 @@ final class FingerprintSslSocket extends SSLSocket {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    @Override
+    public ClientHelloProfile profile() {
+        return settings.config().profile();
+    }
+
+    @Override
+    public Object attachment() {
+        return settings.attachment();
     }
 
     // --- the handshake ---
