@@ -126,7 +126,7 @@ final class QuicSession implements QuicContext {
         if (browser != null) {
             io.github.mahmoudimus.quic.QuicClientProfile quic = browser.quicProfile();
             quic.applyTo(tls, org.microproxy.tls.BrowserProfile.certificateDecompressor());
-            TransportConfig shaped = quic.applyTo(transport.toBuilder()).build();
+            TransportConfig shaped = quic.applyTo(transport.toBuilder(), address.getAddress() instanceof Inet6Address).build();
             config = quic.applyTo(ClientConfig.builder(tls.build()).transport(shaped)).build();
             endpoint = quic.endpointConfig();
         } else {

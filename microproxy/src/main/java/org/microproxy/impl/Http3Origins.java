@@ -429,7 +429,7 @@ final class Http3Origins {
         quic.applyTo(tls, org.microproxy.tls.BrowserProfile.certificateDecompressor());
         TransportConfig transport = quic.applyTo(TransportConfig.builder()
                         .congestionControl(Http3Listener.congestionControl(options))
-                        .qlog(QlogWriter.sink(server, false)))
+                        .qlog(QlogWriter.sink(server, false)), ipv6)
                 .build();
         ClientConfig config = quic.applyTo(ClientConfig.builder(tls.build()).transport(transport).sessionCache(sessions)).build();
         InetSocketAddress local = server.localAddress;

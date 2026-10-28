@@ -46,6 +46,8 @@ public class QuicException extends Exception {
     public static final long AEAD_LIMIT_REACHED = 0x0f;
     /** No viable network path. */
     public static final long NO_VIABLE_PATH = 0x10;
+    /** VERSION_NEGOTIATION_ERROR (RFC 9368 section 10.2): the version negotiation could not be authenticated. */
+    public static final long VERSION_NEGOTIATION_ERROR = 0x11;
     /** The base of the TLS alert range: {@code CRYPTO_ERROR + alert}. */
     public static final long CRYPTO_ERROR = 0x0100;
 

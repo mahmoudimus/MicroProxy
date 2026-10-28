@@ -151,6 +151,22 @@ public final class PacketBuilder {
     }
 
     /**
+     * Pads the datagram with zero bytes after its last finished packet, up to {@code minDatagramSize}:
+     * bytes a receiver discards as not a packet, as neqo pads its Initial datagrams.
+     *
+     * @param minDatagramSize the size the datagram must reach
+     * @return the index just past the padding
+     * @throws IllegalStateException if a packet is in progress or the padding does not fit
+     */
+    public int padAfter(int minDatagramSize) {
+        if (header != null) throw new IllegalStateException("a packet is in progress");
+        int end = datagramStart + minDatagramSize;
+        if (end > buffer.limit()) throw new IllegalStateException("no room to pad the datagram to " + minDatagramSize + " bytes");
+        while (buffer.position() < end) buffer.put((byte) 0);
+        return buffer.position();
+    }
+
+    /**
      * The datagram built so far: every finished packet.
      *
      * @return a view from the first packet to the end of the last finished one

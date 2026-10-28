@@ -98,8 +98,10 @@ public final class BrowserProfile {
 
     /**
      * Firefox 159 on macOS, as captured from 159.0: {@link BrowserProfiles#firefox159()}, {@link
-     * Http2ClientProfile#firefox159()}, and the headers of a navigation, in Firefox's order. It has
-     * no QUIC and HTTP/3 profile yet ({@link #quicProfile()} is null).
+     * Http2ClientProfile#firefox159()}, its QUIC and HTTP/3 connections ({@link
+     * io.github.mahmoudimus.quic.QuicClientProfile#firefox159()}, {@link
+     * io.github.mahmoudimus.http3.Http3ClientProfile#firefox159()}), and the headers of a
+     * navigation, in Firefox's order.
      *
      * @return the profile
      */
@@ -115,7 +117,8 @@ public final class BrowserProfile {
                 Map.entry("sec-fetch-site", "none"),
                 Map.entry("sec-fetch-user", "?1"),
                 Map.entry("priority", "u=0, i")),
-                null, null);
+                io.github.mahmoudimus.quic.QuicClientProfile.firefox159(),
+                io.github.mahmoudimus.http3.Http3ClientProfile.firefox159());
     }
 
     /** {@return the profile's name, such as {@code chrome-156}} */

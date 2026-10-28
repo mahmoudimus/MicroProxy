@@ -23,9 +23,14 @@ import java.util.random.RandomGenerator;
  * @param priorityUpdates whether a request's {@code priority} is also sent as a PRIORITY_UPDATE
  * @param pseudoHeaderOrder the request pseudo-headers in the order they are sent
  * @param lazyQpackStreams whether the QPACK streams wait for their first instruction
+ * @param neqoGreaseFrame whether the GREASE frame is neqo's (Firefox): a type from the whole
+ *     reserved range and 0 to 7 random bytes, rather than Chrome's 1 to 3
+ * @param altUsed whether requests carry {@code alt-used} (RFC 7838 section 5), naming the
+ *     server, as Firefox's do over a connection it found by Alt-Svc
  */
 public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean greaseSetting, boolean greaseFrame,
-        boolean priorityUpdates, List<String> pseudoHeaderOrder, boolean lazyQpackStreams) {
+        boolean priorityUpdates, List<String> pseudoHeaderOrder, boolean lazyQpackStreams, boolean neqoGreaseFrame,
+        boolean altUsed) {
 
     /** PRIORITY_UPDATE for a request stream (RFC 9218 section 7.2). */
     public static final long PRIORITY_UPDATE_REQUEST = 0xf0700;
@@ -34,6 +39,12 @@ public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean 
         Objects.requireNonNull(name, "name");
         settings = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
         pseudoHeaderOrder = List.copyOf(pseudoHeaderOrder);
+    }
+
+    /** A profile with Chrome's GREASE frame and no {@code alt-used}. */
+    public Http3ClientProfile(String name, Map<Long, Long> settings, boolean greaseSetting, boolean greaseFrame,
+            boolean priorityUpdates, List<String> pseudoHeaderOrder, boolean lazyQpackStreams) {
+        this(name, settings, greaseSetting, greaseFrame, priorityUpdates, pseudoHeaderOrder, lazyQpackStreams, false, false);
     }
 
     /**
@@ -52,6 +63,27 @@ public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean 
         settings.put(0x33L, 1L);
         return new Http3ClientProfile("chrome-156", settings, true, true, true,
                 List.of(":method", ":authority", ":scheme", ":path"), true);
+    }
+
+    /**
+     * Firefox 159's (neqo), as captured over HTTP/3: QPACK_MAX_TABLE_CAPACITY 65536,
+     * QPACK_BLOCKED_STREAMS 20, the WebTransport setting 0, H3_DATAGRAM 1 (its draft code point and
+     * RFC 9297's) and ENABLE_CONNECT_PROTOCOL 1, with no GREASE setting; neqo's GREASE frame; no
+     * PRIORITY_UPDATE; pseudo-headers {@code :method :scheme :authority :path}; the QPACK streams
+     * opened with the control stream; {@code alt-used} on requests.
+     *
+     * @return the profile
+     */
+    public static Http3ClientProfile firefox159() {
+        Map<Long, Long> settings = new LinkedHashMap<>();
+        settings.put(0x1L, 65_536L);
+        settings.put(0x7L, 20L);
+        settings.put(0x2b603742L, 0L);
+        settings.put(0xffd277L, 1L);
+        settings.put(0x33L, 1L);
+        settings.put(0x8L, 1L);
+        return new Http3ClientProfile("firefox-159", settings, false, true, false,
+                List.of(":method", ":scheme", ":authority", ":path"), false, true, true);
     }
 
     /** {@return the QPACK_MAX_TABLE_CAPACITY advertised, 0 when not} */
@@ -94,6 +126,14 @@ public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean 
      */
     public Http3Frame greaseFrame(RandomGenerator random) {
         if (!greaseFrame) return null;
+        if (neqoGreaseFrame) {
+            // neqo-http3's HFrame::Grease: (r >> 7) * 0x1f + 0x21 for a random 64-bit r, and
+            // r[0] & 7 random bytes
+            long type = (random.nextLong() >>> 7) * 0x1f + 0x21;
+            byte[] payload = new byte[random.nextInt(8)];
+            random.nextBytes(payload);
+            return new Http3Frame.Unknown(type, payload);
+        }
         byte[] payload = new byte[1 + random.nextInt(3)];
         random.nextBytes(payload);
         return new Http3Frame.Unknown(reserved(random), payload);
@@ -123,7 +163,7 @@ public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean 
      * @return the reordered fields
      */
     public List<HeaderField> order(List<HeaderField> fields) {
-        List<HeaderField> out = new ArrayList<>(fields.size());
+        List<HeaderField> out = new ArrayList<>(fields.size() + 1);
         for (String name : pseudoHeaderOrder) {
             for (HeaderField f : fields) {
                 if (f.name().equals(name)) out.add(f);
@@ -132,6 +172,31 @@ public record Http3ClientProfile(String name, Map<Long, Long> settings, boolean 
         for (HeaderField f : fields) {
             if (!pseudoHeaderOrder.contains(f.name())) out.add(f);
         }
+        if (altUsed) addAltUsed(out);
         return out;
+    }
+
+    /**
+     * {@code alt-used} with the request's authority (its port left out when it is 443), where
+     * Firefox puts it: after the content negotiation fields it sends first, before {@code
+     * upgrade-insecure-requests} and the rest. Not for a request that has one, or no authority.
+     */
+    private static void addAltUsed(List<HeaderField> fields) {
+        String authority = null;
+        for (HeaderField f : fields) {
+            if (f.name().equals("alt-used")) return;
+            if (f.name().equals(":authority")) authority = f.value();
+        }
+        if (authority == null) return;
+        if (authority.endsWith(":443")) authority = authority.substring(0, authority.length() - 4);
+        int at = fields.size();
+        for (int i = 0; i < fields.size(); i++) {
+            String name = fields.get(i).name();
+            if (name.equals("user-agent") || name.equals("accept") || name.equals("accept-language")
+                    || name.equals("accept-encoding") || name.startsWith(":")) {
+                at = i + 1;
+            }
+        }
+        fields.add(at, new HeaderField("alt-used", authority));
     }
 }

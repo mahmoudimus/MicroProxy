@@ -26,6 +26,8 @@ class Firefox159FingerprintTest {
     /** A connection's that resumes a session: pre_shared_key in, session_ticket out. */
     static final String FIREFOX_159_RESUMED_JA4 = "t13d1517h2_8daaf6152771_e6dcd7ae0a9e";
     static final String FIREFOX_159_RESUMED_JA3 = "a55f6cb044839f48d371a56323ed22ef";
+    /** Over HTTP/3 (fingerprints/firefox-159-quic). */
+    static final String FIREFOX_159_QUIC_JA4 = "q13d0315h3_55b375c5d22e_dc5437974b47";
 
     @Test
     void ja3AndJa4AreFirefox159s() throws Exception {
@@ -37,6 +39,17 @@ class Firefox159FingerprintTest {
             ClientHello parsed = TlsClientHello.parse(hello);
             assertEquals(FIREFOX_159_JA4, TlsFingerprints.ja4(parsed));
             assertEquals(FIREFOX_159_JA3, TlsFingerprints.ja3(parsed));
+        }
+    }
+
+    @Test
+    void quicJa4IsFirefox159sOverHttp3() throws Exception {
+        SecureRandom random = new SecureRandom();
+        for (int i = 0; i < 20; i++) {
+            byte[] hello = BrowserProfiles.firefox159Quic().encode(new HelloContext("quic.test", List.of("h3"),
+                    Map.of(ProfileExtensions.X25519_MLKEM768, new byte[1216], 0x001d, new byte[32], 0x0017, new byte[65]),
+                    Grease.random(random), random, Map.of(ProfileExtensions.QUIC_TRANSPORT_PARAMETERS, new byte[] {1, 2, 3})));
+            assertEquals(FIREFOX_159_QUIC_JA4, TlsFingerprints.ja4(TlsClientHello.parse(hello), true));
         }
     }
 }

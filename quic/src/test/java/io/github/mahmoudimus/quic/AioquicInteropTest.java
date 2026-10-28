@@ -426,6 +426,26 @@ class AioquicInteropTest {
         }
     }
 
+    @Test
+    void firefoxsProfileFollowsAnAioquicServerToVersion2() throws Exception {
+        // Firefox lists QUIC version 2 among its available versions, and aioquic's server moves such
+        // a connection to the first it supports (RFC 9368 compatible version negotiation)
+        QuicClientProfile firefox = QuicClientProfile.firefox159();
+        TlsConfig.Builder tls = TlsConfig.builder().serverName("localhost").trustManager(TestCerts.CA.trustManager())
+                .alpnProtocols("microproxy-test");
+        firefox.applyTo(tls, io.github.mahmoudimus.quic.tls.CertificateDecompressor.ZLIB);
+        ClientConfig config = firefox.applyTo(ClientConfig.builder(tls.build())
+                .transport(firefox.applyTo(TransportConfig.builder()).build())).build();
+        try (PythonServer py = new PythonServer();
+                QuicClient client = QuicClient.create(config, new InetSocketAddress(0), firefox.endpointConfig())) {
+            QuicConnection c = client.connect(py.address(), "localhost", Duration.ofSeconds(20));
+            assertEquals(QuicVersion.V2, c.version());
+            byte[] d = LoopbackTest.data(3, 50_000);
+            assertArrayEquals(EchoServer.sha256().digest(d), LoopbackTest.echo(c, d));
+            c.close();
+        }
+    }
+
     @ParameterizedTest(name = "{0} {1}")
     @MethodSource("suitesAndGroups")
     void aioquicServerChoosesSuite(CipherSuite suite, NamedGroup group) throws Exception {
