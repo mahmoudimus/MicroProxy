@@ -145,6 +145,7 @@ final class TlsClientConnection {
     private List<X509Certificate> localCertificates = List.of();
     private SignatureScheme peerSignatureScheme;
     private boolean handshakeDone;
+    private int keyUpdatesReceived;
     private boolean readClosed;
     private boolean writeClosed;
     private final Object writeLock = new Object();
@@ -788,6 +789,7 @@ final class TlsClientConnection {
         if (handshakeBuffer.size() != 0) throw TlsAlert.unexpectedMessage("handshake data after KeyUpdate in the same record");
         serverApplicationSecret = nextSecret(serverApplicationSecret);
         records.readKeys(suite, serverApplicationSecret);
+        keyUpdatesReceived++;
         if (update.requestUpdate() == 1) {
             synchronized (writeLock) {
                 if (writeClosed) return;
@@ -910,6 +912,11 @@ final class TlsClientConnection {
 
     boolean resumed() {
         return resumed;
+    }
+
+    /** {@return how many KeyUpdates the server has sent} */
+    int keyUpdatesReceived() {
+        return keyUpdatesReceived;
     }
 
     /** The legacy session id of the ClientHello, which the server echoed. */
