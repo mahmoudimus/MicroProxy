@@ -108,9 +108,14 @@ abstract class Http2Endpoint {
     }
 
     Http2Endpoint(DefaultHttpProxyServer server, String logPrefix, FlowController flow, ProtocolStats.Http2Stats stats) {
+        this(server, logPrefix, flow, stats, server.http2Options);
+    }
+
+    Http2Endpoint(DefaultHttpProxyServer server, String logPrefix, FlowController flow, ProtocolStats.Http2Stats stats,
+            Http2Options options) {
         this.server = server;
         this.logPrefix = logPrefix;
-        this.options = server.http2Options;
+        this.options = options;
         this.flow = flow;
         this.stats = stats;
         this.frames = server.frameInterceptor == null ? null : new Http2Frames(server.frameInterceptor, this);
@@ -424,16 +429,22 @@ abstract class Http2Endpoint {
      * connectionIncrement} is positive.
      */
     final void writePreface(boolean clientPreface, Http2Settings ours, int connectionIncrement) throws IOException {
+        writePreface(clientPreface, ours.changedValues(), connectionIncrement);
+    }
+
+    /** {@link #writePreface(boolean, Http2Settings, int)}, sending {@code values} as they are, in their order. */
+    final void writePreface(boolean clientPreface, java.util.Map<Integer, Long> values, int connectionIncrement)
+            throws IOException {
         List<Http2Frame> settings = null;
         if (frames != null) {
-            settings = sent(null, new Http2Frame.Settings(false, ours.changedValues()));
+            settings = sent(null, new Http2Frame.Settings(false, values));
             if (connectionIncrement > 0) sent(null, new Http2Frame.WindowUpdate(0, connectionIncrement));
         }
         List<Http2Frame> out = settings;
         write(null, () -> {
             if (clientPreface) writer.writeClientPreface();
             if (out == null) {
-                writer.writeSettings(ours);
+                writer.writeSettings(values);
             } else {
                 writeFrames(out);
             }

@@ -108,6 +108,27 @@ public final class FrameWriter {
     }
 
     /**
+     * A complete field block whose HEADERS frame carries an RFC 7540 priority signal (the PRIORITY
+     * flag), as browsers' requests still do; CONTINUATION frames follow if it is too long for one.
+     *
+     * @param streamId the nonzero stream identifier
+     * @param fieldBlock the complete HPACK-encoded field block
+     * @param endStream whether the HEADERS frame ends the stream
+     * @param priority the priority signal, or null for none
+     * @throws IOException if writing to the underlying stream fails
+     */
+    public void writeHeaders(int streamId, byte[] fieldBlock, boolean endStream, Frame.PrioritySpec priority)
+            throws IOException {
+        if (priority == null) {
+            writeHeaders(streamId, fieldBlock, endStream);
+            return;
+        }
+        checkStream(streamId);
+        int flags = (endStream ? FrameType.FLAG_END_STREAM : 0) | FrameType.FLAG_PRIORITY;
+        writeFieldBlock(FrameType.HEADERS, flags, streamId, prioritySpec(priority), fieldBlock);
+    }
+
+    /**
      * A complete PUSH_PROMISE field block, with CONTINUATION frames as needed.
      *
      * @param streamId the nonzero stream identifier
