@@ -104,7 +104,7 @@ final class FingerprintSslSession extends ExtendedSSLSession {
 
     @Override
     public String getCipherSuite() {
-        return connection.cipherSuite().name();
+        return connection.cipherSuiteName();
     }
 
     @Override

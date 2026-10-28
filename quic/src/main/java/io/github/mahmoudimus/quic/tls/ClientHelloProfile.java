@@ -70,6 +70,16 @@ public final class ClientHelloProfile {
         return new int[0];
     }
 
+    /** The TLS 1.2 cipher suites the profile offers, in order. */
+    List<Tls12CipherSuite> tls12CipherSuites() {
+        List<Tls12CipherSuite> out = new ArrayList<>();
+        for (int code : cipherSuites) {
+            Tls12CipherSuite suite = Tls12CipherSuite.forCode(code);
+            if (suite != null) out.add(suite);
+        }
+        return out;
+    }
+
     /** The TLS 1.3 cipher suites the profile offers, in order. */
     List<io.github.mahmoudimus.quic.CipherSuite> tls13CipherSuites() {
         List<io.github.mahmoudimus.quic.CipherSuite> out = new ArrayList<>();

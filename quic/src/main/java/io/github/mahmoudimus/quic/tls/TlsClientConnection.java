@@ -58,7 +58,14 @@ final class TlsClientConnection {
     /** Everything a connection needs that does not change from one connection to the next. */
     record Config(ClientHelloProfile profile, X509TrustManager trustManager, X509KeyManager keyManager,
             ClientSessionStore sessions, Map<String, byte[]> applicationSettings, CertificateDecompressor decompressor,
-            SecureRandom random, InstantSource clock, int maxHandshakeMessageSize) {
+            SecureRandom random, InstantSource clock, int maxHandshakeMessageSize, Tls12SessionCache tls12Sessions) {
+
+        Config(ClientHelloProfile profile, X509TrustManager trustManager, X509KeyManager keyManager,
+                ClientSessionStore sessions, Map<String, byte[]> applicationSettings, CertificateDecompressor decompressor,
+                SecureRandom random, InstantSource clock, int maxHandshakeMessageSize) {
+            this(profile, trustManager, keyManager, sessions, applicationSettings, decompressor, random, clock,
+                    maxHandshakeMessageSize, new Tls12SessionCache());
+        }
 
         Config {
             Objects.requireNonNull(profile, "profile");
@@ -68,6 +75,7 @@ final class TlsClientConnection {
             decompressor = decompressor != null ? decompressor : CertificateDecompressor.ZLIB;
             Objects.requireNonNull(random, "random");
             Objects.requireNonNull(clock, "clock");
+            tls12Sessions = tls12Sessions != null ? tls12Sessions : new Tls12SessionCache();
         }
     }
 
@@ -126,6 +134,10 @@ final class TlsClientConnection {
     private final Map<Integer, KeyExchange> keyShares = new LinkedHashMap<>();
     private final Set<Integer> sentExtensions = new HashSet<>();
     private ClientHello hello;
+    private byte[] helloBytes;
+    private Tls12ClientHandshake.Session tls12Offered;
+    private Tls12ClientHandshake.Result tls12;
+    private boolean allowTls12 = true;
     private SessionTicket ticket;
     private boolean pskOffered;
     private boolean resumed;
@@ -193,6 +205,10 @@ final class TlsClientConnection {
     private void runHandshake() throws IOException, QuicException {
         sendClientHello();
         Message first = expectServerHello();
+        if (Extension.find(((ServerHello) first.message()).extensions(), ExtensionType.SUPPORTED_VERSIONS) == null) {
+            runTls12(first);
+            return;
+        }
         Message real = first;
         if (((ServerHello) first.message()).isHelloRetryRequest()) {
             onHelloRetryRequest((ServerHello) first.message(), first.raw());
@@ -238,7 +254,19 @@ final class TlsClientConnection {
                 config.random());
         hello = config.profile().clientHello(context);
         ticket = sessionKey != null ? usable(config.sessions().take(sessionKey)) : null;
+        if (ticket == null && sessionKey != null && allowTls12 && hello.sessionId().length > 0) {
+            Tls12ClientHandshake.Session s = config.tls12Sessions().take(sessionKey);
+            if (s != null && s.usable(config.clock().instant(), serverName)
+                    && Extension.find(hello.extensions(), 35) != null) {
+                // RFC 5077 section 3.1: the ticket in session_ticket, with a session id to recognize resumption by
+                List<Extension> extensions = new ArrayList<>(hello.extensions());
+                replace(extensions, 35, s.ticket());
+                hello = hello.withExtensions(extensions);
+                tls12Offered = s;
+            }
+        }
         byte[] encoded = encodeWithPsk(hello, true);
+        helloBytes = encoded;
         transcript.add(encoded);
         records.write(TlsRecordLayer.HANDSHAKE, encoded);
         records.flush();
@@ -286,6 +314,9 @@ final class TlsClientConnection {
         requireAligned("ServerHello");
         ServerHello sh = (ServerHello) m.message();
         boolean retry = sh.isHelloRetryRequest();
+        if (!retry && Extension.find(sh.extensions(), ExtensionType.SUPPORTED_VERSIONS) == null && suite == null) {
+            return m; // TLS 1.2 or below: runTls12 checks it
+        }
         checkHello(sh, retry ? "HelloRetryRequest" : "ServerHello", retry);
         return m;
     }
@@ -295,11 +326,7 @@ final class TlsClientConnection {
         Extensions.checkNoDuplicates(sh.extensions(), name);
         byte[] version = Extension.find(sh.extensions(), ExtensionType.SUPPORTED_VERSIONS);
         if (version == null) {
-            byte[] tail = Arrays.copyOfRange(sh.random(), 24, 32);
-            if (Arrays.equals(tail, DOWNGRADE_TLS12) || Arrays.equals(tail, DOWNGRADE_TLS11)) {
-                throw TlsAlert.illegalParameter(name + " carries the TLS 1.3 downgrade sentinel");
-            }
-            throw TlsAlert.error(TlsAlert.PROTOCOL_VERSION, "the server selected TLS 1.2, which is not supported yet");
+            throw TlsAlert.error(TlsAlert.PROTOCOL_VERSION, "a HelloRetryRequest after which the server did not select TLS 1.3");
         }
         int selected = Extensions.decodeSupportedVersionServer(version);
         if (selected != HandshakeMessage.TLS13) {
@@ -332,6 +359,31 @@ final class TlsClientConnection {
             }
         }
         suite = s;
+    }
+
+    /** A ServerHello that selects TLS 1.2: the rest is {@link Tls12ClientHandshake}'s. */
+    private void runTls12(Message m) throws IOException, QuicException {
+        ServerHello sh = (ServerHello) m.message();
+        if (sh.legacyVersion() != 0x0303) {
+            throw TlsAlert.error(TlsAlert.PROTOCOL_VERSION, "the server selected version 0x" + Integer.toHexString(sh.legacyVersion()));
+        }
+        // RFC 8446 section 4.1.3: a client that offered TLS 1.3 aborts on the downgrade sentinel
+        byte[] tail = Arrays.copyOfRange(sh.random(), 24, 32);
+        if (Arrays.equals(tail, DOWNGRADE_TLS12) || Arrays.equals(tail, DOWNGRADE_TLS11)) {
+            throw TlsAlert.illegalParameter("ServerHello carries the TLS 1.3 downgrade sentinel");
+        }
+        if (!allowTls12) throw TlsAlert.error(TlsAlert.PROTOCOL_VERSION, "the server selected TLS 1.2, which is not enabled");
+        records.plaintextVersion(HandshakeMessage.LEGACY_VERSION);
+        Tls12ClientHandshake h = new Tls12ClientHandshake(config, records, handshakeBuffer, hello, helloBytes, sh, m.raw(),
+                serverName, verifyHost, alpn, tls12Offered);
+        tls12 = h.run();
+        negotiatedAlpn = tls12.alpn();
+        peerCertificates = tls12.peerCertificates();
+        localCertificates = tls12.localCertificates();
+        peerSignatureScheme = tls12.peerSignatureScheme();
+        resumed = tls12.resumed();
+        if (sessionKey != null && tls12.session() != null) config.tls12Sessions().put(sessionKey, tls12.session());
+        handshakeDone = true;
     }
 
     /**
@@ -513,25 +565,8 @@ final class TlsClientConnection {
         return chain;
     }
 
-    /**
-     * The trust manager's check, then the name's, each failure keeping its {@link
-     * java.security.cert.CertificateException} as the cause, as the JDK's does, so callers can tell
-     * an expired certificate from an untrusted one or the wrong name.
-     */
     private void verifyServer(List<X509Certificate> chain) throws QuicException {
-        try {
-            config.trustManager().checkServerTrusted(chain.toArray(X509Certificate[]::new), CertificateChecks.TLS13_AUTH_TYPE);
-        } catch (java.security.cert.CertificateException | RuntimeException e) {
-            QuicException failure = CertificateChecks.untrusted(e);
-            failure.initCause(e);
-            throw failure;
-        }
-        if (verifyHost != null && !HostnameChecker.matches(chain.get(0), verifyHost)) {
-            QuicException failure = TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "certificate is not valid for " + verifyHost);
-            failure.initCause(new java.security.cert.CertificateException("No subject alternative names matching "
-                    + (HostnameChecker.isIpLiteral(verifyHost) ? "IP address " : "DNS name ") + verifyHost + " found"));
-            throw failure;
-        }
+        CertificateChecks.verifyServerWithCauses(config.trustManager(), chain, CertificateChecks.TLS13_AUTH_TYPE, verifyHost);
     }
 
     /** A CompressedCertificate (RFC 8879 section 4): an algorithm the client offered, and the exact length. */
@@ -792,6 +827,19 @@ final class TlsClientConnection {
         if (buffered.length < 4 + length) return false;
         handshakeBuffer.reset();
         handshakeBuffer.write(buffered, 4 + length, buffered.length - 4 - length);
+        if (tls12 != null) {
+            if ((buffered[0] & 0xff) != 0 || length != 0) {
+                throw TlsAlert.unexpectedMessage("got " + HandshakeType.name(buffered[0] & 0xff) + " after a TLS 1.2 handshake");
+            }
+            // a HelloRequest: renegotiation is declined with a warning (RFC 5746 section 4.5)
+            synchronized (writeLock) {
+                if (!writeClosed) {
+                    records.write(TlsRecordLayer.ALERT, new byte[] {1, 100});
+                    records.flush();
+                }
+            }
+            return true;
+        }
         HandshakeMessage message = HandshakeMessage.decode(buffered[0] & 0xff, Arrays.copyOfRange(buffered, 4, 4 + length));
         if (message instanceof NewSessionTicket nst) {
             onNewSessionTicket(nst);
@@ -865,6 +913,15 @@ final class TlsClientConnection {
         return alert.length == 2 && alert[1] == TlsAlert.CLOSE_NOTIFY;
     }
 
+    /** The exception for an alert the server sent during a handshake. */
+    static TlsAlertException alertFromServer(byte[] alert) {
+        if (alert.length != 2) return new TlsAlertException(TlsAlert.DECODE_ERROR, true, "a malformed alert", null);
+        int description = alert[1] & 0xff;
+        String what = isCloseNotify(alert) ? "the server closed the connection during the handshake"
+                : "the server sent " + TlsAlert.name(description);
+        return new TlsAlertException(description, true, what, null);
+    }
+
     private TlsAlertException receivedAlert(byte[] alert) {
         readClosed = true;
         if (alert.length != 2) {
@@ -898,7 +955,17 @@ final class TlsClientConnection {
     // --- what was negotiated ---
 
     String protocol() {
-        return "TLSv1.3";
+        return tls12 != null ? "TLSv1.2" : "TLSv1.3";
+    }
+
+    /** {@return the IANA name of the negotiated cipher suite} */
+    String cipherSuiteName() {
+        return tls12 != null ? tls12.suite().name() : suite.name();
+    }
+
+    /** Whether a server may select TLS 1.2 (the default); the hello offers it either way. */
+    void allowTls12(boolean allow) {
+        allowTls12 = allow;
     }
 
     CipherSuite cipherSuite() {

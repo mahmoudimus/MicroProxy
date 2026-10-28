@@ -175,9 +175,12 @@ public final class TestCerts {
                 List<byte[]> extensions = new ArrayList<>();
                 extensions.add(extension("2.5.29.19", true,
                         ca ? sequence(bool(true), integer(BigInteger.ZERO)) : sequence()));
+                // a leaf signs; an RSA leaf may also take an RSA-encrypted premaster (TLS 1.2 key transport)
                 extensions.add(extension("2.5.29.15", true, ca
                         ? bitString(new byte[] {(byte) 0x86}, 1)
-                        : bitString(new byte[] {(byte) 0x80}, 7)));
+                        : "RSA".equals(subjectKey.getAlgorithm())
+                                ? bitString(new byte[] {(byte) 0xa0}, 5)
+                                : bitString(new byte[] {(byte) 0x80}, 7)));
                 if (!ca) {
                     extensions.add(extension("2.5.29.37", false,
                             sequence(oid("1.3.6.1.5.5.7.3.1"), oid("1.3.6.1.5.5.7.3.2"))));
