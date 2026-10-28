@@ -52,6 +52,8 @@ class HandshakeMatrixTest {
                 .signatureSchemes(scheme)
                 .build();
         TlsConfig server = TlsConfig.builder()
+                // every group, so the one the client offers is accepted (the hybrid is not a default)
+                .groups(NamedGroup.values())
                 .certificate(TestCerts.CA.issue(keyType(scheme), "quic.test"))
                 .alpnProtocols("h3")
                 .build();

@@ -121,6 +121,8 @@ class CodecTest {
     void keyShareValidation() throws Exception {
         SecureRandom random = new SecureRandom();
         for (NamedGroup group : NamedGroup.values()) {
+            // a key encapsulation is not symmetric; HybridKeyExchangeTest covers X25519MLKEM768
+            if (group == NamedGroup.X25519_MLKEM768) continue;
             KeyExchange a = KeyExchange.generate(group, random);
             KeyExchange b = KeyExchange.generate(group, random);
             assertEquals(group.publicKeyLength(), a.publicKey().length);

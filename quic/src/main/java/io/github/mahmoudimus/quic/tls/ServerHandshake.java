@@ -254,9 +254,9 @@ final class ServerHandshake implements Handshake {
             session.earlySecrets(suite, keySchedule.deriveSecret(KeySchedule.CLIENT_EARLY_TRAFFIC, transcript.hash()));
         }
 
-        KeyExchange ours = KeyExchange.generate(group, config.random);
-        byte[] shared = ours.agree(share.keyExchange());
-        sendServerHello(hello, suite, ours, resuming != null ? resuming.index() : -1);
+        KeyExchange.Response ours = KeyExchange.respond(group, share.keyExchange(), config.random);
+        byte[] shared = ours.secret();
+        sendServerHello(hello, suite, group, ours.publicKey(), resuming != null ? resuming.index() : -1);
         keySchedule.inputSharedSecret(shared);
         byte[] hash = transcript.hash();
         clientHandshakeSecret = keySchedule.deriveSecret(KeySchedule.CLIENT_HANDSHAKE_TRAFFIC, hash);
@@ -435,7 +435,8 @@ final class ServerHandshake implements Handshake {
         session.helloRetried();
     }
 
-    private void sendServerHello(ClientHello hello, CipherSuite suite, KeyExchange share, int pskIdentity) {
+    private void sendServerHello(ClientHello hello, CipherSuite suite, NamedGroup group, byte[] publicKey,
+            int pskIdentity) {
         session.clientRandom(hello.random());
         byte[] random = new byte[32];
         config.random.nextBytes(random);
@@ -443,7 +444,7 @@ final class ServerHandshake implements Handshake {
         extensions.add(new Extension(ExtensionType.SUPPORTED_VERSIONS,
                 Extensions.encodeSupportedVersionServer(HandshakeMessage.TLS13)));
         extensions.add(new Extension(ExtensionType.KEY_SHARE,
-                Extensions.encodeKeyShareServer(new KeyShare(share.group().code(), share.publicKey()))));
+                Extensions.encodeKeyShareServer(new KeyShare(group.code(), publicKey))));
         if (pskIdentity >= 0) {
             extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY, Extensions.encodePskSelected(pskIdentity)));
         }
