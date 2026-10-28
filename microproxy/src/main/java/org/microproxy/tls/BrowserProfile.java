@@ -117,6 +117,21 @@ public final class BrowserProfile {
      * @return the context
      */
     public SSLContext sslContext(X509TrustManager trustManager) {
+        return sslContext(trustManager, null);
+    }
+
+    /**
+     * {@link #sslContext(X509TrustManager)}, encrypting the ClientHello (RFC 9849) to servers whose
+     * ECHConfigList {@code ech} gives; to the others, and with {@code ech} null, the browser's
+     * GREASE ECH alone, as a browser sends when it has no ECHConfig. No DNS lookups are made here:
+     * {@code ech} decides where configs come from (such as the server's DNS HTTPS record, from the
+     * resolver the deployment trusts).
+     *
+     * @param trustManager the servers to trust, or null for the JDK's default trust store
+     * @param ech the source of servers' ECHConfigLists, or null for none
+     * @return the context
+     */
+    public SSLContext sslContext(X509TrustManager trustManager, io.github.mahmoudimus.quic.tls.EchConfigProvider ech) {
         X509TrustManager trust = trustManager;
         if (trust == null) {
             try {
@@ -129,6 +144,7 @@ public final class BrowserProfile {
                 .trustManager(trust)
                 .certificateDecompressor(certificateDecompressor())
                 .attach(http2)
+                .echConfigProvider(ech)
                 .build();
         // so that what needs the trust behind a context (HTTP/3 to servers, name checks) finds it
         SslContexts.remember(context, trust);
