@@ -496,6 +496,37 @@ class Http2ProxyTest {
     }
 
     @Test
+    void aGracefulStopWaitsForAStreamsLastStepsWhenTheClientHasGone() throws Exception {
+        // the client has its response and closes the connection; the stream's exchange is still in
+        // its end (here a filter taking 500 ms, as a WARC record or an access log line may)
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        proxy = mitm().withFiltersSource(new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(org.microproxy.http.HttpRequest originalRequest, FlowContext ctx) {
+                return new HttpFiltersAdapter(originalRequest, ctx) {
+                    @Override
+                    public void serverToProxyResponseReceived() {
+                        try {
+                            Thread.sleep(500);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        done.set(true);
+                    }
+                };
+            }
+        }).start();
+        try (H2TestClient h2 = H2TestClient.connect(proxy.getListenAddress(), "127.0.0.1:" + origin.getAddress().getPort(),
+                proxyCa.clientContext()).handshake()) {
+            h2.get(1, "/first");
+            assertEquals(200, h2.response(1).status());
+        }
+        proxy.stop();
+        proxy = null;
+        assertTrue(done.get(), "stop() returned before the stream's exchange had ended");
+    }
+
+    @Test
     void warcRecordsStreamsAsHttp11Exchanges() throws Exception {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("h2-warc");
         org.microproxy.warc.WarcRecorder recorder = org.microproxy.warc.WarcRecorder.builder(dir).compress(false).build();
