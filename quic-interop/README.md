@@ -40,6 +40,21 @@ rebinding) onto these endpoint TESTCASE values. Endpoint support is not itself a
 passing result. The upstream runner checks downloaded bytes and packet traces.
 Interoperability results are separate from [security assurance](../docs/formal-security.md).
 
+## Recorded local runner results
+
+The [2026-10-28 result manifest](results/2026-10-28.json) records the source revision,
+image digest, peer/simulator pins and raw result hashes. All 22 selected test/role
+pairs passed: nine cases in each direction against aioquic (handshake, transfer,
+ChaCha20, Retry, resumption, 0-RTT, key update, HTTP/3, IPv6), plus handshake and
+transfer in each direction against quic-go. These were local executions of the
+upstream runner; they are not results from the public testing service.
+
+An earlier bringup run passed multiplexing and port/address rebinding, but failed
+the 0-RTT byte ceiling. The adapter fix and the successful replay are recorded;
+those earlier passes are excluded from the 22-case final-image count. The complete
+loss/corruption/measurement matrix has not been rerun here. Logs, packet captures
+and test traffic secrets remain outside the repository.
+
 ## Build and run
 
 From the repository root, with JDK 21 and Maven:

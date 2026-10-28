@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.tls.TestCerts.KeyType;
 import java.io.EOFException;
 import java.io.IOException;
@@ -326,7 +327,9 @@ class FingerprintSslContextTest {
     @Test
     void anOmittedTrustedIssuerUsesTheActualIssuerKeyForConstraints() throws Exception {
         CertifiedKey full = TestCerts.CA.issue(KeyType.RSA, HOST);
-        serveTls(CertifiedKey.of(full.privateKey(), full.chain().get(0)), p -> {});
+        // Exercise issuer constraints independently of the runtime's default hybrid group choice.
+        serveTls(CertifiedKey.of(full.privateKey(), full.chain().get(0)),
+                p -> p.setNamedGroups(new String[] {"X25519"}));
         try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
             SSLParameters p = socket.getSSLParameters();
             p.setAlgorithmConstraints(CertificateIssuerPolicyTest.signatureKeyCompatibility());
@@ -338,27 +341,43 @@ class FingerprintSslContextTest {
 
     @Test
     void algorithmConstraintsCanDenyThePeerKey() throws Exception {
-        assertConstraintRejected("key");
+        assertConstraintRejected("EC", "AlgorithmConstraints reject EC key");
     }
 
     @Test
     void algorithmConstraintsCanDenyTheSelectedGroup() throws Exception {
-        assertConstraintRejected("X25519");
+        assertConstraintRejected("X25519", "AlgorithmConstraints reject X25519");
     }
 
     @Test
     void algorithmConstraintsCanDenyTheHandshakeSignature() throws Exception {
-        assertConstraintRejected("SHA256withECDSA");
+        assertConstraintRejected("ECDSA_SECP256R1_SHA256", "AlgorithmConstraints reject ECDSA_SECP256R1_SHA256");
     }
 
-    private void assertConstraintRejected(String rejected) throws Exception {
-        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> {});
+    private void assertConstraintRejected(String rejected, String reason) throws Exception {
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNamedGroups(new String[] {"X25519"}));
         try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
             SSLParameters p = socket.getSSLParameters();
             p.setAlgorithmConstraints(deny(rejected));
             socket.setSSLParameters(p);
-            assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            SSLHandshakeException failure = assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            assertTrue(failure.getMessage().contains(reason), failure.getMessage());
         }
+    }
+
+    @Test
+    void callerConstraintsFailClosedForAHybridGroup() throws Exception {
+        NamedGroup group = NamedGroup.X25519_MLKEM768;
+        SecureRandom random = TestCerts.seededRandom(8449);
+        KeyExchange client = KeyExchange.generate(group, random);
+        KeyExchange.Response response = KeyExchange.respond(group, client.publicKey(), random);
+        assertArrayEquals(response.secret(), client.agree(response.publicKey()));
+        assertDoesNotThrow(() -> new TlsAcceptancePolicy(null, null).group(group, response.publicKey()));
+        // Even permissive caller constraints must fail closed when both component keys cannot be inspected.
+        QuicException failure = assertThrows(QuicException.class,
+                () -> new TlsAcceptancePolicy(null, deny("unused")).group(group, response.publicKey()));
+        assertTrue(failure.getMessage().contains("AlgorithmConstraints cannot be fully applied to the hybrid group"),
+                failure.getMessage());
     }
 
     private static AlgorithmConstraints deny(String rejected) {
@@ -380,12 +399,13 @@ class FingerprintSslContextTest {
 
     @Test
     void callerKeyConstraintsInspectActualTls13TrafficKeys() throws Exception {
-        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> {});
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNamedGroups(new String[] {"X25519"}));
         try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
             SSLParameters p = socket.getSSLParameters();
             p.setAlgorithmConstraints(realTrafficKeyRestriction());
             socket.setSSLParameters(p);
-            assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            SSLHandshakeException failure = assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            assertTrue(failure.getMessage().contains("AlgorithmConstraints reject AES key"), failure.getMessage());
         }
     }
 

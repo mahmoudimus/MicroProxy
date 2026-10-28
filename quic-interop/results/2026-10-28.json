@@ -1,0 +1,228 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "scope": "Local upstream-runner execution, Linux amd64 containers under Docker Desktop on macOS arm64; not a public-service result or security proof.",
+  "source_commit": "f18f94f04ead7b4f1692e64b6333d1eca160b4b0",
+  "image": "mahmoudimus/microproxy-quic-interop:f18f94f04ead",
+  "image_digest": "sha256:823b3748071eb3f653357e9b476a3ec254fb7f3d95bb0cabd1951432efa59cdf",
+  "image_config": "sha256:9311a77d65b123fb4294039b1a3a5cedf6116319cea53f6fcfbed8ad92aa089e",
+  "aioquic_tested_image_config": "sha256:6724f3c7a0343312e5f5b3a7ea37414dfe5dfeb153d36cb1798753773a5778e7",
+  "image_identity_check": "RootFS layers, entrypoint and environment except revision metadata match the aioquic-tested image. quic-go tested the revision-tagged image.",
+  "jar_sha256": "b3fb110159af91152d70c90ef91161762c6d7ab3e0e7e9a0a63df3f31930afbd",
+  "runner_commit": "a1004d4b60a6894ea33736a555f294c663e54b22",
+  "peer_images": {
+    "aioquic": "aiortc/aioquic-qns@sha256:38040fdcc628e0a13b8cd1b1cd4a9aeba4018cbc99c41e3ff85dff1b7956abba",
+    "quic-go": "martenseemann/quic-go-interop@sha256:d48f40277fc5187c55098a4684fe388ebfe4c8b131c2177a422e208880a0de8d",
+    "simulator": "martenseemann/quic-network-simulator@sha256:c23d82a55caffe681b1bdae65d4d30d23e1283141a414a7f02ee56cf15f9c6b9"
+  },
+  "passed_test_role_pairs": 22,
+  "runs": [
+    {
+      "name": "aioquic_client",
+      "servers": [
+        "aioquic"
+      ],
+      "clients": [
+        "microproxy"
+      ],
+      "quic_version": "0x1",
+      "start_time": 1793225307.172489,
+      "end_time": 1793225525.213624,
+      "results": [
+        {
+          "abbr": "H",
+          "name": "handshake",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "DC",
+          "name": "transfer",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "C20",
+          "name": "chacha20",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "S",
+          "name": "retry",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "R",
+          "name": "resumption",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "Z",
+          "name": "zerortt",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "U",
+          "name": "keyupdate",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "3",
+          "name": "http3",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "6",
+          "name": "ipv6",
+          "result": "succeeded"
+        }
+      ],
+      "raw_result_sha256": "4bc15a88c76d14b3010c470b366ad94dad4adadc2e3892526d4acac2fcbc1e30"
+    },
+    {
+      "name": "aioquic_server",
+      "servers": [
+        "microproxy"
+      ],
+      "clients": [
+        "aioquic"
+      ],
+      "quic_version": "0x1",
+      "start_time": 1793225525.733319,
+      "end_time": 1793225795.155396,
+      "results": [
+        {
+          "abbr": "H",
+          "name": "handshake",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "DC",
+          "name": "transfer",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "C20",
+          "name": "chacha20",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "S",
+          "name": "retry",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "R",
+          "name": "resumption",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "Z",
+          "name": "zerortt",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "U",
+          "name": "keyupdate",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "3",
+          "name": "http3",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "6",
+          "name": "ipv6",
+          "result": "succeeded"
+        }
+      ],
+      "raw_result_sha256": "8cb3b175af84c5547288386e5f9db8d34b10fc2b31bb5290602e608693160fb7"
+    },
+    {
+      "name": "quic_go_client",
+      "servers": [
+        "quic-go"
+      ],
+      "clients": [
+        "microproxy"
+      ],
+      "quic_version": "0x1",
+      "start_time": 1793225814.876903,
+      "end_time": 1793225867.207026,
+      "results": [
+        {
+          "abbr": "H",
+          "name": "handshake",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "DC",
+          "name": "transfer",
+          "result": "succeeded"
+        }
+      ],
+      "raw_result_sha256": "a40fdee0d65b0acf10754e2aadfb2b599ca1180e9e680b1da40184723f3bfc2b"
+    },
+    {
+      "name": "quic_go_server",
+      "servers": [
+        "microproxy"
+      ],
+      "clients": [
+        "quic-go"
+      ],
+      "quic_version": "0x1",
+      "start_time": 1793225867.466727,
+      "end_time": 1793225903.276576,
+      "results": [
+        {
+          "abbr": "H",
+          "name": "handshake",
+          "result": "succeeded"
+        },
+        {
+          "abbr": "DC",
+          "name": "transfer",
+          "result": "succeeded"
+        }
+      ],
+      "raw_result_sha256": "3501a91e400fa3ca77d6174b9ce065d6ed6eaebe2dc2f92799dec19d782d5bd4"
+    }
+  ],
+  "unsupported_endpoint_cases": [
+    "v2 (RFC 9368 compatible version negotiation absent)",
+    "connectionmigration (preferred-address runner setup absent)"
+  ],
+  "superseded_bringup": {
+    "source": "pre-main-merge image with original adapter",
+    "passed": [
+      "chacha20",
+      "retry",
+      "resumption",
+      "keyupdate",
+      "http3",
+      "multiplexing",
+      "rebind-port",
+      "rebind-addr"
+    ],
+    "unsupported": [
+      "v2",
+      "connectionmigration"
+    ],
+    "failed": [
+      "zerortt"
+    ],
+    "resolution": "Synchronous early request scheduling and zerortt-only client MTU discovery disable; final 0-RTT replay passed. Earlier passes are excluded from the final 22-case count."
+  },
+  "zero_rtt_client_payload_bytes": {
+    "zero_rtt": 8292,
+    "one_rtt": 3773,
+    "one_rtt_limit": 5000
+  },
+  "maven_java21": {
+    "command": "mvn --batch-mode -Pinterop verify",
+    "tests_reported": 4134,
+    "skipped": 23,
+    "failures": 0,
+    "errors": 0
+  }
+}
