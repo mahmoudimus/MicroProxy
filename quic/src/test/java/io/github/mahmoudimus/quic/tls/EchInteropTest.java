@@ -64,8 +64,9 @@ class EchInteropTest {
             try {
                 Process p = new ProcessBuilder(candidate, "version").redirectErrorStream(true).start();
                 String v = new String(p.getInputStream().readAllBytes(), StandardCharsets.US_ASCII);
-                // EncryptedClientHelloKeys, the server side of ECH, is in Go 1.24 and later
-                if (p.waitFor(30, TimeUnit.SECONDS) && v.startsWith("go version go1.") && minor(v) >= 24) return candidate;
+                // EncryptedClientHelloKeys, the server side of ECH, is in Go 1.24 and later; the
+                // server also reports ConnectionState.CurveID, which is in Go 1.25 and later
+                if (p.waitFor(30, TimeUnit.SECONDS) && v.startsWith("go version go1.") && minor(v) >= 25) return candidate;
             } catch (IOException | InterruptedException e) {
                 // try the next one
             }
@@ -94,7 +95,7 @@ class EchInteropTest {
     /** Starts the Go server with {@code extra} flags and reads its configs and port. */
     private void startServer(String... extra) throws Exception {
         String go = go();
-        assumeTrue(go != null, "no Go 1.24+ toolchain to run the ECH server");
+        assumeTrue(go != null, "no Go 1.25+ toolchain to run the ECH server");
         Path main = dir.resolve("main.go");
         try (InputStream in = EchInteropTest.class.getResourceAsStream("/ech-server/main.go")) {
             assertNotNull(in, "ech-server/main.go");
