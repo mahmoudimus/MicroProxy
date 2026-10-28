@@ -2,7 +2,8 @@ package org.microproxy;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.echoedBody;
 import static org.microproxy.TestSupport.echoedHeader;
@@ -28,6 +29,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import io.github.mahmoudimus.http2.Frame;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -580,17 +582,25 @@ class Http2ProxyTest {
     @Test
     void gracefulStopFinishesOpenStreams() throws Exception {
         proxy = mitm().start();
-        HttpClient client = client();
-        assertEquals(200, TestSupport.send(client, get(url("/first"))).statusCode());
-        CompletableFuture<HttpResponse<String>> slow = client.sendAsync(get(url("/slow")), HttpResponse.BodyHandlers.ofString());
-        assertTrue(slowArrived.await(10, TimeUnit.SECONDS));
-        Thread stopper = Thread.ofVirtual().start(proxy::stop);
-        Thread.sleep(200);
-        release.countDown();
-        HttpResponse<String> r = slow.get(20, TimeUnit.SECONDS);
-        assertEquals("slow", r.body());
-        stopper.join(20_000);
-        assertNotNull(r);
+        // Frames rather than HttpClient: before 21.0.5, the JDK's client failed every open stream on
+        // any GOAWAY (JDK-8335181), whatever its last stream id.
+        try (H2TestClient h2 = H2TestClient.connect(proxy.getListenAddress(), "127.0.0.1:" + origin.getAddress().getPort(),
+                proxyCa.clientContext()).handshake()) {
+            h2.get(1, "/first");
+            assertEquals(200, h2.response(1).status());
+            h2.get(3, "/slow");
+            assertTrue(slowArrived.await(10, TimeUnit.SECONDS));
+            Thread stopper = Thread.ofVirtual().start(proxy::stop);
+            Frame.GoAway goAway = h2.awaitGoAway();
+            assertEquals(0, goAway.errorCode());
+            assertTrue(goAway.lastStreamId() >= 3, "the open stream is past GOAWAY's last stream id " + goAway.lastStreamId());
+            release.countDown();
+            H2TestClient.Response slow = h2.response(3);
+            assertNull(slow.reset());
+            assertEquals("slow", slow.text());
+            stopper.join(20_000);
+            assertFalse(stopper.isAlive(), "stop did not finish");
+        }
     }
 
     @Test
