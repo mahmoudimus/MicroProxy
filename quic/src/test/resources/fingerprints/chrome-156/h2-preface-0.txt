@@ -1,0 +1,21 @@
+frame type=4 flags=0 stream=0 len=24 [1=65536] [2=0] [4=6291456] [6=262144]
+frame type=8 flags=0 stream=0 len=4 increment=15663105
+frame type=1 flags=37 stream=1 len=469
+  priority excl=true dep=0 weight=256
+  :method: GET
+  :authority: localhost:18443
+  :scheme: https
+  :path: /
+  sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="...
+  sec-ch-ua-mobile: ?0
+  sec-ch-ua-platform: "macOS"
+  upgrade-insecure-requests: 1
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/...
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/...
+  sec-fetch-site: none
+  sec-fetch-mode: navigate
+  sec-fetch-user: ?1
+  sec-fetch-dest: document
+  accept-encoding: gzip, deflate, br, zstd
+  accept-language: en-US,en;q=0.9
+  priority: u=0, i
