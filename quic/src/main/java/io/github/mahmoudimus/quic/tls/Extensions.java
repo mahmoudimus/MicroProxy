@@ -285,6 +285,14 @@ final class Extensions {
         return new Writer().u32(size).toByteArray();
     }
 
+    /** A body that is one uint16, such as {@code record_size_limit}'s. */
+    static int decodeU16(byte[] data, String what) throws QuicException {
+        Reader r = new Reader(data);
+        int v = r.u16(what);
+        r.expectEnd(what);
+        return v;
+    }
+
     static long decodeMaxEarlyDataSize(byte[] data) throws QuicException {
         Reader r = new Reader(data);
         long size = r.u32("max_early_data_size");

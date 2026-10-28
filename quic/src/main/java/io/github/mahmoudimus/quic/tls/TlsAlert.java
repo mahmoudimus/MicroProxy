@@ -11,10 +11,14 @@ import io.github.mahmoudimus.quic.QuicException;
  */
 public final class TlsAlert {
 
+    /** The sender will send no more data on the connection; TLS over TCP only (0). */
+    public static final int CLOSE_NOTIFY = 0;
     /** A message arrived out of order or where it is not allowed (10). */
     public static final int UNEXPECTED_MESSAGE = 10;
     /** A record failed to decrypt; not used by QUIC (20). */
     public static final int BAD_RECORD_MAC = 20;
+    /** A record was longer than allowed; TLS over TCP only (22). */
+    public static final int RECORD_OVERFLOW = 22;
     /** No acceptable set of security parameters could be negotiated (40). */
     public static final int HANDSHAKE_FAILURE = 40;
     /** A certificate was corrupt or failed a check such as its name (42). */
@@ -72,8 +76,10 @@ public final class TlsAlert {
      */
     public static String name(int alert) {
         return switch (alert) {
+            case CLOSE_NOTIFY -> "close_notify";
             case UNEXPECTED_MESSAGE -> "unexpected_message";
             case BAD_RECORD_MAC -> "bad_record_mac";
+            case RECORD_OVERFLOW -> "record_overflow";
             case HANDSHAKE_FAILURE -> "handshake_failure";
             case BAD_CERTIFICATE -> "bad_certificate";
             case UNSUPPORTED_CERTIFICATE -> "unsupported_certificate";

@@ -14,6 +14,8 @@ final class HandshakeType {
     static final int CERTIFICATE_VERIFY = 15;
     static final int FINISHED = 20;
     static final int KEY_UPDATE = 24;
+    /** CompressedCertificate (RFC 8879). */
+    static final int COMPRESSED_CERTIFICATE = 25;
     /** The synthetic message that replaces the first ClientHello in the transcript after a retry. */
     static final int MESSAGE_HASH = 254;
 

@@ -7,8 +7,15 @@ package io.github.mahmoudimus.quic.tls;
  * @param type the extension type, or {@link #GREASE_FIRST} or {@link #GREASE_LAST} for the
  *     hello's two GREASE extensions
  * @param body makes the body
+ * @param keyShareGroups for {@code key_share}, the groups it carries shares for (GREASE as
+ *     {@link ProfileExtensions#GREASE}), so a client can make the keys first; null otherwise
  */
-public record ExtensionSpec(int type, Body body) {
+public record ExtensionSpec(int type, Body body, int[] keyShareGroups) {
+
+    /** An extension that is not {@code key_share}. */
+    public ExtensionSpec(int type, Body body) {
+        this(type, body, null);
+    }
 
     /** The type of the first GREASE extension, {@link Grease#extension1()}. */
     public static final int GREASE_FIRST = -1;

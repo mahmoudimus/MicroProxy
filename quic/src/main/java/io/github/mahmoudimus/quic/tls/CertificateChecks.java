@@ -30,7 +30,7 @@ final class CertificateChecks {
      * The authentication type JDK trust managers get for TLS 1.3 servers: it asks only for the
      * digitalSignature key usage, which is what TLS 1.3 needs.
      */
-    private static final String TLS13_AUTH_TYPE = "UNKNOWN";
+    static final String TLS13_AUTH_TYPE = "UNKNOWN";
 
     private CertificateChecks() {}
 
@@ -95,7 +95,7 @@ final class CertificateChecks {
         }
     }
 
-    private static QuicException untrusted(Exception e) {
+    static QuicException untrusted(Exception e) {
         int alert = TlsAlert.CERTIFICATE_UNKNOWN;
         for (Throwable t = e; t != null; t = t.getCause()) {
             if (t instanceof CertificateExpiredException || t instanceof CertificateNotYetValidException) {
