@@ -16,14 +16,23 @@ import java.util.random.RandomGenerator;
  * @param grease the hello's GREASE values
  * @param random the source of the hello's random bytes; a {@link java.security.SecureRandom} on a
  *     real connection
+ * @param supplied extension bodies the connection makes itself, by type, such as QUIC's
+ *     {@code quic_transport_parameters}, for {@link ProfileExtensions#supplied}
  */
 public record HelloContext(String serverName, List<String> alpnProtocols, Map<Integer, byte[]> keyShares,
-        Grease grease, RandomGenerator random) {
+        Grease grease, RandomGenerator random, Map<Integer, byte[]> supplied) {
 
     public HelloContext {
         alpnProtocols = List.copyOf(alpnProtocols);
         keyShares = Map.copyOf(keyShares);
         Objects.requireNonNull(grease, "grease");
         Objects.requireNonNull(random, "random");
+        supplied = Map.copyOf(supplied);
+    }
+
+    /** A context with no supplied extension bodies. */
+    public HelloContext(String serverName, List<String> alpnProtocols, Map<Integer, byte[]> keyShares, Grease grease,
+            RandomGenerator random) {
+        this(serverName, alpnProtocols, keyShares, grease, random, Map.of());
     }
 }
