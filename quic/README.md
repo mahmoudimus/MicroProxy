@@ -18,6 +18,10 @@ endpoint, with session resumption, 0-RTT, NEW_TOKEN, connection migration and th
 address (see [Migration](#migration)), and a choice of CUBIC, NewReno or BBR congestion control,
 tested against itself on loopback and against aioquic as client and server.
 
+The optional [QUIC Interop Runner endpoint](../quic-interop/README.md) adds the
+upstream runner's file client/server and Docker contract under the `interop` Maven
+profile. Its guide separates library features, exposed test cases and measured results.
+
 ## Packets and protection
 
 The packet layer is sans-I/O: it encodes and decodes bytes in caller-owned `ByteBuffer`s and
@@ -67,6 +71,11 @@ QUIC version 1 (`0x00000001`) and version 2 (`0x6b3343cf`, RFC 9369), which diff
 header type bits, the Initial salt, the HKDF labels (`quic ` and `quicv2 `) and the Retry integrity
 key. Long headers of any other version raise `UnsupportedVersionException`, whose connection IDs
 may be up to 255 bytes (RFC 8999) so that a server can answer with Version Negotiation.
+
+RFC 9368 compatible version negotiation is not implemented: `VersionInformation`
+has a codec and profile emission, but no authenticated version switch. Direct v2
+does not satisfy that extension. Reliable stream resets with partial delivery
+(`RESET_STREAM_AT`) are also not implemented.
 
 ### Limits and choices
 

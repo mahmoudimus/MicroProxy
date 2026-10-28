@@ -197,6 +197,13 @@
 
     <profiles>
         <profile>
+            <!-- QUIC Interop Runner endpoint; a development tool, not a proxy runtime dependency. -->
+            <id>interop</id>
+            <modules>
+                <module>quic-interop</module>
+            </modules>
+        </profile>
+        <profile>
             <!-- Performance testing, never published (mvn -Pbench -DskipTests package): the JMH
                  microbenchmarks (benchmarks/, docs/project/benchmarks.md) and the system-level load
                  and capacity harness (loadtest/, docs/project/load-testing.md). Both bring

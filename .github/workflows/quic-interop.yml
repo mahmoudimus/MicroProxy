@@ -1,0 +1,37 @@
+name: QUIC Interop Runner endpoint
+
+on:
+  push:
+    paths: ['pom.xml', 'quic/**', 'http3-codec/**', 'quic-interop/**', '.github/workflows/quic-interop.yml']
+  pull_request:
+    paths: ['pom.xml', 'quic/**', 'http3-codec/**', 'quic-interop/**', '.github/workflows/quic-interop.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  endpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test the optional endpoint and wrapper contract
+        run: |
+          python3 -m unittest discover -s quic-interop -p 'test_*.py' -v
+          mvn --batch-mode -Pinterop -pl quic-interop -am verify
+      - name: Build the Linux amd64 runner image
+        run: |
+          docker build --platform linux/amd64 -f quic-interop/Dockerfile \
+            --build-arg SOURCE_REVISION="$GITHUB_SHA" -t microproxy-interop:ci .
+      - name: Check the image's unsupported-case contract
+        run: |
+          set +e
+          docker run --rm --network none -e ROLE=client -e TESTCASE=unknown-case microproxy-interop:ci
+          result=$?
+          set -e
+          test "$result" -eq 127
