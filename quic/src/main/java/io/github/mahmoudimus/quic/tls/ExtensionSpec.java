@@ -12,12 +12,24 @@ import java.util.List;
  * @param body makes the body
  * @param keyShareGroups for {@code key_share}, the groups it carries shares for (GREASE as
  *     {@link ProfileExtensions#GREASE}), so a client can make the keys first; null otherwise
+ * @param pinned whether shuffling leaves it where it is, as NSS leaves the extensions it adds
+ *     after its own (QUIC's transport parameters, ECH)
  */
-public record ExtensionSpec(int type, Body body, int[] keyShareGroups) {
+public record ExtensionSpec(int type, Body body, int[] keyShareGroups, boolean pinned) {
+
+    /** An extension that shuffling may move. */
+    public ExtensionSpec(int type, Body body, int[] keyShareGroups) {
+        this(type, body, keyShareGroups, false);
+    }
 
     /** An extension that is not {@code key_share}. */
     public ExtensionSpec(int type, Body body) {
         this(type, body, null);
+    }
+
+    /** {@return this extension, in a place that shuffling does not change} */
+    public ExtensionSpec pin() {
+        return new ExtensionSpec(type, body, keyShareGroups, true);
     }
 
     /** The type of the first GREASE extension, {@link Grease#extension1()}. */
@@ -74,9 +86,10 @@ public record ExtensionSpec(int type, Body body, int[] keyShareGroups) {
 
     /**
      * Whether shuffling leaves this extension in place: the GREASE extensions, as BoringSSL keeps
-     * them first and last, and {@code pre_shared_key}, which RFC 8446 requires to be last.
+     * them first and last, {@code pre_shared_key}, which RFC 8446 requires to be last, and those
+     * {@link #pinned}.
      */
     boolean fixedPosition() {
-        return type < 0 || type == ExtensionType.PRE_SHARED_KEY;
+        return pinned || type < 0 || type == ExtensionType.PRE_SHARED_KEY;
     }
 }

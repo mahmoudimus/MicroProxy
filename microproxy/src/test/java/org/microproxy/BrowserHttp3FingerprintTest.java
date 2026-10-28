@@ -93,4 +93,46 @@ class BrowserHttp3FingerprintTest {
         assertEquals("u=0, i", new String(priority.getValue(), 1, priority.getValue().length - 1, StandardCharsets.US_ASCII));
         assertEquals(List.of(":method", ":authority", ":scheme", ":path"), h3.requestFieldNames.get(0).subList(0, 4));
     }
+
+    @Test
+    void theHttp3ConnectionToTheServerOpensAsFirefoxs() throws Exception {
+        h3 = new H3TestOrigin(originCa, 0);
+        tcp = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] out = "over tcp".getBytes(StandardCharsets.US_ASCII);
+            exchange.getResponseHeaders().set("Alt-Svc", "h3=\":" + h3.port() + "\"; ma=60");
+            exchange.sendResponseHeaders(200, out.length);
+            exchange.getResponseBody().write(out);
+            exchange.close();
+        });
+        BrowserProfile firefox = BrowserProfile.firefox159();
+        proxy = MicroProxy.bootstrap()
+                .withPort(0)
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                .withHttp3Upstream(true)
+                .withHttp3Options(Http3Options.builder().upstreamProfile(firefox).build())
+                .withFiltersSource(firefox.filtersSource(true))
+                .start();
+        HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
+        String url = TestSupport.localhostUrl(tcp, "/hello");
+        assertEquals("over tcp", TestSupport.get(client, url).body());
+        HttpResponse<String> second = TestSupport.get(client, url);
+        assertEquals("hello over h3", second.body());
+        assertTrue(h3.errors().isEmpty(), h3.errors().toString());
+
+        // the control stream and both QPACK streams at once, as Firefox opens them
+        assertEquals(java.util.Set.of(0L, 2L, 3L), java.util.Set.copyOf(h3.uniStreamTypes));
+        Map.Entry<Long, byte[]> first = h3.controlFrames.get(0);
+        assertEquals(0x4L, first.getKey());
+        // quic/src/test/resources/fingerprints/firefox-159-quic/h3-control-and-request-0.txt: no GREASE setting
+        assertEquals(List.of(Map.entry(0x1L, 65_536L), Map.entry(0x7L, 20L), Map.entry(0x2b603742L, 0L),
+                Map.entry(0xffd277L, 1L), Map.entry(0x33L, 1L), Map.entry(0x8L, 1L)),
+                List.copyOf(settings(first.getValue()).entrySet()));
+        assertTrue(reserved(h3.controlFrames.get(1).getKey()), "GREASE frame");
+        // no PRIORITY_UPDATE: Firefox's priority is in the request's priority field alone
+        assertEquals(2, h3.controlFrames.size(), h3.controlFrames.toString());
+        List<String> names = h3.requestFieldNames.get(0);
+        assertEquals(List.of(":method", ":scheme", ":authority", ":path", "user-agent", "accept", "accept-language",
+                "alt-used", "upgrade-insecure-requests"), names.subList(0, 9));
+    }
 }

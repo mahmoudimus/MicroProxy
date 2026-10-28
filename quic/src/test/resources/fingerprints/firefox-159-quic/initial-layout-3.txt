@@ -1,0 +1,4 @@
+datagram 0 bytes=1252
+  packet INITIAL pn=616 frames: CRYPTO(1440+451) CRYPTO(0+494)
+datagram 1 bytes=1252
+  packet INITIAL pn=617 frames: CRYPTO(494+946)

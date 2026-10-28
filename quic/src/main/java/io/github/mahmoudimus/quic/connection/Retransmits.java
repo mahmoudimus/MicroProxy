@@ -55,6 +55,11 @@ public final class Retransmits {
     public final Set<StreamId> streamDataBlocked = new LinkedHashSet<>();
     /** CRYPTO frames to send, retransmissions first. */
     public final ArrayDeque<Frame.Crypto> crypto = new ArrayDeque<>();
+    /**
+     * When positive, the packet being filled takes no CRYPTO data after this many more of {@link
+     * #crypto}'s frames (the two halves of a sliced ClientHello go in a packet of their own).
+     */
+    public int cryptoFramesInPacket;
     /** NEW_CONNECTION_ID frames to send. */
     public final List<IssuedCid> newCids = new ArrayList<>();
     /** Sequence numbers to retire in RETIRE_CONNECTION_ID frames. */

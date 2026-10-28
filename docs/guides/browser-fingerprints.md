@@ -33,7 +33,7 @@ Each profile is built from captures of the browser itself, and checked against t
 | Profile | Browser | JA4 | Akamai HTTP/2 | QUIC and HTTP/3 |
 |---|---|---|---|---|
 | `chrome156()` | Chrome 156.0.8078.48, macOS | `t13d1517h2_8daaf6152771_cb7bf5808d99` | `1:65536;2:0;4:6291456;6:262144\|15663105\|0\|m,a,s,p` | yes, JA4 `q13d0312h3_55b375c5d22e_178839b6cec1` |
-| `firefox159()` | Firefox 159.0, macOS | `t13d1517h2_8daaf6152771_3cbfd9057e0d` | `1:65536;2:0;4:131072;5:16384\|12517377\|0\|m,p,a,s` | not yet |
+| `firefox159()` | Firefox 159.0, macOS | `t13d1517h2_8daaf6152771_3cbfd9057e0d` | `1:65536;2:0;4:131072;5:16384\|12517377\|0\|m,p,a,s` | yes, JA4 `q13d0315h3_55b375c5d22e_dc5437974b47` |
 
 Through the proxy, tls.peet.ws reports each browser's own JA4 and Akamai fingerprint. JA3 matches
 too, with one difference between the browsers. Chrome shuffles its extensions on every
@@ -42,9 +42,17 @@ same once the extension list is put in order, which is why JA4 sorts it. Firefox
 order, so its JA3 hash is the same on every connection: `9d42e90b0225e779f03141ddcd699df2` for a new
 one, `a55f6cb044839f48d371a56323ed22ef` for one that resumes a session.
 
-A profile without QUIC and HTTP/3 (`firefox159()`) cannot be given to `Http3Options.upstreamProfile`;
-HTTP/3 connections to servers then keep the proxy's own fingerprint, so leave HTTP/3 to servers off
-(the default) to look like that browser throughout.
+Browsers move to HTTP/3 on servers that advertise it, so a proxy that should look like one
+throughout turns HTTP/3 to servers on (`withHttp3Upstream(true)`) with the same profile in
+`Http3Options.upstreamProfile`; with it off, those servers see the browser over HTTP/2 only.
+
+The two browsers' QUIC differs as much as their TLS. Chrome cuts its ClientHello into shuffled
+CRYPTO frames among PING and PADDING frames, numbers its packets from 1 and pads its 1250-byte
+Initials inside the packet. Firefox (neqo) cuts its ClientHello at the middle of the server name
+and sends the halves in reverse order, starts at a random packet number, sends 1252-byte Initials
+over IPv4 (1232 over IPv6) padded with zero bytes after the packet, and lists QUIC version 2 among
+its versions; a server may move the connection to it (RFC 9368), as LiteSpeed's do, and the
+profile's connections follow.
 
 ## How it works
 
@@ -60,6 +68,10 @@ MicroProxy.
 - **What only Firefox's hello invites:** a server's delegated credential (RFC 9345), checked as
   Firefox checks one; P-521 key exchange and signatures; a TLS 1.2 ServerKeyExchange signed with
   SHA-1, which Firefox still accepts; and a smaller `record_size_limit`.
+
+The Firefox profile's transport parameters include `reset_stream_at`, as Firefox's do, but the
+proxy's QUIC client does not take a RESET_STREAM_AT frame (draft-ietf-quic-reliable-stream-reset):
+a server that sends one, which only WebTransport servers do, closes the connection with an error.
 
 A resuming hello differs from a new one as the browser's does: both put `pre_shared_key` last,
 and Firefox's leaves out `session_ticket` and sizes its GREASE ECH with the PSK.
@@ -105,5 +117,7 @@ Browsers change their fingerprints every few releases; in 2026 Chrome added ML-D
 schemes and Trust Anchor IDs. A profile is data, built from captures of the browser:
 - `scripts/fingerprints/CaptureBrowser.java` records a browser's ClientHello and HTTP/2 preface;
   with `page`, it serves a page of subresources and records every request's HEADERS priority.
+- `scripts/fingerprints/CaptureQuic.java` records its QUIC Initial datagrams and ClientHello, and
+  `CaptureH3.java` its HTTP/3 control stream and first request.
 - The fixtures under `quic/src/test/resources/fingerprints/` are what the tests compare the
   profiles with.
