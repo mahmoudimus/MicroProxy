@@ -135,11 +135,22 @@ public final class BrowserProfile {
      * @return the context
      */
     public SSLContext sslContext(X509TrustManager trustManager) {
-        return FingerprintSslContext.builder(tls)
-                .trustManager(trustManager)
+        X509TrustManager trust = trustManager;
+        if (trust == null) {
+            try {
+                trust = SslContexts.defaultTrustManager();
+            } catch (java.security.GeneralSecurityException e) {
+                throw new IllegalStateException("no default trust manager", e);
+            }
+        }
+        SSLContext context = FingerprintSslContext.builder(tls)
+                .trustManager(trust)
                 .certificateDecompressor(certificateDecompressor())
                 .attach(http2)
                 .build();
+        // so that what needs the trust behind a context (HTTP/3 to servers, name checks) finds it
+        SslContexts.remember(context, trust);
+        return context;
     }
 
     /**
