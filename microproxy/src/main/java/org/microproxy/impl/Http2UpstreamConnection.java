@@ -8,12 +8,13 @@ import io.github.mahmoudimus.http2.FrameType;
 import io.github.mahmoudimus.http2.HeaderField;
 import io.github.mahmoudimus.http2.HeaderListSizeException;
 import io.github.mahmoudimus.http2.HpackDecoder;
+import io.github.mahmoudimus.http2.Http2ClientProfile;
 import io.github.mahmoudimus.http2.Http2Exception;
 import io.github.mahmoudimus.http2.Http2Headers;
-import io.github.mahmoudimus.http2.Http2ClientProfile;
 import io.github.mahmoudimus.http2.Http2Settings;
 import io.github.mahmoudimus.http2.OriginFrame;
 import io.github.mahmoudimus.http2.ResponseHeaders;
+import io.github.mahmoudimus.quic.tls.FingerprintSocket;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
@@ -233,11 +234,21 @@ final class Http2UpstreamConnection extends Http2Endpoint {
     private final Http2ClientProfile profile;
 
     /**
+     * The HTTP/2 fingerprint for a connection over {@code carrier}: its TLS socket's, when that is a
+     * browser-fingerprint socket carrying one ({@link FingerprintSocket#attachment()}), so the
+     * HTTP/2 fingerprint follows the TLS one chosen for the server; else {@link
+     * Http2Options#upstreamProfile()}.
+     */
+    private static Http2ClientProfile profileOf(ServerConnection carrier, Http2Options options) {
+        if (carrier.socket instanceof FingerprintSocket f && f.attachment() instanceof Http2ClientProfile p) return p;
+        return options.upstreamProfile();
+    }
+
+    /**
      * The options with a profile's windows in place of the configured ones: a connection with a
      * fingerprint holds itself to the windows the fingerprint advertises.
      */
-    private static Http2Options effective(Http2Options options) {
-        Http2ClientProfile p = options.upstreamProfile();
+    private static Http2Options effective(Http2Options options, Http2ClientProfile p) {
         if (p == null) return options;
         Http2Settings advertised = p.localSettings();
         return options.toBuilder()
@@ -250,9 +261,10 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             Http2Origins.Key key, Object owner) {
         // The larger receive window applies at once: it only lets the server send more sooner.
         super(server, "[h2 " + carrier.hostAndPort + "] ",
-                new FlowController(effective(server.http2Options).initialWindowSize(), Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
-                server.stats.http2Upstream, effective(server.http2Options));
-        this.profile = server.http2Options.upstreamProfile();
+                new FlowController(effective(server.http2Options, profileOf(carrier, server.http2Options)).initialWindowSize(),
+                        Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
+                server.stats.http2Upstream, effective(server.http2Options, profileOf(carrier, server.http2Options)));
+        this.profile = profileOf(carrier, server.http2Options);
         this.origins = origins;
         this.carrier = carrier;
         this.key = key;

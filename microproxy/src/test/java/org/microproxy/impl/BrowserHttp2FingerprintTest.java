@@ -131,6 +131,35 @@ class BrowserHttp2FingerprintTest {
     }
 
     @Test
+    void aBrowserProfileGivesTheConnectionItsHttp2FingerprintAndTheRequestItsHeaders() throws Exception {
+        CompletableFuture<Seen> seen = startOrigin();
+        org.microproxy.tls.BrowserProfile chrome = org.microproxy.tls.BrowserProfile.chrome156();
+        // no Http2Options.upstreamProfile: the HTTP/2 profile comes with the TLS socket
+        proxy = MicroProxy.bootstrap()
+                .withAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, chrome.sslContext(trusting(originCa))))
+                .withFiltersSource(chrome.filtersSource(true))
+                .start();
+        HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
+        HttpResponse<String> response = client.send(
+                HttpRequest.newBuilder(URI.create("https://localhost:" + origin.getLocalPort() + "/hello"))
+                        .timeout(Duration.ofSeconds(20)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+
+        Seen s = seen.get(10, TimeUnit.SECONDS);
+        HexFormat hex = HexFormat.of();
+        assertEquals(CHROME_SETTINGS, hex.formatHex(s.frames().get(0)));
+        assertEquals(CHROME_WINDOW_UPDATE, hex.formatHex(s.frames().get(1)));
+        List<String> names = s.fields().stream().map(HeaderField::name).toList();
+        assertEquals(List.of(":method", ":authority", ":scheme", ":path", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
+                "upgrade-insecure-requests", "user-agent", "accept"), names.subList(0, 10));
+        String userAgent = s.fields().stream().filter(f -> f.name().equals("user-agent")).findFirst().orElseThrow().value();
+        assertEquals(chrome.requestHeaders().get(4).getValue(), userAgent);
+        assertEquals(false, names.contains("via"));
+    }
+
+    @Test
     void theProxysHttp2ConnectionOpensAsChromes() throws Exception {
         CompletableFuture<Seen> seen = startOrigin();
         SSLContext chrome = FingerprintSslContext.builder(BrowserProfiles.chrome156()).trustManager(trusting(originCa)).build();
