@@ -1,0 +1,24 @@
+datagram from /127.0.0.1:51771 bytes=1250
+connection accepted
+uni stream 2 type=0x0
+bidi 0 frame type=0x1 len=449
+  control frame type=0x4 len=31 [0x1=65536] [0x6=262144] [0x7=100] [0x33=1] [0x4303d530d=2173444197]
+  control frame type=0x1ce874bc92 len=3 payload=f5dacb
+  control frame type=0xf0700 len=7 payload=00753d302c2069
+  :method: GET
+  :authority: quic.test:18564
+  :scheme: https
+  :path: /
+  sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"
+  sec-ch-ua-mobile: ?0
+  sec-ch-ua-platform: "macOS"
+  upgrade-insecure-requests: 1
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KH...
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/...
+  sec-fetch-site: none
+  sec-fetch-mode: navigate
+  sec-fetch-user: ?1
+  sec-fetch-dest: document
+  accept-encoding: gzip, deflate, br, zstd
+  accept-language: en-US,en;q=0.9
+  priority: u=0, i

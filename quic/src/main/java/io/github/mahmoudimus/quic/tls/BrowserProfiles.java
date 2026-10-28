@@ -63,4 +63,38 @@ public final class BrowserProfiles {
                         ProfileExtensions.greaseLast()),
                 true, 32);
     }
+
+    /**
+     * Chrome 156's ClientHello in QUIC (RFC 9001), as captured from 156.0.8078.48 on macOS over
+     * HTTP/3. Unlike its TCP hello it has no GREASE at all; no extended_master_secret,
+     * renegotiation_info, ec_point_formats, session_ticket, status_request or
+     * signed_certificate_timestamp; TLS 1.3 suites only; an empty legacy_session_id;
+     * {@code rsa_pkcs1_sha1} but no ML-DSA among its signature schemes; ALPS for its protocol
+     * ({@code h3}); and the connection's {@code quic_transport_parameters}. Its 12 extensions are
+     * shuffled per hello. With SNI and ALPN {@code h3} its JA4 is {@code q13d0312h3_55b375c5d22e_178839b6cec1}.
+     *
+     * <p>The key shares need public keys for {@code 0x11ec} and {@code 0x001d}, and the transport
+     * parameters come from {@link HelloContext#supplied()} under {@link ProfileExtensions#QUIC_TRANSPORT_PARAMETERS}.
+     *
+     * @return the profile
+     */
+    public static ClientHelloProfile chrome156Quic() {
+        return new ClientHelloProfile("chrome-156-quic",
+                new int[] {0x1301, 0x1302, 0x1303},
+                List.of(
+                        ProfileExtensions.compressCertificate(BROTLI),
+                        ProfileExtensions.trustAnchors(CHROME_156_TRUST_ANCHORS),
+                        ProfileExtensions.applicationSettings("h3"),
+                        ProfileExtensions.serverName(),
+                        ProfileExtensions.keyShare(X25519_MLKEM768, 0x001d),
+                        ProfileExtensions.pskKeyExchangeModes(),
+                        ProfileExtensions.supportedVersions(0x0304),
+                        ProfileExtensions.supplied(ProfileExtensions.QUIC_TRANSPORT_PARAMETERS),
+                        ProfileExtensions.signatureAlgorithms(0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806,
+                                0x0601, 0x0201),
+                        ProfileExtensions.greaseEch(144, 176, 208, 240),
+                        ProfileExtensions.supportedGroups(X25519_MLKEM768, 0x001d, 0x0017, 0x0018),
+                        ProfileExtensions.alpn()),
+                true, 0);
+    }
 }

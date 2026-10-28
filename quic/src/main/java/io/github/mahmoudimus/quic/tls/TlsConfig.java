@@ -64,6 +64,10 @@ public final class TlsConfig {
     final Ticketer ticketer;
     final int ticketsPerConnection;
     final EarlyDataPolicy earlyDataPolicy;
+    // A browser's ClientHello, for clients.
+    final ClientHelloProfile clientHelloProfile;
+    final java.util.Map<String, byte[]> applicationSettings;
+    final CertificateDecompressor certificateDecompressor;
 
     private TlsConfig(Builder b) {
         this.cipherSuites = List.copyOf(b.cipherSuites);
@@ -89,6 +93,9 @@ public final class TlsConfig {
         this.ticketsPerConnection = b.ticketsPerConnection;
         this.earlyDataPolicy = b.earlyDataPolicy != null ? b.earlyDataPolicy
                 : b.earlyData && b.ticketer != null ? EarlyDataPolicy.antiReplay() : EarlyDataPolicy.REJECT;
+        this.clientHelloProfile = b.clientHelloProfile;
+        this.applicationSettings = java.util.Map.copyOf(b.applicationSettings);
+        this.certificateDecompressor = b.certificateDecompressor;
     }
 
     /**
@@ -163,6 +170,9 @@ public final class TlsConfig {
         private X509TrustManager clientTrustManager;
         private InstantSource clock = InstantSource.system();
         private boolean earlyData;
+        private ClientHelloProfile clientHelloProfile;
+        private java.util.Map<String, byte[]> applicationSettings = java.util.Map.of();
+        private CertificateDecompressor certificateDecompressor = CertificateDecompressor.ZLIB;
         private Ticketer ticketer;
         private int ticketsPerConnection = 2;
         private EarlyDataPolicy earlyDataPolicy;
@@ -456,6 +466,46 @@ public final class TlsConfig {
          */
         public Builder earlyDataPolicy(EarlyDataPolicy policy) {
             this.earlyDataPolicy = Objects.requireNonNull(policy);
+            return this;
+        }
+
+        /**
+         * A client's ClientHello as a browser's ({@link BrowserProfiles}): its cipher suites,
+         * extensions, key shares and order, with the connection's transport parameters in its
+         * {@code quic_transport_parameters}. The profile's suites, groups and signature schemes
+         * then take the place of {@link #cipherSuites}, {@link #groups} and {@link
+         * #signatureSchemes} for the handshake. Default none: the client's own hello.
+         *
+         * @param profile the profile, or null for none
+         * @return this builder
+         */
+        public Builder clientHelloProfile(ClientHelloProfile profile) {
+            this.clientHelloProfile = profile;
+            return this;
+        }
+
+        /**
+         * The ALPS settings (application_settings) a client answers a server's with, by ALPN
+         * protocol; a browser's are empty, for its protocols. Only with a {@link
+         * #clientHelloProfile} that offers ALPS.
+         *
+         * @param settings the settings by protocol
+         * @return this builder
+         */
+        public Builder applicationSettings(java.util.Map<String, byte[]> settings) {
+            this.applicationSettings = java.util.Map.copyOf(settings);
+            return this;
+        }
+
+        /**
+         * Decompresses a server's certificates (RFC 8879) with the algorithms a {@link
+         * #clientHelloProfile} offers; zlib only by default.
+         *
+         * @param decompressor the decompressor
+         * @return this builder
+         */
+        public Builder certificateDecompressor(CertificateDecompressor decompressor) {
+            this.certificateDecompressor = Objects.requireNonNull(decompressor);
             return this;
         }
 

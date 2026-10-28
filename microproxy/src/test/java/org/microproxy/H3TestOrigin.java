@@ -79,6 +79,12 @@ final class H3TestOrigin implements AutoCloseable {
     private final ReentrantLock lock = new ReentrantLock();
     private final List<Throwable> errors = new ArrayList<>();
     private final List<String> requestLines = new ArrayList<>();
+    /** The type of each unidirectional stream clients opened, in the order they were read. */
+    final List<Long> uniStreamTypes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** Each frame on clients' control streams: its type and payload. */
+    final List<Map.Entry<Long, byte[]>> controlFrames = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** The field names of each request, in order. */
+    final List<List<String>> requestFieldNames = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     H3TestOrigin(CertificateAuthority ca) throws IOException {
         this(ca, 0);
@@ -217,7 +223,14 @@ final class H3TestOrigin implements AutoCloseable {
         void readUni(QuicStream s) throws IOException {
             InputStream in = s.getInputStream();
             long type = Http3StreamType.read(in);
-            if (type == Http3StreamType.QPACK_ENCODER) {
+            uniStreamTypes.add(type);
+            if (type == Http3StreamType.CONTROL) {
+                while (true) {
+                    long frameType = io.github.mahmoudimus.http3.QuicVarInt.read(in);
+                    int length = (int) io.github.mahmoudimus.http3.QuicVarInt.read(in);
+                    controlFrames.add(Map.entry(frameType, in.readNBytes(length)));
+                }
+            } else if (type == Http3StreamType.QPACK_ENCODER) {
                 byte[] buf = new byte[4096];
                 for (int n; (n = in.read(buf)) >= 0; ) {
                     qpack.lock();
@@ -276,6 +289,7 @@ final class H3TestOrigin implements AutoCloseable {
                 switch (frame) {
                     case Http3Frame.Headers h -> {
                         List<HeaderField> fields = decode(id, h.fieldSection());
+                        if (request == null) requestFieldNames.add(fields.stream().map(HeaderField::name).toList());
                         if (request == null) {
                             request = Http3Headers.toRequest(id, fields);
                             if ("websocket".equals(request.protocol())) {

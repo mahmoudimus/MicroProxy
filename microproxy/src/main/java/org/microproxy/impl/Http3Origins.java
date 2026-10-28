@@ -330,12 +330,16 @@ final class Http3Origins {
             InetSocketAddress tcp = resolve.resolve();
             InetSocketAddress remote = new InetSocketAddress(tcp.getAddress(), port);
             String host = HostAndPort.parse(hostAndPort, 443).host();
-            QuicClient client = client(trust, remote.getAddress() instanceof Inet6Address);
+            org.microproxy.tls.BrowserProfile browser = options.upstreamProfile();
+            // a browser's empty source connection IDs need a UDP socket per connection
+            QuicClient client = browser != null ? ownClient(trust, remote.getAddress() instanceof Inet6Address, browser)
+                    : client(trust, remote.getAddress() instanceof Inet6Address);
             long started = ClientFlowContext.now();
             QuicConnection quic = replaySafe && options.upstreamZeroRtt()
                     ? client.connectEarly(remote, host, options.upstreamHandshakeTimeout(), sessions)
                     : client.connect(remote, host, options.upstreamHandshakeTimeout(), sessions);
             c = new Http3UpstreamConnection(server, this, quic, key, hostAndPort);
+            if (browser != null) c.ownedClient = client;
             if (c.cluster.enabled) {
                 c.countedAt = ClientFlowContext.now();
                 c.cluster.connected(c.countedAt - started);
@@ -410,6 +414,31 @@ final class Http3Origins {
         } finally {
             lock.unlock();
         }
+    }
+
+    /** A QUIC client of its own for one connection presenting {@code browser}'s fingerprint. */
+    private QuicClient ownClient(X509TrustManager trust, boolean ipv6, org.microproxy.tls.BrowserProfile browser)
+            throws IOException {
+        io.github.mahmoudimus.quic.QuicClientProfile quic = browser.quicProfile();
+        TlsConfig.Builder tls = TlsConfig.builder().alpnProtocols("h3").earlyData(options.upstreamZeroRtt());
+        if (trust != null && SslContexts.trustsAll(trust)) {
+            tls.trustAllCertificates(true);
+        } else if (trust != null) {
+            tls.trustManager(trust);
+        }
+        quic.applyTo(tls, org.microproxy.tls.BrowserProfile.certificateDecompressor());
+        TransportConfig transport = quic.applyTo(TransportConfig.builder()
+                        .congestionControl(Http3Listener.congestionControl(options))
+                        .qlog(QlogWriter.sink(server, false)))
+                .build();
+        ClientConfig config = quic.applyTo(ClientConfig.builder(tls.build()).transport(transport).sessionCache(sessions)).build();
+        InetSocketAddress local = server.localAddress;
+        InetSocketAddress bind = local != null && (local.getAddress() instanceof Inet6Address) == ipv6
+                ? new InetSocketAddress(local.getAddress(), 0)
+                : new InetSocketAddress(InetAddress.getByName(ipv6 ? "::" : "0.0.0.0"), 0);
+        QuicClient client = QuicClient.create(config, bind, quic.endpointConfig());
+        QuicStats.of(server, QuicStats.UPSTREAM).observe(client);
+        return client;
     }
 
     /** Forgets a connection that takes no new streams (GOAWAY, closed). */

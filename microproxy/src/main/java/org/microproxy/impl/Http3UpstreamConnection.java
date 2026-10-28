@@ -61,7 +61,8 @@ final class Http3UpstreamConnection extends Http3Endpoint {
 
     Http3UpstreamConnection(DefaultHttpProxyServer server, Http3Origins origins, QuicConnection quic, String key,
             String hostAndPort) {
-        super(server, quic, "[h3 " + hostAndPort + "] ", Http3StreamValidator.Role.CLIENT, server.stats.http3Upstream);
+        super(server, quic, "[h3 " + hostAndPort + "] ", Http3StreamValidator.Role.CLIENT, server.stats.http3Upstream,
+                server.http3Options.upstreamProfile() != null ? server.http3Options.upstreamProfile().http3Profile() : null);
         this.origins = origins;
         this.key = key;
         this.hostAndPort = hostAndPort;
@@ -164,6 +165,9 @@ final class Http3UpstreamConnection extends Http3Endpoint {
         for (Http3UpstreamStream s : unprocessed) s.unprocessed("GOAWAY " + id + " from " + hostAndPort);
     }
 
+    /** The QUIC client (a UDP socket) made for this connection alone, closed with it; or null. */
+    io.github.mahmoudimus.quic.QuicClient ownedClient;
+
     @Override
     void closed() {
         super.closed();
@@ -177,6 +181,7 @@ final class Http3UpstreamConnection extends Http3Endpoint {
             cluster.closed(ClientFlowContext.now() - counted, !closedLocally);
         }
         origins.remove(this);
+        if (ownedClient != null) ownedClient.close();
         List<Http3UpstreamStream> open;
         stateLock.lock();
         try {

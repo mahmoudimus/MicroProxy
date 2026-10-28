@@ -22,6 +22,8 @@ public final class ClientConfig {
     final SessionCache sessionCache;
     final boolean activeMigration;
     final boolean preferredAddress;
+    final io.github.mahmoudimus.quic.params.TransportParameterProfile transportParameterProfile;
+    final InitialPacketShape initialPacketShape;
 
     private ClientConfig(Builder b) {
         this.tls = b.tls;
@@ -31,6 +33,8 @@ public final class ClientConfig {
         this.sessionCache = b.sessionCache;
         this.activeMigration = b.activeMigration;
         this.preferredAddress = b.preferredAddress;
+        this.transportParameterProfile = b.transportParameterProfile;
+        this.initialPacketShape = b.initialPacketShape;
     }
 
     /**
@@ -89,6 +93,8 @@ public final class ClientConfig {
         private SessionCache sessionCache;
         private boolean activeMigration = true;
         private boolean preferredAddress = true;
+        private io.github.mahmoudimus.quic.params.TransportParameterProfile transportParameterProfile;
+        private InitialPacketShape initialPacketShape;
 
         private Builder(TlsConfig tls) {
             this.tls = Objects.requireNonNull(tls, "tls");
@@ -168,6 +174,32 @@ public final class ClientConfig {
          */
         public Builder preferredAddress(boolean preferredAddress) {
             this.preferredAddress = preferredAddress;
+            return this;
+        }
+
+        /**
+         * The transport parameters as a browser sends them ({@link
+         * io.github.mahmoudimus.quic.params.TransportParameterProfile#chrome156()}): its parameters, in
+         * its order, with its GREASE; their values are still the connection's, so the {@link
+         * #transport} configuration should match the browser's too. Default none: the client's own.
+         *
+         * @param profile the profile, or null for none
+         * @return this builder
+         */
+        public Builder transportParameterProfile(io.github.mahmoudimus.quic.params.TransportParameterProfile profile) {
+            this.transportParameterProfile = profile;
+            return this;
+        }
+
+        /**
+         * The shape of the client's Initial packets ({@link InitialPacketShape#CHROME}); default
+         * none: packet numbers from 0, Initial datagrams padded to 1200 bytes, frames in order.
+         *
+         * @param shape the shape, or null for none
+         * @return this builder
+         */
+        public Builder initialPacketShape(InitialPacketShape shape) {
+            this.initialPacketShape = shape;
             return this;
         }
 

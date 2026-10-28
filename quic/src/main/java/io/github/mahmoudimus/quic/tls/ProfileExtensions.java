@@ -22,6 +22,9 @@ public final class ProfileExtensions {
     /** {@code encrypted_client_hello} (RFC 9849). */
     public static final int ENCRYPTED_CLIENT_HELLO = 0xfe0d;
 
+    /** {@code quic_transport_parameters} (RFC 9001 section 8.2). */
+    public static final int QUIC_TRANSPORT_PARAMETERS = 0x39;
+
     /** {@code record_size_limit} (RFC 8449). */
     public static final int RECORD_SIZE_LIMIT = 28;
 
@@ -124,6 +127,14 @@ public final class ProfileExtensions {
             w.close(list);
             return w.toByteArray();
         }, groups.clone());
+    }
+
+    /**
+     * An extension whose body the connection makes itself ({@link HelloContext#supplied()}), such as
+     * QUIC's {@code quic_transport_parameters}; left out when the connection supplies none.
+     */
+    public static ExtensionSpec supplied(int type) {
+        return new ExtensionSpec(type, c -> c.supplied().get(type));
     }
 
     /** {@code psk_key_exchange_modes} offering only {@code psk_dhe_ke}. */

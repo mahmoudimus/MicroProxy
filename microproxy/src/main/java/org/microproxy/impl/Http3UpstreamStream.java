@@ -126,6 +126,12 @@ final class Http3UpstreamStream extends ServerConnection {
         if (ProxyUtils.isCONNECT(request)) throw new IOException("CONNECT is not sent to servers over HTTP/3");
         sentEarly = connection.quic.isZeroRtt() && !request.headers().contains(Http3Connection.EARLY_DATA);
         var fields = Http3Messages.requestFields(request, hostAndPort, trailersAccepted);
+        io.github.mahmoudimus.http3.Http3ClientProfile profile = connection.profile;
+        if (profile != null) {
+            fields = new java.util.ArrayList<>(profile.order(fields));
+            String priority = request.headers().get("priority");
+            if (priority != null && profile.priorityUpdates()) connection.sendPriorityUpdate(id, priority);
+        }
         webSocket = ProxyUtils.isSwitchingToWebSocketProtocol(request);
         if (webSocket) {
             if (!supportsWebSockets()) throw new IOException("the server has not enabled extended CONNECT");

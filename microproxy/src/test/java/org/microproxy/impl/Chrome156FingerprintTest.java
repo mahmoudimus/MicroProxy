@@ -29,4 +29,16 @@ class Chrome156FingerprintTest {
             assertEquals("t13d1517h2_8daaf6152771_cb7bf5808d99", TlsFingerprints.ja4(TlsClientHello.parse(hello)));
         }
     }
+
+    @Test
+    void quicJa4IsChrome156sOverHttp3() throws Exception {
+        SecureRandom random = new SecureRandom();
+        for (int i = 0; i < 20; i++) {
+            byte[] hello = BrowserProfiles.chrome156Quic().encode(new HelloContext("quic.test", List.of("h3"),
+                    Map.of(ProfileExtensions.X25519_MLKEM768, new byte[1216], 0x001d, new byte[32]),
+                    Grease.random(random), random, Map.of(ProfileExtensions.QUIC_TRANSPORT_PARAMETERS, new byte[] {1, 2, 3})));
+            // captured from Chrome 156.0.8078.48 over HTTP/3 (quic/src/test/resources/fingerprints/chrome-156-quic)
+            assertEquals("q13d0312h3_55b375c5d22e_178839b6cec1", TlsFingerprints.ja4(TlsClientHello.parse(hello), true));
+        }
+    }
 }

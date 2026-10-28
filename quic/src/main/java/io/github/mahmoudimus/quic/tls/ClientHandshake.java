@@ -49,12 +49,15 @@ final class ClientHandshake implements Handshake {
             ExtensionType.SERVER_NAME, ExtensionType.MAX_FRAGMENT_LENGTH, ExtensionType.SUPPORTED_GROUPS,
             ExtensionType.USE_SRTP, ExtensionType.HEARTBEAT, ExtensionType.ALPN,
             ExtensionType.CLIENT_CERTIFICATE_TYPE, ExtensionType.SERVER_CERTIFICATE_TYPE,
-            ExtensionType.EARLY_DATA, ExtensionType.QUIC_TRANSPORT_PARAMETERS);
+            ExtensionType.EARLY_DATA, ExtensionType.QUIC_TRANSPORT_PARAMETERS,
+            ProfileExtensions.APPLICATION_SETTINGS, ProfileExtensions.ENCRYPTED_CLIENT_HELLO, ProfileExtensions.TRUST_ANCHORS);
     /** The longest ticket lifetime (RFC 8446 section 4.6.1): 7 days. */
     private static final long MAX_TICKET_LIFETIME = 604800;
     /** Extensions a server's CertificateEntry may carry. */
     private static final Set<Integer> CERTIFICATE_EXTENSIONS = Set.of(
-            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP);
+            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP,
+            // draft-ietf-tls-trust-anchor-ids: a server names the anchor its chain is for, as Google's do
+            ProfileExtensions.TRUST_ANCHORS);
     /** Advertised for certificate signatures only, as RFC 8446 section 4.2.3 allows. */
     private static final List<SignatureScheme> CERTIFICATE_ONLY_SCHEMES = List.of(
             SignatureScheme.RSA_PKCS1_SHA256, SignatureScheme.RSA_PKCS1_SHA384, SignatureScheme.RSA_PKCS1_SHA512);
@@ -81,10 +84,18 @@ final class ClientHandshake implements Handshake {
     private final TlsSession session;
     private final TlsConfig config;
     private final String serverName;
-    private final byte[] random = new byte[32];
+    private byte[] random = new byte[32];
     private final Set<Integer> sentExtensions = new HashSet<>();
     private final Transcript transcript = new Transcript();
     private KeyExchange keyShare;
+    /** With a {@link TlsConfig#clientHelloProfile}: a key share for each of its groups, by group code. */
+    private final java.util.Map<Integer, KeyExchange> profileShares = new java.util.LinkedHashMap<>();
+    /** With a profile: the first hello's extensions, from which a retry's are made. */
+    private List<Extension> profileExtensions;
+    /** With a profile: the hello's random, session id and suites, which a retry keeps. */
+    private ClientHello profileHello;
+    /** The server's ALPS settings, or null if it sent none. */
+    private byte[] peerApplicationSettings;
     private byte[] cookie;
     private CipherSuite retrySuite;
     private KeySchedule keySchedule;
@@ -107,14 +118,23 @@ final class ClientHandshake implements Handshake {
         this.ticket = usable(ticket);
         config.random.nextBytes(random);
         session.clientRandom(random);
-        keyShare = KeyExchange.generate(config.groups.get(0), config.random);
+        if (config.clientHelloProfile != null) {
+            for (int code : config.clientHelloProfile.keyShareGroups()) {
+                NamedGroup g = NamedGroup.forCode(code);
+                if (g == null) throw new IllegalStateException("no key exchange for group 0x" + Integer.toHexString(code));
+                profileShares.put(code, KeyExchange.generate(g, config.random));
+            }
+            keyShare = profileShares.values().iterator().next();
+        } else {
+            keyShare = KeyExchange.generate(config.groups.get(0), config.random);
+        }
         sendClientHello();
         state = new ExpectServerHello(false);
     }
 
     /** The ticket if this connection may offer it: unexpired, for this server, with a suite we offer. */
     private SessionTicket usable(SessionTicket t) {
-        if (t == null || t.isExpired(config.clock.instant()) || !config.cipherSuites.contains(t.suite)) {
+        if (t == null || t.isExpired(config.clock.instant()) || !offeredSuites().contains(t.suite)) {
             return null;
         }
         if (!Objects.equals(t.serverName, sniName())) {
@@ -162,6 +182,61 @@ final class ClientHandshake implements Handshake {
     }
 
     private void sendClientHello() {
+        List<Extension> extensions;
+        byte[] helloRandom = random;
+        byte[] sessionId = new byte[0];
+        int[] suites;
+        if (config.clientHelloProfile != null) {
+            extensions = profileHelloExtensions();
+            helloRandom = profileHello.random();
+            sessionId = profileHello.sessionId();
+            suites = profileHello.cipherSuites();
+        } else {
+            extensions = defaultHelloExtensions();
+            suites = config.cipherSuites.stream().mapToInt(CipherSuite::code).toArray();
+        }
+        boolean first = !transcript.started();
+        pskOffered = ticket != null;
+        int hashLength = 0;
+        if (pskOffered) {
+            byte[] ticketAlpn = ticket.alpn.getBytes(StandardCharsets.ISO_8859_1);
+            if (first && config.earlyData && ticket.allowsEarlyData()
+                    && config.alpnProtocols.stream().anyMatch(p -> Arrays.equals(p, ticketAlpn))) {
+                // Early data only in the first ClientHello (RFC 8446 section 4.2.10)
+                extensions.add(new Extension(ExtensionType.EARLY_DATA, new byte[0]));
+                earlyDataOffered = true;
+            }
+            hashLength = ticket.suite.hkdf().hashLength();
+            PskIdentity identity = new PskIdentity(ticket.ticket, ticket.obfuscatedAge(config.clock.instant()));
+            // The binder is filled in once the rest of the message is known; pre_shared_key goes last
+            extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY,
+                    Extensions.encodePskOffer(List.of(identity), List.of(new byte[hashLength]))));
+        }
+        sentExtensions.clear();
+        for (Extension e : extensions) sentExtensions.add(e.type());
+        ClientHello hello = new ClientHello(HandshakeMessage.LEGACY_VERSION, helloRandom, sessionId, suites, new byte[] {0},
+                extensions);
+        byte[] encoded = hello.encode();
+        KeySchedule early = null;
+        if (pskOffered) {
+            // RFC 8446 section 4.2.11.2: the binder covers the transcript up to the ClientHello
+            // without its binders list (2 bytes of list length, 1 of binder length, the binder)
+            byte[] prefix = Arrays.copyOf(encoded, encoded.length - (3 + hashLength));
+            byte[] hash = first ? Transcript.newDigest(ticket.suite).digest(prefix) : transcript.hashWith(prefix);
+            early = new KeySchedule(ticket.suite, ticket.psk);
+            System.arraycopy(early.binder(hash), 0, encoded, encoded.length - hashLength, hashLength);
+        }
+        transcript.add(encoded);
+        session.send(EncryptionLevel.INITIAL, encoded);
+        if (earlyDataOffered && first) {
+            byte[] secret = early.deriveSecret(KeySchedule.CLIENT_EARLY_TRAFFIC,
+                    Transcript.newDigest(ticket.suite).digest(encoded));
+            session.earlySecrets(ticket.suite, secret);
+        }
+    }
+
+    /** The client's own hello: its configured groups, schemes and ALPN, one key share, and the transport parameters. */
+    private List<Extension> defaultHelloExtensions() {
         List<Extension> extensions = new ArrayList<>();
         String sni = sniName();
         if (sni != null) {
@@ -183,43 +258,59 @@ final class ClientHandshake implements Handshake {
         // Only psk_dhe_ke: a resumed handshake always has a fresh (EC)DHE exchange
         extensions.add(new Extension(ExtensionType.PSK_KEY_EXCHANGE_MODES,
                 Extensions.encodePskKeyExchangeModes(Extensions.PSK_DHE_KE)));
-        boolean first = !transcript.started();
-        pskOffered = ticket != null;
-        int hashLength = 0;
-        if (pskOffered) {
-            byte[] ticketAlpn = ticket.alpn.getBytes(StandardCharsets.ISO_8859_1);
-            if (first && config.earlyData && ticket.allowsEarlyData()
-                    && config.alpnProtocols.stream().anyMatch(p -> Arrays.equals(p, ticketAlpn))) {
-                // Early data only in the first ClientHello (RFC 8446 section 4.2.10)
-                extensions.add(new Extension(ExtensionType.EARLY_DATA, new byte[0]));
-                earlyDataOffered = true;
+        return extensions;
+    }
+
+    /**
+     * The profile's hello: made once, with the connection's key shares and transport parameters;
+     * a retry's is the same with only the requested group's share and the cookie, after the
+     * extensions the profile put first (BoringSSL keeps a connection's extension order).
+     */
+    private List<Extension> profileHelloExtensions() {
+        if (profileHello == null) {
+            java.util.Map<Integer, byte[]> publicKeys = new java.util.LinkedHashMap<>();
+            profileShares.forEach((code, kx) -> publicKeys.put(code, kx.publicKey()));
+            List<String> protocols = config.alpnProtocols.stream()
+                    .map(p -> new String(p, StandardCharsets.ISO_8859_1)).toList();
+            HelloContext context = new HelloContext(sniName(), protocols, publicKeys, Grease.random(config.random),
+                    config.random, java.util.Map.of(ExtensionType.QUIC_TRANSPORT_PARAMETERS, session.localTransportParameters));
+            profileHello = config.clientHelloProfile.clientHello(context);
+            profileExtensions = profileHello.extensions();
+            random = profileHello.random().clone();
+            session.clientRandom(random);
+        }
+        List<Extension> extensions = new ArrayList<>(profileExtensions);
+        if (profileShares.size() == 1 && transcript.started()) {
+            int code = profileShares.keySet().iterator().next();
+            for (int i = 0; i < extensions.size(); i++) {
+                if (extensions.get(i).type() == ExtensionType.KEY_SHARE) {
+                    extensions.set(i, new Extension(ExtensionType.KEY_SHARE, Extensions.encodeKeyShareClient(
+                            List.of(new KeyShare(code, profileShares.get(code).publicKey())))));
+                }
             }
-            hashLength = ticket.suite.hkdf().hashLength();
-            PskIdentity identity = new PskIdentity(ticket.ticket, ticket.obfuscatedAge(config.clock.instant()));
-            // The binder is filled in once the rest of the message is known; pre_shared_key goes last
-            extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY,
-                    Extensions.encodePskOffer(List.of(identity), List.of(new byte[hashLength]))));
         }
-        for (Extension e : extensions) sentExtensions.add(e.type());
-        ClientHello hello = new ClientHello(HandshakeMessage.LEGACY_VERSION, random, new byte[0],
-                config.cipherSuites.stream().mapToInt(CipherSuite::code).toArray(), new byte[] {0}, extensions);
-        byte[] encoded = hello.encode();
-        KeySchedule early = null;
-        if (pskOffered) {
-            // RFC 8446 section 4.2.11.2: the binder covers the transcript up to the ClientHello
-            // without its binders list (2 bytes of list length, 1 of binder length, the binder)
-            byte[] prefix = Arrays.copyOf(encoded, encoded.length - (3 + hashLength));
-            byte[] hash = first ? Transcript.newDigest(ticket.suite).digest(prefix) : transcript.hashWith(prefix);
-            early = new KeySchedule(ticket.suite, ticket.psk);
-            System.arraycopy(early.binder(hash), 0, encoded, encoded.length - hashLength, hashLength);
-        }
-        transcript.add(encoded);
-        session.send(EncryptionLevel.INITIAL, encoded);
-        if (earlyDataOffered && first) {
-            byte[] secret = early.deriveSecret(KeySchedule.CLIENT_EARLY_TRAFFIC,
-                    Transcript.newDigest(ticket.suite).digest(encoded));
-            session.earlySecrets(ticket.suite, secret);
-        }
+        if (cookie != null) extensions.add(new Extension(ExtensionType.COOKIE, Extensions.encodeCookie(cookie)));
+        return extensions;
+    }
+
+    /** The groups the hello offers. */
+    private int[] offeredGroups() throws QuicException {
+        if (config.clientHelloProfile == null) return config.groups.stream().mapToInt(NamedGroup::code).toArray();
+        byte[] groups = Extension.find(profileExtensions, ExtensionType.SUPPORTED_GROUPS);
+        return groups == null ? new int[0] : Extensions.decodeU16List(groups, "supported_groups");
+    }
+
+    /** The TLS 1.3 suites the hello offers. */
+    private List<CipherSuite> offeredSuites() {
+        return config.clientHelloProfile != null ? config.clientHelloProfile.tls13CipherSuites() : config.cipherSuites;
+    }
+
+    /** Whether the hello offers {@code scheme} for CertificateVerify. */
+    private boolean offersVerifyScheme(SignatureScheme scheme) throws QuicException {
+        if (config.clientHelloProfile == null) return config.signatureSchemes.contains(scheme);
+        byte[] schemes = Extension.find(profileExtensions, ExtensionType.SIGNATURE_ALGORITHMS);
+        return schemes != null && scheme.allowedInCertificateVerify()
+                && Arrays.stream(Extensions.decodeU16List(schemes, "signature_algorithms")).anyMatch(c -> c == scheme.code());
     }
 
     // --- ServerHello and HelloRetryRequest ---
@@ -257,7 +348,7 @@ final class ClientHandshake implements Handshake {
             throw TlsAlert.illegalParameter(name + " selected compression " + hello.compressionMethod());
         }
         CipherSuite suite = CipherSuite.forCode(hello.cipherSuite());
-        if (suite == null || !config.cipherSuites.contains(suite)) {
+        if (suite == null || !offeredSuites().contains(suite)) {
             throw TlsAlert.illegalParameter(name + " selected a cipher suite that was not offered");
         }
         for (Extension e : hello.extensions()) {
@@ -287,14 +378,20 @@ final class ClientHandshake implements Handshake {
         if (groupData != null) {
             int code = Extensions.decodeKeyShareRetry(groupData);
             NamedGroup requested = NamedGroup.forCode(code);
-            // RFC 8446 section 4.2.8: a group we support, and not the one we already sent a share for.
-            if (requested == null || !config.groups.contains(requested)) {
+            // RFC 8446 section 4.2.8: a group we support, and not one we already sent a share for.
+            if (requested == null || Arrays.stream(offeredGroups()).noneMatch(g -> g == code)) {
                 throw TlsAlert.illegalParameter("HelloRetryRequest asks for a group that was not offered");
             }
-            if (requested == keyShare.group()) {
+            boolean alreadyShared = config.clientHelloProfile != null ? profileShares.containsKey(code)
+                    : requested == keyShare.group();
+            if (alreadyShared) {
                 throw TlsAlert.illegalParameter("HelloRetryRequest asks for the group already offered");
             }
             share = KeyExchange.generate(requested, config.random);
+            if (config.clientHelloProfile != null) {
+                profileShares.clear();
+                profileShares.put(code, share);
+            }
         }
         if (ticket != null && ticket.suite.hkdf() != suite.hkdf()) {
             ticket = null; // the PSK cannot be used with this suite's hash (RFC 8446 section 4.1.4)
@@ -318,6 +415,9 @@ final class ClientHandshake implements Handshake {
         byte[] shareData = Extension.find(hello.extensions(), ExtensionType.KEY_SHARE);
         if (shareData == null) throw TlsAlert.error(TlsAlert.MISSING_EXTENSION, "ServerHello has no key_share");
         KeyShare share = Extensions.decodeKeyShareServer(shareData);
+        if (config.clientHelloProfile != null && profileShares.containsKey(share.group())) {
+            keyShare = profileShares.get(share.group());
+        }
         if (share.group() != keyShare.group().code()) {
             throw TlsAlert.illegalParameter("ServerHello key share is for a group that was not offered");
         }
@@ -395,6 +495,14 @@ final class ClientHandshake implements Handshake {
             throw TlsAlert.illegalParameter("server selected an application protocol that was not offered");
         }
         session.alpn(new String(protocol, StandardCharsets.ISO_8859_1));
+        byte[] settings = Extension.find(extensions, ProfileExtensions.APPLICATION_SETTINGS);
+        if (settings != null) {
+            // ALPS is for the negotiated protocol, one the client has settings for (BoringSSL's rule)
+            if (!config.applicationSettings.containsKey(session.negotiatedAlpn())) {
+                throw TlsAlert.error(TlsAlert.UNSUPPORTED_EXTENSION, "application_settings for a protocol not negotiated");
+            }
+            peerApplicationSettings = settings.clone();
+        }
         if (earlyData != null) {
             if (!session.negotiatedAlpn().equals(ticket.alpn)) {
                 throw TlsAlert.illegalParameter("server accepts early data for another application protocol");
@@ -431,6 +539,9 @@ final class ClientHandshake implements Handshake {
     }
 
     private State onCertificate(AuthRequest request, HandshakeMessage message, byte[] raw) throws QuicException {
+        if (message instanceof HandshakeMessage.Unknown u && u.type() == HandshakeType.COMPRESSED_CERTIFICATE) {
+            message = decompress(u.body());
+        }
         if (!(message instanceof CertificateMessage certificate)) {
             throw unexpected(message, request == null ? "Certificate or CertificateRequest" : "Certificate");
         }
@@ -466,7 +577,7 @@ final class ClientHandshake implements Handshake {
             throws QuicException {
         if (!(message instanceof CertificateVerify verify)) throw unexpected(message, "CertificateVerify");
         SignatureScheme scheme = SignatureScheme.forCode(verify.scheme());
-        if (scheme == null || !config.signatureSchemes.contains(scheme)) {
+        if (scheme == null || !offersVerifyScheme(scheme)) {
             // Includes rsa_pkcs1, advertised for certificates but not allowed here (RFC 8446 section 4.4.3).
             throw TlsAlert.illegalParameter("CertificateVerify uses a signature scheme that was not offered for it");
         }
@@ -498,6 +609,13 @@ final class ClientHandshake implements Handshake {
         byte[] serverApplication = keySchedule.deriveSecret(KeySchedule.SERVER_APPLICATION_TRAFFIC, hash);
         byte[] exporterMaster = keySchedule.deriveSecret(KeySchedule.EXPORTER_MASTER, hash);
 
+        if (peerApplicationSettings != null) {
+            // BoringSSL's ssl/tls13_client.cc: the client's ALPS in an EncryptedExtensions of its own
+            byte[] ours = config.applicationSettings.get(session.negotiatedAlpn());
+            byte[] ee = new EncryptedExtensions(List.of(new Extension(ProfileExtensions.APPLICATION_SETTINGS, ours))).encode();
+            transcript.add(ee);
+            session.send(EncryptionLevel.HANDSHAKE, ee);
+        }
         if (st.request() != null) sendClientCertificate(st.request());
         byte[] verifyData = keySchedule.finishedVerifyData(clientHandshakeSecret, transcript.hash());
         byte[] clientFinished = new Finished(verifyData).encode();
@@ -547,6 +665,35 @@ final class ClientHandshake implements Handshake {
         byte[] verify = new CertificateVerify(scheme.code(), signature).encode();
         transcript.add(verify);
         session.send(EncryptionLevel.HANDSHAKE, verify);
+    }
+
+    /** A CompressedCertificate (RFC 8879 section 4): an algorithm the hello offered, and the exact length. */
+    private CertificateMessage decompress(byte[] body) throws QuicException {
+        Reader r = new Reader(body);
+        int algorithm = r.u16("CompressedCertificate algorithm");
+        int length = r.u24("CompressedCertificate uncompressed_length");
+        byte[] data = r.vector24(1, "CompressedCertificate compressed_certificate_message");
+        r.expectEnd("CompressedCertificate");
+        byte[] offered = profileExtensions == null ? null : Extension.find(profileExtensions, ProfileExtensions.COMPRESS_CERTIFICATE);
+        boolean wasOffered = false;
+        if (offered != null) {
+            Reader list = new Reader(offered).sub8("compress_certificate");
+            while (list.hasRemaining()) wasOffered |= list.u16("algorithm") == algorithm;
+        }
+        if (!wasOffered) throw TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "certificate compressed with an algorithm not offered");
+        if (length > config.maxHandshakeMessageSize) {
+            throw TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "compressed certificate of " + length + " bytes");
+        }
+        byte[] plain;
+        try {
+            plain = config.certificateDecompressor.decompress(algorithm, data, length);
+        } catch (java.io.IOException e) {
+            throw TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "compressed certificate: " + e.getMessage());
+        }
+        if (plain == null || plain.length != length) {
+            throw TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "compressed certificate does not decompress to its length");
+        }
+        return (CertificateMessage) HandshakeMessage.decode(HandshakeType.CERTIFICATE, plain);
     }
 
     // --- after the handshake ---

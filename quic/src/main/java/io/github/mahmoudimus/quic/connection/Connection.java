@@ -209,6 +209,8 @@ public final class Connection {
     private boolean activeMigration = true;
     /** Whether a client moves to the server's preferred address. */
     private boolean followPreferredAddress;
+    /** The shape of a client's Initial packets, or null for the plain one. */
+    private InitialPacketShape initialShape;
     /** Paths seen, which numbers their generations. */
     private long pathCounter;
     /** The peer's connection ID in use on the previous path, for its PATH_CHALLENGE. */
@@ -379,9 +381,12 @@ public final class Connection {
             String serverName, ConnectionId initialDcid, ConnectionId localCid, boolean allowMtud,
             RandomGenerator random, SessionCache cache) {
         TransportConfig transport = config.transport;
-        byte[] params = localParams(transport, endpointConfig.cidLength(), localCid)
+        TransportParameters local = localParams(transport, endpointConfig.cidLength(), localCid)
                 .disableActiveMigration(!config.activeMigration)
-                .build().encode();
+                .build();
+        byte[] params = config.transportParameterProfile != null
+                ? config.transportParameterProfile.encode(local, config.version.wireValue(), random)
+                : local.encode();
         String name = serverName != null ? serverName : config.tls.serverName();
         String key = cacheKey(name, remote);
         SessionTicket ticket = cache != null ? cache.tickets().take(key) : null;
@@ -391,6 +396,8 @@ public final class Connection {
                 initialDcid, localCid, initialDcid, true, token != null ? token : EMPTY, allowMtud, random, null);
         c.activeMigration = config.activeMigration;
         c.followPreferredAddress = config.preferredAddress;
+        c.initialShape = config.initialPacketShape;
+        if (c.initialShape != null) c.recovery.space(SpaceId.INITIAL).nextPacketNumber = c.initialShape.firstPacketNumber();
         c.sessionCache = cache;
         c.cacheKey = key;
         c.ticket = ticket;
@@ -1996,7 +2003,8 @@ public final class Connection {
         if (open == null) {
             return null;
         }
-        int end = finish(now, builder, open, padDatagram ? Math.min(MIN_INITIAL_SIZE, limit) : 0);
+        int padTo = initialShape != null && initialShape.padToDatagramSize() ? limit : Math.min(MIN_INITIAL_SIZE, limit);
+        int end = finish(now, builder, open, padDatagram ? padTo : 0);
         lastNumber = open.number;
         ByteBuffer datagram = builder.datagram();
         recovery.onDatagramSent(now, end, lastNumber);
@@ -2031,7 +2039,8 @@ public final class Connection {
 
     /** Finishes the open packet, padding the datagram to {@code minSize}; returns its end. */
     private int finish(long now, PacketBuilder builder, OpenPacket p, int minSize) {
-        int end = builder.finish(minSize);
+        boolean chaos = initialShape != null && initialShape.chaosProtection() && side.isClient() && p.space == SpaceId.INITIAL;
+        int end = builder.finish(minSize, chaos ? payload -> ChaosProtector.protect(payload, random) : null);
         currentFrames = null;
         if (!p.track) {
             return end;
