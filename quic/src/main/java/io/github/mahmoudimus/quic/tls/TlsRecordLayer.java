@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.HexFormat;
 import javax.crypto.AEADBadTagException;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -31,6 +32,8 @@ final class TlsRecordLayer {
     static final int MAX_FRAGMENT = 1 << 14;
     private static final int MAX_CIPHERTEXT = MAX_FRAGMENT + 256;
     private static final int TAG_LENGTH = 16;
+    /** In the error for bytes that are not a TLS record at all: the peer is not a TLS server. */
+    static final String NOT_TLS = "not a TLS record";
 
     /** A record's content type and its (decrypted) content. */
     record Record(int type, byte[] fragment) {}
@@ -154,14 +157,13 @@ final class TlsRecordLayer {
         header[0] = (byte) first;
         readFully(header, 1, 4);
         int type = header[0] & 0xff;
+        if (type < CHANGE_CIPHER_SPEC || type > APPLICATION_DATA || header[1] != 3) {
+            throw TlsAlert.unexpectedMessage(NOT_TLS + " (it starts 0x" + HexFormat.of().formatHex(header) + ")");
+        }
         int length = ((header[3] & 0xff) << 8) | (header[4] & 0xff);
         int limit = read != null && type == APPLICATION_DATA ? MAX_CIPHERTEXT : MAX_FRAGMENT;
         if (length > limit) {
             throw TlsAlert.error(TlsAlert.RECORD_OVERFLOW, "a record of " + length + " bytes");
-        }
-        if (header[1] != 3) {
-            throw TlsAlert.decodeError("a record of version 0x" + Integer.toHexString(header[1] & 0xff)
-                    + Integer.toHexString(header[2] & 0xff));
         }
         byte[] fragment = new byte[length];
         readFully(fragment, 0, length);

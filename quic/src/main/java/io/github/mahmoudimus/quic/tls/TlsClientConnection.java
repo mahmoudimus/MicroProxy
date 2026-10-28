@@ -509,9 +509,30 @@ final class TlsClientConnection {
             }
         }
         List<X509Certificate> chain = CertificateChecks.parse(certificate.entries());
-        CertificateChecks.verifyServer(config.trustManager(), chain, verifyHost);
+        verifyServer(chain);
         peerCertificates = chain;
         return chain;
+    }
+
+    /**
+     * The trust manager's check, then the name's, each failure keeping its {@link
+     * java.security.cert.CertificateException} as the cause, as the JDK's does, so callers can tell
+     * an expired certificate from an untrusted one or the wrong name.
+     */
+    private void verifyServer(List<X509Certificate> chain) throws QuicException {
+        try {
+            config.trustManager().checkServerTrusted(chain.toArray(X509Certificate[]::new), CertificateChecks.TLS13_AUTH_TYPE);
+        } catch (java.security.cert.CertificateException | RuntimeException e) {
+            QuicException failure = CertificateChecks.untrusted(e);
+            failure.initCause(e);
+            throw failure;
+        }
+        if (verifyHost != null && !HostnameChecker.matches(chain.get(0), verifyHost)) {
+            QuicException failure = TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "certificate is not valid for " + verifyHost);
+            failure.initCause(new java.security.cert.CertificateException("No subject alternative names matching "
+                    + (HostnameChecker.isIpLiteral(verifyHost) ? "IP address " : "DNS name ") + verifyHost + " found"));
+            throw failure;
+        }
     }
 
     /** A CompressedCertificate (RFC 8879 section 4): an algorithm the client offered, and the exact length. */
