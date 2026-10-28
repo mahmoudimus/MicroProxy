@@ -69,7 +69,7 @@ public final class SslContexts {
         return trustManager instanceof TrustingTrustManager;
     }
 
-    private static X509TrustManager remember(SSLContext context, X509TrustManager trustManager) {
+    static X509TrustManager remember(SSLContext context, X509TrustManager trustManager) {
         if (trustManager == null) return null;
         TRUST_LOCK.lock();
         try {
@@ -88,7 +88,7 @@ public final class SslContexts {
         return null;
     }
 
-    private static X509TrustManager defaultTrustManager() throws GeneralSecurityException {
+    static X509TrustManager defaultTrustManager() throws GeneralSecurityException {
         TrustManagerFactory system = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         system.init((KeyStore) null);
         return firstX509(system.getTrustManagers());
