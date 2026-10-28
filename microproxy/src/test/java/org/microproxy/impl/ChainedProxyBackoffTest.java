@@ -309,6 +309,10 @@ class ChainedProxyBackoffTest {
         request.join(10_000);
         assertEquals(200, result.get()[0]);
         org.microproxy.stats.StatsRegistry r = proxy.getStats();
+        // a request is counted by its response class when it ends, which may be just after the
+        // client has the response
+        org.microproxy.TestSupport.eventually("the request counted",
+                () -> ((org.microproxy.stats.Counter) r.get("cluster.direct.upstream_rq_2xx")).value() == 1);
         assertEquals(1, clusterStat(first, "upstream_cx_connect_fail"));
         assertEquals(1, clusterStat(first, "failover"));
         assertEquals(0, clusterStat(first, "backoff_engaged"), "the first attempt never waits");
