@@ -78,6 +78,7 @@ public final class FingerprintSslContext {
         private int maxHandshakeMessageSize = TlsConfig.DEFAULT_MAX_HANDSHAKE_MESSAGE_SIZE;
         private List<String> defaultApplicationProtocols = List.of("http/1.1");
         private Object attachment;
+        private EchConfigProvider echConfigs;
 
         private Builder(ClientHelloProfile profile) {
             this.profile = Objects.requireNonNull(profile, "profile");
@@ -174,6 +175,21 @@ public final class FingerprintSslContext {
             return this;
         }
 
+        /**
+         * Where the sockets find a server's Encrypted Client Hello configurations (RFC 9849). With
+         * a list for the server's name, the ClientHello is encrypted to it and the outer hello
+         * names the configuration's public name; a server that rejects ECH fails the handshake with
+         * an {@link EchRejectedException} carrying its retry configurations, which this client
+         * never retries with by itself. Not set (the default), or for a server without a list, the
+         * profile's GREASE ECH is sent, as a browser does.
+         *
+         * @param provider the configurations by server name, or null for GREASE only
+         */
+        public Builder echConfigProvider(EchConfigProvider provider) {
+            this.echConfigs = provider;
+            return this;
+        }
+
         /** The longest handshake message accepted, 64 KiB by default. */
         public Builder maxHandshakeMessageSize(int bytes) {
             this.maxHandshakeMessageSize = bytes;
@@ -184,7 +200,8 @@ public final class FingerprintSslContext {
         public SSLContext build() {
             X509TrustManager trust = trustManager != null ? trustManager : CertificateChecks.defaultTrustManager();
             Settings settings = new Settings(new TlsClientConnection.Config(profile, trust, keyManager, sessions,
-                    applicationSettings, decompressor, random, clock, maxHandshakeMessageSize), defaultApplicationProtocols, attachment);
+                    applicationSettings, decompressor, random, clock, maxHandshakeMessageSize, new Tls12SessionCache(),
+                    echConfigs), defaultApplicationProtocols, attachment);
             return new SSLContext(new Spi(settings), PROVIDER, FingerprintSslSocket.TLS13) {};
         }
     }
