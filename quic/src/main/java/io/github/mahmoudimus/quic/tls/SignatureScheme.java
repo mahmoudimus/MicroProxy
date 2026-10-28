@@ -17,6 +17,8 @@ public enum SignatureScheme {
     ECDSA_SECP256R1_SHA256(0x0403, "SHA256withECDSA", null, "secp256r1", true),
     /** ECDSA on P-384 with SHA-384. */
     ECDSA_SECP384R1_SHA384(0x0503, "SHA384withECDSA", null, "secp384r1", true),
+    /** ECDSA on P-521 with SHA-512. */
+    ECDSA_SECP521R1_SHA512(0x0603, "SHA512withECDSA", null, "secp521r1", true),
     /** RSASSA-PSS with SHA-256, for an {@code rsaEncryption} key. */
     RSA_PSS_RSAE_SHA256(0x0804, "RSASSA-PSS", "SHA-256", null, true),
     /** RSASSA-PSS with SHA-384, for an {@code rsaEncryption} key. */
@@ -30,7 +32,17 @@ public enum SignatureScheme {
     /** RSASSA-PKCS1-v1_5 with SHA-384: certificate signatures only. */
     RSA_PKCS1_SHA384(0x0501, "SHA384withRSA", null, null, false),
     /** RSASSA-PKCS1-v1_5 with SHA-512: certificate signatures only. */
-    RSA_PKCS1_SHA512(0x0601, "SHA512withRSA", null, null, false);
+    RSA_PKCS1_SHA512(0x0601, "SHA512withRSA", null, null, false),
+    /**
+     * ECDSA with SHA-1, on any of the curves: never in TLS 1.3 (RFC 8446 section 4.2.3), but a
+     * TLS 1.2 server may sign its ServerKeyExchange with it when the client offers it, as Firefox does.
+     */
+    ECDSA_SHA1(0x0203, "SHA1withECDSA", null, "*", false),
+    /** RSASSA-PKCS1-v1_5 with SHA-1: TLS 1.2 ServerKeyExchange signatures only, as {@link #ECDSA_SHA1}. */
+    RSA_PKCS1_SHA1(0x0201, "SHA1withRSA", null, null, false);
+
+    /** In place of a curve name: a scheme for an EC key on any of {@link EcCurves}' curves. */
+    private static final String ANY_CURVE = "*";
 
     private final int code;
     private final String jcaAlgorithm;
@@ -83,7 +95,8 @@ public enum SignatureScheme {
     public boolean compatibleWith(Key key) {
         if (key == null) return false;
         if (curve != null) {
-            return key instanceof ECKey ec && curve.equals(EcCurves.nameOf(ec.getParams()));
+            String name = key instanceof ECKey ec ? EcCurves.nameOf(ec.getParams()) : null;
+            return name != null && (curve.equals(ANY_CURVE) || curve.equals(name));
         }
         if (this == ED25519) {
             return key instanceof EdECKey ed && "Ed25519".equalsIgnoreCase(ed.getParams().getName());

@@ -172,7 +172,17 @@ public final class Connection {
 
     private final Side side;
     private final TransportConfig config;
-    private final QuicVersion version;
+    /** The connection's version: a client's first, until the server switches to a compatible one it offered. */
+    private QuicVersion version;
+    /**
+     * The versions a client listed as available in its {@code version_information}, which the
+     * server may switch the connection to (RFC 9368 section 2.3); empty when it may not.
+     */
+    private List<Integer> offeredVersions = List.of();
+    /** Whether the server switched a client's connection to another version. */
+    private boolean versionSwitched;
+    /** The connection ID the Initial keys are made from: the first Destination Connection ID, or a Retry's. */
+    private ConnectionId initialKeysCid;
     private final TlsSession tls;
     private final RandomGenerator random;
     private final TimerTable timers = new TimerTable();
@@ -312,6 +322,7 @@ public final class Connection {
             recovery.setAddressValidated();
         }
         recovery.space(SpaceId.INITIAL).setKeys(Keys.initial(version, initialDcid, side.isServer()));
+        initialKeysCid = initialDcid;
         this.streams = new StreamsState(side, config.maxConcurrentUniStreams, config.maxConcurrentBidiStreams,
                 config.sendWindow, config.receiveWindow, config.streamReceiveWindow);
         this.listener = Recovery.Listener.forStreams(streams);
@@ -397,7 +408,10 @@ public final class Connection {
         c.activeMigration = config.activeMigration;
         c.followPreferredAddress = config.preferredAddress;
         c.initialShape = config.initialPacketShape;
-        if (c.initialShape != null) c.recovery.space(SpaceId.INITIAL).nextPacketNumber = c.initialShape.firstPacketNumber();
+        if (config.transportParameterProfile != null) {
+            c.offeredVersions = config.transportParameterProfile.availableVersions(config.version.wireValue());
+        }
+        if (c.initialShape != null) c.recovery.space(SpaceId.INITIAL).nextPacketNumber = c.initialShape.firstPacketNumber(random);
         c.sessionCache = cache;
         c.cacheKey = key;
         c.ticket = ticket;
@@ -605,6 +619,9 @@ public final class Connection {
                 return;
             }
             default -> {}
+        }
+        if (p.type().isLongHeader() && p.version() != version && !followVersion(p.version())) {
+            return; // another version's packet, not one the connection can move to
         }
         SpaceId spaceId = SpaceId.of(p.type().level());
         PacketSpace space = recovery.space(spaceId);
@@ -1366,8 +1383,85 @@ public final class Connection {
                 clientHello = out;
             }
             space.advanceCryptoOffset(out.length);
+            if (side.isClient() && level == EncryptionLevel.INITIAL && offset == 0 && initialShape != null
+                    && initialShape.sniSlicing()) {
+                List<Frame.Crypto> slices = sniSlices(out, recovery.mtud().currentMtu() - PacketKey.TAG_LENGTH);
+                space.pending().crypto.addAll(slices);
+                space.pending().cryptoFramesInPacket = slices.size() > 1 ? 2 : 0;
+                continue;
+            }
             space.pending().crypto.addLast(new Frame.Crypto(offset, ByteBuffer.wrap(out)));
         }
+    }
+
+    /**
+     * A ClientHello's CRYPTO data as neqo sends it with SNI slicing ({@code CryptoStreams::write_frame}):
+     * cut at the middle of the server name, the part after the cut first and the part before it
+     * second, each trimmed so that the hello fills its packets about evenly; then the rest. The
+     * first two go in a packet of their own. A hello without a server name is sent whole.
+     *
+     * @param hello the ClientHello handshake message, from offset 0
+     * @param packetLimit the most a packet can carry, to tell how many packets the hello needs
+     * @return the CRYPTO frames, in the order to send them
+     */
+    static List<Frame.Crypto> sniSlices(byte[] hello, int packetLimit) {
+        int[] name = serverName(hello);
+        if (name == null) return List.of(new Frame.Crypto(0, ByteBuffer.wrap(hello)));
+        int mid = name[0] + (name[1] - name[0]) / 2;
+        int packets = Math.max(1, (hello.length + packetLimit - 1) / packetLimit);
+        int limit = hello.length / packets;
+        // the left chunk is [0, leftEnd), the right [rightStart, rightEnd): neqo's limit_chunks
+        int leftEnd = mid;
+        int rightStart = mid;
+        int rightEnd = hello.length;
+        int left = mid;
+        int right = hello.length - mid;
+        if (left + right <= limit) {
+            // both fit: the halves are only in two CRYPTO frames, out of order
+        } else if (left <= limit) {
+            rightStart = hello.length - (limit - left); // the end of the right half
+        } else if (right <= limit) {
+            leftEnd = limit - right; // the start of the left half
+        } else {
+            leftEnd = limit / 2;
+            rightEnd = mid + limit / 2;
+        }
+        List<Frame.Crypto> out = new ArrayList<>(4);
+        out.add(crypto(hello, rightStart, rightEnd));
+        out.add(crypto(hello, 0, leftEnd));
+        // then what neither took, in order
+        if (leftEnd < rightStart) out.add(crypto(hello, leftEnd, rightStart));
+        if (rightEnd < hello.length) out.add(crypto(hello, rightEnd, hello.length));
+        return out;
+    }
+
+    private static Frame.Crypto crypto(byte[] data, int start, int end) {
+        return new Frame.Crypto(start, ByteBuffer.wrap(data, start, end - start).slice());
+    }
+
+    /** Where the host name of a ClientHello's server_name is, {start, end} in the message; null if it has none. */
+    private static int[] serverName(byte[] m) {
+        try {
+            int p = 4 + 2 + 32;
+            p += 1 + (m[p] & 0xff); // legacy_session_id
+            p += 2 + (((m[p] & 0xff) << 8) | (m[p + 1] & 0xff)); // cipher_suites
+            p += 1 + (m[p] & 0xff); // legacy_compression_methods
+            int end = p + 2 + (((m[p] & 0xff) << 8) | (m[p + 1] & 0xff));
+            p += 2;
+            while (p + 4 <= end) {
+                int type = ((m[p] & 0xff) << 8) | (m[p + 1] & 0xff);
+                int length = ((m[p + 2] & 0xff) << 8) | (m[p + 3] & 0xff);
+                if (type == 0 && length >= 5) {
+                    // server_name_list length (2), name_type (1), HostName length (2), HostName
+                    int nameLength = ((m[p + 7] & 0xff) << 8) | (m[p + 8] & 0xff);
+                    return new int[] {p + 9, p + 9 + nameLength};
+                }
+                p += 4 + length;
+            }
+        } catch (ArrayIndexOutOfBoundsException malformed) {
+            // no server name to slice at
+        }
+        return null;
     }
 
     private void installSecrets(Secrets s) {
@@ -1480,6 +1574,7 @@ public final class Connection {
         PacketSpace initial = recovery.space(SpaceId.INITIAL);
         recovery.discardSpace(now, SpaceId.INITIAL);
         initial.setKeys(Keys.initial(version, newCid, false));
+        initialKeysCid = newCid;
         initial.pending().crypto.clear();
         initial.pending().crypto.addLast(new Frame.Crypto(0, ByteBuffer.wrap(clientHello)));
         if (zeroRttKeys != null) {
@@ -1552,8 +1647,37 @@ public final class Connection {
         }
     }
 
+    /**
+     * Whether a client moves its connection to {@code other}, the version of a packet from the
+     * server (RFC 9368 compatible version negotiation): once, during the handshake, to a version
+     * it offered that is compatible with its first (QUIC versions 1 and 2 are, RFC 9369). The
+     * Initial keys are then the new version's, and its packets from now on are in it.
+     */
+    private boolean followVersion(QuicVersion other) {
+        if (other == null || side.isServer() || versionSwitched || state != State.HANDSHAKE
+                || !offeredVersions.contains(other.wireValue())) {
+            return false;
+        }
+        boolean compatible = (version == QuicVersion.V1 && other == QuicVersion.V2)
+                || (version == QuicVersion.V2 && other == QuicVersion.V1);
+        if (!compatible) return false;
+        version = other;
+        versionSwitched = true;
+        recovery.space(SpaceId.INITIAL).setKeys(Keys.initial(version, initialKeysCid, false));
+        return true;
+    }
+
     private void handlePeerParams(TransportParameters params) throws QuicException {
         params.authenticateConnectionIds(side.isClient(), origRemoteCid, initialDcid, retrySrcCid);
+        if (side.isClient() && !offeredVersions.isEmpty()) {
+            // RFC 9368 section 4: the server's chosen version is the one the connection uses, and
+            // a server that switched it must say so
+            var info = params.versionInformation();
+            if ((info == null && versionSwitched) || (info != null && info.chosenVersion() != version.wireValue())) {
+                throw new QuicException(QuicException.VERSION_NEGOTIATION_ERROR,
+                        "the server's version_information does not name the version in use");
+            }
+        }
         streams.setParams(params);
         long peerIdle = params.maxIdleTimeout() * 1_000_000L;
         long localIdle = config.maxIdleTimeout.toNanos();
@@ -2004,7 +2128,10 @@ public final class Connection {
             return null;
         }
         int padTo = initialShape != null && initialShape.padToDatagramSize() ? limit : Math.min(MIN_INITIAL_SIZE, limit);
-        int end = finish(now, builder, open, padDatagram ? padTo : 0);
+        boolean padAfter = padDatagram && side.isClient() && initialShape != null && initialShape.padAfterPacket()
+                && recovery.space(SpaceId.INITIAL).keys() != null;
+        int end = finish(now, builder, open, padDatagram && !padAfter ? padTo : 0);
+        if (padAfter) end = builder.padAfter(padTo);
         lastNumber = open.number;
         ByteBuffer datagram = builder.datagram();
         recovery.onDatagramSent(now, end, lastNumber);
@@ -2139,6 +2266,9 @@ public final class Connection {
             p.ackEliciting = true;
             if (data.hasRemaining()) {
                 pending.crypto.addFirst(new Frame.Crypto(frame.offset() + n, data.slice()));
+            }
+            if (pending.cryptoFramesInPacket > 0 && --pending.cryptoFramesInPacket == 0) {
+                break; // the sliced ClientHello's two halves end this packet
             }
         }
         if (p.space != SpaceId.DATA) {

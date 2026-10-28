@@ -36,12 +36,27 @@ public final class QuicClientProfile {
     private final long streamReceiveWindow;
     private final int maxUdpPayloadSize;
     private final int initialMtu;
+    private final int initialMtuIpv6;
     private final int datagramReceiveBufferSize;
+    private final Duration maxAckDelay;
+    private final int activeConnectionIdLimit;
 
     private QuicClientProfile(String name, ClientHelloProfile hello, TransportParameterProfile parameters,
             InitialPacketShape initials, int initialDcidLength, int localCidLength, Duration idleTimeout, long bidiStreams,
             long uniStreams, long receiveWindow, long streamReceiveWindow, int maxUdpPayloadSize, int initialMtu,
             int datagramReceiveBufferSize) {
+        this(name, hello, parameters, initials, initialDcidLength, localCidLength, idleTimeout, bidiStreams, uniStreams,
+                receiveWindow, streamReceiveWindow, maxUdpPayloadSize, initialMtu, initialMtu, datagramReceiveBufferSize,
+                null, 0);
+    }
+
+    private QuicClientProfile(String name, ClientHelloProfile hello, TransportParameterProfile parameters,
+            InitialPacketShape initials, int initialDcidLength, int localCidLength, Duration idleTimeout, long bidiStreams,
+            long uniStreams, long receiveWindow, long streamReceiveWindow, int maxUdpPayloadSize, int initialMtu,
+            int initialMtuIpv6, int datagramReceiveBufferSize, Duration maxAckDelay, int activeConnectionIdLimit) {
+        this.initialMtuIpv6 = initialMtuIpv6;
+        this.maxAckDelay = maxAckDelay;
+        this.activeConnectionIdLimit = activeConnectionIdLimit;
         this.name = name;
         this.hello = hello;
         this.parameters = parameters;
@@ -73,6 +88,21 @@ public final class QuicClientProfile {
                 65_536);
     }
 
+    /**
+     * Firefox 159's (neqo), as captured over HTTP/3: {@link BrowserProfiles#firefox159Quic()},
+     * {@link TransportParameterProfile#firefox159()} with an idle timeout of 30 s, 100 streams each
+     * way, a 24 MiB connection and 12 MiB stream window, a 20 ms {@code max_ack_delay} and 8
+     * connection IDs; an 8-byte initial destination and a 3-byte source connection ID; Initial
+     * datagrams of 1252 bytes over IPv4 and 1232 over IPv6, shaped as {@link InitialPacketShape#FIREFOX}.
+     *
+     * @return the profile
+     */
+    public static QuicClientProfile firefox159() {
+        return new QuicClientProfile("firefox-159", BrowserProfiles.firefox159Quic(), TransportParameterProfile.firefox159(),
+                InitialPacketShape.FIREFOX, 8, 3, Duration.ofSeconds(30), 100, 100, 25_165_824, 12_582_912, 65_527, 1252,
+                1232, 65_535, Duration.ofMillis(20), 8);
+    }
+
     /** {@return the profile's name} */
     public String name() {
         return name;
@@ -93,16 +123,30 @@ public final class QuicClientProfile {
                 .certificateDecompressor(decompressor);
     }
 
-    /** The browser's transport limits, which its transport parameters advertise. */
+    /** The browser's transport limits, which its transport parameters advertise, for a server on IPv4. */
     public TransportConfig.Builder applyTo(TransportConfig.Builder transport) {
-        return transport.maxIdleTimeout(idleTimeout)
+        return applyTo(transport, false);
+    }
+
+    /**
+     * The browser's transport limits, which its transport parameters advertise.
+     *
+     * @param transport the builder
+     * @param ipv6 whether the server is on IPv6, where a browser may send smaller datagrams
+     * @return the builder
+     */
+    public TransportConfig.Builder applyTo(TransportConfig.Builder transport, boolean ipv6) {
+        transport.maxIdleTimeout(idleTimeout)
                 .maxConcurrentBidiStreams(bidiStreams)
                 .maxConcurrentUniStreams(uniStreams)
                 .receiveWindow(receiveWindow)
                 .streamReceiveWindow(streamReceiveWindow)
                 .maxUdpPayloadSize(maxUdpPayloadSize)
-                .initialMtu(initialMtu)
+                .initialMtu(ipv6 ? initialMtuIpv6 : initialMtu)
                 .datagramReceiveBufferSize(datagramReceiveBufferSize);
+        if (maxAckDelay != null) transport.maxAckDelay(maxAckDelay);
+        if (activeConnectionIdLimit > 0) transport.activeConnectionIdLimit(activeConnectionIdLimit);
+        return transport;
     }
 
     /** The browser's transport parameters, connection IDs and Initial packets. */

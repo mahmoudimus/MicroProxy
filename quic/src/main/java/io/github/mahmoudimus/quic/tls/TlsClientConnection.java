@@ -141,7 +141,8 @@ final class TlsClientConnection {
             ProfileExtensions.ENCRYPTED_CLIENT_HELLO, ProfileExtensions.TRUST_ANCHORS);
     /** Extensions a server's CertificateEntry may carry, when the client offered them. */
     private static final Set<Integer> CERTIFICATE_EXTENSIONS = Set.of(
-            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP, ProfileExtensions.TRUST_ANCHORS);
+            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP, ProfileExtensions.TRUST_ANCHORS,
+            ProfileExtensions.DELEGATED_CREDENTIALS);
     /** The longest ticket lifetime (RFC 8446 section 4.6.1): 7 days. */
     private static final long MAX_TICKET_LIFETIME = 604800;
     /** The last 8 bytes of a TLS 1.3 server's random when it negotiates TLS 1.2 or below (RFC 8446 section 4.1.3). */
@@ -165,6 +166,8 @@ final class TlsClientConnection {
     private boolean allowTls12 = true;
     private SessionTicket ticket;
     private boolean pskOffered;
+    /** The server's delegated credential (RFC 9345), which its CertificateVerify is checked with; null if none. */
+    private DelegatedCredential delegatedCredential;
     private boolean resumed;
     private CipherSuite suite;
     private NamedGroup group;
@@ -310,10 +313,13 @@ final class TlsClientConnection {
         Map<Integer, byte[]> publicKeys = new LinkedHashMap<>();
         keyShares.forEach((code, kx) -> publicKeys.put(code, kx.publicKey()));
         ech = echOffer();
-        HelloContext context = new HelloContext(ech != null ? ech.publicName() : serverName, alpn, publicKeys,
-                Grease.random(config.random()), config.random());
-        hello = config.profile().clientHello(context);
         ticket = sessionKey != null ? usable(config.sessions().take(sessionKey)) : null;
+        // a hello that resumes may differ (Firefox's leaves out session_ticket and sizes its GREASE
+        // ECH with the PSK); with ECH the PSK goes in the inner hello alone
+        int pskLength = ticket != null && ech == null ? pskOffer(ticket).length : 0;
+        HelloContext context = new HelloContext(ech != null ? ech.publicName() : serverName, alpn, publicKeys,
+                Grease.random(config.random()), config.random(), java.util.Map.of(), pskLength);
+        hello = config.profile().clientHello(context);
         if (ech != null) {
             // RFC 9849 section 6.1: a ticket goes in the inner hello only; no TLS 1.2 resumption
             echState = Ech.OFFERED;
@@ -412,10 +418,8 @@ final class TlsClientConnection {
         int hashLength = 0;
         if (pskOffered) {
             hashLength = ticket.suite.hkdf().hashLength();
-            PskIdentity identity = new PskIdentity(ticket.ticket, ticket.obfuscatedAge(config.clock().instant()));
             List<Extension> extensions = new ArrayList<>(h.extensions());
-            extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY,
-                    Extensions.encodePskOffer(List.of(identity), List.of(new byte[hashLength]))));
+            extensions.add(new Extension(ExtensionType.PRE_SHARED_KEY, pskOffer(ticket)));
             toSend = h.withExtensions(extensions);
         }
         sentExtensions.clear();
@@ -428,6 +432,12 @@ final class TlsClientConnection {
             System.arraycopy(binder, 0, encoded, encoded.length - hashLength, hashLength);
         }
         return encoded;
+    }
+
+    /** The {@code pre_shared_key} body offering {@code t}, its binder zero until computed. */
+    private byte[] pskOffer(SessionTicket t) {
+        PskIdentity identity = new PskIdentity(t.ticket, t.obfuscatedAge(config.clock().instant()));
+        return Extensions.encodePskOffer(List.of(identity), List.of(new byte[t.suite.hkdf().hashLength()]));
     }
 
     /** A ServerHello or HelloRetryRequest, checked, but not yet in the transcript. */
@@ -756,6 +766,7 @@ final class TlsClientConnection {
         transcript.add(m.raw());
         if (certificate.context().length != 0) throw TlsAlert.illegalParameter("server Certificate has a request context");
         if (certificate.entries().isEmpty()) throw TlsAlert.decodeError("server sent no certificate");
+        boolean leaf = true;
         for (CertificateEntry entry : certificate.entries()) {
             Extensions.checkNoDuplicates(entry.extensions(), "CertificateEntry");
             for (Extension e : entry.extensions()) {
@@ -766,7 +777,15 @@ final class TlsClientConnection {
                 if (!CERTIFICATE_EXTENSIONS.contains(e.type())) {
                     throw TlsAlert.illegalParameter("CertificateEntry may not carry " + ExtensionType.name(e.type()));
                 }
+                if (e.type() == ProfileExtensions.DELEGATED_CREDENTIALS) {
+                    // RFC 9345 section 4.1.1: on the end-entity certificate only
+                    if (!leaf) throw TlsAlert.illegalParameter("delegated credential on an intermediate certificate");
+                    delegatedCredential = DelegatedCredential.decode(e.data());
+                    byte[] offered = Extension.find(hello.extensions(), ProfileExtensions.DELEGATED_CREDENTIALS);
+                    delegatedCredential.checkOffered(Extensions.decodeU16List(offered, "delegated_credentials"));
+                }
             }
+            leaf = false;
         }
         List<X509Certificate> chain = CertificateChecks.parse(certificate.entries());
         verifyServer(chain);
@@ -817,11 +836,15 @@ final class TlsClientConnection {
         if (scheme == null || !wasOffered || !scheme.allowedInCertificateVerify()) {
             throw TlsAlert.illegalParameter("CertificateVerify uses a signature scheme that was not offered for it");
         }
-        if (!scheme.compatibleWith(leaf.getPublicKey())) {
+        // with a delegated credential, the server signed with the credential's key (RFC 9345 section 4)
+        java.security.PublicKey key = delegatedCredential != null
+                ? delegatedCredential.verify(leaf, verify.scheme(), config.clock().instant())
+                : leaf.getPublicKey();
+        if (!scheme.compatibleWith(key)) {
             throw TlsAlert.illegalParameter("CertificateVerify scheme " + scheme + " does not fit the certificate key");
         }
         byte[] content = Signatures.content(true, transcript.hash());
-        if (!Signatures.verify(scheme, leaf.getPublicKey(), content, verify.signature())) {
+        if (!Signatures.verify(scheme, key, content, verify.signature())) {
             throw TlsAlert.error(TlsAlert.DECRYPT_ERROR, "server CertificateVerify signature is invalid");
         }
         transcript.add(m.raw());

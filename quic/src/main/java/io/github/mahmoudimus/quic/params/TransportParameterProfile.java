@@ -26,6 +26,11 @@ public final class TransportParameterProfile {
     public static final long GREASE = -1;
     /** {@code version_information} (RFC 9368), with a GREASE version among the available ones. */
     public static final long VERSION_INFORMATION = 0x11;
+    /**
+     * In {@link #ids}: {@code version_information} as neqo (Firefox) sends it, the chosen version,
+     * then a GREASE version, QUIC version 2 and version 1 as the available ones.
+     */
+    public static final long NEQO_VERSION_INFORMATION = -2;
 
     private final String name;
     private final List<Long> ids;
@@ -63,6 +68,26 @@ public final class TransportParameterProfile {
                 VERSION_INFORMATION, 0x20L, 0x3128L, GREASE), true, fixed);
     }
 
+    /**
+     * Firefox 159's (neqo), as captured over HTTP/3, in its fixed order and without a GREASE
+     * parameter: {@code max_idle_timeout}, the four flow-control limits (the windows of streams
+     * the server opens, 1 MiB, smaller than the client's own), both stream limits, {@code
+     * max_ack_delay}, {@code active_connection_id_limit}, {@code initial_source_connection_id},
+     * {@code version_information} in neqo's form, an empty {@code reset_stream_at},
+     * {@code min_ack_delay} 1000 microseconds and {@code max_datagram_frame_size}.
+     *
+     * @return the profile
+     */
+    public static TransportParameterProfile firefox159() {
+        Map<Long, byte[]> fixed = new LinkedHashMap<>();
+        fixed.put(0x6L, varint(1_048_576));
+        fixed.put(0x7L, varint(1_048_576));
+        fixed.put(0x1dL, new byte[0]);
+        fixed.put(0xff02de1aL, varint(1_000));
+        return new TransportParameterProfile("firefox-159", List.of(0x1L, 0x4L, 0x5L, 0x6L, 0x7L, 0x8L, 0x9L, 0xbL, 0xeL,
+                0xfL, NEQO_VERSION_INFORMATION, 0x1dL, 0xff02de1aL, 0x20L), false, fixed);
+    }
+
     /** {@return the profile's name} */
     public String name() {
         return name;
@@ -92,6 +117,8 @@ public final class TransportParameterProfile {
                 write(out, greaseId, value);
             } else if (id == VERSION_INFORMATION) {
                 write(out, id, versionInformation(version, random));
+            } else if (id == NEQO_VERSION_INFORMATION) {
+                write(out, VERSION_INFORMATION, neqoVersionInformation(version, random));
             } else if (fixed.containsKey(id)) {
                 write(out, id, fixed.get(id));
             } else if (values.containsKey(id)) {
@@ -112,6 +139,31 @@ public final class TransportParameterProfile {
             b.putInt(grease).putInt(version);
         }
         return b.array();
+    }
+
+    /** Chosen version, then a GREASE version (0x?a?a?a?a), version 2 and version 1, as neqo lists them. */
+    private static byte[] neqoVersionInformation(int version, RandomGenerator random) {
+        return ByteBuffer.allocate(16).putInt(version).putInt(greaseVersion(random)).putInt(0x6b3343cf).putInt(0x00000001)
+                .array();
+    }
+
+    private static int greaseVersion(RandomGenerator random) {
+        int grease = 0;
+        for (int i = 0; i < 4; i++) grease = (grease << 8) | (random.nextInt(16) << 4) | 0x0a;
+        return grease;
+    }
+
+    /**
+     * The QUIC versions a {@code version_information} the profile sends lists as available, besides
+     * GREASE: what a server may switch the connection to (RFC 9368 compatible version negotiation).
+     *
+     * @param version the connection's version
+     * @return the versions, in the profile's order
+     */
+    public List<Integer> availableVersions(int version) {
+        if (ids.contains(NEQO_VERSION_INFORMATION)) return List.of(0x6b3343cf, 0x00000001);
+        if (ids.contains(VERSION_INFORMATION)) return List.of(version);
+        return List.of();
     }
 
     private static Map<Long, byte[]> split(byte[] encoded) {

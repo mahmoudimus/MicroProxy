@@ -139,4 +139,39 @@ class OpenSslInteropTest {
             awaitOutput(serverOut, seen, "ping after our update");
         }
     }
+
+    @Test
+    void firefoxsHelloTakesATls12ServerKeyExchangeSignedWithSha1() throws Exception {
+        // Firefox offers ecdsa_sha1 and rsa_pkcs1_sha1, so a TLS 1.2 server may sign with them
+        String openssl = openssl();
+        assumeTrue(openssl != null, "no OpenSSL 1.1.1+ to run s_server");
+        CertifiedKey key = TestCerts.CA.issue(KeyType.P256, HOST);
+        Path cert = dir.resolve("cert.pem");
+        Path pkey = dir.resolve("key.pem");
+        Files.writeString(cert, pem("CERTIFICATE", key.chain().get(0).getEncoded()));
+        Files.writeString(pkey, pem("PRIVATE KEY", key.privateKey().getEncoded()));
+        int port = freePort();
+        server = new ProcessBuilder(openssl, "s_server", "-accept", "127.0.0.1:" + port, "-tls1_2",
+                "-cert", cert.toString(), "-key", pkey.toString(), "-sigalgs", "ECDSA+SHA1",
+                "-cipher", "ECDHE-ECDSA-AES128-GCM-SHA256:@SECLEVEL=0")
+                .redirectErrorStream(true).start();
+        InputStream serverOut = server.getInputStream();
+        ByteArrayOutputStream seen = new ByteArrayOutputStream();
+        awaitOutput(serverOut, seen, "ACCEPT");
+
+        TlsClientConnection.Config config = new TlsClientConnection.Config(BrowserProfiles.firefox159(),
+                TestCerts.CA.trustManager(), null, ClientSessionStore.NONE, Map.of(),
+                CertificateDecompressor.ZLIB, new SecureRandom(), InstantSource.system(), 64 * 1024);
+        try (Socket plain = new Socket(InetAddress.getLoopbackAddress(), port)) {
+            plain.setSoTimeout(10_000);
+            TlsClientConnection c = new TlsClientConnection(config, plain.getInputStream(), plain.getOutputStream(),
+                    HOST, HOST, List.of("http/1.1"), null);
+            c.handshake();
+            assertEquals("TLSv1.2", c.protocol());
+            assertEquals(SignatureScheme.ECDSA_SHA1, c.peerSignatureScheme());
+            byte[] ping = "ping over sha1\n".getBytes(StandardCharsets.US_ASCII);
+            c.write(ping, 0, ping.length);
+            awaitOutput(serverOut, seen, "ping over sha1");
+        }
+    }
 }

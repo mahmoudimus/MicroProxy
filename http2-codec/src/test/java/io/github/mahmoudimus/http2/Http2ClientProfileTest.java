@@ -63,4 +63,38 @@ class Http2ClientProfileTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new Http2ClientProfile("bad", Map.of(), 0, null, List.of(":method", ":path")));
     }
+
+    @Test
+    void firefoxsAkamaiFingerprintAndStreams() {
+        Http2ClientProfile firefox = Http2ClientProfile.firefox159();
+        assertEquals("1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s", firefox.akamai());
+        assertEquals(3, firefox.firstStreamId());
+        assertEquals(true, firefox.teTrailers());
+        assertEquals(1, Http2ClientProfile.chrome156().firstStreamId());
+        assertEquals(false, Http2ClientProfile.chrome156().teTrailers());
+    }
+
+    private static int firefoxWeight(String dest, String priority) {
+        List<HeaderField> fields = new java.util.ArrayList<>(List.of(new HeaderField(":method", "GET")));
+        if (dest != null) fields.add(new HeaderField("sec-fetch-dest", dest));
+        if (priority != null) fields.add(new HeaderField("priority", priority));
+        Frame.PrioritySpec p = Http2ClientProfile.firefox159().priority(fields);
+        assertEquals(0, p.streamDependency());
+        assertEquals(false, p.exclusive());
+        return p.weight();
+    }
+
+    @Test
+    void firefoxsWeightsAreTheOnesItSentForEachKindOfRequest() {
+        // quic/src/test/resources/fingerprints/firefox-159/h2-page.txt
+        assertEquals(42, firefoxWeight("document", "u=0, i"));
+        assertEquals(22, firefoxWeight("style", "u=2"));
+        assertEquals(22, firefoxWeight("script", "u=2"));
+        assertEquals(22, firefoxWeight("script", null));
+        assertEquals(12, firefoxWeight("image", "u=5, i"));
+        assertEquals(14, firefoxWeight("image", "u=4, i"));
+        assertEquals(22, firefoxWeight("empty", "u=4"));
+        assertEquals(22, firefoxWeight("image", "u=6")); // the favicon
+        assertEquals(22, firefoxWeight(null, null));
+    }
 }

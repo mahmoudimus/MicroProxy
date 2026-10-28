@@ -32,14 +32,14 @@ import javax.net.ssl.X509TrustManager;
 /**
  * Test certificates made at runtime with nothing but the JDK, adapted from MicroProxy's {@code
  * org.microproxy.tls.CertificateBuilder} and {@code Der}, which this self-contained module cannot
- * depend on. Authorities have P-256 keys and sign with ECDSA; leaves can have P-256, P-384, RSA
+ * depend on. Authorities have P-256 keys and sign with ECDSA; leaves can have P-256, P-384, P-521, RSA
  * or Ed25519 keys.
  */
 public final class TestCerts {
 
     /** The key types a leaf can have. */
     public enum KeyType {
-        P256, P384, RSA, ED25519
+        P256, P384, P521, RSA, ED25519
     }
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -66,6 +66,7 @@ public final class TestCerts {
             return switch (type) {
                 case P256 -> ec("secp256r1", random);
                 case P384 -> ec("secp384r1", random);
+                case P521 -> ec("secp521r1", random);
                 case RSA -> {
                     KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
                     gen.initialize(2048, random);
@@ -160,14 +161,27 @@ public final class TestCerts {
 
         /** A leaf for {@code names} (DNS names or IP literals) with the shared key of {@code type}. */
         public CertifiedKey issue(KeyType type, String... names) {
+            return issue(type, false, names);
+        }
+
+        /**
+         * A leaf as {@link #issue(KeyType, String...)}, with the DelegationUsage extension when
+         * {@code delegation}: one that may sign delegated credentials (RFC 9345 section 4.2).
+         */
+        public CertifiedKey issue(KeyType type, boolean delegation, String... names) {
             KeyPair pair = random != null ? leafKeys.computeIfAbsent(type, t -> generate(t, random)) : keyPair(type);
             X509Certificate leaf = sign(names.length > 0 ? names[0] : "leaf", pair.getPublic(), key.getPrivate(),
-                    certificate, false, List.of(names));
+                    certificate, false, List.of(names), delegation);
             return CertifiedKey.of(pair.getPrivate(), leaf, certificate);
         }
 
         private X509Certificate sign(String cn, PublicKey subjectKey, PrivateKey signingKey, X509Certificate issuer,
                 boolean ca, List<String> sans) {
+            return sign(cn, subjectKey, signingKey, issuer, ca, sans, false);
+        }
+
+        private X509Certificate sign(String cn, PublicKey subjectKey, PrivateKey signingKey, X509Certificate issuer,
+                boolean ca, List<String> sans, boolean delegation) {
             try {
                 byte[] algorithm = sequence(oid("1.2.840.10045.4.3.2"));
                 byte[] subject = name(cn);
@@ -194,6 +208,7 @@ public final class TestCerts {
                     }
                     extensions.add(extension("2.5.29.17", false, sequence(names.toArray(byte[][]::new))));
                 }
+                if (delegation) extensions.add(extension(DelegatedCredential.DELEGATION_USAGE_OID, false, new byte[] {0x05, 0x00}));
                 extensions.add(extension("2.5.29.14", false, tlv(0x04, keyId(subjectKey))));
                 PublicKey authorityKey = issuer != null ? issuer.getPublicKey() : subjectKey;
                 extensions.add(extension("2.5.29.35", false, sequence(tlv(0x80, keyId(authorityKey)))));

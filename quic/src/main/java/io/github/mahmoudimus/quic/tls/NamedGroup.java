@@ -12,6 +12,8 @@ public enum NamedGroup {
     SECP256R1(0x0017, "secp256r1", 65),
     /** NIST P-384, {@code secp384r1}. */
     SECP384R1(0x0018, "secp384r1", 97),
+    /** NIST P-521, {@code secp521r1}. */
+    SECP521R1(0x0019, "secp521r1", 133),
     /**
      * X25519MLKEM768 (draft-ietf-tls-ecdhe-mlkem), the post-quantum hybrid browsers offer first: a
      * key encapsulation, so the client's share (an ML-KEM-768 encapsulation key and an X25519 key,

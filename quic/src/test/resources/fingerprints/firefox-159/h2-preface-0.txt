@@ -1,0 +1,20 @@
+frame type=4 flags=0 stream=0 len=24 [1=65536] [2=0] [4=131072] [5=16384]
+frame type=8 flags=0 stream=0 len=4 increment=12517377
+frame type=4 flags=1 stream=0 len=0
+frame type=1 flags=37 stream=3 len=285
+  priority excl=false dep=0 weight=42
+  :method: GET
+  :path: /
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=...
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  upgrade-insecure-requests: 1
+  sec-fetch-dest: document
+  sec-fetch-mode: navigate
+  sec-fetch-site: none
+  sec-fetch-user: ?1
+  priority: u=0, i
+  te: trailers

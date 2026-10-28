@@ -18,9 +18,13 @@ import java.util.random.RandomGenerator;
  *     real connection
  * @param supplied extension bodies the connection makes itself, by type, such as QUIC's
  *     {@code quic_transport_parameters}, for {@link ProfileExtensions#supplied}
+ * @param pskLength the length of the {@code pre_shared_key} body the client adds after the
+ *     profile's extensions when it resumes a session, 0 when it does not: what a browser that
+ *     treats a resumption differently (Firefox leaves out {@code session_ticket}, and sizes its
+ *     GREASE ECH with the PSK) needs to know
  */
 public record HelloContext(String serverName, List<String> alpnProtocols, Map<Integer, byte[]> keyShares,
-        Grease grease, RandomGenerator random, Map<Integer, byte[]> supplied) {
+        Grease grease, RandomGenerator random, Map<Integer, byte[]> supplied, int pskLength) {
 
     public HelloContext {
         alpnProtocols = List.copyOf(alpnProtocols);
@@ -28,6 +32,18 @@ public record HelloContext(String serverName, List<String> alpnProtocols, Map<In
         Objects.requireNonNull(grease, "grease");
         Objects.requireNonNull(random, "random");
         supplied = Map.copyOf(supplied);
+        if (pskLength < 0) throw new IllegalArgumentException("negative PSK length");
+    }
+
+    /** A context for a hello that resumes no session. */
+    public HelloContext(String serverName, List<String> alpnProtocols, Map<Integer, byte[]> keyShares, Grease grease,
+            RandomGenerator random, Map<Integer, byte[]> supplied) {
+        this(serverName, alpnProtocols, keyShares, grease, random, supplied, 0);
+    }
+
+    /** {@return whether the hello resumes a session with a PSK} */
+    public boolean resuming() {
+        return pskLength > 0;
     }
 
     /** A context with no supplied extension bodies. */

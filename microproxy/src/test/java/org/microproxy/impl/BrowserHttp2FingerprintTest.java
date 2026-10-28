@@ -53,6 +53,11 @@ class BrowserHttp2FingerprintTest {
     /** Chrome 156's connection WINDOW_UPDATE: 15663105. */
     private static final String CHROME_WINDOW_UPDATE = "00000408000000000000ef0001";
 
+    /** Firefox 159's SETTINGS frame: 1:65536, 2:0, 4:131072, 5:16384 (fingerprints/firefox-159/h2-preface-0.bin). */
+    private static final String FIREFOX_SETTINGS = "000018040000000000000100010000000200000000000400020000000500004000";
+    /** Firefox 159's connection WINDOW_UPDATE: 12517377. */
+    private static final String FIREFOX_WINDOW_UPDATE = "00000408000000000000bf0001";
+
     private final CertificateAuthority proxyCa = CertificateAuthority.generate("H2 Fingerprint Proxy CA");
     private final CertificateAuthority originCa = CertificateAuthority.generate("H2 Fingerprint Origin CA");
     private SSLServerSocket origin;
@@ -187,5 +192,41 @@ class BrowserHttp2FingerprintTest {
         assertEquals("80000000ff", hex.formatHex(headers, 9, 14));
         assertEquals(List.of(":method", ":authority", ":scheme", ":path"),
                 s.fields().stream().map(HeaderField::name).filter(n -> n.startsWith(":")).toList());
+    }
+
+    @Test
+    void theFirefoxProfileGivesItsHttp2FingerprintAndHeaders() throws Exception {
+        CompletableFuture<Seen> seen = startOrigin();
+        org.microproxy.tls.BrowserProfile firefox = org.microproxy.tls.BrowserProfile.firefox159();
+        proxy = MicroProxy.bootstrap()
+                .withAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, firefox.sslContext(trusting(originCa))))
+                .withFiltersSource(firefox.filtersSource(true))
+                .start();
+        HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
+        HttpResponse<String> response = client.send(
+                HttpRequest.newBuilder(URI.create("https://localhost:" + origin.getLocalPort() + "/hello"))
+                        .timeout(Duration.ofSeconds(20)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+
+        Seen s = seen.get(10, TimeUnit.SECONDS);
+        HexFormat hex = HexFormat.of();
+        assertEquals(FIREFOX_SETTINGS, hex.formatHex(s.frames().get(0)));
+        assertEquals(FIREFOX_WINDOW_UPDATE, hex.formatHex(s.frames().get(1)));
+        byte[] headers = s.frames().get(2);
+        assertEquals(1, headers[3], "HEADERS");
+        assertEquals(37, headers[4]);
+        // stream 3, as Firefox's first; a navigation's priority: no dependency, not exclusive, weight 42
+        assertEquals("00000003", hex.formatHex(headers, 5, 9));
+        assertEquals("0000000029", hex.formatHex(headers, 9, 14));
+        List<String> names = s.fields().stream().map(HeaderField::name).toList();
+        assertEquals(List.of(":method", ":path", ":authority", ":scheme", "user-agent", "accept", "accept-language",
+                "upgrade-insecure-requests", "sec-fetch-dest", "sec-fetch-mode", "sec-fetch-site", "sec-fetch-user",
+                "priority"), names.subList(0, 13));
+        assertEquals("te", names.getLast());
+        assertEquals(false, names.contains("via"));
+        assertEquals(firefox.requestHeaders().get(0).getValue(),
+                s.fields().stream().filter(f -> f.name().equals("user-agent")).findFirst().orElseThrow().value());
     }
 }

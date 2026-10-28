@@ -548,8 +548,14 @@ class HandshakeTest {
     void clientCertificateWithEveryKeyType() throws Exception {
         for (KeyType type : KeyType.values()) {
             CertifiedKey clientKey = TestCerts.CA.issue(type, "client.test");
-            Handshakes h = run(client().clientCertificate(clientKey),
-                    server().clientAuth(ClientAuth.REQUIRE).clientTrustManager(TestCerts.CA.trustManager()));
+            // P-521 is not among the default schemes: both sides take the defaults and it
+            SignatureScheme[] withP521 = {SignatureScheme.ECDSA_SECP256R1_SHA256, SignatureScheme.ECDSA_SECP384R1_SHA384,
+                SignatureScheme.ECDSA_SECP521R1_SHA512, SignatureScheme.RSA_PSS_RSAE_SHA256,
+                SignatureScheme.RSA_PSS_RSAE_SHA384, SignatureScheme.RSA_PSS_RSAE_SHA512, SignatureScheme.ED25519};
+            TlsConfig.Builder client = type == KeyType.P521 ? client().signatureSchemes(withP521) : client();
+            TlsConfig.Builder server = type == KeyType.P521 ? server().signatureSchemes(withP521) : server();
+            Handshakes h = run(client.clientCertificate(clientKey),
+                    server.clientAuth(ClientAuth.REQUIRE).clientTrustManager(TestCerts.CA.trustManager()));
             h.assertAgreement();
             assertEquals(clientKey.chain().get(0), h.server.peerCertificates().get(0));
         }

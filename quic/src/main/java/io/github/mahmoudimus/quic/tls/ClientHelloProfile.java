@@ -4,9 +4,12 @@ import io.github.mahmoudimus.quic.tls.HandshakeMessage.ClientHello;
 import io.github.mahmoudimus.quic.tls.HandshakeMessage.Extension;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.random.RandomGenerator;
 
 /**
@@ -112,10 +115,28 @@ public final class ClientHelloProfile {
         }
         List<ExtensionSpec> order = shuffleExtensions ? shuffle(extensions, random) : extensions;
         List<Extension> out = new ArrayList<>(order.size());
+        // the extensions made from the rest of the hello, by their places in it, made last
+        Map<Integer, ExtensionSpec> wholeHello = new TreeMap<>(Comparator.reverseOrder());
         for (ExtensionSpec spec : order) {
+            if (spec.body() instanceof ExtensionSpec.WholeHelloBody) {
+                wholeHello.put(out.size(), spec);
+                out.add(null);
+                continue;
+            }
             byte[] body = spec.body().encode(context);
             if (body != null) out.add(new Extension(spec.resolvedType(context.grease()), body));
         }
+        wholeHello.forEach((at, spec) -> {
+            List<Extension> others = new ArrayList<>(out);
+            others.remove((int) at);
+            others.removeIf(Objects::isNull);
+            byte[] body = ((ExtensionSpec.WholeHelloBody) spec.body()).encode(context, suites, others);
+            if (body != null) {
+                out.set(at, new Extension(spec.resolvedType(context.grease()), body));
+            } else {
+                out.remove((int) at);
+            }
+        });
         return new ClientHello(0x0303, clientRandom, sessionId, suites, new byte[] {0}, out);
     }
 

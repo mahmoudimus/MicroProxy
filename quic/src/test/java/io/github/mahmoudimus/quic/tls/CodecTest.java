@@ -148,7 +148,7 @@ class CodecTest {
         assertTrue(SignatureScheme.ED25519.compatibleWith(TestCerts.keyPair(KeyType.ED25519).getPrivate()));
         assertFalse(SignatureScheme.RSA_PKCS1_SHA256.allowedInCertificateVerify());
         assertEquals(SignatureScheme.RSA_PSS_RSAE_SHA384, SignatureScheme.forCode(0x0805));
-        assertNull(SignatureScheme.forCode(0x0201));
+        assertNull(SignatureScheme.forCode(0xfefe));
         assertEquals(NamedGroup.SECP384R1, NamedGroup.forCode(0x18));
     }
 

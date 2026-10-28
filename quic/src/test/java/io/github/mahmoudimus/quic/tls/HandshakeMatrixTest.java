@@ -23,6 +23,7 @@ class HandshakeMatrixTest {
         return switch (scheme) {
             case ECDSA_SECP256R1_SHA256 -> KeyType.P256;
             case ECDSA_SECP384R1_SHA384 -> KeyType.P384;
+            case ECDSA_SECP521R1_SHA512 -> KeyType.P521;
             case ED25519 -> KeyType.ED25519;
             default -> KeyType.RSA;
         };
@@ -52,8 +53,10 @@ class HandshakeMatrixTest {
                 .signatureSchemes(scheme)
                 .build();
         TlsConfig server = TlsConfig.builder()
-                // every group, so the one the client offers is accepted (the hybrid is not a default)
+                // every group, so the one the client offers is accepted (the hybrid is not a default),
+                // and the scheme under test (P-521 is not a default)
                 .groups(NamedGroup.values())
+                .signatureSchemes(scheme)
                 .certificate(TestCerts.CA.issue(keyType(scheme), "quic.test"))
                 .alpnProtocols("h3")
                 .build();

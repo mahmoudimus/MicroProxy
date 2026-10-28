@@ -15,6 +15,7 @@ final class EcCurves {
 
     static final ECParameterSpec P256 = load("secp256r1");
     static final ECParameterSpec P384 = load("secp384r1");
+    static final ECParameterSpec P521 = load("secp521r1");
 
     private EcCurves() {}
 
@@ -32,15 +33,17 @@ final class EcCurves {
         return switch (name) {
             case "secp256r1" -> P256;
             case "secp384r1" -> P384;
+            case "secp521r1" -> P521;
             default -> throw new IllegalArgumentException(name);
         };
     }
 
-    /** The name of the curve {@code spec} describes, or null if it is neither P-256 nor P-384. */
+    /** The name of the curve {@code spec} describes, or null if it is not P-256, P-384 or P-521. */
     static String nameOf(ECParameterSpec spec) {
         if (spec == null) return null;
         if (same(spec, P256)) return "secp256r1";
         if (same(spec, P384)) return "secp384r1";
+        if (same(spec, P521)) return "secp521r1";
         return null;
     }
 

@@ -96,6 +96,31 @@ public final class BrowserProfile {
                 io.github.mahmoudimus.http3.Http3ClientProfile.chrome156());
     }
 
+    /**
+     * Firefox 159 on macOS, as captured from 159.0: {@link BrowserProfiles#firefox159()}, {@link
+     * Http2ClientProfile#firefox159()}, its QUIC and HTTP/3 connections ({@link
+     * io.github.mahmoudimus.quic.QuicClientProfile#firefox159()}, {@link
+     * io.github.mahmoudimus.http3.Http3ClientProfile#firefox159()}), and the headers of a
+     * navigation, in Firefox's order.
+     *
+     * @return the profile
+     */
+    public static BrowserProfile firefox159() {
+        return new BrowserProfile("firefox-159", BrowserProfiles.firefox159(), Http2ClientProfile.firefox159(), List.of(
+                Map.entry("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0"),
+                Map.entry("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+                Map.entry("accept-language", "en-US,en;q=0.9"),
+                Map.entry("accept-encoding", "gzip, deflate, br, zstd"),
+                Map.entry("upgrade-insecure-requests", "1"),
+                Map.entry("sec-fetch-dest", "document"),
+                Map.entry("sec-fetch-mode", "navigate"),
+                Map.entry("sec-fetch-site", "none"),
+                Map.entry("sec-fetch-user", "?1"),
+                Map.entry("priority", "u=0, i")),
+                io.github.mahmoudimus.quic.QuicClientProfile.firefox159(),
+                io.github.mahmoudimus.http3.Http3ClientProfile.firefox159());
+    }
+
     /** {@return the profile's name, such as {@code chrome-156}} */
     public String name() {
         return name;
@@ -111,12 +136,12 @@ public final class BrowserProfile {
         return http2;
     }
 
-    /** {@return the QUIC client profile: its QUIC hello, transport parameters and Initial packets} */
+    /** {@return the QUIC client profile: its QUIC hello, transport parameters and Initial packets; null if it has none} */
     public io.github.mahmoudimus.quic.QuicClientProfile quicProfile() {
         return quic;
     }
 
-    /** {@return the HTTP/3 profile} */
+    /** {@return the HTTP/3 profile, or null if it has none} */
     public io.github.mahmoudimus.http3.Http3ClientProfile http3Profile() {
         return http3;
     }

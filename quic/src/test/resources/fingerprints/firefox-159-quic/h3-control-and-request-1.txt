@@ -1,0 +1,22 @@
+connection accepted
+uni stream 10 type=0x3
+uni stream 6 type=0x2
+bidi 0 frame type=0x1 len=272
+uni stream 2 type=0x0
+  :method: GET
+  :scheme: https
+  :authority: quic.test:18641
+  :path: /
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101...
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  alt-used: quic.test:18641
+  upgrade-insecure-requests: 1
+  sec-fetch-dest: document
+  sec-fetch-mode: navigate
+  sec-fetch-site: none
+  sec-fetch-user: ?1
+  priority: u=0, i
+  control frame type=0x4 len=21 [0x1=65536] [0x7=20] [0x2b603742=0] [0xffd277=1] [0x33=1] [0x8=1]
+  control frame type=0x1687d92ac9e58302 len=3 payload=6640cb
