@@ -54,6 +54,10 @@ class BrowserHttp3FingerprintTest {
     @Test
     void theHttp3ConnectionToTheServerOpensAsChromes() throws Exception {
         h3 = new H3TestOrigin(originCa, 0);
+        // as the server Chrome was captured against: no dynamic table, so the QPACK streams, opened
+        // only for their first instruction, never are (with one, whether the first request inserts
+        // into it depends on the server's SETTINGS arriving before it is encoded)
+        h3.qpackMaxTableCapacity = 0;
         tcp = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
             exchange.getRequestBody().readAllBytes();
             byte[] out = "over tcp".getBytes(StandardCharsets.US_ASCII);
