@@ -88,13 +88,22 @@ public final class Hkdf {
      * @param context the context, often empty or a transcript hash
      * @param length the output length, at most 65535
      * @return the derived bytes
+     * @throws IllegalArgumentException if the label is not ASCII or a length exceeds its encoding
      */
     public byte[] expandLabel(byte[] secret, String label, byte[] context, int length) {
+        return expand(secret, labelInfo(label, context, length), length);
+    }
+
+    /** RFC 8446's length-delimited HKDFLabel; ASCII conversion must never alias distinct labels. */
+    static byte[] labelInfo(String label, byte[] context, int length) {
+        if (length < 0 || length > 0xffff || label.length() > 249 || context.length > 255) {
+            throw new IllegalArgumentException("HKDF label length out of range");
+        }
+        for (int c = 0; c < label.length(); c++) {
+            if (label.charAt(c) > 0x7f) throw new IllegalArgumentException("HKDF label must be ASCII");
+        }
         byte[] labelBytes = label.getBytes(StandardCharsets.US_ASCII);
         int fullLabel = LABEL_PREFIX.length + labelBytes.length;
-        if (length > 0xffff || fullLabel > 255 || context.length > 255) {
-            throw new IllegalArgumentException("HKDF label too long");
-        }
         byte[] info = new byte[2 + 1 + fullLabel + 1 + context.length];
         int i = 0;
         info[i++] = (byte) (length >>> 8);
@@ -106,7 +115,7 @@ public final class Hkdf {
         i += labelBytes.length;
         info[i++] = (byte) context.length;
         System.arraycopy(context, 0, info, i, context.length);
-        return expand(secret, info, length);
+        return info;
     }
 
     private Mac mac(byte[] key) {
