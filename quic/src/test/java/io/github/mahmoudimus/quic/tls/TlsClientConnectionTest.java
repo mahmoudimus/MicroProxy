@@ -135,8 +135,10 @@ class TlsClientConnectionTest {
         assertEquals("TLSv1.3", c.protocol());
         assertEquals(HOST, ((X509Certificate) c.peerCertificates().get(0)).getSubjectX500Principal().getName().substring(3));
         assertEquals("echo: hello\n", roundTrip(c, "hello"));
-        // the JDK server picks X25519 from Chrome's two shares (it has no X25519MLKEM768)
-        assertEquals(NamedGroup.X25519, c.negotiatedGroup());
+        // one of Chrome's two shares: the JDK's server takes X25519MLKEM768 where it has it (newer
+        // Java 25 updates do), X25519 otherwise
+        assertTrue(c.negotiatedGroup() == NamedGroup.X25519 || c.negotiatedGroup() == NamedGroup.X25519_MLKEM768,
+                String.valueOf(c.negotiatedGroup()));
         SSLSocket s = accepted.get(5, TimeUnit.SECONDS);
         assertEquals("TLSv1.3", s.getSession().getProtocol());
         c.closeWrite();
