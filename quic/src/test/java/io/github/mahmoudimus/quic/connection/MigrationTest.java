@@ -258,6 +258,47 @@ class MigrationTest {
         assertTrue(server.isEstablished() && client.isEstablished());
     }
 
+    /**
+     * A NAT rebinding keeps the old path's RTT, so a validation timeout made from it alone is a few
+     * of that path's PTOs. A client slower than that to answer from its new address (one busy, or
+     * behind a loaded link) is waited for: RFC 9000 section 8.2.4 makes the timeout three times
+     * the larger of the current PTO and the new path's as one without RTT samples would have it.
+     */
+    @Test
+    void aRebindingClientSlowToAnswerIsWaitedFor() throws Exception {
+        Pair pair = pair();
+        Connection[] c = connected(pair);
+        Connection client = c[0];
+        Connection server = c[1];
+        InetSocketAddress home = pair.client.address;
+        byte[] data = data(2 << 20);
+        Transfer t = new Transfer(pair, server, client, data);
+        t.runUntil(() -> t.received.size() > data.length / 3);
+        Pair.drainEvents(server);
+        long pto = server.recovery().pto(SpaceId.DATA);
+        // quiet for longer than three of the path's PTOs, far shorter than three new-path ones
+        long quiet = 4 * pto;
+        assertTrue(quiet < 3 * RttEstimator.DEFAULT_INITIAL_RTT, "a fast path's PTO: " + pto);
+
+        InetSocketAddress after = Pair.address(home.getPort() + 1);
+        pair.client.rebind(after);
+        long[] firstFromAfter = {-1};
+        pair.dropFromClient = d -> {
+            if (firstFromAfter[0] < 0) {
+                firstFromAfter[0] = pair.time; // the packet that moves the server
+                return false;
+            }
+            return pair.time - firstFromAfter[0] < quiet;
+        };
+        t.runUntil(() -> server.remoteAddress().equals(after));
+        t.runUntil(() -> server.path().isValidated() && server.remoteAddress().equals(after));
+        assertEquals(List.of(new ConnectionEvent.PathUpdated(after, null)),
+                events(server, ConnectionEvent.PathUpdated.class), "the server never went back to the old address");
+        assertTrue(pair.time - firstFromAfter[0] >= quiet);
+        pair.dropFromClient = d -> false;
+        assertArrayEquals(data, t.finish(), "every byte arrived");
+    }
+
     @Test
     void addressChangeValidatesThePathAndResetsCongestion() throws Exception {
         Pair pair = pair();

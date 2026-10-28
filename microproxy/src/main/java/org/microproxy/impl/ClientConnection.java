@@ -4753,8 +4753,15 @@ final class ClientConnection implements Runnable {
         Http2Connection h2 = new Http2Connection(server, this, socket, received, flowContext, logPrefix, target);
         http2 = h2;
         if (closed) return;
-        h2.serve();
+        try {
+            h2.serve();
+        } finally {
+            h2.awaitStreams(STREAMS_END_WAIT_NANOS);
+        }
     }
+
+    /** How long a closed HTTP/2 or HTTP/3 connection waits for its streams' threads to end. */
+    private static final long STREAMS_END_WAIT_NANOS = TimeUnit.SECONDS.toNanos(5);
 
     /**
      * Serves a QUIC connection to the HTTP/3 listener, on the calling thread, until it ends: each
@@ -4794,6 +4801,8 @@ final class ClientConnection implements Runnable {
         } finally {
             close();
             quic.close();
+            Http3Connection h3 = http3;
+            if (h3 != null) h3.awaitStreams(STREAMS_END_WAIT_NANOS);
             if (countsBytes()) {
                 // QUIC counts its datagrams' bytes itself; they are added once, as the connection ends.
                 io.github.mahmoudimus.quic.QuicConnection.Stats bytes = quic.stats();

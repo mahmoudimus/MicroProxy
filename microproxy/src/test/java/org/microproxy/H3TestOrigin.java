@@ -74,6 +74,8 @@ final class H3TestOrigin implements AutoCloseable {
     final AtomicInteger webSockets = new AtomicInteger();
     /** Whether connections made from now on send SETTINGS_ENABLE_CONNECT_PROTOCOL. */
     volatile boolean extendedConnect = true;
+    /** The QPACK_MAX_TABLE_CAPACITY connections made from now on advertise: 0 for no dynamic table. */
+    volatile long qpackMaxTableCapacity = 4096;
     final AtomicInteger resumed = new AtomicInteger();
     private final List<String> earlyRequestLines = new ArrayList<>();
     private final ReentrantLock lock = new ReentrantLock();
@@ -190,7 +192,7 @@ final class H3TestOrigin implements AutoCloseable {
                 QuicStream c = quic.openUnidirectionalStream();
                 control = new Http3FrameWriter(c.getOutputStream());
                 control.writeStreamType(Http3StreamType.CONTROL);
-                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(4096).qpackBlockedStreams(16)
+                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(qpackMaxTableCapacity).qpackBlockedStreams(16)
                         .enableConnectProtocol(extendedConnect).build());
                 control.flush();
                 QuicStream d = quic.openUnidirectionalStream();
