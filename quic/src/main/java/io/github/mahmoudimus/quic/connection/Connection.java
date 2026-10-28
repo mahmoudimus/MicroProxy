@@ -379,9 +379,12 @@ public final class Connection {
             String serverName, ConnectionId initialDcid, ConnectionId localCid, boolean allowMtud,
             RandomGenerator random, SessionCache cache) {
         TransportConfig transport = config.transport;
-        byte[] params = localParams(transport, endpointConfig.cidLength(), localCid)
+        TransportParameters local = localParams(transport, endpointConfig.cidLength(), localCid)
                 .disableActiveMigration(!config.activeMigration)
-                .build().encode();
+                .build();
+        byte[] params = config.transportParameterProfile != null
+                ? config.transportParameterProfile.encode(local, config.version.wireValue(), random)
+                : local.encode();
         String name = serverName != null ? serverName : config.tls.serverName();
         String key = cacheKey(name, remote);
         SessionTicket ticket = cache != null ? cache.tickets().take(key) : null;
