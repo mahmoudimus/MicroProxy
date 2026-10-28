@@ -58,13 +58,21 @@ final class TlsClientConnection {
     /** Everything a connection needs that does not change from one connection to the next. */
     record Config(ClientHelloProfile profile, X509TrustManager trustManager, X509KeyManager keyManager,
             ClientSessionStore sessions, Map<String, byte[]> applicationSettings, CertificateDecompressor decompressor,
-            SecureRandom random, InstantSource clock, int maxHandshakeMessageSize, Tls12SessionCache tls12Sessions) {
+            SecureRandom random, InstantSource clock, int maxHandshakeMessageSize, Tls12SessionCache tls12Sessions,
+            EchConfigProvider echConfigs) {
 
         Config(ClientHelloProfile profile, X509TrustManager trustManager, X509KeyManager keyManager,
                 ClientSessionStore sessions, Map<String, byte[]> applicationSettings, CertificateDecompressor decompressor,
                 SecureRandom random, InstantSource clock, int maxHandshakeMessageSize) {
             this(profile, trustManager, keyManager, sessions, applicationSettings, decompressor, random, clock,
                     maxHandshakeMessageSize, new Tls12SessionCache());
+        }
+
+        Config(ClientHelloProfile profile, X509TrustManager trustManager, X509KeyManager keyManager,
+                ClientSessionStore sessions, Map<String, byte[]> applicationSettings, CertificateDecompressor decompressor,
+                SecureRandom random, InstantSource clock, int maxHandshakeMessageSize, Tls12SessionCache tls12Sessions) {
+            this(profile, trustManager, keyManager, sessions, applicationSettings, decompressor, random, clock,
+                    maxHandshakeMessageSize, tls12Sessions, null);
         }
 
         Config {
@@ -83,11 +91,27 @@ final class TlsClientConnection {
     static final class TlsAlertException extends IOException {
         private final int alert;
         private final boolean received;
+        private final byte[] echRetryConfigs;
 
         TlsAlertException(int alert, boolean received, String message, Throwable cause) {
+            this(alert, received, message, cause, null);
+        }
+
+        TlsAlertException(int alert, boolean received, String message, Throwable cause, byte[] echRetryConfigs) {
             super(message, cause);
             this.alert = alert;
             this.received = received;
+            this.echRetryConfigs = echRetryConfigs;
+        }
+
+        /**
+         * The server's {@code retry_configs} (RFC 9849 section 6.1.6), an ECHConfigList, when this
+         * is the {@code ech_required} failure of a handshake whose ECH the server rejected.
+         *
+         * @return the list with its length prefix; null if the server sent none
+         */
+        byte[] echRetryConfigs() {
+            return echRetryConfigs == null ? null : echRetryConfigs.clone();
         }
 
         /** {@return the alert description} */
@@ -106,7 +130,8 @@ final class TlsClientConnection {
             ExtensionType.KEY_SHARE, ExtensionType.PRE_SHARED_KEY, ExtensionType.SUPPORTED_VERSIONS);
     /** Extensions a HelloRetryRequest may carry. */
     private static final Set<Integer> RETRY_EXTENSIONS = Set.of(
-            ExtensionType.KEY_SHARE, ExtensionType.COOKIE, ExtensionType.SUPPORTED_VERSIONS);
+            ExtensionType.KEY_SHARE, ExtensionType.COOKIE, ExtensionType.SUPPORTED_VERSIONS,
+            ProfileExtensions.ENCRYPTED_CLIENT_HELLO);
     /** Extensions EncryptedExtensions may carry, when the client offered them. */
     private static final Set<Integer> ENCRYPTED_EXTENSIONS = Set.of(
             ExtensionType.SERVER_NAME, ExtensionType.MAX_FRAGMENT_LENGTH, ExtensionType.SUPPORTED_GROUPS,
@@ -129,7 +154,7 @@ final class TlsClientConnection {
     private final List<String> alpn;
     private final String sessionKey;
     private final TlsRecordLayer records;
-    private final Transcript transcript = new Transcript();
+    private Transcript transcript = new Transcript();
     private final ByteArrayOutputStream handshakeBuffer = new ByteArrayOutputStream();
     private final Map<Integer, KeyExchange> keyShares = new LinkedHashMap<>();
     private final Set<Integer> sentExtensions = new HashSet<>();
@@ -160,6 +185,28 @@ final class TlsClientConnection {
     private boolean readClosed;
     private boolean writeClosed;
     private final Object writeLock = new Object();
+
+    /** Where an ECH offer stands (RFC 9849 section 6.1.4). */
+    private enum Ech {
+        /** No ECH offered: none configured, or a GREASE one. */
+        NONE,
+        /** Offered; the server has not yet said which hello it took. */
+        OFFERED,
+        /** The HelloRetryRequest accepted it; the ServerHello must too. */
+        ACCEPTED_BY_RETRY,
+        ACCEPTED,
+        REJECTED
+    }
+
+    private Ech echState = Ech.NONE;
+    private EchClient ech;
+    /** The ClientHelloInner transcript, while ECH is offered; the transcript once it is accepted. */
+    private Transcript innerTranscript;
+    private ClientHello innerHello;
+    private ClientHello outerHello;
+    private Set<Integer> innerExtensions = Set.of();
+    private Set<Integer> outerExtensions = Set.of();
+    private byte[] echRetryConfigs;
 
     /**
      * @param config what does not change between connections
@@ -218,6 +265,7 @@ final class TlsClientConnection {
             }
         }
         transcript.start(suite);
+        if (echState == Ech.OFFERED || echState == Ech.ACCEPTED_BY_RETRY) checkEchAcceptance(real);
         transcript.add(real.raw());
         onServerHello((ServerHello) real.message());
         records.plaintextVersion(HandshakeMessage.LEGACY_VERSION);
@@ -239,7 +287,18 @@ final class TlsClientConnection {
         requireAligned("Finished");
         onServerFinished(finished);
         sendSecondFlight(requestedCertificate ? certificateRequest : null);
+        if (echState == Ech.REJECTED) throw echRequired();
         handshakeDone = true;
+    }
+
+    /**
+     * Ends a handshake whose ECH the server rejected, once the outer handshake has completed for
+     * the public name: the {@code ech_required} alert, and the failure carrying the server's
+     * {@code retry_configs} (RFC 9849 section 6.1.6). No retry is made here.
+     */
+    private TlsAlertException echRequired() {
+        String what = "the server rejected ECH" + (echRetryConfigs != null ? " and sent retry_configs" : " and sent no retry_configs");
+        return fail(TlsAlert.error(TlsAlert.ECH_REQUIRED, what), echRetryConfigs);
     }
 
     private void sendClientHello() throws IOException, QuicException {
@@ -250,10 +309,18 @@ final class TlsClientConnection {
         }
         Map<Integer, byte[]> publicKeys = new LinkedHashMap<>();
         keyShares.forEach((code, kx) -> publicKeys.put(code, kx.publicKey()));
-        HelloContext context = new HelloContext(serverName, alpn, publicKeys, Grease.random(config.random()),
-                config.random());
+        ech = echOffer();
+        HelloContext context = new HelloContext(ech != null ? ech.publicName() : serverName, alpn, publicKeys,
+                Grease.random(config.random()), config.random());
         hello = config.profile().clientHello(context);
         ticket = sessionKey != null ? usable(config.sessions().take(sessionKey)) : null;
+        if (ech != null) {
+            // RFC 9849 section 6.1: a ticket goes in the inner hello only; no TLS 1.2 resumption
+            echState = Ech.OFFERED;
+            innerTranscript = new Transcript();
+            sendEchHellos(hello, true);
+            return;
+        }
         if (ticket == null && sessionKey != null && allowTls12 && hello.sessionId().length > 0) {
             Tls12ClientHandshake.Session s = config.tls12Sessions().take(sessionKey);
             if (s != null && s.usable(config.clock().instant(), serverName)
@@ -265,10 +332,65 @@ final class TlsClientConnection {
                 tls12Offered = s;
             }
         }
-        byte[] encoded = encodeWithPsk(hello, true);
+        byte[] encoded = encodeWithPsk(hello, true, transcript);
         helloBytes = encoded;
         transcript.add(encoded);
         records.write(TlsRecordLayer.HANDSHAKE, encoded);
+        records.flush();
+    }
+
+    /**
+     * The ECH offer for this connection: the first usable configuration of the provider's list
+     * for the server name, or null to send the profile's hello as it is (with its GREASE ECH, if
+     * any) when there is no provider, no list, no name or no usable configuration.
+     */
+    private EchClient echOffer() throws IOException {
+        if (config.echConfigs() == null || serverName == null) return null;
+        byte[] list = config.echConfigs().echConfigList(serverName);
+        if (list == null) return null;
+        EchConfig.Selected selected;
+        try {
+            selected = EchConfig.select(list);
+        } catch (QuicException e) {
+            throw new javax.net.ssl.SSLException("malformed ECHConfigList for " + serverName + ": " + e.getMessage(), e);
+        }
+        if (selected == null) return null; // RFC 9849 section 6.1: GREASE instead
+        try {
+            return new EchClient(selected, serverName, config.random());
+        } catch (GeneralSecurityException e) {
+            return null; // an unusable key, as an unsupported configuration
+        }
+    }
+
+    /**
+     * Sends the ClientHelloOuter for {@code outer}, the profile's hello for the public name (the
+     * first, or its HelloRetryRequest update), with the ClientHelloInner made from it inside. The
+     * inner hello goes into the inner transcript; the outer one into the outer transcript while
+     * the server has not yet accepted ECH.
+     */
+    private void sendEchHellos(ClientHello outer, boolean first) throws IOException, QuicException {
+        EchClient.Inner inner = ech.inner(outer);
+        byte[] innerMessage = encodeWithPsk(inner.hello(), first, innerTranscript);
+        innerExtensions = Set.copyOf(sentExtensions);
+        ClientHello sealed;
+        try {
+            sealed = ech.outer(outer, inner, innerMessage, first);
+        } catch (GeneralSecurityException e) {
+            throw TlsAlert.error(TlsAlert.INTERNAL_ERROR, "cannot encrypt the ClientHelloInner: " + e.getMessage());
+        }
+        byte[] outerMessage = sealed.encode();
+        Set<Integer> outerTypes = new HashSet<>();
+        for (Extension e : sealed.extensions()) outerTypes.add(e.type());
+        outerExtensions = Set.copyOf(outerTypes);
+        sentExtensions.addAll(outerTypes); // until the server's answer says which hello it took
+        innerHello = (ClientHello) HandshakeMessage.decode(HandshakeType.CLIENT_HELLO,
+                Arrays.copyOfRange(innerMessage, 4, innerMessage.length));
+        outerHello = sealed;
+        hello = sealed;
+        helloBytes = outerMessage;
+        innerTranscript.add(innerMessage);
+        if (transcript != innerTranscript) transcript.add(outerMessage);
+        records.write(TlsRecordLayer.HANDSHAKE, outerMessage);
         records.flush();
     }
 
@@ -284,7 +406,7 @@ final class TlsClientConnection {
      * Encodes {@code h}, adding {@code pre_shared_key} last with its binder when there is a ticket
      * (RFC 8446 section 4.2.11.2), and records the extensions sent.
      */
-    private byte[] encodeWithPsk(ClientHello h, boolean first) {
+    private byte[] encodeWithPsk(ClientHello h, boolean first, Transcript binderTranscript) {
         pskOffered = ticket != null;
         ClientHello toSend = h;
         int hashLength = 0;
@@ -301,7 +423,7 @@ final class TlsClientConnection {
         byte[] encoded = toSend.encode();
         if (pskOffered) {
             byte[] prefix = Arrays.copyOf(encoded, encoded.length - (3 + hashLength));
-            byte[] hash = first ? Transcript.newDigest(ticket.suite).digest(prefix) : transcript.hashWith(prefix);
+            byte[] hash = first ? Transcript.newDigest(ticket.suite).digest(prefix) : binderTranscript.hashWith(prefix);
             byte[] binder = new KeySchedule(ticket.suite, ticket.psk).binder(hash);
             System.arraycopy(binder, 0, encoded, encoded.length - hashLength, hashLength);
         }
@@ -319,6 +441,28 @@ final class TlsClientConnection {
         }
         checkHello(sh, retry ? "HelloRetryRequest" : "ServerHello", retry);
         return m;
+    }
+
+    /**
+     * Whether the ServerHello took ClientHelloInner: the last 8 bytes of its random are the
+     * confirmation over the inner transcript and the ServerHello with them zeroed (RFC 9849
+     * section 7.2). After a HelloRetryRequest that accepted ECH, a ServerHello that does not is
+     * an {@code illegal_parameter} (section 6.1.5).
+     */
+    private void checkEchAcceptance(Message serverHello) throws QuicException {
+        innerTranscript.start(suite);
+        byte[] expected = ech.confirmation(suite, EchClient.ACCEPT_LABEL,
+                innerTranscript.hashWith(EchClient.zeroConfirmation(serverHello.raw())));
+        byte[] random = ((ServerHello) serverHello.message()).random();
+        boolean accepted = MessageDigest.isEqual(expected,
+                Arrays.copyOfRange(random, random.length - EchClient.CONFIRMATION_LENGTH, random.length));
+        if (accepted) {
+            acceptEch();
+        } else if (echState == Ech.ACCEPTED_BY_RETRY) {
+            throw TlsAlert.illegalParameter("ServerHello does not confirm the ECH its HelloRetryRequest accepted");
+        } else {
+            rejectEch();
+        }
     }
 
     /** The checks a ServerHello and a HelloRetryRequest share. */
@@ -374,6 +518,14 @@ final class TlsClientConnection {
         }
         if (!allowTls12) throw TlsAlert.error(TlsAlert.PROTOCOL_VERSION, "the server selected TLS 1.2, which is not enabled");
         records.plaintextVersion(HandshakeMessage.LEGACY_VERSION);
+        if (ech != null) {
+            // RFC 9849 section 6.1.4: an earlier version rejects ECH; authenticate the public name
+            rejectEch();
+            Tls12ClientHandshake h = new Tls12ClientHandshake(config, records, handshakeBuffer, hello, helloBytes, sh,
+                    m.raw(), ech.publicName(), ech.publicName(), alpn, null);
+            h.run();
+            throw echRequired();
+        }
         Tls12ClientHandshake h = new Tls12ClientHandshake(config, records, handshakeBuffer, hello, helloBytes, sh, m.raw(),
                 serverName, verifyHost, alpn, tls12Offered);
         tls12 = h.run();
@@ -397,6 +549,11 @@ final class TlsClientConnection {
         byte[] cookie = cookieData != null ? Extensions.decodeCookie(cookieData) : null;
         if (cookie != null && cookie.length == 0) throw TlsAlert.illegalParameter("HelloRetryRequest has an empty cookie");
         if (cookie == null && groupData == null) throw TlsAlert.illegalParameter("HelloRetryRequest asks for no change");
+        byte[] echConfirmation = Extension.find(hrr.extensions(), ProfileExtensions.ENCRYPTED_CLIENT_HELLO);
+        if (echConfirmation != null && echConfirmation.length != EchClient.CONFIRMATION_LENGTH) {
+            // RFC 9849 sections 6.1.4 and 6.2.1, for a real offer and a GREASE one alike
+            throw TlsAlert.decodeError("HelloRetryRequest encrypted_client_hello of " + echConfirmation.length + " bytes");
+        }
         List<Extension> extensions = new ArrayList<>(hello.extensions());
         if (groupData != null) {
             int code = Extensions.decodeKeyShareRetry(groupData);
@@ -431,12 +588,49 @@ final class TlsClientConnection {
         transcript.start(suite);
         transcript.rollupForRetry();
         transcript.add(hrrRaw);
+        if (echState == Ech.OFFERED) {
+            innerTranscript.start(suite);
+            innerTranscript.rollupForRetry();
+            // RFC 9849 section 7.2.1: the confirmation is over the HelloRetryRequest with it zeroed
+            boolean accepted = echConfirmation != null && MessageDigest.isEqual(echConfirmation,
+                    ech.confirmation(suite, EchClient.HRR_ACCEPT_LABEL, innerTranscript.hashWith(EchClient.zeroConfirmation(hrr))));
+            innerTranscript.add(hrrRaw);
+            if (accepted) {
+                echState = Ech.ACCEPTED_BY_RETRY;
+                transcript = innerTranscript;
+                sendChangeCipherSpec();
+                sendEchHellos(outerHello.withExtensions(extensions), false);
+                return;
+            }
+            // the server took ClientHelloOuter: the second hello is its update, ECH extension unchanged
+            rejectEch();
+        }
         hello = hello.withExtensions(extensions);
-        byte[] encoded = encodeWithPsk(hello, false);
+        byte[] encoded = encodeWithPsk(hello, false, transcript);
         transcript.add(encoded);
         sendChangeCipherSpec();
         records.write(TlsRecordLayer.HANDSHAKE, encoded);
         records.flush();
+    }
+
+    /** The server took ClientHelloOuter: the handshake goes on with it, to end in {@code ech_required}. */
+    private void rejectEch() {
+        echState = Ech.REJECTED;
+        innerTranscript = null;
+        hello = outerHello;
+        ticket = null;
+        pskOffered = false;
+        sentExtensions.clear();
+        sentExtensions.addAll(outerExtensions);
+    }
+
+    /** The server took ClientHelloInner: the handshake goes on with it and its transcript. */
+    private void acceptEch() {
+        echState = Ech.ACCEPTED;
+        transcript = innerTranscript;
+        hello = innerHello;
+        sentExtensions.clear();
+        sentExtensions.addAll(innerExtensions);
     }
 
     private static void replace(List<Extension> extensions, int type, byte[] body) {
@@ -458,6 +652,10 @@ final class TlsClientConnection {
         group = ours.group();
         byte[] selected = Extension.find(sh.extensions(), ExtensionType.PRE_SHARED_KEY);
         if (selected != null) {
+            if (echState == Ech.REJECTED) {
+                // RFC 9849 section 6.1.2: no resumption in the outer handshake
+                throw TlsAlert.illegalParameter("ServerHello resumes a session though it rejected ECH");
+            }
             if (!pskOffered) {
                 throw TlsAlert.error(TlsAlert.UNSUPPORTED_EXTENSION, "ServerHello selects a PSK that was not offered");
             }
@@ -491,6 +689,15 @@ final class TlsClientConnection {
             if (!ENCRYPTED_EXTENSIONS.contains(e.type())) {
                 throw TlsAlert.illegalParameter("EncryptedExtensions may not carry " + ExtensionType.name(e.type()));
             }
+        }
+        byte[] echData = Extension.find(extensions, ProfileExtensions.ENCRYPTED_CLIENT_HELLO);
+        if (echData != null) {
+            if (echState == Ech.ACCEPTED) {
+                // RFC 9849 section 5: retry_configs answer only the outer hello
+                throw TlsAlert.error(TlsAlert.UNSUPPORTED_EXTENSION, "EncryptedExtensions has retry_configs though ECH was accepted");
+            }
+            EchConfig.parseList(echData); // a decode_error if malformed, for GREASE too (section 6.2.1)
+            if (echState == Ech.REJECTED) echRetryConfigs = echData.clone();
         }
         byte[] nameAck = Extension.find(extensions, ExtensionType.SERVER_NAME);
         if (nameAck != null) Extensions.expectEmpty(nameAck, ExtensionType.SERVER_NAME);
@@ -568,7 +775,9 @@ final class TlsClientConnection {
     }
 
     private void verifyServer(List<X509Certificate> chain) throws QuicException {
-        CertificateChecks.verifyServerWithCauses(config.trustManager(), chain, CertificateChecks.TLS13_AUTH_TYPE, verifyHost);
+        // RFC 9849 section 6.1.7: when ECH is rejected the certificate must be the public name's
+        String host = echState == Ech.REJECTED ? ech.publicName() : verifyHost;
+        CertificateChecks.verifyServerWithCauses(config.trustManager(), chain, CertificateChecks.TLS13_AUTH_TYPE, host);
     }
 
     /** A CompressedCertificate (RFC 8879 section 4): an algorithm the client offered, and the exact length. */
@@ -667,7 +876,8 @@ final class TlsClientConnection {
                 Extension.find(request.extensions(), ExtensionType.SIGNATURE_ALGORITHMS), "signature_algorithms");
         CertifiedKey key = null;
         SignatureScheme scheme = null;
-        X509KeyManager km = config.keyManager();
+        // RFC 9849 section 6.1.7: no certificate for a server that rejected ECH
+        X509KeyManager km = echState == Ech.REJECTED ? null : config.keyManager();
         if (km != null) {
             for (int code : schemes) {
                 SignatureScheme candidate = SignatureScheme.forCode(code);
@@ -935,8 +1145,12 @@ final class TlsClientConnection {
         return new TlsAlertException(description, true, what, null);
     }
 
-    /** Sends the alert for {@code e}, as well as the stream still allows, and makes the exception. */
     private TlsAlertException fail(QuicException e) {
+        return fail(e, null);
+    }
+
+    /** Sends the alert for {@code e}, as well as the stream still allows, and makes the exception. */
+    private TlsAlertException fail(QuicException e, byte[] retryConfigs) {
         int alert = TlsAlert.fromErrorCode(e.code());
         if (alert < 0) alert = TlsAlert.INTERNAL_ERROR;
         synchronized (writeLock) {
@@ -951,7 +1165,7 @@ final class TlsClientConnection {
             }
         }
         readClosed = true;
-        return new TlsAlertException(alert, false, e.getMessage(), e);
+        return new TlsAlertException(alert, false, e.getMessage(), e, retryConfigs);
     }
 
     // --- what was negotiated ---
@@ -1002,6 +1216,11 @@ final class TlsClientConnection {
 
     boolean resumed() {
         return resumed;
+    }
+
+    /** {@return whether the server accepted ECH: the handshake was with the encrypted ClientHelloInner} */
+    boolean echAccepted() {
+        return echState == Ech.ACCEPTED;
     }
 
     /** {@return how many KeyUpdates the server has sent} */

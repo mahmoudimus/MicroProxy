@@ -132,8 +132,19 @@ final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket 
         }
     }
 
+    @Override
+    public synchronized boolean echAccepted() {
+        return connection != null && connection.echAccepted();
+    }
+
     /** The JDK's exception, and message, for a failed handshake. */
     private static IOException jsse(IOException e) {
+        if (e instanceof TlsClientConnection.TlsAlertException alert && alert.alert() == TlsAlert.ECH_REQUIRED
+                && !alert.received()) {
+            EchRejectedException out = new EchRejectedException(e.getMessage(), alert.echRetryConfigs());
+            out.initCause(e);
+            return out;
+        }
         if (e instanceof TlsClientConnection.TlsAlertException alert) {
             String name = TlsAlert.name(alert.alert());
             if (alert.received()) {
