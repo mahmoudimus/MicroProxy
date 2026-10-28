@@ -32,7 +32,8 @@ import javax.net.ssl.SSLSocket;
  * <p>Failures are reported the way the JDK's own sockets report them, so code that reads JSSE
  * exceptions keeps working: a server's alert as {@code "Received fatal alert: <description>"}, a
  * peer that is not a TLS server as {@code "Unsupported or unrecognized SSL message"}, a connection
- * closed during the handshake as {@code "Remote host terminated the handshake"}, and certificate
+ * closed during the handshake as {@code "Remote host terminated the handshake"}, one reset as an
+ * {@link SSLException} with the {@link SocketException} as its cause, and certificate
  * failures with the trust manager's {@link java.security.cert.CertificateException} as the cause.
  */
 final class FingerprintSslSocket extends SSLSocket {
@@ -141,7 +142,13 @@ final class FingerprintSslSocket extends SSLSocket {
             out.initCause(e);
             return out;
         }
-        return e; // socket errors and timeouts, as they are
+        if (e instanceof SocketException && !(e instanceof java.net.SocketTimeoutException)) {
+            // the JDK's wording for a reset during the handshake, "Connection reset"
+            SSLException out = new SSLException(e.getMessage());
+            out.initCause(e);
+            return out;
+        }
+        return e; // timeouts, as they are
     }
 
     @Override

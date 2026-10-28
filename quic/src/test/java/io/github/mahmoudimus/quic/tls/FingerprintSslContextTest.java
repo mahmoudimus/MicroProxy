@@ -88,18 +88,27 @@ class FingerprintSslContextTest {
         return accepted;
     }
 
-    private void servePlain(byte[] reply) throws IOException {
+    /** A plain server that reads the whole ClientHello record, writes {@code reply} and closes, resetting if asked. */
+    private void servePlain(byte[] reply, boolean reset) throws IOException {
         server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
         ServerSocket s = server;
         Thread.ofVirtual().start(() -> {
             try (Socket c = s.accept()) {
-                c.getInputStream().read(new byte[5]);
+                java.io.DataInputStream in = new java.io.DataInputStream(c.getInputStream());
+                byte[] header = new byte[5];
+                in.readFully(header);
+                in.readFully(new byte[((header[3] & 0xff) << 8) | (header[4] & 0xff)]);
                 c.getOutputStream().write(reply);
                 c.getOutputStream().flush();
+                if (reset) c.setSoLinger(true, 0);
             } catch (IOException ignored) {
                 // the client gave up
             }
         });
+    }
+
+    private void servePlain(byte[] reply) throws IOException {
+        servePlain(reply, false);
     }
 
     private static X509TrustManager pkix(X509Certificate anchor) throws Exception {
@@ -180,6 +189,16 @@ class FingerprintSslContextTest {
             SSLHandshakeException e = assertThrows(SSLHandshakeException.class, socket::startHandshake);
             assertEquals("Remote host terminated the handshake", e.getMessage());
             assertInstanceOf(EOFException.class, e.getCause());
+        }
+    }
+
+    @Test
+    void aResetIsAConnectionResetSslException() throws Exception {
+        servePlain(new byte[0], true);
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLException e = assertThrows(SSLException.class, socket::startHandshake);
+            assertInstanceOf(java.net.SocketException.class, e.getCause());
+            assertTrue(String.valueOf(e.getMessage()).toLowerCase().contains("reset"), e.getMessage());
         }
     }
 
