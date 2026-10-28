@@ -126,6 +126,23 @@ class TransparentQuicListenerTest {
         return new InetSocketAddress(LOOPBACK, proxy.getTransparentQuicAddress().getPort());
     }
 
+    /**
+     * Two loopback addresses besides {@link #LOOPBACK} for clients, 127.0.0.2 and 127.0.0.3. The
+     * test is skipped where the loopback interface lacks them: Linux's has all of 127/8, macOS's
+     * lo0 has 127.0.0.1 alone unless aliased ({@code sudo ifconfig lo0 alias 127.0.0.2 up}).
+     */
+    private static List<InetAddress> otherSources() throws IOException {
+        List<InetAddress> sources = List.of(InetAddress.getByName("127.0.0.2"), InetAddress.getByName("127.0.0.3"));
+        for (InetAddress a : sources) {
+            try (DatagramSocket s = new DatagramSocket(0, a)) {
+                // it can be bound
+            } catch (java.net.BindException e) {
+                org.junit.jupiter.api.Assumptions.abort("the loopback interface has no " + a.getHostAddress());
+            }
+        }
+        return sources;
+    }
+
     private DatagramSocket socket(InetAddress address) throws IOException {
         DatagramSocket s = new DatagramSocket(0, address);
         s.setSoTimeout(5000);
@@ -246,11 +263,12 @@ class TransparentQuicListenerTest {
 
     @Test
     void boundsNewClientsPerSourceAndInTotal() throws Exception {
+        List<InetAddress> others = otherSources();
         start(relaying(Http3Options.builder().transparentMaxPending(6, 4)
                 .transparentPendingTimeout(Duration.ofSeconds(3)).build()));
         DatagramSocket one = socket(LOOPBACK);
-        DatagramSocket two = socket(InetAddress.getByName("127.0.0.2"));
-        DatagramSocket three = socket(InetAddress.getByName("127.0.0.3"));
+        DatagramSocket two = socket(others.get(0));
+        DatagramSocket three = socket(others.get(1));
         for (int i = 0; i < 6; i++) send(one, partialHello(nextDcid()), quicAddress());
         eventually("four pending from one address", () -> listener().droppedDatagrams() == 2);
         assertEquals(4, listener().pendingFlows());
@@ -282,10 +300,11 @@ class TransparentQuicListenerTest {
 
     @Test
     void boundsRelayedFlowsPerSourceAndInTotal() throws Exception {
+        List<InetAddress> others = otherSources();
         start(relaying(Http3Options.builder().transparentMaxRelayFlows(2, 1).build()));
         DatagramSocket one = socket(LOOPBACK);
-        DatagramSocket two = socket(InetAddress.getByName("127.0.0.2"));
-        DatagramSocket three = socket(InetAddress.getByName("127.0.0.3"));
+        DatagramSocket two = socket(others.get(0));
+        DatagramSocket three = socket(others.get(1));
         send(one, hello(nextDcid(), "relay.test", "h3"), quicAddress());
         receive(server);
         send(one, hello(nextDcid(), "relay.test", "h3"), quicAddress());
