@@ -386,6 +386,8 @@ final class HttpCodec {
         private final OutputStream out;
         private boolean chunked;
         private boolean bodyAllowed = true;
+        /** Whether a chunked body's trailers are written; when not, it ends with the last chunk alone. */
+        private boolean trailers = true;
 
         HttpWriter(OutputStream out) {
             this.out = out;
@@ -463,6 +465,11 @@ final class HttpCodec {
             out.write('0' + n % 10);
         }
 
+        /** Whether the trailers of the bodies written from now on are written, or left out. */
+        void trailers(boolean write) {
+            trailers = write;
+        }
+
         /** Writes a body piece. */
         void writeContent(HttpContent content) throws IOException {
             byte[] data = content.content();
@@ -476,7 +483,7 @@ final class HttpCodec {
                     }
                     if (content instanceof LastHttpContent last) {
                         StringBuilder sb = new StringBuilder("0\r\n");
-                        appendHeaders(sb, last.trailingHeaders());
+                        if (trailers) appendHeaders(sb, last.trailingHeaders());
                         sb.append("\r\n");
                         out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
                     }
@@ -504,7 +511,7 @@ final class HttpCodec {
         void writeEnd(HttpHeaders trailers) throws IOException {
             if (bodyAllowed && chunked) {
                 StringBuilder sb = new StringBuilder("0\r\n");
-                appendHeaders(sb, trailers);
+                if (this.trailers && trailers != null) appendHeaders(sb, trailers);
                 sb.append("\r\n");
                 out.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
             }
