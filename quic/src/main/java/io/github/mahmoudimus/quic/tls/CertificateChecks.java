@@ -86,6 +86,31 @@ final class CertificateChecks {
         }
     }
 
+    /**
+     * {@link #verifyServer}, each failure keeping its {@link CertificateException} as the cause, as
+     * the JDK's checks do, so callers can tell an expired certificate from an untrusted one or the
+     * wrong name: the trust manager's exception, or the JDK's {@code "No subject alternative names
+     * matching ..."} for the name.
+     *
+     * @param authType the key exchange, as JSSE names it to trust managers ({@code "UNKNOWN"} for TLS 1.3)
+     */
+    static void verifyServerWithCauses(X509TrustManager trust, List<X509Certificate> chain, String authType,
+            String hostname) throws QuicException {
+        try {
+            trust.checkServerTrusted(chain.toArray(X509Certificate[]::new), authType);
+        } catch (CertificateException | RuntimeException e) {
+            QuicException failure = untrusted(e);
+            failure.initCause(e);
+            throw failure;
+        }
+        if (hostname != null && !HostnameChecker.matches(chain.get(0), hostname)) {
+            QuicException failure = TlsAlert.error(TlsAlert.BAD_CERTIFICATE, "certificate is not valid for " + hostname);
+            failure.initCause(new CertificateException("No subject alternative names matching "
+                    + (HostnameChecker.isIpLiteral(hostname) ? "IP address " : "DNS name ") + hostname + " found"));
+            throw failure;
+        }
+    }
+
     static void verifyClient(X509TrustManager trust, List<X509Certificate> chain) throws QuicException {
         try {
             trust.checkClientTrusted(

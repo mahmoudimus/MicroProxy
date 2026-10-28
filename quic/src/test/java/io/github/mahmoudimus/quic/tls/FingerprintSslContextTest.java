@@ -228,12 +228,16 @@ class FingerprintSslContextTest {
     }
 
     @Test
-    void onlyTls13CanBeEnabledForNow() throws Exception {
+    void tls13AndTls12AreSupportedAndTls13MustStayEnabled() throws Exception {
         servePlain(new byte[0]);
         try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
-            assertArrayEquals(new String[] {"TLSv1.3"}, socket.getSupportedProtocols());
-            assertThrows(IllegalArgumentException.class, () -> socket.setEnabledProtocols(new String[] {"TLSv1.2"}));
+            assertArrayEquals(new String[] {"TLSv1.3", "TLSv1.2"}, socket.getSupportedProtocols());
+            assertThrows(IllegalArgumentException.class, () -> socket.setEnabledProtocols(new String[] {"TLSv1.1"}));
             assertThrows(IllegalArgumentException.class, () -> socket.setUseClientMode(false));
+            // a browser's hello offers TLS 1.3: TLS 1.2 alone is not a browser's fingerprint
+            socket.setEnabledProtocols(new String[] {"TLSv1.2"});
+            SSLHandshakeException e = assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            assertTrue(e.getMessage().contains("needs TLSv1.3 enabled"), e.getMessage());
         }
     }
 

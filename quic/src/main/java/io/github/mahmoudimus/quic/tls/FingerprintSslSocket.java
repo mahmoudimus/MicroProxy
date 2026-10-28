@@ -39,6 +39,7 @@ import javax.net.ssl.SSLSocket;
 final class FingerprintSslSocket extends SSLSocket {
 
     static final String TLS13 = "TLSv1.3";
+    static final String TLS12 = "TLSv1.2";
 
     private final FingerprintSslContext.Settings settings;
     private final Socket plain;
@@ -47,7 +48,7 @@ final class FingerprintSslSocket extends SSLSocket {
     private final boolean autoClose;
     private final List<HandshakeCompletedListener> listeners = new CopyOnWriteArrayList<>();
     private SSLParameters parameters = new SSLParameters();
-    private String[] enabledProtocols = {TLS13};
+    private String[] enabledProtocols = {TLS13, TLS12};
     private TlsClientConnection connection;
     private FingerprintSslSession session;
     private IOException failure;
@@ -84,7 +85,9 @@ final class FingerprintSslSocket extends SSLSocket {
         if (session != null) return;
         if (closed) throw new SocketException("Socket is closed");
         if (!Arrays.asList(enabledProtocols).contains(TLS13)) {
-            throw failure = new SSLHandshakeException("No appropriate protocol (protocol is disabled or cipher suites are inappropriate)");
+            // a browser's hello offers TLS 1.3; TLS 1.2 alone would be another fingerprint
+            throw failure = new SSLHandshakeException("No appropriate protocol (protocol is disabled or cipher suites are inappropriate):"
+                    + " a browser fingerprint needs TLSv1.3 enabled");
         }
         String serverName = null;
         List<SNIServerName> names = parameters.getServerNames();
@@ -101,6 +104,7 @@ final class FingerprintSslSocket extends SSLSocket {
         TlsClientConnection c = new TlsClientConnection(settings.config(), plain.getInputStream(), plain.getOutputStream(),
                 serverName, verifyHost, alpn,
                 (serverName != null ? serverName : host) + ":" + port);
+        c.allowTls12(Arrays.asList(enabledProtocols).contains(TLS12));
         try {
             c.handshake();
         } catch (IOException e) {
@@ -215,6 +219,7 @@ final class FingerprintSslSocket extends SSLSocket {
     public String[] getSupportedCipherSuites() {
         List<String> names = new ArrayList<>();
         for (io.github.mahmoudimus.quic.CipherSuite s : settings.config().profile().tls13CipherSuites()) names.add(s.name());
+        for (Tls12CipherSuite s : settings.config().profile().tls12CipherSuites()) names.add(s.name());
         return names.toArray(String[]::new);
     }
 
@@ -229,7 +234,7 @@ final class FingerprintSslSocket extends SSLSocket {
 
     @Override
     public String[] getSupportedProtocols() {
-        return new String[] {TLS13};
+        return new String[] {TLS13, TLS12};
     }
 
     @Override
