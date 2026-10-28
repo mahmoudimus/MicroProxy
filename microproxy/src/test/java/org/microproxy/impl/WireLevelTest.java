@@ -3,6 +3,7 @@ package org.microproxy.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.microproxy.TestSupport.echo;
 import static org.microproxy.TestSupport.echoedHeader;
@@ -242,10 +243,27 @@ class WireLevelTest {
                             + "3\r\nabc\r\n0\r\nX-Checksum: 42\r\n\r\n");
                 });
                 Socket s = connect()) {
-            write(s.getOutputStream(), "GET http://127.0.0.1:" + raw.port() + "/ HTTP/1.1\r\nHost: x\r\n\r\n");
+            write(s.getOutputStream(), "GET http://127.0.0.1:" + raw.port() + "/ HTTP/1.1\r\nHost: x\r\nTE: trailers\r\n\r\n");
             InputStream in = s.getInputStream();
             String all = TestSupport.readUntil(in, "X-Checksum: 42\r\n\r\n");
             assertTrue(all.endsWith("3\r\nabc\r\n0\r\nX-Checksum: 42\r\n\r\n"), all);
+        }
+    }
+
+    @Test
+    void trailersAreLeftOutForAClientThatDidNotAcceptThem() throws Exception {
+        try (TestSupport.RawServer raw = TestSupport.rawServer(socket -> {
+                    TestSupport.readUntil(socket.getInputStream(), "\r\n\r\n");
+                    write(socket.getOutputStream(), "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTrailer: X-Checksum\r\n\r\n"
+                            + "3\r\nabc\r\n0\r\nX-Checksum: 42\r\n\r\n");
+                });
+                Socket s = connect()) {
+            write(s.getOutputStream(), "GET http://127.0.0.1:" + raw.port() + "/ HTTP/1.1\r\nHost: x\r\n\r\n");
+            String all = TestSupport.readUntil(s.getInputStream(), "3\r\nabc\r\n0\r\n\r\n");
+            assertFalse(all.toLowerCase().contains("trailer:"), all);
+            // nothing follows the last chunk: the next bytes would be the trailers
+            s.setSoTimeout(500);
+            assertThrows(java.net.SocketTimeoutException.class, () -> s.getInputStream().read());
         }
     }
 
