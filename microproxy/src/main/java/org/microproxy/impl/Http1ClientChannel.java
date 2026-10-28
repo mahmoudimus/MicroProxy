@@ -61,6 +61,12 @@ final class Http1ClientChannel implements ClientChannel {
      */
     private HttpVersion requestVersion = HttpVersion.HTTP_1_1;
     /**
+     * The request being served had {@code TE: trailers}. Without it, a response's trailers are
+     * left out (RFC 9110 section 6.5.1: a client that did not say it reads them may not), and so
+     * is its {@code Trailer} field.
+     */
+    private boolean trailersAccepted;
+    /**
      * A request arrived with both {@code Transfer-Encoding} and {@code Content-Length} ({@link
      * DefaultHttpProxyServer#allowChunkedLength}): the connection closes after its response.
      */
@@ -338,6 +344,7 @@ final class Http1ClientChannel implements ClientChannel {
     public MessageBody requestBody(HttpRequest request) throws HttpParseException {
         requestVersion = request.protocolVersion();
         HttpHeaders headers = request.headers();
+        trailersAccepted = acceptsTrailers(headers);
         boolean chunkedLength = server.allowChunkedLength && headers.contains(HttpHeaderNames.TRANSFER_ENCODING)
                 && headers.contains(HttpHeaderNames.CONTENT_LENGTH);
         Framing framing = Framing.forRequest(request, server.allowChunkedLength);
@@ -459,9 +466,23 @@ final class Http1ClientChannel implements ClientChannel {
         writer.writeHead(response, bodyAllowed, !bodyFollows);
     }
 
-    /** A response from an HTTP/2 server goes to an HTTP/1 client with this hop's version, 1.1. */
-    private static void hop(HttpResponse response) {
+    /**
+     * A response from an HTTP/2 server goes to an HTTP/1 client with this hop's version, 1.1, and
+     * without trailers unless the request accepted them.
+     */
+    private void hop(HttpResponse response) {
         if (response.protocolVersion().majorVersion() >= 2) response.setProtocolVersion(HttpVersion.HTTP_1_1);
+        writer.trailers(trailersAccepted);
+        if (!trailersAccepted) response.headers().remove(HttpHeaderNames.TRAILER);
+    }
+
+    /** Whether {@code TE} lists {@code trailers}. */
+    private static boolean acceptsTrailers(HttpHeaders headers) {
+        for (String te : headers.getAllElements(HttpHeaderNames.TE)) {
+            int semi = te.indexOf(';');
+            if ((semi < 0 ? te : te.substring(0, semi)).strip().equalsIgnoreCase("trailers")) return true;
+        }
+        return false;
     }
 
     @Override
