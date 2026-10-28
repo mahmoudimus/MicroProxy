@@ -162,4 +162,23 @@ class BrowserFingerprintUpstreamTest {
         assertEquals(List.of("http/1.1"), hello.alpnProtocols());
         assertEquals("t13d1517h1_8daaf6152771_cb7bf5808d99", TlsFingerprints.ja4(hello));
     }
+    @Test
+    void aResumedConnectionsHelloHasChromesJa3Too() throws Exception {
+        startOrigin();
+        proxy = MicroProxy.bootstrap().withAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa,
+                        FingerprintSslContext.builder(BrowserProfiles.chrome156()).trustManager(trusting(originCa)).build()))
+                .start();
+        // the origin closes each connection, so the second request makes a new one, resuming the first's session
+        for (int i = 0; i < 2; i++) {
+            HttpResponse<String> response = TestSupport.client(proxy, proxyCa.clientContext()).send(
+                    HttpRequest.newBuilder(URI.create("https://localhost:" + origin.getLocalPort() + "/hello"))
+                            .timeout(Duration.ofSeconds(20)).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals("ok", response.body());
+        }
+        assertEquals(2, hellos.size());
+        assertEquals(Chrome156FingerprintTest.CHROME_156_JA3, Chrome156FingerprintTest.unshuffledJa3(hellos.get(0)));
+        assertEquals(Chrome156FingerprintTest.CHROME_156_RESUMED_JA3, Chrome156FingerprintTest.unshuffledJa3(hellos.get(1)));
+    }
 }
