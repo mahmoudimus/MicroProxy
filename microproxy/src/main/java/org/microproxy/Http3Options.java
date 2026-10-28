@@ -975,8 +975,12 @@ public final class Http3Options {
          *
          * @param profile the browser, or null for none
          * @return this builder
+         * @throws IllegalArgumentException if the browser has no QUIC profile
          */
         public Builder upstreamProfile(org.microproxy.tls.BrowserProfile profile) {
+            if (profile != null && (profile.quicProfile() == null || profile.http3Profile() == null)) {
+                throw new IllegalArgumentException(profile.name() + " has no QUIC and HTTP/3 profile");
+            }
             upstreamProfile = profile;
             return this;
         }

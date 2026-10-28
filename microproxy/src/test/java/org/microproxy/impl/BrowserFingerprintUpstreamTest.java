@@ -181,4 +181,25 @@ class BrowserFingerprintUpstreamTest {
         assertEquals(Chrome156FingerprintTest.CHROME_156_JA3, Chrome156FingerprintTest.unshuffledJa3(hellos.get(0)));
         assertEquals(Chrome156FingerprintTest.CHROME_156_RESUMED_JA3, Chrome156FingerprintTest.unshuffledJa3(hellos.get(1)));
     }
+
+    @Test
+    void firefoxsHelloOnANewAndOnAResumedConnection() throws Exception {
+        startOrigin();
+        proxy = MicroProxy.bootstrap().withAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa,
+                        FingerprintSslContext.builder(BrowserProfiles.firefox159()).trustManager(trusting(originCa)).build()))
+                .start();
+        for (int i = 0; i < 2; i++) {
+            HttpResponse<String> response = TestSupport.client(proxy, proxyCa.clientContext()).send(
+                    HttpRequest.newBuilder(URI.create("https://localhost:" + origin.getLocalPort() + "/hello"))
+                            .timeout(Duration.ofSeconds(20)).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals("ok", response.body());
+        }
+        assertEquals(2, hellos.size());
+        assertEquals(Firefox159FingerprintTest.FIREFOX_159_JA4, TlsFingerprints.ja4(hellos.get(0)));
+        assertEquals(Firefox159FingerprintTest.FIREFOX_159_JA3, TlsFingerprints.ja3(hellos.get(0)));
+        assertEquals(Firefox159FingerprintTest.FIREFOX_159_RESUMED_JA4, TlsFingerprints.ja4(hellos.get(1)));
+        assertEquals(Firefox159FingerprintTest.FIREFOX_159_RESUMED_JA3, TlsFingerprints.ja3(hellos.get(1)));
+    }
 }

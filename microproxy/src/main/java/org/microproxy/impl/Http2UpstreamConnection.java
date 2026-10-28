@@ -265,6 +265,7 @@ final class Http2UpstreamConnection extends Http2Endpoint {
                         Http2Settings.DEFAULT_INITIAL_WINDOW_SIZE),
                 server.stats.http2Upstream, effective(server.http2Options, profileOf(carrier, server.http2Options)));
         this.profile = profileOf(carrier, server.http2Options);
+        if (profile != null) nextStreamId = profile.firstStreamId();
         this.origins = origins;
         this.carrier = carrier;
         this.key = key;
@@ -894,9 +895,9 @@ final class Http2UpstreamConnection extends Http2Endpoint {
             } finally {
                 stateLock.unlock();
             }
-            List<HeaderField> wire = profile != null ? profile.order(fields) : fields;
+            List<HeaderField> wire = profile != null ? withProfile(fields) : fields;
             if (frames == null) {
-                Frame.PrioritySpec priority = profile != null ? profile.headersPriority() : null;
+                Frame.PrioritySpec priority = profile != null ? profile.priority(wire) : null;
                 write(s, () -> writer.writeHeaders(s.id, encoder.encode(wire), endStream, priority), true);
             } else {
                 // Under writeLock, so that ids reach the server in order whatever the interceptor does.
@@ -906,6 +907,16 @@ final class Http2UpstreamConnection extends Http2Endpoint {
         } finally {
             writeLock.unlock();
         }
+    }
+
+    /** A request's fields as the profile's browser sends them: its pseudo-header order, and {@code te: trailers} if it always sends one. */
+    private List<HeaderField> withProfile(List<HeaderField> fields) {
+        List<HeaderField> wire = profile.order(fields);
+        if (profile.teTrailers() && wire.stream().noneMatch(f -> f.name().equals("te"))) {
+            wire = new ArrayList<>(wire);
+            wire.add(new HeaderField("te", "trailers"));
+        }
+        return wire;
     }
 
     /** Writes request data for {@code s}; with {@code endStream} the request is complete. */
