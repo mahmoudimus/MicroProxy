@@ -56,6 +56,31 @@ public final class ClientHelloProfile {
     }
 
     /**
+     * The groups the profile's {@code key_share} carries real shares for, in order: the keys a
+     * client makes before {@link #encode}.
+     *
+     * @return the group codes, without GREASE; empty if the profile sends no key shares
+     */
+    public int[] keyShareGroups() {
+        for (ExtensionSpec e : extensions) {
+            if (e.keyShareGroups() != null) {
+                return java.util.Arrays.stream(e.keyShareGroups()).filter(g -> g != ProfileExtensions.GREASE).toArray();
+            }
+        }
+        return new int[0];
+    }
+
+    /** The TLS 1.3 cipher suites the profile offers, in order. */
+    List<io.github.mahmoudimus.quic.CipherSuite> tls13CipherSuites() {
+        List<io.github.mahmoudimus.quic.CipherSuite> out = new ArrayList<>();
+        for (int code : cipherSuites) {
+            io.github.mahmoudimus.quic.CipherSuite suite = io.github.mahmoudimus.quic.CipherSuite.forCode(code);
+            if (suite != null) out.add(suite);
+        }
+        return out;
+    }
+
+    /**
      * The ClientHello handshake message for one connection: type, 24-bit length and body.
      *
      * @param context the connection's inputs

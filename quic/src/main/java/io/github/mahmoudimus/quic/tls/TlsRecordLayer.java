@@ -64,6 +64,7 @@ final class TlsRecordLayer {
     private Protection read;
     private Protection write;
     private int plaintextVersion = 0x0301;
+    private int maxFragment = MAX_FRAGMENT;
 
     TlsRecordLayer(InputStream in, OutputStream out) {
         this.in = in;
@@ -88,11 +89,16 @@ final class TlsRecordLayer {
         plaintextVersion = version;
     }
 
+    /** Writes records of at most {@code n} bytes of content from now on (RFC 8449). */
+    void maxFragment(int n) {
+        maxFragment = n;
+    }
+
     /** Writes {@code data} as records of {@code type}, without flushing. */
     void write(int type, byte[] data) throws IOException {
         int off = 0;
         do {
-            int n = Math.min(MAX_FRAGMENT, data.length - off);
+            int n = Math.min(maxFragment, data.length - off);
             writeRecord(type, data, off, n);
             off += n;
         } while (off < data.length);

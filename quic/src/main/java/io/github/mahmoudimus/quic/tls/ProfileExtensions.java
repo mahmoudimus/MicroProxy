@@ -22,6 +22,9 @@ public final class ProfileExtensions {
     /** {@code encrypted_client_hello} (RFC 9849). */
     public static final int ENCRYPTED_CLIENT_HELLO = 0xfe0d;
 
+    /** {@code record_size_limit} (RFC 8449). */
+    public static final int RECORD_SIZE_LIMIT = 28;
+
     /** {@code compress_certificate} (RFC 8879). */
     public static final int COMPRESS_CERTIFICATE = 27;
 
@@ -120,7 +123,7 @@ public final class ProfileExtensions {
             }
             w.close(list);
             return w.toByteArray();
-        });
+        }, groups.clone());
     }
 
     /** {@code psk_key_exchange_modes} offering only {@code psk_dhe_ke}. */
