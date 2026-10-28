@@ -3,6 +3,10 @@
 The governing claims and gaps are in [Security assurance](../docs/formal-security.md).
 These artifacts prove properties of explicit models, not whole-stack Java security.
 
+The separate, opt-in [SAW experiment](saw/README.md) verifies one bounded arithmetic
+method from actual Java 21 bytecode. It has its own pinned inputs, negative controls
+and trust boundary; it is not part of the Lean/TLC replay described below.
+
 From the repository root, with JDK 21+, Maven, Python 3.11+ and zstd:
 
 ```bash

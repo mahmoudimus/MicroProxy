@@ -7,9 +7,8 @@ audit, certification, or constant-time HotSpot guarantee is claimed. Agent revie
 development reviews, not an external expert audit. A green test or updated dependency does not
 establish absence of vulnerabilities.
 
-Like [Kwik's security status](https://github.com/ptrd/kwik#is-kwik-secure), we distinguish
-interoperability from security assurance. Our primitive boundary differs: ML-KEM and SHAKE
-include handwritten implementations.
+Interoperability and security assurance are separate. Our primitive boundary includes
+handwritten ML-KEM and SHAKE implementations.
 
 ## Trusted primitives and our code
 
@@ -25,7 +24,7 @@ Provider choice, runtime, native intrinsics, CPU and deployment configuration re
 | `KeySchedule`, `Tls12Prf`, `Hpke`, `crypto/Keys` | Role/stage order, transcripts, labels, contexts and updates | TLS/HPKE/QUIC vectors and integration tests; no general protocol/key-schedule security proof. |
 | `crypto/HeaderKey` | Mask/sample offsets, header bits and format | JDK AES/ChaCha plus packet vectors; no complete bit/buffer refinement. |
 | `KeyExchange`, `EcCurves`, `Signatures` | Encodings, hybrid order, public point/zero checks, signature contexts/parameters | JDK classical primitives plus vectors/interop/negative tests. Wire/policy glue remains ours. |
-| `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten primitive; accumulated deterministic comparison vectors against Go and malformed-input tests. No full FIPS 203 refinement or JVM timing proof. Only SHA3 digests/randomness are delegated here. |
+| `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten primitive; vectors against Go, malformed-input tests, and the single-method bytecode proof below. No full FIPS 203 refinement or JVM timing proof. Only SHA3 digests/randomness are delegated here. |
 | `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten primitive; Python hashlib values, rate boundaries and segmented-I/O tests. No FIPS 202 refinement or timing proof. |
 | Tickets/tokens/reset tokens | Nonces, rotation, framing/AAD, lifetime/address/reuse policy and comparisons | JDK AEAD/HMAC/equality plus negative tests. Random nonce collision bounds and rotation/clock/concurrency proofs remain separate. |
 | Authentication/resumption | Certificates, hostname, policy, signatures/Finished and cached evidence | Regression/interop/fail-closed tests. The traffic-key model does not verify all acceptance paths. |
@@ -90,6 +89,44 @@ checks. Normal Maven/interop tests still run separately. Formal tools are develo
 
 ## Timing and stronger implementation proofs
 
+### Direct Java bytecode proof
+
+The opt-in [SAW experiment](https://github.com/mahmoudimus/MicroProxy/tree/diff/quic-interop-submission/formal/saw) verifies the actual Java 21
+`MlKem768.reduceOnce(int)` class-file method against mathematical remainder:
+for every integer `0 <= a < 6658`, its result is `a mod 3329`. The proof has no
+method overrides or admitted dependencies. It establishes one scalar method's
+functional result under its precondition; callers' range obligations, the other
+ML-KEM operations and timing remain unproved. It does not recompile a copied
+method or substitute an older class-file version.
+
+The runner pins production source and class hashes, snapshots existing classes,
+and records SAW summaries. A wrong-modulus specification must produce a proof
+counterexample, and a deliberately contradictory precondition must be detected
+as vacuous. An actual `PacketKey.nonce(long)` proof attempt is recorded as blocked
+by SAW's unsupported primitive-array `clone` translation, never as verified.
+SAW/Crucible semantics and translation, Cryptol, the solver, selected JDK classes
+and the Java build remain trusted. This experiment is separate from the Lean/TLC
+CI job and currently requires the documented local tool setup.
+
+### Existing verified implementations
+
+Verified source that generates Java is another practical route.
+[AWS's Dafny HKDF implementation](https://github.com/aws/aws-cryptographic-material-providers-library/blob/c787ad12612ac0f35975afe9209e5dbe6b546654/AwsCryptographyPrimitives/src/HKDF/HKDF.dfy)
+specifies the Expand recurrence and truncation relative to an external HMAC
+contract. Its Extract and top-level HKDF postconditions are weaker. Java generation,
+the JCE HMAC implementation and runtime remain trust boundaries; these contracts
+do not establish constant-time JIT execution. The primitives package also warns
+against standalone consumption. This is evidence that verified Java generation
+is feasible, not an adopted replacement for our code.
+
+The reviewed candidates do not establish a ready, fully verified pure-Java
+ML-KEM-768 plus SHAKE replacement. Porting a verified native implementation would
+require a new checked link before its proof could apply to Java. The useful next
+steps are additional actual-bytecode arithmetic/codecs proofs and an HKDF
+composition proof with explicit JDK HMAC contracts.
+
+### Timing boundary
+
 Functional correctness, cryptographic security and timing independence are separate. Lean can
 formalize AES and prove implementation conformance under suitable semantics; that does not
 prove AES immune to cryptanalysis. HKDF security reductions need HMAC/entropy/adversary assumptions.
@@ -103,10 +140,9 @@ Established projects name the layer they verify. [HACL*/EverCrypt](https://githu
 verifies functional behavior and secret independence in F*/Low*, with Vale for selected assembly.
 [s2n's HMAC verification](https://aws.amazon.com/blogs/security/automated-reasoning-and-amazon-s2n/)
 is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/saw-script/master/saw-user-manual/verifying-code.html)
-is a possible route to bytecode obligations with explicit library contracts; this project has
-not yet used it to verify Java implementations.
+supplies the bytecode interface used by the scoped experiment above.
 
-The next substantial assurance work is a justified Java/bytecode bridge, then ML-KEM
+The next substantial assurance work is extending the Java/bytecode bridge to ML-KEM
 finite-width arithmetic/NTT/codecs and SHAKE/FIPS 202 refinement, with a defined secret-trace
 timing model. Those remain gaps. Claiming all our handwritten crypto formally verified, or the
 proxy proved secure, would be false.

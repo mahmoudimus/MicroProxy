@@ -1,0 +1,19 @@
+import "Field.cry";
+enable_experimental;
+
+// An explicit witness for the precondition domain; --detect-vacuity also
+// checks the actual JVM specification assumptions before verification.
+sat_print abc {{ \(a : [32]) -> a < 2 * q }};
+
+mlkem <- java_load_class "io/github/mahmoudimus/quic/tls/MlKem768";
+
+let reduceOnceSpec expected = do {
+  a <- jvm_fresh_var "a" java_int;
+  jvm_precond {{ a < 2 * q }};
+  jvm_execute_func [jvm_term a];
+  jvm_return (jvm_term {{ expected a }});
+};
+
+reduceOnceProof <- jvm_verify mlkem "reduceOnce" [] true
+  (reduceOnceSpec {{ reduceOnce }}) abc;
+summarize_verification;

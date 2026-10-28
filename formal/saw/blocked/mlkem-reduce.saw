@@ -1,0 +1,13 @@
+import "Reduction.cry";
+enable_experimental;
+
+mlkem <- java_load_class "io/github/mahmoudimus/quic/tls/MlKem768";
+
+reduceProof <- jvm_verify mlkem "reduce" [] true do {
+  // Three unconstrained bytes span exactly 0 <= a < 2^24. Widening is
+  // explicit to reduce the SAT circuit, without adding an assumption.
+  aBytes <- jvm_fresh_var "aBytes" (java_array 3 java_byte);
+  jvm_execute_func [jvm_term {{ (zero : [40]) # join aBytes }}];
+  jvm_return (jvm_term {{ reduce24 (join aBytes) }});
+} abc;
+summarize_verification;

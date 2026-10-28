@@ -22,7 +22,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Test the proof runner's trust gates
-        run: python -m unittest discover -s scripts/security -p 'test_formal_tools.py' -v
+        run: |
+          python -m unittest discover -s scripts/security -p 'test_formal_tools.py' -v
+          python -m unittest discover -s formal/saw -p 'test_*.py' -v
       - name: Install checksum-pinned Lean and TLC outside the checkout
         run: |
           command -v zstd || (sudo apt-get update && sudo apt-get install --yes zstd)

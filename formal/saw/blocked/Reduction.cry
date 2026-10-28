@@ -1,0 +1,4 @@
+module Reduction where
+
+reduce24 : [24] -> [32]
+reduce24 a = zero # (a % (3329 : [24]))
