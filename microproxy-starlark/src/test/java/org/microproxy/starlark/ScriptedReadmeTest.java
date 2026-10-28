@@ -77,7 +77,7 @@ public class ScriptedReadmeTest {
                 if value.startswith("Bearer "):
                     presented = digest.sha256(value[len("Bearer "):].strip())
                     for user, expected in USERS:
-                        if digest.equal(presented, expected):
+                        if digest.equal(expected, presented):
                             return user
                 return response(407, "a valid token is required\\n",
                                 headers={"Proxy-Authenticate": 'Bearer realm="proxy"'})

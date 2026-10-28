@@ -16,6 +16,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.time.InstantSource;
 import java.util.ArrayList;
@@ -132,13 +133,13 @@ class Tls12ClientTest {
         for (Tls12CipherSuite s : BrowserProfiles.chrome156().tls12CipherSuites()) {
             boolean ecdsa = s.keyExchange == Tls12CipherSuite.KeyExchange.ECDHE_ECDSA;
             if (ecdsa != (key == KeyType.P256)) continue;
-            if (enabled.contains(s.name())) out.add(s.name());
+            if (!s.bulk.cbc() && enabled.contains(s.name())) out.add(s.name());
         }
         return out;
     }
 
     @Test
-    void everyProfileSuiteTheJdkOffersWorks() throws Exception {
+    void everyAllowedAeadProfileSuiteTheJdkOffersWorks() throws Exception {
         List<String> tried = new ArrayList<>();
         for (KeyType key : List.of(KeyType.P256, KeyType.RSA)) {
             for (String suite : jdkSuites(key)) {
@@ -156,11 +157,64 @@ class Tls12ClientTest {
             }
         }
         server = null;
-        // ECDHE with both key types, GCM, ChaCha20 and CBC at least
+        // ECDHE with both key types, GCM and ChaCha20. CBC is rejected separately.
         assertTrue(tried.contains("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"), tried.toString());
         assertTrue(tried.contains("TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"), tried.toString());
-        assertTrue(tried.contains("TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"), tried.toString());
         assertTrue(tried.contains("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"), tried.toString());
+    }
+
+    @Test
+    void callerKeyConstraintsInspectActualTls12TrafficKeys() throws Exception {
+        serve(TestCerts.CA.issue(KeyType.P256, HOST), p -> {});
+        TlsClientConnection c = connect(config(null, new Tls12SessionCache()));
+        c.acceptance(null, FingerprintSslContextTest.realTrafficKeyRestriction());
+        assertThrows(IOException.class, c::handshake);
+    }
+
+    @Test
+    void cbcIsRejectedEvenWhenItIsPresentInTheBrowserHello() throws Exception {
+        String suite = "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA";
+        serve(TestCerts.CA.issue(KeyType.RSA, HOST), p -> p.setCipherSuites(new String[] {suite}));
+        TlsClientConnection c = connect(config(null, new Tls12SessionCache()));
+        TlsClientConnection.TlsAlertException failure = assertThrows(TlsClientConnection.TlsAlertException.class, c::handshake);
+        assertEquals(TlsAlert.HANDSHAKE_FAILURE, failure.alert());
+    }
+
+    @Test
+    void mutualTls12AuthenticationCannotResumePastANewLocalKeyRestriction() throws Exception {
+        serve(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNeedClientAuth(true));
+        CertifiedKey client = TestCerts.CA.issue(KeyType.RSA, "client.test");
+        X509KeyManager km = (X509KeyManager) keyManagers(client)[0];
+        Tls12SessionCache sessions = new Tls12SessionCache();
+        TlsClientConnection first = connect(config(km, sessions));
+        first.handshake();
+        assertFalse(first.localCertificates().isEmpty());
+        assertEquals("echo: one\n", roundTrip(first, "one"));
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous + ", RSA keySize < 4096");
+            assertThrows(TlsClientConnection.TlsAlertException.class, connect(config(km, sessions))::handshake);
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+            first.closeWrite();
+        }
+    }
+
+    @Test
+    void tls12ResumptionCannotBypassACurrentPeerKeyRestriction() throws Exception {
+        serve(TestCerts.CA.issue(KeyType.P256, HOST), p -> {});
+        Tls12SessionCache sessions = new Tls12SessionCache();
+        TlsClientConnection first = connect(config(null, sessions));
+        first.handshake();
+        assertEquals("echo: one\n", roundTrip(first, "one"));
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous + ", EC keySize < 384");
+            assertThrows(TlsClientConnection.TlsAlertException.class, connect(config(null, sessions))::handshake);
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+            first.closeWrite();
+        }
     }
 
     @Test

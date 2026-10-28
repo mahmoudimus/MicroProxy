@@ -2,6 +2,7 @@ package io.github.mahmoudimus.quic.tls;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import io.github.mahmoudimus.quic.tls.TestCerts.KeyType;
@@ -16,6 +17,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.security.AlgorithmConstraints;
+import java.security.AlgorithmParameters;
+import java.security.CryptoPrimitive;
+import java.security.Key;
+import java.security.Security;
+import java.util.Set;
 import java.time.InstantSource;
 import java.util.Base64;
 import java.util.List;
@@ -141,8 +148,48 @@ class OpenSslInteropTest {
     }
 
     @Test
-    void firefoxsHelloTakesATls12ServerKeyExchangeSignedWithSha1() throws Exception {
-        // Firefox offers ecdsa_sha1 and rsa_pkcs1_sha1, so a TLS 1.2 server may sign with them
+    void staticRsaEncryptionHonorsTheActualPublicKeyConstraint() throws Exception {
+        String openssl = openssl();
+        assumeTrue(openssl != null, "no OpenSSL 1.1.1+ to run s_server");
+        CertifiedKey key = TestCerts.CA.issue(KeyType.RSA, HOST);
+        Path cert = dir.resolve("rsa-cert.pem");
+        Path pkey = dir.resolve("rsa-key.pem");
+        Files.writeString(cert, pem("CERTIFICATE", key.chain().get(0).getEncoded()));
+        Files.writeString(pkey, pem("PRIVATE KEY", key.privateKey().getEncoded()));
+        int port = freePort();
+        server = new ProcessBuilder(openssl, "s_server", "-accept", "127.0.0.1:" + port, "-tls1_2",
+                "-cert", cert.toString(), "-key", pkey.toString(), "-cipher", "AES128-GCM-SHA256:@SECLEVEL=0")
+                .redirectErrorStream(true).start();
+        awaitOutput(server.getInputStream(), new ByteArrayOutputStream(), "ACCEPT");
+        AlgorithmConstraints constraints = new AlgorithmConstraints() {
+            public boolean permits(Set<CryptoPrimitive> primitives, String algorithm, AlgorithmParameters parameters) { return true; }
+            public boolean permits(Set<CryptoPrimitive> primitives, Key publicKey) {
+                return !primitives.contains(CryptoPrimitive.PUBLIC_KEY_ENCRYPTION);
+            }
+            public boolean permits(Set<CryptoPrimitive> primitives, String algorithm, Key publicKey, AlgorithmParameters parameters) {
+                return permits(primitives, publicKey);
+            }
+        };
+        TlsClientConnection.Config config = new TlsClientConnection.Config(BrowserProfiles.chrome156(),
+                TestCerts.CA.trustManager(), null, ClientSessionStore.NONE, Map.of(), CertificateDecompressor.ZLIB,
+                new SecureRandom(), InstantSource.system(), 64 * 1024);
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try (Socket plain = new Socket(InetAddress.getLoopbackAddress(), port)) {
+            Security.setProperty("jdk.tls.disabledAlgorithms", "");
+            plain.setSoTimeout(10_000);
+            TlsClientConnection c = new TlsClientConnection(config, plain.getInputStream(), plain.getOutputStream(),
+                    HOST, HOST, List.of("http/1.1"), null);
+            c.acceptance(null, constraints);
+            TlsClientConnection.TlsAlertException failure = assertThrows(TlsClientConnection.TlsAlertException.class, c::handshake);
+            assertEquals(TlsAlert.HANDSHAKE_FAILURE, failure.alert());
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+        }
+    }
+
+    @Test
+    void firefoxsHelloRetainsSha1ButCurrentJdkPolicyRejectsItsSelection() throws Exception {
+        // Retain the browser offer while rejecting a signature prohibited by current JDK policy.
         String openssl = openssl();
         assumeTrue(openssl != null, "no OpenSSL 1.1.1+ to run s_server");
         CertifiedKey key = TestCerts.CA.issue(KeyType.P256, HOST);
@@ -166,12 +213,9 @@ class OpenSslInteropTest {
             plain.setSoTimeout(10_000);
             TlsClientConnection c = new TlsClientConnection(config, plain.getInputStream(), plain.getOutputStream(),
                     HOST, HOST, List.of("http/1.1"), null);
-            c.handshake();
-            assertEquals("TLSv1.2", c.protocol());
-            assertEquals(SignatureScheme.ECDSA_SHA1, c.peerSignatureScheme());
-            byte[] ping = "ping over sha1\n".getBytes(StandardCharsets.US_ASCII);
-            c.write(ping, 0, ping.length);
-            awaitOutput(serverOut, seen, "ping over sha1");
+            TlsClientConnection.TlsAlertException failure = assertThrows(TlsClientConnection.TlsAlertException.class, c::handshake);
+            assertEquals(TlsAlert.HANDSHAKE_FAILURE, failure.alert());
+            assertTrue(failure.getMessage().contains("disabledAlgorithms"));
         }
     }
 }

@@ -28,16 +28,30 @@ curl --proxy http://127.0.0.1:8080 https://example.com/ --cacert microproxy-ca.p
 With proxy authentication, SOCKS5 clients give a username and password:
 
 ```java
+import static java.nio.charset.StandardCharsets.UTF_8;
+import java.security.MessageDigest;
+
+byte[] expectedUser = "alice".getBytes(UTF_8);
+byte[] expectedPassword = System.getenv("PROXY_PASSWORD").getBytes(UTF_8);
 MicroProxy.bootstrap()
         .withPort(1080)
         .withSocksServer(true)
-        .withProxyAuthenticator((user, password) -> "alice".equals(user) && "secret".equals(password))
+        .withProxyAuthenticator((user, password) -> {
+            boolean userMatches = MessageDigest.isEqual(expectedUser,
+                    user == null ? new byte[0] : user.getBytes(UTF_8));
+            boolean passwordMatches = MessageDigest.isEqual(expectedPassword,
+                    password == null ? new byte[0] : password.getBytes(UTF_8));
+            return userMatches & passwordMatches;
+        })
         .start();
 ```
 
 ```bash
-curl --proxy socks5h://alice:secret@127.0.0.1:1080 http://example.com/
+curl --proxy socks5h://127.0.0.1:1080 --proxy-user "alice:${PROXY_PASSWORD}" http://example.com/
 ```
+
+Set `PROXY_PASSWORD` before starting this example. For stored passwords, use a password-hash
+verifier with a timing-safe verification API; see [Proxy authentication](authentication.md).
 
 | Flag | Property | Bootstrap | |
 |---|---|---|---|

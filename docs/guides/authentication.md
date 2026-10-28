@@ -47,6 +47,16 @@ MicroProxy.bootstrap()
         .start();
 ```
 
+Your authenticator owns credential verification. Use the password-hash or identity provider's
+timing-safe verification API for stored passwords. For a configured secret or bearer token,
+compare its expected bytes first with `MessageDigest.isEqual(expectedBytes, presentedBytes)`;
+cache the expected UTF-8 bytes rather than calling `String.equals` on a secret. This comparison
+does not hide input lengths, parsing, allocation, provider behavior, or account lookups. Where
+username enumeration matters, evaluate the password check even when the username does not match
+and return a uniform failure; avoid `userMatches && passwordMatches` around a password verifier.
+Starlark authenticators can use `digest.equal(expected, presented)` or `hmac.compare_digest`.
+See the [comparison and timing audit](../security-timing-audit.md) for the scope and local checks.
+
 - **Once per connection:** by default the first accepted request authenticates its client
   connection, and later requests on it are not checked. `authenticateEveryRequest()` checks every
   request instead. When the accepted user changes on a connection, the server connections made

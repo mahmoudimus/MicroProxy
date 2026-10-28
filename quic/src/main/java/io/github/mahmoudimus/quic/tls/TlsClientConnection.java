@@ -150,6 +150,17 @@ final class TlsClientConnection {
     private static final byte[] DOWNGRADE_TLS11 = {0x44, 0x4f, 0x57, 0x4e, 0x47, 0x52, 0x44, 0x00};
 
     private final Config config;
+    private String[] enabledCipherSuites;
+    private java.security.AlgorithmConstraints algorithmConstraints;
+    private TlsAcceptancePolicy policy;
+    private byte[] peerShare;
+    private java.security.PublicKey peerSignatureKey;
+
+    void acceptance(String[] suites, java.security.AlgorithmConstraints constraints) {
+        enabledCipherSuites = suites != null ? suites.clone() : null;
+        algorithmConstraints = constraints;
+    }
+
     private final String serverName;
     private final String verifyHost;
     private final List<String> alpn;
@@ -253,6 +264,9 @@ final class TlsClientConnection {
     }
 
     private void runHandshake() throws IOException, QuicException {
+        policy = new TlsAcceptancePolicy(enabledCipherSuites, algorithmConstraints,
+                config.trustManager().getAcceptedIssuers());
+        records.acceptance(policy);
         sendClientHello();
         Message first = expectServerHello();
         if (Extension.find(((ServerHello) first.message()).extensions(), ExtensionType.SUPPORTED_VERSIONS) == null) {
@@ -330,7 +344,7 @@ final class TlsClientConnection {
         if (ticket == null && sessionKey != null && allowTls12 && hello.sessionId().length > 0) {
             Tls12ClientHandshake.Session s = config.tls12Sessions().take(sessionKey);
             if (s != null && s.usable(config.clock().instant(), serverName)
-                    && Extension.find(hello.extensions(), 35) != null) {
+                    && Extension.find(hello.extensions(), 35) != null && usableTls12(s)) {
                 // RFC 5077 section 3.1: the ticket in session_ticket, with a session id to recognize resumption by
                 List<Extension> extensions = new ArrayList<>(hello.extensions());
                 replace(extensions, 35, s.ticket());
@@ -404,8 +418,30 @@ final class TlsClientConnection {
     private SessionTicket usable(SessionTicket t) {
         if (t == null || t.isExpired(config.clock().instant())) return null;
         if (!config.profile().tls13CipherSuites().contains(t.suite)) return null;
-        if (!Objects.equals(t.serverName, serverName)) return null;
+        if (!Objects.equals(t.serverName, serverName) || t.tcpEvidence == null) return null;
+        try {
+            policy.suite(t.suite);
+            policy.certificates(t.peerCertificates);
+            policy.evidence(t.tcpEvidence);
+            verifyServer(t.peerCertificates);
+        } catch (QuicException e) {
+            return null; // reauthenticate fully under the current policy
+        }
         return t;
+    }
+
+    private boolean usableTls12(Tls12ClientHandshake.Session session) {
+        try {
+            policy.suite(session.suite());
+            policy.certificates(session.peerCertificates());
+            policy.evidence(session.evidence());
+            CertificateChecks.verifyServerWithCauses(config.trustManager(), session.peerCertificates(),
+                    session.suite().keyExchange == Tls12CipherSuite.KeyExchange.ECDHE_ECDSA ? "ECDHE_ECDSA"
+                    : session.suite().keyExchange == Tls12CipherSuite.KeyExchange.ECDHE_RSA ? "ECDHE_RSA" : "RSA", verifyHost);
+            return true;
+        } catch (QuicException e) {
+            return false;
+        }
     }
 
     /**
@@ -512,6 +548,7 @@ final class TlsClientConnection {
                 throw TlsAlert.illegalParameter(name + " may not carry " + ExtensionType.name(e.type()));
             }
         }
+        policy.suite(s);
         suite = s;
     }
 
@@ -532,12 +569,12 @@ final class TlsClientConnection {
             // RFC 9849 section 6.1.4: an earlier version rejects ECH; authenticate the public name
             rejectEch();
             Tls12ClientHandshake h = new Tls12ClientHandshake(config, records, handshakeBuffer, hello, helloBytes, sh,
-                    m.raw(), ech.publicName(), ech.publicName(), alpn, null);
+                    m.raw(), ech.publicName(), ech.publicName(), alpn, null, policy);
             h.run();
             throw echRequired();
         }
         Tls12ClientHandshake h = new Tls12ClientHandshake(config, records, handshakeBuffer, hello, helloBytes, sh, m.raw(),
-                serverName, verifyHost, alpn, tls12Offered);
+                serverName, verifyHost, alpn, tls12Offered, policy);
         tls12 = h.run();
         negotiatedAlpn = tls12.alpn();
         peerCertificates = tls12.peerCertificates();
@@ -577,7 +614,9 @@ final class TlsClientConnection {
             if (keyShares.containsKey(code)) {
                 throw TlsAlert.illegalParameter("HelloRetryRequest asks for a group already offered");
             }
+            // Validate a retry's group before sending its share.
             KeyExchange kx = KeyExchange.generate(requested, config.random());
+            policy.group(requested, kx.publicKey());
             keyShares.clear();
             keyShares.put(code, kx);
             replace(extensions, ExtensionType.KEY_SHARE,
@@ -658,8 +697,10 @@ final class TlsClientConnection {
         KeyShare share = Extensions.decodeKeyShareServer(shareData);
         KeyExchange ours = keyShares.get(share.group());
         if (ours == null) throw TlsAlert.illegalParameter("ServerHello key share is for a group that was not offered");
+        policy.group(ours.group(), share.keyExchange());
         byte[] shared = ours.agree(share.keyExchange());
         group = ours.group();
+        peerShare = share.keyExchange().clone();
         byte[] selected = Extension.find(sh.extensions(), ExtensionType.PRE_SHARED_KEY);
         if (selected != null) {
             if (echState == Ech.REJECTED) {
@@ -675,8 +716,14 @@ final class TlsClientConnection {
             if (suite.hkdf() != ticket.suite.hkdf()) {
                 throw TlsAlert.illegalParameter("ServerHello resumes with a cipher suite of another hash");
             }
+            policy.suite(ticket.suite);
+            policy.certificates(ticket.peerCertificates);
+            policy.evidence(ticket.tcpEvidence);
+            verifyServer(ticket.peerCertificates);
             resumed = true;
             peerCertificates = ticket.peerCertificates;
+            peerSignatureScheme = ticket.tcpEvidence.signature();
+            peerSignatureKey = ticket.tcpEvidence.signatureKey();
         }
         keySchedule = resumed ? new KeySchedule(suite, ticket.psk) : new KeySchedule(suite);
         keySchedule.inputSharedSecret(shared);
@@ -796,6 +843,7 @@ final class TlsClientConnection {
     private void verifyServer(List<X509Certificate> chain) throws QuicException {
         // RFC 9849 section 6.1.7: when ECH is rejected the certificate must be the public name's
         String host = echState == Ech.REJECTED ? ech.publicName() : verifyHost;
+        policy.certificates(chain);
         CertificateChecks.verifyServerWithCauses(config.trustManager(), chain, CertificateChecks.TLS13_AUTH_TYPE, host);
     }
 
@@ -837,12 +885,17 @@ final class TlsClientConnection {
             throw TlsAlert.illegalParameter("CertificateVerify uses a signature scheme that was not offered for it");
         }
         // with a delegated credential, the server signed with the credential's key (RFC 9345 section 4)
+        if (delegatedCredential != null) {
+            policy.signature(SignatureScheme.forCode(delegatedCredential.algorithm()), leaf.getPublicKey());
+        }
         java.security.PublicKey key = delegatedCredential != null
                 ? delegatedCredential.verify(leaf, verify.scheme(), config.clock().instant())
                 : leaf.getPublicKey();
         if (!scheme.compatibleWith(key)) {
             throw TlsAlert.illegalParameter("CertificateVerify scheme " + scheme + " does not fit the certificate key");
         }
+        policy.signature(scheme, key);
+        peerSignatureKey = key;
         byte[] content = Signatures.content(true, transcript.hash());
         if (!Signatures.verify(scheme, key, content, verify.signature())) {
             throw TlsAlert.error(TlsAlert.DECRYPT_ERROR, "server CertificateVerify signature is invalid");
@@ -909,6 +962,8 @@ final class TlsClientConnection {
                 if (alias == null) continue;
                 CertifiedKey k = CertifiedKey.fromKeyManager(km, alias);
                 if (k != null && candidate.compatibleWith(k.privateKey())) {
+                    policy.certificates(k.chain());
+                    policy.signature(candidate, k.privateKey());
                     key = k;
                     scheme = candidate;
                     break;
@@ -1097,11 +1152,20 @@ final class TlsClientConnection {
         if (update.requestUpdate() == 1) {
             synchronized (writeLock) {
                 if (writeClosed) return;
-                records.write(TlsRecordLayer.HANDSHAKE, new KeyUpdate(0).encode());
-                records.flush();
-                clientApplicationSecret = nextSecret(clientApplicationSecret);
-                records.writeKeys(suite, clientApplicationSecret);
+                updateWriteKeys();
             }
+        }
+    }
+
+    /** Send the transition under the old key, then reset the write sequence with fresh key material. */
+    private void updateWriteKeys() throws IOException {
+        records.write(TlsRecordLayer.HANDSHAKE, new KeyUpdate(0).encode());
+        records.flush();
+        clientApplicationSecret = nextSecret(clientApplicationSecret);
+        try {
+            records.writeKeys(suite, clientApplicationSecret);
+        } catch (QuicException e) {
+            throw fail(e);
         }
     }
 
@@ -1119,7 +1183,9 @@ final class TlsClientConnection {
         if (nst.lifetime() == 0 || sessionKey == null) return;
         byte[] psk = KeySchedule.resumptionPsk(suite, resumptionMaster, nst.nonce());
         config.sessions().put(sessionKey, new SessionTicket(serverName, suite, nst.ticket(), psk, nst.ageAdd(),
-                nst.lifetime(), config.clock().instant(), maxEarlyData, negotiatedAlpn, null, peerCertificates));
+                nst.lifetime(), config.clock().instant(), maxEarlyData, negotiatedAlpn, null, peerCertificates,
+                delegatedCredential == null && localCertificates.isEmpty()
+                        ? new TlsAcceptancePolicy.Evidence(group, peerShare, peerSignatureScheme, peerSignatureKey) : null));
     }
 
     /** Writes application data, in records of at most 2^14 bytes, and flushes. */
@@ -1127,7 +1193,9 @@ final class TlsClientConnection {
         if (!handshakeDone) throw new IllegalStateException("handshake not done");
         synchronized (writeLock) {
             if (writeClosed) throw new IOException("the TLS connection is closed for writing");
-            if (len > 0) records.write(TlsRecordLayer.APPLICATION_DATA, Arrays.copyOfRange(data, off, off + len));
+            if (len > 0) {
+                records.write(TlsRecordLayer.APPLICATION_DATA, Arrays.copyOfRange(data, off, off + len), this::updateWriteKeys);
+            }
             records.flush();
         }
     }

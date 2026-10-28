@@ -39,7 +39,8 @@ final class Tls12ClientHandshake {
 
     /** A TLS 1.2 session a client can resume with its ticket. */
     record Session(Tls12CipherSuite suite, byte[] masterSecret, byte[] ticket, boolean extendedMasterSecret,
-            String serverName, String alpn, List<X509Certificate> peerCertificates, Instant received, long lifetimeSeconds) {
+            String serverName, String alpn, List<X509Certificate> peerCertificates, Instant received, long lifetimeSeconds,
+            TlsAcceptancePolicy.Evidence evidence) {
 
         boolean usable(Instant now, String sni) {
             return now.isBefore(received.plusSeconds(lifetimeSeconds)) && !now.isBefore(received)
@@ -69,6 +70,9 @@ final class Tls12ClientHandshake {
     private static final int SECP521R1 = 25;
 
     private final TlsClientConnection.Config config;
+    private final TlsAcceptancePolicy policy;
+    private NamedGroup peerGroup;
+    private byte[] peerShare;
     private final TlsRecordLayer records;
     private final ByteArrayOutputStream handshakeBuffer;
     private final ClientHello hello;
@@ -97,8 +101,9 @@ final class Tls12ClientHandshake {
      */
     Tls12ClientHandshake(TlsClientConnection.Config config, TlsRecordLayer records, ByteArrayOutputStream handshakeBuffer,
             ClientHello hello, byte[] helloRaw, ServerHello serverHello, byte[] serverHelloRaw, String serverName,
-            String verifyHost, List<String> alpn, Session offered) throws QuicException {
+            String verifyHost, List<String> alpn, Session offered, TlsAcceptancePolicy policy) throws QuicException {
         this.config = config;
+        this.policy = policy;
         this.records = records;
         this.handshakeBuffer = handshakeBuffer;
         this.hello = hello;
@@ -137,6 +142,7 @@ final class Tls12ClientHandshake {
         }
         byte[] ems = Extension.find(serverHello.extensions(), 23);
         if (ems != null) Extensions.expectEmpty(ems, 23);
+        policy.suite(s);
         return s;
     }
 
@@ -161,6 +167,13 @@ final class Tls12ClientHandshake {
             if (ems != offered.extendedMasterSecret()) {
                 throw TlsAlert.error(TlsAlert.HANDSHAKE_FAILURE, "resumption changes the extended master secret");
             }
+            policy.suite(offered.suite());
+            policy.certificates(offered.peerCertificates());
+            policy.evidence(offered.evidence());
+            CertificateChecks.verifyServerWithCauses(config.trustManager(), offered.peerCertificates(), authType(), verifyHost);
+            peerSignatureScheme = offered.evidence().signature();
+            peerGroup = offered.evidence().group();
+            peerShare = offered.evidence().share();
             masterSecret = offered.masterSecret();
             peerCertificates = offered.peerCertificates();
             keys = Tls12Prf.keys(suite, masterSecret, hello.random(), serverHello.random());
@@ -175,7 +188,10 @@ final class Tls12ClientHandshake {
             long lifetime = newTicket != null ? (newTicketLifetime == 0 ? 7200 : Math.min(newTicketLifetime, 604800))
                     : offered.lifetimeSeconds();
             session = new Session(suite, masterSecret, ticket, Extension.find(serverExtensions, 23) != null, serverName,
-                    protocol, peerCertificates, config.clock().instant(), lifetime);
+                    protocol, peerCertificates, config.clock().instant(), lifetime,
+                    localCertificates.isEmpty()
+                            ? new TlsAcceptancePolicy.Evidence(peerGroup, peerShare, peerSignatureScheme,
+                                    peerCertificates.get(0).getPublicKey()) : null);
         }
         return new Result(suite, protocol, peerCertificates, localCertificates, peerSignatureScheme, resumed, session);
     }
@@ -185,6 +201,7 @@ final class Tls12ClientHandshake {
         if (m.type() != HandshakeType.CERTIFICATE) throw unexpected(m, "Certificate");
         transcript.writeBytes(m.raw());
         peerCertificates = parseCertificates(m.body());
+        policy.certificates(peerCertificates);
         CertificateChecks.verifyServerWithCauses(config.trustManager(), peerCertificates, authType(), verifyHost);
         PublicKey serverKey = peerCertificates.get(0).getPublicKey();
         checkKeyFitsSuite(serverKey);
@@ -228,6 +245,7 @@ final class Tls12ClientHandshake {
             w.vector8(ecdhe.publicKey());
             clientKeyExchange = w.toByteArray();
         } else {
+            policy.rsaEncryptionKey(serverKey);
             preMaster = new byte[48];
             config.random().nextBytes(preMaster);
             preMaster[0] = 3;
@@ -277,7 +295,7 @@ final class Tls12ClientHandshake {
         }
     }
 
-    private void sendClientFinish() throws IOException {
+    private void sendClientFinish() throws IOException, QuicException {
         records.writeChangeCipherSpec();
         records.writeKeys12(suite, keys.clientMac(), keys.clientKey(), keys.clientIv(), config.random());
         byte[] verifyData = Tls12Prf.finished(suite, masterSecret, true, hash());
@@ -380,6 +398,10 @@ final class Tls12ClientHandshake {
         if (rsaScheme != (key instanceof RSAPublicKey)) {
             throw TlsAlert.illegalParameter("ServerKeyExchange scheme " + scheme + " does not fit the certificate key");
         }
+        policy.group(NamedGroup.forCode(curve), point);
+        policy.signature(scheme, key);
+        peerGroup = NamedGroup.forCode(curve);
+        peerShare = point.clone();
         byte[] signed = Tls12Prf.concat(Tls12Prf.concat(hello.random(), serverHello.random()), params);
         if (!Signatures.verify(scheme, key, signed, signature)) {
             throw TlsAlert.error(TlsAlert.DECRYPT_ERROR, "ServerKeyExchange signature is invalid");
@@ -414,6 +436,8 @@ final class Tls12ClientHandshake {
                 if (alias == null) continue;
                 CertifiedKey k = CertifiedKey.fromKeyManager(km, alias);
                 if (k != null && candidate.compatibleWith(k.privateKey())) {
+                    policy.certificates(k.chain());
+                    policy.signature(candidate, k.privateKey());
                     clientKey = k;
                     clientScheme = candidate;
                     break;

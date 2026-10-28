@@ -12,7 +12,9 @@ import java.util.Arrays;
 /**
  * ML-KEM-768 (NIST FIPS 203), the post-quantum key encapsulation in the hybrid TLS group
  * X25519MLKEM768. Variable names follow FIPS 203, so the code can be read against it.
- * Operations on secret data are constant time: no branches or table lookups on secrets.
+ * The source is designed to avoid branches and table lookups on secret data, including during
+ * implicit rejection. This is not a constant-time proof for JVM-generated code or JCA providers;
+ * their behavior must be assessed separately for each deployment environment.
  */
 final class MlKem768 {
 

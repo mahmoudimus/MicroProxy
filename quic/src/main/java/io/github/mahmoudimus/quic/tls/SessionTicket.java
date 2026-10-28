@@ -36,10 +36,19 @@ public final class SessionTicket {
     final String alpn;
     final byte[] transportParameters;
     final List<X509Certificate> peerCertificates;
+    final TlsAcceptancePolicy.Evidence tcpEvidence;
 
     SessionTicket(String serverName, CipherSuite suite, byte[] ticket, byte[] psk, long ageAdd,
             long lifetimeSeconds, Instant received, long maxEarlyDataSize, String alpn, byte[] transportParameters,
             List<X509Certificate> peerCertificates) {
+        this(serverName, suite, ticket, psk, ageAdd, lifetimeSeconds, received, maxEarlyDataSize, alpn,
+                transportParameters, peerCertificates, null);
+    }
+
+    SessionTicket(String serverName, CipherSuite suite, byte[] ticket, byte[] psk, long ageAdd,
+            long lifetimeSeconds, Instant received, long maxEarlyDataSize, String alpn, byte[] transportParameters,
+            List<X509Certificate> peerCertificates, TlsAcceptancePolicy.Evidence tcpEvidence) {
+        this.tcpEvidence = tcpEvidence;
         this.serverName = serverName;
         this.suite = Objects.requireNonNull(suite);
         this.ticket = ticket.clone();

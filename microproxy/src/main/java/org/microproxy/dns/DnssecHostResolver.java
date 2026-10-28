@@ -11,9 +11,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import org.microproxy.HostResolver;
 
 /**
@@ -54,13 +52,10 @@ public final class DnssecHostResolver implements HostResolver {
             ". 20326 8 2 E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D",
             ". 38696 8 2 683D2D0ACB8C9B712A1948B27F741219298D0A450D612C483AF444A4C0FB2B16");
 
-    // @value-candidate: becomes a value class in the valhalla build profile
-    private record Cached(Resolution resolution, long expiresAtMillis) {}
-
     private final DnssecValidator validator;
     private final Policy policy;
     private final Clock clock;
-    private final Map<String, Cached> cache = new ConcurrentHashMap<>();
+    private final BoundedExpiringCache<String, Resolution> cache;
 
     /** Uses the system's resolvers, the IANA root anchors and {@link Policy#REJECT_BOGUS}. */
     public DnssecHostResolver() {
@@ -74,9 +69,10 @@ public final class DnssecHostResolver implements HostResolver {
         for (String ds : b.trustAnchors) {
             anchors.add(parseDs(ds));
         }
-        this.validator = new DnssecValidator(transport, anchors, b.clock);
+        this.validator = new DnssecValidator(transport, anchors, b.clock, b.maxValidationWork, b.cacheCapacity);
         this.policy = b.policy;
         this.clock = b.clock;
+        this.cache = new BoundedExpiringCache<>(b.cacheCapacity, b.clock);
     }
 
     /**
@@ -117,9 +113,9 @@ public final class DnssecHostResolver implements HostResolver {
         if (normalized.equals("localhost") || normalized.endsWith(".localhost")) {
             return new Resolution(List.of(InetAddress.getLoopbackAddress()), true);
         }
-        Cached cached = cache.get(normalized);
-        if (cached != null && cached.expiresAtMillis() > clock.millis()) {
-            return checkPolicy(host, cached.resolution());
+        Resolution cached = cache.get(normalized);
+        if (cached != null) {
+            return checkPolicy(host, cached);
         }
         DnsName name;
         try {
@@ -128,9 +124,10 @@ public final class DnssecHostResolver implements HostResolver {
             throw new UnknownHostException("invalid host name: " + host);
         }
         try {
-            DnssecValidator.Answer answer = validator.lookup(name, DnsRecord.A);
+            DnssecValidator.WorkBudget budget = validator.newBudget();
+            DnssecValidator.Answer answer = validator.lookup(name, DnsRecord.A, budget);
             if (answer.records().isEmpty()) {
-                answer = validator.lookup(name, DnsRecord.AAAA);
+                answer = validator.lookup(name, DnsRecord.AAAA, budget);
             }
             List<InetAddress> addresses = new ArrayList<>();
             for (DnsRecord r : answer.records()) {
@@ -140,8 +137,8 @@ public final class DnssecHostResolver implements HostResolver {
                 throw new UnknownHostException(host);
             }
             Resolution resolution = new Resolution(List.copyOf(addresses), answer.secure());
-            long ttlMillis = Math.clamp(answer.ttlSeconds() * 1000, 1_000L, 3_600_000L);
-            cache.put(normalized, new Cached(resolution, clock.millis() + ttlMillis));
+            long ttlMillis = Math.clamp(answer.ttlSeconds(), 0L, 3600L) * 1000;
+            cache.put(normalized, resolution, clock.millis() + ttlMillis);
             return checkPolicy(host, resolution);
         } catch (UnknownHostException e) {
             throw e;
@@ -192,8 +189,39 @@ public final class DnssecHostResolver implements HostResolver {
         private Policy policy = Policy.REJECT_BOGUS;
         private List<String> trustAnchors = ROOT_TRUST_ANCHORS;
         private Clock clock = Clock.systemUTC();
+        private int maxValidationWork = DnssecValidator.DEFAULT_MAX_VALIDATION_WORK;
+        private int cacheCapacity = DnssecValidator.DEFAULT_CACHE_CAPACITY;
 
         private Builder() {}
+
+        /**
+         * Caps aggregate DNSSEC work per lookup, including aliases, delegation proofs and A/AAAA
+         * fallback. A signature/key conversion costs 128 units, a DS digest 8, and each NSEC3 SHA-1
+         * round 1. The default 8192 allows fewer than 64 signatures in a cold signed chain.
+         * Exhaustion rejects the lookup regardless of {@link Policy}.
+         *
+         * @param units positive work allowance
+         * @return this builder
+         */
+        public Builder maxValidationWork(int units) {
+            if (units < 1) throw new IllegalArgumentException("validation work limit must be positive");
+            maxValidationWork = units;
+            return this;
+        }
+
+        /**
+         * Maximum entries in each of the answer, zone-key, unsigned-delegation and non-delegation
+         * caches (default 1024 each). Expired entries are evicted on cache activity; zero disables
+         * retention. Eviction only causes revalidation and never changes the security policy.
+         *
+         * @param entries nonnegative per-cache entry limit
+         * @return this builder
+         */
+        public Builder cacheCapacity(int entries) {
+            if (entries < 0) throw new IllegalArgumentException("cache capacity must not be negative");
+            cacheCapacity = entries;
+            return this;
+        }
 
         /**
          * Recursive resolvers to query; they must pass DNSSEC records through.
