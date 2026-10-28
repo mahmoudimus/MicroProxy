@@ -1,5 +1,8 @@
 package io.github.mahmoudimus.quic.tls;
 
+import io.github.mahmoudimus.quic.tls.HandshakeMessage.Extension;
+import java.util.List;
+
 /**
  * One extension of a {@link ClientHelloProfile}: its type, and how its body is made for a
  * connection.
@@ -34,6 +37,30 @@ public record ExtensionSpec(int type, Body body, int[] keyShareGroups) {
          * @return the body, or null to leave the extension out of this hello
          */
         byte[] encode(HelloContext context);
+    }
+
+    /**
+     * A body made from the rest of the hello, as Firefox's GREASE ECH is sized from the inner hello
+     * it would encrypt: encoded after the other extensions' bodies.
+     */
+    @FunctionalInterface
+    public interface WholeHelloBody extends Body {
+
+        /**
+         * The body for this hello.
+         *
+         * @param context the hello's per-connection inputs
+         * @param cipherSuites the hello's cipher suites
+         * @param others the hello's other extensions, in order (without {@code pre_shared_key},
+         *     which the client adds after them: its length is {@link HelloContext#pskLength()})
+         * @return the body, or null to leave the extension out of this hello
+         */
+        byte[] encode(HelloContext context, int[] cipherSuites, List<Extension> others);
+
+        @Override
+        default byte[] encode(HelloContext context) {
+            throw new UnsupportedOperationException("made from the whole hello");
+        }
     }
 
     /** The type on the wire, GREASE placeholders replaced by the hello's values. */

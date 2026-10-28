@@ -66,6 +66,7 @@ final class Tls12ClientHandshake {
     private static final int X25519 = 29;
     private static final int SECP256R1 = 23;
     private static final int SECP384R1 = 24;
+    private static final int SECP521R1 = 25;
 
     private final TlsClientConnection.Config config;
     private final TlsRecordLayer records;
@@ -365,7 +366,7 @@ final class Tls12ClientHandshake {
         byte[] offeredGroups = Extension.find(hello.extensions(), ExtensionType.SUPPORTED_GROUPS);
         boolean groupOffered = offeredGroups != null
                 && Arrays.stream(Extensions.decodeU16List(offeredGroups, "supported_groups")).anyMatch(g -> g == curve);
-        if (!groupOffered || (curve != X25519 && curve != SECP256R1 && curve != SECP384R1)) {
+        if (!groupOffered || (curve != X25519 && curve != SECP256R1 && curve != SECP384R1 && curve != SECP521R1)) {
             throw TlsAlert.illegalParameter("ServerKeyExchange uses a curve that was not offered");
         }
         byte[] offeredSchemes = Extension.find(hello.extensions(), ExtensionType.SIGNATURE_ALGORITHMS);

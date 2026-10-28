@@ -1,0 +1,139 @@
+frame type=4 flags=0 stream=0 len=24 [1=65536] [2=0] [4=131072] [5=16384]
+frame type=8 flags=0 stream=0 len=4 increment=12517377
+frame type=1 flags=37 stream=3 len=285
+  priority excl=false dep=0 weight=42
+  :method: GET
+  :path: /
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=...
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  upgrade-insecure-requests: 1
+  sec-fetch-dest: document
+  sec-fetch-mode: navigate
+  sec-fetch-site: none
+  sec-fetch-user: ?1
+  priority: u=0, i
+  te: trailers
+frame type=8 flags=0 stream=3 len=4 increment=12451840
+frame type=4 flags=1 stream=0 len=0
+frame type=1 flags=37 stream=5 len=89
+  priority excl=false dep=0 weight=22
+  :method: GET
+  :path: /style.css
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: text/css,*/*;q=0.1
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: style
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  priority: u=2
+  te: trailers
+frame type=8 flags=0 stream=5 len=4 increment=12451840
+frame type=1 flags=37 stream=7 len=38
+  priority excl=false dep=0 weight=22
+  :method: GET
+  :path: /script.js
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: */*
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: script
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  priority: u=2
+  te: trailers
+frame type=8 flags=0 stream=7 len=4 increment=12451840
+frame type=1 flags=37 stream=9 len=26
+  priority excl=false dep=0 weight=22
+  :method: GET
+  :path: /async.js
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: */*
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: script
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  te: trailers
+frame type=8 flags=0 stream=9 len=4 increment=12451840
+frame type=1 flags=37 stream=11 len=104
+  priority excl=false dep=0 weight=12
+  :method: GET
+  :path: /image.png
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,imag...
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: image
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  priority: u=5, i
+  te: trailers
+frame type=8 flags=0 stream=11 len=4 increment=12451840
+frame type=1 flags=37 stream=13 len=27
+  priority excl=false dep=0 weight=22
+  :method: GET
+  :path: /style.css
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: text/css,*/*;q=0.1
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: style
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  priority: u=2
+  te: trailers
+frame type=8 flags=0 stream=13 len=4 increment=12451840
+frame type=1 flags=37 stream=15 len=35
+  priority excl=false dep=0 weight=14
+  :method: GET
+  :path: /image.png
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: image/avif,image/jxl,image/webp,image/png,image/svg+xml,imag...
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: image
+  sec-fetch-mode: no-cors
+  sec-fetch-site: same-origin
+  priority: u=4, i
+  te: trailers
+frame type=8 flags=0 stream=15 len=4 increment=12451840
+frame type=1 flags=37 stream=17 len=43
+  priority excl=false dep=0 weight=22
+  :method: GET
+  :path: /data.json
+  :authority: localhost:8443
+  :scheme: https
+  user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Geck...
+  accept: */*
+  accept-language: en-US,en;q=0.9
+  accept-encoding: gzip, deflate, br, zstd
+  referer: https://localhost:8443/
+  sec-fetch-dest: empty
+  sec-fetch-mode: cors
+  sec-fetch-site: same-origin
+  priority: u=4
+  te: trailers
+frame type=8 flags=0 stream=17 len=4 increment=12451840
