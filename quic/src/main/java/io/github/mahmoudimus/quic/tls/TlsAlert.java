@@ -65,6 +65,8 @@ public final class TlsAlert {
     public static final int CERTIFICATE_REQUIRED = 116;
     /** No application protocol could be agreed with ALPN (120). */
     public static final int NO_APPLICATION_PROTOCOL = 120;
+    /** The client offered ECH and the server did not accept it (121, RFC 9849 section 11.2). */
+    public static final int ECH_REQUIRED = 121;
 
     private TlsAlert() {}
 
@@ -103,6 +105,7 @@ public final class TlsAlert {
             case UNKNOWN_PSK_IDENTITY -> "unknown_psk_identity";
             case CERTIFICATE_REQUIRED -> "certificate_required";
             case NO_APPLICATION_PROTOCOL -> "no_application_protocol";
+            case ECH_REQUIRED -> "ech_required";
             default -> "alert(" + alert + ")";
         };
     }
