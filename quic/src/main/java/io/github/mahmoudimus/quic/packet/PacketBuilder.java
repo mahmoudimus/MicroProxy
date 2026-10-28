@@ -104,6 +104,19 @@ public final class PacketBuilder {
      * @throws IllegalStateException if no packet is in progress or the padding does not fit
      */
     public int finish(int minDatagramSize) {
+        return finish(minDatagramSize, null);
+    }
+
+    /**
+     * {@link #finish(int)}, letting {@code rewrite} lay the plaintext payload out again before it is
+     * protected: it gets the payload, padding included, from its position to its limit, and must
+     * keep its length.
+     *
+     * @param minDatagramSize the size the datagram must reach with this packet, or 0
+     * @param rewrite the rewrite, or null for none
+     * @return the index just past the protected packet
+     */
+    public int finish(int minDatagramSize, java.util.function.Consumer<ByteBuffer> rewrite) {
         if (header == null) {
             throw new IllegalStateException("no packet in progress");
         }
@@ -115,6 +128,9 @@ public final class PacketBuilder {
         }
         while (payloadEnd < wanted) {
             frames.put(payloadEnd++, (byte) 0); // PADDING frames
+        }
+        if (rewrite != null) {
+            rewrite.accept(buffer.duplicate().limit(payloadEnd).position(layout.payloadOffset()).slice());
         }
         int end = PacketProtection.protect(buffer, layout, payloadEnd, header.packetNumber(), keys);
         buffer.position(end);
