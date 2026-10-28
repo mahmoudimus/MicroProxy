@@ -116,6 +116,7 @@ nav:
       - Admin endpoints: reference/admin-api.md
       - Starlark API: reference/starlark-api.md
   - Security: security.md
+  - Security assurance: formal-security.md
   - Timing review: security-timing-audit.md
   - Migrating from LittleProxy: migrating-from-littleproxy.md
   - Architecture: architecture.md

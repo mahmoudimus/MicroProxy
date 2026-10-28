@@ -1,0 +1,41 @@
+name: Scoped security proofs
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  formal-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Test the proof runner's trust gates
+        run: python -m unittest discover -s scripts/security -p 'test_formal_tools.py' -v
+      - name: Install checksum-pinned Lean and TLC outside the checkout
+        run: |
+          command -v zstd || (sudo apt-get update && sudo apt-get install --yes zstd)
+          python scripts/security/install_formal_tools.py
+      - name: Replay proofs, Java observations, finite models and negative controls
+        run: python scripts/security/formal_check.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: formal-security-evidence
+          path: |
+            target/formal-security/*.log
+            target/formal-security/report.json
+            target/formal-security/observations/*.jsonl
+            target/formal-security/JavaObservations.lean
+          if-no-files-found: ignore

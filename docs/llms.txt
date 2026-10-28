@@ -69,6 +69,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 ## More
 
 - [Security](https://mahmoudimus.github.io/MicroProxy/security/): What MicroProxy does to stay safe with untrusted clients and servers, and what an operator has to decide: who may reach the proxy, which servers clients may reach through it, what it trusts, and what it logs.
+- [Security assurance](https://mahmoudimus.github.io/MicroProxy/formal-security/): MicroProxy has a custom TLS/QUIC implementation.
 - [Timing review](https://mahmoudimus.github.io/MicroProxy/security-timing-audit/): This source review distinguishes secret authentication material from public protocol data.
 - [Migrating from LittleProxy](https://mahmoudimus.github.io/MicroProxy/migrating-from-littleproxy/): How to move a LittleProxy deployment or embedding to MicroProxy: the command line, the configuration file, embedding, filters, MITM and activity logging, mapped topic by topic to their MicroProxy equivalents, then the API renames and the behaviour that differs.
 - [Architecture](https://mahmoudimus.github.io/MicroProxy/architecture/): How MicroProxy is built: why it uses virtual threads and blocking I/O instead of Netty, what that costs and saves, how the modules fit together, and where to read the internals.

@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "scope": "Models and finite Java observations; no universal Java refinement, cryptographic security, or timing proof.",
+  "lean_models": {
+    "formal/lean/RecordBounds.lean": [
+      "MicroProxy.Records.issue_success_iff",
+      "MicroProxy.Records.issue_rejects_at_or_above_cap",
+      "MicroProxy.Records.no_nonce_at_cap",
+      "MicroProxy.Records.accepted_trace_accounting",
+      "MicroProxy.Records.accepted_trace_no_repeated_sequence",
+      "MicroProxy.Records.accepted_trace_sequences_below_limit",
+      "MicroProxy.Records.accepted_trace_next_at_most_limit",
+      "MicroProxy.Records.accepted_trace_count_bounded",
+      "MicroProxy.Records.issueMany_accepts_within_capacity",
+      "MicroProxy.Records.issueMany_accepts_iff",
+      "MicroProxy.Records.accepted_trace_exhaustion_rejects",
+      "MicroProxy.Records.resetting_same_key_can_repeat"
+    ],
+    "formal/lean/ResourceBounds.lean": [
+      "MicroProxy.Resources.charge_no_increase",
+      "MicroProxy.Resources.charge_accepted_iff",
+      "MicroProxy.Resources.charge_accepted_conservation",
+      "MicroProxy.Resources.charge_rejects_excess",
+      "MicroProxy.Resources.charge_exhausted_rejects",
+      "MicroProxy.Resources.chargeAll_step",
+      "MicroProxy.Resources.chargeAll_accepted_conservation",
+      "MicroProxy.Resources.chargeAll_accepted_sum_le",
+      "MicroProxy.Resources.chargeAll_no_increase",
+      "MicroProxy.Resources.purge_no_growth",
+      "MicroProxy.Resources.purge_future",
+      "MicroProxy.Resources.put_bounded",
+      "MicroProxy.Resources.put_future",
+      "MicroProxy.Resources.purge_unique",
+      "MicroProxy.Resources.put_unique"
+    ],
+    "formal/lean/CryptoEncoding.lean": [
+      "MicroProxy.CryptoEncoding.nonce_injective",
+      "MicroProxy.CryptoEncoding.nonce_eq_iff",
+      "MicroProxy.CryptoEncoding.distinct_sequences_distinct_nonces",
+      "MicroProxy.CryptoEncoding.encodeLabel_bytes",
+      "MicroProxy.CryptoEncoding.decode_encodeLabel",
+      "MicroProxy.CryptoEncoding.encodeLabel_injective",
+      "MicroProxy.CryptoEncoding.distinct_label_inputs_distinct_encodings"
+    ]
+  },
+  "java_sources": {
+    "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java": "a8749c5992bff5c8059f18e899b0dfe006b6fe3a931e77e863d64672a4c97ab6",
+    "quic/src/main/java/io/github/mahmoudimus/quic/CipherSuite.java": "5bbc73d63ce71c352b14f3cf14eb7780440ca78cf1ac07f1a30c2ef150ae1fe1",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsRecordLayer.java": "81cf84c744fb21acf9e1b60c68cd87089986a0799cc0a4c0473a353150a777b4",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java": "39b97f56741589e059404bdba5ac0f45f1336f253cb8496929f60d5a5837d117",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Tls12CipherSuite.java": "899a9f1a198649bea3015f930cb706e7225445213cec1969816aa1b9b46ed79c",
+    "microproxy/src/main/java/org/microproxy/dns/DnssecValidator.java": "e612489bc8a9c232777eea5b422d2090251937b238af8b8cfa31d92cf3bb0a98",
+    "microproxy/src/main/java/org/microproxy/dns/DnssecHostResolver.java": "1b888b6e27a2d16c8540b1379b3fbe443af8dbd941e879b6fd7142490a4cc22a",
+    "microproxy/src/main/java/org/microproxy/dns/BoundedExpiringCache.java": "32b2647d8113cd7c855d561e3c7a8dd599588615476070154df88626b05915bb",
+    "quic/src/test/java/io/github/mahmoudimus/quic/FormalCryptoModelTest.java": "3ca224fc402c4a4414e6e688483205a866a6167bc6bddc0a7f5f18ffde412dcc",
+    "quic/src/test/java/io/github/mahmoudimus/quic/tls/FormalRecordModelTest.java": "84aae4765f0e47378f5b3b57c697971d153bdaeedbae75a240ae259b9177a161",
+    "microproxy/src/test/java/org/microproxy/dns/FormalResourceModelTest.java": "186305e38bb332fe9517c349985c0c9ae16ac82ae31367aea9ddb1711de30b96",
+    "quic/src/test/java/io/github/mahmoudimus/quic/tls/TlsKeyUsageTest.java": "524d2c3e608e98319e20f883257fc1f77ecc3f87cc5a726dfc946e6b09ba64f1"
+  },
+  "minimum_observations": {
+    "record": 104,
+    "nonce": 60,
+    "budget": 35,
+    "cache": 256,
+    "label": 128
+  },
+  "tlc_cases": [
+    {
+      "module": "formal/tla/TrafficKeys.tla",
+      "config": "formal/tla/TrafficKeys-cap2.cfg",
+      "expect": "pass"
+    },
+    {
+      "module": "formal/tla/TrafficKeys.tla",
+      "config": "formal/tla/TrafficKeys-cap3.cfg",
+      "expect": "pass"
+    },
+    {
+      "module": "formal/tla/TrafficKeys.tla",
+      "config": "formal/tla/TrafficKeys-unsafe-reuse.cfg",
+      "expect": "counterexample",
+      "invariant": "NoNonceReuse"
+    },
+    {
+      "module": "formal/tla/TrafficKeys.tla",
+      "config": "formal/tla/TrafficKeys-witness.cfg",
+      "expect": "counterexample",
+      "invariant": "NoCoverageWitness"
+    }
+  ]
+}

@@ -5,6 +5,13 @@ decide: who may reach the proxy, which servers clients may reach through it, wha
 what it logs. Read this before exposing a proxy beyond your own machine. Each section links to the
 guide with the details.
 
+The custom TLS/QUIC implementation has regression tests and scoped formal models; these are not
+an end-to-end security proof or an independent expert cryptographic audit. AES/HMAC and other
+listed primitives use trusted JDK providers, while ML-KEM and SHAKE include handwritten code.
+See [security assurance and formal verification](formal-security.md) for exact claims, trusted
+components, proof boundaries and remaining work. Interoperability is evidence of compatibility,
+not a substitute for security analysis.
+
 ## Exposure: who can use the proxy
 
 - **Loopback by default.** The listener accepts connections on loopback only; `--server`

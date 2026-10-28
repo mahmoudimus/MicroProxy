@@ -6,8 +6,12 @@ and RFC 9002 (loss detection and congestion control), with its own TLS 1.3 hands
 
 The design follows [quinn](https://github.com/quinn-rs/quinn)'s `quinn-proto` (a sans-I/O state
 machine) and the TLS 1.3 client and server of [rustls](https://github.com/rustls/rustls), both used
-under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20-Poly1305, HMAC for
-HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
+under the Apache License 2.0. AES-GCM, ChaCha20-Poly1305, HMAC, X25519 and P-256, ECDSA, RSA-PSS
+and Ed25519 come from JDK providers. HKDF, protocol key schedules and encodings are our code;
+ML-KEM-768 and SHAKE also contain handwritten primitive implementations. The
+[security assurance status](../docs/formal-security.md) separates tests, scoped model proofs,
+trusted-provider assumptions and remaining implementation/timing proof gaps. No independent
+expert cryptographic audit or proof of whole-stack security is claimed.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
 endpoint, with session resumption, 0-RTT, NEW_TOKEN, connection migration and the preferred
