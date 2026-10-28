@@ -138,4 +138,24 @@ class Http3ForwardProxyTest {
         assertTrue(e.getMessage().contains("TLS listener"), e.getMessage());
         assertFalse(e.getMessage().isEmpty());
     }
+
+    @Test
+    void anyPortIsOneFreeOnUdpToo() throws Exception {
+        // withPort(0) takes a free TCP port and the same number on UDP for HTTP/3, which may be
+        // taken: with a thousand UDP ports held, some of thirty proxies' first picks are, and each
+        // must start on another
+        java.util.List<java.net.DatagramSocket> held = new java.util.ArrayList<>();
+        java.util.List<HttpProxyServer> proxies = new java.util.ArrayList<>();
+        try {
+            for (int i = 0; i < 1000; i++) held.add(new java.net.DatagramSocket(new InetSocketAddress(TestSupport.LOOPBACK, 0)));
+            for (int i = 0; i < 30; i++) {
+                HttpProxyServer p = forwardProxy().start();
+                proxies.add(p);
+                assertTrue(p.getListenAddress().getPort() > 0);
+            }
+        } finally {
+            for (HttpProxyServer p : proxies) p.abort();
+            for (java.net.DatagramSocket d : held) d.close();
+        }
+    }
 }

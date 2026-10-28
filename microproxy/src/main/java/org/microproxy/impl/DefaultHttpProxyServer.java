@@ -480,32 +480,47 @@ public final class DefaultHttpProxyServer implements HttpProxyServer {
         }
     }
 
+    /**
+     * How many ports an ephemeral bind ({@code withPort(0)}) tries for one free on both TCP and UDP,
+     * as HTTP/3 needs: the system picks a free TCP port, and its number may be taken on UDP.
+     */
+    private static final int EPHEMERAL_BIND_ATTEMPTS = 16;
+
     private HttpProxyServer bind() {
         InetSocketAddress requested = config.address();
-        try {
-            serverSocket = new ServerSocket();
-            serverSocket.setReuseAddress(true);
-            serverSocket.bind(requested, 1024);
-        } catch (IOException e) {
-            Tls.closeQuietly(serverSocket);
-            if (pool != null) pool.closeAll();
-            throw new UncheckedIOException("unable to bind " + requested, e);
-        }
-        boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
-        stats.bound(boundAddress);
-        stats.registerServer(this, config.httpCache, filtersSource);
+        // before the HTTP/3 listener, which accepts connections as soon as it is bound
         executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(name + "-conn-", 0).factory());
-        if (http3) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                serverSocket = new ServerSocket();
+                serverSocket.setReuseAddress(true);
+                serverSocket.bind(requested, 1024);
+            } catch (IOException e) {
+                Tls.closeQuietly(serverSocket);
+                executor.shutdownNow();
+                if (pool != null) pool.closeAll();
+                throw new UncheckedIOException("unable to bind " + requested, e);
+            }
+            boundAddress = new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
+            if (!http3) break;
             try {
                 // The same port number on UDP, where clients told by Alt-Svc look for it.
                 http3Listener = Http3Listener.start(this, boundAddress, http3Keys);
+                break;
             } catch (IOException | RuntimeException e) {
                 Tls.closeQuietly(serverSocket);
+                if (requested.getPort() == 0 && attempt < EPHEMERAL_BIND_ATTEMPTS) {
+                    continue; // any port was asked for: another, free on UDP too
+                }
                 executor.shutdownNow();
                 if (pool != null) pool.closeAll();
                 throw new UncheckedIOException("unable to bind the HTTP/3 listener on UDP " + boundAddress,
                         e instanceof IOException io ? io : new IOException(e));
             }
+        }
+        stats.bound(boundAddress);
+        stats.registerServer(this, config.httpCache, filtersSource);
+        if (http3) {
             if (http3Options.altSvc() && reverseProxy != null) {
                 // (A forward proxy's responses are its servers': their Alt-Svc is theirs to give.)
                 http3AltSvc = "h3=\":" + boundAddress.getPort() + "\"; ma=" + http3Options.altSvcMaxAge().toSeconds();
