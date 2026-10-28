@@ -27,20 +27,43 @@ import javax.crypto.KeyAgreement;
  * One ephemeral (EC)DHE key pair and its key share (RFC 8446 section 4.2.8.2): X25519's 32-byte
  * little-endian u-coordinate, or an uncompressed P-256 or P-384 point. Peer shares are validated
  * (length, point on the curve, a non-zero X25519 result) and fail with {@code illegal_parameter}.
+ *
+ * <p>For X25519MLKEM768 (draft-ietf-tls-ecdhe-mlkem) the client's key pair is an ML-KEM-768
+ * decapsulation key and an X25519 key pair, and its share their concatenation; the server answers
+ * with {@link #respond}, an encapsulation to the client's key and its own X25519 share. Either
+ * side's secret is the ML-KEM shared key followed by the X25519 one.
  */
 final class KeyExchange {
+
+    /** A server's answer to a client's share: the share it sends back, and the shared secret. */
+    record Response(byte[] publicKey, byte[] secret) {}
 
     private final NamedGroup group;
     private final PrivateKey privateKey;
     private final byte[] publicKey;
+    // the hybrid's halves; null for the other groups
+    private final MlKem768.DecapsulationKey mlKem;
+    private final KeyExchange x25519;
 
     private KeyExchange(NamedGroup group, PrivateKey privateKey, byte[] publicKey) {
+        this(group, privateKey, publicKey, null, null);
+    }
+
+    private KeyExchange(NamedGroup group, PrivateKey privateKey, byte[] publicKey, MlKem768.DecapsulationKey mlKem,
+            KeyExchange x25519) {
         this.group = group;
         this.privateKey = privateKey;
         this.publicKey = publicKey;
+        this.mlKem = mlKem;
+        this.x25519 = x25519;
     }
 
     static KeyExchange generate(NamedGroup group, SecureRandom random) {
+        if (group == NamedGroup.X25519_MLKEM768) {
+            MlKem768.DecapsulationKey dk = MlKem768.DecapsulationKey.generate(random);
+            KeyExchange x = generate(NamedGroup.X25519, random);
+            return new KeyExchange(group, null, concat(dk.encapsulationKey(), x.publicKey), dk, x);
+        }
         try {
             KeyPair pair;
             if (group == NamedGroup.X25519) {
@@ -83,8 +106,40 @@ final class KeyExchange {
         return publicKey.clone();
     }
 
-    /** The shared secret with the peer's key share. */
+    /**
+     * A server's share and secret for a client's {@code share}: for an (EC)DHE group, a new key
+     * pair and its agreement with the client's; for the hybrid, an encapsulation to the client's
+     * ML-KEM key and an X25519 agreement.
+     */
+    static Response respond(NamedGroup group, byte[] share, SecureRandom random) throws QuicException {
+        if (group != NamedGroup.X25519_MLKEM768) {
+            KeyExchange ours = generate(group, random);
+            return new Response(ours.publicKey(), ours.agree(share));
+        }
+        if (share.length != group.publicKeyLength()) {
+            throw TlsAlert.illegalParameter(group + " key share has length " + share.length);
+        }
+        MlKem768.Encapsulation encapsulation;
+        try {
+            encapsulation = MlKem768.encapsulate(Arrays.copyOf(share, MlKem768.ENCAPSULATION_KEY_SIZE), random);
+        } catch (IllegalArgumentException e) {
+            throw TlsAlert.illegalParameter(group + " key share: " + e.getMessage());
+        }
+        KeyExchange x = generate(NamedGroup.X25519, random);
+        byte[] xSecret = x.agree(Arrays.copyOfRange(share, MlKem768.ENCAPSULATION_KEY_SIZE, share.length));
+        return new Response(concat(encapsulation.ciphertext(), x.publicKey),
+                concat(encapsulation.sharedKey(), xSecret));
+    }
+
+    /** The shared secret with the peer's key share (for the hybrid, the server's). */
     byte[] agree(byte[] peer) throws QuicException {
+        if (mlKem != null) {
+            if (peer.length != group.serverShareLength()) {
+                throw TlsAlert.illegalParameter(group + " key share has length " + peer.length);
+            }
+            byte[] kemSecret = mlKem.decapsulate(Arrays.copyOf(peer, MlKem768.CIPHERTEXT_SIZE));
+            return concat(kemSecret, x25519.agree(Arrays.copyOfRange(peer, MlKem768.CIPHERTEXT_SIZE, peer.length)));
+        }
         if (peer.length != group.publicKeyLength()) {
             throw TlsAlert.illegalParameter(group + " key share has length " + peer.length);
         }
@@ -135,6 +190,12 @@ final class KeyExchange {
         for (int i = 0; i < 32 && i < be.length; i++) {
             out[i] = be[be.length - 1 - i];
         }
+        return out;
+    }
+
+    private static byte[] concat(byte[] a, byte[] b) {
+        byte[] out = Arrays.copyOf(a, a.length + b.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
         return out;
     }
 
