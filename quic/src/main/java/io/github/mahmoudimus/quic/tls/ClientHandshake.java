@@ -55,7 +55,9 @@ final class ClientHandshake implements Handshake {
     private static final long MAX_TICKET_LIFETIME = 604800;
     /** Extensions a server's CertificateEntry may carry. */
     private static final Set<Integer> CERTIFICATE_EXTENSIONS = Set.of(
-            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP);
+            ExtensionType.STATUS_REQUEST, ExtensionType.SIGNED_CERTIFICATE_TIMESTAMP,
+            // draft-ietf-tls-trust-anchor-ids: a server names the anchor its chain is for, as Google's do
+            ProfileExtensions.TRUST_ANCHORS);
     /** Advertised for certificate signatures only, as RFC 8446 section 4.2.3 allows. */
     private static final List<SignatureScheme> CERTIFICATE_ONLY_SCHEMES = List.of(
             SignatureScheme.RSA_PKCS1_SHA256, SignatureScheme.RSA_PKCS1_SHA384, SignatureScheme.RSA_PKCS1_SHA512);
