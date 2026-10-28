@@ -368,11 +368,13 @@ class AccessLogTest {
     @Test
     void anActivityLoggerFilterLeavesRecordsOut() {
         List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
-        HttpProxyServer proxy = proxies.start(bootstrap().plusActivityTracker(ActivityLogger.builder()
+        // the logger before the recorded flows: trackers run in order, so once both records are
+        // there, the logger has seen both requests too
+        HttpProxyServer proxy = proxies.start(MicroProxy.bootstrap().plusActivityTracker(ActivityLogger.builder()
                 .format(LogFormat.envoy("%RESPONSE_CODE% %RESPONSE_FLAGS_LONG%"))
                 .filter(AccessLogFilter.responseFlag(ResponseFlag.DNS_RESOLUTION_FAILED))
                 .sink(lines::add)
-                .build()).withServerResolver((host, port) -> {
+                .build()).plusActivityTracker(flows).withServerResolver((host, port) -> {
                     if (host.equals("nowhere.test")) throw new UnknownHostException(host);
                     return new InetSocketAddress(TestSupport.LOOPBACK, 1);
                 }));
