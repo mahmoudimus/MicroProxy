@@ -373,6 +373,8 @@ final class TlsClientConnection {
         if (ticket != null && ticket.suite.hkdf() != suite.hkdf()) {
             ticket = null; // the PSK cannot be used with this suite's hash (RFC 8446 section 4.1.4)
         }
+        // RFC 8446 section 5.1: only the first ClientHello's records may say TLS 1.0, as BoringSSL's do
+        records.plaintextVersion(HandshakeMessage.LEGACY_VERSION);
         // RFC 8446 section 4.4.1: message_hash(ClientHello1), HelloRetryRequest, ClientHello2
         transcript.start(suite);
         transcript.rollupForRetry();
