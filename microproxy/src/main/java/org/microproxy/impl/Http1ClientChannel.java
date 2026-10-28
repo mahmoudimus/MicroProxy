@@ -415,6 +415,8 @@ final class Http1ClientChannel implements ClientChannel {
     @Override
     public void writeInformational(HttpResponse response) throws IOException {
         if (requestVersion.isKeepAliveDefault()) {
+            // one from an HTTP/2 or HTTP/3 server goes out with this hop's version, as a final response does
+            if (response.protocolVersion().majorVersion() >= 2) response.setProtocolVersion(HttpVersion.HTTP_1_1);
             writer.writeHead(response, false);
         }
     }

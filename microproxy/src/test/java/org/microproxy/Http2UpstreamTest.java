@@ -112,6 +112,21 @@ class Http2UpstreamTest {
     }
 
     @Test
+    void anInterimResponseFromAnHttp2ServerReachesAnHttp1ClientAsHttp11() throws Exception {
+        // www.cloudflare.com answers with 103 Early Hints before its 200
+        origin(s -> {
+            s.readBody();
+            s.respond(103, false, "link", "</style.css>; rel=preload; as=style");
+            s.respond(200, false, "content-type", "text/plain");
+            s.data("after the hints".getBytes(StandardCharsets.US_ASCII), true);
+        });
+        proxy = mitm().start();
+        HttpResponse<String> response = TestSupport.send(http1Client(), get(origin.url("/hints")));
+        assertEquals(200, response.statusCode());
+        assertEquals("after the hints", response.body());
+    }
+
+    @Test
     void anHttp1ClientsRequestReachesTheServerAsHttp2() throws Exception {
         origin(Http2UpstreamTest::echo);
         proxy = mitm().start();
