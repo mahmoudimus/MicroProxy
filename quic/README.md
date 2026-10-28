@@ -72,10 +72,11 @@ header type bits, the Initial salt, the HKDF labels (`quic ` and `quicv2 `) and 
 key. Long headers of any other version raise `UnsupportedVersionException`, whose connection IDs
 may be up to 255 bytes (RFC 8999) so that a server can answer with Version Negotiation.
 
-RFC 9368 compatible version negotiation is not implemented: `VersionInformation`
-has a codec and profile emission, but no authenticated version switch. Direct v2
-does not satisfy that extension. Reliable stream resets with partial delivery
-(`RESET_STREAM_AT`) are also not implemented.
+RFC 9368 support is partial: clients can follow an offered compatible v1/v2 switch
+and validate the server's chosen version. Full client/server conformance and the
+runner's negotiation case remain unverified. Direct v2 alone does not establish
+the extension. Reliable stream resets with partial delivery (`RESET_STREAM_AT`)
+are not implemented. See the [completion roadmap](../docs/project/2026-10-28-quic-crypto-assurance-design.md).
 
 ### Limits and choices
 

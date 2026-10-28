@@ -142,7 +142,12 @@ verifies functional behavior and secret independence in F*/Low*, with Vale for s
 is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/saw-script/master/saw-user-manual/verifying-code.html)
 supplies the bytecode interface used by the scoped experiment above.
 
-The next substantial assurance work is extending the Java/bytecode bridge to ML-KEM
+The next assurance work starts with HKDF composition and its Java/bytecode bridge, then extends to ML-KEM
 finite-width arithmetic/NTT/codecs and SHAKE/FIPS 202 refinement, with a defined secret-trace
 timing model. Those remain gaps. Claiming all our handwritten crypto formally verified, or the
 proxy proved secure, would be false.
+
+The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
+starts the next crypto work with a pinned AWS-derived Dafny HKDF specification and
+an explicit Java implementation bridge. Its milestones are proposed work, separate
+from the completed proofs described here.

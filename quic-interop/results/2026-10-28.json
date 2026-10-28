@@ -189,7 +189,7 @@
     }
   ],
   "unsupported_endpoint_cases": [
-    "v2 (RFC 9368 compatible version negotiation absent)",
+    "v2 (adapter case not exposed; library client support is partial)",
     "connectionmigration (preferred-address runner setup absent)"
   ],
   "superseded_bringup": {

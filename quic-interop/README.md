@@ -12,10 +12,12 @@ streams, Retry, AES-128-GCM/AES-256-GCM/ChaCha20-Poly1305, key updates, ticket
 resumption, 0-RTT, DATAGRAM, and client/server migration machinery. Stream priority
 scheduling is exposed through the sans-I/O `Connection` API, not the blocking facade.
 
-Basic Version Negotiation means server responses and client version-mismatch
-detection; it does not automatically retry another version. **RFC 9368 compatible
-version negotiation and reliable stream resets with partial delivery are absent.**
-Direct v2 support does not satisfy the runner's compatible-negotiation `v2` case.
+Basic Version Negotiation includes server responses and client version-mismatch
+detection, without automatic retry. The library also has partial client-side
+RFC 9368 compatible-version following and chosen-version validation. Complete
+client/server conformance and the adapter's `v2` case remain unverified;
+direct v2 alone does not satisfy that test. Reliable stream resets with partial
+delivery are absent.
 
 | Endpoint TESTCASE | Client | Server | Behavior |
 |---|---|---|---|
@@ -28,7 +30,7 @@ Direct v2 support does not satisfy the runner's compatible-negotiation `v2` case
 | `resumption`, `zerortt` | yes | yes | First connection obtains ticket, second resumes; 0-RTT uses early connection API |
 | `http3` | yes | yes | Static QPACK, control stream, framed file response |
 | `rebind-port`, `rebind-addr` | yes | yes | Ordinary transfer; runner normally sends `transfer` and mutates the network |
-| `v2`, `connectionmigration`, unknown cases/roles | unsupported | unsupported | Exit 127 before configuration or network setup |
+| `v2`, `connectionmigration`, unknown cases/roles | unsupported | unsupported | Exit 127 before configuration or network setup; library version negotiation is partial |
 
 The preferred-address `connectionmigration` runner setup is not exposed by this
 adapter. This is distinct from the migration machinery already in the library.

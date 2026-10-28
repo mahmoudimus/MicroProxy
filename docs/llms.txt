@@ -75,6 +75,12 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 - [Architecture](https://mahmoudimus.github.io/MicroProxy/architecture/): How MicroProxy is built: why it uses virtual threads and blocking I/O instead of Netty, what that costs and saves, how the modules fit together, and where to read the internals.
 - [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/java-api/): Where to find the Javadoc of MicroProxy's published modules: the aggregated API on this site, and each release's Javadoc on javadoc.io.
 
+## QUIC and crypto roadmap
+
+- [Design and scope](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-crypto-assurance-design/): This roadmap completes a named QUIC feature baseline and builds implementation proofs for our Java cryptography, starting with HKDF.
+- [QUIC implementation plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-feature-completion/): Goal: Complete and demonstrate the named protocol/application feature baseline without changing captured browser behavior by default.
+- [Crypto verification plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-java-crypto-verification/): Goal: Establish checked functional and secret-trace properties of our cryptographic code, starting with HKDF using the pinned AWS Dafny reference.
+
 ## Optional
 
 - [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/api/): the aggregated Javadoc of the published modules
