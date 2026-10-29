@@ -22,6 +22,11 @@ and Java adapters remain trusted; the production HKDF path is not replaced.
 
 The [packet scalar/trace replay](packet/README.md) verifies the generated packet-number/header kernel and applies an idealized two-run trace theorem to checked production bytecode. Its lowering and structural/range/taint checkers are explicit trusted bridges; downstream AEAD/JVM timing stays open.
 
+The isolated [Dafny primitive component](primitives/README.md) verifies the Keccak
+lane permutation and seven ML-KEM scalar field helpers, then tests exact generated
+Java against canonical references. It starts SHAKE/ML-KEM verification; sponge,
+polynomial/KEM composition, production refinement and timing remain open.
+
 From the repository root, with JDK 21+, Maven, Python 3.11+ and zstd:
 
 ```bash

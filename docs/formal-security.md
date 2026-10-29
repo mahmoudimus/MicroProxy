@@ -20,7 +20,7 @@ remaining assumptions.
 |---|---|---|
 | TLA+ with TLC | Explore TLS key/sequence/closure transitions and check invariants within the configured finite state space | Model checking plus finite observations of production behavior; it does not generate our Java or prove unbounded refinement. |
 | Lean 4 | Kernel-checked mathematical theorems about counters, nonce/label encodings and resource bounds | Universal model theorems plus separately identified finite Java observations; it does not generate the production implementation. |
-| Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Generated HKDF is an isolated replay component; the generated packet kernel is integrated into production. Compiler/runtime, adapters and any lowering are explicit trust boundaries. |
+| Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Generated HKDF and Keccak/field kernels are isolated replay components; the generated packet kernel is integrated into production. Compiler/runtime, adapters and any lowering are explicit trust boundaries. |
 | SAW/Crucible | Prove a property of supported actual Java class-file methods | Currently one bounded ML-KEM reduction method; unsupported operations and caller preconditions remain open obligations. |
 
 For generated components the delivery sequence is:
@@ -67,8 +67,8 @@ Provider choice, runtime, native intrinsics, CPU and deployment configuration re
 | `KeySchedule`, `Tls12Prf`, `Hpke`, `crypto/Keys` | Role/stage order, transcripts, labels, contexts and updates | TLS/HPKE/QUIC vectors and integration tests; no general protocol/key-schedule security proof. |
 | `crypto/HeaderKey`, `packet/PacketNumber` | Mask/sample offsets, header bits, PN prefix/reconstruction | JDK AES/ChaCha plus packet vectors; generated scalar functional/trace proofs and fixed-address adapter checks below. No complete Java buffer/provider or whole-record timing refinement. |
 | `KeyExchange`, `EcCurves`, `Signatures` | Encodings, hybrid order, public point/zero checks, signature contexts/parameters | JDK classical primitives plus vectors/interop/negative tests. Wire/policy glue remains ours. |
-| `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten primitive; vectors against Go, malformed-input tests, and the single-method bytecode proof below. No full FIPS 203 refinement or JVM timing proof. Only SHA3 digests/randomness are delegated here. |
-| `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten primitive; Python hashlib values, rate boundaries and segmented-I/O tests. No FIPS 202 refinement or timing proof. |
+| `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten production primitive with Go vectors, malformed-input tests and the single-method bytecode proof below. An isolated generated Dafny component proves seven scalar field-helper contracts and their ranges. Polynomial caller invariants/full FIPS 203 refinement and timing remain open. |
+| `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten production primitive with hashlib/rate/segmented tests. An isolated generated Dafny component proves lane-level Keccak-f equations; bit-string/sponge/API refinement and timing remain open. |
 | Tickets/tokens/reset tokens | Nonces, rotation, framing/AAD, lifetime/address/reuse policy and comparisons | JDK AEAD/HMAC/equality plus negative tests. Random nonce collision bounds and rotation/clock/concurrency proofs remain separate. |
 | Authentication/resumption | Certificates, hostname, policy, signatures/Finished and cached evidence | Regression/interop/fail-closed tests. The traffic-key model does not verify all acceptance paths. |
 | DNSSEC/X.509 construction | Wire/DER encodings, chain/denial acceptance, mappings, budgets/caches | JDK verification plus standards/synthetic tests and resource models. No complete DNSSEC/DER/certificate-policy proof. |
@@ -233,6 +233,43 @@ not a claim of whole-record constant time or absence of remote side channels.
 The research reference is [EverQUIC's paper](https://www.andrew.cmu.edu/user/bparno/papers/quic-record.pdf);
 its F*/C theorems do not automatically transfer to our Java implementation.
 
+### SHAKE and ML-KEM foundations in Dafny
+
+The [primitive component](https://github.com/mahmoudimus/MicroProxy/tree/diff/dafny-shake-mlkem/formal/primitives)
+starts the wider crypto work. Keccak-f[1600] is implemented with executable
+snapshot-based array loops and proved equal to a separate lane-level composition
+of theta/rho/pi/chi/iota for all 25-lane inputs and all 24 rounds. Rho offsets and
+round constants are reviewed specification inputs, additionally checked against
+independent recurrences and an XKCP known answer. Full bit-string/lane refinement,
+SHAKE absorption/domain separation/padding and arbitrary segmented I/O stay open.
+
+The field kernel proves exact modular results and canonical outputs for ReduceOnce,
+Reduce, Add, Sub, Mul, MulSub and AddMul. It also discharges scalar helper ranges
+for canonical coefficients. Barrett reduction is proved through 22154496, including
+legal scalar callers above the existing production comment's 2^24 bound. This does
+not establish coefficient invariants for every polynomial/NTT caller. NTT, codecs,
+sampling and full ML-KEM composition remain separate obligations.
+
+Java is generated with verification enabled and tested against canonical source
+and independent vectors in a fresh isolated harness. Preconditions are checked by
+general-domain harnesses; semantic/domain mutants, extra assumptions and skipped
+proofs must be rejected. These new kernels have no added Dafny assumptions. Their
+Java backend/runtime and adapters remain trusted. Mathematical field integers
+compile to BigInteger, and sequence/array operations allocate: production adoption
+needs a runtime/performance review or checked primitive lowering. Neither
+production `Shake` nor `MlKem768` is replaced by this component; it adds no runtime
+dependency to the proxy and supplies no timing theorem.
+
+```sh
+python3 -m unittest discover -s formal/primitives -p 'test_*.py' -v
+python3 formal/primitives/run.py
+```
+
+This is new standards-based Dafny work. Its provenance is independent of the AWS
+HKDF reference, and the existing Go attribution in handwritten ML-KEM is preserved.
+The [work plan](project/2026-10-29-shake-mlkem-dafny-foundations.md) records the
+bounded deliverable and the remaining V4/V5/V6 obligations.
+
 ### Timing boundary
 
 Functional correctness, cryptographic security and timing independence are separate. Lean can
@@ -250,9 +287,9 @@ verifies functional behavior and secret independence in F*/Low*, with Vale for s
 is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/saw-script/master/saw-user-manual/verifying-code.html)
 supplies the bytecode interface used by the scoped experiment above.
 
-The next assurance work includes generated HKDF adoption and its Java trust boundary, then extends to ML-KEM
-finite-width arithmetic/NTT/codecs and SHAKE/FIPS 202 refinement, with a defined secret-trace
-timing model. Those remain gaps. Claiming all our handwritten crypto formally verified, or the
+Remaining work includes generated HKDF adoption and its Java trust boundary,
+ML-KEM polynomial/NTT/codecs/composition, SHAKE sponge/FIPS 202 refinement, and a
+defined secret-trace timing model for these final implementations. Those remain gaps. Claiming all our handwritten crypto formally verified, or the
 proxy proved secure, would be false.
 
 The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
