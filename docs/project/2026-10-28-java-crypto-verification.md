@@ -4,7 +4,13 @@
 
 **Goal:** Use Dafny to establish checked functional and secret-trace properties across our cryptographic code, starting with HKDF and its pinned AWS reference.
 
-**Architecture:** Use Dafny as the primary specification/proof language for HKDF, SHAKE and ML-KEM, then connect those results to production Java methods. Keep JDK provider operations behind listed contracts. SAW is an implementation bridge, and existing Lean/TLC evidence remains separate. Tool gaps remain blockers with reproducible evidence.
+**Architecture:** Use Dafny as the primary implementation/specification/proof language. The selected HKDF route compiles the verified kernel to Java, with Dafny compiler/runtime and Java/JCE adapters explicitly trusted. Start with an isolated replay component before production packaging/performance review. For existing handwritten methods, SAW remains an implementation bridge; Lean/TLC evidence stays separate. Tool gaps remain visible blockers.
+
+**First implementation:** [Generated HKDF component](https://github.com/mahmoudimus/MicroProxy/blob/73c12c57baa765caeea78971ae8c3a7bc4f17f1d/formal/dafny/README.md).
+It proves the complete local Extract/Expand/TLS-label kernel, generates Java and
+tests its real JCE boundary. This does not close every V0-V8 obligation below.
+The full upstream MPL replay remains unperformed; our standalone kernel has no
+upstream includes and is independently verified. Production adoption remains open.
 
 **Tech Stack:** Dafny (4.9.1 for initial AWS-reference replay; reviewed upgrades after replay), SAW 1.6/Crucible and Cryptol for the Java bridge, JDK 21+, Python runners and JUnit vectors. Retain pinned Lean 4.35.0/TLC 1.7.4 evidence; additional Lean proofs are optional.
 
@@ -50,6 +56,15 @@
 - [ ] Create `python3 formal/dafny/run.py` to verify contracts and controls with an atomic status report and assumption audit. Test its failure paths, then add it to opt-in formal CI. Commit after review.
 
 ## V2: Connect HKDF contracts to actual Java
+
+**Selected route for HKDF:** implement in Dafny and generate Java. The initial
+component lives in `formal/dafny/hkdf`, with handwritten tested adapters under
+`formal/dafny/java`. Its replay pins the compiler distribution/runtime and inputs,
+audits the external HMAC assumption, verifies the full algorithm and unrestricted
+public domain, runs negative controls, generates Java, compiles it and tests JCE.
+Production replacement requires packaging/runtime/performance and key-schedule
+integration review. The SAW refinement steps below remain the alternative for
+retaining handwritten HKDF; they are not prerequisites for this selected route.
 
 **Files:** `formal/saw/hkdf.saw`, `formal/saw/Hkdf.cry`, reviewed provider contract scripts, `formal/crypto-obligations.json`; production target `quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java`.
 

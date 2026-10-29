@@ -21,7 +21,7 @@ The program is **Dafny-based verification of our cryptography**. AWS is the pinn
 
 Dafny supports contracts, loop invariants, arrays and fixed-width bitvectors for these algorithms. The models must explicitly match Java's signed integers, overflow, shifts and mutable heaps. A self-composed pair of modeled executions can establish a chosen secret-trace property; functional correctness alone does not establish that property.
 
-There are two Java delivery paths: retain our handwritten Java and prove a checked refinement, or implement a verified Dafny kernel and compile it to Java. The latter trusts the Dafny compiler/runtime and Java compilation and requires a separately reviewed runtime-dependency decision. Neither path automatically proves HotSpot's generated machine code constant time. See the [Dafny reference and Java backend](https://dafny.org/latest/DafnyRef/DafnyRef).
+The selected HKDF delivery path implements a verified Dafny kernel and compiles it to Java. The initial [generated component](https://github.com/mahmoudimus/MicroProxy/blob/73c12c57baa765caeea78971ae8c3a7bc4f17f1d/formal/dafny/README.md) is isolated from production while compiler/runtime dependencies, performance and integration are reviewed. It trusts Dafny's compiler/runtime, Java compilation and the tested Java/JCE boundary. Retaining handwritten implementations with checked refinement remains available for other targets. Neither path automatically proves HotSpot's generated machine code constant time. See the [Dafny reference and Java backend](https://dafny.org/latest/DafnyRef/DafnyRef).
 
 ### Named protocol baseline
 
