@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "inputs": {
+    "formal/dafny/run.py": "f27a0efa42defff7b39851f8066f80d86a6d8eba8e88b7df81f53eaf6e48fa01",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/packet/PacketKernel.dfy": "d0bdf2a595e467958a2ae2b137ea9d6b91dd9462a5d4bef4860643faf3c79825",
+    "formal/packet/TraceMachine.dfy": "1a298ad08fc5461e75e89908ab86bdc9baf5d9a4aa314620897269d539d3b128",
+    "formal/packet/bytecode_guard.py": "66acf6cbd1524b2e6b118c79a01fe191934ae7bd69e28cc20255244c6acfd993",
+    "formal/packet/lowering.py": "e5bb6349535ad34e935b794567e9bc8c1cabea72dfeda3691119024e689793d1",
+    "formal/packet/run.py": "95194933f1e6d175142467364d2c4c91837d584f573a625d58cb1e6746fe385c",
+    "formal/packet/test_bytecode.py": "726b783ccdff152a7bdc897a76b3be83c6c5af73cc841634e8bbdcddb8daa925",
+    "formal/packet/test_io.py": "8d0f2c311880949bd422a458c7218890e9c335f490eb69ef6820398cd0de9249",
+    "formal/packet/test_lowering.py": "99844e5317261c0108f2d526748a632da6d104d89d752e6f594bb4b2b97fb9c5",
+    "formal/packet/test_replay.py": "b6826730da67c09a1787d024365e0b5825dc18135b339441c89fdaffcab5e92d",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java": "dbd33a5b855de15f5f7e67e7c57915761c52188446c08319b80bed46034b953f",
+    "quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f",
+    "quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java": "74e40a1ee79496b2c336e6fef40dfe8496b7f405bc3ed925b0d90e507609a563",
+    "quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java": "4e2fa147ef96405b3bb159b642f833e79611d1597ddc150469aade8ac7b7b2fb",
+    "quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java": "8068954747d8ca02e29f7d2cff1313c8556e05209da93622af07e843dc327938"
+  }
+}

@@ -8,6 +8,35 @@ permissions:
   contents: read
 
 jobs:
+  packet-traces:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        java: ['21', '25']
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Test packet proof and code-bridge gates
+        run: python -m unittest discover -s formal/packet -p 'test_*.py' -v
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Replay scalar proofs, negative controls and actual-class traces
+        run: python formal/packet/run.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: packet-traces-jdk-${{ matrix.java }}
+          path: target/packet-verification/
+          if-no-files-found: ignore
+
   dafny-hkdf:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

@@ -370,7 +370,7 @@ public final class ProtectedPacket {
             throw new IllegalStateException("header protection already removed");
         }
         int pnLength = key.unprotect(buffer, start, packetNumberOffset);
-        long truncated = PacketNumber.read(buffer.duplicate().position(packetNumberOffset), pnLength);
+        long truncated = PacketNumber.readProtected(buffer, packetNumberOffset, pnLength);
         long number = PacketNumber.decode(largestPacketNumber, truncated, pnLength);
         int first = buffer.get(start) & 0xff;
         PacketHeader.Numbered h = switch (type) {
