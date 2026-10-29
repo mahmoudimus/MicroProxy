@@ -148,6 +148,6 @@ timing model. Those remain gaps. Claiming all our handwritten crypto formally ve
 proxy proved secure, would be false.
 
 The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
-starts the next crypto work with a pinned AWS-derived Dafny HKDF specification and
-an explicit Java implementation bridge. Its milestones are proposed work, separate
+uses Dafny across HKDF, SHAKE and ML-KEM verification, starting with HKDF and the
+pinned AWS reference, followed by explicit Java implementation bridges. Its milestones are proposed work, separate
 from the completed proofs described here.

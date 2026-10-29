@@ -11,9 +11,17 @@ Use two coordinated tracks, each with independently reviewable milestones:
 1. [QUIC feature completion](2026-10-28-quic-feature-completion.md).
 2. [Java crypto verification](2026-10-28-java-crypto-verification.md).
 
-The chosen direction is incremental verification of the existing implementation. Use Dafny for executable contracts and inductive functional reasoning, SAW for actual Java bytecode obligations, Lean for mathematical properties, and TLA+/TLC for protocol/resource transitions. A theorem about a model and a theorem about production bytecode are different ledger entries.
+The chosen direction is incremental, Dafny-first verification of the existing implementation. Use Dafny for the primary functional specifications and proofs across HKDF, Keccak/SHAKE, ML-KEM arithmetic/NTT/codecs/composition, and explicit secret-trace models. SAW supplies actual Java bytecode obligations where supported. Existing Lean proofs remain valid; new Lean obligations are optional when a concrete need justifies them. TLA+/TLC remains useful for protocol/resource transitions. A theorem about a model and a theorem about production bytecode are different ledger entries.
 
 The alternatives considered were replacing primitives with generated verified Java, or using a verified native library. Those may become useful if a bridge proves infeasible, but each changes dependencies, runtime behavior and trust boundaries. Neither is the default implementation decision. A production replacement requires its own reviewed design and fingerprint/API compatibility evidence.
+
+### Dafny scope and Java delivery
+
+The program is **Dafny-based verification of our cryptography**. AWS is the pinned HKDF reference and a provenance source for material actually adapted; it does not define which algorithms Dafny can verify. SHAKE and ML-KEM specifications come from their standards and our implementation, with their own attribution records.
+
+Dafny supports contracts, loop invariants, arrays and fixed-width bitvectors for these algorithms. The models must explicitly match Java's signed integers, overflow, shifts and mutable heaps. A self-composed pair of modeled executions can establish a chosen secret-trace property; functional correctness alone does not establish that property.
+
+There are two Java delivery paths: retain our handwritten Java and prove a checked refinement, or implement a verified Dafny kernel and compile it to Java. The latter trusts the Dafny compiler/runtime and Java compilation and requires a separately reviewed runtime-dependency decision. Neither path automatically proves HotSpot's generated machine code constant time. See the [Dafny reference and Java backend](https://dafny.org/latest/DafnyRef/DafnyRef).
 
 ### Named protocol baseline
 
@@ -67,7 +75,7 @@ AES-GCM, ChaCha20-Poly1305, HMAC and JDK SHA3 remain provider responsibilities. 
 
 ## Sequence and dependencies
 
-Both tracks start after the baseline/release audit. The first substantive crypto task is the AWS-derived HKDF contract (V1), followed by the actual-Java bridge (V2). Portable SAW/array-clone work (V3) enables broader mutable-array targets. SHAKE (V4) precedes final ML-KEM composition (V6); arithmetic/NTT/codecs (V5) can proceed independently of V4. The secret-trace model (V7) starts early but is discharged only against the final proven implementation.
+Both tracks start after the baseline/release audit. The first substantive crypto task is the Dafny HKDF contract using the pinned AWS reference (V1), followed by the actual-Java bridge (V2). Portable SAW/array-clone work (V3) enables broader mutable-array targets. Dafny SHAKE proofs (V4) precede final Dafny ML-KEM composition (V6); Dafny arithmetic/NTT/codecs (V5) can proceed independently of V4. The Dafny secret-trace model (V7) starts early but is discharged only against the final proven implementation.
 
 QUIC client validation (F1) precedes full server negotiation and adapter `v2` (F2). Preferred-address adapter wiring (F3) and blocking priorities (F4) are independent. Reset wire/negotiation (F5) precedes retained-prefix behavior/API (F6). Full matrix/release evidence (F7) follows those features and every mandatory gap discovered in F0.
 

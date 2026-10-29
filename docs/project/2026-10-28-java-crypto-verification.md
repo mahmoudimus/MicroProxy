@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Establish checked functional and secret-trace properties of our cryptographic code, starting with HKDF using the pinned AWS Dafny reference.
+**Goal:** Use Dafny to establish checked functional and secret-trace properties across our cryptographic code, starting with HKDF and its pinned AWS reference.
 
-**Architecture:** Write explicit executable specifications, discharge inductive model obligations, then connect them to production Java methods. Keep JDK provider operations behind listed contracts. Tool gaps remain blockers with reproducible evidence.
+**Architecture:** Use Dafny as the primary specification/proof language for HKDF, SHAKE and ML-KEM, then connect those results to production Java methods. Keep JDK provider operations behind listed contracts. SAW is an implementation bridge, and existing Lean/TLC evidence remains separate. Tool gaps remain blockers with reproducible evidence.
 
-**Tech Stack:** Dafny 4.9.1 for initial AWS-reference replay, SAW 1.6/Crucible, pinned Lean 4.35.0/TLC 1.7.4, JDK 21+, Cryptol, Python runners and JUnit vectors.
+**Tech Stack:** Dafny (4.9.1 for initial AWS-reference replay; reviewed upgrades after replay), SAW 1.6/Crucible and Cryptol for the Java bridge, JDK 21+, Python runners and JUnit vectors. Retain pinned Lean 4.35.0/TLC 1.7.4 evidence; additional Lean proofs are optional.
 
 **Spec:** [QUIC completion and Java cryptography assurance](2026-10-28-quic-crypto-assurance-design.md).
 
@@ -17,6 +17,7 @@
 - Pin exact source/class/tool/spec inputs. A blocked/finite/model-only result cannot be promoted to a full implementation proof.
 - Every proof has satisfiable preconditions, independent specifications and meaningful weakened/mutated controls. Audit all assumptions and overrides.
 - Normal vectors and independent comparisons remain required alongside proofs.
+- AWS attribution describes reused HKDF material only. Other cryptographic models are our standards-based Dafny work; do not invent AWS provenance for them.
 
 ## Review Focus
 
@@ -37,7 +38,7 @@
 - [ ] Replay the current one-method SAW proof and existing Lean/TLC evidence, recording their actual domains unchanged.
 - [ ] Run gate tests and reviewed CI installation with checksum-pinned tools. Keep this ledger as the dependency boundary for all subsequent tasks; commit after review.
 
-## V1: AWS-derived HKDF functional specification (first crypto deliverable)
+## V1: Dafny HKDF functional specification (first crypto deliverable)
 
 **Files:** Create `formal/dafny/HmacModel.dfy`, `Hkdf.dfy`, `HkdfProofs.dfy`, `tools.json`, `sources.json`, `NOTICE`, `run.py`, `test_run.py` and negative controls under `formal/dafny/`; reuse `quic/src/test/java/io/github/mahmoudimus/quic/HkdfTest.java`.
 
@@ -73,46 +74,46 @@
 
 ## V4: SHAKE/FIPS 202 refinement
 
-**Files:** Create `formal/lean/Keccak.lean`, `formal/lean/Shake.lean`, `formal/saw/shake.saw`, corresponding Cryptol specs and controls; target `tls/Shake.java` and `tls/ShakeTest.java`.
+**Files:** Create `formal/dafny/Keccak.dfy`, `formal/dafny/Shake.dfy`, `formal/dafny/ShakeProofs.dfy`, `formal/saw/shake.saw`, corresponding Java-bridge specs and controls; target `tls/Shake.java` and `tls/ShakeTest.java`.
 
 **Interfaces:** Specify `keccak(long[25])`, SHAKE128/SHAKE256 absorbing state, domain separation, padding and arbitrarily partitioned squeeze/update calls. State precisely which call orders the Java API permits.
 
 - [ ] Pin FIPS 202 and its published errata; write independent round/lane and sponge specifications.
-- [ ] Prove all round operations and sponge composition, then bridge to the actual Java methods including mutation and buffer bounds. Use V3 if backend copies require it.
+- [ ] Prove all round operations and sponge composition in Dafny with explicit `bv64` lane semantics, then bridge to the actual Java methods including mutation and buffer bounds. Follow V2's checked-specification requirement and use V3 if backend copies require it.
 - [ ] Add controls for rotation, lane/endian order and domain separation. Exercise lengths around both rates, segmented I/O, zero-length calls and invalid call order in Java.
-- [ ] Run kernel/bytecode proofs, Python/OpenSSL independent values and Java vectors. No arbitrary fixed number of squeeze blocks may be called full SHAKE correctness. Review and commit.
+- [ ] Run Dafny and bytecode proof replays, Python/OpenSSL independent values and Java vectors. No arbitrary fixed number of squeeze blocks may be called full SHAKE correctness. Review and commit.
 
 ## V5: ML-KEM arithmetic, NTT, codecs and sampling
 
-**Files:** Extend `formal/saw/Field.cry`, reduction experiments and controls; create `formal/lean/MlKemArithmetic.lean`, `MlKemNtt.lean`, `MlKemEncoding.lean` and corresponding bytecode obligations; target helpers in `tls/MlKem768.java` and its tests.
+**Files:** Extend `formal/saw/Field.cry`, reduction experiments and controls; create `formal/dafny/MlKemArithmetic.dfy`, `formal/dafny/MlKemNtt.dfy`, `formal/dafny/MlKemEncoding.dfy`, `formal/dafny/MlKemSampling.dfy` and corresponding bytecode obligations; target helpers in `tls/MlKem768.java` and its tests.
 
 **Interfaces:** Derive contracts from every real caller, with Java signed-width semantics. Prove `reduceOnce`, `reduce`, `add`, `sub`, `mul`, `mulSub`, `addMul`, compression, serialization, polynomial operations, NTT/inverse NTT and samplers in dependency order.
 
 - [ ] Produce a caller/range ledger before extending proofs. In particular, audit `addMul` and `mulSub` inputs against the existing reduction comment's `2^24` limit; a narrower helper theorem cannot discharge wider callers.
 - [ ] Resolve reduction solver timeouts with reviewed decomposition/lemmas and explicit bounds, never a silent restricted input claim.
-- [ ] Prove helper postconditions, range preservation and all call-site preconditions. Link mathematical NTT/codec statements to actual bytecode and record randomness/public-seed assumptions for sampling.
+- [ ] Prove helper postconditions, range preservation and all call-site preconditions in Dafny. Specify signed Java operations explicitly alongside unsigned bitvectors. Link Dafny NTT/codec statements to actual bytecode and record randomness/public-seed assumptions for sampling.
 - [ ] Run independent deterministic Go comparison vectors, malformed encodings and mutated arithmetic/codec controls. Any real counterexample becomes a focused code fix with renewed reviewed proof pins. Commit by independently reviewable helper families.
 
 ## V6: Full ML-KEM-768 functional composition
 
-**Files:** Create top-level FIPS 203 specifications/composition proofs under `formal/lean/` and `formal/saw/`; target `MlKem768.generate`, encapsulation, encryption/decryption helpers and `DecapsulationKey.decapsulate`; extend malformed-input tests.
+**Files:** Create `formal/dafny/MlKem768Spec.dfy`, `formal/dafny/MlKem768Proofs.dfy` and corresponding Java-bridge obligations under `formal/saw/`; target `MlKem768.generate`, encapsulation, encryption/decryption helpers and `DecapsulationKey.decapsulate`; extend malformed-input tests.
 
 **Interfaces:** Define complete deterministic functions of supplied coins/inputs and provider hashes. Enumerate all private/public key encodings and API validation results. V4 and V5 discharge owned SHAKE/helper dependencies; JDK SHA3 and randomness retain listed contracts.
 
 - [ ] Pin FIPS 203, review its published errata, and map every algorithm step to an implementation obligation.
-- [ ] Prove key generation, encapsulation and valid/invalid-ciphertext decapsulation, including fallback key selection and malformed-key handling. The existing one-method proof is a dependency, not the whole result.
+- [ ] Prove key generation, encapsulation and valid/invalid-ciphertext decapsulation in Dafny, including fallback key selection and malformed-key handling, then discharge their Java refinement obligations. The existing one-method proof is a dependency, not the whole result.
 - [ ] Add controls for fallback selection, ciphertext comparison coverage, wrong hash/context and a missing input validation. Separate mathematical functional equivalence from cryptographic hardness/security reductions.
 - [ ] Require no open owned-algorithm obligations in the declared ML-KEM-768 domain, plus independent vectors and expert review before using a full functional-correctness claim. Commit reviewed stages; leave composition open while any required bridge is blocked.
 
 ## V7: Secret-trace proof for our code
 
-**Files:** Create `formal/timing/threat-model.md`, `formal/lean/SecretTrace.lean`, target-specific trace obligations and negative controls; update the crypto ledger and `docs/security-timing-audit.md`.
+**Files:** Create `formal/timing/threat-model.md`, `formal/dafny/SecretTrace.dfy`, `formal/dafny/SecretTraceProofs.dfy`, target-specific Java trace obligations and negative controls; update the crypto ledger and `docs/security-timing-audit.md`.
 
 **Interfaces:** Declare public fields per operation (algorithm, lengths, public keys/ciphertexts, allowed declassification) and secret values (private keys, key material, unrevealed intermediate values). For paired executions with equal public inputs, compare branches, memory indices, dispatch and observable errors; fresh allocations use an explicit heap-renaming relation. Outputs may differ as the cryptographic interface permits.
 
 - [ ] Define the observer and exceptional/provider behavior before any constant-time theorem. Classify public-seed rejection sampling separately from secret-dependent work.
 - [ ] Add secret-branch, secret-index, early-comparison and exception-oracle mutations; each must break the corresponding trace property.
-- [ ] Prove target properties for HKDF orchestration, SHAKE, ML-KEM implicit rejection and secret-comparison call paths. Model JDK/provider calls as explicit trusted contracts; do not infer their execution trace from the Java caller proof.
+- [ ] Use explicit paired-execution/self-composition proofs in Dafny for HKDF orchestration, SHAKE, ML-KEM implicit rejection and secret-comparison call paths. Ordinary method contracts or old/new-heap lemmas alone are not a two-execution trace proof. Model JDK/provider calls as explicit trusted contracts; do not infer their execution trace from the Java caller proof.
 - [ ] Connect the trace semantics to implementation control/data flow with a checked mechanism. Until that connection exists, label results model-only. Replay with the final V2/V4/V6 implementations and review the complete declassification list.
 
 ## V8: Runtime evidence and assurance release gate
