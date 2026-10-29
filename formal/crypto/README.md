@@ -177,6 +177,33 @@ lemmas so that Linux and macOS complete at the same 30-second/50-million-resourc
 limits. Their domains and result equations are unchanged. The proof-only splits
 produce exactly the same generated Java and compiled KEM classes as before.
 
+## Native SHAKE sponge and API
+
+`NativeKeccak.dfy` and `NativeShake.dfy` refine the same permutation and sponge
+equations using primitive `long[]`, `byte[]` and bounded `int` indices. Their
+contracts cover both rates, arbitrary valid states, all signed-int slice arguments
+and segmented reads/updates. Invalid slices leave the state unchanged; empty
+reads initiate squeezing. Constructor freshness and the private Java facade keep
+caller buffers separate from sponge state and public rotation/index tables.
+`Destroy` proves writes of zero to every secret lane and work-array element.
+
+The independently reviewed component replay discharged 1,532 obligations with
+zero errors, six clean audits and 22 genuine semantic controls. Both JDKs passed
+25,218 assertions using the exact Maven runtime. The generated-source and actual
+bytecode audit checks the permitted runtime calls; allocation boxing and
+BigInteger conversions consume public constants. Source-level wiping does not
+prove physical erasure, and the audit does not prove JVM timing.
+
+```sh
+python3 formal/crypto/native_shake_checks.py --output /fresh/output/base \
+  --java-home /path/to/jdk21 --java-home /path/to/jdk25 \
+  --runtime-jar /path/to/DafnyRuntime-4.9.1.jar \
+  --runtime-sha256 dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6
+```
+
+The API facade is reviewed separately; production acceptance still requires full
+composition, compatibility/performance evaluation and exact artifact delivery.
+
 ## Native field and polynomial refinement
 
 `NativeField.dfy` refines the field equations with bounded Java `int`/`long`
