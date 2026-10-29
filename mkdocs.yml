@@ -127,6 +127,7 @@ nav:
           - QUIC implementation plan: project/2026-10-28-quic-feature-completion.md
           - Crypto verification plan: project/2026-10-28-java-crypto-verification.md
           - Packet trace verification: project/2026-10-29-quic-packet-traces.md
+          - SHAKE and ML-KEM foundations: project/2026-10-29-shake-mlkem-dafny-foundations.md
       - Building and testing: project/building-and-testing.md
       - Benchmarks against LittleProxy: project/benchmarks.md
       - Load and capacity testing: project/load-testing.md
