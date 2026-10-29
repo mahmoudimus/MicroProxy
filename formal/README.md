@@ -3,6 +3,14 @@
 The governing claims and gaps are in [Security assurance](../docs/formal-security.md).
 These artifacts prove properties of explicit models, not whole-stack Java security.
 
+TLA+/TLC checks finite protocol-state models. Lean 4 checks universal mathematical
+theorems and separately generated finite implementation observations. Neither is
+the source of our generated Java. Dafny verifies executable algorithms against
+their contracts and compiles them to Java; SAW checks supported actual bytecode
+directly. Each route has its own implementation bridge and assumptions. See
+[how verification reaches executable code](../docs/formal-security.md#how-verification-reaches-executable-code)
+for the generation, review and production-adoption gates.
+
 The separate, opt-in [SAW experiment](saw/README.md) verifies one bounded arithmetic
 method from actual Java 21 bytecode. It has its own pinned inputs, negative controls
 and trust boundary; it is not part of the Lean/TLC replay described below.

@@ -10,6 +10,48 @@ establish absence of vulnerabilities.
 Interoperability and security assurance are separate. Our primitive boundary includes
 handwritten ML-KEM and SHAKE implementations.
 
+## How verification reaches executable code
+
+We use several tools for different obligations. They do not collectively establish
+that the whole proxy is secure: each result names its inputs, property, domain and
+remaining assumptions.
+
+| Tool | What we use it for | Connection to Java |
+|---|---|---|
+| TLA+ with TLC | Explore TLS key/sequence/closure transitions and check invariants within the configured finite state space | Model checking plus finite observations of production behavior; it does not generate our Java or prove unbounded refinement. |
+| Lean 4 | Kernel-checked mathematical theorems about counters, nonce/label encodings and resource bounds | Universal model theorems plus separately identified finite Java observations; it does not generate the production implementation. |
+| Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Generated HKDF is an isolated replay component; the generated packet kernel is integrated into production. Compiler/runtime, adapters and any lowering are explicit trust boundaries. |
+| SAW/Crucible | Prove a property of supported actual Java class-file methods | Currently one bounded ML-KEM reduction method; unsupported operations and caller preconditions remain open obligations. |
+
+For generated components the delivery sequence is:
+
+1. Write a standards-based specification and an executable Dafny implementation
+   with exact postconditions, input domains and loop invariants.
+2. Verify the implementation and audit assumptions. Independent domain harnesses
+   prevent narrowing a contract merely to make verification pass; deliberately
+   broken implementations must fail actual proof obligations.
+3. Generate Java with verification enabled, compile that exact output, and record
+   source, tool, generated-source and class hashes. A handwritten translation does
+   not inherit the proof. The packet component's two bounded-shift lowerings are
+   separately documented and tested compiler adaptations.
+4. Test the generated artifact at its Java boundary using independent standards
+   vectors, production comparisons, invalid inputs, ownership checks and applicable
+   fingerprint fixtures. These tests cover integration; they do not prove the
+   adapter or compiler correct.
+5. Review packaging, runtime dependencies and performance before production
+   adoption. Replay the proof and integration gates in CI when inputs change.
+
+Functional correctness means the algorithm meets its stated equations. A separate
+two-run trace proof can address modeled secret-dependent observations. Neither
+proves cryptographic hardness, provider correctness or physical JVM/CPU timing.
+Those distinctions also apply to future SHAKE/ML-KEM work. AWS attribution belongs
+to the reused HKDF proof structure; our other Dafny models follow their respective
+standards and have their own provenance.
+
+The [verification artifact guide](https://github.com/mahmoudimus/MicroProxy/tree/diff/quic-packet-traces/formal)
+contains replay commands. The component sections below state which claims have
+actually been discharged and which implementation bridges remain trusted.
+
 ## Trusted primitives and our code
 
 We assume the selected JDK/provider correctly implements AES-GCM, ChaCha20-Poly1305, HMAC,
