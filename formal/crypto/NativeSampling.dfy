@@ -5,6 +5,7 @@ module NativeSampling {
   import T = NativeTypes
   import C = CodecSpec
   import N = NativeCodec
+  import F = NativeField
   import S = SamplingSpec
   import V = VerifiedSampling
 
@@ -38,13 +39,15 @@ module NativeSampling {
       modifies f
       invariant forall k: int :: 0 <= k < i as int ==> f[k] as int == S.CbdWord(T.Bytes(b),k)
     {
-      var x: T.I := b[i/2] as T.I;
-      var j: T.I := 4*(i%2);
-      var low := (x/N.Pow2(j))%2 + (x/N.Pow2(j+1))%2;
-      var high := (x/N.Pow2(j+2))%2 + (x/N.Pow2(j+3))%2;
-      // This numerator is 3327..3331; the runtime remainder never sees a
-      // negative secret and all coefficient arithmetic is native int.
-      f[i] := (3329+low-high)%3329;
+      var x: T.L := b[N.PublicDiv(i,2)] as T.L;
+      var j: T.I := 4*N.PublicMod(i,2);
+      var low := N.Extract(x,j,1) + N.Extract(x,j+1,1);
+      var high := N.Extract(x,j+2,1) + N.Extract(x,j+3,1);
+      assert N.Power(j as int) == C.Pow2(j as int);
+      assert N.Power(j as int+1) == C.Pow2(j as int+1);
+      assert N.Power(j as int+2) == C.Pow2(j as int+2);
+      assert N.Power(j as int+3) == C.Pow2(j as int+3);
+      f[i] := F.ReduceOnce(3329+low-high);
       assert (3329+low-high)%3329 == (low-high)%3329;
     }
   }
@@ -61,7 +64,7 @@ module NativeSampling {
     var valid := IsPrefix(current);
     if !valid { return InvalidPrefix; }
     var size: T.I := b.Length as T.I;
-    if size%3 != 0 { return InvalidBlockLength; }
+    if N.PublicMod(size,3) != 0 { return InvalidBlockLength; }
     ghost var initial := T.Ints(current);
     ghost var bytes := T.Bytes(b);
     V.AcceptedOrder(initial,bytes,0);
@@ -83,8 +86,8 @@ module NativeSampling {
     {
       ghost var before := T.Ints(a)[..used as int];
       V.RunStep(before,bytes,off as int);
-      var x: T.I := (b[off] as T.I)+256*((b[off+1] as T.I)%16);
-      var y: T.I := (b[off+1] as T.I)/16+16*(b[off+2] as T.I);
+      var x: T.I := (b[off] as T.I)+256*N.Extract(b[off+1] as T.L,0,4);
+      var y: T.I := N.Extract(b[off+1] as T.L,4,4)+16*(b[off+2] as T.I);
       assert x as int == S.First(bytes,off as int) && y as int == S.Second(bytes,off as int);
       if x < 3329 {
         assert x < 3329;

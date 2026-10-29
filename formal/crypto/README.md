@@ -243,20 +243,31 @@ the reviewed sequence contracts using primitive arrays and arithmetic. Their
 proofs cover the full legal domains, native arithmetic bounds, fresh outputs,
 unchanged inputs and zeroing of discarded intermediate arrays. Width-10 packing
 uses native `long` intermediates below `2^40`; it cannot be narrowed to `int`.
-CBD2 computes a nonnegative remainder numerator in 3327–3331, keeping the runtime
-helper on its positive path for every legal noise input.
+Coefficient packing and rounding use proved shifts, masks and reciprocal
+arithmetic. CBD2 uses `NativeField.ReduceOnce` for its canonical signed difference.
+Coefficient values do not reach division/remainder helpers. The only retained
+division/remainder operations process public indices, lengths and widths.
 
-[Recorded evidence](NATIVE-CODEC-EVIDENCE.json): native codec 217 checks, sampling
-270, and general caller harnesses 8 and 4, all with zero errors; both owned audits
-have zero findings. Twelve semantic controls include a direct native-overflow
-mutation and discarded-buffer cleanup. Each JDK passes 334,753 assertions. An
-independent review replayed these checks and inspected the generated source,
-actual bytecode and runtime helpers. The seven allocation-related boxings carry
-constant zero; the inspected paths have no secret-value boxing or sequence/
-BigInteger operations. The overflow-control addition received a separate review.
+[Recorded evidence](NATIVE-CODEC-EVIDENCE.json) preserves the full-domain proof
+results: codec 1,493 checks, sampling 281, field 84, and caller harnesses 8 and 4,
+all with zero errors and zero audit findings. Fifteen genuine semantic controls
+include native overflow, rounding/shift/reciprocal errors and discarded-buffer
+cleanup. A subsequent checker-only revision explicitly reuses those proofs by
+unchanged source and generated-artifact identities; it freshly compiles and runs
+334,753 assertions on each JDK with the exact Maven runtime.
+
+An independently reviewed bytecode dataflow check covers 45 methods. It requires
+public operands at metadata arithmetic calls and rejects payload-dependent array
+allocation sizes, including allocations whose lengths would cross a native call.
+Eight compiled controls exercise direct arithmetic, metadata laundering and JVM/
+Dafny allocation paths. Constant-zero allocation boxing is listed explicitly;
+secret-value boxing, BigInteger/sequence arithmetic and payload division are
+rejected in the inspected paths. This checker is trusted, not a formal proof of
+JVM timing or whole-program noninterference.
 
 ```sh
 python3 formal/crypto/native_codec_checks.py --dafny /path/to/dafny/dafny \
+  --runtime /path/to/DafnyRuntime-4.9.1.jar \
   --output /fresh/output/base --java-home /path/to/jdk21 \
   --java-home /path/to/jdk25
 ```

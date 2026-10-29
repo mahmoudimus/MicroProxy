@@ -31,7 +31,8 @@ jobs:
       - name: Verify native array, arithmetic, cleanup and generated-code gates
         run: |
           DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
-          python formal/crypto/native_codec_checks.py --dafny "$DAFNY_CRYPTO_TOOL" --output target/dafny-native-codec --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME"
+          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          python formal/crypto/native_codec_checks.py --dafny "$DAFNY_CRYPTO_TOOL" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --output target/dafny-native-codec --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
