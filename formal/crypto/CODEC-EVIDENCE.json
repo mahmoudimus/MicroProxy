@@ -1,0 +1,138 @@
+{
+  "proofs": {
+    "proof-Codec": 469,
+    "proof-Sampling": 26,
+    "codec_domain": 7,
+    "sampling_domain": 2
+  },
+  "controls": {
+    "compress-rounding": {
+      "verified": 1,
+      "errors": 1
+    },
+    "decompress-half-tie": {
+      "verified": 1,
+      "errors": 1
+    },
+    "encode-bit": {
+      "verified": 1,
+      "errors": 1
+    },
+    "decode-modulus": {
+      "verified": 1,
+      "errors": 1
+    },
+    "cbd-sign": {
+      "verified": 1,
+      "errors": 1
+    },
+    "feed-order": {
+      "verified": 1,
+      "errors": 1
+    },
+    "feed-reject-q": {
+      "verified": 0,
+      "errors": 1,
+      "negative_control_witness_bytes": [
+        1,
+        13,
+        0
+      ]
+    },
+    "feed-cap": {
+      "verified": 0,
+      "errors": 1
+    },
+    "feed-consumption": {
+      "verified": 0,
+      "errors": 1
+    },
+    "full-domain": {
+      "verified": 1,
+      "errors": 1
+    }
+  },
+  "java": [
+    {
+      "version": "openjdk version \"21.0.2\" 2024-01-16 LTS\nOpenJDK Runtime Environment Temurin-21.0.2+13 (build 21.0.2+13-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.2+13 (build 21.0.2+13-LTS, mixed mode, sharing)\n",
+      "tests": {
+        "scalars": 40713,
+        "encodings": 7044,
+        "malformed": 1820,
+        "cbd": 384,
+        "feeds": 19320,
+        "java_samples": 224,
+        "assertions": 207513
+      }
+    },
+    {
+      "version": "openjdk version \"25.0.4\" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)\n",
+      "tests": {
+        "scalars": 40713,
+        "encodings": 7044,
+        "malformed": 1820,
+        "cbd": 384,
+        "feeds": 19320,
+        "java_samples": 224,
+        "assertions": 207513
+      }
+    }
+  ],
+  "inputs": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
+    "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9",
+    "formal/crypto/codec_sampling_checks.py": "ff1934c1d5c135bad6ebfa54320a31c658f6afbb8c211a01073400915c7fe649",
+    "formal/crypto/codec_sampling_test.java": "8e096bb0094a749e7af3f8f86c0b538b166d27e3f4dc5b9c3253b03516c7e4e5",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  },
+  "generated_java": {
+    "CodecSampling.java": "ccd643be447acbcd0cfc47d920e7b22200692c89119f6e5797f51e388d77f754",
+    "CodecSpec/DecodeResult.java": "036e2659ecc69553c35d726757d60de2a9ef86556a5baf7d780d19639c7e863d",
+    "CodecSpec/DecodeResult_Decoded.java": "07fc8406394ea20b0d5d5ca77def1ab997757cfcc67a4922642f96eca2525d55",
+    "CodecSpec/DecodeResult_InvalidLength.java": "2613a1992eafe51a2c0cdea810106a1cbb3cf0886093cd883ddf33f6e6ce4157",
+    "CodecSpec/DecodeResult_InvalidWidth.java": "694a65f61e6f6b06ab649f1f874bbd47d8b971d1c2ee9c378c8efe193469d4ae",
+    "CodecSpec/DecodeResult_ModulusError.java": "f11b2ce9f85c7e9b7d32ca536b2e3ea0379bbacf99744be2c604e584d5bec908",
+    "CodecSpec/__default.java": "c39316b1b998ef1c6e0ec58ed11257aaffbb4f93f49477899363ea64217c742a",
+    "SamplingSpec/FeedResult.java": "5932bebdbbbcca967fc27e02adfb0e463eebf330c13bbf8c275dbf7eebf5b2d0",
+    "SamplingSpec/FeedResult_Full.java": "3ac086d6d00735f3f16a099b440edb24895f7f896e43146db4dcb2689b9a6f64",
+    "SamplingSpec/FeedResult_InvalidBlockLength.java": "df1f1ded24289dc52216216f70329b3a95cd989108ae3dec1a92332bdfcd4cf5",
+    "SamplingSpec/FeedResult_InvalidPrefix.java": "190e249bedbc0f7f4512131d7479a70068fada256e995f0f36d8c086760bd2ba",
+    "SamplingSpec/FeedResult_NeedMore.java": "4a30814701d57492057cd1848f1c7115f9ac19106b788e3b068bccc2d963aec6",
+    "SamplingSpec/__default.java": "b66b1e694e232123119ff4d028483fafdf810bdf2a754fa116c551da64241309",
+    "VerifiedCodec/__default.java": "fe3e0ecd63d13bb35dfdaa94749befe09148c376bd56a911190c7dcf78292be7",
+    "VerifiedSampling/__default.java": "764869c1144650c2b9d065086cd51340eee9797ea8dd2e1a2906abf577f5be5f"
+  },
+  "compiled_classes": {
+    "CodecSpec/DecodeResult.class": "c9c35a0b9d4f296acda78337f35e35fcb8058349729a4bb928620a1ceb5a768d",
+    "CodecSpec/DecodeResult_Decoded.class": "4f80060924343a3d596949a9a1d6eb2b857c5b47c34187f425c097af0c0277e3",
+    "CodecSpec/DecodeResult_InvalidLength.class": "2a73dd2e249745bd22c7deba2e6c0ff4f0e34d6b90b27a4d3f4a8b0a98c111c8",
+    "CodecSpec/DecodeResult_InvalidWidth.class": "6cd89cde92d7b082e7c952358a156d674e7351982f648c7d8c8f479ecf5cb720",
+    "CodecSpec/DecodeResult_ModulusError.class": "987d9f328515469e92f88f1aeaf5d9a51562c942739423f720cbd18f93a53e87",
+    "CodecSpec/__default.class": "d8c43eb59266231f1c9d083f48a064d87dce32d336cb16df2bd82cae107d8831",
+    "SamplingSpec/FeedResult.class": "17c295a47d6956f3981efe92b11071cc55927e940d851527fbe74e92e813e2ba",
+    "SamplingSpec/FeedResult_Full.class": "9ea68662a3a1ecf941bcde628385f8bc404021101cdd169d67fc0e5b9d469841",
+    "SamplingSpec/FeedResult_InvalidBlockLength.class": "411e0ea921e3c5f17b905f7ad727949a584a5850b7a414a8633af846a4d39038",
+    "SamplingSpec/FeedResult_InvalidPrefix.class": "64f87267830de4dd878724c7529425d2eca16c58f3208d921d24d2af1d310a80",
+    "SamplingSpec/FeedResult_NeedMore.class": "b85a56bd6d707e892d3be4db44c352a88753976c60713b021cea8e144f00c05f",
+    "SamplingSpec/__default.class": "e023121d570ff0a48100d4985ca6e4dab079a340ef71de6ce06546e3c657d54e",
+    "VerifiedCodec/__default.class": "b7bff4a3a1de49c00b15e0ced329466d5464ee35a403f1ffc66facea653e466e",
+    "VerifiedSampling/__default.class": "7ea9dd85b908abcaa7e89a2dfdfae87a43a1c2c7f669079790f74105d5d38a06",
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+    "io/github/mahmoudimus/quic/tls/codec_sampling_test.class": "2409b17548abe221c514004bd3549b65f25dbc53dee46d5da8f11c9c25631cfb"
+  },
+  "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+  "footprint": {
+    "generated_java_bytes": 51897,
+    "compiled_classes_bytes": 69477,
+    "runtime_bytes": 159920
+  },
+  "scope": "Codec and finite rejection Feed only; generated Java finite regression evidence, not universal Java refinement or production adoption.",
+  "independent_review": "Approved after independent replay at 6cb35be; no material findings; native integration and sampling composition excluded."
+}

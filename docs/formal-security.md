@@ -235,6 +235,14 @@ its F*/C theorems do not automatically transfer to our Java implementation.
 
 ### SHAKE and ML-KEM foundations in Dafny
 
+The next [functional verification stage](https://github.com/mahmoudimus/MicroProxy/tree/diff/dafny-shake-mlkem/formal/crypto)
+has independently reviewed codec/compression and finite sampling proofs, with
+generated Java checked on JDK 21 and 25. This proves the stated packing, rounding,
+CBD2 and finite-feed contracts; production integration and whole-KEM composition
+remain acceptance gates. The 12-bit decoder includes canonical-key validation;
+finite Feed does not assume eventual XOF acceptance. See its README and recorded
+evidence for the exact domains and remaining obligations.
+
 The [primitive component](https://github.com/mahmoudimus/MicroProxy/tree/diff/dafny-shake-mlkem/formal/primitives)
 starts the wider crypto work. Keccak-f[1600] is implemented with executable
 snapshot-based array loops and proved equal to a separate lane-level composition
