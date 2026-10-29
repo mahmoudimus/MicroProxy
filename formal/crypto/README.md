@@ -5,6 +5,40 @@ generated production Java. The [completion plan](../../docs/project/2026-10-29-d
 requires full component composition, checked native-array refinements,
 compatibility tests and performance measurements before adoption.
 
+## SHAKE sponge and segmented sequence API
+
+`SpongeSpec.dfy` gives byte-oriented FIPS 202 absorption, SHAKE padding and
+squeezing equations. `Shake.dfy` implements those equations with verified loops.
+General concatenation and read-partition lemmas cover arbitrary finite lengths
+at both rates, including empty input and zero-length output. A zero-length read
+initiates squeezing, after which every update is rejected. Slice bounds use
+subtraction to avoid overflowing an offset-plus-length check. Both padding XORs
+are preserved when the suffix and final bit share the last rate byte.
+
+`ByteLanes.dfy` proves the little-endian byte/lane mapping, pack/unpack round trips
+and single-byte XOR behavior. The independent caller harness covers all legal
+states, rates, slice arguments and finite output lengths. Fourteen semantic
+controls include padding, phase, rate boundaries, byte order and five narrowed
+caller domains; their actual proof failures are required for a successful replay.
+
+```sh
+python3 formal/crypto/shake_checks.py --output target/dafny-crypto-shake \
+  --java-home /path/to/jdk21 --java-home /path/to/jdk25
+```
+
+The replay validates the pinned compiler distribution and all included sources,
+audits every module, generates Java and checks independent Python hashlib vectors.
+It verifies source, tool, JDK and generated-artifact identities before publishing
+a receipt. [Recorded evidence](SHAKE-EVIDENCE.json) has zero proof errors and zero
+audit findings: Shake 115 checks, SpongeSpec 159, ByteLanes 24, caller harness 11,
+and the included Keccak foundation 122. Generated Java passes 47,663 assertions on
+each JDK, including 198 vectors/partitions and 24 slice cases. An independent
+review replayed the module proofs, both JDK tests and the hashlib vectors.
+
+This stage uses immutable sequences. Its Java copying-helper assertions do not
+prove ownership for a future mutable facade. Native-array refinement, production
+adoption and performance remain separate gates; JVM timing stays open.
+
 ## Codec and finite sampling stage
 
 `Codec.dfy` proves compression/decompression equations and the circular error

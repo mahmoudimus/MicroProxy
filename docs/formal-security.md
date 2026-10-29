@@ -68,7 +68,7 @@ Provider choice, runtime, native intrinsics, CPU and deployment configuration re
 | `crypto/HeaderKey`, `packet/PacketNumber` | Mask/sample offsets, header bits, PN prefix/reconstruction | JDK AES/ChaCha plus packet vectors; generated scalar functional/trace proofs and fixed-address adapter checks below. No complete Java buffer/provider or whole-record timing refinement. |
 | `KeyExchange`, `EcCurves`, `Signatures` | Encodings, hybrid order, public point/zero checks, signature contexts/parameters | JDK classical primitives plus vectors/interop/negative tests. Wire/policy glue remains ours. |
 | `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten production primitive with Go vectors, malformed-input tests and the single-method bytecode proof below. An isolated generated Dafny component proves seven scalar field-helper contracts and their ranges. Polynomial caller invariants/full FIPS 203 refinement and timing remain open. |
-| `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten production primitive with hashlib/rate/segmented tests. An isolated generated Dafny component proves lane-level Keccak-f equations; bit-string/sponge/API refinement and timing remain open. |
+| `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten production primitive with hashlib/rate/segmented tests. Generated Dafny components prove Keccak-f and the byte-oriented sponge/segmented sequence API, including arbitrary finite lengths and partition laws. Native production refinement and timing remain open; this does not claim bit-string API coverage. |
 | Tickets/tokens/reset tokens | Nonces, rotation, framing/AAD, lifetime/address/reuse policy and comparisons | JDK AEAD/HMAC/equality plus negative tests. Random nonce collision bounds and rotation/clock/concurrency proofs remain separate. |
 | Authentication/resumption | Certificates, hostname, policy, signatures/Finished and cached evidence | Regression/interop/fail-closed tests. The traffic-key model does not verify all acceptance paths. |
 | DNSSEC/X.509 construction | Wire/DER encodings, chain/denial acceptance, mappings, budgets/caches | JDK verification plus standards/synthetic tests and resource models. No complete DNSSEC/DER/certificate-policy proof. |
@@ -236,7 +236,7 @@ its F*/C theorems do not automatically transfer to our Java implementation.
 ### SHAKE and ML-KEM foundations in Dafny
 
 The next [functional verification stage](https://github.com/mahmoudimus/MicroProxy/tree/diff/dafny-shake-mlkem/formal/crypto)
-has independently reviewed codec/compression and finite sampling proofs, with
+has independently reviewed SHAKE sponge/API, codec/compression and finite sampling proofs, with
 generated Java checked on JDK 21 and 25. This proves the stated packing, rounding,
 CBD2 and finite-feed contracts; production integration and whole-KEM composition
 remain acceptance gates. The 12-bit decoder includes canonical-key validation;
