@@ -53,27 +53,33 @@ def live_group(group):
 
 
 def stop_group(process):
+    quiescent = False
     try:
         os.killpg(process.pid, signal.SIGTERM)
         deadline = time.monotonic() + .5
         while time.monotonic() < deadline:
             # Keep the leader unreaped until the final signal: reaping here can
             # detach/recycle the process-group identity (Darwin may return EPERM).
-            if not live_group(process.pid):
-                return
+            try:
+                quiescent = not live_group(process.pid)
+            except (OSError, subprocess.SubprocessError):
+                # Inspection is optional; failure must force the kill path.
+                break
+            if quiescent:
+                break
             time.sleep(.02)
     except ProcessLookupError:
-        pass
+        quiescent = True
     finally:
         try:
-            if live_group(process.pid):
+            if not quiescent:
                 os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        except PermissionError:
-            if live_group(process.pid):
-                raise
-        process.wait(timeout=1)
+        finally:
+            # Reaping is attempted even if signaling or ps failed. No diagnostic
+            # subprocess is a prerequisite for this last termination attempt.
+            process.wait(timeout=1)
 
 
 def execute(command, log, timeout=180):

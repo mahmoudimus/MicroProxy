@@ -171,6 +171,26 @@ class TrustGates(unittest.TestCase):
                         pass
 
     @unittest.skipUnless(os.name == 'posix', 'process-group cleanup is POSIX')
+    def test_cleanup_kills_when_process_inspection_fails(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            pidfile = root / 'pid'
+            code = ('import os,signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); '
+                    f'open({str(pidfile)!r},"w").write(str(os.getpid())); time.sleep(120)')
+            try:
+                with patch.object(run, 'live_group', side_effect=subprocess.TimeoutExpired('ps', 1)):
+                    status, _ = run.execute([sys.executable, '-c', code], root / 'log', .5)
+                self.assertEqual(124, status)
+                state = subprocess.run(['ps', '-o', 'stat=', '-p', pidfile.read_text()], capture_output=True, text=True).stdout.strip()
+                self.assertTrue(not state or state.startswith('Z'), 'tool survived failed cleanup inspection')
+            finally:
+                if pidfile.exists():
+                    try:
+                        os.kill(int(pidfile.read_text()), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+
+    @unittest.skipUnless(os.name == 'posix', 'process-group cleanup is POSIX')
     def test_timeout_kills_term_ignoring_descendant(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
