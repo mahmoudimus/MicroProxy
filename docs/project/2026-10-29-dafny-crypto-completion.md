@@ -150,4 +150,4 @@ Prove Update concatenation and Read partition laws, preserving zero-read phase c
 
 References: [FIPS202](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf),
 [FIPS203](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf),
-[foundation evidence](../../formal/primitives/EVIDENCE.md).
+[foundation evidence](https://github.com/mahmoudimus/MicroProxy/blob/f888472585a2dcbe2304db2713116d3ac90db99a/formal/primitives/EVIDENCE.md).
