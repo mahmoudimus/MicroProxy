@@ -8,6 +8,47 @@ permissions:
   contents: read
 
 jobs:
+  dafny-polynomial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Retain JDK 21 for compilation and replay
+        run: echo "CRYPTO_JAVA_21=$JAVA_HOME" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Audit, prove polynomial algebra and test both JDKs
+        run: |
+          DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
+          python - "$DAFNY_CRYPTO_TOOL" <<'PY'
+          import subprocess, sys
+          result = subprocess.run([sys.argv[1], 'audit', 'formal/crypto/Polynomial.dfy'], text=True, capture_output=True)
+          output = result.stdout + result.stderr
+          print(output)
+          if result.returncode or 'Warning:' in output or 'Dafny auditor completed with 0 findings' not in output:
+              raise SystemExit('Polynomial assumption audit failed')
+          PY
+          mkdir -p target/dafny-crypto-polynomial
+          CRYPTO_POLY_OUTPUT=$(mktemp -d target/dafny-crypto-polynomial/replay-XXXXXX)
+          python formal/crypto/polynomial_checks.py --phase all --dafny "$DAFNY_CRYPTO_TOOL" --output "$CRYPTO_POLY_OUTPUT" --java-home "$CRYPTO_JAVA_21" --runtime-home "$JAVA_HOME"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-polynomial-jdk-21-and-25
+          path: target/dafny-crypto-polynomial/
+          if-no-files-found: ignore
+
   dafny-shake-api:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

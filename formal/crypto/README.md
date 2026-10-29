@@ -84,3 +84,34 @@ tests are finite compatibility evidence, not a universal bytecode proof.
 No production primitive changes in this stage. Compiler/runtime/JDK assumptions,
 cryptographic hardness, entropy and JVM timing remain separate from functional
 proofs. The overall SHAKE/ML-KEM goal stays open through production acceptance.
+
+## Polynomial and NTT algebra
+
+`Polynomial.dfy` proves canonical field ranges throughout the executable
+256-coefficient add/subtract, NTT, inverse NTT and NTT-domain multiplication
+algorithms. The NTT result is connected to independent power-sum polynomial
+remainders from FIPS 203 equations 4.12–4.13. Both inverse directions, all roots
+and table entries, and the inverse scale are proved. A general ring theorem
+derives negacyclic multiplication using `X^256 = -1` and residue evaluation;
+the reference product is not defined through the NTT implementation.
+
+These theorems quantify over every canonical coefficient vector, not a fixed
+corpus. [Recorded evidence](POLYNOMIAL-EVIDENCE.json) includes 1,480 verified
+obligations with zero errors, six genuine semantic controls, and generated Java
+tests with 288 cases and 551,008 assertions on each JDK. The finite tests include
+all 256 basis positions and 32 independent schoolbook products. An independent
+review reran the full proof, zero-finding audit, caller harness, all controls and
+both Java replays, and independently reconstructed both tables from powers of 17.
+
+Use a fresh output directory for each scoped replay, and run its zero-finding
+audit as CI does. `--phase` selects partial developer evidence; acceptance requires
+`all`, matching input identities and every reported gate.
+
+```sh
+python3 formal/crypto/polynomial_checks.py --phase all \
+  --dafny /path/to/dafny/dafny --output /fresh/output/directory \
+  --java-home /path/to/jdk21 --runtime-home /path/to/jdk25
+```
+
+This closes the mathematical polynomial/NTT composition stage. Native-array
+refinement, generated production delivery, performance and timing remain separate.
