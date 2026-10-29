@@ -10,7 +10,7 @@
   "inputs": {
     "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
     "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
-    "formal/crypto/polynomial_checks.py": "b3dd750bcfebad9dbaa9bf0666f63487b792aa19c3127ebd76ba0c46a0e7f2f7",
+    "formal/crypto/polynomial_checks.py": "ca74b3bdffa7af4997be9587078993e822140fed2bd4f29239d5cbeb3a7bffeb",
     "formal/crypto/polynomial_java.java": "410f3e83b138dafc35249c39e4c3c82198393c280cf95843b8aeb8a9313fa9d9",
     "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
     "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697"
@@ -27,15 +27,31 @@
     },
     "sign": {
       "result": "semantic proof failure",
-      "source_sha256": "ac37bd14bd5906c90721bed2ced7ac20bc424d77d7cbf1fce3c0f45a8af4038d",
+      "source_sha256": "bf73a941eaf9ad43aafcb794f9eeca125363953d5fbcdd36228e1580a7c164fd",
       "symbol": "VerifiedPolynomial.ForwardStage.",
-      "log": "polynomial_control_sign.log"
+      "log": "polynomial_control_sign.log",
+      "negative_control_witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 128
+      },
+      "correct_witness_sha256": "34fc5787110543ed1b988176bac9908199bf1636642a049bbdf91682aec64f62"
     },
     "index": {
       "result": "semantic proof failure",
-      "source_sha256": "37dbc4609f7fdd327b20d612e55f8434a76fa0002df457ed38503b2d229a2bb7",
+      "source_sha256": "698c2e371e51fa83f054a78fcc4af25f30a87bd3fb65e1c4c12542e15e6767cb",
       "symbol": "VerifiedPolynomial.ForwardStage.",
-      "log": "polynomial_control_index.log"
+      "log": "polynomial_control_index.log",
+      "negative_control_witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 0
+      },
+      "correct_witness_sha256": "9c546f2e9140b8d04f9fb45ef52f6a9e80254f58401ed9ff15c16c29342fd607"
     },
     "product": {
       "result": "semantic proof failure",
@@ -96,5 +112,17 @@
     "class_bytes": 42425,
     "runtime_bytes": 159920
   },
-  "independent_review": "Approved proof-only Horner decomposition: independent1562/0 on macOS/Linux at unchanged limits, six controls and both original Java replays."
+  "control_witnesses": {
+    "scope": "Only temporary sign/index negative copies restrict to a legal first-stage basis input. Positive source domains and contracts are unchanged. Correct operations verify the same focused assertions; altered operations fail them on macOS and Linux at unchanged limits.",
+    "linux_negative_results": {
+      "sign": {
+        "exit": 4,
+        "result": "semantic assertion failure"
+      },
+      "index": {
+        "exit": 4,
+        "result": "semantic assertion failure"
+      }
+    }
+  }
 }

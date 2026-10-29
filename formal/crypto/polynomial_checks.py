@@ -122,16 +122,58 @@ module PolynomialScaleControl {{
                 for name, mutant, symbol in controls:
                     if name != 'scale' and mutant == absolute_source:
                         raise RuntimeError(f'{name} mutation did not change the source')
+                    focus = []
+                    witness = None
+                    if name in ('sign', 'index'):
+                        # Negative copies only: a legal first-stage basis vector.
+                        # Focus the first affected lane before any false mutant
+                        # invariant could make the local check inconsistent.
+                        start = mutant.index('  method ForwardStage(')
+                        end = mutant.index('  method Ntt(', start)
+                        body = mutant[start:end]
+                        body = body.replace('    requires S.Canonical(f) && s < 7',
+                            '    requires S.Canonical(f) && s < 7\n    requires s == 0 && f == seq(256,i => if i == 128 then 1 else 0)',1)
+                        lane = 128 if name == 'sign' else 0
+                        anchor = '        a[i] := F.Add(f[i-l],t);' if name == 'sign' else '        a[i] := F.Add(f[i],t);'
+                        assertion = f'        if i == {lane} {{ assert a[i] == S.ForwardLane(f,s,i); }}'
+                        if body.count(anchor) != 1:
+                            raise RuntimeError('Control witness anchor changed: '+name)
+                        body = body.replace(anchor,anchor+'\n'+assertion,1)
+                        mutant = mutant[:start]+body+mutant[end:]
+                        witness = {'stage':0,'nonzero_coefficient':128,'value':1,'other_coefficients':0,'checked_lane':lane}
                     path = scratch / f'polynomial_{name}.dfy'
                     path.write_text(mutant)
+                    if witness:
+                        position = next(i+1 for i,line in enumerate(mutant.splitlines()) if line.strip() == assertion.strip())
+                        focus = ['--isolate-assertions','--filter-position',f'{path.name}:{position}']
+                        # The same legal witness must verify with the original
+                        # operation. This also checks that the focused assertion
+                        # still names the intended executable expression.
+                        if name == 'sign':
+                            correct = mutant.replace('a[i] := F.Add(f[i-l],t);', 'a[i] := F.Sub(f[i-l],t);', 1)
+                        else:
+                            correct = mutant.replace('var t := F.Mul(z,f[i]);', 'var t := F.Mul(z,f[i+l]);', 1)
+                        positive_path = scratch / f'polynomial_{name}_witness.dfy'
+                        positive_path.write_text(correct)
+                        positive_text = positive([dafny, 'verify', positive_path, '--filter-symbol', symbol,
+                            '--isolate-assertions','--filter-position',f'{positive_path.name}:{position}',*flags],
+                            output / f'polynomial_witness_{name}.log')
+                        if not re.search(r'finished with [1-9]\d* assertions verified, 0 errors\s*$',positive_text):
+                            raise RuntimeError('Missing positive witness verification: '+name)
                     log = output / f'polynomial_control_{name}.log'
-                    status, text = run([dafny, 'verify', path, '--filter-symbol', symbol, *flags], log)
-                    if status != 4 or not re.search(r'Error: (a postcondition|this invariant|a loop invariant)', text):
+                    status, text = run([dafny, 'verify', path, '--filter-symbol', symbol, *focus, *flags], log)
+                    if status != 4 or not re.search(r'Error: (a postcondition|this invariant|a loop invariant|assertion might not hold)', text):
                         raise RuntimeError(f'{name} did not produce the intended proof failure: {log}')
                     if re.search(r'out of resource|timed out|parse errors|resolution/type errors', text, re.I):
                         raise RuntimeError(f'{name} was inconclusive: {log}')
                     outcomes[name] = {'result': 'semantic proof failure', 'source_sha256': digest(path),
                                       'symbol': symbol, 'log': log.name}
+                    if witness:
+                        outcomes[name]['negative_control_witness'] = witness
+                        outcomes[name]['correct_witness_sha256'] = digest(positive_path)
+                    saved = output/'controls'/path.name
+                    saved.parent.mkdir(exist_ok=True)
+                    saved.write_text(mutant)
                 report['controls'] = outcomes
                 harness = scratch / 'polynomial_domain.dfy'
                 harness.write_text(f'''include "{SOURCE}"
