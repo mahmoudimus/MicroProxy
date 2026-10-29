@@ -280,6 +280,7 @@ def main(argv=None):
     with (output / '.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         report = output / 'report.json'
+        report.unlink(missing_ok=True)  # Marker failure must not preserve old success.
         shared.atomic_report(report, {'status': 'incomplete'})
         old = signal.getsignal(signal.SIGTERM)
         def cancel(signum, frame):

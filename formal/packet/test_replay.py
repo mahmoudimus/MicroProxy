@@ -13,6 +13,15 @@ spec.loader.exec_module(runner)
 
 
 class ReplayTrust(unittest.TestCase):
+    def test_marker_write_failure_removes_old_success(self):
+        with tempfile.TemporaryDirectory() as folder:
+            report = Path(folder) / 'report.json'
+            report.write_text('{"status":"complete"}')
+            with patch.object(runner.shared, 'atomic_report', side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):
+                    runner.main(['--output', folder])
+            self.assertFalse(report.exists(), 'old success survived failed marker creation')
+
     def test_evidence_or_cache_inside_cleaned_output_is_rejected_before_tools(self):
         cleaned = runner.ROOT / 'quic/target/proof-output'
         with tempfile.TemporaryDirectory() as name:

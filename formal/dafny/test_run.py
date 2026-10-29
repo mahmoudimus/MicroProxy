@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from zipfile import ZipFile, ZipInfo
 
 import run
@@ -16,6 +16,28 @@ import toolchain
 
 
 class TrustGates(unittest.TestCase):
+    def test_permission_error_is_ignored_only_for_quiescent_owned_group(self):
+        for living in (False, True):
+            process = Mock(pid=812345)
+            with (self.subTest(living=living),
+                  patch.object(run.os, 'killpg', side_effect=PermissionError('denied')),
+                  patch.object(run, 'live_group', return_value=living)):
+                if living:
+                    with self.assertRaises(PermissionError):
+                        run.stop_group(process)
+                else:
+                    run.stop_group(process)
+            process.wait.assert_called_once_with(timeout=1)
+
+    def test_marker_write_failure_removes_old_success(self):
+        with tempfile.TemporaryDirectory() as folder:
+            report = Path(folder) / 'report.json'
+            report.write_text('{"status":"complete"}')
+            with patch.object(run, 'atomic_report', side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):
+                    run.main(['--output', folder])
+            self.assertFalse(report.exists(), 'old success survived failed marker creation')
+
     def test_success_requires_positive_verified_count(self):
         for output in ("", "Dafny program verifier did not attempt verification",
                        "Dafny program verifier finished with 0 verified, 0 errors"):

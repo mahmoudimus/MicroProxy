@@ -52,10 +52,21 @@ def live_group(group):
                for line in states.splitlines() if len(parts := line.split()) == 2)
 
 
+def signal_group(group, sig):
+    try:
+        os.killpg(group, sig)
+    except PermissionError:
+        # Darwin can return EPERM for zombie-only groups. The owned leader is
+        # still unreaped here, so its group identity cannot have been recycled.
+        # Never ignore a signaling failure for a group with a live member.
+        if live_group(group):
+            raise
+
+
 def stop_group(process):
     quiescent = False
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        signal_group(process.pid, signal.SIGTERM)
         deadline = time.monotonic() + .5
         while time.monotonic() < deadline:
             # Keep the leader unreaped until the final signal: reaping here can
@@ -73,7 +84,7 @@ def stop_group(process):
     finally:
         try:
             if not quiescent:
-                os.killpg(process.pid, signal.SIGKILL)
+                signal_group(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
         finally:
@@ -311,6 +322,7 @@ def main(argv=None):
     with (output / '.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         report = output / 'report.json'
+        report.unlink(missing_ok=True)  # Marker failure must not preserve old success.
         atomic_report(report, {'status': 'incomplete'})
         previous = signal.getsignal(signal.SIGTERM)
         def cancel(signum, frame):
