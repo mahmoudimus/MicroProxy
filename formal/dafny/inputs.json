@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "inputs": {
+    "formal/dafny/hkdf/Hkdf.dfy": "44987c1d1a91ec785017f416a5340603851e571381117349750d54adb406b34e",
+    "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java": "0c18e6d6a85264352778ead9bbe494985441df26abbf8c84135bf8bff551de0b",
+    "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java": "00fbb42cb86e1edbdd196a6d5c0fa5a002e49d3d90887dac12865058545dabb3",
+    "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java": "0afb462a6b425220e3093ba28ba82e117252da5ae1e1dcd1fd1b3ee2225b049e",
+    "formal/dafny/run.py": "239fc046e015256bd6bb3c8e40fbe3d50d68af1ee603b7a1b8d19ec847841a61",
+    "formal/dafny/test_run.py": "1ef8a60e3c6189781fe92020ab3572da87e2eac85e28712dedea433978ae8368",
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java": "a8749c5992bff5c8059f18e899b0dfe006b6fe3a931e77e863d64672a4c97ab6"
+  }
+}

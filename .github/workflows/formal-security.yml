@@ -8,6 +8,34 @@ permissions:
   contents: read
 
 jobs:
+  dafny-hkdf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        java: ['21', '25']
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Test fail-closed HKDF replay gates
+        run: python -m unittest discover -s formal/dafny -p 'test_run.py' -v
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Verify, audit, generate Java and test JCE integration
+        run: python formal/dafny/run.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-hkdf-jdk-${{ matrix.java }}
+          path: target/dafny-hkdf/
+          if-no-files-found: ignore
+
   formal-security:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

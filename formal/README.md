@@ -7,6 +7,11 @@ The separate, opt-in [SAW experiment](saw/README.md) verifies one bounded arithm
 method from actual Java 21 bytecode. It has its own pinned inputs, negative controls
 and trust boundary; it is not part of the Lean/TLC replay described below.
 
+The [Dafny HKDF component](dafny/README.md) verifies our Extract/Expand/TLS-label
+implementation and generates Java, then tests that output against real JCE and
+standards vectors. It has separate trust/input gates and CI. Its compiler/runtime
+and Java adapters remain trusted; the production HKDF path is not replaced.
+
 From the repository root, with JDK 21+, Maven, Python 3.11+ and zstd:
 
 ```bash
