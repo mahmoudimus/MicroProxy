@@ -1,8 +1,8 @@
 {
   "scope": "full",
   "proofs": {
-    "proof-full": 2603,
-    "generate-java": 74
+    "proof-full": 2775,
+    "generate-java": 80
   },
   "controls": {
     "wrong-coins": {
@@ -53,7 +53,7 @@
       }
     },
     {
-      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n",
+      "version": "openjdk version \"25.0.4\" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)\n",
       "tests": {
         "assertions": 5091,
         "rounds": 100,
@@ -74,9 +74,9 @@
   "inputs": {
     "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
     "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
-    "formal/crypto/KemSpec.dfy": "e904749e9db846166abf4619aad5d47cc9d2137c94e2130dad18a0adf2b33800",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
     "formal/crypto/MlKem.dfy": "f668827a7b891874a0cafd3e4686f544d3304da34d9356be4065d0ede8626152",
-    "formal/crypto/Polynomial.dfy": "e5024aa604ddb8f87d8a69af9f5767cb3a8aee5d3e006ac0b390a9cc8934aff1",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
     "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
     "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
     "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
@@ -195,5 +195,5 @@
     "compiled_class_bytes": 152040,
     "runtime_bytes": 159920
   },
-  "independent_review": "Approved for sequence KEM equations and validation; own230/0 auditexactlyH/G. Final full replay independently completed by coordinator after worker partial replay was discarded; native ownership/wiping/performance/timing excluded."
+  "review": "Original composition independently approved; proof-only split preserves contracts and identical generated Java/class maps. Full2775/0 on macOS/Linux at unchanged limits, nine controls and bothJDK5091assertions."
 }

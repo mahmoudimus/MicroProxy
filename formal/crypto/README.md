@@ -96,7 +96,7 @@ derives negacyclic multiplication using `X^256 = -1` and residue evaluation;
 the reference product is not defined through the NTT implementation.
 
 These theorems quantify over every canonical coefficient vector, not a fixed
-corpus. [Recorded evidence](POLYNOMIAL-EVIDENCE.json) includes 1,480 verified
+corpus. [Recorded evidence](POLYNOMIAL-EVIDENCE.json) includes 1,562 verified
 obligations with zero errors, six genuine semantic controls, and generated Java
 tests with 288 cases and 551,008 assertions on each JDK. The finite tests include
 all 256 basis positions and 32 independent schoolbook products. An independent
@@ -155,14 +155,19 @@ python3 formal/crypto/kem_checks.py --scope full --dafny /path/to/dafny/dafny \
   --java-home /path/to/jdk25
 ```
 
-[Recorded evidence](KEM-EVIDENCE.json): the frozen dependency graph has 2603
-verified obligations with zero errors; Java generation has 74. Nine genuine
+[Recorded evidence](KEM-EVIDENCE.json): the frozen dependency graph has 2775
+verified obligations with zero errors; Java generation has 80. Nine genuine
 semantic controls cover coins, matrix axes/transposition, nonces, fallback seeds,
 selection, comparison length, modulus failures and the sampler bound. Each JDK
 passes 5091 assertions including the exact 100-round Go accumulator. Independent
 review approved the composition and its two provider assumptions; the coordinator
 then completed the final full replay against the frozen reviewed dependencies.
 `--scope owned` is explicitly partial evidence and cannot close the full stage.
+
+The polynomial Horner and canonical 12-bit encoding proofs are split into smaller
+lemmas so that Linux and macOS complete at the same 30-second/50-million-resource
+limits. Their domains and result equations are unchanged. The proof-only splits
+produce exactly the same generated Java and compiled KEM classes as before.
 
 ## Native codec and sampling refinement
 

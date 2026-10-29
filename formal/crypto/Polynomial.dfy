@@ -3425,16 +3425,30 @@ module PolySpec {
     ensures Canonical(HornerRepresentation(f))
   { seq(256, i requires 0 <= i < 256 => Eval(f,i%2,2,Gamma(i/2),128)) }
 
-  lemma NttHornerRepresentation(f: seq<int>)
+  // Isolate one coefficient before sequence extensionality. This keeps the
+  // recursive evaluation context out of the quantified whole-sequence goal.
+  lemma {:isolate_assertions} {:induction false} NttHornerLane(f: seq<int>, i: nat)
+    requires Canonical(f) && i < 256
+    ensures Ntt(f)[i] == HornerRepresentation(f)[i]
+  {
+    assert Factor(7) == 128;
+    assert 256/Factor(7) == 2;
+    assert (i/2)*2+i%2 == i;
+    PrefixEvaluation(f,7,i/2,i%2);
+    assert NttPrefix(f,7)[i] == Eval(f,i%2,2,TreeRoot(7,i/2),128);
+    LeafGamma(i/2);
+    assert TreeRoot(7,i/2) == Gamma(i/2);
+    assert Ntt(f)[i] == Eval(f,i%2,2,Gamma(i/2),128);
+    assert HornerRepresentation(f)[i] == Eval(f,i%2,2,Gamma(i/2),128);
+  }
+
+  lemma {:induction false} NttHornerRepresentation(f: seq<int>)
     requires Canonical(f)
     ensures Ntt(f) == HornerRepresentation(f)
   {
     forall i | 0 <= i < 256
       ensures Ntt(f)[i] == HornerRepresentation(f)[i]
-    {
-      PrefixEvaluation(f,7,i/2,i%2);
-      LeafGamma(i/2);
-    }
+    { NttHornerLane(f,i); }
   }
 
   ghost function {:opaque} Power(a: int, e: nat): int

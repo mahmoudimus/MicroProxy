@@ -109,34 +109,75 @@ module KemSpec {
     requires forall i | 0 <= i < 3 :: C.Decode(b[384*i..384*(i+1)],12).Decoded?
     ensures Vec(KeyWords(b),3)
   { seq(3,i requires 0 <= i < 3 => C.Decode(b[384*i..384*(i+1)],12).words) }
+  // Base-256 digit reconstruction isolated from byte-vector coercions and
+  // codec quantifiers. All coefficients and divisors below are fixed integers.
+  lemma OctetDigits(a: int, b: int, c: int)
+    requires 0 <= a < 256 && 0 <= b < 256 && 0 <= c < 256
+    ensures (a+256*b+65536*c)%256 == a
+    ensures (a+256*b+65536*c)/256 == b+256*c
+    ensures ((a+256*b+65536*c)/256)%256 == b
+    ensures (a+256*b+65536*c)/65536 == c
+    ensures ((a+256*b+65536*c)/65536)%256 == c
+  {
+    assert 0 <= a+256*b < 65536;
+  }
+
+  lemma {:isolate_assertions} DecodedGroup12(b: seq<bv8>, k: int)
+    requires |b| == 384 && C.Decode(b,12).Decoded? && 0 <= k < 128
+    ensures C.GroupValue(C.Decode(b,12).words,12,k) ==
+      (b[3*k] as int)+256*(b[3*k+1] as int)+65536*(b[3*k+2] as int)
+  {
+    var f := C.Decode(b,12).words;
+    var v := (b[3*k] as int)+256*(b[3*k+1] as int)+65536*(b[3*k+2] as int);
+    assert 0 <= v < 16777216;
+    assert C.ByteGroup(b,12,k) == v by { reveal C.ByteGroup; }
+    assert f == C.DecodedWords(b,12);
+    assert f[2*k] == v%4096 by {
+      reveal C.DecodedWords, C.DecodedWord;
+      assert (2*k)/2 == k && (2*k)%2 == 0;
+      assert C.WordPower(12,0) == 1;
+      assert C.DecodedWord(b,12,2*k) == v%4096;
+    }
+    assert f[2*k+1] == v/4096 by {
+      reveal C.DecodedWords, C.DecodedWord;
+      assert (2*k+1)/2 == k && (2*k+1)%2 == 1;
+      assert 0 <= v/4096 < 4096;
+      assert (v/4096)%4096 == v/4096;
+      assert C.DecodedWord(b,12,2*k+1) == (v/4096)%4096;
+    }
+    assert C.GroupValue(f,12,k) == v by { reveal C.GroupValue; }
+  }
+
+  lemma {:isolate_assertions} EncodedTriplet12(f: seq<int>, k: int, a: int, b: int, c: int)
+    requires C.Words(f,12) && 0 <= k < 128
+    requires 0 <= a < 256 && 0 <= b < 256 && 0 <= c < 256
+    requires C.GroupValue(f,12,k) == a+256*b+65536*c
+    ensures C.EncodedByte(f,12,3*k) as int == a
+    ensures C.EncodedByte(f,12,3*k+1) as int == b
+    ensures C.EncodedByte(f,12,3*k+2) as int == c
+  {
+    OctetDigits(a,b,c);
+    assert (3*k)/3 == k && (3*k)%3 == 0;
+    assert (3*k+1)/3 == k && (3*k+1)%3 == 1;
+    assert (3*k+2)/3 == k && (3*k+2)%3 == 2;
+    assert C.BytePower(0) == 1 && C.BytePower(1) == 256 && C.BytePower(2) == 65536;
+  }
+
   lemma {:isolate_assertions} CanonicalEncoding12(b: seq<bv8>)
     requires |b| == 384 && C.Decode(b,12).Decoded?
     ensures C.Encoded(C.Decode(b,12).words,12) == b
   {
-    reveal C.DecodedWords, C.DecodedWord, C.ByteGroup, C.GroupValue, C.Encoded;
+    reveal C.Encoded;
     var f := C.Decode(b,12).words;
     forall j | 0 <= j < 384
       ensures C.Encoded(f,12)[j] == b[j]
     {
       var k := j/3;
-      var v := (b[3*k] as int)+256*(b[3*k+1] as int)+65536*(b[3*k+2] as int);
-      assert 0 <= v < 16777216;
-      assert C.ByteGroup(b,12,k) == v;
-      assert f[2*k] == v%4096;
-      assert 0 <= v/4096 < 4096;
-      assert (v/4096)%4096 == v/4096;
-      assert C.DecodedWord(b,12,2*k+1) == (v/4096)%4096;
-      assert f[2*k+1] == v/4096;
-      assert C.GroupValue(f,12,k) == v;
-      if j%3 == 0 {
-        assert v%256 == b[j] as int;
-      } else if j%3 == 1 {
-        assert j == 3*k+1;
-        assert v/256 == (b[3*k+1] as int)+256*(b[3*k+2] as int);
-        assert (v/256)%256 == b[j] as int;
-      } else {
-        assert (v/65536)%256 == b[j] as int;
-      }
+      DecodedGroup12(b,k);
+      EncodedTriplet12(f,k,b[3*k] as int,b[3*k+1] as int,b[3*k+2] as int);
+      if j%3 == 0 { assert j == 3*k; }
+      else if j%3 == 1 { assert j == 3*k+1; }
+      else { assert j == 3*k+2; }
       assert C.EncodedByte(f,12,j) as int == b[j] as int;
     }
   }

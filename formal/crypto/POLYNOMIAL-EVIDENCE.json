@@ -8,7 +8,7 @@
     "JVM/CPU side-channel behavior"
   ],
   "inputs": {
-    "formal/crypto/Polynomial.dfy": "e5024aa604ddb8f87d8a69af9f5767cb3a8aee5d3e006ac0b390a9cc8934aff1",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
     "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
     "formal/crypto/polynomial_checks.py": "b3dd750bcfebad9dbaa9bf0666f63487b792aa19c3127ebd76ba0c46a0e7f2f7",
     "formal/crypto/polynomial_java.java": "410f3e83b138dafc35249c39e4c3c82198393c280cf95843b8aeb8a9313fa9d9",
@@ -17,23 +17,23 @@
   },
   "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
   "solver_version": "Z3 version 4.12.1 - 64 bit",
-  "verified": 1480,
+  "verified": 1562,
   "controls": {
     "root": {
       "result": "semantic proof failure",
-      "source_sha256": "5a0421f139c3d9c5ce7681e69cc7146304213d50b7fe8144c420d1b2ee732135",
+      "source_sha256": "372b2f03a46f9a121f3cacc7349b43e0c7d6294cf4a9c62f789da5ed79125936",
       "symbol": "RootEntry1.",
       "log": "polynomial_control_root.log"
     },
     "sign": {
       "result": "semantic proof failure",
-      "source_sha256": "b8df371ca9a99ee86fa7e4056e3ba6756a6e7038cbeb815db35d13bb2c6897e6",
+      "source_sha256": "ac37bd14bd5906c90721bed2ced7ac20bc424d77d7cbf1fce3c0f45a8af4038d",
       "symbol": "VerifiedPolynomial.ForwardStage.",
       "log": "polynomial_control_sign.log"
     },
     "index": {
       "result": "semantic proof failure",
-      "source_sha256": "68b3cfc14948e8bb2fe096b2e72205979f904b22bff83bc10f583f329cdbe611",
+      "source_sha256": "37dbc4609f7fdd327b20d612e55f8434a76fa0002df457ed38503b2d229a2bb7",
       "symbol": "VerifiedPolynomial.ForwardStage.",
       "log": "polynomial_control_index.log"
     },
@@ -64,9 +64,9 @@
       "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
     },
     {
-      "version": "openjdk version \"25.0.4\" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)",
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
       "result": "POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=551008",
-      "java_sha256": "2187a28d325113dd5a4af73cb35a3e4049876d474d601b5b1d60c5474cf2d28e"
+      "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
     }
   ],
   "classes": {
@@ -96,5 +96,5 @@
     "class_bytes": 42425,
     "runtime_bytes": 159920
   },
-  "independent_review": "Approved after independent full included-source proof/audit, all six semantic controls and both JDK class replays; checked powers-of-17 tables and independent general negacyclic theorem; native production/performance/timing excluded."
+  "independent_review": "Approved proof-only Horner decomposition: independent1562/0 on macOS/Linux at unchanged limits, six controls and both original Java replays."
 }
