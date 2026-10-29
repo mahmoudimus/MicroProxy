@@ -1,0 +1,219 @@
+{
+  "proofs": {
+    "proof-NativeCodec": 217,
+    "proof-NativeSampling": 270,
+    "native_codec_domain": 8,
+    "native_sampling_domain": 4
+  },
+  "controls": {
+    "compress-rounding": {
+      "verified": 1,
+      "errors": 1
+    },
+    "decompress-half-tie": {
+      "verified": 1,
+      "errors": 1
+    },
+    "encode-bit": {
+      "verified": 1,
+      "errors": 1
+    },
+    "native-int-overflow": {
+      "verified": 190,
+      "errors": 1,
+      "failure_kind": "native_int_range"
+    },
+    "decode-modulus": {
+      "verified": 1,
+      "errors": 1
+    },
+    "wipe": {
+      "verified": 1,
+      "errors": 1
+    },
+    "cbd-sign": {
+      "verified": 1,
+      "errors": 1
+    },
+    "feed-order": {
+      "verified": 263,
+      "errors": 2
+    },
+    "feed-reject-q": {
+      "verified": 1,
+      "errors": 1,
+      "negative_control_witness_bytes": [
+        1,
+        13,
+        0
+      ]
+    },
+    "feed-cap": {
+      "verified": 4,
+      "errors": 1
+    },
+    "feed-consumption": {
+      "verified": 0,
+      "errors": 1
+    },
+    "full-domain": {
+      "verified": 1,
+      "errors": 1
+    }
+  },
+  "java": [
+    {
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
+      "tests": {
+        "scalars": 40713,
+        "encodings": 7044,
+        "malformed": 1820,
+        "cbd": 384,
+        "feeds": 19320,
+        "java_samples": 224,
+        "assertions": 334753
+      }
+    },
+    {
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n",
+      "tests": {
+        "scalars": 40713,
+        "encodings": 7044,
+        "malformed": 1820,
+        "cbd": 384,
+        "feeds": 19320,
+        "java_samples": 224,
+        "assertions": 334753
+      }
+    }
+  ],
+  "inputs": {
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/NativeCodec.dfy": "886ba84635f5b0fef3b830ac45eac09d093529881bfc228bec9bfc357394dc58",
+    "formal/crypto/NativeSampling.dfy": "e4c8de1a572259b47dd3848e093ce08fcd2d8ff5917efabcec54ee0f12cd07e8",
+    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+    "formal/crypto/native_codec_checks.py": "893592f5723b1d3c8cc798eb3f42ffdf3f95be473913d50454e04fd68bdde80e",
+    "formal/crypto/native_codec_test.java": "6a1898577be86c8d585774811da15e13c17f23d74a7261ec984b9c024c5938bc",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  },
+  "generated_java": {
+    "CodecSpec/DecodeResult.java": "85110576567ccb1e97c3663a1e871d26197b67c301a6a38d071b493020800529",
+    "CodecSpec/DecodeResult_Decoded.java": "3f69813beca25368f219edc450653c3272cfad5c2a1f2474f0f3ba792d4242b4",
+    "CodecSpec/DecodeResult_InvalidLength.java": "6a1bfee55b0e781f82c1ecc6e6b66811b745740f4a283b92d814df8ea0d929e6",
+    "CodecSpec/DecodeResult_InvalidWidth.java": "f4f4b27ebcb901900e3b6fa4d5e31aaefbdf0dbbfdec2500ca7101ac398f8c30",
+    "CodecSpec/DecodeResult_ModulusError.java": "509efaad689441e50614c40e94901ce93db7f6afd8f11ef78075d14c764ebd45",
+    "CodecSpec/__default.java": "9079ca7771813026840e99fd577deda3c622aaafccb7da16acc462877c4b3bfd",
+    "NativeCodec/DecodeResult.java": "9c4d9d211745c5d56ffedcc2a29f33c5cca1734aa9c6ffad847cc83ad5d9d86e",
+    "NativeCodec/DecodeResult_Decoded.java": "1e39e5d260d014efafd5dbc5fcddf3ab6aabf9a7c6abc8b6feee1b2bbdfa8d58",
+    "NativeCodec/DecodeResult_InvalidLength.java": "ddd0855471304cf41fe8a863df744a620164203995c0aad1ec71febf05bea477",
+    "NativeCodec/DecodeResult_InvalidWidth.java": "a226489b20b4c7b25111c23aa73eb71b3b719ae4dfe9840c9e474f41abacd324",
+    "NativeCodec/DecodeResult_ModulusError.java": "01b603681a72043089f26cc12bfe24161da299a2bc7f23ef12568df0f15abb7c",
+    "NativeCodec/__default.java": "75ae8cadf75401ad581e2996e1501eeaa2e46d2e56fee4f34a78dc0beb7b6a17",
+    "NativeCodecSampling.java": "cf7808588ae228332c1db39d0e964c3ea84e4ba4359ba46d8a93a60dec8e225b",
+    "NativeSampling/FeedResult.java": "ab8139aeca645fc9294904cb982dc811322d44a3bc46812e5560539b90c66591",
+    "NativeSampling/FeedResult_Full.java": "8054f33941551fa10269ec041e9e5960119019749769042424d54ac95151db1e",
+    "NativeSampling/FeedResult_InvalidBlockLength.java": "45906109e63f430ce96e2ad7cd2a95f1ead4f9ef801a84d35376c63d2ec7da6d",
+    "NativeSampling/FeedResult_InvalidPrefix.java": "995f5900e90f302c1110f257ea6e0b8a95b95f765fb5e525d75b749499a7ff21",
+    "NativeSampling/FeedResult_NeedMore.java": "836974bfef72271dee190d43071629811d079fa9e43aa09712e37e4fc3ec5285",
+    "NativeSampling/__default.java": "cd206670dbfb6a8b07f1fbd47ddfd4f380167ddd0d433b9899648e7bb1f5670c",
+    "NativeTypes/I.java": "99c223d8c172ce34cfeffd1fbc4252e964758b12b952ed46e2f0ef8db1610884",
+    "NativeTypes/L.java": "95465a1ba5b6fd7ee9f9af6f37f0845b7771a790c74e4140aa3ebf646882c834",
+    "SamplingSpec/FeedResult.java": "b6f95789ac550a2e003ddf2bceb402da7cda43499fc401492d75da75dbf30539",
+    "SamplingSpec/FeedResult_Full.java": "18ac6d642261813100ef5f6e19cfae2e7003098f30df104c00da9cd3f8b2852d",
+    "SamplingSpec/FeedResult_InvalidBlockLength.java": "0d0f38d1f15b9b9cdaa695493f325383c7bd0d48feca8f73d360c8efc80e78b8",
+    "SamplingSpec/FeedResult_InvalidPrefix.java": "adb9e4d2ff272e5eb5a4eedded7612aa24d2001043bade773ffe374db5820198",
+    "SamplingSpec/FeedResult_NeedMore.java": "d1e9be92e5d3eada1ffea372783f1babc1387d7818c833dd9b16c8765ac819be",
+    "SamplingSpec/__default.java": "72c2a62436ce4034d2035c7cd63f81b49ed4b80f5fe954f55d8e40a68f4ba575",
+    "VerifiedCodec/__default.java": "c6b4d1509e7d02869d29183d3074d9058ed59ffb65554ab22f23652692a0b971",
+    "VerifiedSampling/__default.java": "e5dc82424d696d7953f1f405616d84e28b5107eb13f579b8ef79bccd74ce0b95"
+  },
+  "compiled_classes": {
+    "CodecSpec/DecodeResult.class": "56c984e77c774381a696766765370c46914012de303151be23541ef553a2246c",
+    "CodecSpec/DecodeResult_Decoded.class": "b658010041bc2a9473c33770a0028398593547a0b3e2a2671fe10ad06c81fd2a",
+    "CodecSpec/DecodeResult_InvalidLength.class": "38d04ba4cac51dcd6c79dbf9daa486f53909f57f47b1d45b8f013d5b83f03ca3",
+    "CodecSpec/DecodeResult_InvalidWidth.class": "10689065c3ad34c5096e27919954d12ff9b24b3c4d77e19404db97483860501f",
+    "CodecSpec/DecodeResult_ModulusError.class": "9e65d0371a4377925f0efc09bc25965458bbb2f0fad1b84df65fe60d799f7983",
+    "CodecSpec/__default.class": "e7963e645863662bfa279a2ce9faa31e03d09b8605bec70d4be505268f1f668e",
+    "NativeCodec/DecodeResult.class": "4d64b69ca8cb22889ac7de2379bb96ec8dda3d62fdf481e5c333df27b0b0649c",
+    "NativeCodec/DecodeResult_Decoded.class": "1d40f40bb476ace34cbc59cdce35ba53a0faefab4bd76b0de5add74bd21290e0",
+    "NativeCodec/DecodeResult_InvalidLength.class": "1d85069224a7dd69312e133a0f8fa0a39e9a9fbdf97d0f331df15e0cf3bd890d",
+    "NativeCodec/DecodeResult_InvalidWidth.class": "6d879e8ab4a5d3d4361e5489bcd3f798d37c0e252f7446cd602ccb96370e704b",
+    "NativeCodec/DecodeResult_ModulusError.class": "ff8724f72b10b5afc1a84bd553de2b198fa11f8de7b947445ae8711dabb045be",
+    "NativeCodec/__default.class": "58b16ab72e1a3eac2ae04d21db2fd08b59a4e3004128492e0a05b6e0332034c1",
+    "NativeSampling/FeedResult.class": "09cfc60533a4d224ec8cef8248aeb20532f490abeeb4b2d5ec452ba855859d60",
+    "NativeSampling/FeedResult_Full.class": "711ccb5c1d14daf3d9e689b9df681e566f9cf6de8d7e95eff0e8e03ed072fd4f",
+    "NativeSampling/FeedResult_InvalidBlockLength.class": "1ec316e2eb6f2c2f3b033fd08712f67b859dcb66650314ceb3e9d69b0a2cfbb1",
+    "NativeSampling/FeedResult_InvalidPrefix.class": "0d983b2c0b88d327cf8ca9e72428bf3c105bd2886cf206e88585fa61582c811c",
+    "NativeSampling/FeedResult_NeedMore.class": "5181793565652157e7609e1aa1355080920e17f8260514515368a21a5696b851",
+    "NativeSampling/__default.class": "a3269ba0f99a93ce7c4bfa0e5e2667672134196a9fb3ce1021b060bfc41800c0",
+    "NativeTypes/I.class": "502d0ef0c2f80d8a289a1e29c106c470bb38e0dfc47e2093e304a38f5d77a203",
+    "NativeTypes/L.class": "65f64fa2a4e298691f9d0b8298d69fdc0f4e3f435a8f9e417a462bccd93762c9",
+    "SamplingSpec/FeedResult.class": "7a78c0336c17a3e0383adb3e0a31d749ca82df7df1525ac9698113b2d8bb36e2",
+    "SamplingSpec/FeedResult_Full.class": "fbfe73cb994cd4735862d8ba01628e6999c6e40cdb01b45f290e3f42400530a5",
+    "SamplingSpec/FeedResult_InvalidBlockLength.class": "7c1819fb0b6091dfcf8d77a07e8d117336171cd0525a20a8f3557887fb5667db",
+    "SamplingSpec/FeedResult_InvalidPrefix.class": "45a908821a56bfdc19f4f0c9547d02064b4257a6ca200dacdc3283cbf7f07d3b",
+    "SamplingSpec/FeedResult_NeedMore.class": "897506bba95b70a75cf51920536ff7d7ed697170ea804391d8190d28b0e1bf39",
+    "SamplingSpec/__default.class": "f2550a91f0aaa7af8283d57a3727378242b37aad7be33cfae45380adfcec468f",
+    "VerifiedCodec/__default.class": "e3d04447776432977d8f1131655ace4049c59ece58015cbb89bea0a2c6daf12b",
+    "VerifiedSampling/__default.class": "43388f4731f7663057cc279d465472864431f4c69a649c443d5500f6bd306d21",
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+    "io/github/mahmoudimus/quic/tls/native_codec_test.class": "4b083ccf89b263f71769d266b0132a4b4c82fbc6e16390dde287afa2aaf5de50"
+  },
+  "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+  "native_runtime_audit": {
+    "sources": [
+      "NativeCodec/__default.java",
+      "NativeSampling/__default.java"
+    ],
+    "big_integer_or_sequence_calls": 0,
+    "secret_value_boxings": 0,
+    "constant_zero_allocation_boxings": [
+      {
+        "instruction": "24: invokestatic  #103                // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "constant byte zero"
+      },
+      {
+        "instruction": "52: invokestatic  #151                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      },
+      {
+        "instruction": "40: invokestatic  #151                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      },
+      {
+        "instruction": "55: invokestatic  #151                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      },
+      {
+        "instruction": "24: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      },
+      {
+        "instruction": "65: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      },
+      {
+        "instruction": "294: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "constant NativeTypes.I.Witness zero"
+      }
+    ],
+    "coefficient_type": "int",
+    "packing_accumulator_type": "long",
+    "packing_upper_bound_exclusive": 1099511627776
+  },
+  "footprint": {
+    "generated_java_bytes": 81655,
+    "compiled_classes_bytes": 93356,
+    "runtime_bytes": 159920
+  },
+  "scope": "Native codec/CBD2/finite-Feed refinement and finite Java compatibility only; no production adoption, whole-KEM, performance or JVM timing claim.",
+  "independent_review": "Approved after fresh full replay and actual source/bytecode/ownership review; twelfth direct-overflow runner delta independently reproduced190/1 and approved."
+}

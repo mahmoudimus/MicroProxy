@@ -163,3 +163,33 @@ passes 5091 assertions including the exact 100-round Go accumulator. Independent
 review approved the composition and its two provider assumptions; the coordinator
 then completed the final full replay against the frozen reviewed dependencies.
 `--scope owned` is explicitly partial evidence and cannot close the full stage.
+
+## Native codec and sampling refinement
+
+`NativeTypes.dfy` defines bounded Java `int`/`long` representations and ghost
+array-to-sequence projections. `NativeCodec.dfy` and `NativeSampling.dfy` refine
+the reviewed sequence contracts using primitive arrays and arithmetic. Their
+proofs cover the full legal domains, native arithmetic bounds, fresh outputs,
+unchanged inputs and zeroing of discarded intermediate arrays. Width-10 packing
+uses native `long` intermediates below `2^40`; it cannot be narrowed to `int`.
+CBD2 computes a nonnegative remainder numerator in 3327–3331, keeping the runtime
+helper on its positive path for every legal noise input.
+
+[Recorded evidence](NATIVE-CODEC-EVIDENCE.json): native codec 217 checks, sampling
+270, and general caller harnesses 8 and 4, all with zero errors; both owned audits
+have zero findings. Twelve semantic controls include a direct native-overflow
+mutation and discarded-buffer cleanup. Each JDK passes 334,753 assertions. An
+independent review replayed these checks and inspected the generated source,
+actual bytecode and runtime helpers. The seven allocation-related boxings carry
+constant zero; the inspected paths have no secret-value boxing or sequence/
+BigInteger operations. The overflow-control addition received a separate review.
+
+```sh
+python3 formal/crypto/native_codec_checks.py --dafny /path/to/dafny/dafny \
+  --output /fresh/output/base --java-home /path/to/jdk21 \
+  --java-home /path/to/jdk25
+```
+
+These remain isolated generated components pending full native KEM delivery,
+compatibility and performance acceptance. Source-level zeroing is a functional
+heap contract; physical/JIT erasure and JVM timing are not proved by it.
