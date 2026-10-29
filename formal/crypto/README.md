@@ -115,3 +115,51 @@ python3 formal/crypto/polynomial_checks.py --phase all \
 
 This closes the mathematical polynomial/NTT composition stage. Native-array
 refinement, generated production delivery, performance and timing remain separate.
+
+## K-PKE and KEM composition
+
+`KemSpec.dfy` defines the deterministic FIPS 203 ML-KEM-768 equations and named
+validation failures. `MlKem.dfy` composes the proved SHAKE, polynomial, codec and
+sampling operations into matrix expansion, key generation, encryption, decryption,
+serialization, public-key parsing, encapsulation and implicit rejection. Accepted
+public keys provably re-encode to their original bytes; generated keys parse back
+to the same expanded state. Every polynomial caller range is discharged.
+
+The total external entries accept arbitrary seed, public-key, message and
+ciphertext sequences and retain explicit validation precedence. The internal
+cached-state decapsulator requires `ValidSecret`; there is no arbitrary 2400-byte
+secret-key importer in this interface. Its seed-backed external entry establishes
+the invariant before using cached state. Reencryption compares all 1088 bytes and
+selects all 32 output bytes with masks. This functional/source-shape result does
+not establish constant-time execution of the prototype: signed modulo in other
+generated sequence operations still uses a runtime helper with sign branches.
+Native production refinements must remove those negative secret-value paths.
+
+The sampler considers 840 XOF bytes, or 280 complete three-byte iterations, and
+returns one `RejectionLimit` failure if fewer than 256 coefficients are accepted.
+This is a proposed bounded policy following the minimum in FIPS 203 Appendix B.
+It is not production-adopted here: mutable intermediate destruction and uniform
+failure delivery remain native integration requirements. Immutable sequences do
+not establish erasure. The KEM theorem gives exact reencryption/fallback behavior,
+not universal honest-ciphertext decryption success; the standard permits a nonzero
+decapsulation failure probability.
+
+`JdkHash.dfy` has exactly two named provider assumptions, SHA3-256 (`H`) and
+SHA3-512 (`G`). The implementation equations are proved relative to those
+deterministic primitive contracts. This does not prove their cryptographic
+strength, entropy, provider internals or compiler/runtime correctness.
+
+```sh
+python3 formal/crypto/kem_checks.py --scope full --dafny /path/to/dafny/dafny \
+  --output /fresh/output/base --java-home /path/to/jdk21 \
+  --java-home /path/to/jdk25
+```
+
+[Recorded evidence](KEM-EVIDENCE.json): the frozen dependency graph has 2603
+verified obligations with zero errors; Java generation has 74. Nine genuine
+semantic controls cover coins, matrix axes/transposition, nonces, fallback seeds,
+selection, comparison length, modulus failures and the sampler bound. Each JDK
+passes 5091 assertions including the exact 100-round Go accumulator. Independent
+review approved the composition and its two provider assumptions; the coordinator
+then completed the final full replay against the frozen reviewed dependencies.
+`--scope owned` is explicitly partial evidence and cannot close the full stage.
