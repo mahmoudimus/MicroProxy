@@ -63,8 +63,8 @@ def main():
     flags = ['--cores', '2', '--verification-time-limit', '30', '--resource-limit', '50000000',
              '--solver-path', solver]
     inputs = [SOURCE, FIELD, Path(__file__).resolve(), HERE / 'polynomial_java.java',
-              ROOT / 'quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java',
-              ROOT / 'quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java']
+              ROOT / 'formal/crypto/reference/MlKem768.java',
+              ROOT / 'formal/crypto/reference/Shake.java', HERE/'reference/provenance.json']
     pins = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     report['inputs'] = pins
     source_text = SOURCE.read_text()

@@ -19,9 +19,9 @@ shared = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shared)
 sys.path.pop(0)
 
-REFERENCES = ['quic/src/main/java/io/github/mahmoudimus/quic/tls/' + n + '.java'
+REFERENCES = ['formal/crypto/reference/' + n + '.java'
               for n in ('Shake', 'MlKem768')]
-SUPPORT = ['formal/dafny/' + n for n in ('run.py', 'toolchain.py', 'tools.json')]
+SUPPORT = ['formal/dafny/' + n for n in ('run.py', 'toolchain.py', 'tools.json')] + ['formal/crypto/reference/provenance.json']
 JAVA_MINIMUMS = {'one_bit_states': 1600, 'keccak_states': 1698,
                  'rotation_cases': 4096, 'field_cases': 31247, 'assertions': 40000}
 

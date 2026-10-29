@@ -3,8 +3,9 @@
 This isolated component starts V4/V5 of the crypto verification work. It verifies
 an executable Keccak-f[1600] lane permutation and seven scalar ML-KEM field
 helpers, generates Java with verification enabled, and tests that exact artifact
-against the canonical handwritten Java. It does not replace production `Shake`
-or `MlKem768`, and adds no production runtime dependency.
+against the immutable pre-adoption handwritten Java in `formal/crypto/reference`.
+This foundation replay remains isolated. The wider generated-production work is
+documented in [`formal/crypto`](../crypto/README.md).
 
 [Validation evidence](EVIDENCE.md) records the completed local checks and separates
 them from CI, production adoption and the remaining proof obligations.
@@ -40,7 +41,8 @@ proved. Both constant tables are reviewed spec inputs. The Java harness also
 checks them against independent coordinate/LFSR recurrences and an XKCP known
 answer. This is a lane-level equation proof: a complete bit-string/lane refinement,
 SHAKE absorption, suffix/padding, arbitrary segmented squeezing and API validation
-are still open. It is not full SHAKE/FIPS 202 conformance or a proof of cryptographic
+are outside this foundation and addressed by the later crypto component. This
+foundation alone is not full SHAKE/FIPS 202 conformance or a proof of cryptographic
 permutation security.
 
 `Field.dfy` proves exact remainder and canonical output range for q=3329:
@@ -58,15 +60,14 @@ remainder/division. Reduce uses the existing Barrett multiplier 5039 and shift 2
 the proof discharges its residual bound before calling ReduceOnce. ProductBound
 discharges scalar helper call-site ranges, including MulSub's maximum 3328*6657.
 These mathematical integers compile to Java BigInteger operations, not the
-existing primitive-int bytecode. The separate SAW result remains the actual-Java
-proof for ReduceOnce only.
+pre-adoption primitive-int bytecode. The separate historical SAW result proves
+that exact earlier Java ReduceOnce method only.
 
 The existing `reduce` comment describes inputs below 2^24, but canonical helper
 contracts can produce larger inputs: AddMul reaches 22151168 and MulSub 22154496.
 This component proves the wider scalar domain. It does not prove that every
-polynomial/NTT caller supplies canonical coefficients. NTT/inverse NTT, codecs,
-compression, sampling, key generation/encapsulation/decapsulation and implicit
-rejection composition remain open obligations.
+polynomial/NTT caller supplies canonical coefficients. The later crypto component
+adds those caller invariants, NTT/inverse, codecs, sampling and KEM composition.
 
 ## Delivery gates and trust
 

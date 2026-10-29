@@ -42,8 +42,8 @@ def main():
     out = Path(tempfile.mkdtemp(prefix='kem-',dir=args.output)).resolve()
     print(out,flush=True)
     deps = sorted(graph(HERE/'kem_domain.dfy'))
-    refs = [ROOT/'quic/src/main/java/io/github/mahmoudimus/quic/tls'/n for n in ('Shake.java','MlKem768.java')]
-    inputs = deps+[HERE/n for n in ('kem_checks.py','kem_test.java','kem_hash.java')]+refs
+    refs = [ROOT/'formal/crypto/reference'/n for n in ('Shake.java','MlKem768.java')]
+    inputs = deps+[HERE/n for n in ('kem_checks.py','kem_test.java','kem_hash.java')]+refs+[HERE/'reference/provenance.json']
     before = {str(f.relative_to(ROOT)):sha(f) for f in inputs}
     (out/'input-digests-start.json').write_text(json.dumps(before,indent=2)+'\n')
     solver = args.dafny.parent/'z3/bin/z3-4.12.1'

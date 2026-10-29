@@ -5,6 +5,14 @@ generated production Java. The [completion plan](../../docs/project/2026-10-29-d
 requires full component composition, checked native-array refinements,
 compatibility tests and performance measurements before adoption.
 
+Differential replay uses the immutable pre-adoption Java in
+[`reference/`](reference/README.md), with its original source hashes and provenance.
+It is compiled only in isolated harnesses and is never shipped. Earlier evidence
+files record the same bytes at their former production paths; current replays use
+the fixed reference paths so adoption cannot change its own comparison baseline.
+Agreement with that baseline remains finite evidence. Production delivery and
+facade checks are separate from these comparisons.
+
 ## SHAKE sponge and segmented sequence API
 
 `SpongeSpec.dfy` gives byte-oriented FIPS 202 absorption, SHAKE padding and

@@ -1,6 +1,7 @@
 # Direct Java bytecode verification with SAW
 
-SAW 1.6 verifies the actual Java 21 bytecode of `MlKem768.reduceOnce(int)`:
+SAW 1.6 verifies the checksum-pinned Java 21 bytecode of the pre-adoption
+`MlKem768.reduceOnce(int)`:
 
 ```text
 forall a : int, 0 <= a < 6658:
@@ -9,8 +10,10 @@ forall a : int, 0 <= a < 6658:
 
 The independent Cryptol specification uses integer remainder on a 32-bit bitvector.
 The Java implementation uses subtraction, shifts, multiplication and masks. The
-proof loads the existing production `MlKem768.class` (class-file major version 65),
-without recompiling it, copying the method into a Java model, or assuming its result.
+proof loads `MlKem768.class` (class-file major version 65), byte-identical to the
+production artifact at the commit recorded in `inputs.json`, without copying the
+method into a Java model or assuming its result. After Dafny adoption this is a
+historical reference proof, not a proof of the current generated `NativeField`.
 The `jvm_verify` override list is empty. SAW's summary records one verified method,
 one verified return-value obligation, and no admitted dependencies.
 
@@ -22,16 +25,25 @@ security, JCA providers, JIT behavior and timing are outside this proof.
 
 First obtain SAW's official 1.6 release with its solvers and a JDK 21. The tested
 macOS arm64 archive and input hashes are pinned in `inputs.json`. This runner does
-not install tools or build Java. Existing production class files must match the
+not install tools or build Java. Existing reference class files must match the
 pinned hashes; changed inputs require review before updating the pins.
 
 From the repository root:
 
 ```sh
+mkdir -p target/saw-reference-classes
+cp -R quic/target/classes/. target/saw-reference-classes/
+"$JAVA_HOME/bin/javac" --release 21 -g -d target/saw-reference-classes \
+  formal/crypto/reference/Shake.java formal/crypto/reference/MlKem768.java
 python3 formal/saw/run.py \
   --saw "$HOME/.cache/microproxy-formal/saw-1.6-macos-15-ARM64-with-solvers/bin/saw" \
   --java-home /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ```
+
+The preparation compiles the unchanged whole reference classes, then the runner
+requires the original production class hash before proving anything. With the
+pinned JDK21 options above, the resulting class is byte-identical to that artifact.
+The copied `PacketKey` class remains subject to its separate source/class pins.
 
 Use `--classes /absolute/path/to/an/existing/classes/snapshot` when another build
 is active, and `--output /absolute/path` to relocate evidence. The runner snapshots

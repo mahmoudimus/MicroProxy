@@ -36,9 +36,9 @@ def main():
     flags = ['--verification-time-limit', '30', '--resource-limit', '50000000',
              '--cores', '2', '--solver-path', str(solver)]
     receipt = {'commands': [], 'proofs': {}, 'controls': {}, 'java': [], 'inputs': {}}
-    refs = [ROOT/'quic/src/main/java/io/github/mahmoudimus/quic/tls'/name for name in ('Shake.java','MlKem768.java')]
+    refs = [ROOT/'formal/crypto/reference'/name for name in ('Shake.java','MlKem768.java')]
     inputs = [HERE/file for file in ('Codec.dfy','Sampling.dfy','codec_domain.dfy','sampling_domain.dfy',
-                                    'codec_sampling_checks.py','codec_sampling_test.java')]+refs
+                                    'codec_sampling_checks.py','codec_sampling_test.java')]+refs+[HERE/'reference/provenance.json']
     before = {str(p.relative_to(ROOT)): sha(p) for p in inputs}
 
     def call(label, command):

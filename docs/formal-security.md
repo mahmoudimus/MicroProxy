@@ -134,15 +134,15 @@ checks. Normal Maven/interop tests still run separately. Formal tools are develo
 
 ### Direct Java bytecode proof
 
-The opt-in [SAW experiment](https://github.com/mahmoudimus/MicroProxy/tree/diff/quic-interop-submission/formal/saw) verifies the actual Java 21
-`MlKem768.reduceOnce(int)` class-file method against mathematical remainder:
+The opt-in [SAW experiment](https://github.com/mahmoudimus/MicroProxy/tree/diff/dafny-shake-mlkem/formal/saw) verifies the checksum-pinned Java 21
+`MlKem768.reduceOnce(int)` class-file method from before Dafny adoption against mathematical remainder:
 for every integer `0 <= a < 6658`, its result is `a mod 3329`. The proof has no
 method overrides or admitted dependencies. It establishes one scalar method's
-functional result under its precondition; callers' range obligations, the other
-ML-KEM operations and timing remain unproved. It does not recompile a copied
+functional result under its precondition; it does not cover callers, other
+ML-KEM operations or timing. It does not recompile a copied
 method or substitute an older class-file version.
 
-The runner pins production source and class hashes, snapshots existing classes,
+The runner pins the historical reference source and class hashes, snapshots existing classes,
 and records SAW summaries. A wrong-modulus specification must produce a proof
 counterexample, and a deliberately contradictory precondition must be detected
 as vacuous. An actual `PacketKey.nonce(long)` proof attempt is recorded as blocked

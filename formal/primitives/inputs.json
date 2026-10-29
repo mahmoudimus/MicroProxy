@@ -1,14 +1,15 @@
 {
   "inputs": {
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
     "formal/dafny/run.py": "f0e53bcaccb6a15e152a140b61dfd584eb2d791d19b3307d55320100d7f6b33c",
     "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
     "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
     "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
     "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
     "formal/primitives/java/io/github/mahmoudimus/quic/tls/GeneratedPrimitivesTest.java": "3ee492153947395e11c57efd8c552fafdd22ae5df71fb8da03fa332052b84a1d",
-    "formal/primitives/run.py": "8b3b7e3df54bcfa900f3fb5b5094ca82e5ba8146174c2b6fb1f7575173230fd9",
-    "formal/primitives/test_run.py": "fe2ba2261f75b6ae1358dc2ca8b9d1920373b1dd95ad6d19d6fb4a4e7c6f3f32",
-    "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
-    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697"
+    "formal/primitives/run.py": "6e8f47e22e483764757999e0916f71843bedb9adc42660b69da252fa62330861",
+    "formal/primitives/test_run.py": "fe2ba2261f75b6ae1358dc2ca8b9d1920373b1dd95ad6d19d6fb4a4e7c6f3f32"
   }
 }

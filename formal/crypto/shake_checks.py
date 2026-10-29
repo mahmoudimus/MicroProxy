@@ -162,9 +162,9 @@ def main():
                'commands': [], 'proofs': {}, 'audits': {}, 'controls': {}, 'java': []}
     sources = closure(HERE/'shake_domain.dfy')
     harness = HERE/'shake_java/io/github/mahmoudimus/quic/tls/GeneratedShakeTest.java'
-    reference = ROOT/'quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java'
+    reference = ROOT/'formal/crypto/reference/Shake.java'
     inputs = sources+[Path(__file__).resolve(), harness, reference, TOOLCHAIN,
-                      ROOT/'formal/dafny/tools.json']
+                      ROOT/'formal/dafny/tools.json',HERE/'reference/provenance.json']
     before = snapshot(inputs, ROOT)
     spec = importlib.util.spec_from_file_location('shake_pinned_toolchain', TOOLCHAIN)
     module = importlib.util.module_from_spec(spec)

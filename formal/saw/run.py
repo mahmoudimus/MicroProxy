@@ -221,7 +221,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--saw", type=Path, required=True, help="SAW 1.6, with bundled solvers beside it")
     parser.add_argument("--java-home", type=Path, required=True, help="JDK 21 home")
-    parser.add_argument("--classes", type=Path, default=ROOT / "quic/target/classes")
+    parser.add_argument("--classes", type=Path, default=ROOT / "target/saw-reference-classes")
     parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/microproxy-formal")
     parser.add_argument("--output", type=Path, default=HERE / "evidence")
     parser.add_argument("--timeout", type=int, default=90, help="Seconds per subprocess")
@@ -230,7 +230,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     report_path = output / "report.json"
     report = {"status": "incomplete", "scope":
-              "actual Java 21 MlKem768.reduceOnce for 0 <= a < 6658; PacketKey.nonce remains blocked",
+              "pre-adoption Java 21 MlKem768.reduceOnce for 0 <= a < 6658; PacketKey.nonce remains blocked",
               "runs": {}}
     # Invalidate a previous success before parsing or checking any replay input.
     write_report(report_path, report)
