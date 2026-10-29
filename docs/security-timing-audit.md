@@ -16,6 +16,7 @@ behavior of JIT-generated code, JCA providers, or a deployed service.
 | Starlark `digest.equal` and `hmac.compare_digest` | Secret-comparison helpers already use `MessageDigest.isEqual`. Keep them. Scripts must call these helpers themselves; arbitrary script `==` is not timing-safe. |
 | TLS Finished, TLS 1.2 Finished, PSK binders, ECH confirmations | Secret-dependent authentication values already use `MessageDigest.isEqual` with the expected value first. Keep them. |
 | QUIC reset tokens | Secret tokens already use `MessageDigest.isEqual` on fixed 16-byte arrays. Keep them. |
+| QUIC protected packet-number fields | These fields are confidential before authentication. Receive-side header unmasking, fixed-prefix reading and number reconstruction now use generated scalar code and fixed-address adapters, with scoped functional/trace evidence described below. Downstream AEAD/key-phase/metadata handling remains outside that trace claim. |
 | QUIC Retry integrity / address-validation tokens / TLS tickets | Retry tags use `MessageDigest.isEqual`; sealed tokens and tickets use JCA AEAD verification. A Retry integrity key is protocol-defined public material. Ticket key names are public routing metadata. Provider timing remains a separate assessment. |
 | `MlKem768.DecapsulationKey.decapsulate` | Secret-dependent implicit rejection. Review found a complete fixed-length ciphertext-difference accumulation and mask selection of the candidate or rejection key, with both keys computed. No source-level early comparison exit was found; this is not a machine-code or whole-algorithm proof. |
 | Key exchange all-zero result | A fixed loop accumulates the zero result, followed by the required rejection decision. JCA agreement/provider internals remain outside this source comparison review. |
@@ -26,6 +27,30 @@ different usernames and the same password were equal after URL redaction, so HTT
 the HTTP account. The regression exercises real `UpstreamProxyManager` routes. Correctness tests
 cover identity separation, UTF-8 values, mismatches, absent credentials, and unchanged equal
 credentials. They do not establish timing properties.
+
+## QUIC packet-number trace follow-up
+
+The EverQUIC assessment identified additional source-dependent work before AEAD
+authentication: header unmasking looped over the recovered PN length, and number
+recovery branched on the reconstructed value. The receive path now uses a verified
+Dafny scalar implementation with mask selections; its ByteBuffer adapters use
+fixed addresses for all four possible PN octets and preserve following ciphertext.
+Ordinary string/credential comparison checks do not address this class of leak.
+
+The new packet replay proves full functional equations and two-run observations
+under an idealized atomic-word/register observer. It applies the trace theorem to
+SSA programs extracted from actual built scalar classes. Trusted structural,
+taint and range checkers restrict the emitted code and valid-domain adapters.
+Compiler trust includes a documented lowering of two proved bounded-shift helpers;
+the generated kernel has no Dafny runtime dependency.
+
+This establishes a scoped conditional source/bytecode trace property. It does not
+prove JIT/CPU/JCA/GC timing, ByteBuffer/provider internals, downstream AEAD lengths,
+key-phase handling, returned metadata processing or whole-record constant time.
+The existing outbound protection path is outside this receive-side theorem.
+See the packet trace section in [formal security](formal-security.md) for replay
+and remaining trust boundaries. No remote timing exploit was demonstrated by the
+source review, and no new empirical timing result is inferred from these proofs.
 
 ## Advisory relevance
 

@@ -23,7 +23,7 @@ Provider choice, runtime, native intrinsics, CPU and deployment configuration re
 | `Hkdf` | Extract/Expand feedback/counter/block copying and TLS labels around JDK HMAC | RFC 5869/9001 vectors, validation and label model checks. Full Expand-loop equivalence/HKDF security reduction is not proved here. |
 | Generated Dafny HKDF component | Extract/Expand/TLS-label implementation compiled from verified Dafny | Full functional result equations relative to abstract HMAC, unrestricted input harness and negative controls; generated Java tested with real JCE. Isolated component, not the production `Hkdf` replacement. |
 | `KeySchedule`, `Tls12Prf`, `Hpke`, `crypto/Keys` | Role/stage order, transcripts, labels, contexts and updates | TLS/HPKE/QUIC vectors and integration tests; no general protocol/key-schedule security proof. |
-| `crypto/HeaderKey` | Mask/sample offsets, header bits and format | JDK AES/ChaCha plus packet vectors; no complete bit/buffer refinement. |
+| `crypto/HeaderKey`, `packet/PacketNumber` | Mask/sample offsets, header bits, PN prefix/reconstruction | JDK AES/ChaCha plus packet vectors; generated scalar functional/trace proofs and fixed-address adapter checks below. No complete Java buffer/provider or whole-record timing refinement. |
 | `KeyExchange`, `EcCurves`, `Signatures` | Encodings, hybrid order, public point/zero checks, signature contexts/parameters | JDK classical primitives plus vectors/interop/negative tests. Wire/policy glue remains ours. |
 | `MlKem768` | Keygen, sampling, field arithmetic, NTT, codecs, compression and implicit rejection | Handwritten primitive; vectors against Go, malformed-input tests, and the single-method bytecode proof below. No full FIPS 203 refinement or JVM timing proof. Only SHA3 digests/randomness are delegated here. |
 | `Shake` | Keccak-f and SHAKE absorb/pad/squeeze | Handwritten primitive; Python hashlib values, rate boundaries and segmented-I/O tests. No FIPS 202 refinement or timing proof. |
@@ -148,6 +148,48 @@ ML-KEM-768 plus SHAKE replacement. Porting a verified native implementation woul
 require a new checked link before its proof could apply to Java. The useful next
 steps are additional arithmetic/codecs proofs, adoption review of the generated
 HKDF component and explicit provider/Java boundary contracts.
+
+### Packet scalar and trace verification
+
+The [packet component](https://github.com/mahmoudimus/MicroProxy/blob/7be2a23be1d8dfe557b847bd4705f6a18f110340/formal/packet/README.md) implements packet-number reconstruction,
+fixed-prefix reading and header unmasking in Dafny, then generates Java and
+integrates it into the receive path. Conditional reference equations specify exact
+results; mask-based code preserves the existing signed-overflow/decision-priority
+behavior for all 64-bit largest/truncated values and each legal length1..4.
+Header serialization preserves bytes beyond the actual PN and retains published
+v1/v2 AES/ChaCha packet outputs.
+
+A generic Dafny straight-line register machine proves paired-run observation
+equality for arbitrary secret values under an atomic word-operation observer.
+A trusted checker disassembles actual production classes, rejects unlisted
+control flow/memory/calls, expands the scalar call closure, extracts SSA programs
+and generates a checked application of that theorem. A taint/range checker binds
+the exact scalar class/signatures and verifies fixed-address adapters plus the
+common validation path for legal lengths. The checkers and `javap` remain trusted;
+they are not a formally verified JVM semantics or whole-Java refinement.
+
+The dependency-free Java artifact uses a documented trusted compiler adaptation:
+exactly two bounded-shift intrinsics are lowered to JVM shifts. Dafny proves their
+count-mask equivalence under `count<64` and every call-site precondition. Raw and
+packaged source hashes, actual classes, SSA programs and proof harnesses are
+recorded. Unexpected dependencies, branches, assumptions, narrowed domains and
+semantic/trace mutants must fail the corresponding gates; resource exhaustion is
+never accepted as a counterexample.
+
+Replay with JDK21+, Maven, Python3.11+ and Ubuntu24.04 `libicu74` when applicable:
+
+```sh
+python3 -m unittest discover -s formal/packet -p 'test_*.py' -v
+python3 formal/packet/run.py
+```
+
+The observer excludes JIT/CPU/GC/provider timing, ByteBuffer internals, subsequent
+AEAD/key-phase/metadata processing and the outbound protection path. Exclusive
+buffer ownership and valid non-overlapping header layouts are assumptions at the
+Java boundary. This improves two identified receive-side source patterns; it is
+not a claim of whole-record constant time or absence of remote side channels.
+The research reference is [EverQUIC's paper](https://www.andrew.cmu.edu/user/bparno/papers/quic-record.pdf);
+its F*/C theorems do not automatically transfer to our Java implementation.
 
 ### Timing boundary
 

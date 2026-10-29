@@ -6,15 +6,15 @@ four-octet buffer access adapters. Public APIs, standards bytes and browser
 fingerprint fixtures remain covered by regression tests; no runtime dependency is
 added. Generic `PacketNumber.read` remains available for exactly-sized buffers.
 
-From the repository root, with Python3.11+, Maven and `JAVA_HOME` pointing to JDK21+:
+From the repository root, with Python 3.11+, Maven and `JAVA_HOME` pointing to JDK 21+:
 
 ```sh
 python3 -m unittest discover -s formal/packet -p 'test_*.py' -v
 python3 formal/packet/run.py
 ```
 
-Ubuntu24.04 needs `libicu74` for Dafny's bundled .NET runtime. The replay reuses the
-pinned Dafny4.9.1 distribution installer in `formal/dafny/toolchain.py`; it explicitly
+Ubuntu 24.04 needs `libicu74` for Dafny's bundled .NET runtime. The replay reuses the
+pinned Dafny 4.9.1 distribution installer in `formal/dafny/toolchain.py`; it explicitly
 selects bundled Z3-4.12.1 and `smt.case_split=0`. The complete official archive and
 extracted files are checksum-checked, including the solver. Archive pins identify
 the official HTTPS download, not independently signed release attestations.
@@ -24,8 +24,8 @@ No global toolchain is changed. Cache overrides are `--cache` and
 ## What is proved
 
 `PacketKernel.dfy` has independent conditional reference equations and executable
-mask-based implementations. Decode covers **all64-bit** largest/truncated bit
-patterns and lengths1..4, retaining the original Java signed-overflow arithmetic
+mask-based implementations. Decode covers **all 64-bit** largest/truncated bit
+patterns and lengths 1..4, retaining the original Java signed-overflow arithmetic
 and add-before-sub decision priority. Its meaningful QUIC largest-number domain
 is -1..2^62-1; a reconstructed number is not automatically accepted by the protocol.
 The proofs include unsigned/signed comparison, prefix byte order, exact first-byte
@@ -43,7 +43,7 @@ allocation, synchronization and unlisted calls in the scalar language. It extrac
 concrete SSA programs, then Dafny verifies their validity and applies the universal
 two-run theorem. The I/O checker tracks secrecy through adapter bytecode and rejects
 secret-derived addresses or branches, binding scalar calls to the exact class and
-signature. A range checker follows `checkLength` over the complete legal1..4 input
+signature. A range checker follows `checkLength` over the complete legal 1..4 input
 interval and requires a common, effect-free normal path. Fixed buffer accesses are
 relative to public packet/start offsets; heap roles correspond between executions.
 
@@ -80,7 +80,7 @@ Masks preserve ciphertext after the actual PN. Well-formed header layouts have
 `start<packetNumberOffset`, sufficient sample space and exclusive mutable-buffer
 ownership. Tests cover heap/direct/sliced buffers, either byte order, state/mark
 preservation, read-only/short-packet rejection, full signed reconstruction edges,
-independent old-algorithm comparisons and published QUICv1/v2 AES/ChaCha vectors.
+independent old-algorithm comparisons and published QUIC v1/v2 AES/ChaCha vectors.
 
 JDK `ByteBuffer` operations and provider sampling remain trusted opaque boundaries.
 Returned header/number/length metadata, `ProtectedPacket`'s subsequent object/state
@@ -103,7 +103,7 @@ Cancellation/timeout cleanup reuses the previously reviewed bounded process runn
 Evidence goes to `target/packet-verification/report.json` and a fresh `replay-*`
 directory containing logs, raw generated Java, copied actual classes, SSA programs
 and the concrete trace proof harness. `--output` selects a separate evidence root.
-CI repeats on JDK21/25 and uploads artifacts. Tests/measurements and formal proofs
+CI repeats on JDK 21/25 and uploads artifacts. Tests/measurements and formal proofs
 are separate evidence; a timeout cannot count as a rejected mutant.
 
 The threat model is informed by [EverQUIC's paper](https://www.andrew.cmu.edu/user/bparno/papers/quic-record.pdf)

@@ -80,6 +80,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 - [Design and scope](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-crypto-assurance-design/): This roadmap completes a named QUIC feature baseline and builds implementation proofs for our Java cryptography, starting with HKDF.
 - [QUIC implementation plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-feature-completion/): Goal: Complete and demonstrate the named protocol/application feature baseline without changing captured browser behavior by default.
 - [Crypto verification plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-java-crypto-verification/): Goal: Use Dafny to establish checked functional and secret-trace properties across our cryptographic code, starting with HKDF and its pinned AWS reference.
+- [Packet trace verification](https://mahmoudimus.github.io/MicroProxy/project/2026-10-29-quic-packet-traces/): Goal: Replace the identified protected-header-dependent loops/branches in QUIC packet-number recovery and header unprotection with verified Dafny-generated Java, preserving wire bytes, APIs and browser fingerprints.
 
 ## Optional
 
