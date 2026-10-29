@@ -177,6 +177,37 @@ lemmas so that Linux and macOS complete at the same 30-second/50-million-resourc
 limits. Their domains and result equations are unchanged. The proof-only splits
 produce exactly the same generated Java and compiled KEM classes as before.
 
+## Native field and polynomial refinement
+
+`NativeField.dfy` refines the field equations with bounded Java `int`/`long`
+arithmetic. Its Barrett product covers the complete caller range through
+22,154,496. Reduction uses reciprocal 5039, a 24-bit shift and one correction;
+the correction uses a biased positive word and a 15-bit shift. Division and
+remainder occur only in specifications and proofs. The generated scalar bytecode
+has no value-dependent branch, division/remainder, BigInteger arithmetic or boxing.
+That inspected bytecode shape is not a JVM machine-code timing theorem.
+
+`NativePolynomial.dfy` connects mutable 256-coefficient arrays to the independently
+proved polynomial/NTT equations. All inputs in `[0,3329)^256` are covered, including
+aliasing permitted by the public contracts. The proof establishes caller ranges,
+fresh outputs, unchanged inputs and source-level cleanup of discarded arrays.
+Fourteen semantic controls cover scalar reduction/correction, butterfly signs and
+indices, roots, inverse scaling, ownership and wiping. Legal witness restrictions
+appear only in temporary negative copies; positive domains remain unchanged.
+
+The component replay also checks the actual scalar bytecode and compares generated
+Java with the fixed reference, all basis positions and independent schoolbook
+products. Both JDKs passed 22,865,885 assertions in the recorded component replay.
+Final production acceptance requires the complete KEM graph and delivery checks.
+
+```sh
+python3 formal/crypto/native_polynomial_checks.py --phase all \
+  --dafny /path/to/dafny/dafny --output /fresh/output/directory \
+  --java-home /path/to/jdk21 --runtime-home /path/to/jdk25 \
+  --runtime-jar /path/to/DafnyRuntime-4.9.1.jar \
+  --runtime-sha256 dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6
+```
+
 ## Native codec and sampling refinement
 
 `NativeTypes.dfy` defines bounded Java `int`/`long` representations and ghost
