@@ -264,17 +264,20 @@ final class UdpFlow implements UdpContext {
     void run(String name) {
         boolean clean = false;
         try {
-            receiver = Thread.ofVirtual().name(name + "-from-target").start(this::receiveFromTarget);
-            targetSender = Thread.ofVirtual().name(name + "-to-target").start(this::sendToTarget);
-            clientSender = Thread.ofVirtual().name(name + "-to-client").start(this::sendToClient);
             started = true;
             if (hooks != null) {
+                // Before the relaying threads, so that nothing is relayed (and no udpMessage runs)
+                // until it returns: what arrives meanwhile waits in the queues and the socket, and
+                // what it sends goes out first
                 try {
                     hooks.udpStart(this);
                 } catch (RuntimeException e) {
                     LOG.log(Level.WARNING, logPrefix + "udpStart threw", e);
                 }
             }
+            receiver = Thread.ofVirtual().name(name + "-from-target").start(this::receiveFromTarget);
+            targetSender = Thread.ofVirtual().name(name + "-to-target").start(this::sendToTarget);
+            clientSender = Thread.ofVirtual().name(name + "-to-client").start(this::sendToClient);
             readCapsules();
             // The client ended its stream: the flow is over (RFC 9298 section 3).
             clean = true;

@@ -220,9 +220,14 @@ class AdminTest {
         proxy = withAdmin().start();
         assertTrue(proxy.getStats().enabled());
         assertEquals("done /a", proxyGet("/a"));
+        // counted when it ends (downstream_rq_total counts it when it starts), which may be just
+        // after the client has the response
         eventually("the request counted", () -> {
             try {
-                return get("/stats?filter=downstream_rq_total").body().contains("http.MicroProxy.downstream_rq_total: 1");
+                String stats = get("/stats").body();
+                return stats.contains("cluster.direct.upstream_rq_2xx: 1\n")
+                        && stats.contains("http.MicroProxy.downstream_rq_active: 0\n")
+                        && stats.contains("http.MicroProxy.downstream_rq_2xx: 1\n");
             } catch (Exception e) {
                 throw new AssertionError(e);
             }

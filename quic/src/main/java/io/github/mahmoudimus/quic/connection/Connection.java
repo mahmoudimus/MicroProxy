@@ -1258,7 +1258,14 @@ public final class Connection {
             cur.challengePending = true;
             prevPathCid = remoteCids.active(); // before the update below
         }
-        timers.set(Timer.PATH_VALIDATION, now + 3 * Math.max(recovery.pto(SpaceId.DATA), prevPto));
+        // RFC 9000 section 8.2.4: three times the larger of the current PTO and the new path's as
+        // one without RTT samples would have it (kInitialRtt). A rebinding keeps the old path's
+        // RTT, and a timeout made from it alone, a few dozen milliseconds on a fast path, is one a
+        // busy client misses: the server then went back to the client's old address.
+        long initialRtt = config.initialRtt.toNanos();
+        long newPathPto = initialRtt + Math.max(2 * initialRtt, RttEstimator.TIMER_GRANULARITY)
+                + recovery.ackFrequency().maxAckDelayForPto();
+        timers.set(Timer.PATH_VALIDATION, now + 3 * Math.max(Math.max(recovery.pto(SpaceId.DATA), prevPto), newPathPto));
         pathChanged(now, next);
         // Break linkability, if the client gave us another connection ID (RFC 9000 section 9.5)
         updateRemoteCid();

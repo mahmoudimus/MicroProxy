@@ -1135,6 +1135,24 @@ final class Http2Connection extends Http2Endpoint {
     }
 
     /**
+     * Waits, up to {@code nanos}, for the threads of the connection's streams to end. Once the
+     * connection has closed they fail at their next write, but an exchange's last steps (its
+     * filters' and trackers' end of exchange, a WARC record) may still be running: the connection
+     * is not done, nor a graceful stop, until they are.
+     */
+    void awaitStreams(long nanos) {
+        stateLock.lock();
+        try {
+            long left = nanos;
+            while (!streams.isEmpty() && left > 0) left = windowOpened.awaitNanos(left); // signalled as a stream ends
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    /**
      * The client connection is closing: its CONNECT-UDP flows give their places back at once, every
      * stream fails at its next wait or write, and their server connections close with the
      * client's. When the client closed it, this runs on the reader as soon as it reads the end.

@@ -636,6 +636,19 @@ final class Http3Connection extends Http3Endpoint {
         return activeStreams == 0;
     }
 
+    /** Waits, up to {@code nanos}, for the threads of the connection's streams to end: see {@link Http2Connection#awaitStreams}. */
+    void awaitStreams(long nanos) {
+        stateLock.lock();
+        try {
+            long left = nanos;
+            while (!streams.isEmpty() && left > 0) left = stateChanged.awaitNanos(left); // signalled as a stream ends
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
     /**
      * The client connection is closing: its CONNECT-UDP flows give their places back at once, the
      * QUIC connection closes, and every stream fails at its next wait or write.

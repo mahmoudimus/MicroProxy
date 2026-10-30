@@ -168,11 +168,17 @@ class MigrationLoopbackTest {
         int first = nat.outsidePort();
         assertEquals(first, served.remoteAddress().getPort());
         byte[] data = LoopbackTest.data(6, 16 << 20);
+        int datagramsBeforeRebind = 128;
+        // Even maximum-sized UDP datagrams cannot carry the whole upload before this point.
+        // Rebind in the relay thread: polling sentPackets can wake after the echo has finished.
+        assertTrue((long) datagramsBeforeRebind * 65536 < data.length);
+        CompletableFuture<Integer> rebound = nat.rebindAfterDatagrams(datagramsBeforeRebind);
         CompletableFuture<byte[]> echoed = echoLater(c, data);
-        LoopbackTest.pollUntil(() -> c.stats().sentPackets() > 2000, Duration.ofSeconds(30));
-        nat.rebind();
+        int after = rebound.get(30, TimeUnit.SECONDS);
+        assertNotEquals(first, after);
         assertNotEquals(first, nat.outsidePort());
         assertArrayEquals(LoopbackTest.sha256().digest(data), echoed.get(60, TimeUnit.SECONDS));
+        LoopbackTest.pollUntil(() -> served.remoteAddress().getPort() == after, Duration.ofSeconds(10));
         assertEquals(nat.outsidePort(), served.remoteAddress().getPort(), "the server followed the NAT");
         c.close();
     }
@@ -188,6 +194,8 @@ class MigrationLoopbackTest {
         private final InetSocketAddress server;
         private volatile DatagramChannel outside;
         private volatile InetSocketAddress client;
+        private final AtomicLong rebindCountdown = new AtomicLong(-1);
+        private final CompletableFuture<Integer> rebound = new CompletableFuture<>();
         final AtomicLong droppedOld = new AtomicLong();
 
         Nat(InetSocketAddress server) throws IOException {
@@ -217,6 +225,12 @@ class MigrationLoopbackTest {
             old.close();
         }
 
+        CompletableFuture<Integer> rebindAfterDatagrams(int count) {
+            if (count <= 0) throw new IllegalArgumentException("positive datagram count required");
+            if (!rebindCountdown.compareAndSet(-1, count)) throw new IllegalStateException("rebind already armed");
+            return rebound;
+        }
+
         private void fromClient() {
             ByteBuffer buf = ByteBuffer.allocate(65536);
             try {
@@ -224,6 +238,10 @@ class MigrationLoopbackTest {
                     buf.clear();
                     client = (InetSocketAddress) inside.receive(buf);
                     buf.flip();
+                    if (rebindCountdown.get() > 0 && rebindCountdown.decrementAndGet() == 0) {
+                        rebind();
+                        rebound.complete(outsidePort());
+                    }
                     try {
                         outside.send(buf, server);
                     } catch (ClosedChannelException e) {
@@ -231,6 +249,7 @@ class MigrationLoopbackTest {
                     }
                 }
             } catch (IOException e) {
+                rebound.completeExceptionally(e);
                 // closed
             }
         }
