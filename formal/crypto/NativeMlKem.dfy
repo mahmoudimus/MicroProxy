@@ -382,13 +382,14 @@ module NativeMlKem {
     ensures fresh(PolyObjects(a)) && Vec(a,3) && Distinct(a)
     ensures Polys(a) == S.NoiseVector(seed[..],start as int,ntt)
   {
+    ghost var model := S.NoiseVector(seed[..],start as int,ntt);
     var empty := new T.I[0 as T.I];
     a := new array<T.I>[3 as T.I](i => empty);
     for i: T.I := 0 to 3
       modifies a
       invariant fresh(PolyObjects(a))
       invariant forall j: int :: 0 <= j < i as int ==> T.Canonical(a[j])
-      invariant forall j: int :: 0 <= j < i as int ==> T.Ints(a[j]) == S.NoiseVector(seed[..],start as int,ntt)[j]
+      invariant forall j: int :: 0 <= j < i as int ==> T.Ints(a[j]) == model[j]
       invariant forall j,k: int :: 0 <= j < k < i as int ==> a[j] != a[k]
     {
       var f := Noise(seed,start+i);
@@ -397,6 +398,7 @@ module NativeMlKem {
         WipeInts(f);
         f := transformed;
       }
+      assert T.Ints(f) == model[i as int];
       a[i] := f;
     }
   }
