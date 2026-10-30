@@ -9,8 +9,18 @@ MicroProxy is an HTTP/HTTPS proxy for Java that can intercept and rewrite traffi
 port of [LittleProxy](https://github.com/LittleProxy/LittleProxy) that drops Netty. Each
 connection runs on its own **virtual thread** (Project Loom) and uses plain blocking socket I/O.
 
+## Functionally verified cryptographic implementations with documented trust assumptions
+
+SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations,
+with checks that the packaged Java matches the generated artifacts. Compiler/runtime,
+reviewed Java facades and selected JDK primitives remain trusted. Whole-stack TLS/QUIC security
+and constant-time JVM execution remain outside these proofs. See the
+[verification scope and assumptions](formal-security.md).
+
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
-- **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
+- **Dependencies:** the core has no required runtime dependencies. QUIC uses the pinned
+  `org.dafny:DafnyRuntime:4.9.1` runtime for its generated crypto. Logging goes through
+  `System.Logger`, which can be routed to
   SLF4J/Log4j with the usual bridges. Put the `zstd-decoder` jar on the class path as well to
   decode `zstd` bodies, the `http2-codec` jar for [HTTP/2](guides/http2.md) to clients and servers, and
   the `quic` and `http3-codec` jars for [HTTP/3](guides/http3.md) to clients of a reverse proxy
@@ -27,9 +37,9 @@ The modules, their Maven coordinates and the self-contained `-all` jar are liste
 
 ## Design principles
 
-- **No dependencies.** The core, the codecs, QUIC, OpenTelemetry export and the DNSSEC resolver
-  use only the JDK. Optional features are optional jars, found on the class path when present;
-  only the Starlark module depends on anything (the interpreter's Guava).
+- **Minimal dependencies.** The core, codecs, OpenTelemetry export and DNSSEC resolver use
+  only the JDK. Optional features are jars found on the class path when present. QUIC adds
+  the Dafny runtime for generated SHAKE/ML-KEM; Starlark adds the interpreter's Guava.
 - **Virtual threads, not event loops.** Each connection is one virtual thread running a
   straight-line loop; blocking a write is the backpressure. See
   [Why virtual threads instead of Netty](architecture.md#why-virtual-threads-instead-of-netty)

@@ -1,5 +1,12 @@
 # Security assurance and formal verification
 
+## Functionally verified cryptographic implementations with documented trust assumptions
+
+Production SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny
+implementations. The proofs cover their stated functional specifications; checked source,
+class and JAR delivery connects the verified source to the packaged Java. Compiler/runtime,
+reviewed Java facades and selected JDK primitives remain trusted, as detailed below.
+
 MicroProxy has a custom TLS/QUIC implementation. Its assurance includes development review,
 published standards vectors, interoperability/rejection tests, exploratory timing observations,
 and the scoped models below. No end-to-end security proof, independent expert cryptographic
@@ -50,7 +57,7 @@ Those distinctions also apply to the SHAKE/ML-KEM work. AWS attribution belongs
 to the reused HKDF proof structure; our other Dafny models follow their respective
 standards and have their own provenance.
 
-The [verification artifact guide](https://github.com/mahmoudimus/MicroProxy/tree/diff/quic-packet-traces/formal)
+The [verification artifact guide](https://github.com/mahmoudimus/MicroProxy/tree/main/formal)
 contains replay commands. The component sections below state which claims have
 actually been discharged and which implementation bridges remain trusted.
 
