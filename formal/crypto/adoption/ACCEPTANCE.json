@@ -1,0 +1,68 @@
+{
+  "schema": "microproxy.crypto-local-artifact-acceptance/v1",
+  "status": "complete",
+  "scope": "Local production source/library/minimized-bundle acceptance only; remote exact-head CI and final independent status review are evaluated separately.",
+  "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+  "actual_maven_main_classes": 456,
+  "generated_provider_classes": 66,
+  "quic_jar_sha256": "9b0181cfce27ddb0a0ae06f8cae778d8f146e03520ef4545ce7ff9b8902b32e1",
+  "all_jar_sha256": "109e4eea359dcba478f867c7e4708c1cce43f2b7a6151640e28e68ed14d4792f",
+  "receipts": {
+    "stage-receipt.json": {
+      "path": "stage-receipt.json",
+      "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40"
+    },
+    "approval.json": {
+      "path": "approval.json",
+      "sha256": "0ec65083f58d00855880eb646a5fbb3ad7f8916d6a40d7c5c71cbd6e1d3de8fe"
+    },
+    "publication.json": {
+      "path": "publication.json",
+      "sha256": "6d4288945a1168a3b13cda6cc5f3bd79456c5e8fa0ed03c688abf1ba4ccbd586"
+    },
+    "maven21-receipt.json": {
+      "path": "maven21-receipt.json",
+      "sha256": "4739fb7c3e36e3287b3ed3476f4a47cdf32073b175128c0642f39305d1b43daa"
+    },
+    "maven25-receipt.json": {
+      "path": "maven25-receipt.json",
+      "sha256": "b743518dccdf4749869b7074e2371ccdec46d45cf1d3954594592cbd930301ba"
+    },
+    "maven-delivery.json": {
+      "path": "maven-delivery.json",
+      "sha256": "6ee4a0730551de385f014359d73c01412e66f219e626c8a42fb51c2a1a21c8c9"
+    },
+    "maven-runtime.json": {
+      "path": "maven-runtime.json",
+      "sha256": "33774ae70646f0a6a9c0ab254cde1dc2c5b2e85675a352119a80a132b2687dad"
+    },
+    "final-bundle.json": {
+      "path": "final-bundle.json",
+      "sha256": "fbdf38870c343fa652fb68f8ffa06321085686b6f1caebfecaa626db8af8d8ac"
+    },
+    "jdk25-runtime.json": {
+      "path": "jdk25-runtime.json",
+      "sha256": "c853e97d012b3987b1da716f3c2ae52b2fda1645f70d4c0826619b8a43e76ede"
+    },
+    "jdk25-codegen-differences.json": {
+      "path": "jdk25-codegen-differences.json",
+      "sha256": "0d506f7161e267476df094f1d676105e460dae2e77e3e0fe35a807a58d028b5c"
+    },
+    "performance-review.json": {
+      "path": "performance-review.json",
+      "sha256": "c95075a6a4568b470bbe697ce02dbcf8056f7f3251f4c59e45c7fbe420226c64"
+    }
+  },
+  "validation": [
+    "Full ordinary Maven verify with JDK21 and25, including SIMD; optional peers/live tests may skip locally.",
+    "Fresh final21 package; all456 main class files and JAR class entries exact including attributes.",
+    "Existing runtime/opcode/caller guard on actual final21 and retained actual25 classes.",
+    "Actual final minimized bundle has70 canonical crypto classes and pinned helper bytes; both runtimes complete9 nonresumed hybrid handshakes with bidirectional1RTT data and no external production-class fallback.",
+    "Dafny MIT, Go BSD and crypto notice resources match source bytes in both library and minimized bundle."
+  ],
+  "trust_boundaries": [
+    "Dafny/Z3/compiler/runtime/javac/JVM and JDK SHA3 provider correctness/normal completion.",
+    "Small reviewed Java facades and exclusive ownership/confinement assumptions.",
+    "Entropy, hardness, physical/JIT erasure and whole-JVM timing remain unproved."
+  ]
+}

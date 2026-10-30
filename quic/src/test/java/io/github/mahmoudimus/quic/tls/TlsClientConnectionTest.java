@@ -18,6 +18,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.time.InstantSource;
 import java.util.List;
@@ -124,6 +125,58 @@ class TlsClientConnectionTest {
             got.write(chunk);
         }
         return got.toString(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void mutualAuthenticationCannotResumePastANewLocalKeyRestriction() throws Exception {
+        serve(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNeedClientAuth(true));
+        CertifiedKey client = TestCerts.CA.issue(KeyType.RSA, "client.test");
+        X509KeyManager km = (X509KeyManager) keyManagers(client)[0];
+        ClientSessionMemoryCache sessions = new ClientSessionMemoryCache();
+        TlsClientConnection first = connect(config(sessions, km), HOST);
+        first.handshake();
+        assertFalse(first.localCertificates().isEmpty());
+        assertEquals("echo: one\n", roundTrip(first, "one"));
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous + ", RSA keySize < 4096");
+            assertThrows(TlsClientConnection.TlsAlertException.class, connect(config(sessions, km), HOST)::handshake);
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+            first.closeWrite();
+        }
+    }
+
+    @Test
+    void resumptionCannotBypassACurrentPeerKeyRestriction() throws Exception {
+        assertResumptionRejected("EC keySize < 384", HOST);
+    }
+
+    @Test
+    void resumptionCannotBypassACurrentSignatureRestriction() throws Exception {
+        assertResumptionRejected("ecdsa_secp256r1_sha256 usage HandshakeSignature", HOST);
+    }
+
+    @Test
+    void resumptionCannotBypassCurrentHostnameVerification() throws Exception {
+        assertResumptionRejected(null, "other.test");
+    }
+
+    private void assertResumptionRejected(String restriction, String verifyHost) throws Exception {
+        serve(TestCerts.CA.issue(KeyType.P256, HOST), p -> {});
+        ClientSessionMemoryCache sessions = new ClientSessionMemoryCache();
+        TlsClientConnection first = connect(config(sessions, null), HOST);
+        first.handshake();
+        assertEquals("echo: one\n", roundTrip(first, "one"));
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try {
+            if (restriction != null) Security.setProperty("jdk.tls.disabledAlgorithms", previous + ", " + restriction);
+            TlsClientConnection next = connect(config(sessions, null), verifyHost);
+            assertThrows(TlsClientConnection.TlsAlertException.class, next::handshake);
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+            first.closeWrite();
+        }
     }
 
     @Test

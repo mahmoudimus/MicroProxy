@@ -1,0 +1,29 @@
+{
+  "schema": "microproxy.crypto-maven-suite/v1",
+  "status": "complete",
+  "jdk": "21",
+  "command": [
+    "mvn",
+    "--batch-mode",
+    "verify"
+  ],
+  "java_home": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+  "exit": 0,
+  "log_sha256": "179198365c2f5d0a66809a43f0344691b04f4c7e34ed447b1cb2c43d2158e7be",
+  "reactor_summary": "[INFO] Reactor Summary for MicroProxy (parent) 0.6.0:\n[INFO] \n[INFO] MicroProxy (parent) ................................ SUCCESS [  0.002 s]\n[INFO] zstd-decoder ....................................... SUCCESS [ 10.592 s]\n[INFO] http2-codec ........................................ SUCCESS [  2.123 s]\n[INFO] http3-codec ........................................ SUCCESS [  2.739 s]\n[INFO] quic ............................................... SUCCESS [01:26 min]\n[INFO] MicroProxy ......................................... SUCCESS [04:03 min]\n[INFO] MicroProxy OpenTelemetry ........................... SUCCESS [  8.661 s]\n[INFO] MicroProxy Starlark scripting ...................... SUCCESS [ 42.507 s]\n[INFO] ------------------------------------------------------------------------\n[INFO] BUILD SUCCESS\n[INFO] ------------------------------------------------------------------------\n[INFO] Total time:  06:37 min\n[INFO] Finished at: 2026-10-29T19:01:40-07:00\n[INFO] ------------------------------------------------------------------------\n",
+  "suite_totals": [
+    "[INFO] Tests run: 64, Failures: 0, Errors: 0, Skipped: 0",
+    "[INFO] Tests run: 124, Failures: 0, Errors: 0, Skipped: 0",
+    "[INFO] Tests run: 141, Failures: 0, Errors: 0, Skipped: 0",
+    "[INFO] Tests run: 965, Failures: 0, Errors: 0, Skipped: 0",
+    "[WARNING] Tests run: 2045, Failures: 0, Errors: 0, Skipped: 19",
+    "[INFO] Tests run: 45, Failures: 0, Errors: 0, Skipped: 0",
+    "[WARNING] Tests run: 92, Failures: 0, Errors: 0, Skipped: 2",
+    "[WARNING] Tests run: 651, Failures: 0, Errors: 0, Skipped: 2"
+  ],
+  "scope": "Full ordinary local Maven verify, including SIMD execution. Optional peer/live tests may skip; exact pushed-head CI enforces its required peer/live matrix.",
+  "artifacts": {
+    "quic-jdk21.jar": "8ef671c0997c2d05c2cfcdecdec13552a0795601da8a211a3ee23f90ebef27fa",
+    "all-jdk21.jar": "f2b72aa9d6edd992f2914f8cb0787c2423e3db736e1038f0b23726f572752b43"
+  }
+}

@@ -40,7 +40,14 @@ import javax.net.ssl.X509TrustManager;
  * }</pre>
  *
  * <p>Sockets made from the context share its session tickets, by server name and port, and resume
- * with them as the browser would.
+ * with them as the browser would, after rechecking the current acceptance policy and peer
+ * identity. Client-authenticated sessions and delegated-credential sessions require a full
+ * handshake because the cached TCP ticket does not retain all authentication context.
+ *
+ * <p>Enabled cipher suites and {@link javax.net.ssl.SSLParameters#getAlgorithmConstraints()}
+ * govern acceptance without changing the captured ClientHello. The JDK's current
+ * {@code jdk.tls.disabledAlgorithms} property is read for each handshake; unsupported restrictions
+ * fail closed. CBC is always refused, even when retained in the browser's wire profile.
  */
 public final class FingerprintSslContext {
 

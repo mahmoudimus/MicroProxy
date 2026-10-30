@@ -8,8 +8,11 @@ first, then follow the [Quick start](quick-start.md).
 
 - **Java:** JDK 21 or newer (also tested on JDK 25). The proxy uses virtual threads, which are
   final in JDK 21.
-- **Dependencies:** none at runtime. Logging goes through `System.Logger`, which can be routed to
-  SLF4J/Log4j with the usual bridges (`slf4j-jdk-platform-logging`, `log4j-jpl`).
+- **Dependencies:** the core has no required runtime dependencies. Optional QUIC uses
+  `org.dafny:DafnyRuntime:4.9.1` for generated SHAKE/ML-KEM. Maven and Gradle resolve it
+  transitively from `quic`; manual classpaths must include its JAR too. Logging goes through
+  `System.Logger`, which can be routed to SLF4J/Log4j with the usual bridges
+  (`slf4j-jdk-platform-logging`, `log4j-jpl`).
 
 ## Modules and artifacts
 
@@ -22,7 +25,7 @@ when they are on the class path.
 | `zstd-decoder/` | `io.github.mahmoudimus:zstd-decoder` | a standalone pure-Java Zstandard decoder ([README](https://github.com/mahmoudimus/MicroProxy/blob/main/zstd-decoder/README.md)) |
 | `http2-codec/` | `io.github.mahmoudimus:http2-codec` | a standalone HTTP/2 frame codec and HPACK implementation ([README](https://github.com/mahmoudimus/MicroProxy/blob/main/http2-codec/README.md)) |
 | `http3-codec/` | `io.github.mahmoudimus:http3-codec` | a standalone HTTP/3 frame codec and QPACK implementation, used by HTTP/3 and the HTTP/3 frame pipeline ([README](https://github.com/mahmoudimus/MicroProxy/blob/main/http3-codec/README.md)) |
-| `quic/` | `io.github.mahmoudimus:quic` | a standalone QUIC transport with its own TLS 1.3 handshake, ported from quinn and rustls, used by HTTP/3 ([README](https://github.com/mahmoudimus/MicroProxy/blob/main/quic/README.md)) |
+| `quic/` | `io.github.mahmoudimus:quic` | a standalone QUIC transport with its own TLS 1.3 handshake, ported from quinn and rustls, used by HTTP/3; generated crypto uses DafnyRuntime 4.9.1 ([README](https://github.com/mahmoudimus/MicroProxy/blob/main/quic/README.md)) |
 | `microproxy/` | `io.github.mahmoudimus:microproxy` | the proxy; no required dependencies (`zstd-decoder`, `http2-codec`, `http3-codec` and `quic` are optional) |
 | `microproxy-otel/` | `io.github.mahmoudimus:microproxy-otel` | OpenTelemetry: W3C, B3 and Jaeger propagation, spans per exchange and attempt, and OTLP/HTTP export of traces, metrics and access logs; depends on the core only ([OpenTelemetry](../observability/opentelemetry.md)) |
 | `microproxy-starlark/` | `io.github.mahmoudimus:microproxy-starlark` | Starlark scripting; depends on the core and Guava |
@@ -33,12 +36,12 @@ Which optional jars a feature needs:
 |---|---|
 | `zstd` bodies (`Content-Encoding: zstd`, gRPC's `zstd` encoding in content views) | `zstd-decoder` |
 | [HTTP/2](../guides/http2.md) to clients and servers (on by default: `--http2`, `--http2-upstream`; and `--http2-cleartext`) | `http2-codec` |
-| [HTTP/3 and QUIC](../guides/http3.md), [CONNECT-UDP](../guides/masque.md), [transparent QUIC](../guides/transparent-mode.md#transparent-quic) | `quic` and `http3-codec` |
+| [HTTP/3 and QUIC](../guides/http3.md), [CONNECT-UDP](../guides/masque.md), [transparent QUIC](../guides/transparent-mode.md#transparent-quic) | `quic`, `http3-codec` and `org.dafny:DafnyRuntime:4.9.1` |
 | [Frame interceptors over HTTP/3 streams](../guides/frame-interception.md#http3-frames) (`Http3FramePipeline`) | `http3-codec` |
 | [OpenTelemetry](../observability/opentelemetry.md) (`--otel`, `OTEL_*`) | `microproxy-otel` |
 | [Starlark scripting](../guides/scripting.md) (`--script`) | `microproxy-starlark` (and its Guava dependency) |
 
-A proxy started with HTTP/2 or HTTP/3 enabled but without the jars it needs fails at startup with
+A proxy started with HTTP/2 or HTTP/3 enabled but without the optional module jars fails at startup with
 an `IllegalStateException` that says so; without those features, nothing loads them. HTTP/2 to
 clients and servers, on by default, is the exception: left at its default without `http2-codec`,
 it falls back to HTTP/1.1 (logged once at `INFO`), so the `microproxy` jar alone still runs with

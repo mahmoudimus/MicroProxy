@@ -4,9 +4,9 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import javax.net.ssl.SSLContext;
 import org.microproxy.http.HttpHeaderNames;
@@ -218,6 +218,8 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
         private final ChainedProxyType type;
         private final String user;
         private final String password;
+        private final byte[] userBytes;
+        private final byte[] passwordBytes;
         private final boolean tls;
         private final boolean http2;
         private final String display;
@@ -228,6 +230,8 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
             this.type = type;
             this.user = user;
             this.password = password;
+            this.userBytes = user == null ? null : user.getBytes(StandardCharsets.UTF_8);
+            this.passwordBytes = password == null ? null : password.getBytes(StandardCharsets.UTF_8);
             this.tls = tls;
             this.http2 = http2;
             this.display = url.replaceAll("//[^@/]*@", "//***@");
@@ -270,7 +274,10 @@ public final class UpstreamProxyManager implements ChainedProxyManager {
 
         @Override
         public boolean equals(Object o) {
-            return o instanceof UrlProxy p && p.display.equals(display) && Objects.equals(p.password, password);
+            if (!(o instanceof UrlProxy p) || !display.equals(p.display)) return false;
+            // The redacted display omits the account. Compare both credentials, without a
+            // content-dependent String.equals or skipping the password on a username mismatch.
+            return MessageDigest.isEqual(userBytes, p.userBytes) & MessageDigest.isEqual(passwordBytes, p.passwordBytes);
         }
 
         @Override

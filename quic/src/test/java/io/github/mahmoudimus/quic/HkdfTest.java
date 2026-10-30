@@ -44,4 +44,12 @@ class HkdfTest {
     void rejectsOverlongOutput() {
         assertThrows(IllegalArgumentException.class, () -> Hkdf.SHA256.expand(new byte[32], new byte[0], 255 * 32 + 1));
     }
+
+    @Test
+    void rejectsLabelsThatAsciiEncodingWouldSilentlyAlias() {
+        for (String label : new String[] {"caf\u00e9", "caf?\uD800", "traffic upd\uD83D\uDD10"}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> Hkdf.SHA256.expandLabel(new byte[32], label, new byte[0], 16), label);
+        }
+    }
 }

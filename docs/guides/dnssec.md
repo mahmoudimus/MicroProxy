@@ -23,5 +23,28 @@ answers.
   `DnssecHostResolver.builder().resolver("https://cloudflare-dns.com/dns-query").build()`.
   Use DoH where port 53 is intercepted or blocked.
 
+## Resource limits
+
+Each resolution has an aggregate work budget of 8192 units, shared by aliases, trust-chain
+validation and IPv4-to-IPv6 fallback. A signature check costs 128 units, a DS digest costs 8,
+and each NSEC3 SHA-1 round costs 1. The resolver refuses an NSEC3 record with more than 150
+additional iterations. Exceeding either limit fails validation; it does not mark the answer
+unsigned or fall back to unvalidated DNS. These are operation-count limits, not wall-clock
+guarantees for every cryptographic provider.
+
+Answer, zone-key, unsigned-delegation and non-delegation caches each retain at most 1024
+entries. Access and insertion discard expired entries; eviction causes authenticated
+revalidation when the name is needed again. An idle cache may retain its bounded entries
+until the next access.
+
+For deployments that need different bounds, configure the resolver through its builder:
+
+```java
+DnssecHostResolver resolver = DnssecHostResolver.builder()
+        .maxValidationWork(8192)
+        .cacheCapacity(1024) // per cache; zero disables retention
+        .build();
+```
+
 LittleProxy used dnssec4j, which checked signatures where present but never anchored them to the
 root key or compared DS digests. It fell back to plain DNS on network errors.

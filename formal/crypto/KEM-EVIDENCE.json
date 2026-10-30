@@ -1,0 +1,199 @@
+{
+  "scope": "full",
+  "proofs": {
+    "proof-full": 2775,
+    "generate-java": 80
+  },
+  "controls": {
+    "wrong-coins": {
+      "verified": 1,
+      "errors": 1
+    },
+    "matrix-axis": {
+      "verified": 1,
+      "errors": 1
+    },
+    "matrix-transpose": {
+      "verified": 1,
+      "errors": 1
+    },
+    "reused-nonce": {
+      "verified": 1,
+      "errors": 1
+    },
+    "wrong-fallback-seed": {
+      "verified": 1,
+      "errors": 1
+    },
+    "constant-selection": {
+      "verified": 0,
+      "errors": 1
+    },
+    "short-comparison": {
+      "verified": 0,
+      "errors": 1
+    },
+    "modulus-error-kind": {
+      "verified": 1,
+      "errors": 1
+    },
+    "short-sampler": {
+      "verified": 1,
+      "errors": 1
+    }
+  },
+  "java": [
+    {
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
+      "tests": {
+        "assertions": 5091,
+        "rounds": 100,
+        "malformed": 30,
+        "selections": 3265
+      }
+    },
+    {
+      "version": "openjdk version \"25.0.4\" 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)\n",
+      "tests": {
+        "assertions": 5091,
+        "rounds": 100,
+        "malformed": 30,
+        "selections": 3265
+      }
+    }
+  ],
+  "limitations": [
+    "Proposed 280-iteration sampling cap requires production policy review and intermediate wiping.",
+    "JVM timing, compiler/runtime/provider correctness, entropy and cryptographic security are not proved.",
+    "Finite Java comparisons do not prove universal source/compiler refinement."
+  ],
+  "provider_assumptions": [
+    "formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.",
+    "formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test."
+  ],
+  "inputs": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/MlKem.dfy": "f668827a7b891874a0cafd3e4686f544d3304da34d9356be4065d0ede8626152",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/kem_domain.dfy": "2e8fde5072cce86cbc68faf3e33744a23da2190b0b72e0d37696ddd6b30f40a5",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/crypto/kem_checks.py": "b4f69596ab6877709a9baea87e1bda0552b728c597ba0fd125599bdc4e1a3e63",
+    "formal/crypto/kem_test.java": "94f05faceceb9b57c513fc0cc0a9540642c6a135bdfc07484af91d58744aff53",
+    "formal/crypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478"
+  },
+  "generated_java": {
+    "CodecSpec/DecodeResult.java": "30705cfcaa2ddf9317d1b29083b022ce675c4bc48b94e44e2a79bc8074b66e5e",
+    "CodecSpec/DecodeResult_Decoded.java": "a5efb75849f91afb7cf059808f5df1a7258d84a33f0c348b0408491b0372a877",
+    "CodecSpec/DecodeResult_InvalidLength.java": "1ac3873cc052b9953923618ba40b53cc75173726a505ebf5405a9be5e4a8e333",
+    "CodecSpec/DecodeResult_InvalidWidth.java": "708ab12fda58ff07334d34ea1bc271e753dbe619874ee2790017c757d49c3fda",
+    "CodecSpec/DecodeResult_ModulusError.java": "232e8407abbd57a3ebc368273c8d0eb138907b32dde649eddfbba44b5f8efc76",
+    "CodecSpec/__default.java": "cc937a0f4f47f2ac4ae0e046e87036b60e87ce94e12647b2f53fa70be12c8ea6",
+    "KemDomain/__default.java": "79103d08f636b104363d42679f2438e35c55440791735059ca03f21a64becb60",
+    "KemSpec/Encapsulation.java": "9842bad4995483d5523ba8f66257ba7cec3c97b03031bf04e54d8a7ef6efe68f",
+    "KemSpec/FailureKind.java": "3a77948a3b5d5f08aa8c037603ab9ffe1d4c5937aae8730830a29f2be8657581",
+    "KemSpec/FailureKind_InvalidCiphertextLength.java": "3487446b65dc192d427a601cffdbf74f23cd860db5c595ee44688476f1974304",
+    "KemSpec/FailureKind_InvalidKeyLength.java": "7cc268cfb1e2f2bffd1b330c2cc4f196ccc3fef8d776ff7e51afb27161de5150",
+    "KemSpec/FailureKind_InvalidMessageLength.java": "ba13ba78ea10870f868239c35581dd1a5d2f61278a44745effccc7bca209b357",
+    "KemSpec/FailureKind_InvalidSeedLength.java": "dfb42d728ca8c1cc262106490add2b1eef7780be183f831086f30828a6376ef5",
+    "KemSpec/FailureKind_ModulusError.java": "154def0fdfd975703a6abab124b1684ebb5fdb1601f267158e0a947e95d31b92",
+    "KemSpec/FailureKind_RejectionLimit.java": "98e1791a71061b805d610e267442fc202c226f859fd874832f6cf2dee842b7a3",
+    "KemSpec/PublicKey.java": "32d853ffa789376b9acdad7e8829f0260cd7e23715c498922dbf5ac1989cf4cb",
+    "KemSpec/Result.java": "f4e3cfc72f962ee2e20a48fb2abb6c279dd8037441455cbb64ab1c81d80afe3d",
+    "KemSpec/Result_Failure.java": "2c1b9b05888840149ea6f807483caf61567faa8d8601b25400d3ee587c4b26dd",
+    "KemSpec/Result_Success.java": "3632e221d1aa808ff6a5fb231ea5e54beff1f7e37451997b2b0cf5513aa215d7",
+    "KemSpec/SecretKey.java": "f51f99aa40033c03fa54908a6695959368c87c07296a5cbfc85c915e739e75d8",
+    "MlKem.java": "690621cdfcbdb9e9a576fd21629ade75d763e33d6cada4e1ee7688468482eec1",
+    "PolySpec/__default.java": "06d7ef00689362f67bc77d7ea0e4357eaaf6f1e22c4686924dab86f2d1be8a52",
+    "PolynomialRing/Residue.java": "dcf414db122912900595857cc7c4f6914d148b67b514dbf275463c408eff9ec1",
+    "PolynomialRing/__default.java": "abd800866b6099ce307ee6de612c4ef1578efa5a9ce2e21311268201ad6b6a02",
+    "SamplingSpec/FeedResult.java": "8683400722aa3ece4406b7fffe61da68b1dd918b12f5cfdb5f38c8de0296a74d",
+    "SamplingSpec/FeedResult_Full.java": "c6dfec81c3cdd57dfcf96b989b9c4c89c7d615b1cc785a61aeca6e8918a3837d",
+    "SamplingSpec/FeedResult_InvalidBlockLength.java": "f62173781e81a78a93d52273473db715920985e83da9d34c76783b71bdb67c9f",
+    "SamplingSpec/FeedResult_InvalidPrefix.java": "fded6f84b0ca984a3be3fecc1d46de3040add3f920940a5cb13a3b546c335294",
+    "SamplingSpec/FeedResult_NeedMore.java": "53266081617660f580b717d9cdbe385c40cf483bdf2a4b2cdb4a7fb45831d3f0",
+    "SamplingSpec/__default.java": "34cd8443dd4061ad89060bbcdfda7367984efa11ece9d813cd5faddf50d38286",
+    "SpongeSpec/ReadResult.java": "7e272ea3411d546274904b8ec63b8d1afda9f08802da41d4651a9cf282ba61c6",
+    "SpongeSpec/State.java": "c99719f558f00d4c42c7cd06857ef72912eb4263091461b04f647b7040899eae",
+    "SpongeSpec/UpdateResult.java": "8f2a4731d7a319c07802268ee719546f6cf8e1519c811c0e29c7c560cf3b70e0",
+    "SpongeSpec/UpdateResult_InputAfterOutput.java": "58c379a2657a4447f4ff0cecb486f7c4cebf05124eaf60022e8537afb4a8e045",
+    "SpongeSpec/UpdateResult_InvalidSlice.java": "d86c3f2e2798af0962a4fe7583a1c32c8a4865c6609bd39553cca576170ed1ce",
+    "SpongeSpec/UpdateResult_Updated.java": "ff95d8cc9865b79e0af4278b170703d82f40b92674ef08bd40693b3abe2cedbb",
+    "SpongeSpec/__default.java": "dc008bc7251c91c5ddb91e0c237984dea9329de99ae88a40d836034cfc0f5a74",
+    "VerifiedCodec/__default.java": "424154a76ced189f5f69fd6cfec9c2390a461573d646d011639e7cb7b585939e",
+    "VerifiedField/__default.java": "a7ad2f7eb5a25cc8d0f5ebcce0d1c57b56cc4fa1f05d91821aa2d4dcbc3e500a",
+    "VerifiedKeccak/__default.java": "5eb7c3337862e1a9286133b006bca0141c8f887b4f975910a9438145a084affe",
+    "VerifiedMlKem/__default.java": "615580376eb2761cf0883de099cfbef853460ac80df8ed5b979aaf0eb0d00f5c",
+    "VerifiedPolynomial/__default.java": "23f6539588e602c52dd9fa57e1462a050a43026e709b74467ec4a7bb1c05c43c",
+    "VerifiedSampling/__default.java": "3f323cbdd25844a53c3591654c73e0182461f0955440b4d4060dcc39ee848032",
+    "VerifiedShake/__default.java": "451fa27dacefd7e05e98b0d28ff83ca9dc46375927a6917fda50042b90dedb26"
+  },
+  "compiled_classes": {
+    "CodecSpec/DecodeResult.class": "56c984e77c774381a696766765370c46914012de303151be23541ef553a2246c",
+    "CodecSpec/DecodeResult_Decoded.class": "b658010041bc2a9473c33770a0028398593547a0b3e2a2671fe10ad06c81fd2a",
+    "CodecSpec/DecodeResult_InvalidLength.class": "38d04ba4cac51dcd6c79dbf9daa486f53909f57f47b1d45b8f013d5b83f03ca3",
+    "CodecSpec/DecodeResult_InvalidWidth.class": "10689065c3ad34c5096e27919954d12ff9b24b3c4d77e19404db97483860501f",
+    "CodecSpec/DecodeResult_ModulusError.class": "9e65d0371a4377925f0efc09bc25965458bbb2f0fad1b84df65fe60d799f7983",
+    "CodecSpec/__default.class": "e7963e645863662bfa279a2ce9faa31e03d09b8605bec70d4be505268f1f668e",
+    "KemDomain/__default.class": "c5c85f0b7f4a98bd03e3aef47be54d8a5d6b7761a6a7c22653f5bd4153594853",
+    "KemSpec/Encapsulation.class": "090fda20193e161a1c7a49ecb17fed73ebb0d18a553e78dabaf3b2a847365823",
+    "KemSpec/FailureKind.class": "a24f21c1e01a5edf27fb37fe1caad06e4c2277076df822e2a6d445bf7a9a491c",
+    "KemSpec/FailureKind_InvalidCiphertextLength.class": "c4b8750d809959e0a29ef74aefc93f609573fffc6330d9b2e04fea409c3d266e",
+    "KemSpec/FailureKind_InvalidKeyLength.class": "b3576d62748416855eb96a82837691acf82a76b7d7739199c2d3a9e93f3f2c31",
+    "KemSpec/FailureKind_InvalidMessageLength.class": "0941898de523b84785fdfc33d4822ba697315ed06ab7d01a123474f64cd189ab",
+    "KemSpec/FailureKind_InvalidSeedLength.class": "253339e1c24f10ab90eb03b5a4270d56bc4c601ba979cb5bbd45d65a54121d9a",
+    "KemSpec/FailureKind_ModulusError.class": "5f3183f44ff8c8a4e979014524de01747d5f0a72dbd117229178ea8994dbae19",
+    "KemSpec/FailureKind_RejectionLimit.class": "b8feecf76677c665da49226f0dc09d19ebfbfb0cda8d14286864c40d8cb7aab8",
+    "KemSpec/PublicKey.class": "7e39c5366a67d1cbfa82d77bdbb303b5877da7f93ad3328be282094a778070a7",
+    "KemSpec/Result.class": "94ae7fd5e0ba4806c535287abff8ad97479782bcdf615edd0d7dd95d3f746d72",
+    "KemSpec/Result_Failure.class": "dbce3ba7431885ad1603099597f4ec3253324c24a2ed255c7bebd0d5e9d9964f",
+    "KemSpec/Result_Success.class": "2a9df597e5a7b957c3e0dd2f8ae0c5112378c31b13d896e26e659675e145d74b",
+    "KemSpec/SecretKey.class": "4ee9bfa9cb58a404e4d7c0ce207240a96357ad185f61e1f58a040c5bc193d79f",
+    "PolySpec/__default.class": "9947ae518c6d0dbca71e057e4a733753ee6f41fbd3c7c31c7ca96d212760244c",
+    "PolynomialRing/Residue.class": "6fa867b18bca0ab3331eaca6ec35986fd347b54652c495edf86420a07466aa30",
+    "PolynomialRing/__default.class": "a489bf5f2c72a077609d9b1172781c67615323484441ed0513e809b3b07a737d",
+    "SamplingSpec/FeedResult.class": "17c295a47d6956f3981efe92b11071cc55927e940d851527fbe74e92e813e2ba",
+    "SamplingSpec/FeedResult_Full.class": "9ea68662a3a1ecf941bcde628385f8bc404021101cdd169d67fc0e5b9d469841",
+    "SamplingSpec/FeedResult_InvalidBlockLength.class": "411e0ea921e3c5f17b905f7ad727949a584a5850b7a414a8633af846a4d39038",
+    "SamplingSpec/FeedResult_InvalidPrefix.class": "64f87267830de4dd878724c7529425d2eca16c58f3208d921d24d2af1d310a80",
+    "SamplingSpec/FeedResult_NeedMore.class": "b85a56bd6d707e892d3be4db44c352a88753976c60713b021cea8e144f00c05f",
+    "SamplingSpec/__default.class": "e023121d570ff0a48100d4985ca6e4dab079a340ef71de6ce06546e3c657d54e",
+    "SpongeSpec/ReadResult.class": "6005a5bb4c0925183a474d7dbe37bff275dbb50840355e10f337c1ba672d14de",
+    "SpongeSpec/State.class": "e8e2b2932b8054159ccef8f7ca00af85d3c857fea87739e320e54ff981bcb272",
+    "SpongeSpec/UpdateResult.class": "0ae876eec1e8993bb8bf196703dfe1bfac3794ead322d00bee321c6224a854de",
+    "SpongeSpec/UpdateResult_InputAfterOutput.class": "ea8ddbd689beeb634e801f522b40e7866c17ddce02547899b4fccc679c11e159",
+    "SpongeSpec/UpdateResult_InvalidSlice.class": "c3d79f77f8855fc90f6108012247006442e01b02ee69036527c5a2db217b1f17",
+    "SpongeSpec/UpdateResult_Updated.class": "a3f96c61161b27241cb29a509d21dfe357a6261af6115ccccca8f4b76b29e425",
+    "SpongeSpec/__default.class": "1c3459d98ebe359b9982a2e2ed87077fbc6b2e6fe7c8910f8d018c1805d8df84",
+    "VerifiedCodec/__default.class": "3441486761b17c85b318b96f3fa5e6e5cdc6b55417afa3df5f38b71760e30583",
+    "VerifiedField/__default.class": "1644cdf6881a389eec12b9f7cee01cfa8d3ac401e7ac17792a21657fd9154309",
+    "VerifiedKeccak/__default.class": "cb10c51e3036dd060b3bbf7178014d0424f2adbe227af89235b179d60e5501d2",
+    "VerifiedMlKem/__default.class": "ee4e6f336bf91bcdf99455343acdbd9339f6997f1ec048c07ba1f18fdd4c273a",
+    "VerifiedPolynomial/__default.class": "1e18c7a83a9b2e785076656006f8b4f6f38d28a74c9b36d6a76d6f07e87761aa",
+    "VerifiedSampling/__default.class": "934163dd0b2a86d670f19b5c26cf95d2c887383dd13fc6e5308dd14b70ff4101",
+    "VerifiedShake/__default.class": "cf45cc7ffa52426c7ad61f76aa2fbc5ddf40497114a7f58e3f8d26e11f546519",
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+    "io/github/mahmoudimus/quic/tls/kem_test.class": "234c9efc512ea7730b741301bc8852272c16f214f3d6039aba3f58bdda1a3019",
+    "io/github/mahmoudimus/verifiedcrypto/kem_hash.class": "6c6a034d542ee09698663e85965c48a2b55f037a2f6392cd0afa9014130d9619"
+  },
+  "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+  "solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+  "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+  "footprint": {
+    "generated_java_bytes": 183342,
+    "compiled_class_bytes": 152040,
+    "runtime_bytes": 159920
+  },
+  "review": "Original composition independently approved; proof-only split preserves contracts and identical generated Java/class maps. Full2775/0 on macOS/Linux at unchanged limits, nine controls and bothJDK5091assertions."
+}

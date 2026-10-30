@@ -1,0 +1,25 @@
+{
+  "schema": "microproxy.crypto-javac25-differences/v1",
+  "status": "reviewed-with-runtime-guard",
+  "source_artifact": "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/artifacts/quic-jdk25.jar",
+  "source_artifact_sha256": "f4ff8487dd1373fea4cc81076774e2b9a7f00101d204a14eb297879ce15ea923",
+  "differences": {
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.class": {
+      "canonical_javac21_sha256": "352ba5a2974b9c569f24fd7f659d25c9ddb9e321a641211632503cf0fa1cf47f",
+      "actual_javac25_sha256": "a194f65977265e73b9def8e612cfb29e4c1bdbd7d91974d7d3a89f324fb05d49"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.class": {
+      "canonical_javac21_sha256": "545a578cab08e3186c95e8c31a3b0e3fc5627990abade0e769eb8ae0d0e36969",
+      "actual_javac25_sha256": "6d6b3164f797130a9878e8303694b0ab30f1f18248c1bbe1f894eefcae981eec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.class": {
+      "canonical_javac21_sha256": "835fe06544cf4aa409689956b913cf55c8e76fc979ad93b42ddbbb3d73cdb121",
+      "actual_javac25_sha256": "f979cd39230aef60c2d87082b230a134cca6c881619541562a0cb5991073b76c"
+    }
+  },
+  "actual_native_guard": {
+    "path": "jdk25-runtime.json",
+    "sha256": "c853e97d012b3987b1da716f3c2ae52b2fda1645f70d4c0826619b8a43e76ede"
+  },
+  "evaluation": "Actual javac25 NativeMlKem and its native call closure pass the existing unchanged opcode/caller/runtime policy. The other two changed entries are reference-module classes. No cross-compiler byte identity or whole-JVM timing claim. The final artifact gate uses canonical javac21 output."
+}

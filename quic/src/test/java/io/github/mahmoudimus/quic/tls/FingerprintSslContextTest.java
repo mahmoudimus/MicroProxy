@@ -1,12 +1,15 @@
 package io.github.mahmoudimus.quic.tls;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.mahmoudimus.quic.QuicException;
 import io.github.mahmoudimus.quic.tls.TestCerts.KeyType;
 import java.io.EOFException;
 import java.io.IOException;
@@ -17,6 +20,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.AlgorithmConstraints;
+import java.security.AlgorithmParameters;
+import java.security.CryptoPrimitive;
+import java.security.Key;
+import java.security.Security;
+import java.util.Set;
 import java.security.SecureRandom;
 import java.security.cert.CertPathBuilderException;
 import java.security.cert.CertPathValidatorException;
@@ -239,6 +248,226 @@ class FingerprintSslContextTest {
             SSLHandshakeException e = assertThrows(SSLHandshakeException.class, socket::startHandshake);
             assertTrue(e.getMessage().contains("needs TLSv1.3 enabled"), e.getMessage());
         }
+    }
+
+    @Test
+    void enabledCipherRestrictionsSurviveSslParametersRoundTrip() throws Exception {
+        servePlain(new byte[0]);
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            String[] only = {"TLS_AES_128_GCM_SHA256"};
+            socket.setEnabledCipherSuites(only);
+            assertArrayEquals(only, socket.getEnabledCipherSuites());
+            SSLParameters p = socket.getSSLParameters();
+            AlgorithmConstraints deny = deny("all");
+            p.setAlgorithmConstraints(deny);
+            socket.setSSLParameters(p);
+            assertArrayEquals(only, socket.getSSLParameters().getCipherSuites());
+            assertSame(deny, socket.getSSLParameters().getAlgorithmConstraints());
+            assertThrows(IllegalArgumentException.class,
+                    () -> socket.setEnabledCipherSuites(new String[] {"TLS_FAKE_WITH_NULL"}));
+        }
+    }
+
+    @Test
+    void unsupportedEndpointIdentificationCannotSilentlyDisableHostnameChecks() throws Exception {
+        servePlain(new byte[0]);
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters p = socket.getSSLParameters();
+            p.setEndpointIdentificationAlgorithm("LDAPS");
+            assertThrows(IllegalArgumentException.class, () -> socket.setSSLParameters(p));
+            assertEquals("HTTPS", socket.getSSLParameters().getEndpointIdentificationAlgorithm());
+        }
+    }
+
+    @Test
+    void unsupportedNamedGroupRestrictionsAreRejectedExplicitly() throws Exception {
+        assertUnsupportedListRejected(true);
+    }
+
+    @Test
+    void unsupportedSignatureSchemeRestrictionsAreRejectedExplicitly() throws Exception {
+        assertUnsupportedListRejected(false);
+    }
+
+    private void assertUnsupportedListRejected(boolean group) throws Exception {
+        servePlain(new byte[0]);
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters p = socket.getSSLParameters();
+            if (group) p.setNamedGroups(new String[] {"secp384r1"});
+            else p.setSignatureSchemes(new String[] {"rsa_pss_rsae_sha384"});
+            assertThrows(IllegalArgumentException.class, () -> socket.setSSLParameters(p));
+        }
+    }
+
+    @Test
+    void aRejectedParametersUpdateCannotWeakenExistingRestrictions() throws Exception {
+        servePlain(new byte[0]);
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters restricted = socket.getSSLParameters();
+            restricted.setCipherSuites(new String[] {"TLS_AES_128_GCM_SHA256"});
+            AlgorithmConstraints constraints = deny("all");
+            restricted.setAlgorithmConstraints(constraints);
+            socket.setSSLParameters(restricted);
+            SSLParameters invalid = new SSLParameters(socket.getSupportedCipherSuites(), new String[] {"TLSv1.0"});
+            assertThrows(IllegalArgumentException.class, () -> socket.setSSLParameters(invalid));
+            assertArrayEquals(new String[] {"TLS_AES_128_GCM_SHA256"}, socket.getEnabledCipherSuites());
+            assertSame(constraints, socket.getSSLParameters().getAlgorithmConstraints());
+        }
+    }
+
+    @Test
+    void serverCannotSelectACipherDisabledByTheCaller() throws Exception {
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setCipherSuites(new String[] {"TLS_AES_256_GCM_SHA384"}));
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            socket.setEnabledCipherSuites(new String[] {"TLS_AES_128_GCM_SHA256"});
+            assertThrows(SSLHandshakeException.class, socket::startHandshake);
+        }
+    }
+
+    @Test
+    void anOmittedTrustedIssuerUsesTheActualIssuerKeyForConstraints() throws Exception {
+        CertifiedKey full = TestCerts.CA.issue(KeyType.RSA, HOST);
+        // Exercise issuer constraints independently of the runtime's default hybrid group choice.
+        serveTls(CertifiedKey.of(full.privateKey(), full.chain().get(0)),
+                p -> p.setNamedGroups(new String[] {"X25519"}));
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters p = socket.getSSLParameters();
+            p.setAlgorithmConstraints(CertificateIssuerPolicyTest.signatureKeyCompatibility());
+            socket.setSSLParameters(p);
+            assertDoesNotThrow(socket::startHandshake);
+            assertEquals("TLSv1.3", socket.getSession().getProtocol());
+        }
+    }
+
+    @Test
+    void algorithmConstraintsCanDenyThePeerKey() throws Exception {
+        assertConstraintRejected("EC", "AlgorithmConstraints reject EC key");
+    }
+
+    @Test
+    void algorithmConstraintsCanDenyTheSelectedGroup() throws Exception {
+        assertConstraintRejected("X25519", "AlgorithmConstraints reject X25519");
+    }
+
+    @Test
+    void algorithmConstraintsCanDenyTheHandshakeSignature() throws Exception {
+        assertConstraintRejected("ECDSA_SECP256R1_SHA256", "AlgorithmConstraints reject ECDSA_SECP256R1_SHA256");
+    }
+
+    private void assertConstraintRejected(String rejected, String reason) throws Exception {
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNamedGroups(new String[] {"X25519"}));
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters p = socket.getSSLParameters();
+            p.setAlgorithmConstraints(deny(rejected));
+            socket.setSSLParameters(p);
+            SSLHandshakeException failure = assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            assertTrue(failure.getMessage().contains(reason), failure.getMessage());
+        }
+    }
+
+    @Test
+    void callerConstraintsFailClosedForAHybridGroup() throws Exception {
+        NamedGroup group = NamedGroup.X25519_MLKEM768;
+        SecureRandom random = TestCerts.seededRandom(8449);
+        KeyExchange client = KeyExchange.generate(group, random);
+        KeyExchange.Response response = KeyExchange.respond(group, client.publicKey(), random);
+        assertArrayEquals(response.secret(), client.agree(response.publicKey()));
+        assertDoesNotThrow(() -> new TlsAcceptancePolicy(null, null).group(group, response.publicKey()));
+        // Even permissive caller constraints must fail closed when both component keys cannot be inspected.
+        QuicException failure = assertThrows(QuicException.class,
+                () -> new TlsAcceptancePolicy(null, deny("unused")).group(group, response.publicKey()));
+        assertTrue(failure.getMessage().contains("AlgorithmConstraints cannot be fully applied to the hybrid group"),
+                failure.getMessage());
+    }
+
+    private static AlgorithmConstraints deny(String rejected) {
+        return new AlgorithmConstraints() {
+            private boolean allowed(String algorithm) {
+                return !rejected.equals("all") && !algorithm.equalsIgnoreCase(rejected);
+            }
+            public boolean permits(Set<CryptoPrimitive> primitives, String algorithm, AlgorithmParameters parameters) {
+                return allowed(algorithm);
+            }
+            public boolean permits(Set<CryptoPrimitive> primitives, Key key) {
+                return !rejected.equals("key") && allowed(key.getAlgorithm());
+            }
+            public boolean permits(Set<CryptoPrimitive> primitives, String algorithm, Key key, AlgorithmParameters parameters) {
+                return allowed(algorithm) && permits(primitives, key);
+            }
+        };
+    }
+
+    @Test
+    void callerKeyConstraintsInspectActualTls13TrafficKeys() throws Exception {
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setNamedGroups(new String[] {"X25519"}));
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            SSLParameters p = socket.getSSLParameters();
+            p.setAlgorithmConstraints(realTrafficKeyRestriction());
+            socket.setSSLParameters(p);
+            SSLHandshakeException failure = assertThrows(SSLHandshakeException.class, socket::startHandshake);
+            assertTrue(failure.getMessage().contains("AlgorithmConstraints reject AES key"), failure.getMessage());
+        }
+    }
+
+    static AlgorithmConstraints realTrafficKeyRestriction() {
+        return new AlgorithmConstraints() {
+            public boolean permits(Set<CryptoPrimitive> p, String algorithm, AlgorithmParameters parameters) { return true; }
+            public boolean permits(Set<CryptoPrimitive> p, Key key) {
+                if (!(key instanceof javax.crypto.SecretKey)) return true;
+                // A fabricated zero key passes. A derived traffic key must be checked independently.
+                for (byte b : key.getEncoded()) if (b != 0) return false;
+                return true;
+            }
+            public boolean permits(Set<CryptoPrimitive> p, String algorithm, Key key, AlgorithmParameters parameters) {
+                return permits(p, key);
+            }
+        };
+    }
+
+    @Test
+    void currentJdkDisabledCipherPolicyIsAppliedAtHandshakeTime() throws Exception {
+        assertJdkPolicyRejected("TLS_AES_128_GCM_SHA256");
+    }
+
+    @Test
+    void unsupportedJdkPolicyRestrictionsFailClosed() throws Exception {
+        assertJdkPolicyRejected("RSA unsupportedPredicate 123");
+    }
+
+    private void assertJdkPolicyRejected(String restriction) throws Exception {
+        serveTls(TestCerts.CA.issue(KeyType.P256, HOST), p -> p.setCipherSuites(new String[] {"TLS_AES_128_GCM_SHA256"}));
+        String previous = Security.getProperty("jdk.tls.disabledAlgorithms");
+        try (SSLSocket socket = layered(chrome(pkix(TestCerts.CA.certificate)), HOST, List.of("h2"))) {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous + ", " + restriction);
+            assertThrows(SSLHandshakeException.class, socket::startHandshake);
+        } finally {
+            Security.setProperty("jdk.tls.disabledAlgorithms", previous);
+        }
+    }
+
+    @Test
+    void acceptanceRestrictionsLeaveCapturedClientHelloBytesUnchanged() throws Exception {
+        assertArrayEquals(captureHello(p -> {}), captureHello(p -> {
+            p.setCipherSuites(new String[] {"TLS_AES_128_GCM_SHA256"});
+            p.setAlgorithmConstraints(deny("SHA256withECDSA"));
+        }));
+    }
+
+    private byte[] captureHello(Consumer<SSLParameters> configure) throws Exception {
+        java.io.ByteArrayOutputStream sent = new java.io.ByteArrayOutputStream();
+        Socket plain = new Socket() {
+            @Override public InputStream getInputStream() { return InputStream.nullInputStream(); }
+            @Override public OutputStream getOutputStream() { return sent; }
+        };
+        SSLContext context = FingerprintSslContext.builder(BrowserProfiles.chrome156())
+                .trustManager(pkix(TestCerts.CA.certificate)).random(TestCerts.seededRandom(8448)).build();
+        try (SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket(plain, HOST, 443, true)) {
+            SSLParameters p = socket.getSSLParameters();
+            configure.accept(p);
+            socket.setSSLParameters(p);
+            assertThrows(SSLHandshakeException.class, socket::startHandshake);
+        }
+        return sent.toByteArray();
     }
 
     private static Throwable rootOf(Throwable t, Class<? extends Throwable> type) {

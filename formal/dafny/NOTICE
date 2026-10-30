@@ -1,0 +1,20 @@
+HKDF proof structure attribution
+
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+The feedback/accumulator recurrence and invariant approach in hkdf/Hkdf.dfy
+is adapted from aws/aws-cryptographic-material-providers-library,
+AwsCryptographyPrimitives/src/HKDF/HKDF.dfy, commit
+c787ad12612ac0f35975afe9209e5dbe6b546654 (Apache-2.0).
+MicroProxy's standalone adaptation adds total result specifications, full
+Extract/Expand/TLS-label equations, broader PRK handling, ASCII UTF-16 validation
+and validation failures as data. No AWS library/runtime is linked.
+See the repository LICENSE for the Apache License, Version 2.0.
+
+The separately downloaded Dafny distribution and Java runtime are from
+dafny-lang/dafny v4.9.1. Dafny is Copyright (c) Microsoft Corporation and
+licensed under the MIT License:
+https://github.com/dafny-lang/dafny/blob/v4.9.1/LICENSE.txt
+Its distribution includes additional third-party components and notices.
+No compiler/runtime binary is redistributed by this source-only component.
+Production packaging must retain applicable runtime licenses/notices.

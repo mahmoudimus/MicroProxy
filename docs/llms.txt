@@ -1,6 +1,6 @@
 # MicroProxy
 
-> A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads, the successor to LittleProxy.
+> A Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads, the successor to LittleProxy.
 
 MicroProxy's documentation, one page per topic. Each link below is a page of the site, with
 the first sentence of its summary. https://mahmoudimus.github.io/MicroProxy/llms-full.txt has every page in one
@@ -8,7 +8,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 ## Overview
 
-- [Home](https://mahmoudimus.github.io/MicroProxy/): MicroProxy is a dependency-free Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS interception (MITM), built on virtual threads and blocking I/O.
+- [Home](https://mahmoudimus.github.io/MicroProxy/): MicroProxy is a Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS interception (MITM), built on virtual threads and blocking I/O.
 
 ## Getting started
 
@@ -69,9 +69,20 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 ## More
 
 - [Security](https://mahmoudimus.github.io/MicroProxy/security/): What MicroProxy does to stay safe with untrusted clients and servers, and what an operator has to decide: who may reach the proxy, which servers clients may reach through it, what it trusts, and what it logs.
+- [Security assurance](https://mahmoudimus.github.io/MicroProxy/formal-security/): Production SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations.
+- [Timing review](https://mahmoudimus.github.io/MicroProxy/security-timing-audit/): This source review distinguishes secret authentication material from public protocol data.
 - [Migrating from LittleProxy](https://mahmoudimus.github.io/MicroProxy/migrating-from-littleproxy/): How to move a LittleProxy deployment or embedding to MicroProxy: the command line, the configuration file, embedding, filters, MITM and activity logging, mapped topic by topic to their MicroProxy equivalents, then the API renames and the behaviour that differs.
 - [Architecture](https://mahmoudimus.github.io/MicroProxy/architecture/): How MicroProxy is built: why it uses virtual threads and blocking I/O instead of Netty, what that costs and saves, how the modules fit together, and where to read the internals.
 - [Java API (Javadoc)](https://mahmoudimus.github.io/MicroProxy/java-api/): Where to find the Javadoc of MicroProxy's published modules: the aggregated API on this site, and each release's Javadoc on javadoc.io.
+
+## QUIC and crypto roadmap
+
+- [Design and scope](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-crypto-assurance-design/): This roadmap completes a named QUIC feature baseline and builds implementation proofs for our Java cryptography, starting with HKDF.
+- [QUIC implementation plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-feature-completion/): Goal: Complete and demonstrate the named protocol/application feature baseline without changing captured browser behavior by default.
+- [Crypto verification plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-java-crypto-verification/): Goal: Use Dafny to establish checked functional and secret-trace properties across our cryptographic code, starting with HKDF and its pinned AWS reference.
+- [Packet trace verification](https://mahmoudimus.github.io/MicroProxy/project/2026-10-29-quic-packet-traces/): Goal: Replace the identified protected-header-dependent loops/branches in QUIC packet-number recovery and header unprotection with verified Dafny-generated Java, preserving wire bytes, APIs and browser fingerprints.
+- [SHAKE and ML-KEM foundations](https://mahmoudimus.github.io/MicroProxy/project/2026-10-29-shake-mlkem-dafny-foundations/): Goal: Deliver the first independently replayable SHAKE/ML-KEM Dafny component: Keccak lane-level permutation equations and ML-KEM field-helper/range proofs, with generated Java exercised against the canonical handwritten implementation.
+- [Complete crypto proof goal](https://mahmoudimus.github.io/MicroProxy/project/2026-10-29-dafny-crypto-completion/): Goal: Close owned SHAKE128/256 sponge/API and ML-KEM-768 functional composition obligations with Dafny proofs and generated Java, then integrate production after compatibility and performance gates.
 
 ## Optional
 

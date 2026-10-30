@@ -1,0 +1,31 @@
+{
+  "schema": "microproxy.crypto-measured-stage-identity/v1",
+  "status": "complete",
+  "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+  "source_map_sha256": "9ee4617700a44e917f03eb6743d296ceafbe772d34838cf4e3405a043b871803",
+  "historical_measurement_sha256": "94bec1773d429e47a4b64d66c3506291175e7bbdbf7df8393a54df303d8e8111",
+  "generated_java_sources": 66,
+  "generated_provider_classes": 66,
+  "facade_classes": 4,
+  "generated_sources_equal": true,
+  "canonical_classes_equal": true,
+  "fresh_facade_classes_equal": true,
+  "facade_compile_command": [
+    "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/javac",
+    "--release",
+    "21",
+    "-g:lines,vars,source",
+    "-encoding",
+    "UTF-8",
+    "-Xpkginfo:always",
+    "-Xlint:all,-serial",
+    "-cp",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/canonical/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+    "-d",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/facade-classes",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/canonical/inputs/formal/crypto/adoption/Shake.java",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/canonical/inputs/formal/crypto/adoption/MlKem768.java"
+  ],
+  "facade_compile_exit": 0,
+  "scope": "Historical proof-source pins differ by reviewed ghost-only refinements; final generated Java, all canonical classes and freshly compiled facade classes exactly match the measured candidate."
+}

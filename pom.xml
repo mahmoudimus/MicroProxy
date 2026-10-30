@@ -9,7 +9,7 @@
 
     <name>MicroProxy (parent)</name>
     <description>
-        A dependency-free HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
+        An HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
         (Project Loom). A port of LittleProxy without Netty.
     </description>
     <url>https://mahmoudimus.github.io/MicroProxy/</url>
@@ -45,7 +45,7 @@
         <module>http3-codec</module>
         <!-- A standalone QUIC transport with its own TLS 1.3 handshake. -->
         <module>quic</module>
-        <!-- The proxy itself: no required runtime dependencies. -->
+        <!-- The proxy itself, including the QUIC module's generated-crypto runtime. -->
         <module>microproxy</module>
         <!-- Optional: OpenTelemetry tracing and OTLP export, with no dependencies. -->
         <module>microproxy-otel</module>
@@ -58,7 +58,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.11.4</junit.version>
-        <guava.version>33.4.8-jre</guava.version>
+        <guava.version>33.7.2-jre</guava.version>
         <auto-value.version>1.11.0</auto-value.version>
         <jsr305.version>3.0.2</jsr305.version>
         <errorprone.version>2.36.0</errorprone.version>
@@ -66,6 +66,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Also constrain LittleProxy's transitive Guava in the optional bench profile. -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.github.mahmoudimus</groupId>
                 <artifactId>microproxy</artifactId>
@@ -190,6 +196,13 @@
     </build>
 
     <profiles>
+        <profile>
+            <!-- QUIC Interop Runner endpoint; a development tool, not a proxy runtime dependency. -->
+            <id>interop</id>
+            <modules>
+                <module>quic-interop</module>
+            </modules>
+        </profile>
         <profile>
             <!-- Performance testing, never published (mvn -Pbench -DskipTests package): the JMH
                  microbenchmarks (benchmarks/, docs/project/benchmarks.md) and the system-level load

@@ -41,7 +41,7 @@ class Tls12RecordTest {
         return wire.toByteArray();
     }
 
-    private static TlsRecordLayer reader(Tls12CipherSuite suite, byte[] wire) {
+    private static TlsRecordLayer reader(Tls12CipherSuite suite, byte[] wire) throws QuicException {
         TlsRecordLayer r = new TlsRecordLayer(new ByteArrayInputStream(wire), new ByteArrayOutputStream());
         byte[][] k = keys(suite);
         r.readKeys12(suite, k[0], k[1], k[2]);
@@ -49,8 +49,22 @@ class Tls12RecordTest {
     }
 
     @Test
-    void everySuiteSealsAndOpensRecordsInSequence() throws Exception {
+    void cbcCannotBeInstalledEvenIfItWasAdvertised() {
         for (Tls12CipherSuite suite : Tls12CipherSuite.values()) {
+            if (!suite.bulk.cbc()) continue;
+            byte[][] k = keys(suite);
+            TlsRecordLayer layer = new TlsRecordLayer(new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream());
+            assertThrows(IllegalArgumentException.class,
+                    () -> layer.writeKeys12(suite, k[0], k[1], k[2], new SecureRandom()), suite.toString());
+            assertThrows(IllegalArgumentException.class,
+                    () -> layer.readKeys12(suite, k[0], k[1], k[2]), suite.toString());
+        }
+    }
+
+    @Test
+    void everyAeadSuiteSealsAndOpensRecordsInSequence() throws Exception {
+        for (Tls12CipherSuite suite : Tls12CipherSuite.values()) {
+            if (suite.bulk.cbc()) continue;
             byte[][] messages = {new byte[0], "x".getBytes(), new byte[15], new byte[16], new byte[17], new byte[20000]};
             for (byte[] m : messages) Arrays.fill(m, (byte) 0x5a);
             TlsRecordLayer r = reader(suite, sealAll(suite, messages));
@@ -68,6 +82,7 @@ class Tls12RecordTest {
     @Test
     void aFlippedBitAnywhereIsBadRecordMac() throws Exception {
         for (Tls12CipherSuite suite : Tls12CipherSuite.values()) {
+            if (suite.bulk.cbc()) continue;
             byte[] wire = sealAll(suite, new byte[40]);
             for (int at : new int[] {5, wire.length / 2, wire.length - 1}) {
                 byte[] tampered = wire.clone();

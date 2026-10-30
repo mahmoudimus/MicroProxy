@@ -26,8 +26,8 @@ import javax.net.ssl.SSLSocket;
  * A client {@link SSLSocket} over a connected socket whose handshake is a {@link
  * TlsClientConnection}'s, so its ClientHello is a browser profile's. It reads what JSSE callers set:
  * the SNI name and ALPN protocols in {@link SSLParameters} (the context's default ALPN protocols
- * when none are set), {@code HTTPS} endpoint identification, and the enabled protocols. Cipher suites are the profile's: setting them changes nothing, since
- * that would change the fingerprint.
+ * when none are set), {@code HTTPS} endpoint identification, and the enabled protocols, cipher suites and algorithm constraints. Restrictions are applied
+ * to acceptance of the server choices; the captured ClientHello remains unchanged.
  *
  * <p>Failures are reported the way the JDK's own sockets report them, so code that reads JSSE
  * exceptions keeps working: a server's alert as {@code "Received fatal alert: <description>"}, a
@@ -114,6 +114,7 @@ final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket 
         TlsClientConnection c = new TlsClientConnection(settings.config(), plain.getInputStream(), plain.getOutputStream(),
                 serverName, verifyHost, alpn,
                 (serverName != null ? serverName : host) + ":" + port);
+        c.acceptance(parameters.getCipherSuites(), parameters.getAlgorithmConstraints());
         c.allowTls12(Arrays.asList(enabledProtocols).contains(TLS12));
         try {
             c.handshake();
@@ -222,18 +223,35 @@ final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket 
         copy.setApplicationProtocols(parameters.getApplicationProtocols());
         copy.setEndpointIdentificationAlgorithm(parameters.getEndpointIdentificationAlgorithm());
         copy.setUseCipherSuitesOrder(parameters.getUseCipherSuitesOrder());
+        copy.setAlgorithmConstraints(parameters.getAlgorithmConstraints());
         return copy;
     }
 
     @Override
     public synchronized void setSSLParameters(SSLParameters params) {
-        SSLParameters copy = new SSLParameters(getSupportedCipherSuites(),
-                params.getProtocols() != null ? params.getProtocols() : enabledProtocols);
+        String endpoint = params.getEndpointIdentificationAlgorithm();
+        if (endpoint != null && !endpoint.isEmpty() && !"HTTPS".equalsIgnoreCase(endpoint)) {
+            throw new IllegalArgumentException("Unsupported endpoint identification algorithm: " + endpoint);
+        }
+        if (params.getNamedGroups() != null) {
+            throw new IllegalArgumentException("Explicit named-group restrictions are unsupported; use AlgorithmConstraints");
+        }
+        if (params.getSignatureSchemes() != null) {
+            throw new IllegalArgumentException("Explicit signature-scheme restrictions are unsupported; use AlgorithmConstraints");
+        }
+        String[] suites = params.getCipherSuites() != null ? params.getCipherSuites() : parameters.getCipherSuites();
+        String[] protocols = params.getProtocols() != null ? params.getProtocols() : enabledProtocols;
+        validateCipherSuites(suites);
+        validateProtocols(protocols);
+        SSLParameters copy = new SSLParameters(suites, protocols);
         copy.setServerNames(params.getServerNames() != null ? params.getServerNames() : parameters.getServerNames());
         copy.setApplicationProtocols(params.getApplicationProtocols());
         copy.setEndpointIdentificationAlgorithm(params.getEndpointIdentificationAlgorithm());
+        copy.setAlgorithmConstraints(params.getAlgorithmConstraints());
+        copy.setUseCipherSuitesOrder(params.getUseCipherSuitesOrder());
+        // Commit only after every supplied restriction has been validated and copied.
+        enabledProtocols = protocols.clone();
         parameters = copy;
-        if (params.getProtocols() != null) setEnabledProtocols(params.getProtocols());
     }
 
     @Override
@@ -245,13 +263,23 @@ final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket 
     }
 
     @Override
-    public String[] getEnabledCipherSuites() {
-        return getSupportedCipherSuites();
+    public synchronized String[] getEnabledCipherSuites() {
+        return parameters.getCipherSuites();
     }
 
-    /** Ignored: the profile's cipher suites are part of its fingerprint. */
     @Override
-    public void setEnabledCipherSuites(String[] suites) {}
+    public synchronized void setEnabledCipherSuites(String[] suites) {
+        validateCipherSuites(suites);
+        parameters.setCipherSuites(suites);
+    }
+
+    private void validateCipherSuites(String[] suites) {
+        if (suites == null) throw new IllegalArgumentException("cipher suites must not be null");
+        List<String> supported = List.of(getSupportedCipherSuites());
+        for (String suite : suites) {
+            if (!supported.contains(suite)) throw new IllegalArgumentException("Unsupported cipher suite: " + suite);
+        }
+    }
 
     @Override
     public String[] getSupportedProtocols() {
@@ -265,11 +293,16 @@ final class FingerprintSslSocket extends SSLSocket implements FingerprintSocket 
 
     @Override
     public synchronized void setEnabledProtocols(String[] protocols) {
-        List<String> supported = List.of(getSupportedProtocols());
-        for (String p : protocols) {
-            if (!supported.contains(p)) throw new IllegalArgumentException("Unsupported protocol: " + p);
-        }
+        validateProtocols(protocols);
         enabledProtocols = protocols.clone();
+    }
+
+    private void validateProtocols(String[] protocols) {
+        if (protocols == null) throw new IllegalArgumentException("protocols must not be null");
+        List<String> supported = List.of(getSupportedProtocols());
+        for (String protocol : protocols) {
+            if (!supported.contains(protocol)) throw new IllegalArgumentException("Unsupported protocol: " + protocol);
+        }
     }
 
     @Override

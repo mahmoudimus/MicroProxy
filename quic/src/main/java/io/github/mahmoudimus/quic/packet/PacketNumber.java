@@ -4,6 +4,7 @@
  */
 package io.github.mahmoudimus.quic.packet;
 
+import io.github.mahmoudimus.quic.internal.verified.__default;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
@@ -73,18 +74,7 @@ public final class PacketNumber {
      */
     public static long decode(long largestPacketNumber, long truncated, int length) {
         checkLength(length);
-        long expected = largestPacketNumber + 1;
-        long win = 1L << (8 * length);
-        long hwin = win / 2;
-        long mask = win - 1;
-        long candidate = (expected & ~mask) | (truncated & mask);
-        if (candidate <= expected - hwin && candidate < (1L << 62) - win) {
-            return candidate + win;
-        }
-        if (candidate > expected + hwin && candidate >= win) {
-            return candidate - win;
-        }
-        return candidate;
+        return __default.Decode(largestPacketNumber, truncated, length);
     }
 
     /**
@@ -119,6 +109,15 @@ public final class PacketNumber {
             v = (v << 8) | (in.get() & 0xff);
         }
         return v;
+    }
+
+    /** Fixed-address reader for a protected packet with a validated sample and length1..4. */
+    static long readProtected(ByteBuffer packet, int offset, int length) {
+        long word = ((long) (packet.get(offset) & 0xff) << 24)
+                | ((long) (packet.get(offset + 1) & 0xff) << 16)
+                | ((long) (packet.get(offset + 2) & 0xff) << 8)
+                | (packet.get(offset + 3) & 0xffL);
+        return __default.ReadPrefix(word, length);
     }
 
     private static void checkLength(int length) {

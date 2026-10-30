@@ -43,6 +43,57 @@ class TlsRecordLayerTest {
         return new TlsRecordLayer(new ByteArrayInputStream(wire), new ByteArrayOutputStream());
     }
 
+    /** Reach a key boundary without encrypting millions of records. */
+    private static void sequence(TlsRecordLayer layer, String direction, long value) throws Exception {
+        var field = TlsRecordLayer.class.getDeclaredField(direction);
+        field.setAccessible(true);
+        Object protection = field.get(layer);
+        var sequence = protection.getClass().getSuperclass().getDeclaredField("sequence");
+        sequence.setAccessible(true);
+        sequence.setLong(protection, value);
+    }
+
+    @Test
+    void aMultiRecordWriteStopsBeforeTheAesKeyLimit() throws Exception {
+        ByteArrayOutputStream wire = new ByteArrayOutputStream();
+        TlsRecordLayer writer = new TlsRecordLayer(new ByteArrayInputStream(new byte[0]), wire);
+        writer.writeKeys(CipherSuite.TLS_AES_128_GCM_SHA256, new byte[32]);
+        sequence(writer, "write", (1L << 23) - 1);
+        assertThrows(IOException.class, () -> writer.write(TlsRecordLayer.APPLICATION_DATA, new byte[20000]));
+        assertEquals(5 + 16384 + 1 + 16, wire.size());
+    }
+
+    @Test
+    void readKeyLimitIsCheckedBeforeAuthentication() throws Exception {
+        TlsRecordLayer reader = reading(RFC8448.get("server_record"));
+        reader.readKeys(CipherSuite.TLS_AES_128_GCM_SHA256, RFC8448.get("server_hs_secret"));
+        sequence(reader, "read", 1L << 23);
+        QuicException failure = assertThrows(QuicException.class, reader::read);
+        assertEquals(TlsAlert.INTERNAL_ERROR, TlsAlert.fromErrorCode(failure.code()));
+        assertTrue(failure.getMessage().contains("key usage"));
+    }
+
+    @Test
+    void anExhaustedCounterNeverWrapsAndEmitsAnotherNonce() throws Exception {
+        ByteArrayOutputStream wire = new ByteArrayOutputStream();
+        TlsRecordLayer writer = new TlsRecordLayer(new ByteArrayInputStream(new byte[0]), wire);
+        writer.writeKeys(CipherSuite.TLS_CHACHA20_POLY1305_SHA256, new byte[32]);
+        sequence(writer, "write", -1L);
+        assertThrows(IOException.class, () -> writer.write(TlsRecordLayer.APPLICATION_DATA, new byte[] {1}));
+        assertEquals(0, wire.size());
+    }
+
+    @Test
+    void tls12AesKeysCannotBeUsedPastTheirLimit() throws Exception {
+        ByteArrayOutputStream wire = new ByteArrayOutputStream();
+        TlsRecordLayer writer = new TlsRecordLayer(new ByteArrayInputStream(new byte[0]), wire);
+        writer.writeKeys12(Tls12CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                new byte[0], new byte[16], new byte[4], new java.security.SecureRandom());
+        sequence(writer, "write", 1L << 23);
+        assertThrows(IOException.class, () -> writer.write(TlsRecordLayer.APPLICATION_DATA, new byte[] {1}));
+        assertEquals(0, wire.size());
+    }
+
     @Test
     void decryptsRfc8448sServerFlight() throws Exception {
         TlsRecordLayer layer = reading(RFC8448.get("server_record"));

@@ -1,0 +1,11 @@
+module Nonce where
+
+// RFC 9001 section 5.3: left-pad the packet number to the IV length,
+// in network byte order, then XOR it with the IV.
+nonce : [12][8] -> [64] -> [12][8]
+nonce iv packetNumber = iv ^ ([0, 0, 0, 0] # split packetNumber)
+
+// Deliberately incorrect specification, for a proof-level negative control.
+wrongEndianNonce : [12][8] -> [64] -> [12][8]
+wrongEndianNonce iv packetNumber =
+  iv ^ ([0, 0, 0, 0] # reverse (split packetNumber))

@@ -1,0 +1,25 @@
+import "Nonce.cry";
+enable_experimental;
+
+packetKey <- java_load_class "io/github/mahmoudimus/quic/crypto/PacketKey";
+
+let nonceSpec expected = do {
+  this <- jvm_alloc_object "io/github/mahmoudimus/quic/crypto/PacketKey";
+  iv <- jvm_fresh_var "iv" (java_array 12 java_byte);
+  ivRef <- jvm_alloc_array 12 java_byte;
+  jvm_array_is ivRef iv;
+  jvm_field_is this "iv" ivRef;
+  pn <- jvm_fresh_var "packetNumber" java_long;
+
+  jvm_execute_func [this, jvm_term pn];
+
+  // The receiver retains its IV array and its bytes are unchanged.
+  jvm_field_is this "iv" ivRef;
+  jvm_array_is ivRef iv;
+  result <- jvm_alloc_array 12 java_byte;
+  jvm_array_is result {{ expected iv pn }};
+  jvm_return result;
+};
+
+nonceProof <- jvm_verify packetKey "nonce" [] true (nonceSpec {{ nonce }}) abc;
+summarize_verification;

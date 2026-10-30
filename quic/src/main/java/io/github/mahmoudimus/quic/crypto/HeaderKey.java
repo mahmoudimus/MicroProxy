@@ -6,6 +6,7 @@ package io.github.mahmoudimus.quic.crypto;
 
 import io.github.mahmoudimus.quic.CipherSuite;
 import io.github.mahmoudimus.quic.QuicVersion;
+import io.github.mahmoudimus.quic.internal.verified.__default;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
@@ -138,11 +139,25 @@ public final class HeaderKey {
      */
     public int unprotect(ByteBuffer packet, int start, int packetNumberOffset) {
         loadSample(packet, packetNumberOffset);
-        byte first = packet.get(start);
-        byte bits = (first & LONG_HEADER_FORM) != 0 ? (byte) 0x0f : (byte) 0x1f;
-        int pnLength = ((first ^ (block[0] & bits)) & 0x03) + 1;
-        apply(packet, start, packetNumberOffset, first, pnLength);
-        return pnLength;
+        // Fixed addresses: recovered length controls scalar masks, never the
+        // number/location of packet accesses. Sampling above establishes space
+        // for all four octets. Explicit octets preserve ByteBuffer byte order.
+        long word = ((long) (packet.get(start) & 0xff) << 32)
+                | ((long) (packet.get(packetNumberOffset) & 0xff) << 24)
+                | ((long) (packet.get(packetNumberOffset + 1) & 0xff) << 16)
+                | ((long) (packet.get(packetNumberOffset + 2) & 0xff) << 8)
+                | (packet.get(packetNumberOffset + 3) & 0xffL);
+        long mask = ((long) (block[0] & 0xff) << 32)
+                | ((long) (block[1] & 0xff) << 24)
+                | ((long) (block[2] & 0xff) << 16)
+                | ((long) (block[3] & 0xff) << 8) | (block[4] & 0xffL);
+        long clear = __default.Unprotect(word, mask);
+        packet.put(start, (byte) (clear >>> 32));
+        packet.put(packetNumberOffset, (byte) (clear >>> 24));
+        packet.put(packetNumberOffset + 1, (byte) (clear >>> 16));
+        packet.put(packetNumberOffset + 2, (byte) (clear >>> 8));
+        packet.put(packetNumberOffset + 3, (byte) clear);
+        return ((int) (clear >>> 32) & 3) + 1;
     }
 
     private void loadSample(ByteBuffer packet, int packetNumberOffset) {

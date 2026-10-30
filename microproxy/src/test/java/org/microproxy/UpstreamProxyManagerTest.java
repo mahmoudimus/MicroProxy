@@ -100,6 +100,26 @@ class UpstreamProxyManagerTest {
     }
 
     @Test
+    void upstreamCredentialsKeepHttpAndHttpsRoutesDistinct() {
+        UpstreamProxyManager manager = new UpstreamProxyManager(
+                "h2://alice:same-password@proxy.corp", "h2://bob:same-password@proxy.corp", null);
+        assertEquals("alice", route(manager, HttpMethod.GET, "http://x/").getFirst().getUsername());
+        assertEquals("bob", route(manager, HttpMethod.CONNECT, "x:443").getFirst().getUsername(),
+                "redacted URLs must not merge accounts and reuse the first account's HTTP/2 connection");
+    }
+
+    @Test
+    void upstreamCredentialEqualityHandlesFullUtf8Values() {
+        ChainedProxy expected = UpstreamProxyManager.proxy("h2://us%C3%A9r:p%C3%A4ss@proxy.corp");
+        assertEquals(expected, UpstreamProxyManager.proxy("h2://us%C3%A9r:p%C3%A4ss@proxy.corp"));
+        assertFalse(expected.equals(UpstreamProxyManager.proxy("h2://us%C3%A9r:p%C3%A4st@proxy.corp")));
+        assertFalse(expected.equals(UpstreamProxyManager.proxy("h2://us%C3%A9r:p%C3%A4ss-extra@proxy.corp")));
+        assertFalse(expected.equals(UpstreamProxyManager.proxy("h2://other:p%C3%A4ss@proxy.corp")));
+        assertEquals(UpstreamProxyManager.proxy("h2://proxy.corp"), UpstreamProxyManager.proxy("h2://proxy.corp"));
+        assertFalse(UpstreamProxyManager.proxy("h2://proxy.corp").equals(UpstreamProxyManager.proxy("h2://:@proxy.corp")));
+    }
+
+    @Test
     void environmentFollowsCurl() {
         assertNull(UpstreamProxyManager.fromEnvironment(Map.of()));
         // Upper-case HTTP_PROXY is ignored, as in curl.

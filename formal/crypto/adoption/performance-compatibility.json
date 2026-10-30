@@ -1,0 +1,375 @@
+{
+  "schema": "microproxy.crypto-diagnostic-measurements/v1",
+  "status": "diagnostic-passed-awaiting-clean-strict-stage",
+  "candidate_native_mlk_source_sha256": "8350067771a66ae809d1e04d7bcf1efc4b70c7ffe549b7ddf75df8ed556cf100",
+  "diagnostic_receipt_sha256": "5e081dfff278a3de3221ee228ec4e55387264bb60dc4cc7f1b348d8cbc83a268",
+  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+  "benchmark_source_sha256": "1107a26ff9a452b6cfae16356e48882f6dd89a49721c6e9ce5d3a262bfd59a2f",
+  "benchmark_class_pins": {
+    "io/github/mahmoudimus/quic/tls/CryptoBenchmark.class": "37037bcc5a87b351d2a0f9b0be91f2b9c86c767049f0169b9e25d889f5f98f1e"
+  },
+  "benchmark_class_bytes_identical": true,
+  "methodology": "Median of3 fresh-JVM fork medians; each fork has9 batches of64 operations after1024 warmup operations per type. Performance only, never side-channel evidence.",
+  "source_inputs": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/NativeCodec.dfy": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
+    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeMlKem.dfy": "8350067771a66ae809d1e04d7bcf1efc4b70c7ffe549b7ddf75df8ed556cf100",
+    "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/crypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "formal/crypto/adoption/Shake.java": "51fc5ae044b73232a702745c94ec1eb725f2bd3558e9d39110e2e7f0c9e6dea1",
+    "formal/crypto/adoption/MlKem768.java": "135928e6645c82c249cca276909ae12ffbea07271c338fc1b701c331132391f3",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/crypto/delivery.py": "2d120da2405ba86e151a5b3a01ed0e6dba4b1b0598a43492fba2b688a79dde6d",
+    "formal/crypto/delivery.json": "cb01aeb0d782b290812e5e9e5a5a90e63296f7e3e13cb4dcf123af06267bb9a5",
+    "formal/crypto/native_kem_checks.py": "fea02ffbb3e1b9dedd0aea362833500aef52414fcd0829bbdc6a8cb3eda6f5d1",
+    "formal/crypto/adoption/CryptoBenchmark.java": "1107a26ff9a452b6cfae16356e48882f6dd89a49721c6e9ce5d3a262bfd59a2f",
+    "quic/src/test/java/io/github/mahmoudimus/quic/tls/GeneratedCryptoFacadeTest.java": "d079821670af8d7ad586f137c616a9344ebdcb0903c81c8f603c6ad6296fed16",
+    "quic/src/test/java/io/github/mahmoudimus/quic/tls/ShakeTest.java": "bbd0ccb5c5e9808bffc761a329a4f354a65046724c0e6dab2848b5ecd18479af",
+    "quic/src/test/java/io/github/mahmoudimus/quic/tls/MlKem768Test.java": "638addbd8da3ff2bb4f6ecc0f8a0bedd79a4670689fee20f47827fe8e893ed4a"
+  },
+  "generated_source_pins": {
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java": "477447b31d7ff278ba7c2fcb17b3e060db2c00c26901a53206e59f3aab457988",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java": "9e5ccd83ea4cd21467ad845ecb47b096ec15a19fd47d54ae31a0a8d831328c44",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java": "85fd394ba083aac23ca5ba57e46584486ad68977d6ec412b47df8662b7f558fd",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java": "fbed15c767dfa1c66f18a15a085a5ade6e5c86a32483291ca96546f1bf3413ee",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java": "8f623c278582775e5c587ec39e131d5c9b0a79b130e660df38ee360ca1230492",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java": "9febabae51f7946546c6a04d6b224d70002ce6c8843810e2387b44ce2f43bf6a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java": "3f5e17ee7235bf40c2bed9aa1d9957d43c171d4fd95236fb608a2588084e685c",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java": "db36e2122ec3636a149b87ef4090c315f69d682257d1b025b2f2df551edcaf2d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java": "4e237be077f044221e493603be0218b695229846fbd1258a4a9b06269f93cafd",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java": "d95d64de36ea34e54ec70c4bb04a75fac4d82c5bd3d9c6dbf8dde57989aa7231",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java": "2f1f058dbe37ac56b2f3de21e057dbb830612728c098372492432f440d5c4d9a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java": "ac9127af45c3669ac9c2b619b36802956ec4c80702deccaa15c2828b6db88367",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java": "b9fa294b9d7777f1b3b30c89d2039fe7a20f6506cec03c6c87788366b4ff4b8d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java": "92e011d459c39e9f2a14f80ae3673a4c1c1cf8353a498a7640bb5032581b42ef",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java": "48f7d6f0d285fbf9b2ad49f22e18f48735054552fee55e542ee22c140c7eb6c7",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java": "d3c0c9fe3bc4628fd36dc9567d0fbbc2c73fa07acdc6c29637f53bbfbd5fee80",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java": "2ff1310ede278c5b2b5f7127a9a7aedb0fdda04b8796a83378d412ba1b605f15",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java": "017d0ad910c063a224d01a3dca7e6357272c4b6f8b09e44e673fb6c3d225d4e8",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java": "e69f02ffc7d70f413fd9915643dddfc3ee1daf98a18996767ac593c8ccdd642b",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java": "9329ae840af275d1c1072201dc104b9aceffb666ddc8344f7797cd4c003efd0d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java": "bf0c26cd00c2d306c4983a782062ec88ab972ad3b97737d8cbd1d0286c1c3175",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java": "26036edecd73e863ff14e10b0cd8a7b65014eb4af9f5b338180215e737f54667",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java": "c82786c18c4551e4388e03d3e747909fa542b6c45c91d0c10af2721ad728b5b5",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java": "ba8ad1bcada69e5bf77a8a2acc9ddfcafcd09d4aa466426c5277c9bb40b7388d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java": "2ab0374d21653aab7d93fcc553cc404f320f67e4be219c88eb04715f34d6a81d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java": "5f88cf2708b5a2ec50583e101ac65b41f84b3c69f5177d8ffe7429009db7b645",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java": "539f3cee594139794fde8be11853f8a09470177d42a23f5f422433ae57e3b75e",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java": "4b85212ef4874e53ad5383503f85584aad229881c3b4b6871f5b0558fca37663",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java": "0442065d7f7702d60d9ca68f11e57aa203613e5bc2c85a4ca7fe23544ab3b144",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java": "0a169e565a8abca18c2f697324020af52ac81e5956157d30cd56ea071c3e897f",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java": "05baf5f08b767273dd8ce867185442f2142b6f542b06491e23b123f7b4d533d2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java": "7dddcc1ee13d5b4fe3c21799e82726293c1d608c3932dc055ab5eabdc800a2b3",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java": "7f693b604f9dd8007c64526da93740f2434e11590b74ff416d6bed36b275d646",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java": "a14381bb96faa157383905853829de82a465e1c2059d921612339b48c6821e29",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java": "f6f2419bf34ca1fdb31812ae9e797f6305ef1d45f814bb719b0ce61894dee11e",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java": "2226ff2f6cd17d10455ec4bafc46ed1382fa307be6acfed3b26f08709c54b518",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java": "dd65c66c212cdeaeea63480e7b3148e436a525e45f9e78f0f7ce66c0468698cf",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java": "1c4998cd565289fa43e933e83593aaf48ad2bf87bface6cbe9d3ca18dc4b0fe2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java": "ba27f15c0e9eb5c5556321e7baa0ce906ff71a09246cb4e091f44005c1c76093",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java": "ad421c640fc67596d835d11bae0572b3ce760e8d75b7b401a70e185f1481b124",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java": "e5067ec3653352603474f055eb3cf76df1bbc10357f56ccf66473bb8716cd918",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java": "ca5ccb319f74a0f7bcd9ba82e680f963b613aca48449afa872c072dcf35b6fc9",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java": "ae7896c689c4d984d245f61cdc3352ba0db5367a4e0a9e4ebb821bb3ed967edf",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java": "2a60fdfa0eaa44bfc9778eaa8be81db953a3b8aacb845ebf22055e92778257e3",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java": "aa715fb17aea698717bf1a1be11854df9bb0353ffa8fc5f7d0d131b781459cf9",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java": "4bbea941da8d95eaa043cb225474bf8cfae7516d11eb89d580b5d5c03de2ea6d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java": "e70320e384d5026d5dbf265071b0e862e9e02d4a59ae3191bdc56ebd29bd5466",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java": "cb3b1130bc1b4dc6098af044f0f6acc324b84afaaefe66fe34b6d40c382e5ae2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java": "5a8dff2d77515814af01bc35b4dd1c0f21db1c141f8ce68ce8cc6e85d9e5332c",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java": "a78b962a9d765f6f71c92941b9eefe03f9f9857fc82cc2cb219ed87bfffed67a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java": "bb10ff939dc1dbce4f8677737506b26bfe65f1aeedeb77769d8bd1d38859a12b",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java": "f91ea06bb5b1f57e49da2276cc69fc2bd7b4f48c434fd1a3657028e882c2c133",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java": "92164c9b90e6ab5fc905a54bbc5815f50c9d675c2acac2e8c7d8a157b214a27e",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java": "f569def978814f1a4f016b7a0b81761ad49bf04c7e1ddb4eb7a0e7ee44ab0cff",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java": "05297a6c4d9c7b45424e6a3e18abda4cd559dc7855aa30c40703a247e01bde2a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java": "b0a60d045aa86bfa1d1d194b0825b45ff8a3137649ecd005ef5595a9501a628f",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java": "6520d095e9c114c750d3e9279672c6033fac573f220973578c151ec994602c9a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java": "35c52384091c31758f71a4c66b102292e493c956db8b086edc98f743ada9ca4a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java": "400253597652a70d7f7c4e1d0c5c8a58bf83ad741649facdd4bd16614d10a383",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java": "b95201060aedf1a52197e73faf1ff49fbcabfbcfcef824f2acc05eb0bff32c02",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java": "e8b5200ceecc234734a23d5f787c91b838308adcac32f4351cbed84d48953a09",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java": "4243c397c1882a5c5c91928ddfc2398388c1bcb3cab0736539c772065cbfa82a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java": "0646346b76c14094d12ad0264b9d863327e2efe2c29a27f7dc02dc01f0c9f387",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java": "ffeb0986b8a2130bd93b470b149cb14385dcb947d12f78cc1078e6f7b4c3423f",
+    "io/github/mahmoudimus/verifiedcrypto/kem_hash.java": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+    "io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be"
+  },
+  "generated_class_pins": {
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.class": "a46fdb77167c7be6a3a831ccaf3a0285751a125e8bb8e97ddcb558fc520d6f9b",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.class": "99517ac2a5e08cf675803031a3147b5b958d043e716b8c199db0ff188c7cd517",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.class": "eadb72ae76ff5874aa20e58be097fe01efbf7e5aea6c196db36abd1b69e75ba6",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.class": "fc374a499abf2f7b1a5623a35458a3d12802370cf936a8d145e39992186cd1f7",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.class": "c04c4a62de6714efabeb957567157fc18e6853ff162a2bdaae03dd0977edafdd",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.class": "352ba5a2974b9c569f24fd7f659d25c9ddb9e321a641211632503cf0fa1cf47f",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.class": "7e60ed365fe5c85d13c00284f0c5e545a9423fd1af634da17077f987d15c4a73",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.class": "87a7bf9b9f30c53102548b01bf307f904a5b6fc9ddbffd71e83de1caa60fc437",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.class": "dfddb814e2390df8c55cafcf2882b72cdd8751b94ce6c2ad121b435eabc2ae7d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.class": "8411479ca92ef07e113a979d03e344899cba19f90a2154c3c1658e0fbf1838ca",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.class": "e4b2fe09d6e95d46bdb1d2caef697ea8f411f1d4f7b201e93fed17b68d17ad60",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.class": "2c0708df1cc06b3a6550619ad76a6606d3a46da3c4e6c1a7bad38a97a22562c8",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.class": "78c21ce850838a4887c445d00bdabf75a40a9881247c325687889a02f3400e4b",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.class": "c5e906eb5d20ba8d25e1740039ef80122a0ca96c35cecaf86ad4238fed3db785",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.class": "128b4065b19956eee3855a4e1cf80466a266fd2009fae11354ffe364f1b605ff",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.class": "4ce4d8d7b7c3253bc23f6c5a47890aee4cc9cad9490733b41afc57c1331742f2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.class": "1aaee1be51a143c43a33139778c4ae8fa215efd18577a7917cb9bde60332d9bd",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.class": "f67aec9994d46240373a186289cbf3e794f82cea39851ee7512323964fe67f72",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.class": "30a7674ab4661a80f8eaa4103417cc94f1129066ab23e1998fc195ab60125a24",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.class": "b22c4e15ec97e95d12963821798471c497c2da6687e95d540ad43239d22a7bb2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.class": "a695eccc3a58485420b3fffdecea2a93ce2f4de58855ef79318162c2c93506a8",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.class": "25c0a3268bcb1e09e53eb1345aa03a3dc9516516d47fd268c0a0e672a1740f96",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.class": "5e129c00e9d7574d22c150bcd0a6fc84098c6104a6a44a2808bbcb22b6e4877a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.class": "764dfcfd1385207320a64fdab3e84362b3c54e27822b1ea38a1b19ab807b6731",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.class": "071dc87fbfdbc60282cb572d6c9440678a922bfd997d84622296e8d2129c38c4",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.class": "2660117043da0db8c5f0ef9dd532d16e790aebc79121edb4e906671c442a64e2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.class": "5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.class": "c069d4996e2d6cb48d60be9f87395d12d1e27f7b9b76e8109e26fa53933efd5e",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.class": "37fc1f2e660abc354cf94cb3d57e1fdeac672ddddf7e20898d5aea03a732f514",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.class": "51c7faa78eaa277b7447365817d894eec19097e650b67acfd72c3035f73ae2c9",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.class": "545a578cab08e3186c95e8c31a3b0e3fc5627990abade0e769eb8ae0d0e36969",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.class": "1c607809c5922139dca08e54f4cc46d5351996b8890b279ee9a4ca0b1c21b0d9",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.class": "a223e8205ba52a2687eff6bbc8cb2356cc7e8c2733d70d373649b08b86ed7e19",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.class": "2aed1fbfd023215ec7be445737492bd33f8bf91e7967f629bfe275828cd77b68",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.class": "9a932d0a5958fe3576148a66a85deea75eb0adc6705f9a9e7662d21f677e9b42",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.class": "2db79babf6a1134bf51d3f74f2d83e00c919444bf76e5b4086deb2ed952353db",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.class": "353a4b9e4403921617a06a4f240727e8e0ea41caafe384c748ccaca9c8924d67",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.class": "2cb86bea744d0f9460de52eb9da387334efd57e4a8f4263a4e0d6cdcc6105fdf",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.class": "e750fa4e4ab11e9d5cc8c5e799839546bff210bfb79551003376d7097ae52214",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.class": "7ad1cf48ec7a0e4ec03a617f5f40cb92e0a816966ecf47760785b021dbe96b47",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.class": "d17ee4adeba3fbdfac26603a67bfd657cf5f99195177b24ec9e02dbef8dff6c6",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.class": "a718b7e03c547c8d9dc6a839c8d963dedfb55808ef4d090bb810c9cd508db348",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.class": "90f47f1d94bffca51b69c43c6b59cf8202a0a340097127e4d256c61082bc5f5a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.class": "a1b23c5b576aac5d948dab3d1fdf9cba9ae95ae9633a44410f79253284e5924a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.class": "f6f3e47a497ec2d8e2a9d8643e37eea383216b0c6d264ad9522b103399e22158",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.class": "a7222988de8880770763aa0613a748e8d3aec3c5c2341aefd437168b1f89e159",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.class": "9000dc797b8a41fa4837159e7e730a8df88c2178a05b4b0e59076f21b82c7ab6",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.class": "269042bd945c424c558d2bd3bcb30b87c45672d458ef3c390b03e38683419930",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.class": "4b0573e42d433acd7233752379df9b212f4c7707742c66aa1b6c173cd3bc6007",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.class": "1bf68981a574b630af09a2b626cd1a7ba2460943131662dd83e4c54d053a57dc",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.class": "835fe06544cf4aa409689956b913cf55c8e76fc979ad93b42ddbbb3d73cdb121",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.class": "a9c2cd1628df81bda38a4e5ee4c5e48277aa93905f0555e13ea79de9bc9dded1",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.class": "8fe78943d15c1dcd6eaaef66185c983bbeeff5f900a1431789f5b69ac1945f5d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.class": "a477671bc058c43f6efe4dbd33e5de77f4f2ba33d4d46fcb03765f130c0f9a9a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.class": "06b0582b4d910f1d85d7cb0a791e60d0ee1b59b5b959f33e6b9a8b25afcbdbed",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.class": "8fa957a7f32279319966c1d689cda1e33010fc9ad77d8b60c193b981c77f36af",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.class": "20454772fc08eb669fdc636c903bc5b499e36cf5e68269a4d50b24620d8344e2",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.class": "564e08c21eb07c132e62fdf0a36f444cfcb2825169739e351a3b571ba5f3a94e",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.class": "1e437c5f0442c2412a16a01c5df1da673b6d3ebf84f8bebd24efdbcedee67f6a",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.class": "6f9a7b8585a228d25c0f8a4ea9d0994a49fee75ac3a78a8177a4c3f401b81a27",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.class": "03fa79a5def29e393c856f6d027660b240e160c16b075eddd3fc66cadd844c9d",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.class": "0dc5feca56eed44d33dffb88d8b4eb53eb0d259894993a092936f0719baa6ec9",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.class": "677d23d4206feb706cfd0d9750c8be691fa052b1ce85a4068921e8dd04718714",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.class": "ca2ed042e8d5e5fc135e9169b5687d167efa93a8fb6db31344d797e5eff09a84",
+    "io/github/mahmoudimus/verifiedcrypto/kem_hash.class": "cb708ad2af91439398399c47126b019a82544286cb980e19d9867b25f4b5148d",
+    "io/github/mahmoudimus/verifiedcrypto/native_kem_hash.class": "691163071f683b4bae51c256d00631d30f7cf82d6dba655b001a9e23e59676df"
+  },
+  "facade_class_pins": {
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "8b31bb5ad79b8c85cd063958b761b88b82914756848a243ebca9690e5e36e0fb",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "c2640b2274bc68b3221a78f28ed474043cae59314d10c4a4bdcca8c57ab4f1b8",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "48db91e21a74552c8fe39eadfebebbb732beb6ca334847cf8355e6bc9599180a",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "1c6351b1076aa2f6be81dd7b05f9815ec0dd9ea67714f94052c0c74ba9787ca9"
+  },
+  "baseline_class_pins": {
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "9676b7377223832d66477e33ba72f4d240840de3577c5dc1ca48848cea03fe37",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "e3a42438b03d3da6379605627324ea50c19cdd62c637e90949e7210a857ebc84",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "d55af1fd2155b3bdce5371f51e68eb5704100bfa25fa6be75c73d1df6882a74a",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "65f1d21daedd73871e6acf653202728c996bc21acfcb4aa8f44464190002b31a",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "76f0131a46b1c767de69b8d2d738e154a52bea2c05cf28819ea06303c9614304"
+  },
+  "test_class_pins": {
+    "io/github/mahmoudimus/quic/tls/FacadeCompatibility$TestCase.class": "8f4362826425ac1b476e07a5aa9f6afe80fd8814526a43e9d90f66833d93fbe1",
+    "io/github/mahmoudimus/quic/tls/FacadeCompatibility.class": "afdc8c58609c076b4aeecd430e56ee2e2f92b2a4da6d29893f06b2e3d6b95c87",
+    "io/github/mahmoudimus/quic/tls/GeneratedCryptoFacadeTest$CapturingRandom.class": "9f0ccca2d630b8bdae3a6899261ae6cbd54d6b2a42036e9cc3f22d3cb0622bc7",
+    "io/github/mahmoudimus/quic/tls/GeneratedCryptoFacadeTest.class": "c3761d127b225f7e6a5f8ec54eecfe058e0376153f485c9630ee467b1044f557",
+    "io/github/mahmoudimus/quic/tls/MlKem768Test.class": "b7363da1a3a275843c7e8cf2ebbe47fa13d6aa1a69a483daf4e81d69c1ee2a30",
+    "io/github/mahmoudimus/quic/tls/ShakeTest.class": "3b94dfb18353a96f49c7239276d6c12376a9e9091fd019ba097d1b88de12b120"
+  },
+  "jdk_versions": {
+    "21": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
+    "25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n"
+  },
+  "tests": {
+    "21": {
+      "methods": [
+        "PASS ShakeTest.matchesPythonsHashlib",
+        "PASS ShakeTest.piecewiseInputAndOutputMatchOneShot",
+        "PASS ShakeTest.updateAfterReadIsRejected",
+        "PASS GeneratedCryptoFacadeTest.invalidSlicesAreAtomicAndCheckedBeforeAbsorption",
+        "PASS GeneratedCryptoFacadeTest.failedNullReadDoesNotStartSqueezingButEmptyReadDoes",
+        "PASS GeneratedCryptoFacadeTest.keyInputsExportsAndRepeatedDecapsulationRemainIndependent",
+        "PASS GeneratedCryptoFacadeTest.invalidMessageLengthsAreRejected",
+        "PASS GeneratedCryptoFacadeTest.internallyGeneratedSeedAndMessageBuffersAreWiped",
+        "PASS MlKem768Test.sizesAreFips203s",
+        "PASS MlKem768Test.malformedInputsAreRejected",
+        "PASS MlKem768Test.aTamperedCiphertextGivesADifferentKey",
+        "PASS MlKem768Test.accumulated100",
+        "PASS MlKem768Test.accumulated10000"
+      ],
+      "wall_seconds": 15.138988916995004,
+      "status": "passed"
+    },
+    "25": {
+      "methods": [
+        "PASS ShakeTest.matchesPythonsHashlib",
+        "PASS ShakeTest.piecewiseInputAndOutputMatchOneShot",
+        "PASS ShakeTest.updateAfterReadIsRejected",
+        "PASS GeneratedCryptoFacadeTest.invalidSlicesAreAtomicAndCheckedBeforeAbsorption",
+        "PASS GeneratedCryptoFacadeTest.failedNullReadDoesNotStartSqueezingButEmptyReadDoes",
+        "PASS GeneratedCryptoFacadeTest.keyInputsExportsAndRepeatedDecapsulationRemainIndependent",
+        "PASS GeneratedCryptoFacadeTest.invalidMessageLengthsAreRejected",
+        "PASS GeneratedCryptoFacadeTest.internallyGeneratedSeedAndMessageBuffersAreWiped",
+        "PASS MlKem768Test.sizesAreFips203s",
+        "PASS MlKem768Test.malformedInputsAreRejected",
+        "PASS MlKem768Test.aTamperedCiphertextGivesADifferentKey",
+        "PASS MlKem768Test.accumulated100",
+        "PASS MlKem768Test.accumulated10000"
+      ],
+      "wall_seconds": 13.835894750023726,
+      "status": "passed"
+    }
+  },
+  "measurements": {
+    "21": {
+      "decapsulate": {
+        "baseline": {
+          "wall_ns": 126632,
+          "cpu_ns": 121937,
+          "allocated_bytes": 72328
+        },
+        "generated": {
+          "wall_ns": 174376,
+          "cpu_ns": 167593,
+          "allocated_bytes": 119672
+        }
+      },
+      "encapsulate": {
+        "baseline": {
+          "wall_ns": 193755,
+          "cpu_ns": 193625,
+          "allocated_bytes": 72336
+        },
+        "generated": {
+          "wall_ns": 342783,
+          "cpu_ns": 327593,
+          "allocated_bytes": 120368
+        }
+      },
+      "implicit_rejection": {
+        "baseline": {
+          "wall_ns": 124128,
+          "cpu_ns": 122062,
+          "allocated_bytes": 72328
+        },
+        "generated": {
+          "wall_ns": 173454,
+          "cpu_ns": 165000,
+          "allocated_bytes": 119672
+        }
+      },
+      "keygen": {
+        "baseline": {
+          "wall_ns": 188074,
+          "cpu_ns": 185281,
+          "allocated_bytes": 51537
+        },
+        "generated": {
+          "wall_ns": 332872,
+          "cpu_ns": 324812,
+          "allocated_bytes": 93015
+        }
+      },
+      "shake128_32_840": {
+        "baseline": {
+          "wall_ns": 21186,
+          "cpu_ns": 21140,
+          "allocated_bytes": 1384
+        },
+        "generated": {
+          "wall_ns": 26244,
+          "cpu_ns": 25375,
+          "allocated_bytes": 1728
+        }
+      }
+    },
+    "25": {
+      "decapsulate": {
+        "baseline": {
+          "wall_ns": 131600,
+          "cpu_ns": 125640,
+          "allocated_bytes": 72112
+        },
+        "generated": {
+          "wall_ns": 193165,
+          "cpu_ns": 190859,
+          "allocated_bytes": 119432
+        }
+      },
+      "encapsulate": {
+        "baseline": {
+          "wall_ns": 225929,
+          "cpu_ns": 201281,
+          "allocated_bytes": 71904
+        },
+        "generated": {
+          "wall_ns": 388999,
+          "cpu_ns": 387062,
+          "allocated_bytes": 119888
+        }
+      },
+      "implicit_rejection": {
+        "baseline": {
+          "wall_ns": 138421,
+          "cpu_ns": 123890,
+          "allocated_bytes": 72112
+        },
+        "generated": {
+          "wall_ns": 187291,
+          "cpu_ns": 186937,
+          "allocated_bytes": 119432
+        }
+      },
+      "keygen": {
+        "baseline": {
+          "wall_ns": 208884,
+          "cpu_ns": 196312,
+          "allocated_bytes": 51106
+        },
+        "generated": {
+          "wall_ns": 384643,
+          "cpu_ns": 370171,
+          "allocated_bytes": 92535
+        }
+      },
+      "shake128_32_840": {
+        "baseline": {
+          "wall_ns": 21166,
+          "cpu_ns": 21125,
+          "allocated_bytes": 1384
+        },
+        "generated": {
+          "wall_ns": 31205,
+          "cpu_ns": 30187,
+          "allocated_bytes": 1728
+        }
+      }
+    }
+  },
+  "stage_status": "Blocked: ba3 receipt includes abnormal control termination; source portability refresh and clean strict receipt pending. No adoption decision."
+}

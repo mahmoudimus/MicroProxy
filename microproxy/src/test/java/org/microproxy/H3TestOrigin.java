@@ -68,14 +68,17 @@ final class H3TestOrigin implements AutoCloseable {
     static final byte[] HELLO = "hello over h3".getBytes(StandardCharsets.US_ASCII);
 
     final QuicServer server;
+    private final long qpackMaxTableCapacity;
+    private final int qpackBlockedStreams;
     final AtomicInteger connections = new AtomicInteger();
     final AtomicInteger requests = new AtomicInteger();
     /** WebSockets opened with extended CONNECT. */
     final AtomicInteger webSockets = new AtomicInteger();
     /** Whether connections made from now on send SETTINGS_ENABLE_CONNECT_PROTOCOL. */
     volatile boolean extendedConnect = true;
-    /** The QPACK_MAX_TABLE_CAPACITY connections made from now on advertise: 0 for no dynamic table. */
-    volatile long qpackMaxTableCapacity = 4096;
+    /** An optional reserved control frame after SETTINGS, for tests that order peer SETTINGS against a request. */
+    volatile boolean settingsMarker;
+    static final long SETTINGS_MARKER = 0x21;
     final AtomicInteger resumed = new AtomicInteger();
     private final List<String> earlyRequestLines = new ArrayList<>();
     private final ReentrantLock lock = new ReentrantLock();
@@ -99,6 +102,14 @@ final class H3TestOrigin implements AutoCloseable {
 
     /** An origin on UDP {@code port} (0 for any) that accepts 0-RTT data when {@code zeroRtt}. */
     H3TestOrigin(CertificateAuthority ca, int port, boolean zeroRtt) throws IOException {
+        this(ca, port, zeroRtt, 4096, 16);
+    }
+
+    /** An origin whose decoder and advertised SETTINGS use the given QPACK limits. */
+    H3TestOrigin(CertificateAuthority ca, int port, boolean zeroRtt, long qpackMaxTableCapacity,
+                 int qpackBlockedStreams) throws IOException {
+        this.qpackMaxTableCapacity = qpackMaxTableCapacity;
+        this.qpackBlockedStreams = qpackBlockedStreams;
         KeyPair keys;
         try {
             KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
@@ -176,7 +187,7 @@ final class H3TestOrigin implements AutoCloseable {
         final QuicConnection quic;
         final ReentrantLock qpack = new ReentrantLock();
         final Condition ready = qpack.newCondition();
-        final QpackDecoder decoder = new QpackDecoder(4096, 16);
+        final QpackDecoder decoder = new QpackDecoder(qpackMaxTableCapacity, qpackBlockedStreams);
         final Set<Long> resumable = new HashSet<>();
         OutputStream decoderOut;
         Http3FrameWriter control;
@@ -192,8 +203,10 @@ final class H3TestOrigin implements AutoCloseable {
                 QuicStream c = quic.openUnidirectionalStream();
                 control = new Http3FrameWriter(c.getOutputStream());
                 control.writeStreamType(Http3StreamType.CONTROL);
-                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(qpackMaxTableCapacity).qpackBlockedStreams(16)
+                control.writeSettings(Http3Settings.builder().qpackMaxTableCapacity(qpackMaxTableCapacity)
+                        .qpackBlockedStreams(qpackBlockedStreams)
                         .enableConnectProtocol(extendedConnect).build());
+                if (settingsMarker) control.writeFrame(new Http3Frame.Unknown(SETTINGS_MARKER, new byte[0]));
                 control.flush();
                 QuicStream d = quic.openUnidirectionalStream();
                 decoderOut = d.getOutputStream();

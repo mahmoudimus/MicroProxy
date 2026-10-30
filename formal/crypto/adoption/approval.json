@@ -1,0 +1,42 @@
+{
+  "schema": "microproxy.crypto-delivery-approval/v2",
+  "status": "approved",
+  "scope": "full",
+  "mode": "user-delegated",
+  "prior_user_authorization": {
+    "path": "prior-user-authorization.json",
+    "sha256": "9163021811ba9f69c24bafdd179252c3441788001832f33ca811c39de49e5c85"
+  },
+  "agent_evaluation": {
+    "evaluated_by": "codex/root/finish_native_adoption",
+    "decision": "Accept the measured overhead for the user-selected generated Dafny route. Final full-handshake CPU is21-22% higher (about0.44-0.46ms per complete handshake), allocation29-30% higher, and observed local in-memory throughput13-27% lower. Kernel CPU and allocation costs are retained in the linked raw report. The user prioritized completing functional proofs and authorized integration after checks; this is the agent engineering evaluation of those checks. Compiler/runtime/provider correctness, entropy, hardness, physical erasure and JVM timing remain explicit boundaries.",
+    "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+    "source_map_sha256": "9ee4617700a44e917f03eb6743d296ceafbe772d34838cf4e3405a043b871803",
+    "compatibility_receipts": [
+      {
+        "path": "performance-compatibility.json",
+        "sha256": "94bec1773d429e47a4b64d66c3506291175e7bbdbf7df8393a54df303d8e8111"
+      },
+      {
+        "path": "measured-stage-identity.json",
+        "sha256": "ddebf0a3e8cbae18093482ec9bbb2f06935e26e8efa3f0479633c854f28a063b"
+      },
+      {
+        "path": "hybrid-performance.json",
+        "sha256": "701adce5136818b73b74dd10b6e629cc3fdc095f9edc278c56277f5f1397c5ea"
+      },
+      {
+        "path": "canonical-runtime.json",
+        "sha256": "a6a41efa5d144bd52438ae916df2cd5be2619d73b485cc5880ce8182e7865eff"
+      }
+    ],
+    "performance_receipt": {
+      "path": "performance-review.json",
+      "sha256": "c95075a6a4568b470bbe697ce02dbcf8056f7f3251f4c59e45c7fbe420226c64"
+    },
+    "remaining_acceptance_gates": [
+      "After source installation, full Maven verify on JDK21 and25, then fresh21 artifact and exact class/JAR plus actual runtime guard checks.",
+      "Exact pushed-head required CI and final independent status review remain separate; no merge or release is authorized."
+    ]
+  }
+}

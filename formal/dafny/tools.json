@@ -1,0 +1,18 @@
+{
+  "version": "4.9.1",
+  "runtime": "dafny/DafnyRuntime.jar",
+  "assets": {
+    "Darwin-arm64": {
+      "archive": "dafny-4.9.1-arm64-macos-11.zip",
+      "directory": "dafny-4.9.1-macos-arm64",
+      "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+      "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+    },
+    "Linux-x86_64": {
+      "archive": "dafny-4.9.1-x64-ubuntu-20.04.zip",
+      "directory": "dafny-4.9.1-linux-x64",
+      "sha256": "697ee703b39414b3904dc8c132e51481982f52205c1658f3374d313a284d43eb",
+      "runtime_sha256": "96c597ae2341be477e539f78547d4c0abb1b0daf1192d8b6e2ee43673fab66ed"
+    }
+  }
+}

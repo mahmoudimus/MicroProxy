@@ -1,0 +1,128 @@
+{
+  "status": "passed",
+  "phase": "all",
+  "scope": "Canonical polynomial operations, mathematical NTT representation, two-sided inverse and negacyclic multiplication",
+  "not_proved": [
+    "Dafny compiler/runtime and JVM correctness",
+    "production Java refinement/integration",
+    "JVM/CPU side-channel behavior"
+  ],
+  "inputs": {
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/crypto/polynomial_checks.py": "ca74b3bdffa7af4997be9587078993e822140fed2bd4f29239d5cbeb3a7bffeb",
+    "formal/crypto/polynomial_java.java": "410f3e83b138dafc35249c39e4c3c82198393c280cf95843b8aeb8a9313fa9d9",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697"
+  },
+  "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+  "solver_version": "Z3 version 4.12.1 - 64 bit",
+  "verified": 1562,
+  "controls": {
+    "root": {
+      "result": "semantic proof failure",
+      "source_sha256": "372b2f03a46f9a121f3cacc7349b43e0c7d6294cf4a9c62f789da5ed79125936",
+      "symbol": "RootEntry1.",
+      "log": "polynomial_control_root.log"
+    },
+    "sign": {
+      "result": "semantic proof failure",
+      "source_sha256": "bf73a941eaf9ad43aafcb794f9eeca125363953d5fbcdd36228e1580a7c164fd",
+      "symbol": "VerifiedPolynomial.ForwardStage.",
+      "log": "polynomial_control_sign.log",
+      "negative_control_witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 128
+      },
+      "correct_witness_sha256": "34fc5787110543ed1b988176bac9908199bf1636642a049bbdf91682aec64f62"
+    },
+    "index": {
+      "result": "semantic proof failure",
+      "source_sha256": "698c2e371e51fa83f054a78fcc4af25f30a87bd3fb65e1c4c12542e15e6767cb",
+      "symbol": "VerifiedPolynomial.ForwardStage.",
+      "log": "polynomial_control_index.log",
+      "negative_control_witness": {
+        "stage": 0,
+        "nonzero_coefficient": 128,
+        "value": 1,
+        "other_coefficients": 0,
+        "checked_lane": 0
+      },
+      "correct_witness_sha256": "9c546f2e9140b8d04f9fb45ef52f6a9e80254f58401ed9ff15c16c29342fd607"
+    },
+    "product": {
+      "result": "semantic proof failure",
+      "source_sha256": "086578896a99e29870286797875e35786118a76301ff596f61cc45a8ca212a4b",
+      "symbol": "WrongProduct.",
+      "log": "polynomial_control_product.log"
+    },
+    "wrap": {
+      "result": "semantic proof failure",
+      "source_sha256": "c90c54d04262a7dbfe42aac8b49b3da75a1ff15fb400613ace22531959127411",
+      "symbol": "WrongWrap.",
+      "log": "polynomial_control_wrap.log"
+    },
+    "scale": {
+      "result": "semantic proof failure",
+      "source_sha256": "c0d10e26bd99f3c4dd97ee5e469ad709be9434ee46af04df3f6242905472a485",
+      "symbol": "WrongScale.",
+      "log": "polynomial_control_scale.log"
+    }
+  },
+  "domain_harness": "Dafny program verifier finished with 1 verified, 0 errors",
+  "java_runs": [
+    {
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+      "result": "POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=551008",
+      "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
+    },
+    {
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+      "result": "POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=551008",
+      "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
+    }
+  ],
+  "classes": {
+    "PolySpec/__default.class": "9947ae518c6d0dbca71e057e4a733753ee6f41fbd3c7c31c7ca96d212760244c",
+    "PolynomialRing/Residue.class": "473a0cb14763f51b352c09205356ba2b9e5c276f34e8999002670d738240ba5b",
+    "PolynomialRing/__default.class": "6ab8c6e5641cc0826bccd6743b513a87722042c54181f8af18a353134a0e15ab",
+    "VerifiedField/__default.class": "87c1ffdd22350223953c28f18b11b21904c4e749774feb43431a1e4070a7b1b3",
+    "VerifiedPolynomial/__default.class": "848bd2a9b2ef0b466706a6d8a1605a7b1e36b785c6a2b4b38046db18ca80aae2",
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+    "io/github/mahmoudimus/quic/tls/polynomial_java.class": "dc663bf7caed701617b343eb28b8c9f3ea51ae79d7c9b6042784c299f20c7499"
+  },
+  "generated_java": {
+    "PolySpec/__default.java": "06d7ef00689362f67bc77d7ea0e4357eaaf6f1e22c4686924dab86f2d1be8a52",
+    "Polynomial.java": "7de4ee6ba7a73b65b5d2e8b798e6ce42a109bbc18300b3252c7e3c8032eb6c50",
+    "PolynomialRing/Residue.java": "97d3ce1281af0085108466deeec47df28ba0c3710355e7e58ec6a595f3d3398f",
+    "PolynomialRing/__default.java": "113d45699a1881bf8627c06981fef8124e66980f6a52b7f940dfa687f46bde00",
+    "VerifiedField/__default.java": "0e889f46a8f7cb2cf8e8d54905c0a0b39a3da97f125e250622f64bc97997dae2",
+    "VerifiedPolynomial/__default.java": "1ebc465aa4f4efbf31ea3a7125f63e9f0810d3e2ebb7e1651dec453c30c054f7"
+  },
+  "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f",
+  "footprint": {
+    "generated_source_bytes": 37614,
+    "class_bytes": 42425,
+    "runtime_bytes": 159920
+  },
+  "control_witnesses": {
+    "scope": "Only temporary sign/index negative copies restrict to a legal first-stage basis input. Positive source domains and contracts are unchanged. Correct operations verify the same focused assertions; altered operations fail them on macOS and Linux at unchanged limits.",
+    "linux_negative_results": {
+      "sign": {
+        "exit": 4,
+        "result": "semantic assertion failure"
+      },
+      "index": {
+        "exit": 4,
+        "result": "semantic assertion failure"
+      }
+    }
+  }
+}

@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.microproxy.dns.DnsRecord.Dnskey;
 import org.microproxy.dns.DnsRecord.Ds;
 import org.microproxy.dns.DnsRecord.Rrsig;
@@ -30,7 +29,8 @@ import org.microproxy.dns.DnsRecord.Rrsig;
  *
  * <p>The chain is walked top-down: for every label of a name, a DS query decides whether that name
  * is a signed delegation, an unsigned delegation, or not a zone cut. Validated zone keys and
- * delegation facts are cached for their TTL (at most an hour).
+ * delegation facts are cached for their TTL (at most an hour), with a fixed entry limit. Each
+ * resolution has one aggregate cryptographic-work allowance; exhausting it rejects the answer.
  */
 final class DnssecValidator {
 
@@ -38,6 +38,28 @@ final class DnssecValidator {
     private static final long MAX_CACHE_MILLIS = 3_600_000;
     private static final int MAX_NSEC3_ITERATIONS = 150;
     private static final int MAX_CHAIN = 12;
+    private static final int SIGNATURE_WORK = 128;
+    private static final int DS_DIGEST_WORK = 8;
+    static final int DEFAULT_MAX_VALIDATION_WORK = 8192;
+    static final int DEFAULT_CACHE_CAPACITY = 1024;
+
+    /** One lookup's allowance, shared by address-family fallback, aliases and the trust chain. */
+    static final class WorkBudget {
+        private int remaining;
+
+        WorkBudget(int limit) {
+            if (limit < 1) throw new IllegalArgumentException("validation work limit must be positive");
+            remaining = limit;
+        }
+
+        void consume(int work) throws DnssecValidationException {
+            if (work > remaining) {
+                remaining = 0;
+                throw new DnssecValidationException("DNSSEC validation work budget exhausted");
+            }
+            remaining -= work;
+        }
+    }
 
     enum Security { SECURE, INSECURE }
 
@@ -77,15 +99,32 @@ final class DnssecValidator {
     private final DnsTransport transport;
     private final List<DnsRecord> trustAnchors;
     private final Clock clock;
+    private final int maxValidationWork;
     private final SecureRandom random = new SecureRandom();
-    private final Map<DnsName, ZoneKeys> zoneKeys = new ConcurrentHashMap<>();
-    private final Map<DnsName, Long> insecureCuts = new ConcurrentHashMap<>();
-    private final Map<DnsName, Long> notCuts = new ConcurrentHashMap<>();
+    private final BoundedExpiringCache<DnsName, ZoneKeys> zoneKeys;
+    private final BoundedExpiringCache<DnsName, Long> insecureCuts;
+    private final BoundedExpiringCache<DnsName, Long> notCuts;
 
     DnssecValidator(DnsTransport transport, List<DnsRecord> trustAnchors, Clock clock) {
+        this(transport, trustAnchors, clock, DEFAULT_MAX_VALIDATION_WORK, DEFAULT_CACHE_CAPACITY);
+    }
+
+    DnssecValidator(DnsTransport transport, List<DnsRecord> trustAnchors, Clock clock, int maxValidationWork,
+            int cacheCapacity) {
         this.transport = transport;
         this.trustAnchors = List.copyOf(trustAnchors);
         this.clock = clock;
+        this.maxValidationWork = maxValidationWork;
+        zoneKeys = new BoundedExpiringCache<>(cacheCapacity, clock);
+        insecureCuts = new BoundedExpiringCache<>(cacheCapacity, clock);
+        notCuts = new BoundedExpiringCache<>(cacheCapacity, clock);
+    }
+
+    WorkBudget newBudget() {
+        zoneKeys.evictExpired();
+        insecureCuts.evictExpired();
+        notCuts.evictExpired();
+        return new WorkBudget(maxValidationWork);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -97,6 +136,10 @@ final class DnssecValidator {
      * chains. Returns an empty answer for NXDOMAIN/NODATA.
      */
     Answer lookup(DnsName qname, int qtype) throws IOException {
+        return lookup(qname, qtype, newBudget());
+    }
+
+    Answer lookup(DnsName qname, int qtype, WorkBudget budget) throws IOException {
         DnsName current = qname;
         DnsMessage message = query(qname, qtype);
         boolean secure = true;
@@ -112,14 +155,14 @@ final class DnssecValidator {
             Map<String, RRset> sets = group(message.answer);
             RRset target = sets.get(key(current, qtype));
             if (target != null) {
-                secure &= validate(target, message) == Security.SECURE;
+                secure &= validate(target, message, budget) == Security.SECURE;
                 return new Answer(target.records(), secure, Math.min(ttl, target.minTtl()));
             }
             RRset cname = sets.get(key(current, DnsRecord.CNAME));
             RRset dname = cname == null ? findDname(sets.values(), current) : null;
             if (cname != null || dname != null) {
                 RRset alias = cname != null ? cname : dname;
-                secure &= validate(alias, message) == Security.SECURE;
+                secure &= validate(alias, message, budget) == Security.SECURE;
                 ttl = Math.min(ttl, alias.minTtl());
                 current = cname != null ? cname.records().getFirst().target() : substitute(current, dname);
                 if (!seen.add(current) || seen.size() > MAX_CHAIN) {
@@ -164,9 +207,9 @@ final class DnssecValidator {
     // ---------------------------------------------------------------------------------------
 
     /** Validates one RRset from {@code response}; throws if bogus. */
-    Security validate(RRset set, DnsMessage response) throws IOException {
+    private Security validate(RRset set, DnsMessage response, WorkBudget budget) throws IOException {
         if (set.sigs().isEmpty()) {
-            if (walk(set.name()) != null) {
+            if (walk(set.name(), budget) != null) {
                 throw new DnssecValidationException(
                         "unsigned " + typeName(set.type()) + " for " + set.name() + " in a signed zone");
             }
@@ -178,7 +221,7 @@ final class DnssecValidator {
             if (!DnssecCrypto.supportsAlgorithm(sig.algorithm()) || !set.name().isSubdomainOf(sig.signer())) {
                 continue;
             }
-            ZoneKeys keys = walk(sig.signer());
+            ZoneKeys keys = walk(sig.signer(), budget);
             if (keys == null) {
                 return Security.INSECURE;
             }
@@ -186,9 +229,9 @@ final class DnssecValidator {
                 failure = new DnssecValidationException(sig.signer() + " signs " + set.name() + " but is not a zone");
                 continue;
             }
-            if (verifyWithKeys(set, sig, keys)) {
+            if (verifyWithKeys(set, sig, keys, budget)) {
                 if (sig.labels() < ownerLabels(set.name())) {
-                    requireWildcardProof(set.name(), sig.labels(), keys, response);
+                    requireWildcardProof(set.name(), sig.labels(), keys, response, budget);
                 }
                 return Security.SECURE;
             }
@@ -199,9 +242,10 @@ final class DnssecValidator {
                 : new DnssecValidationException("no usable signature for " + typeName(set.type()) + " " + set.name());
     }
 
-    private boolean verifyWithKeys(RRset set, Rrsig sig, ZoneKeys keys) {
+    private boolean verifyWithKeys(RRset set, Rrsig sig, ZoneKeys keys, WorkBudget budget)
+            throws DnssecValidationException {
         for (Dnskey key : keys.keys()) {
-            if (key.keyTag() == sig.keyTag() && key.algorithm() == sig.algorithm() && verify(set, sig, key)) {
+            if (key.keyTag() == sig.keyTag() && key.algorithm() == sig.algorithm() && verify(set, sig, key, budget)) {
                 return true;
             }
         }
@@ -209,11 +253,11 @@ final class DnssecValidator {
     }
 
     /** Whether any signature on {@code set} by {@code keys.zone()} verifies. */
-    private boolean signedBy(RRset set, ZoneKeys keys) {
+    private boolean signedBy(RRset set, ZoneKeys keys, WorkBudget budget) throws DnssecValidationException {
         for (DnsRecord sigRecord : set.sigs()) {
             Rrsig sig = sigRecord.rrsig();
             if (sig.signer().equals(keys.zone()) && set.name().isSubdomainOf(keys.zone())
-                    && verifyWithKeys(set, sig, keys)) {
+                    && verifyWithKeys(set, sig, keys, budget)) {
                 return true;
             }
         }
@@ -221,7 +265,7 @@ final class DnssecValidator {
     }
 
     /** Verifies one signature over an RRset (RFC 4035 section 5.3). */
-    boolean verify(RRset set, Rrsig sig, Dnskey key) {
+    private boolean verify(RRset set, Rrsig sig, Dnskey key, WorkBudget budget) throws DnssecValidationException {
         if (sig.typeCovered() != set.type() || !set.name().isSubdomainOf(sig.signer())
                 || !key.isZoneKey() || key.isRevoked() || key.protocol() != 3) {
             return false;
@@ -236,6 +280,8 @@ final class DnssecValidator {
             LOG.log(Level.DEBUG, "signature over {0} outside its validity period", set.name());
             return false;
         }
+        // Charge before canonicalization, public-key construction or signature verification.
+        budget.consume(SIGNATURE_WORK);
         byte[] data = signedData(set, sig.rdataWithoutSignature(), sig.labels(), sig.originalTtl());
         return DnssecCrypto.verify(sig.algorithm(), key.publicKey(), data, sig.signature());
     }
@@ -277,18 +323,18 @@ final class DnssecValidator {
     }
 
     /** RFC 4035 5.3.4 / RFC 5155 8.8: a wildcard answer needs proof that no closer name exists. */
-    private void requireWildcardProof(DnsName owner, int sigLabels, ZoneKeys keys, DnsMessage response)
+    private void requireWildcardProof(DnsName owner, int sigLabels, ZoneKeys keys, DnsMessage response, WorkBudget budget)
             throws IOException {
         DnsName nextCloser = owner.suffix(sigLabels + 1);
         for (RRset nsec : group(response.authority).values()) {
-            if (nsec.type() == DnsRecord.NSEC && signedBy(nsec, keys)) {
+            if (nsec.type() == DnsRecord.NSEC && signedBy(nsec, keys, budget)) {
                 DnsRecord r = nsec.records().getFirst();
                 if (nsecCovers(r.name(), r.nsec().next(), owner)) return;
             }
-            if (nsec.type() == DnsRecord.NSEC3 && signedBy(nsec, keys)) {
+            if (nsec.type() == DnsRecord.NSEC3 && signedBy(nsec, keys, budget)) {
                 DnsRecord r = nsec.records().getFirst();
                 DnsRecord.Nsec3 n3 = r.nsec3();
-                if (n3.hashAlgorithm() == 1 && nsec3Covers(r, DnssecCrypto.nsec3Hash(nextCloser, n3.salt(), n3.iterations()))) {
+                if (nsec3Covers(r, nsec3Hash(nextCloser, n3, budget))) {
                     return;
                 }
             }
@@ -306,7 +352,11 @@ final class DnssecValidator {
      * a provably unsigned delegation.
      */
     ZoneKeys walk(DnsName name) throws IOException {
-        ZoneKeys current = rootKeys();
+        return walk(name, newBudget());
+    }
+
+    private ZoneKeys walk(DnsName name, WorkBudget budget) throws IOException {
+        ZoneKeys current = rootKeys(budget);
         long now = clock.millis();
         for (int depth = 1; depth <= name.labelCount(); depth++) {
             DnsName child = name.suffix(depth);
@@ -321,43 +371,43 @@ final class DnssecValidator {
             if (fresh(notCuts, child, now)) {
                 continue;
             }
-            Cut cut = cutStatus(child, current);
-            long expires = now + Math.clamp(cut.ttlSeconds() * 1000, 1_000L, MAX_CACHE_MILLIS);
+            Cut cut = cutStatus(child, current, budget);
+            long expires = now + Math.clamp(cut.ttlSeconds(), 0L, MAX_CACHE_MILLIS / 1000) * 1000;
             switch (cut) {
                 case Cut.SecureDelegation(RRset ds, long ttl) -> {
-                    ZoneKeys keys = validateDnskeys(child, ds.records(), ttl);
+                    ZoneKeys keys = validateDnskeys(child, ds.records(), ttl, budget);
                     if (keys == null) {
-                        insecureCuts.put(child, expires);
+                        insecureCuts.put(child, expires, expires);
                         return null;
                     }
-                    zoneKeys.put(child, keys);
+                    zoneKeys.put(child, keys, keys.expiresAtMillis());
                     current = keys;
                 }
                 case Cut.InsecureDelegation insecure -> {
-                    insecureCuts.put(child, expires);
+                    insecureCuts.put(child, expires, expires);
                     return null;
                 }
-                case Cut.NotACut notACut -> notCuts.put(child, expires);
+                case Cut.NotACut notACut -> notCuts.put(child, expires, expires);
             }
         }
         return current;
     }
 
-    private static boolean fresh(Map<DnsName, Long> cache, DnsName name, long now) {
+    private static boolean fresh(BoundedExpiringCache<DnsName, Long> cache, DnsName name, long now) {
         Long expires = cache.get(name);
         return expires != null && expires > now;
     }
 
-    private ZoneKeys rootKeys() throws IOException {
+    private ZoneKeys rootKeys(WorkBudget budget) throws IOException {
         ZoneKeys cached = zoneKeys.get(DnsName.ROOT);
         if (cached != null && cached.expiresAtMillis() > clock.millis()) {
             return cached;
         }
-        ZoneKeys keys = validateDnskeys(DnsName.ROOT, trustAnchors, MAX_CACHE_MILLIS / 1000);
+        ZoneKeys keys = validateDnskeys(DnsName.ROOT, trustAnchors, MAX_CACHE_MILLIS / 1000, budget);
         if (keys == null) {
             throw new DnssecValidationException("no supported trust anchor for the root zone");
         }
-        zoneKeys.put(DnsName.ROOT, keys);
+        zoneKeys.put(DnsName.ROOT, keys, keys.expiresAtMillis());
         return keys;
     }
 
@@ -366,7 +416,8 @@ final class DnssecValidator {
      * (already validated) DS records signs it. Returns null if no DS uses a supported algorithm,
      * which makes the zone insecure (RFC 4035 section 5.2).
      */
-    private ZoneKeys validateDnskeys(DnsName zone, List<DnsRecord> dsRecords, long dsTtl) throws IOException {
+    private ZoneKeys validateDnskeys(DnsName zone, List<DnsRecord> dsRecords, long dsTtl, WorkBudget budget)
+            throws IOException {
         List<Ds> supported = new ArrayList<>();
         for (DnsRecord r : dsRecords) {
             Ds ds = r.ds();
@@ -395,6 +446,7 @@ final class DnssecValidator {
             for (Ds ds : supported) {
                 if (ds.keyTag() != key.keyTag() || ds.algorithm() != key.algorithm()) continue;
                 byte[] digest;
+                budget.consume(DS_DIGEST_WORK);
                 try {
                     digest = DnssecCrypto.dsDigest(ds.digestType(), zone, key.rdata());
                 } catch (GeneralSecurityException e) {
@@ -404,10 +456,10 @@ final class DnssecValidator {
                 for (DnsRecord sigRecord : set.sigs()) {
                     Rrsig sig = sigRecord.rrsig();
                     if (sig.keyTag() == key.keyTag() && sig.algorithm() == key.algorithm()
-                            && sig.signer().equals(zone) && verify(set, sig, key)) {
+                            && sig.signer().equals(zone) && verify(set, sig, key, budget)) {
                         long ttl = Math.min(Math.min(dsTtl, set.minTtl()), MAX_CACHE_MILLIS / 1000);
                         long sigExpiryMillis = epochMillis(sig.expiration());
-                        long expires = Math.min(clock.millis() + Math.max(1, ttl) * 1000, sigExpiryMillis);
+                        long expires = Math.min(clock.millis() + Math.max(0, ttl) * 1000, sigExpiryMillis);
                         return new ZoneKeys(zone, List.copyOf(keys), expires);
                     }
                 }
@@ -422,7 +474,7 @@ final class DnssecValidator {
     }
 
     /** Classifies {@code child} using a DS query answered by the zone of {@code parent}. */
-    private Cut cutStatus(DnsName child, ZoneKeys parent) throws IOException {
+    private Cut cutStatus(DnsName child, ZoneKeys parent, WorkBudget budget) throws IOException {
         DnsMessage message = query(child, DnsRecord.DS);
         if (message.rcode() == DnsMessage.RCODE_NXDOMAIN) {
             // The name does not exist; continuing with the parent's keys can only make data bogus.
@@ -434,7 +486,7 @@ final class DnssecValidator {
         Map<String, RRset> answer = group(message.answer);
         RRset ds = answer.get(key(child, DnsRecord.DS));
         if (ds != null) {
-            if (!signedBy(ds, parent)) {
+            if (!signedBy(ds, parent, budget)) {
                 throw new DnssecValidationException("DS for " + child + " is not validly signed by " + parent.zone());
             }
             return new Cut.SecureDelegation(ds, ds.minTtl());
@@ -442,15 +494,15 @@ final class DnssecValidator {
         if (answer.containsKey(key(child, DnsRecord.CNAME))) {
             return new Cut.NotACut(60);
         }
-        return denialOfDs(child, parent, message);
+        return denialOfDs(child, parent, message, budget);
     }
 
     /** Interprets the NSEC/NSEC3 proof in a NODATA response to a DS query. */
-    private Cut denialOfDs(DnsName child, ZoneKeys parent, DnsMessage message) throws IOException {
+    private Cut denialOfDs(DnsName child, ZoneKeys parent, DnsMessage message, WorkBudget budget) throws IOException {
         List<DnsRecord> nsecs = new ArrayList<>();
         List<DnsRecord> nsec3s = new ArrayList<>();
         for (RRset set : group(message.authority).values()) {
-            if ((set.type() == DnsRecord.NSEC || set.type() == DnsRecord.NSEC3) && signedBy(set, parent)) {
+            if ((set.type() == DnsRecord.NSEC || set.type() == DnsRecord.NSEC3) && signedBy(set, parent, budget)) {
                 (set.type() == DnsRecord.NSEC ? nsecs : nsec3s).addAll(set.records());
             }
         }
@@ -468,14 +520,7 @@ final class DnssecValidator {
         }
         if (!nsec3s.isEmpty()) {
             DnsRecord.Nsec3 params = nsec3s.getFirst().nsec3();
-            if (params.hashAlgorithm() != 1) {
-                throw new DnssecValidationException("unsupported NSEC3 hash algorithm " + params.hashAlgorithm());
-            }
-            if (params.iterations() > MAX_NSEC3_ITERATIONS) {
-                // RFC 9276 section 3.2: validators may treat such zones as insecure.
-                return new Cut.InsecureDelegation(nsec3s.getFirst().ttl());
-            }
-            byte[] childHash = DnssecCrypto.nsec3Hash(child, params.salt(), params.iterations());
+            byte[] childHash = nsec3Hash(child, params, budget);
             for (DnsRecord r : nsec3s) {
                 if (Arrays.equals(nsec3OwnerHash(r), childHash)) {
                     return fromBitmap(child, r.nsec3().typeBitmaps(), r.ttl());
@@ -484,11 +529,11 @@ final class DnssecValidator {
             // No exact match: closest encloser proof (RFC 5155 8.6). Find the closest ancestor
             // with a matching NSEC3; the next-closer name must be covered.
             for (DnsName encloser = child.parent(); encloser.isSubdomainOf(parent.zone()); encloser = encloser.parent()) {
-                byte[] encloserHash = DnssecCrypto.nsec3Hash(encloser, params.salt(), params.iterations());
+                byte[] encloserHash = nsec3Hash(encloser, params, budget);
                 boolean matched = nsec3s.stream().anyMatch(r -> Arrays.equals(nsec3OwnerHash(r), encloserHash));
                 if (matched) {
                     DnsName nextCloser = child.suffix(encloser.labelCount() + 1);
-                    byte[] nextHash = DnssecCrypto.nsec3Hash(nextCloser, params.salt(), params.iterations());
+                    byte[] nextHash = nsec3Hash(nextCloser, params, budget);
                     for (DnsRecord r : nsec3s) {
                         if (nsec3Covers(r, nextHash)) {
                             // Opt-out spans may hide unsigned delegations; otherwise the name
@@ -503,6 +548,18 @@ final class DnssecValidator {
         }
         throw new DnssecValidationException("no valid proof that " + child + " is not a signed delegation of "
                 + parent.zone());
+    }
+
+    private static byte[] nsec3Hash(DnsName name, DnsRecord.Nsec3 params, WorkBudget budget)
+            throws DnssecValidationException {
+        if (params.hashAlgorithm() != 1) {
+            throw new DnssecValidationException("unsupported NSEC3 hash algorithm " + params.hashAlgorithm());
+        }
+        if (params.iterations() > MAX_NSEC3_ITERATIONS) {
+            throw new DnssecValidationException("NSEC3 iteration limit exceeded");
+        }
+        budget.consume(params.iterations() + 1);
+        return DnssecCrypto.nsec3Hash(name, params.salt(), params.iterations());
     }
 
     private static Cut fromBitmap(DnsName child, byte[] bitmap, long ttl) throws DnssecValidationException {

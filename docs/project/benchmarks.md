@@ -11,7 +11,7 @@ adversarial clients, soak and faults. Both pin the same LittleProxy.
 
 The benchmarks live in the `benchmarks/` module, which only the `bench` Maven profile builds: a
 normal `mvn verify` neither compiles it nor downloads JMH, LittleProxy or Netty, and the module is
-never installed, deployed or published. The published modules stay dependency-free.
+never installed, deployed or published. Benchmark libraries are not added to the published modules.
 
 No numbers are published here. Shared CI runners and development containers are too noisy for
 them, so results worth quoting come from a manual run on a quiet machine, with the command line

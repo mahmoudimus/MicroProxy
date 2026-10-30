@@ -1,0 +1,12 @@
+import "../Field.cry";
+enable_experimental;
+
+mlkem <- java_load_class "io/github/mahmoudimus/quic/tls/MlKem768";
+
+// This must reach a failed proof with an actual counterexample.
+jvm_verify mlkem "reduceOnce" [] true do {
+  a <- jvm_fresh_var "a" java_int;
+  jvm_precond {{ a < 2 * q }};
+  jvm_execute_func [jvm_term a];
+  jvm_return (jvm_term {{ wrongReduceOnce a }});
+} abc;

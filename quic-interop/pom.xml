@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.mahmoudimus</groupId>
+        <artifactId>microproxy-parent</artifactId>
+        <version>0.6.0</version>
+    </parent>
+    <artifactId>quic-interop</artifactId>
+    <name>QUIC Interop Runner endpoint</name>
+    <description>Optional file-transfer endpoint for the QUIC Interop Runner.</description>
+    <dependencies>
+        <dependency><groupId>io.github.mahmoudimus</groupId><artifactId>quic</artifactId></dependency>
+        <dependency><groupId>io.github.mahmoudimus</groupId><artifactId>http3-codec</artifactId></dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    </dependencies>
+    <build>
+        <finalName>quic-interop</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId>
+                <executions><execution><phase>package</phase><goals><goal>shade</goal></goals>
+                    <configuration>
+                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <transformers><transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <mainClass>io.github.mahmoudimus.quic.interop.InteropEndpoint</mainClass>
+                        </transformer></transformers>
+                    </configuration>
+                </execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

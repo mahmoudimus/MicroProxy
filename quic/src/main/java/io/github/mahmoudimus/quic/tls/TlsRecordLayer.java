@@ -31,15 +31,32 @@ final class TlsRecordLayer {
     static final int MAX_FRAGMENT = 1 << 14;
     private static final int MAX_CIPHERTEXT = MAX_FRAGMENT + 256;
     private static final int TAG_LENGTH = 16;
+    // Conservative per-key cap, below RFC 8446 section 5.5's 2^24.5 full-size AES-GCM records.
+    private static final long AES_RECORD_LIMIT = 1L << 23;
     /** In the error for bytes that are not a TLS record at all: the peer is not a TLS server. */
     static final String NOT_TLS = "not a TLS record";
 
     /** A record's content type and its (decrypted) content. */
     record Record(int type, byte[] fragment) {}
 
+    @FunctionalInterface
+    interface KeyUpdater {
+        void update() throws IOException;
+    }
+
     /** One direction's protection and its sequence number. */
-    private abstract static sealed class Protection permits Tls13, Tls12Aead, Tls12Cbc {
+    private abstract static sealed class Protection permits Tls13, Tls12Aead {
+        final long recordLimit;
         long sequence;
+
+        Protection(long recordLimit) {
+            this.recordLimit = recordLimit;
+        }
+
+        boolean exhausted() {
+            // Reject negative values too: counters may never enter the signed overflow range.
+            return sequence < 0 || sequence >= recordLimit;
+        }
 
         /** The protected record, header included, for {@code len} bytes of {@code type}. */
         abstract byte[] seal(int type, byte[] data, int off, int len) throws GeneralSecurityException;
@@ -68,6 +85,7 @@ final class TlsRecordLayer {
         final byte[] iv;
 
         Tls13(CipherSuite suite, byte[] secret) {
+            super(suite.aes() ? AES_RECORD_LIMIT : Long.MAX_VALUE);
             this.suite = suite;
             byte[] k = suite.hkdf().expandLabel(secret, "key", new byte[0], suite.keyLength());
             this.key = new SecretKeySpec(k, suite.aes() ? "AES" : "ChaCha20");
@@ -131,6 +149,7 @@ final class TlsRecordLayer {
         final byte[] iv;
 
         Tls12Aead(Tls12CipherSuite suite, byte[] key, byte[] iv) {
+            super(suite.bulk != Tls12CipherSuite.Bulk.CHACHA20_POLY1305 ? AES_RECORD_LIMIT : Long.MAX_VALUE);
             this.gcm = suite.bulk != Tls12CipherSuite.Bulk.CHACHA20_POLY1305;
             this.key = new SecretKeySpec(key, gcm ? "AES" : "ChaCha20");
             this.iv = iv.clone();
@@ -193,107 +212,6 @@ final class TlsRecordLayer {
         }
     }
 
-    /**
-     * TLS 1.2 AES-CBC with HMAC-SHA1, MAC then encrypt (RFC 5246 section 6.2.3.2): a random explicit
-     * IV per record, the MAC over the sequence number, header and content, and padding. The padding
-     * and MAC are checked without branching on the padding, as Go's crypto/tls does (conn.go
-     * extractPadding).
-     */
-    private static final class Tls12Cbc extends Protection {
-        final SecretKeySpec key;
-        final SecretKeySpec macKey;
-        final java.security.SecureRandom random;
-
-        Tls12Cbc(byte[] key, byte[] macKey, java.security.SecureRandom random) {
-            this.key = new SecretKeySpec(key, "AES");
-            this.macKey = new SecretKeySpec(macKey, "HmacSHA1");
-            this.random = random;
-        }
-
-        private byte[] mac(byte[] seq, int type, byte[] data, int off, int len) throws GeneralSecurityException {
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA1");
-            mac.init(macKey);
-            mac.update(seq);
-            mac.update(header(type, len));
-            mac.update(data, off, len);
-            return mac.doFinal();
-        }
-
-        @Override
-        byte[] seal(int type, byte[] data, int off, int len) throws GeneralSecurityException {
-            byte[] seq = sequenceBytes();
-            sequence++;
-            byte[] mac = mac(seq, type, data, off, len);
-            int unpadded = len + mac.length + 1;
-            int padding = (16 - unpadded % 16) % 16;
-            byte[] plain = new byte[unpadded + padding];
-            System.arraycopy(data, off, plain, 0, len);
-            System.arraycopy(mac, 0, plain, len, mac.length);
-            Arrays.fill(plain, len + mac.length, plain.length, (byte) padding);
-            byte[] iv = new byte[16];
-            random.nextBytes(iv);
-            Cipher c = Cipher.getInstance("AES/CBC/NoPadding");
-            c.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
-            byte[] body = concat(iv, c.doFinal(plain));
-            return concat(header(type, body.length), body);
-        }
-
-        @Override
-        Record open(byte[] header, byte[] fragment) throws QuicException {
-            byte[] seq = sequenceBytes();
-            sequence++;
-            if (fragment.length % 16 != 0 || fragment.length < 16 + 32) {
-                throw TlsAlert.error(TlsAlert.BAD_RECORD_MAC, "a CBC record of " + fragment.length + " bytes");
-            }
-            byte[] plain;
-            try {
-                Cipher c = Cipher.getInstance("AES/CBC/NoPadding");
-                c.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(fragment, 0, 16));
-                plain = c.doFinal(fragment, 16, fragment.length - 16);
-            } catch (GeneralSecurityException e) {
-                throw TlsAlert.error(TlsAlert.BAD_RECORD_MAC, "a record does not decrypt");
-            }
-            int paddingLength = plain[plain.length - 1] & 0xff;
-            int good = paddingGood(plain, paddingLength);
-            int toRemove = (paddingLength + 1) & good;
-            int contentLength = plain.length - 20 - toRemove;
-            contentLength = contentLength < 0 ? 0 : contentLength;
-            byte[] expected;
-            try {
-                expected = mac(seq, header[0] & 0xff, plain, 0, contentLength);
-            } catch (GeneralSecurityException e) {
-                throw TlsAlert.error(TlsAlert.INTERNAL_ERROR, "HMAC-SHA1: " + e.getMessage());
-            }
-            byte[] received = Arrays.copyOfRange(plain, contentLength, contentLength + 20);
-            boolean macGood = java.security.MessageDigest.isEqual(expected, received);
-            if (!macGood || good != -1) throw TlsAlert.error(TlsAlert.BAD_RECORD_MAC, "a record does not decrypt");
-            return new Record(header[0] & 0xff, Arrays.copyOf(plain, contentLength));
-        }
-
-        /**
-         * -1 if the last {@code paddingLength + 1} bytes of {@code plain} all equal {@code
-         * paddingLength} and fit in it, 0 otherwise, computed with masks only (Go's extractPadding).
-         */
-        private static int paddingGood(byte[] plain, int paddingLength) {
-            int good = ~((plain.length - 1 - paddingLength) >> 31) & 0xff;
-            int check = Math.min(256, plain.length);
-            for (int i = 0; i < check; i++) {
-                int inPadding = ~((paddingLength - i) >> 31) & 0xff; // 0xff while i <= paddingLength
-                int b = plain[plain.length - 1 - i] & 0xff;
-                good &= ~(inPadding & (paddingLength ^ b)) & 0xff;
-            }
-            good &= (good << 4) & 0xff;
-            good &= (good << 2) & 0xff;
-            good &= (good << 1) & 0xff;
-            return ((byte) good) >> 7;
-        }
-
-        @Override
-        boolean protects(int type) {
-            return true;
-        }
-    }
-
     static byte[] concat(byte[] a, byte[] b) {
         byte[] out = Arrays.copyOf(a, a.length + b.length);
         System.arraycopy(b, 0, out, a.length, b.length);
@@ -304,6 +222,7 @@ final class TlsRecordLayer {
     private final OutputStream out;
     private Protection read;
     private Protection write;
+    private TlsAcceptancePolicy policy;
     private int plaintextVersion = 0x0301;
     private int maxFragment = MAX_FRAGMENT;
 
@@ -312,24 +231,50 @@ final class TlsRecordLayer {
         this.out = out;
     }
 
+    /** Apply caller and JDK restrictions whenever real traffic keys are installed, including updates. */
+    void acceptance(TlsAcceptancePolicy policy) {
+        this.policy = policy;
+    }
+
     /** Protects every record written from now on with TLS 1.3 keys derived from {@code secret}. */
-    void writeKeys(CipherSuite suite, byte[] secret) {
-        write = new Tls13(suite, secret);
+    void writeKeys(CipherSuite suite, byte[] secret) throws QuicException {
+        Tls13 protection = new Tls13(suite, secret);
+        if (policy != null) policy.trafficKey(suite.name(), suite.aead(), protection.key);
+        write = protection;
     }
 
     /** Expects every record read from now on to be protected with TLS 1.3 keys derived from {@code secret}. */
-    void readKeys(CipherSuite suite, byte[] secret) {
-        read = new Tls13(suite, secret);
+    void readKeys(CipherSuite suite, byte[] secret) throws QuicException {
+        Tls13 protection = new Tls13(suite, secret);
+        if (policy != null) policy.trafficKey(suite.name(), suite.aead(), protection.key);
+        read = protection;
     }
 
     /** Protects every record written from now on with TLS 1.2 {@code suite}'s keys. */
-    void writeKeys12(Tls12CipherSuite suite, byte[] macKey, byte[] key, byte[] iv, java.security.SecureRandom random) {
-        write = suite.bulk.cbc() ? new Tls12Cbc(key, macKey, random) : new Tls12Aead(suite, key, iv);
+    void writeKeys12(Tls12CipherSuite suite, byte[] macKey, byte[] key, byte[] iv, java.security.SecureRandom random)
+            throws QuicException {
+        rejectCbc(suite);
+        Tls12Aead protection = new Tls12Aead(suite, key, iv);
+        if (policy != null) {
+            policy.trafficKey(suite.name(), protection.gcm ? "AES/GCM/NoPadding" : "ChaCha20-Poly1305", protection.key);
+        }
+        write = protection;
     }
 
     /** Expects every record read from now on to be protected with TLS 1.2 {@code suite}'s keys. */
-    void readKeys12(Tls12CipherSuite suite, byte[] macKey, byte[] key, byte[] iv) {
-        read = suite.bulk.cbc() ? new Tls12Cbc(key, macKey, null) : new Tls12Aead(suite, key, iv);
+    void readKeys12(Tls12CipherSuite suite, byte[] macKey, byte[] key, byte[] iv) throws QuicException {
+        rejectCbc(suite);
+        Tls12Aead protection = new Tls12Aead(suite, key, iv);
+        if (policy != null) {
+            policy.trafficKey(suite.name(), protection.gcm ? "AES/GCM/NoPadding" : "ChaCha20-Poly1305", protection.key);
+        }
+        read = protection;
+    }
+
+    private static void rejectCbc(Tls12CipherSuite suite) {
+        if (suite.bulk.cbc()) {
+            throw new IllegalArgumentException("TLS CBC record protection is disabled; select an AEAD suite");
+        }
     }
 
     /**
@@ -347,8 +292,16 @@ final class TlsRecordLayer {
 
     /** Writes {@code data} as records of {@code type}, without flushing. */
     void write(int type, byte[] data) throws IOException {
+        write(type, data, null);
+    }
+
+    /** Updates application traffic keys between fragments, reserving the old key's last record for KeyUpdate. */
+    void write(int type, byte[] data, KeyUpdater updater) throws IOException {
         int off = 0;
         do {
+            if (updater != null && write instanceof Tls13 && write.sequence >= write.recordLimit - 1) {
+                updater.update();
+            }
             int n = Math.min(maxFragment, data.length - off);
             writeRecord(type, data, off, n);
             off += n;
@@ -374,6 +327,7 @@ final class TlsRecordLayer {
             out.write(data, off, len);
             return;
         }
+        if (write.exhausted()) throw new IOException("TLS traffic key usage limit reached");
         try {
             out.write(write.seal(type, data, off, len));
         } catch (GeneralSecurityException e) {
@@ -410,6 +364,7 @@ final class TlsRecordLayer {
         if (read instanceof Tls13 && type != APPLICATION_DATA) {
             throw TlsAlert.unexpectedMessage("an unprotected record of type " + type + " after the keys");
         }
+        if (read.exhausted()) throw TlsAlert.error(TlsAlert.INTERNAL_ERROR, "TLS traffic key usage limit reached");
         Record record = read.open(header, fragment);
         if (record.fragment().length > MAX_FRAGMENT) {
             throw TlsAlert.error(TlsAlert.RECORD_OVERFLOW, "a protected record of " + record.fragment().length + " bytes");

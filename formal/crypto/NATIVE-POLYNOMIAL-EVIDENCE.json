@@ -1,0 +1,499 @@
+{
+  "schema": "microproxy.native-polynomial-control-replay/v1",
+  "status": "passed",
+  "scope": "Full positive-domain proof/translation/runtime replay on macOS ARM64; all 14 strict negative controls on Linux amd64. The Linux replay is control-only, not another proof of the unrestricted positive graph.",
+  "repair": "Index mutant executes the original ForwardStage body with f[i+l] changed to f[i]. A legal stage 0 sparse vector distinguishes actual lane 0 output 1729 from mutant 0 before any false mutant loop invariant is available. The paired original-body run restores only that index and verifies the same focused assertion.",
+  "unchanged_policy": {
+    "positive_domain": "Every array of exactly 256 coefficients in [0,3329); input aliasing permitted",
+    "negative_control_count": 14,
+    "required_semantic_exit": 4,
+    "resource_timeout_crash_diagnostics": "rejected",
+    "cores": 2,
+    "verification_time_limit_seconds": 30,
+    "resource_limit": 50000000,
+    "native_case_split": 0,
+    "dependency_case_split": "unchanged default 3"
+  },
+  "failure_lineage": {
+    "head": "7845d0f77c2bb327b6b03b4b67402076bb7412ee",
+    "push_run": 40994119132,
+    "job": 123863140625,
+    "artifact": 12950627451,
+    "artifact_sha256": "34935bf12ca2ed37c292bd51eb1070997f0aa050b6cfac4f27bedd6713e0f3d0",
+    "diagnostic": "134 verified, 1 invariant error, 1 out of resource; correctly rejected as inconclusive",
+    "linux_reproduction_log": {
+      "path": "/tmp/microproxy-poly-index-ci/original-index-linux.log",
+      "sha256": "097fc4e7998f8fa41168b3d2a55eec74cc58bc8c20d122096f43b16bac46f174"
+    },
+    "candidate_pair_logs": {
+      "candidate-correct-linux.log": {
+        "path": "/tmp/microproxy-poly-index-ci/candidate-correct-linux.log",
+        "sha256": "faeb9f26cd0a52c46f258a4cad5f567f5ae1f47af02cefb13e6e86f5a1a9ee49"
+      },
+      "candidate-index-linux.log": {
+        "path": "/tmp/microproxy-poly-index-ci/candidate-index-linux.log",
+        "sha256": "7239b3e8aa8f11553499119799f1a410ab981db290eeacd7611e0896dbe528f5"
+      }
+    },
+    "limits": {
+      "cores": 2,
+      "verification_time_seconds": 30,
+      "resource_limit": 50000000,
+      "native_case_split": 0
+    }
+  },
+  "mac_full": {
+    "raw_receipt_path": "/tmp/microproxy-poly-index-ci/native-full-current/native_polynomial_report.json",
+    "raw_receipt_sha256": "b809bb502e4af00f790bf99ee366c015a0f5247b086a54a2842d1b50a15ea53a",
+    "receipt": {
+      "status": "passed",
+      "phase": "all",
+      "inputs": {
+        "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+        "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+        "formal/crypto/native_polynomial_domain.dfy": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+        "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+        "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+        "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+        "formal/crypto/native_polynomial_checks.py": "790d55ae4c60241170d93bb2b614cd9ac58edc703dfc2623ebb4d416caa16c27",
+        "formal/crypto/native_polynomial_test.java": "3726f78d85985d105de367e4656b51600948dddd11832094d2df81ed042dd80c",
+        "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+        "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+        "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+      },
+      "domain": "Every array of exactly 256 coefficients in [0,3329); input aliasing permitted",
+      "not_proved": [
+        "Dafny compiler/runtime and JVM correctness",
+        "physical memory erasure",
+        "CPU/JIT timing behavior",
+        "production integration and performance acceptance"
+      ],
+      "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+      "solver_version": "Z3 version 4.12.1 - 64 bit",
+      "dependency_verified": 1562,
+      "native_verified": 482,
+      "domain_verified": 1,
+      "audit_findings": 0,
+      "controls": {
+        "reduce": {
+          "result": "semantic proof failure",
+          "sha256": "3453ccd96258ff63228e1b665e733a7c1c9aaf469d42aca77342fa7089d211be",
+          "symbol": "NativeField.Reduce.",
+          "log": "control-reduce.log",
+          "witness": {
+            "a": 1,
+            "requires": "a == 1",
+            "expected_modulo": 1,
+            "mutant_return": 0,
+            "scope": "temporary negative copy only"
+          }
+        },
+        "correction-shift": {
+          "result": "semantic proof failure",
+          "sha256": "049302156c147d0dbb1a0aa3948bc4edbfab8e048fde7b5c4d83ca439e1845f5",
+          "symbol": "NativeField.ReduceOnce.",
+          "log": "control-correction-shift.log"
+        },
+        "barrett-shift": {
+          "result": "semantic proof failure",
+          "sha256": "fcae04709278ab80c36a929dff8af8e20725f281c47b45f1b2cafb7f24448b38",
+          "symbol": "NativeField.Reduce.",
+          "log": "control-barrett-shift.log",
+          "witness": {
+            "a": 16777216,
+            "requires": "a == 16777216",
+            "expected_modulo": 2385,
+            "product": 84540391424,
+            "shift24": 5039,
+            "mutant_shift23": 10078,
+            "mutant_remainder": -16772446,
+            "scope": "temporary negative copy only"
+          }
+        },
+        "mask": {
+          "result": "semantic proof failure",
+          "sha256": "7549c1f394018d6c5eecd3861fa22cfb7416fd25d5a9b9926dd9599e35dc9c2f",
+          "symbol": "NativeField.ReduceOnce.",
+          "log": "control-mask.log"
+        },
+        "reciprocal": {
+          "result": "semantic proof failure",
+          "sha256": "92258be21bf8b7be6b57c8d55c2d1800baf133b6622c7b2f2901994b7b89ef5b",
+          "symbol": "NativeReciprocalControl.Wrong.",
+          "log": "control-reciprocal.log"
+        },
+        "sign": {
+          "result": "semantic proof failure",
+          "sha256": "8b2315aaf3a990c4aaab0519b4ee8ec7fc5af3469ca2b655c5b56dbce4277475",
+          "symbol": "NativePolynomial.ForwardStage.",
+          "log": "control-sign.log"
+        },
+        "index": {
+          "result": "semantic proof failure",
+          "sha256": "b379d94d5c003247c1e82eb8522e151e4084c514d37ec24d0cdde9c6521d8554",
+          "symbol": "NativePolynomial.ForwardStage.",
+          "log": "control-index.log",
+          "witness": {
+            "stage": 0,
+            "nonzero_coefficient": 128,
+            "value": 1,
+            "other_coefficients": 0,
+            "checked_lane": 0,
+            "expected_lane": 1729,
+            "mutant_lane": 0,
+            "scope": "temporary negative copy and paired original-body check only"
+          },
+          "correct_witness_sha256": "d326d8d51f46ded1bcc60e647a82dfaa14bb8125e1d6772c7b8890f4392d2b2f",
+          "correct_witness_log": "control-index-original.log"
+        },
+        "inverse": {
+          "result": "semantic proof failure",
+          "sha256": "32fe429fcdde70d84d566dce0f08d403da308137d4860a6e15c423dd59bca5ed",
+          "symbol": "NativePolynomial.InverseStage.",
+          "log": "control-inverse.log"
+        },
+        "product": {
+          "result": "semantic proof failure",
+          "sha256": "8c6ad9617d5fe5f443c2784918112fea03e04d4076e0c480ddac4e595da89b38",
+          "symbol": "NativeProductControl.Wrong.",
+          "log": "control-product.log"
+        },
+        "root": {
+          "result": "semantic proof failure",
+          "sha256": "dbcf712736a485fdc00e48a5e63165b76521a0a864dfb6f7802d15bfd83f3fa1",
+          "symbol": "NativePolynomial.ZetasChunk0.",
+          "log": "control-root.log"
+        },
+        "wipe": {
+          "result": "semantic proof failure",
+          "sha256": "ed6d335ffc17e2a2dcb31bdc9d74f00f46b06fdcbad14dbc632109a8916f5419",
+          "symbol": "NativePolynomial.Wipe.",
+          "log": "control-wipe.log"
+        },
+        "positive-dividend": {
+          "result": "semantic proof failure",
+          "sha256": "9f4f569e618b24b4bbc951f4b47c7fbc04dcba9cb499da73df8368f109e71066",
+          "symbol": "NativeField.MulSub.",
+          "log": "control-positive-dividend.log"
+        },
+        "scale": {
+          "result": "semantic proof failure",
+          "sha256": "a4be2b873842e50d10551ff23a3641f4921c6dc1573b0dd6c7c87193b0763629",
+          "symbol": "NativeScaleControl.Wrong.",
+          "log": "control-scale.log"
+        },
+        "freshness": {
+          "result": "semantic proof failure",
+          "sha256": "52143b4908524e949d4561988f82189775e61a7b57f2223a832dfba9fec55ab9",
+          "symbol": "NativeFreshControl.Wrong.",
+          "log": "control-freshness.log"
+        }
+      },
+      "translation_verified": 44,
+      "runtime_path": "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+      "native_bytecode": {
+        "forbidden_value_representations": 0,
+        "array_fill_boxing": "fixed public zero witness only",
+        "field_division_remainder_branches": 0,
+        "shift_helper": "Only public constant-distance guard; no value-sign branch",
+        "shift_helper_bytecode_sha256": "ec65fc3f0370eaff6b0904ab5549e0f31dc58d5a42c03b9533adc7b3fb6df6d4",
+        "bytecode_sha256": "a934577a4eb810e3c982a4b8bc3b2fefe36a6f24bd49e6593e5c42fb0876e6f6",
+        "field_bytecode_sha256": "c787eeed831e78c1059cd855805117489892a789c734a15da41cbef43e01b1d4"
+      },
+      "java_runs": [
+        {
+          "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+          "result": "NATIVE_POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=22865885",
+          "java_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
+        },
+        {
+          "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+          "result": "NATIVE_POLYNOMIAL_CHECKS cases=288 product_cases=32 assertions=22865885",
+          "java_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
+        }
+      ],
+      "generated_java": {
+        "NativeField/__default.java": "831fad59900d1ae25a88a3092c8b8a0751588ef959d7be752657d103af7001d8",
+        "NativePolynomial/__default.java": "a355b7756b2749c97b3c751b899813b92f30f741db1b2ebfc565a90bd3a3651c",
+        "NativePolynomial.java": "8d3eae9f979cc0e5cb8d2c004449181d9673d7df395e8530159cda74217f9802",
+        "NativeTypes/I.java": "99c223d8c172ce34cfeffd1fbc4252e964758b12b952ed46e2f0ef8db1610884",
+        "NativeTypes/L.java": "95465a1ba5b6fd7ee9f9af6f37f0845b7771a790c74e4140aa3ebf646882c834",
+        "PolySpec/__default.java": "01067a09a21eed61ba8d6a990835bf55c062b9140429a6e176c96bce7aff3fd0",
+        "PolynomialRing/Residue.java": "1f244d9f17533f72998cb07ffa78b5bfd3cfcad4c0e3849e2a41bc155dd283d2",
+        "PolynomialRing/__default.java": "dd171d6d4338c3e323c7981762f6b70fd13634fb430c2ae0bc84a072231a21d5",
+        "VerifiedField/__default.java": "de136ff75a73d629df1a7ccae7a35ecc5604951f012066db9dee59d9141e82a6",
+        "VerifiedPolynomial/__default.java": "2b65189bce73ac892c38810034891ee72f48d53e82e7ba1638b71cff72726bb3"
+      },
+      "classes": {
+        "NativeField/__default.class": "22713bc4f5fb2eac07dd1b9fd5d4544597321cf43872b33a7a2ae57475ca0a19",
+        "NativePolynomial/__default.class": "313eab25e02a69d5ccadf25f91d7818afca956ecf52e89e3584c015ae035f29f",
+        "NativeTypes/I.class": "502d0ef0c2f80d8a289a1e29c106c470bb38e0dfc47e2093e304a38f5d77a203",
+        "NativeTypes/L.class": "65f64fa2a4e298691f9d0b8298d69fdc0f4e3f435a8f9e417a462bccd93762c9",
+        "PolySpec/__default.class": "0b79c4ca9d3fe9ff35ab4d8a843876fcb2ad78f6493b3bd33a778c537d8d0e62",
+        "PolynomialRing/Residue.class": "473a0cb14763f51b352c09205356ba2b9e5c276f34e8999002670d738240ba5b",
+        "PolynomialRing/__default.class": "6ab8c6e5641cc0826bccd6743b513a87722042c54181f8af18a353134a0e15ab",
+        "VerifiedField/__default.class": "ec26f067707dc90e61a17a75abdc5b5110d99e147d1ef01711dd714a4fcf7a1b",
+        "VerifiedPolynomial/__default.class": "9be1fa72326f17f21956f2a37b44db9ee932080c32e4dd3d484a3c0b99e5efc3",
+        "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+        "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+        "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+        "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+        "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+        "io/github/mahmoudimus/quic/tls/native_polynomial_test.class": "821edb185e7c79c5cf0819a803b8fd04dcee1da80f420e9ea32ef7a89e25a58d"
+      },
+      "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+      "footprint": {
+        "native_source_bytes": 26641,
+        "native_class_bytes": 11528
+      }
+    },
+    "log_sha256": {
+      "audit.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+      "control-barrett-shift.log": "1db82ef0eedcf54118b9747bb70784ada9848796db5786b4c06479c7e168eb2e",
+      "control-correction-shift.log": "c366b743ec11b1daa1a52032b5c7f2f309c66b6742d59802bf3086a75497a183",
+      "control-freshness.log": "a6d7cfffab191f17e12119d6f72d228ab371b0d97a3733981576a300744fb037",
+      "control-index-original.log": "faeb9f26cd0a52c46f258a4cad5f567f5ae1f47af02cefb13e6e86f5a1a9ee49",
+      "control-index.log": "9d6b592093918fbf21eef1f929bb97c57e9d908b02bf7b8781d07e7ebdce7373",
+      "control-inverse.log": "a41d24b3e68116c9f0446c924f533057ac5cb79716bdaafa78fa299cf3ad9087",
+      "control-mask.log": "1b7e5659abd9cdbaad13829b781aeedb1a75f3c9b67c595b71407805eab91de4",
+      "control-positive-dividend.log": "182744ac6b808a585ef2c7dfb677d23866b69f743734376e3dff9bc64faba086",
+      "control-product.log": "ecde8811fff83e582395cb7eeb89d9b32e16f40e9a6b69c7de0fadb0125d9c0c",
+      "control-reciprocal.log": "dab8c8ba06b9229a2ada438c660a5d545581d5534e5bd312bb775e2d16a94fc1",
+      "control-reduce.log": "aa8cfed1580dc2f7ed85c68ddb1045f9de3da9bbe12d85e3bce724b9d40ae1ec",
+      "control-root.log": "9c69f6f2955808703184310c7197e3099479eb4da093f32efcad51a72810577c",
+      "control-scale.log": "60d4947cba7846b48957b917a4fac6c917e7b778eaefe4cef1e954f8e8dc6d73",
+      "control-sign.log": "63008142c4051767df455883509323797e1f12cba853fc28444c980736902182",
+      "control-wipe.log": "aa4de5db23bfe7631dc1aba28ea3945d58565ba697df8e4654e7b4fb2c50c6a0",
+      "dafny-version.log": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+      "dependency-proof.log": "3532e5e5f00e86b175a5dc2b08791cc8b5ec46938407233aedfcac55a0e5348f",
+      "domain-proof.log": "8ce85ec7ed890383d7cae79018d16a2f81d68d7398f2e3a2e914ba64cf174ff5",
+      "field-bytecode.log": "c787eeed831e78c1059cd855805117489892a789c734a15da41cbef43e01b1d4",
+      "java-0.log": "59f527a2562a4b19070f2be119651d1eb6a48862ddcd37ea0c74a5612b9823fb",
+      "java-1.log": "59f527a2562a4b19070f2be119651d1eb6a48862ddcd37ea0c74a5612b9823fb",
+      "java-version-0.log": "da6bb29c482c0fd5ea827d1eecfcf573d88175541589705d776142562e788e18",
+      "java-version-1.log": "dc25d4c269605476cbe8abf0a71814a943b1303a7249657c140d7e2878f5fa46",
+      "javac.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "native-bytecode.log": "a934577a4eb810e3c982a4b8bc3b2fefe36a6f24bd49e6593e5c42fb0876e6f6",
+      "native-proof.log": "2d89cc22ca8052aa18349fc1fdcd9e60dfa9261c7174b8a0ec2861039b0457ce",
+      "shift-helper-bytecode.log": "ec65fc3f0370eaff6b0904ab5549e0f31dc58d5a42c03b9533adc7b3fb6df6d4",
+      "solver-version.log": "b9483dbdbdeee09f019dde3ba63e9aa51e41c2c40194e9308f494476001c2462",
+      "translate.log": "20d16ff42cdfa2db8d4c125771a7a226d750b65e5b9dae0dea0d6f4c7438d45a"
+    }
+  },
+  "linux_controls": {
+    "raw_receipt_path": "/tmp/microproxy-poly-index-ci/linux-controls/native_polynomial_report.json",
+    "raw_receipt_sha256": "37a3ff8b7715625032326191a85c99084eb6104bfb36518460913836d557a027",
+    "receipt": {
+      "status": "passed",
+      "phase": "controls",
+      "inputs": {
+        "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+        "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+        "formal/crypto/native_polynomial_domain.dfy": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+        "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+        "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+        "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+        "formal/crypto/native_polynomial_checks.py": "790d55ae4c60241170d93bb2b614cd9ac58edc703dfc2623ebb4d416caa16c27",
+        "formal/crypto/native_polynomial_test.java": "3726f78d85985d105de367e4656b51600948dddd11832094d2df81ed042dd80c",
+        "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+        "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+        "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+      },
+      "domain": "Every array of exactly 256 coefficients in [0,3329); input aliasing permitted",
+      "not_proved": [
+        "Dafny compiler/runtime and JVM correctness",
+        "physical memory erasure",
+        "CPU/JIT timing behavior",
+        "production integration and performance acceptance"
+      ],
+      "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+      "solver_version": "Z3 version 4.12.1 - 64 bit",
+      "controls": {
+        "reduce": {
+          "result": "semantic proof failure",
+          "sha256": "eb11a2a65243eeedd893690b74d34bdecd764ec14fba5dcaf3c75364bd504eab",
+          "symbol": "NativeField.Reduce.",
+          "log": "control-reduce.log",
+          "witness": {
+            "a": 1,
+            "requires": "a == 1",
+            "expected_modulo": 1,
+            "mutant_return": 0,
+            "scope": "temporary negative copy only"
+          }
+        },
+        "correction-shift": {
+          "result": "semantic proof failure",
+          "sha256": "eaf77c2e5d92d59669f9c54d92e7b88a091f182e7787745a17fac2f57c3e8709",
+          "symbol": "NativeField.ReduceOnce.",
+          "log": "control-correction-shift.log"
+        },
+        "barrett-shift": {
+          "result": "semantic proof failure",
+          "sha256": "631186e8b74f5c9c2dc2519adb7d9c92e75e218511e5e27bc51b4f20225722db",
+          "symbol": "NativeField.Reduce.",
+          "log": "control-barrett-shift.log",
+          "witness": {
+            "a": 16777216,
+            "requires": "a == 16777216",
+            "expected_modulo": 2385,
+            "product": 84540391424,
+            "shift24": 5039,
+            "mutant_shift23": 10078,
+            "mutant_remainder": -16772446,
+            "scope": "temporary negative copy only"
+          }
+        },
+        "mask": {
+          "result": "semantic proof failure",
+          "sha256": "0ac6502d973507e12174b39a29cd5c7395ed9641e98a948c6185e0fef240946e",
+          "symbol": "NativeField.ReduceOnce.",
+          "log": "control-mask.log"
+        },
+        "reciprocal": {
+          "result": "semantic proof failure",
+          "sha256": "2a52a0ce4f6f25b940e3964dcbe484b7121b4d0e36a2822afcb5c6f5f0e8f362",
+          "symbol": "NativeReciprocalControl.Wrong.",
+          "log": "control-reciprocal.log"
+        },
+        "sign": {
+          "result": "semantic proof failure",
+          "sha256": "b00cd4e84bb15cd5eb601ab67eae0dda645f0a986880be147c249413878de88e",
+          "symbol": "NativePolynomial.ForwardStage.",
+          "log": "control-sign.log"
+        },
+        "index": {
+          "result": "semantic proof failure",
+          "sha256": "2ce005986f454c2df68b62a6ce5e495468e9cf6dc2455c273004a6858adb56e0",
+          "symbol": "NativePolynomial.ForwardStage.",
+          "log": "control-index.log",
+          "witness": {
+            "stage": 0,
+            "nonzero_coefficient": 128,
+            "value": 1,
+            "other_coefficients": 0,
+            "checked_lane": 0,
+            "expected_lane": 1729,
+            "mutant_lane": 0,
+            "scope": "temporary negative copy and paired original-body check only"
+          },
+          "correct_witness_sha256": "f0bbbf43d535caacb6758f3d4036083b6230394b482c90b070fbc4e1de5a1111",
+          "correct_witness_log": "control-index-original.log"
+        },
+        "inverse": {
+          "result": "semantic proof failure",
+          "sha256": "3bc4c958fa4dcf4723464bdd85c5aba468fdf5ec6325362b1d953e13a48ed1e6",
+          "symbol": "NativePolynomial.InverseStage.",
+          "log": "control-inverse.log"
+        },
+        "product": {
+          "result": "semantic proof failure",
+          "sha256": "588272a0ac61733fc744565650ab445fe46e0a717eca277b81ef4e05c1df3693",
+          "symbol": "NativeProductControl.Wrong.",
+          "log": "control-product.log"
+        },
+        "root": {
+          "result": "semantic proof failure",
+          "sha256": "ed8e24cadf2f50bd23d318948ee94a6f2bcb44574540d3ac5aedd98fa917ef63",
+          "symbol": "NativePolynomial.ZetasChunk0.",
+          "log": "control-root.log"
+        },
+        "wipe": {
+          "result": "semantic proof failure",
+          "sha256": "68e4522110c424db7e009dd05a1783a0ffe9252f89fcc02fec8cbfb9b2e901f1",
+          "symbol": "NativePolynomial.Wipe.",
+          "log": "control-wipe.log"
+        },
+        "positive-dividend": {
+          "result": "semantic proof failure",
+          "sha256": "6c88ec4e4b2cbc02703215964e9e0476e6088331c802484f8db179b020b69a76",
+          "symbol": "NativeField.MulSub.",
+          "log": "control-positive-dividend.log"
+        },
+        "scale": {
+          "result": "semantic proof failure",
+          "sha256": "2bddf5fe8455ec78e8b6156b2dcae77f1c50454381769c8ea916cbe0d01727c4",
+          "symbol": "NativeScaleControl.Wrong.",
+          "log": "control-scale.log"
+        },
+        "freshness": {
+          "result": "semantic proof failure",
+          "sha256": "186762635c1e691a39807c98e1a21a0384c982e5e8d6e6abc86f2b25bd3e9744",
+          "symbol": "NativeFreshControl.Wrong.",
+          "log": "control-freshness.log"
+        }
+      }
+    },
+    "log_sha256": {
+      "control-barrett-shift.log": "180ed338a1ccc15f1b9927a7c2602fb006b6c19e75871614faff91232e627d80",
+      "control-correction-shift.log": "bedfb4cb78ef837175bf9f2cf76bae341d06309394bbbf291c92920ffac21226",
+      "control-freshness.log": "68a78eb9ea4eada5b887b46651f23b3990fa4740823cf60aa8d327912b7ec811",
+      "control-index-original.log": "faeb9f26cd0a52c46f258a4cad5f567f5ae1f47af02cefb13e6e86f5a1a9ee49",
+      "control-index.log": "4d601d22b9298efe289fd31a81ae7d5defe17af99e6766576ac180d0a7c427f6",
+      "control-inverse.log": "c15df09913aaebc98c9f5050f599127d364e30b35e3b6dc68ba6ac01de52ea1a",
+      "control-mask.log": "2400ab52e3dd20e327997ab1d2b225a32a1e310dd902907e61697577f69ad36f",
+      "control-positive-dividend.log": "518f9883580bbc881bbf3fe860d544716fe1efd30ed3af58b6f9ccf67631564f",
+      "control-product.log": "11110165f58ee51f9404b13b3588337e36c26ce3d21eeea77ae21091082c4a71",
+      "control-reciprocal.log": "78866a763b54ed924e939115830fd5b03a49b52b4bf897815b9f747c08bcf6a9",
+      "control-reduce.log": "321fb95d4c3ca3341f65e8121a95106456e8b69526a13265fade1ffa2310711f",
+      "control-root.log": "a735cc4ec09190f2f4716ed2b4778ffe28adb4e86e01af23640f03d12d5d8c4b",
+      "control-scale.log": "9848e2fb0cf9c0059fbeaec9cbaa8f79485f14eaa7e4559e1ffff03fb5784193",
+      "control-sign.log": "9335508904ea3d193d9e82681bcb5878bac51b325adae1ae4b40353e9d58d753",
+      "control-wipe.log": "08e2b48e4a8352beef7f7d0a92ec6f3f88a5b92c46761283da7b4471f2474a0e",
+      "dafny-version.log": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48",
+      "solver-version.log": "b9483dbdbdeee09f019dde3ba63e9aa51e41c2c40194e9308f494476001c2462"
+    }
+  },
+  "linux_environment": {
+    "platform": "linux/amd64 under emulation on macOS ARM64",
+    "image": "microproxy-packet-proof:goal-20261029",
+    "image_id": "sha256:55d5d3f4fdf202066f26d2888a10eba8490c6fb547e740d890d57a06d4755cb2",
+    "dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+    "solver_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a"
+  },
+  "unit_tests": [
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "formal/crypto",
+        "-p",
+        "test_native_polynomial_controls.py",
+        "-v"
+      ],
+      "exit": 0,
+      "log": "/tmp/microproxy-poly-index-ci/test_native_polynomial_controls.py.log",
+      "log_sha256": "8269a3fa1cc8660dd146ad613a33d85aebd3c0fb9d6337b626297503082496e5"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "formal/crypto",
+        "-p",
+        "test_control_exits.py",
+        "-v"
+      ],
+      "exit": 0,
+      "log": "/tmp/microproxy-poly-index-ci/test_control_exits.py.log",
+      "log_sha256": "51cdda6ce9abd6102341f8f7f99a04b4bf5bd69255827c923e23fcda6ade2f9b"
+    }
+  ],
+  "prior_artifact_binding": {
+    "inputs_matched": 32,
+    "native_replay_inputs_matched": 25,
+    "delivered_sources_matched": 66,
+    "canonical_classes_matched": 66,
+    "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+    "native_polynomial_runner_in_stage_inputs": false,
+    "prior_local_acceptance_sha256": "b85a8ab9c5966e2d11a3c5bccaa02a27756be75bc096236a66fa708fc7c422f0",
+    "scope": "Existing stage, compatibility, performance and Maven/JAR acceptance remain bound to unchanged frozen source/class inputs. They retain their original execution provenance; Maven was not rerun for this control-only change."
+  },
+  "remote_ci": "Fresh exact-head complete pipeline remains a separate acceptance gate."
+}

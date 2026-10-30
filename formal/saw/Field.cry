@@ -1,0 +1,12 @@
+module Field where
+
+// Mathematical field specification, independent of the branch-free Java code.
+q : [32]
+q = 3329
+
+reduceOnce : [32] -> [32]
+reduceOnce a = a % q
+
+// Deliberate wrong-modulus specification for a proof-level negative control.
+wrongReduceOnce : [32] -> [32]
+wrongReduceOnce a = a % (3328 : [32])

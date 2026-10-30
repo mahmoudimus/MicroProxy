@@ -1,0 +1,965 @@
+{
+  "schema": "microproxy.crypto-performance-review/v1",
+  "status": "accepted",
+  "evaluated_by": "codex/root/finish_native_adoption",
+  "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+  "source_map_sha256": "9ee4617700a44e917f03eb6743d296ceafbe772d34838cf4e3405a043b871803",
+  "receipts": [
+    {
+      "path": "performance-compatibility.json",
+      "sha256": "94bec1773d429e47a4b64d66c3506291175e7bbdbf7df8393a54df303d8e8111"
+    },
+    {
+      "path": "hybrid-performance.json",
+      "sha256": "701adce5136818b73b74dd10b6e629cc3fdc095f9edc278c56277f5f1397c5ea"
+    },
+    {
+      "path": "measured-stage-identity.json",
+      "sha256": "ddebf0a3e8cbae18093482ec9bbb2f06935e26e8efa3f0479633c854f28a063b"
+    }
+  ],
+  "scope": "Local synthetic kernel and complete in-memory hybrid TLS measurements; not network capacity or timing-security evidence.",
+  "methodology": "3 fresh JVM forks per backend/JDK, alternating backend order; 512 warmup and 9 batches of32 complete handshakes per fork. Median of fork medians. Both endpoints execute on the measured main thread. Fixed seeded test certificates/randomness, AES128GCM/SHA256, h3, no resumption/retry. 256MiB fixed heap. Shared-host/JIT/GC noise remains.",
+  "full_tls_results": {
+    "21": {
+      "baseline": {
+        "forks": [
+          {
+            "fork": 0,
+            "median": {
+              "wall_ns": 1992341.15625,
+              "cpu_ns": 1951843.75,
+              "allocated_bytes": 465945.25,
+              "full_handshakes_per_second": 501.9220713596098
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 61172625,
+                "cpu_ns": 59811000,
+                "allocated_bytes": 15003760
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 63754917,
+                "cpu_ns": 62919000,
+                "allocated_bytes": 14988704
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 60877791,
+                "cpu_ns": 59938000,
+                "allocated_bytes": 14927824
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 70607167,
+                "cpu_ns": 67882000,
+                "allocated_bytes": 14910248
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 71491958,
+                "cpu_ns": 66676000,
+                "allocated_bytes": 14910000
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 68398167,
+                "cpu_ns": 64369000,
+                "allocated_bytes": 14910272
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 63949292,
+                "cpu_ns": 62459000,
+                "allocated_bytes": 14885952
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 63108917,
+                "cpu_ns": 62036000,
+                "allocated_bytes": 14876776
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 62141416,
+                "cpu_ns": 59978000,
+                "allocated_bytes": 14879544
+              }
+            ]
+          },
+          {
+            "fork": 1,
+            "median": {
+              "wall_ns": 2019179.6875,
+              "cpu_ns": 1998000.0,
+              "allocated_bytes": 467345.5,
+              "full_handshakes_per_second": 495.25062389971174
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65440042,
+                "cpu_ns": 64035000,
+                "allocated_bytes": 15218240
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65470917,
+                "cpu_ns": 64133000,
+                "allocated_bytes": 15041808
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 64576291,
+                "cpu_ns": 63936000,
+                "allocated_bytes": 15001096
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 67189041,
+                "cpu_ns": 65326000,
+                "allocated_bytes": 14981400
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65552250,
+                "cpu_ns": 64156000,
+                "allocated_bytes": 14955056
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 63080916,
+                "cpu_ns": 61687000,
+                "allocated_bytes": 14910224
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 63325125,
+                "cpu_ns": 61701000,
+                "allocated_bytes": 14908688
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 61412333,
+                "cpu_ns": 59828000,
+                "allocated_bytes": 14907496
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 64613750,
+                "cpu_ns": 60690000,
+                "allocated_bytes": 14910264
+              }
+            ]
+          },
+          {
+            "fork": 2,
+            "median": {
+              "wall_ns": 2052570.3125,
+              "cpu_ns": 2007125.0,
+              "allocated_bytes": 468171.75,
+              "full_handshakes_per_second": 487.1940288281842
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74353458,
+                "cpu_ns": 71316000,
+                "allocated_bytes": 15036664
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 62837000,
+                "cpu_ns": 61871000,
+                "allocated_bytes": 15000456
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65994208,
+                "cpu_ns": 64675000,
+                "allocated_bytes": 15001288
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65849916,
+                "cpu_ns": 64228000,
+                "allocated_bytes": 14984440
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65588500,
+                "cpu_ns": 64482000,
+                "allocated_bytes": 14979696
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 62985709,
+                "cpu_ns": 62094000,
+                "allocated_bytes": 14981496
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 67758959,
+                "cpu_ns": 65059000,
+                "allocated_bytes": 14920296
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 65682250,
+                "cpu_ns": 63845000,
+                "allocated_bytes": 14907496
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 64163709,
+                "cpu_ns": 61279000,
+                "allocated_bytes": 14910264
+              }
+            ]
+          }
+        ],
+        "median": {
+          "wall_ns": 2019179.6875,
+          "cpu_ns": 1998000.0,
+          "allocated_bytes": 467345.5,
+          "full_handshakes_per_second": 495.25062389971174
+        }
+      },
+      "generated": {
+        "forks": [
+          {
+            "fork": 0,
+            "median": {
+              "wall_ns": 2456791.65625,
+              "cpu_ns": 2435031.25,
+              "allocated_bytes": 604653.75,
+              "full_handshakes_per_second": 407.0349219300024
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 84737875,
+                "cpu_ns": 82909000,
+                "allocated_bytes": 19490256
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 84290917,
+                "cpu_ns": 83121000,
+                "allocated_bytes": 19454160
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 81511875,
+                "cpu_ns": 78876000,
+                "allocated_bytes": 19375232
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 75934416,
+                "cpu_ns": 75783000,
+                "allocated_bytes": 19364984
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 78617333,
+                "cpu_ns": 77399000,
+                "allocated_bytes": 19348920
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 78600583,
+                "cpu_ns": 77921000,
+                "allocated_bytes": 19306720
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 78596916,
+                "cpu_ns": 77303000,
+                "allocated_bytes": 19305520
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82553833,
+                "cpu_ns": 80565000,
+                "allocated_bytes": 19303728
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 75707584,
+                "cpu_ns": 74673000,
+                "allocated_bytes": 19305360
+              }
+            ]
+          },
+          {
+            "fork": 1,
+            "median": {
+              "wall_ns": 2812873.6875,
+              "cpu_ns": 2724625.0,
+              "allocated_bytes": 601790.75,
+              "full_handshakes_per_second": 355.5083203500584
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 127522375,
+                "cpu_ns": 109390000,
+                "allocated_bytes": 19399520
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 130422166,
+                "cpu_ns": 100712000,
+                "allocated_bytes": 19372080
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 94981542,
+                "cpu_ns": 90435000,
+                "allocated_bytes": 19285632
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 91543125,
+                "cpu_ns": 88419000,
+                "allocated_bytes": 19277944
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 90011958,
+                "cpu_ns": 87188000,
+                "allocated_bytes": 19257304
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 86865167,
+                "cpu_ns": 84316000,
+                "allocated_bytes": 19217120
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 86701500,
+                "cpu_ns": 84033000,
+                "allocated_bytes": 19215920
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82043042,
+                "cpu_ns": 79074000,
+                "allocated_bytes": 19216232
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 77102708,
+                "cpu_ns": 75984000,
+                "allocated_bytes": 19216216
+              }
+            ]
+          },
+          {
+            "fork": 2,
+            "median": {
+              "wall_ns": 2757335.9375,
+              "cpu_ns": 2411000.0,
+              "allocated_bytes": 604312.0,
+              "full_handshakes_per_second": 362.6689031249026
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 117952000,
+                "cpu_ns": 86553000,
+                "allocated_bytes": 19490736
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 89804208,
+                "cpu_ns": 81346000,
+                "allocated_bytes": 19464592
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 79381291,
+                "cpu_ns": 76639000,
+                "allocated_bytes": 19413312
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 92171875,
+                "cpu_ns": 73431000,
+                "allocated_bytes": 19367000
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 88790916,
+                "cpu_ns": 77152000,
+                "allocated_bytes": 19337984
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 80728167,
+                "cpu_ns": 77309000,
+                "allocated_bytes": 19329248
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 88234750,
+                "cpu_ns": 80938000,
+                "allocated_bytes": 19310008
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 77328083,
+                "cpu_ns": 76351000,
+                "allocated_bytes": 19296664
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74046375,
+                "cpu_ns": 71914000,
+                "allocated_bytes": 19281032
+              }
+            ]
+          }
+        ],
+        "median": {
+          "wall_ns": 2757335.9375,
+          "cpu_ns": 2435031.25,
+          "allocated_bytes": 604312.0,
+          "full_handshakes_per_second": 362.6689031249026
+        }
+      }
+    },
+    "25": {
+      "baseline": {
+        "forks": [
+          {
+            "fork": 0,
+            "median": {
+              "wall_ns": 2250819.0,
+              "cpu_ns": 2105906.25,
+              "allocated_bytes": 451340.0,
+              "full_handshakes_per_second": 444.2827255323507
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 73691166,
+                "cpu_ns": 70593000,
+                "allocated_bytes": 14522464
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 68495958,
+                "cpu_ns": 66626000,
+                "allocated_bytes": 14461320
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 68906625,
+                "cpu_ns": 66830000,
+                "allocated_bytes": 14449960
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 73361083,
+                "cpu_ns": 69710000,
+                "allocated_bytes": 14449144
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 72026208,
+                "cpu_ns": 69082000,
+                "allocated_bytes": 14442880
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74051459,
+                "cpu_ns": 67475000,
+                "allocated_bytes": 14440312
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 71908000,
+                "cpu_ns": 67040000,
+                "allocated_bytes": 14439896
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 70267666,
+                "cpu_ns": 66947000,
+                "allocated_bytes": 14438608
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 72131375,
+                "cpu_ns": 67389000,
+                "allocated_bytes": 14440760
+              }
+            ]
+          },
+          {
+            "fork": 1,
+            "median": {
+              "wall_ns": 2499427.0625,
+              "cpu_ns": 2254687.5,
+              "allocated_bytes": 451678.5,
+              "full_handshakes_per_second": 400.09169101328797
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 79981666,
+                "cpu_ns": 75811000,
+                "allocated_bytes": 14522928
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82000584,
+                "cpu_ns": 76102000,
+                "allocated_bytes": 14518216
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82297834,
+                "cpu_ns": 76332000,
+                "allocated_bytes": 14506280
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 73967500,
+                "cpu_ns": 70309000,
+                "allocated_bytes": 14505656
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 76213542,
+                "cpu_ns": 73432000,
+                "allocated_bytes": 14453712
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 80498334,
+                "cpu_ns": 72150000,
+                "allocated_bytes": 14440312
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 70546625,
+                "cpu_ns": 67527000,
+                "allocated_bytes": 14439896
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82031541,
+                "cpu_ns": 70160000,
+                "allocated_bytes": 14438608
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 73451208,
+                "cpu_ns": 69525000,
+                "allocated_bytes": 14440760
+              }
+            ]
+          },
+          {
+            "fork": 2,
+            "median": {
+              "wall_ns": 2375162.78125,
+              "cpu_ns": 2178718.75,
+              "allocated_bytes": 451346.5,
+              "full_handshakes_per_second": 421.0237748310119
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 80833042,
+                "cpu_ns": 74475000,
+                "allocated_bytes": 14509968
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 79680416,
+                "cpu_ns": 75930000,
+                "allocated_bytes": 14449848
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 72621708,
+                "cpu_ns": 69635000,
+                "allocated_bytes": 14447248
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 76988791,
+                "cpu_ns": 73301000,
+                "allocated_bytes": 14449144
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 79982291,
+                "cpu_ns": 75032000,
+                "allocated_bytes": 14443088
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 72672583,
+                "cpu_ns": 66897000,
+                "allocated_bytes": 14440312
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 70962166,
+                "cpu_ns": 68404000,
+                "allocated_bytes": 14439896
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 73626125,
+                "cpu_ns": 69719000,
+                "allocated_bytes": 14438608
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 76005209,
+                "cpu_ns": 69095000,
+                "allocated_bytes": 14440760
+              }
+            ]
+          }
+        ],
+        "median": {
+          "wall_ns": 2375162.78125,
+          "cpu_ns": 2178718.75,
+          "allocated_bytes": 451346.5,
+          "full_handshakes_per_second": 421.0237748310119
+        }
+      },
+      "generated": {
+        "forks": [
+          {
+            "fork": 0,
+            "median": {
+              "wall_ns": 2389653.625,
+              "cpu_ns": 2289281.25,
+              "allocated_bytes": 588645.5,
+              "full_handshakes_per_second": 418.47068944981515
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 85405042,
+                "cpu_ns": 76966000,
+                "allocated_bytes": 18912832
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 83170458,
+                "cpu_ns": 77097000,
+                "allocated_bytes": 18841768
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 78167250,
+                "cpu_ns": 72673000,
+                "allocated_bytes": 18838848
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74178917,
+                "cpu_ns": 72478000,
+                "allocated_bytes": 18840856
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74428417,
+                "cpu_ns": 73424000,
+                "allocated_bytes": 18836656
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74981291,
+                "cpu_ns": 73257000,
+                "allocated_bytes": 18830344
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 76468916,
+                "cpu_ns": 74627000,
+                "allocated_bytes": 18825240
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 74327792,
+                "cpu_ns": 72446000,
+                "allocated_bytes": 18822240
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 79321833,
+                "cpu_ns": 72837000,
+                "allocated_bytes": 18824168
+              }
+            ]
+          },
+          {
+            "fork": 1,
+            "median": {
+              "wall_ns": 2826593.75,
+              "cpu_ns": 2690593.75,
+              "allocated_bytes": 588554.5,
+              "full_handshakes_per_second": 353.78271108113785
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 95304042,
+                "cpu_ns": 86027000,
+                "allocated_bytes": 18913248
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 90451000,
+                "cpu_ns": 87677000,
+                "allocated_bytes": 18841768
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 89387667,
+                "cpu_ns": 86099000,
+                "allocated_bytes": 18838848
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 86869167,
+                "cpu_ns": 82712000,
+                "allocated_bytes": 18840856
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 87730833,
+                "cpu_ns": 84036000,
+                "allocated_bytes": 18833744
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 86404334,
+                "cpu_ns": 83746000,
+                "allocated_bytes": 18831688
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 94098875,
+                "cpu_ns": 88082000,
+                "allocated_bytes": 18828920
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 94213750,
+                "cpu_ns": 90093000,
+                "allocated_bytes": 18825824
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 96543125,
+                "cpu_ns": 88115000,
+                "allocated_bytes": 18827752
+              }
+            ]
+          },
+          {
+            "fork": 2,
+            "median": {
+              "wall_ns": 2739167.96875,
+              "cpu_ns": 2636156.25,
+              "allocated_bytes": 588880.0,
+              "full_handshakes_per_second": 365.07436251028554
+            },
+            "samples": [
+              {
+                "sample": 0,
+                "completed_full_handshakes": 32,
+                "wall_ns": 95951667,
+                "cpu_ns": 88604000,
+                "allocated_bytes": 18915552
+              },
+              {
+                "sample": 1,
+                "completed_full_handshakes": 32,
+                "wall_ns": 96908792,
+                "cpu_ns": 88991000,
+                "allocated_bytes": 18898088
+              },
+              {
+                "sample": 2,
+                "completed_full_handshakes": 32,
+                "wall_ns": 87653375,
+                "cpu_ns": 84357000,
+                "allocated_bytes": 18895240
+              },
+              {
+                "sample": 3,
+                "completed_full_handshakes": 32,
+                "wall_ns": 86853833,
+                "cpu_ns": 82539000,
+                "allocated_bytes": 18897176
+              },
+              {
+                "sample": 4,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82395667,
+                "cpu_ns": 79308000,
+                "allocated_bytes": 18844160
+              },
+              {
+                "sample": 5,
+                "completed_full_handshakes": 32,
+                "wall_ns": 84105416,
+                "cpu_ns": 79751000,
+                "allocated_bytes": 18831688
+              },
+              {
+                "sample": 6,
+                "completed_full_handshakes": 32,
+                "wall_ns": 90004291,
+                "cpu_ns": 85191000,
+                "allocated_bytes": 18828872
+              },
+              {
+                "sample": 7,
+                "completed_full_handshakes": 32,
+                "wall_ns": 90239333,
+                "cpu_ns": 84944000,
+                "allocated_bytes": 18825824
+              },
+              {
+                "sample": 8,
+                "completed_full_handshakes": 32,
+                "wall_ns": 82438875,
+                "cpu_ns": 78373000,
+                "allocated_bytes": 18827752
+              }
+            ]
+          }
+        ],
+        "median": {
+          "wall_ns": 2739167.96875,
+          "cpu_ns": 2636156.25,
+          "allocated_bytes": 588645.5,
+          "full_handshakes_per_second": 365.07436251028554
+        }
+      }
+    }
+  },
+  "crypto_class_footprint_bytes": {
+    "baseline-classes": 23471,
+    "facade-classes": 10994,
+    "canonical-classes": 239568
+  },
+  "total_generated_crypto_class_bytes": 250562,
+  "runtime_jar_bytes": 159922,
+  "decision": "Accept the measured overhead for the user-selected generated Dafny route. Final full-handshake CPU is21-22% higher (about0.44-0.46ms per complete handshake), allocation29-30% higher, and observed local in-memory throughput13-27% lower. Kernel CPU and allocation costs are retained in the linked raw report. The user prioritized completing functional proofs and authorized integration after checks; this is the agent engineering evaluation of those checks. Compiler/runtime/provider correctness, entropy, hardness, physical erasure and JVM timing remain explicit boundaries."
+}

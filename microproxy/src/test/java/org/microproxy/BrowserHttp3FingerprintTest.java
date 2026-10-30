@@ -11,8 +11,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.microproxy.frames.FrameDirection;
+import org.microproxy.frames.FrameInterceptor;
+import org.microproxy.frames.Http3Frame;
 import org.microproxy.tls.BrowserProfile;
 import org.microproxy.tls.CertificateAuthority;
 import org.microproxy.tls.CertificateAuthorityMitmManager;
@@ -23,6 +30,7 @@ import org.microproxy.tls.CertificateAuthorityMitmManager;
  * its SETTINGS in Chrome's order and values, then a GREASE setting; a GREASE frame; no QPACK streams
  * up front; and the request with Chrome's pseudo-header order and a PRIORITY_UPDATE for its priority.
  */
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class BrowserHttp3FingerprintTest {
 
     private final CertificateAuthority originCa = CertificateAuthority.generate("H3 Fingerprint Origin CA");
@@ -53,33 +61,14 @@ class BrowserHttp3FingerprintTest {
 
     @Test
     void theHttp3ConnectionToTheServerOpensAsChromes() throws Exception {
-        h3 = new H3TestOrigin(originCa, 0);
-        // as the server Chrome was captured against: no dynamic table, so the QPACK streams, opened
-        // only for their first instruction, never are (with one, whether the first request inserts
-        // into it depends on the server's SETTINGS arriving before it is encoded)
-        h3.qpackMaxTableCapacity = 0;
-        tcp = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
-            exchange.getRequestBody().readAllBytes();
-            byte[] out = "over tcp".getBytes(StandardCharsets.US_ASCII);
-            exchange.getResponseHeaders().set("Alt-Svc", "h3=\":" + h3.port() + "\"; ma=60");
-            exchange.sendResponseHeaders(200, out.length);
-            exchange.getResponseBody().write(out);
-            exchange.close();
-        });
-        BrowserProfile chrome = BrowserProfile.chrome156();
-        proxy = MicroProxy.bootstrap()
-                .withPort(0)
-                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
-                .withHttp3Upstream(true)
-                .withHttp3Options(Http3Options.builder().upstreamProfile(chrome).build())
-                .withFiltersSource(chrome.filtersSource(true))
-                .start();
-        HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
-        String url = TestSupport.localhostUrl(tcp, "/hello");
-        assertEquals("over tcp", TestSupport.get(client, url).body());
-        HttpResponse<String> second = TestSupport.get(client, url);
-        assertEquals("hello over h3", second.body());
-        assertTrue(h3.errors().isEmpty(), h3.errors().toString());
+        // CaptureH3 advertises empty SETTINGS: neither dynamic QPACK nor extended CONNECT.
+        h3 = new H3TestOrigin(originCa, 0, false, 0, 0);
+        h3.extendedConnect = false;
+        h3.settingsMarker = true;
+        try (SettingsOrder order = new SettingsOrder(true)) {
+            requestOverChrome(order.interceptor());
+            assertEquals(Map.of(), order.receivedSettings);
+        }
 
         // the control stream first, and no QPACK streams yet (Chrome opens them when it needs them)
         assertEquals(List.of(0L), h3.uniStreamTypes);
@@ -96,6 +85,106 @@ class BrowserHttp3FingerprintTest {
         // stream 0, then the request's priority (Chrome's navigation one, from the profile's headers)
         assertEquals("u=0, i", new String(priority.getValue(), 1, priority.getValue().length - 1, StandardCharsets.US_ASCII));
         assertEquals(List.of(":method", ":authority", ":scheme", ":path"), h3.requestFieldNames.get(0).subList(0, 4));
+    }
+
+    @Test
+    void chromeOpensItsQpackEncoderWhenDynamicSettingsPrecedeTheFirstRequest() throws Exception {
+        h3 = new H3TestOrigin(originCa, 0);
+        h3.settingsMarker = true;
+        try (SettingsOrder order = new SettingsOrder(true)) {
+            requestOverChrome(order.interceptor());
+            assertEquals(4096L, order.receivedSettings.get(Http3Frame.SETTINGS_QPACK_MAX_TABLE_CAPACITY));
+            assertEquals(16L, order.receivedSettings.get(Http3Frame.SETTINGS_QPACK_BLOCKED_STREAMS));
+        }
+        assertEquals(Set.of(0L, 2L), Set.copyOf(h3.uniStreamTypes));
+    }
+
+    @Test
+    void chromeKeepsOnlyItsControlStreamWhenDynamicSettingsFollowTheFirstRequest() throws Exception {
+        h3 = new H3TestOrigin(originCa, 0);
+        h3.settingsMarker = true;
+        try (SettingsOrder order = new SettingsOrder(false)) {
+            requestOverChrome(order.interceptor());
+            await(order.settingsApplied, "SETTINGS applied after the first request");
+        }
+        assertEquals(List.of(0L), h3.uniStreamTypes);
+    }
+
+    private void requestOverChrome(FrameInterceptor interceptor) throws Exception {
+        tcp = TestSupport.httpsOrigin(originCa.serverContext("localhost", "127.0.0.1"), exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] out = "over tcp".getBytes(StandardCharsets.US_ASCII);
+            exchange.getResponseHeaders().set("Alt-Svc", "h3=\":" + h3.port() + "\"; ma=60");
+            exchange.sendResponseHeaders(200, out.length);
+            exchange.getResponseBody().write(out);
+            exchange.close();
+        });
+        BrowserProfile chrome = BrowserProfile.chrome156();
+        proxy = MicroProxy.bootstrap()
+                .withPort(0)
+                .withManInTheMiddle(new CertificateAuthorityMitmManager(proxyCa, originCa.clientContext()))
+                .withHttp3Upstream(true)
+                .withHttp3Options(Http3Options.builder().upstreamProfile(chrome).build())
+                .withFiltersSource(chrome.filtersSource(true))
+                .withFrameInterceptor(interceptor)
+                .start();
+        HttpClient client = TestSupport.client(proxy, proxyCa.clientContext());
+        String url = TestSupport.localhostUrl(tcp, "/hello");
+        assertEquals("over tcp", TestSupport.get(client, url).body());
+        HttpResponse<String> second = TestSupport.get(client, url);
+        assertEquals("hello over h3", second.body());
+        assertTrue(h3.errors().isEmpty(), h3.errors().toString());
+    }
+
+    private static void await(CountDownLatch latch, String description) {
+        try {
+            assertTrue(latch.await(10, TimeUnit.SECONDS), description);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(description, e);
+        }
+    }
+
+    /** Orders SETTINGS application against the real encoder, without depending on packet scheduling. */
+    private static final class SettingsOrder implements AutoCloseable {
+        final boolean settingsFirst;
+        final CountDownLatch settingsReceived = new CountDownLatch(1);
+        final CountDownLatch settingsApplied = new CountDownLatch(1);
+        final CountDownLatch requestDecoded = new CountDownLatch(1);
+        volatile Map<Long, Long> receivedSettings;
+
+        SettingsOrder(boolean settingsFirst) {
+            this.settingsFirst = settingsFirst;
+        }
+
+        FrameInterceptor interceptor() {
+            return (frame, direction, ctx) -> {
+                if (frame instanceof Http3Frame.Settings s && direction == FrameDirection.FROM_SERVER) {
+                    receivedSettings = s.values();
+                    settingsReceived.countDown();
+                    if (!settingsFirst) await(requestDecoded, "first request decoded before applying SETTINGS");
+                } else if (frame instanceof Http3Frame.Unknown u && direction == FrameDirection.FROM_SERVER
+                        && u.type() == H3TestOrigin.SETTINGS_MARKER) {
+                    // readControl applies SETTINGS before reading the next control frame. Its SETTINGS
+                    // interceptor alone would only prove receipt, before applyPeerSettings runs.
+                    settingsApplied.countDown();
+                } else if (frame instanceof Http3Frame.Headers && direction == FrameDirection.TO_SERVER) {
+                    // Http3MessageWriter calls this hook before encodeFields.
+                    await(settingsFirst ? settingsApplied : settingsReceived, "peer SETTINGS reached the ordered point");
+                } else if (frame instanceof Http3Frame.Headers && direction == FrameDirection.FROM_SERVER) {
+                    // A response proves that the origin decoded the first request.
+                    requestDecoded.countDown();
+                }
+                return frame;
+            };
+        }
+
+        @Override
+        public void close() {
+            settingsReceived.countDown();
+            settingsApplied.countDown();
+            requestDecoded.countDown();
+        }
     }
 
     @Test

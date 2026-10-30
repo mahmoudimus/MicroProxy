@@ -3,7 +3,7 @@
 # tools in docs/requirements.txt:  pip install -r docs/requirements.txt && mkdocs build --strict
 site_name: MicroProxy
 site_description: >-
-  A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads,
+  A Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads,
   the successor to LittleProxy.
 site_url: https://mahmoudimus.github.io/MicroProxy/
 repo_url: https://github.com/mahmoudimus/MicroProxy
@@ -116,10 +116,19 @@ nav:
       - Admin endpoints: reference/admin-api.md
       - Starlark API: reference/starlark-api.md
   - Security: security.md
+  - Security assurance: formal-security.md
+  - Timing review: security-timing-audit.md
   - Migrating from LittleProxy: migrating-from-littleproxy.md
   - Architecture: architecture.md
   - Java API (Javadoc): java-api.md
   - Project:
+      - QUIC and crypto roadmap:
+          - Design and scope: project/2026-10-28-quic-crypto-assurance-design.md
+          - QUIC implementation plan: project/2026-10-28-quic-feature-completion.md
+          - Crypto verification plan: project/2026-10-28-java-crypto-verification.md
+          - Packet trace verification: project/2026-10-29-quic-packet-traces.md
+          - SHAKE and ML-KEM foundations: project/2026-10-29-shake-mlkem-dafny-foundations.md
+          - Complete crypto proof goal: project/2026-10-29-dafny-crypto-completion.md
       - Building and testing: project/building-and-testing.md
       - Benchmarks against LittleProxy: project/benchmarks.md
       - Load and capacity testing: project/load-testing.md

@@ -1,18 +1,27 @@
 # quic
 
-A dependency-free QUIC transport for JDK 21 and newer: RFC 9000 (transport), RFC 9001 (TLS for QUIC)
+A QUIC transport for JDK 21 and newer: RFC 9000 (transport), RFC 9001 (TLS for QUIC)
 and RFC 9002 (loss detection and congestion control), with its own TLS 1.3 handshake, since the JDK's
 `SSLEngine` cannot carry TLS in QUIC CRYPTO frames or hand out the traffic secrets QUIC needs.
 
 The design follows [quinn](https://github.com/quinn-rs/quinn)'s `quinn-proto` (a sans-I/O state
 machine) and the TLS 1.3 client and server of [rustls](https://github.com/rustls/rustls), both used
-under the Apache License 2.0. Cryptography comes from the JDK: AES-GCM, ChaCha20-Poly1305, HMAC for
-HKDF, X25519 and P-256, ECDSA, RSA-PSS and Ed25519.
+under the Apache License 2.0. AES-GCM, ChaCha20-Poly1305, HMAC, X25519 and P-256, ECDSA, RSA-PSS
+and Ed25519 come from JDK providers. HKDF, protocol key schedules and encodings are our code.
+Production ML-KEM-768 and SHAKE use Java generated from verified Dafny, with the pinned
+`org.dafny:DafnyRuntime:4.9.1` dependency. The
+[security assurance status](../docs/formal-security.md) separates tests, scoped model proofs,
+trusted-provider assumptions and remaining implementation/timing proof gaps. No independent
+expert cryptographic audit or proof of whole-stack security is claimed.
 
 The stack runs end to end: a blocking API for virtual threads over the sans-I/O connection and
 endpoint, with session resumption, 0-RTT, NEW_TOKEN, connection migration and the preferred
 address (see [Migration](#migration)), and a choice of CUBIC, NewReno or BBR congestion control,
 tested against itself on loopback and against aioquic as client and server.
+
+The optional [QUIC Interop Runner endpoint](../quic-interop/README.md) adds the
+upstream runner's file client/server and Docker contract under the `interop` Maven
+profile. Its guide separates library features, exposed test cases and measured results.
 
 ## Packets and protection
 
@@ -63,6 +72,12 @@ QUIC version 1 (`0x00000001`) and version 2 (`0x6b3343cf`, RFC 9369), which diff
 header type bits, the Initial salt, the HKDF labels (`quic ` and `quicv2 `) and the Retry integrity
 key. Long headers of any other version raise `UnsupportedVersionException`, whose connection IDs
 may be up to 255 bytes (RFC 8999) so that a server can answer with Version Negotiation.
+
+RFC 9368 support is partial: clients can follow an offered compatible v1/v2 switch
+and validate the server's chosen version. Full client/server conformance and the
+runner's negotiation case remain unverified. Direct v2 alone does not establish
+the extension. Reliable stream resets with partial delivery (`RESET_STREAM_AT`)
+are not implemented. See the [completion roadmap](../docs/project/2026-10-28-quic-crypto-assurance-design.md).
 
 ### Limits and choices
 

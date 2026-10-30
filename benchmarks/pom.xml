@@ -10,7 +10,7 @@
 
     <!-- JMH benchmarks of MicroProxy against LittleProxy, side by side. Built only with the parent's
          bench profile (mvn -Pbench package): a normal build neither compiles this module nor
-         downloads JMH, LittleProxy or Netty, and the published modules stay dependency-free.
+         downloads JMH, LittleProxy or Netty, and those benchmark libraries are not added to published modules.
          Never installed, deployed, signed or published to Maven Central. See
          docs/project/benchmarks.md. -->
     <artifactId>microproxy-benchmarks</artifactId>

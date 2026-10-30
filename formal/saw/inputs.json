@@ -1,0 +1,17 @@
+{
+  "production_commit": "f5f931f250f8b57480bfff995327c873a22ccc48",
+  "saw": {
+    "version": "1.6 (68eed5f release-1.6)",
+    "source_commit": "68eed5f016528a86659c39730ae826e397acb829",
+    "macos_arm64_archive": "saw-1.6-macos-15-ARM64-with-solvers.tar.gz",
+    "macos_arm64_archive_sha256": "88adabd81dc67cd37183044446ecdd05e6bd3a8d62d2b0392a64ec8c02ad32f4"
+  },
+  "inputs": {
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "quic/target/classes/io/github/mahmoudimus/quic/tls/MlKem768.class": "65f1d21daedd73871e6acf653202728c996bc21acfcb4aa8f44464190002b31a",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
+    "quic/target/classes/io/github/mahmoudimus/quic/crypto/PacketKey.class": "61f7d592724838530ad4eeaead2d34c3b0eb055c5a1d878514904a2282694880",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+  },
+  "scope": "Historical pre-adoption MlKem768.reduceOnce bytecode, byte-identical to production at production_commit; current NativeField is proved through the Dafny delivery route."
+}

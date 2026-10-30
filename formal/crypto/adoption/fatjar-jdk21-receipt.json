@@ -1,0 +1,279 @@
+{
+  "schema": "microproxy.crypto-fat-jar-smoke/v1",
+  "status": "complete",
+  "jdk": "21",
+  "artifact": "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar",
+  "artifact_sha256": "f2b72aa9d6edd992f2914f8cb0787c2423e3db736e1038f0b23726f572752b43",
+  "command": [
+    "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
+    "-Xlog:class+load=info:file=/tmp/microproxy-crypto-adoption-4dab-4668gpqk/fatjar-jdk21-classload.log",
+    "-cp",
+    "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar:/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/fixtures:/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/harness:/Users/mahmoud/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.11.4/junit-jupiter-api-5.11.4.jar:/Users/mahmoud/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/Users/mahmoud/.m2/repository/org/junit/platform/junit-platform-commons/1.11.4/junit-platform-commons-1.11.4.jar:/Users/mahmoud/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar",
+    "io.github.mahmoudimus.quic.tls.HybridHandshakeBenchmark",
+    "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar",
+    "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/fixtures",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/harness",
+    "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar",
+    "0",
+    "1"
+  ],
+  "exit": 0,
+  "classpath": [
+    "/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/fixtures",
+    "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/hybrid-final/harness",
+    "/Users/mahmoud/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.11.4/junit-jupiter-api-5.11.4.jar",
+    "/Users/mahmoud/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar",
+    "/Users/mahmoud/.m2/repository/org/junit/platform/junit-platform-commons/1.11.4/junit-platform-commons-1.11.4.jar",
+    "/Users/mahmoud/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar"
+  ],
+  "external_fixture_classes": {
+    "io/github/mahmoudimus/quic/tls/Handshakes$Tamper.class": "a4a717954e2cb5ec33b3e26ce67c9425ccc39dd155d154a0dadcf3a2a508fca1",
+    "io/github/mahmoudimus/quic/tls/Handshakes.class": "57c43c8a797ef11b41f61e6023d7ba4e8f361feed11b88c3be0efed6576c7ac7",
+    "io/github/mahmoudimus/quic/tls/TestCerts$Authority.class": "ade9877d0345aa0cedefe935d7b8da8e59ff1aabdd9199d2e8115c3973b5abd6",
+    "io/github/mahmoudimus/quic/tls/TestCerts$KeyType.class": "571d3a08a6dec4ecb9fa375fbe73842129ec7c494ee68073089e7d075b18144a",
+    "io/github/mahmoudimus/quic/tls/TestCerts.class": "7b4accec815e1c31cf9e4897cee7989e79731e83be910bc86009d0933a2667de"
+  },
+  "external_harness_classes": {
+    "io/github/mahmoudimus/quic/tls/HybridHandshakeBenchmark.class": "0d4d108c58f25cb8d558c563228ffa5f9edbbed4fcd376df072834354bbd7da1"
+  },
+  "junit_inputs": {
+    "/Users/mahmoud/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.11.4/junit-jupiter-api-5.11.4.jar": "ab83ef9e51ac4597d59d26b4b58812129550e2f579a404c8af7d09f5ce5b4293",
+    "/Users/mahmoud/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar": "48e2df636cab6563ced64dcdff8abb2355627cb236ef0bf37598682ddf742f1b",
+    "/Users/mahmoud/.m2/repository/org/junit/platform/junit-platform-commons/1.11.4/junit-platform-commons-1.11.4.jar": "9edd969b0d0670c54105bc91ae79bd1c6f503e12115faba82073b84c86bbc334",
+    "/Users/mahmoud/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar": "b509448ac506d607319f182537f0b35d71007582ec741832a1f111e5b5b70b38"
+  },
+  "loaded_crypto_runtime_classes": [
+    {
+      "class": "io.github.mahmoudimus.quic.tls.MlKem768",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.tls.Shake",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.tls.MlKem768$DecapsulationKey",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.SecretKey",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$ByteType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$ShortType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$IntType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$LongType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$BooleanType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$CharType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$UnicodeCharType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$ReferenceType",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.CodePoint",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.CodePoint$CodePointCache",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.TypeDescriptor$Initializer",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.BigRational",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.Result",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.Result_Success",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.Result_Failure",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_RejectionLimit",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_ModulusError",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_InvalidSeedLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_InvalidKeyLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_InvalidMessageLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.KemSpec.FailureKind_InvalidCiphertextLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.Helpers",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.DafnyHaltException",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.verifiedcrypto.native_kem_hash",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeTypes.I",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.DafnyEuclidean",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeKeccak.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.FeedResult",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.FeedResult_InvalidBlockLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.FeedResult_InvalidPrefix",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.FeedResult_NeedMore",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.FeedResult_Full",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativePolynomial.__default",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "dafny.Tuple2",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.PublicKey",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.Encapsulation",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.DecodeResult",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.DecodeResult_ModulusError",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.DecodeResult_InvalidWidth",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.DecodeResult_InvalidLength",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.DecodeResult_Decoded",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.tls.MlKem768$Encapsulation",
+      "source": "file:/Users/mahmoud/.codex/worktrees/security-review/microproxy/microproxy-starlark/target/microproxy-starlark-0.6.0-all.jar"
+    }
+  ],
+  "log_sha256": "f593ffedf1aba353c299dd879ac7079d2f1fb849ba2478d8f8ae5c5f795e15d4",
+  "classload_log_sha256": "127bf90d55a952f7e74258509ad5d14364979fae1c61bf43f26dc04863665b03",
+  "canonical_crypto_classes_matched": 70,
+  "canonical_crypto_classes_total": 70,
+  "changed_or_missing_crypto_classes": {},
+  "scope": "Nine complete in-memory nonresumed hybrid TLS handshakes with bidirectional1RTT data; both facade origins and every loaded generated/provider/Dafny class, including Helpers and TypeDescriptor, originate only from the actual minimized all JAR. No quic/target or external DafnyRuntime on classpath. These cold smoke samples are not performance evidence.",
+  "pinned_runtime_helpers": {
+    "dafny/Helpers.class": "4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c",
+    "dafny/TypeDescriptor.class": "c347c781799064b33d485aafeef8a4a5ee542deecc54a795df11a47b524e8e00"
+  },
+  "artifact_snapshot": {
+    "path": "/tmp/microproxy-crypto-adoption-4dab-4668gpqk/artifacts/all-jdk21.jar",
+    "sha256": "f2b72aa9d6edd992f2914f8cb0787c2423e3db736e1038f0b23726f572752b43"
+  }
+}

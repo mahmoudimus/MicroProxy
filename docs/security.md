@@ -5,6 +5,13 @@ decide: who may reach the proxy, which servers clients may reach through it, wha
 what it logs. Read this before exposing a proxy beyond your own machine. Each section links to the
 guide with the details.
 
+The custom TLS/QUIC implementation has regression tests and scoped formal models; these are not
+an end-to-end security proof or an independent expert cryptographic audit. AES/HMAC and other
+listed primitives use trusted JDK providers, while ML-KEM and SHAKE include handwritten code.
+See [security assurance and formal verification](formal-security.md) for exact claims, trusted
+components, proof boundaries and remaining work. Interoperability is evidence of compatibility,
+not a substitute for security analysis.
+
 ## Exposure: who can use the proxy
 
 - **Loopback by default.** The listener accepts connections on loopback only; `--server`
@@ -103,6 +110,21 @@ Every input has a bound, and a peer that exceeds it loses its stream or connecti
   control.
 - **TLS versions:** only TLS 1.3 and 1.2 are allowed by default on every TLS connection
   ([TLS protocol versions](guides/mitm.md#tls-protocol-versions)).
+- **Browser fingerprints:** captured ClientHello suites stay on the wire, but the fingerprint
+  client's acceptance policy checks the selected cipher, group, signature and certificate keys.
+  CBC record protection is disabled. Cipher restrictions and `SSLParameters` algorithm constraints
+  apply to full and resumed handshakes; JDK TLS disabled-algorithm restrictions are checked too.
+  Named-group and signature-scheme lists on `SSLParameters`, endpoint-identification modes other
+  than HTTPS, and unsupported disabled-algorithm syntax are rejected explicitly. With a custom
+  algorithm constraint on JDK 21, the hybrid ML-KEM group is refused when its complete key cannot
+  be inspected. Delegated-credential and client-certificate sessions require full authentication
+  on subsequent TCP connections. See the
+  [timing review and local assessment](security-timing-audit.md) for the comparison inventory,
+  advisory references and limits of timing measurements.
+- **Traffic keys:** the fingerprint TLS client's AES-GCM keys are capped at 2^23 records per
+  direction. TLS 1.3 writes rotate traffic keys before reaching the cap, including within large
+  application writes. Reads require the peer to update its keys before the cap; TLS 1.2
+  connections must reconnect before it. Exhausted counters fail closed.
 - **Server names:** a server that rejects the name the proxy sends (SNI) is retried without it
   only with `--tls-retry-without-sni` (on by default in LittleProxy compatibility mode); a filter
   may send another name or check the certificate against another host
@@ -110,7 +132,10 @@ Every input has a bound, and a peer that exceeds it loses its stream or connecti
   matched against the intended (or the filter's) host, since SNI authenticates nothing
   ([Server TLS failures](guides/mitm.md#server-tls-failures)).
 - **DNS:** `--dnssec` validates answers from the root down and never falls back to unvalidated DNS
-  ([DNSSEC](guides/dnssec.md)).
+  ([DNSSEC](guides/dnssec.md)). Validation has a work budget shared by the whole resolution,
+  including address-family fallback, aliases and the trust chain. Exhausting the budget or
+  exceeding the NSEC3 iteration ceiling fails validation. Answer, zone-key and delegation caches
+  each have a size limit and discard expired entries.
 - **0-RTT:** early data from HTTP/3 clients can be replayed, so it is off by default
   (`--http3-0rtt`); when on, methods that are not safe to repeat get `425 Too Early`
   ([Session resumption and 0-RTT](guides/http3.md#session-resumption-and-0-rtt)).
