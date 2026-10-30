@@ -98,48 +98,48 @@ Create `SpongeSpec.dfy` and `Shake.dfy` with rate136/168 state, little-endian by
 mapping, absorb/pad/squeeze equations and arbitrary-length recursion/loop invariants.
 Prove Update concatenation and Read partition laws, preserving zero-read phase change.
 
-- [ ] Write wrong padding/rate/endian/phase bodies or mutants and observe real proof failures.
-- [ ] Verify byte/lane refinement, all owned loops, padding and arbitrary partitions.
-- [ ] Generate Java; test exact artifact against hashlib/FIPS/canonical vectors and
+- [x] Write wrong padding/rate/endian/phase bodies or mutants and observe real proof failures.
+- [x] Verify byte/lane refinement, all owned loops, padding and arbitrary partitions.
+- [x] Generate Java; test exact artifact against hashlib/FIPS/canonical vectors and
   segmented cases; review all input/buffer ownership and error-domain contracts.
-- [ ] Review, commit and push the completed SHAKE stage without closing the whole goal.
+- [x] Review, commit and push the completed SHAKE stage without closing the whole goal.
 
 ## Task 2: Polynomial/NTT composition (parallel with Task1)
 
-- [ ] Prove canonical poly Add/Sub and every scalar caller range.
-- [ ] Verify forward/inverse butterflies over complete inputs, exact table/root
+- [x] Prove canonical poly Add/Sub and every scalar caller range.
+- [x] Verify forward/inverse butterflies over complete inputs, exact table/root
   relations, stage/index invariants and the mathematical FIPS NTT representation.
-- [ ] Prove inverse and multiplication relationships with the negacyclic ring;
+- [x] Prove inverse and multiplication relationships with the negacyclic ring;
   verify NttMul/scale and all general caller preconditions.
-- [ ] Add root/sign/index/scale mutants, general-domain harnesses and generated-Java
+- [x] Add root/sign/index/scale mutants, general-domain harnesses and generated-Java
   differential checks; review and commit only genuinely discharged obligations.
 
 ## Task 3: Codecs/compression/sampling (parallel with Task1/2)
 
-- [ ] Prove Compress/Decompress rounding equations and all relevant widths.
-- [ ] Prove ByteEncode/Decode for d1/4/10/12, lengths, ownership and modulus rejection;
+- [x] Prove Compress/Decompress rounding equations and all relevant widths.
+- [x] Prove ByteEncode/Decode for d1/4/10/12, lengths, ownership and modulus rejection;
   prove lossless12-bit round trips and stated lossy compression properties.
-- [ ] Prove CBD2 and finite-prefix rejection Feed, including exact byte consumption,
+- [x] Prove CBD2 and finite-prefix rejection Feed, including exact byte consumption,
   truncation at256, canonical output and rejection/NeedMore results.
-- [ ] Add meaningful bit/order/tie/rejection mutants and runtime boundary tests;
+- [x] Add meaningful bit/order/tie/rejection mutants and runtime boundary tests;
   review and commit the completed stage.
 
 ## Task 4: Complete ML-KEM-768 equations
 
-- [ ] Connect expanded matrix/PRF/CBD and hash/coin/nonce contracts with no assumed
+- [x] Connect expanded matrix/PRF/CBD and hash/coin/nonce contracts with no assumed
   owned helper results. Settle sampling liveness/failure against FIPS AppendixB.
-- [ ] Verify K-PKE KeyGen/Encrypt/Decrypt and key/ciphertext serialization/validation.
-- [ ] Verify KEM KeyGen/Encaps/Decaps, exact hash/XOF input composition, retained seed,
+- [x] Verify K-PKE KeyGen/Encrypt/Decrypt and key/ciphertext serialization/validation.
+- [x] Verify KEM KeyGen/Encaps/Decaps, exact hash/XOF input composition, retained seed,
   checked key encodings, malformed lengths and reencryption/fallback key selection.
-- [ ] Demonstrate honest and malformed/implicit-rejection fixtures plus universal
+- [x] Demonstrate honest and malformed/implicit-rejection fixtures plus universal
   result contracts; list remaining cryptographic/probabilistic assumptions precisely.
-- [ ] Reject coin reuse/transposition/fallback/validation mutants; review/commit/push.
+- [x] Reject coin reuse/transposition/fallback/validation mutants; review/commit/push.
 
 ## Task 5: Production adoption and completion audit
 
-- [ ] Generate reproducible Java for the final verified graph and close owned Java
+- [x] Generate reproducible Java for the final verified graph and close owned Java
   bridge obligations with checked semantics, not tests relabeled as refinement.
-- [ ] Measure footprint, allocation and representative SHAKE/KEM/hybrid TLS throughput
+- [x] Measure footprint, allocation and representative SHAKE/KEM/hybrid TLS throughput
   against f888472; optimize only through reviewed proof-preserving transformations.
 - [ ] Integrate after compatibility/performance review; verify FIPS/Go/hashlib values,
   all existing crypto/handshake/fingerprint fixtures and full Maven21/25 matrices.

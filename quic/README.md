@@ -1,14 +1,15 @@
 # quic
 
-A dependency-free QUIC transport for JDK 21 and newer: RFC 9000 (transport), RFC 9001 (TLS for QUIC)
+A QUIC transport for JDK 21 and newer: RFC 9000 (transport), RFC 9001 (TLS for QUIC)
 and RFC 9002 (loss detection and congestion control), with its own TLS 1.3 handshake, since the JDK's
 `SSLEngine` cannot carry TLS in QUIC CRYPTO frames or hand out the traffic secrets QUIC needs.
 
 The design follows [quinn](https://github.com/quinn-rs/quinn)'s `quinn-proto` (a sans-I/O state
 machine) and the TLS 1.3 client and server of [rustls](https://github.com/rustls/rustls), both used
 under the Apache License 2.0. AES-GCM, ChaCha20-Poly1305, HMAC, X25519 and P-256, ECDSA, RSA-PSS
-and Ed25519 come from JDK providers. HKDF, protocol key schedules and encodings are our code;
-ML-KEM-768 and SHAKE also contain handwritten primitive implementations. The
+and Ed25519 come from JDK providers. HKDF, protocol key schedules and encodings are our code.
+Production ML-KEM-768 and SHAKE use Java generated from verified Dafny, with the pinned
+`org.dafny:DafnyRuntime:4.9.1` dependency. The
 [security assurance status](../docs/formal-security.md) separates tests, scoped model proofs,
 trusted-provider assumptions and remaining implementation/timing proof gaps. No independent
 expert cryptographic audit or proof of whole-stack security is claimed.

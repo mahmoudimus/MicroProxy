@@ -3,7 +3,7 @@
 # tools in docs/requirements.txt:  pip install -r docs/requirements.txt && mkdocs build --strict
 site_name: MicroProxy
 site_description: >-
-  A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads,
+  A Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads,
   the successor to LittleProxy.
 site_url: https://mahmoudimus.github.io/MicroProxy/
 repo_url: https://github.com/mahmoudimus/MicroProxy

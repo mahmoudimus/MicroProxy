@@ -1,0 +1,15 @@
+{
+  "status": "checked",
+  "stage_receipt_sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+  "jar_sha256": "9b0181cfce27ddb0a0ae06f8cae778d8f146e03520ef4545ce7ff9b8902b32e1",
+  "class_count": 456,
+  "generated_class_count": 66,
+  "handwritten_sources": 192,
+  "handwritten_lint": [
+    "-Xlint:all,-serial"
+  ],
+  "existing_generated_sources": {
+    "io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f"
+  },
+  "comparison": "exact class bytes including all debug attributes"
+}

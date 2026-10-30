@@ -1,6 +1,6 @@
 # MicroProxy
 
-> A dependency-free Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads, the successor to LittleProxy.
+> A Java 21 HTTP/1, HTTP/2, HTTP/3/QUIC, SOCKS and MITM proxy on virtual threads, the successor to LittleProxy.
 
 MicroProxy's documentation, one page per topic. Each link below is a page of the site, with
 the first sentence of its summary. https://mahmoudimus.github.io/MicroProxy/llms-full.txt has every page in one
@@ -8,7 +8,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 ## Overview
 
-- [Home](https://mahmoudimus.github.io/MicroProxy/): MicroProxy is a dependency-free Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS interception (MITM), built on virtual threads and blocking I/O.
+- [Home](https://mahmoudimus.github.io/MicroProxy/): MicroProxy is a Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS interception (MITM), built on virtual threads and blocking I/O.
 
 ## Getting started
 

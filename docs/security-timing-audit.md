@@ -18,7 +18,7 @@ behavior of JIT-generated code, JCA providers, or a deployed service.
 | QUIC reset tokens | Secret tokens already use `MessageDigest.isEqual` on fixed 16-byte arrays. Keep them. |
 | QUIC protected packet-number fields | These fields are confidential before authentication. Receive-side header unmasking, fixed-prefix reading and number reconstruction now use generated scalar code and fixed-address adapters, with scoped functional/trace evidence described below. Downstream AEAD/key-phase/metadata handling remains outside that trace claim. |
 | QUIC Retry integrity / address-validation tokens / TLS tickets | Retry tags use `MessageDigest.isEqual`; sealed tokens and tickets use JCA AEAD verification. A Retry integrity key is protocol-defined public material. Ticket key names are public routing metadata. Provider timing remains a separate assessment. |
-| `MlKem768.DecapsulationKey.decapsulate` | Secret-dependent implicit rejection. Review found a complete fixed-length ciphertext-difference accumulation and mask selection of the candidate or rejection key, with both keys computed. No source-level early comparison exit was found; this is not a machine-code or whole-algorithm proof. |
+| `MlKem768.DecapsulationKey.decapsulate` | Dafny refinement proves the full 1088-byte comparison and 32-byte candidate/fallback selection with both keys computed. Compiled checks below address source/runtime regressions; JVM timing remains unproved. |
 | Key exchange all-zero result | A fixed loop accumulates the zero result, followed by the required rejection decision. JCA agreement/provider internals remain outside this source comparison review. |
 | Hostnames, ALPN, cipher/signature/group IDs, session IDs, downgrade markers, HTTP schemes, connection IDs | Public routing or wire data; retain ordinary comparisons. DNSSEC DS digests and NSEC3 hashes are published data, not secret authenticators. General content and object equality are not credential checks. |
 
@@ -51,6 +51,28 @@ The existing outbound protection path is outside this receive-side theorem.
 See the packet trace section in [formal security](formal-security.md) for replay
 and remaining trust boundaries. No remote timing exploit was demonstrated by the
 source review, and no new empirical timing result is inferred from these proofs.
+
+## Generated crypto runtime follow-up
+
+Production SHAKE/ML-KEM uses Java generated from verified Dafny through the checked
+delivery route. An initial prototype used
+coefficient division where the earlier Java used shifts/Barrett reduction.
+Those paths now use proved primitive arithmetic. Codec checks also reject
+payload-sized allocations that could hide a secret length across a native call.
+
+Bytecode inspection found a separate regression before adoption: a narrow Dafny
+right-shift helper branches on signed payload, making its selector helper depend
+on ciphertext equality. The revised selector widens to 64 bits and shifts by
+public literal 56. Compiled controls reject the old helper, an equality-based
+branch and payload boxing. Runtime helpers, JDK byte conversions, metadata and
+fixed-zero allocations are inspected explicitly. Secret values in some validation
+paths have proved bounds making branch outcomes constant; they are not public.
+
+These checks supply no whole-program noninterference or JVM/JIT/CPU timing theorem.
+Source zeroing does not prove physical erasure. Earlier timing samples preceded
+this backend; the new CPU/throughput measurements are performance evidence only.
+See [formal security](formal-security.md)
+for exact scope and toolchain assumptions.
 
 ## Advisory relevance
 

@@ -1,0 +1,11 @@
+Generated cryptography in MicroProxy QUIC
+
+SHAKE and ML-KEM Java is generated from the reviewed Dafny source under
+formal/crypto. The specifications, functional proofs and native ownership
+refinements are MicroProxy work. ML-KEM arithmetic and composition formulas
+derive from the earlier Go port, Copyright 2023 The Go Authors (BSD-3-Clause).
+The original Go license is retained in LICENSE-go-mlkem.txt.
+
+The generated code uses org.dafny:DafnyRuntime:4.9.1, Copyright (c) Microsoft
+Corporation, under the MIT License retained in LICENSE-dafny.txt. The compiler,
+runtime and JDK providers remain explicit verification trust assumptions.

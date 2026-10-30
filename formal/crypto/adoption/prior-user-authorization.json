@@ -1,0 +1,16 @@
+{
+  "schema": "microproxy.crypto-user-authorization/v1",
+  "authority": "user",
+  "action": "integrate-after-checks",
+  "instruction": "Integrate after checks (Recommended)",
+  "source": "Trusted human reply in Codex thread 01a183b4-2146-72d1-88ef-50c4b97a4bcb; request_user_input_async call_8baf85dd94b0409a94b9cd171eb91868 item0. Original reply is reproduced below; this is prior conditional authority, not user review of a future stage.",
+  "question": "Once the functional proofs pass, should the generated Java replace production SHAKE/ML-KEM after compatibility and performance checks, or stay as a validation component? Replacing production may add the Dafny runtime.",
+  "trusted_reply": [
+    {
+      "questionItemId": "[\"request_user_input_async\",\"call_8baf85dd94b0409a94b9cd171eb91868\",0]",
+      "answer": "Integrate after checks (Recommended)",
+      "question": "Once the functional proofs pass, should the generated Java replace production SHAKE/ML-KEM after compatibility and performance checks, or stay as a validation component? Replacing production may add the Dafny runtime."
+    }
+  ],
+  "additional_direct_instruction": "Commit. Push to branch. Lets set a goal for the SHAKE sponge/API, polynomial/NTT/KEM composition to be done via Daphne proofs. Then we can just leave JVM timing as an open item"
+}

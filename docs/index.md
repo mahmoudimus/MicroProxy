@@ -1,6 +1,6 @@
 # MicroProxy
 
-MicroProxy is a dependency-free Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS
+MicroProxy is a Java 21 proxy for HTTP/1, HTTP/2, HTTP/3 over QUIC, SOCKS and TLS
 interception (MITM), built on virtual threads and blocking I/O. This page says what it is, lists
 every feature with a link to its guide, and explains the design; start with [Getting
 started](getting-started/install.md) to run it.

@@ -13,8 +13,7 @@ connection and memory limits, adversarial clients, long soaks and injected fault
 
 The harness lives in the `loadtest/` module, which only the `bench` Maven profile builds (the same
 profile the benchmarks use): a normal `mvn verify` neither compiles it nor downloads HdrHistogram,
-LittleProxy or Netty, and the module is never installed, deployed or published. The published
-modules stay dependency-free.
+LittleProxy or Netty, and the module is never installed, deployed or published. Harness libraries are not added to published modules.
 
 This page publishes no numbers of its own, and CI checks none: shared CI runners are too noisy for
 them. The one published set is [Performance against other proxies](performance.md): a dated

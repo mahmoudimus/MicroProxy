@@ -1,9 +1,11 @@
 # SHAKE and ML-KEM functional verification
 
-This directory extends the verified Keccak and scalar-field foundations toward
-generated production Java. The [completion plan](../../docs/project/2026-10-29-dafny-crypto-completion.md)
-requires full component composition, checked native-array refinements,
-compatibility tests and performance measurements before adoption.
+This directory contains the verified Dafny source for production SHAKE and
+ML-KEM-768 Java, including native-array refinements and the checked delivery
+route. The [adoption record](adoption/README.md) binds the composed graph to its
+generated sources/classes, compatibility and performance evidence, and prior
+user authority. The [completion plan](../../docs/project/2026-10-29-dafny-crypto-completion.md)
+records the full scope; JVM timing remains open.
 
 Differential replay uses the immutable pre-adoption Java in
 [`reference/`](reference/README.md), with its original source hashes and provenance.
@@ -43,9 +45,9 @@ and the included Keccak foundation 122. Generated Java passes 47,663 assertions 
 each JDK, including 198 vectors/partitions and 24 slice cases. An independent
 review replayed the module proofs, both JDK tests and the hashlib vectors.
 
-This stage uses immutable sequences. Its Java copying-helper assertions do not
-prove ownership for a future mutable facade. Native-array refinement, production
-adoption and performance remain separate gates; JVM timing stays open.
+This immutable-sequence stage alone does not prove ownership of the mutable
+Java facade. The native-array and production-delivery sections below describe
+that path and its remaining trust assumptions. JVM timing stays open.
 
 ## Codec and finite sampling stage
 
@@ -89,9 +91,10 @@ reported zero findings. Generated Java passed 207,513 assertions on each of JDK
 verification obligations, not independent security properties. Java differential
 tests are finite compatibility evidence, not a universal bytecode proof.
 
-No production primitive changes in this stage. Compiler/runtime/JDK assumptions,
-cryptographic hardness, entropy and JVM timing remain separate from functional
-proofs. The overall SHAKE/ML-KEM goal stays open through production acceptance.
+This isolated codec stage itself makes no production primitive change. Native
+composition and current production delivery are documented below. Compiler/runtime/
+JDK assumptions, cryptographic hardness, entropy and JVM timing remain separate
+from functional proofs.
 
 ## Polynomial and NTT algebra
 
@@ -122,7 +125,8 @@ python3 formal/crypto/polynomial_checks.py --phase all \
 ```
 
 This closes the mathematical polynomial/NTT composition stage. Native-array
-refinement, generated production delivery, performance and timing remain separate.
+refinement and generated production delivery are documented separately below;
+this stage supplies no JVM timing guarantee.
 
 ## K-PKE and KEM composition
 
@@ -141,14 +145,13 @@ the invariant before using cached state. Reencryption compares all 1088 bytes an
 selects all 32 output bytes with masks. This functional/source-shape result does
 not establish constant-time execution of the prototype: signed modulo in other
 generated sequence operations still uses a runtime helper with sign branches.
-Native production refinements must remove those negative secret-value paths.
+The native refinements below remove those negative BigInteger payload paths.
 
 The sampler considers 840 XOF bytes, or 280 complete three-byte iterations, and
 returns one `RejectionLimit` failure if fewer than 256 coefficients are accepted.
-This is a proposed bounded policy following the minimum in FIPS 203 Appendix B.
-It is not production-adopted here: mutable intermediate destruction and uniform
-failure delivery remain native integration requirements. Immutable sequences do
-not establish erasure. The KEM theorem gives exact reencryption/fallback behavior,
+This bounded policy follows the minimum in FIPS 203 Appendix B and is adopted
+by the native composition below. The immutable-sequence stage alone does not
+establish mutable intermediate destruction or physical erasure. The KEM theorem gives exact reencryption/fallback behavior,
 not universal honest-ciphertext decryption success; the standard permits a nonzero
 decapsulation failure probability.
 
@@ -201,8 +204,8 @@ python3 formal/crypto/native_shake_checks.py --output /fresh/output/base \
   --runtime-sha256 dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6
 ```
 
-The API facade is reviewed separately; production acceptance still requires full
-composition, compatibility/performance evaluation and exact artifact delivery.
+The API facade is reviewed separately; the production delivery below binds it
+to complete composition, compatibility/performance evaluation and exact artifacts.
 
 ## Native field and polynomial refinement
 
@@ -225,7 +228,8 @@ appear only in temporary negative copies; positive domains remain unchanged.
 The component replay also checks the actual scalar bytecode and compares generated
 Java with the fixed reference, all basis positions and independent schoolbook
 products. Both JDKs passed 22,865,885 assertions in the recorded component replay.
-Final production acceptance requires the complete KEM graph and delivery checks.
+The production delivery below composes this with the complete KEM graph and
+checks the delivered artifacts.
 
 ```sh
 python3 formal/crypto/native_polynomial_checks.py --phase all \
@@ -277,9 +281,9 @@ python3 formal/crypto/native_codec_checks.py --dafny /path/to/dafny/dafny \
   --java-home /path/to/jdk25
 ```
 
-These remain isolated generated components pending full native KEM delivery,
-compatibility and performance acceptance. Source-level zeroing is a functional
-heap contract; physical/JIT erasure and JVM timing are not proved by it.
+These component receipts alone do not establish full native KEM delivery;
+the production section below records the composed path. Source-level zeroing is
+a functional heap contract; physical/JIT erasure and JVM timing are not proved.
 
 ## Native K-PKE and KEM composition
 
@@ -319,6 +323,22 @@ python3 formal/crypto/native_kem_checks.py --scope full \
   --java-home /path/to/jdk25
 ```
 
-The generated implementation remains subject to the final production delivery,
-compatibility and performance gates. Its mutable constructors and arrays are
-internal; the reviewed Java facade must preserve the verified ownership boundary.
+The generated implementation is used through the reviewed production Java
+facades. Its mutable constructors and arrays are internal; the facade preserves
+the verified ownership boundary under the documented Java/compiler assumptions.
+
+## Production delivery
+
+Production `Shake` and `MlKem768` delegate to the unmodified generated native
+classes. The [delivery archive](adoption/README.md) records the 18-root verified
+stage, exact 66-source/66-class identity, four freshly compiled facade classes,
+13 compatibility tests on each JDK (including Go 10,000), complete hybrid TLS
+measurements, and the separate prior-human/agent-evaluation adoption decision.
+The pinned Maven DafnyRuntime 4.9.1 differs in bytes from the compiler bundle;
+its identity and permitted native helper calls are checked explicitly.
+
+The full local JDK21/25 Maven suites and actual Maven class/JAR/runtime checks
+are recorded separately from source verification and performance. The enforced
+CI job repeats the frozen generation/delivery route on the exact pushed head.
+Compiler/runtime/provider correctness, entropy, hardness, physical erasure and
+JVM timing remain explicit boundaries.

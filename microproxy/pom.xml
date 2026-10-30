@@ -13,7 +13,7 @@
 
     <name>MicroProxy</name>
     <description>
-        A dependency-free HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
+        An HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
         (Project Loom). A port of LittleProxy without Netty.
     </description>
 

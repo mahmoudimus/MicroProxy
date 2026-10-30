@@ -12,9 +12,10 @@ HTTP/2, HTTP/3 over its own QUIC, SOCKS, CONNECT-UDP and TLS interception, with 
 access logs, stats and admin API, mitmproxy-style addons, and Starlark scripting. It is a port of
 [LittleProxy](https://github.com/LittleProxy/LittleProxy) that drops Netty: each connection runs
 on its own **virtual thread** (Project Loom) with plain blocking socket I/O, on JDK 21 or newer,
-with **no runtime dependencies**, and LittleProxy's filter API.
+and exposes LittleProxy's filter API.
 
-MicroProxy includes custom TLS/QUIC code and handwritten ML-KEM/SHAKE. Interoperability tests,
+MicroProxy includes custom TLS/QUIC code and Java for ML-KEM/SHAKE generated from verified Dafny.
+Interoperability tests,
 adversarial regression tests, and scoped formal models provide different kinds of evidence;
 they do not establish whole-stack security or constant-time JVM execution. No independent expert
 security audit or security certification is claimed. Read the [security assurance status](docs/formal-security.md)
