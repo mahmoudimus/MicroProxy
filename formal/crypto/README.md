@@ -249,12 +249,17 @@ Coefficient values do not reach division/remainder helpers. The only retained
 division/remainder operations process public indices, lengths and widths.
 
 [Recorded evidence](NATIVE-CODEC-EVIDENCE.json) preserves the full-domain proof
-results: codec 1,493 checks, sampling 281, field 84, and caller harnesses 8 and 4,
+results: codec 1,503 checks, sampling 281, field 84, and caller harnesses 8 and 4,
 all with zero errors and zero audit findings. Fifteen genuine semantic controls
 include native overflow, rounding/shift/reciprocal errors and discarded-buffer
 cleanup. A subsequent checker-only revision explicitly reuses those proofs by
 unchanged source and generated-artifact identities; it freshly compiles and runs
 334,753 assertions on each JDK with the exact Maven runtime.
+
+The packing radix proof is split into five explicit byte cases for bounded
+Linux/macOS verification at unchanged limits. Its domains/contracts and generated
+Java/classes are unchanged. Semantic controls require normal verifier exit4;
+crashes never count as counterexamples, even after a semantic diagnostic.
 
 An independently reviewed bytecode dataflow check covers 45 methods. It requires
 public operands at metadata arithmetic calls and rejects payload-dependent array

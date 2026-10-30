@@ -283,13 +283,73 @@ module NativeCodec {
     else if d == 10 then (f[k] as T.L)+1024*(f[k+1] as T.L)+1048576*(f[k+2] as T.L)+1073741824*(f[k+3] as T.L)
     else (f[k] as T.L)+4096*(f[k+1] as T.L)
   }
+  // Ghost-only per-byte radix decompositions keep the packing proof linear
+  // and independently bounded for each public byte index.
+  lemma EncodeTenLowByte(a: int, b: int, c: int, d: int)
+    requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024
+    ensures (a+1024*b+1048576*c+1073741824*d)%256 == a%256
+  {
+    assert a+1024*b+1048576*c+1073741824*d == a%256+256*(a/256+4*b+4096*c+4194304*d);
+  }
+  lemma EncodeTenByte1Proof(a: int, b: int, c: int, d: int)
+    requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024
+    ensures ((a+1024*b+1048576*c+1073741824*d)/256)%256 == a/256+4*(b%64)
+  {
+    var low := a%256;
+    var digit := a/256+4*(b%64);
+    var high := b/64+16*c+16384*d;
+    assert 0 <= low < 256;
+    assert 0 <= digit < 256;
+    assert a+1024*b+1048576*c+1073741824*d == low+256*(digit+256*high);
+    assert (a+1024*b+1048576*c+1073741824*d)/256 == digit+256*high;
+  }
+  lemma EncodeTenByte2Proof(a: int, b: int, c: int, d: int)
+    requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024
+    ensures ((a+1024*b+1048576*c+1073741824*d)/65536)%256 == b/64+16*(c%16)
+  {
+    var low := a+1024*(b%64);
+    var digit := b/64+16*(c%16);
+    var high := c/16+64*d;
+    assert 0 <= low < 65536;
+    assert 0 <= digit < 256;
+    assert a+1024*b+1048576*c+1073741824*d == low+65536*(digit+256*high);
+    assert (a+1024*b+1048576*c+1073741824*d)/65536 == digit+256*high;
+  }
+  lemma EncodeTenByte3Proof(a: int, b: int, c: int, d: int)
+    requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024
+    ensures ((a+1024*b+1048576*c+1073741824*d)/16777216)%256 == c/16+64*(d%4)
+  {
+    var low := a+1024*b+1048576*(c%16);
+    var digit := c/16+64*(d%4);
+    var high := d/4;
+    assert 0 <= low < 16777216;
+    assert 0 <= digit < 256;
+    assert a+1024*b+1048576*c+1073741824*d == low+16777216*(digit+256*high);
+    assert (a+1024*b+1048576*c+1073741824*d)/16777216 == digit+256*high;
+  }
+  lemma EncodeTenByte4Proof(a: int, b: int, c: int, d: int)
+    requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024
+    ensures ((a+1024*b+1048576*c+1073741824*d)/4294967296)%256 == d/4
+  {
+    var low := a+1024*b+1048576*c+1073741824*(d%4);
+    var digit := d/4;
+    var high := 0;
+    assert 0 <= low < 4294967296;
+    assert 0 <= digit < 256;
+    assert a+1024*b+1048576*c+1073741824*d == low+4294967296*(digit+256*high);
+    assert (a+1024*b+1048576*c+1073741824*d)/4294967296 == digit+256*high;
+  }
   lemma EncodeTen(a: int, b: int, c: int, d: int, at: int)
     requires 0 <= a < 1024 && 0 <= b < 1024 && 0 <= c < 1024 && 0 <= d < 1024 && 0 <= at < 5
     ensures ((a+1024*b+1048576*c+1073741824*d)/S.BytePower(at))%256 ==
       (if at == 0 then a%256 else if at == 1 then a/256+4*(b%64)
        else if at == 2 then b/64+16*(c%16) else if at == 3 then c/16+64*(d%4) else d/4)
   {
-    if at == 0 {} else if at == 1 {} else if at == 2 {} else if at == 3 {} else {}
+    if at == 0 { EncodeTenLowByte(a,b,c,d); }
+    else if at == 1 { EncodeTenByte1Proof(a,b,c,d); }
+    else if at == 2 { EncodeTenByte2Proof(a,b,c,d); }
+    else if at == 3 { EncodeTenByte3Proof(a,b,c,d); }
+    else { EncodeTenByte4Proof(a,b,c,d); }
   }
   lemma EncodeTwelve(a: int, b: int, at: int)
     requires 0 <= a < 4096 && 0 <= b < 4096 && 0 <= at < 3

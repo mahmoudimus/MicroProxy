@@ -1,5 +1,5 @@
 {
-  "validation_kind": "Fresh Java compilation, bytecode checker and JDK replay; unchanged SMT proofs and generation reused by exact identity",
+  "validation_kind": "Fresh Java compilation, bytecode checker and JDK replay; unchanged SMT proofs and generation reused by exact identity; later ghost-only EncodeTen proof split and strict normal-exit gate are separately recorded below",
   "commands": [
     {
       "label": "javac",
@@ -764,5 +764,235 @@
     "runtime_bytes": 159922
   },
   "compiled_classes_identical_to_proof_receipt": true,
-  "independent_review": "Approved: arithmetic/full-domain contracts and source wiping reviewed; fresh eight compiled controls, actual45-method dataflow, all artifact/input/runtime pins and JDK21/25 replays verified. Proof and semantic-control reuse is explicit by unchanged source identity."
+  "independent_review": "Approved: arithmetic/full-domain contracts and source wiping reviewed; fresh eight compiled controls, actual45-method dataflow, all artifact/input/runtime pins and JDK21/25 replays verified. Proof and semantic-control reuse is explicit by unchanged source identity.",
+  "subsequent_proof_portability": {
+    "status": "Applied proof-only EncodeTen decomposition after composition confirmed graph release; source frozen.",
+    "source_before_sha256": "525659f58c986a6ce7bfb8aaf91c162e249f182a3b952490b54721715b1f6ce7",
+    "source_after_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "patch_sha256": "3a4d26dc89660cc1e1382992e1d228e760f74d9dba25f3629dabf62bf66a5b98",
+    "full_original_contract_preserved": true,
+    "non_EncodeTen_source_bytes_preserved": true,
+    "budgets": {
+      "seconds": 30,
+      "resource_limit": 50000000,
+      "cores": 2,
+      "solver_option": "O:smt.case_split=0"
+    },
+    "checks": {
+      "mac-focused": {
+        "verified": 135,
+        "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+        "exit": 0
+      },
+      "linux-focused": {
+        "verified": 135,
+        "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+        "exit": 0
+      },
+      "mac-full": {
+        "verified": 1503,
+        "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+        "exit": 0
+      },
+      "linux-full": {
+        "verified": 1503,
+        "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+        "exit": 0
+      }
+    },
+    "audit_findings": 0,
+    "toolchain": {
+      "version": "Dafny 4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2 / Z3 4.12.1",
+      "mac_dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+      "mac_solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+      "linux_dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+      "linux_solver_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a",
+      "linux_image": "sha256:55d5d3f4fdf202066f26d2888a10eba8490c6fb547e740d890d57a06d4755cb2"
+    },
+    "proof_dependency_sha256": {
+      "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+      "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+      "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+      "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+      "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+      "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+      "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+      "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
+    },
+    "original_ci_failure": "/tmp/microproxy-ci-1b-native-codec-artifact/native-codec-g0o8k5x9/proof-NativeCodec.log",
+    "live_source_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "runtime_artifacts_byte_identical": true
+  },
+  "subsequent_exit_gate": {
+    "change": "Both actual semantic-control rejection gates now require exit 4; all other validation remains unchanged.",
+    "runners": {
+      "native_codec_checks.py": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
+      "codec_sampling_checks.py": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d"
+    },
+    "actual_gate_regression": {
+      "formal/crypto/native_codec_checks.py": {
+        "sha256": "660335ced6fb41ec6c9aab7fcf24b93b31db5cf434b0534a308784f729cd42b3",
+        "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
+        "cases": [
+          {
+            "exit": -11,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 0,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 1,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 2,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 3,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 4,
+            "rejected": false,
+            "expected_rejected": false
+          },
+          {
+            "exit": 5,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 137,
+            "rejected": true,
+            "expected_rejected": true
+          }
+        ]
+      },
+      "formal/crypto/codec_sampling_checks.py": {
+        "sha256": "315aa02a98fd4c5bfb5c407a0d70d021ea44d964de95fe6dcf17695d97226c1d",
+        "actual_gate": "status != 4 or not match or any((term in output for term in bad)) or (not semantic)",
+        "cases": [
+          {
+            "exit": -11,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 0,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 1,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 2,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 3,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 4,
+            "rejected": false,
+            "expected_rejected": false
+          },
+          {
+            "exit": 5,
+            "rejected": true,
+            "expected_rejected": true
+          },
+          {
+            "exit": 137,
+            "rejected": true,
+            "expected_rejected": true
+          }
+        ]
+      }
+    },
+    "tests_passed": 16,
+    "proof_reuse": [
+      {
+        "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-codec/codec-sampling-ry9zcb1o/receipt.json",
+        "receipt_sha256": "f82f01524e38b9627da467e96ed5a0d6121e87a7c92403e1cbf9969b5339fecb",
+        "matched_proof_source_identities": {
+          "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+          "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+          "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
+          "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9"
+        },
+        "prior_proofs": {
+          "proof-Codec": 469,
+          "proof-Sampling": 26,
+          "codec_domain": 7,
+          "sampling_domain": 2
+        }
+      },
+      {
+        "receipt": ".superpowers/sdd/2026-10-29-dafny-crypto-completion/owned-native-codec/native-codec-flax696x/receipt.json",
+        "receipt_sha256": "ccea5b75a60d04e55be62065643724c0eb04170a0558a92e7f1e5550bceb14eb",
+        "matched_proof_source_identities": {
+          "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+          "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+          "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+          "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+          "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+          "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+          "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+          "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de"
+        },
+        "prior_proofs": {
+          "proof-NativeField": 84,
+          "proof-NativeCodec": 1493,
+          "proof-NativeSampling": 281,
+          "native_codec_domain": 8,
+          "native_sampling_domain": 4
+        }
+      },
+      {
+        "receipt": "/tmp/native-codec-encode-ten-vka4k1b1/readiness.json",
+        "receipt_sha256": "1068d758566b0b556ce6fd0fb3d08c999f7ec9a3e6df3183136efc8ae34c9a62",
+        "live_NativeCodec_sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+        "checks": {
+          "mac-focused": {
+            "verified": 135,
+            "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+            "exit": 0
+          },
+          "linux-focused": {
+            "verified": 135,
+            "log_sha256": "84990d03fd8f8cc29a06eda4ffe6e91670de0cebe74ef50203b5363eaad456d8",
+            "exit": 0
+          },
+          "mac-full": {
+            "verified": 1503,
+            "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+            "exit": 0
+          },
+          "linux-full": {
+            "verified": 1503,
+            "log_sha256": "dd6fe522bb1fa4ed47756cd88f27a96ef6e756f62f7d99c8c1af3838216753ed",
+            "exit": 0
+          }
+        },
+        "generated_java_and_classes_unchanged": true
+      }
+    ],
+    "smt_replayed": false,
+    "java_replayed": false,
+    "reuse_reason": "Only the runners' negative-control exit predicates changed; all proof inputs, generated Java and runtime bodies remain unchanged."
+  }
 }

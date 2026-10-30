@@ -114,7 +114,7 @@ def main():
         match = re.search(r'verifier finished with (\d+) (?:assertions )?verified, ([1-9]\d*) errors?\s*$', output)
         bad = ('out of resource', 'timed out', 'resolution/type errors', 'parse errors', 'Warning:')
         semantic = 'could not be proved' in output or 'assertion might not hold' in output
-        if not status or not match or any(term in output for term in bad) or not semantic:
+        if status != 4 or not match or any(term in output for term in bad) or not semantic:
             raise RuntimeError('Control did not produce a semantic proof failure: '+name)
         receipt['controls'][name] = {'verified': int(match[1]), 'errors': int(match[2])}
         if name == 'feed-reject-q':

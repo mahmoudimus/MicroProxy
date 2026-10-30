@@ -351,7 +351,7 @@ def main():
         semantic = any(term in output for term in ('could not be proved','assertion might not hold','index out of range'))
         if name == 'native-int-overflow':
             semantic = "result of operation might violate newtype constraint for 'I'" in output
-        if not status or not match or any(term in output for term in bad) or not semantic:
+        if status != 4 or not match or any(term in output for term in bad) or not semantic:
             raise RuntimeError('Control did not produce a semantic proof failure: '+name)
         receipt['controls'][name] = {'verified': int(match[1]), 'errors': int(match[2])}
         if name == 'native-int-overflow':
