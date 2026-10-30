@@ -1,0 +1,327 @@
+{
+  "schema": "microproxy.crypto-delivery-config/v1",
+  "entry": "formal/crypto/NativeMlKem.dfy",
+  "namespace": "io.github.mahmoudimus.quic.internal.verifiedcrypto",
+  "output_name": "NativeCrypto",
+  "destination": "quic/src/main/java",
+  "dafny": {
+    "version_string": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+    "solver_version_string": "Z3 version 4.12.1 - 64 bit",
+    "assets": {
+      "Darwin-arm64": {
+        "archive": "dafny-4.9.1-arm64-macos-11.zip",
+        "directory": "dafny-4.9.1-macos-arm64",
+        "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+        "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+      },
+      "Linux-x86_64": {
+        "archive": "dafny-4.9.1-x64-ubuntu-20.04.zip",
+        "directory": "dafny-4.9.1-linux-x64",
+        "sha256": "697ee703b39414b3904dc8c132e51481982f52205c1658f3374d313a284d43eb",
+        "runtime_sha256": "96c597ae2341be477e539f78547d4c0abb1b0daf1192d8b6e2ee43673fab66ed"
+      }
+    },
+    "verify_options": [
+      "--verification-time-limit",
+      "30",
+      "--resource-limit",
+      "50000000",
+      "--cores",
+      "2"
+    ],
+    "native_verify_options": [
+      "--solver-option",
+      "O:smt.case_split=0"
+    ],
+    "dependency_options": [
+      "/printIncludes:Immediate",
+      "/noResolve"
+    ],
+    "dependency_parser_policy": "Use pinned Dafny parser adjacency output recursively, before freezing and after generation. Only the exact legacy-CLI banner is consumed; every source/parser diagnostic remains fatal. Transitive output is empty in this pinned distribution. Sources must be UTF-8 (an initial BOM is allowed); ambiguous semicolon/newline paths and repository escapes are rejected. /noResolve confines discovery to parsing; every source is subsequently resolved and verified as a root under the strict proof policy.",
+    "source_solver_case_split": {
+      "formal/crypto/NativeMlKem.dfy": 3
+    },
+    "source_solver_case_split_reason": "The native composition receipt uses Z3 default case_split=3; frozen full-root NativeMlKem verification under the kernel case_split=0 policy produced5timeouts/3resource failures. Apply3 explicitly to this composition source, retain0 for native kernels and the unchanged30s/50M/2-core limits. This is a solver-strategy selection, not a proof-domain or budget change."
+  },
+  "runtime": {
+    "coordinate": "org.dafny:DafnyRuntime:4.9.1",
+    "documentation": "https://github.com/dafny-lang/dafny-gradle-plugin#installation",
+    "url": "https://repo.maven.apache.org/maven2/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+    "sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+    "bytes": 159922,
+    "class_count": 91,
+    "classmap_sha256": "6e4f6978d6f1bd353d7a8373a6f8c15271f9cf14d989e78963535eeca65a343d",
+    "bundled_comparison": {
+      "same_class_names": true,
+      "changed_classes": {
+        "dafny/DafnySequence.class": {
+          "bundled_sha256": "ee93369120a57502d8d498831278c50c6a45577de00d1717b31bfab0a1d15577",
+          "maven_sha256": "6362dd1af5bfbd1520f1c0bd0c41e081caee3919024c0c65a3d9fe01d4557fee",
+          "difference": "toString calls Object.toString via invokevirtual in Maven instead of List.toString via invokeinterface in the bundled runtime; constant-pool owner/tag and consequent code/debug lengths differ. Other 90 classes are byte-identical."
+        }
+      }
+    }
+  },
+  "javac": {
+    "release": "21",
+    "debug": "lines,vars,source",
+    "encoding": "UTF-8",
+    "lint": [
+      "-Xlint:all,-serial,-cast,-rawtypes"
+    ],
+    "cast_lint_reason": "Pinned Dafny emits redundant primitive casts. Disable that category explicitly in both Maven and canonical javac; do not rewrite generated sources or discard emitted diagnostics.",
+    "rawtypes_lint_reason": "Pinned Dafny emits a raw dafny.Tuple2 return type for compiled reference tuple functions (observed VerifiedPolynomial.BaseCase). Keep compiler output unchanged; disable this category explicitly in Maven and canonical javac, with every other emitted diagnostic still rejected.",
+    "handwritten_lint": [
+      "-Xlint:all,-serial"
+    ],
+    "handwritten_lint_scope": "Final acceptance separately compiles all handwritten main Java, including retained providers and facades, with original lint. New generated crypto is classified by its exact checked namespace; existing generated packet Java is classified by an exact source pin. Maven default-testCompile retains original lint for tests.",
+    "common_args": [
+      "-Xpkginfo:always"
+    ],
+    "package_info_reason": "Emit documentation-only package-info.class files with javac in every phase. This avoids Maven synthesizing different package metadata outside the canonical compiler and permits exact comparison of every main class without ignoring metadata."
+  },
+  "providers": [
+    {
+      "source": "formal/crypto/native_kem_hash.java",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.native_kem_hash",
+      "sha256": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be"
+    },
+    {
+      "source": "formal/crypto/kem_hash.java",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.kem_hash",
+      "sha256": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2"
+    }
+  ],
+  "provider_bindings": [
+    {
+      "source": "formal/crypto/JdkHash.dfy",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.kem_hash",
+      "symbol": "H",
+      "method": "sha3_256"
+    },
+    {
+      "source": "formal/crypto/JdkHash.dfy",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.kem_hash",
+      "symbol": "G",
+      "method": "sha3_512"
+    },
+    {
+      "source": "formal/crypto/NativeJdkHash.dfy",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.native_kem_hash",
+      "symbol": "Hash",
+      "method": "sha3_256"
+    },
+    {
+      "source": "formal/crypto/NativeJdkHash.dfy",
+      "owner": "io.github.mahmoudimus.verifiedcrypto.native_kem_hash",
+      "symbol": "Expand",
+      "method": "sha3_512"
+    }
+  ],
+  "trust": [
+    "Dafny 4.9.1 and Z3 4.12.1 implementation correctness; official archive bytes are checked in full before and after.",
+    "JDK javac/JVM correctness; the explicit JDK file graph is pinned before and after. Exact class equality, including all attributes, connects canonical generation to delivered Maven classes and JAR.",
+    "Maven DafnyRuntime 4.9.1 correctness, independently pinned from the bundled runtime. The different DafnySequence class is not assumed byte-identical.",
+    "JDK SHA3-256/SHA3-512 provider correctness, normal completion, input preservation and fresh fixed-length output; four audited declarations represent two primitives.",
+    "Original sequence hash adapters may be retained for generated mathematical module compilation. Their unused paths receive no native or constant-time claim.",
+    "User authorization to integrate after checks and the later evidence-based compatibility/performance adoption decision are separate policy inputs. A delegated decision records the prior user authority, agent evaluator, exact stage/source hashes and pinned evidence; passing tests or elapsed time never create authorization. JVM timing, JIT/CPU behavior, physical erasure, entropy and cryptographic hardness are not proved."
+  ],
+  "existing_generated_sources": {
+    "io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f"
+  },
+  "existing_generated_provenance": "Exact existing packet compiler-output source pin from formal/packet/inputs.json; only this file is excluded from handwritten lint. It is separately compiled under explicit generated-code flags and its exact class bytes join final Maven class/JAR comparison.",
+  "native_evidence": {
+    "schema": "microproxy.native-kem-evidence-contract/v2",
+    "receipt_format": "native_kem_checks.py unversioned JSON, identified by this versioned contract and exact runner SHA256",
+    "runner": {
+      "path": "formal/crypto/native_kem_checks.py",
+      "sha256": "4341752e4435d7e9717a14bbab756722327164777647edec3eb34553ca5417ce"
+    },
+    "domain_source": "formal/crypto/native_kem_domain.dfy",
+    "additional_inputs": [
+      "formal/crypto/native_kem_checks.py",
+      "formal/crypto/native_kem_test.java",
+      "formal/crypto/native_kem_hash.java",
+      "formal/crypto/reference/Shake.java",
+      "formal/crypto/reference/MlKem768.java",
+      "formal/crypto/reference/provenance.json"
+    ],
+    "proof_phases": [
+      "proof-native-composition",
+      "proof-reference-graph",
+      "proof-native-kernels",
+      "generate-java"
+    ],
+    "semantic_controls": [
+      "wrong-coins",
+      "matrix-axis",
+      "matrix-transpose",
+      "reused-nonce",
+      "wrong-fallback-seed",
+      "constant-selection",
+      "short-comparison",
+      "modulus-error-kind",
+      "short-sampler",
+      "missing-failure-wipe",
+      "missing-byte-wipe"
+    ],
+    "replay_inventory": {
+      "assertions": 7813,
+      "rounds": 100,
+      "malformed": 30,
+      "selections": 3265,
+      "destroyed": 101
+    },
+    "jdk_majors": [
+      21,
+      25
+    ],
+    "command_exits": {
+      "dafny-version": 0,
+      "solver-version": 0,
+      "audit": 0,
+      "proof-native-composition": 0,
+      "proof-reference-graph": 0,
+      "proof-native-kernels": 0,
+      "control-wrong-coins": 4,
+      "control-matrix-axis": 4,
+      "control-matrix-transpose": 4,
+      "control-reused-nonce": 4,
+      "control-wrong-fallback-seed": 4,
+      "control-constant-selection": 4,
+      "control-short-comparison": 4,
+      "control-modulus-error-kind": 4,
+      "control-short-sampler": 4,
+      "control-missing-failure-wipe": 4,
+      "control-missing-byte-wipe": 4,
+      "generate-java": 0,
+      "javac": 0,
+      "native-runtime-bytecode": 0,
+      "runtime-helpers-bytecode": 0,
+      "jdk-byte-conversions": 0,
+      "compile-selector-narrow-helper": 0,
+      "inspect-selector-narrow-helper": 0,
+      "compile-selector-payload-branch": 0,
+      "inspect-selector-payload-branch": 0,
+      "compile-selector-payload-boxing": 0,
+      "inspect-selector-payload-boxing": 0,
+      "java-0-version": 0,
+      "java-0-byte-conversions": 0,
+      "java-0": 0,
+      "java-1-version": 0,
+      "java-1-byte-conversions": 0,
+      "java-1": 0
+    },
+    "drift_policy": "Runner schema and inventory changes require explicit contract review/version or pin update. Every current domain dependency, runner, harness, provider and reference Java hash must match; partial controls or matching partial inventories cannot qualify. Full staging replays proofs but relies on these complete pinned controls and supported-JDK replays.",
+    "required_source_pins": {
+      "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8"
+    },
+    "bytecode_control_rejections": {
+      "selector-narrow-helper": "Unreviewed or payload-sensitive runtime helper",
+      "selector-payload-branch": "Selector payload branch or changed loop control",
+      "selector-payload-boxing": "Payload scalar boxing:"
+    },
+    "native_runtime_guard": {
+      "fixed_fields": {
+        "selector_bounds": [
+          1088,
+          32
+        ],
+        "selector_conditional_opcodes": [
+          "if_icmpge",
+          "if_icmpge"
+        ],
+        "runtime_helper_calls": [
+          [
+            "bv64ShiftLeft",
+            "(JB)J"
+          ],
+          [
+            "bv64ShiftRight",
+            "(JB)J"
+          ],
+          [
+            "toInt",
+            "(I)I"
+          ],
+          [
+            "toInt",
+            "(J)I"
+          ],
+          [
+            "toInt",
+            "(Ljava/math/BigInteger;)I"
+          ],
+          [
+            "toIntChecked",
+            "(JLjava/lang/String;)I"
+          ],
+          [
+            "toIntChecked",
+            "(Ljava/math/BigInteger;Ljava/lang/String;)I"
+          ],
+          [
+            "toString",
+            "(Ljava/lang/Object;)Ljava/lang/String;"
+          ]
+        ],
+        "wide_shift_helpers": {
+          "bv64ShiftRight": "Only shift-distance==64 branch; first operand never tested",
+          "bv64ShiftLeft": "Only shift-distance==64 branch; first operand never tested"
+        },
+        "unsigned_byte_conversions": "branchless primitive operations",
+        "payload_scalar_boxings": 0,
+        "metadata_boundary": "toInt/toIntChecked and Euclidean calls carry public lengths, indices, widths, loop counts and table offsets; BigInteger carries only fixed-size initialization indices or array lengths.",
+        "scope": "Native executable classes and pinned runtime helper bodies; source/bytecode discipline, not a JVM timing theorem"
+      },
+      "constant_zero_boxings": {
+        "count": 36,
+        "kinds": {
+          "Byte": 8,
+          "Integer": 23,
+          "Long": 5
+        },
+        "source": "fixed public zero/Witness0"
+      },
+      "caller_inventory": {
+        "count": 193,
+        "sha256": "3c3d69c2ac37fe3e21b47c12712cede42bc975e62a34c446c02ca66f98ec8f8e",
+        "files": [
+          "NativeCodec/DecodeResult_Decoded.java",
+          "NativeCodec/__default.java",
+          "NativeField/__default.java",
+          "NativeKeccak/__default.java",
+          "NativeMlKem/Encapsulation.java",
+          "NativeMlKem/__default.java",
+          "NativePolynomial/__default.java",
+          "NativeSampling/FeedResult_Full.java",
+          "NativeSampling/FeedResult_NeedMore.java",
+          "NativeSampling/__default.java",
+          "NativeShake/Sponge.java",
+          "NativeShake/__default.java"
+        ]
+      },
+      "caller_review": {
+        "NativeMlKem": "ExpandMatrix divides/mods only its public k=0..8 counter. BigInteger carries fixed3/9 reference-array initialization indices or public array lengths. Select uses only literal56 for its wide shift.",
+        "NativePolynomial": "Stage, block, coefficient and twiddle-table indices control all division, table selection and allocation; coefficients enter only the verified native field operations.",
+        "NativeKeccak/NativeShake": "Rate, phase, position, input/output lengths, fixed25/5 arrays and public rotation-offset tables control metadata helpers. Payload lanes enter only bv64 shifts with public distances.",
+        "NativeCodec/NativeSampling": "Widths, grouping indices and lengths are public; component operand-stack data-flow guards check PublicDiv/PublicMod/Extract/Shift boundaries. Decode(m,1) validates secret message bits, but decoded d1/d4/d10 values are bounded by1/15/1023, so IsCanonical outcomes are constant. Only d12 validation can vary; its KEM caller parses public encoded keys. Feed validates the empty/public prefix and rejects public rho-derived matrix candidates; CBD payloads avoid those branches.",
+        "allocation/tuple/result": "TypeDescriptor allocation/fill dispatch uses public dimensions/type descriptors and fixed zero values. Tuple2 and Result constructors/getters retain references. No owned KEM call reaches IntegerRange, payload toString/hashCode or mutable metadata writes.",
+        "boundary": "Generated constructors, mutable arrays and metadata are internal; the production facade must keep them inaccessible to callers. This review is source/runtime discipline, not a JVM timing theorem."
+      },
+      "policy": "Exact source/bytecode discipline receipt for the selector-hardened source, not a JVM timing theorem or a general taint proof. The reported complete caller inventory must match its reviewed digest; any source/helper/caller drift requires explicit contract review."
+    }
+  },
+  "facades": [
+    {
+      "source": "formal/crypto/adoption/Shake.java",
+      "destination": "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java",
+      "sha256": "51fc5ae044b73232a702745c94ec1eb725f2bd3558e9d39110e2e7f0c9e6dea1"
+    },
+    {
+      "source": "formal/crypto/adoption/MlKem768.java",
+      "destination": "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java",
+      "sha256": "135928e6645c82c249cca276909ae12ffbea07271c338fc1b701c331132391f3"
+    }
+  ]
+}

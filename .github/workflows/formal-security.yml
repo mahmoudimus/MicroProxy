@@ -8,6 +8,60 @@ permissions:
   contents: read
 
 jobs:
+  dafny-native-crypto-delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Retain JDK 21 for canonical compilation
+        run: echo "CRYPTO_JAVA_21=$JAVA_HOME" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Prepare pinned tools and a fresh evidence directory
+        run: |
+          DAFNY_CRYPTO_TOOL=$(python -c 'import sys; from pathlib import Path; sys.path.insert(0,"formal/dafny"); import toolchain; print(toolchain.install(Path.home()/".cache/microproxy-formal")[0])')
+          mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          CRYPTO_RUNTIME="$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar"
+          CRYPTO_RUNTIME_SHA=$(python -c 'import json; print(json.load(open("formal/crypto/delivery.json"))["runtime"]["sha256"])')
+          mkdir -p target/dafny-native-crypto
+          NATIVE_CRYPTO_OUTPUT=$(mktemp -d target/dafny-native-crypto/run-XXXXXX)
+          echo "MICROPROXY_DAFNY=$DAFNY_CRYPTO_TOOL" >> "$GITHUB_ENV"
+          echo "MICROPROXY_JAVA_HOME=$CRYPTO_JAVA_21" >> "$GITHUB_ENV"
+          echo "CRYPTO_RUNTIME=$CRYPTO_RUNTIME" >> "$GITHUB_ENV"
+          echo "CRYPTO_RUNTIME_SHA=$CRYPTO_RUNTIME_SHA" >> "$GITHUB_ENV"
+          echo "NATIVE_CRYPTO_OUTPUT=$NATIVE_CRYPTO_OUTPUT" >> "$GITHUB_ENV"
+      - name: Test delivery gates and replay native proofs on both JDKs
+        run: |
+          python -m unittest discover -s formal/crypto -p 'test_*.py' -v
+          python formal/crypto/native_shake_checks.py --output "$NATIVE_CRYPTO_OUTPUT/shake" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
+          python formal/crypto/native_polynomial_checks.py --phase all --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/polynomial" --java-home "$CRYPTO_JAVA_21" --runtime-home "$JAVA_HOME" --runtime-jar "$CRYPTO_RUNTIME" --runtime-sha256 "$CRYPTO_RUNTIME_SHA"
+          python formal/crypto/native_kem_checks.py --scope full --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT/kem" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --runtime "$CRYPTO_RUNTIME"
+      - name: Verify a fresh full stage and exact Maven delivery
+        run: |
+          python formal/crypto/ci_delivery.py --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT"
+          python formal/crypto/delivery.py stage --java-home "$CRYPTO_JAVA_21" --runtime "$CRYPTO_RUNTIME" --output "$NATIVE_CRYPTO_OUTPUT/canonical" --evidence "$NATIVE_CRYPTO_OUTPUT/inputs.json"
+          JAVA_HOME="$CRYPTO_JAVA_21" mvn -q -pl quic -am -DskipTests package
+          python formal/crypto/delivery.py check --runtime "$CRYPTO_RUNTIME" --stage "$NATIVE_CRYPTO_OUTPUT/canonical"
+          python formal/crypto/ci_delivery.py check-runtime --classes quic/target/classes --runtime "$CRYPTO_RUNTIME" --java-home "$CRYPTO_JAVA_21" --output "$NATIVE_CRYPTO_OUTPUT/maven-runtime"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-native-crypto-delivery-jdk-21-and-25
+          path: target/dafny-native-crypto/
+          if-no-files-found: ignore
+
   dafny-native-codec-sampling:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

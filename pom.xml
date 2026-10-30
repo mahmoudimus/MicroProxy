@@ -9,7 +9,7 @@
 
     <name>MicroProxy (parent)</name>
     <description>
-        A dependency-free HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
+        An HTTP/HTTPS intercepting proxy built on blocking I/O and virtual threads
         (Project Loom). A port of LittleProxy without Netty.
     </description>
     <url>https://mahmoudimus.github.io/MicroProxy/</url>
@@ -45,7 +45,7 @@
         <module>http3-codec</module>
         <!-- A standalone QUIC transport with its own TLS 1.3 handshake. -->
         <module>quic</module>
-        <!-- The proxy itself: no required runtime dependencies. -->
+        <!-- The proxy itself, including the QUIC module's generated-crypto runtime. -->
         <module>microproxy</module>
         <!-- Optional: OpenTelemetry tracing and OTLP export, with no dependencies. -->
         <module>microproxy-otel</module>
