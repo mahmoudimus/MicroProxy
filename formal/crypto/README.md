@@ -280,3 +280,42 @@ python3 formal/crypto/native_codec_checks.py --dafny /path/to/dafny/dafny \
 These remain isolated generated components pending full native KEM delivery,
 compatibility and performance acceptance. Source-level zeroing is a functional
 heap contract; physical/JIT erasure and JVM timing are not proved by it.
+
+## Native K-PKE and KEM composition
+
+`NativeMlKem.dfy` connects the primitive-array implementation to `KemSpec` for
+keygen, matrix/noise expansion, K-PKE, key parsing, serialization, encapsulation
+and decapsulation. Every caller range is discharged. Retained keys have deep
+private ownership; caller inputs are preserved, results are fresh, and discarded
+temporary arrays are zeroed on modeled returns. The seed-backed factory establishes
+the cached-key invariant; arbitrary serialized private-key import is not offered.
+
+[Strict evidence](NATIVE-KEM-EVIDENCE.json) records composition 2,774, reference
+graph 2,649, native kernels 3,487 and generation 162 obligations, all with zero
+errors. Counts include overlapping dependency checks, not independent security
+properties. All 11 semantic controls terminate normally with exit4, and three
+compiled controls reject selector narrowing, payload branches and payload boxing.
+Both JDKs pass 7,813 assertions, including the Go accumulator and malformed-input,
+all-position selector and destruction cases. Native source/runtime reviews were
+independent development reviews, not an external cryptographic audit.
+
+The complete comparison covers all 1088 ciphertext bytes and all 32 output bytes.
+Its mask uses a wide shift by public literal56, avoiding the pinned runtime's
+narrow-helper payload-sign branch. Runtime helper bodies and JDK unsigned byte
+conversions are inspected explicitly. This is not a JVM timing theorem.
+
+`NativeJdkHash.dfy` binds four audited declarations to two trusted JDK SHA3
+primitives. Normal completion, fresh fixed-length results and input preservation
+are explicit provider assumptions. Compiler/runtime correctness, hardness,
+entropy and physical erasure are not established by the functional proofs.
+
+```sh
+python3 formal/crypto/native_kem_checks.py --scope full \
+  --dafny /path/to/dafny/dafny --runtime /path/to/DafnyRuntime-4.9.1.jar \
+  --output /fresh/output/base --java-home /path/to/jdk21 \
+  --java-home /path/to/jdk25
+```
+
+The generated implementation remains subject to the final production delivery,
+compatibility and performance gates. Its mutable constructors and arrays are
+internal; the reviewed Java facade must preserve the verified ownership boundary.

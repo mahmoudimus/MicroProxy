@@ -110,7 +110,7 @@ def main():
             extra = ['--isolate-assertions','--filter-position',f'{target.name}:{matches[0]}']
         status,output = call('control-'+name,[args.dafny,'verify',target,'--filter-symbol','VerifiedMlKem.'+symbol,*extra,*flags])
         match = re.search(r'verifier finished with (\d+) (?:assertions )?verified, ([1-9]\d*) errors?\s*$',output)
-        if not status or not match or any(x in output for x in ('timed out','out of resource','parse errors','resolution/type errors','Warning:')) or not any(x in output for x in ('could not be proved','assertion might not hold')):
+        if status != 4 or not match or any(x in output for x in ('timed out','out of resource','parse errors','resolution/type errors','Warning:')) or not any(x in output for x in ('could not be proved','assertion might not hold')):
             raise RuntimeError('No genuine semantic failure for '+name)
         receipt['controls'][name] = {'verified':int(match[1]),'errors':int(match[2])}
 

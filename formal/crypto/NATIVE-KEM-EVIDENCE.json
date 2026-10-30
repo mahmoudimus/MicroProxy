@@ -1,0 +1,2467 @@
+{
+  "scope": "full",
+  "commands": [
+    {
+      "label": "dafny-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "--version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "solver-version",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "audit",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "audit",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Codec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/JdkHash.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/KemSpec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeCodec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeField.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeJdkHash.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeKeccak.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeMlKem.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativePolynomial.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeSampling.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeShake.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeTypes.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Polynomial.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Sampling.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Shake.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/SpongeSpec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_kem_domain.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/primitives/Field.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/primitives/Keccak.dfy"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-native-composition",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeMlKem.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeJdkHash.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_kem_domain.dfy",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-reference-graph",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Codec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/JdkHash.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/KemSpec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Polynomial.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Sampling.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/Shake.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/SpongeSpec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/primitives/Field.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/primitives/Keccak.dfy",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "proof-native-kernels",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeCodec.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeField.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeKeccak.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativePolynomial.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeSampling.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeShake.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeTypes.dfy",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
+        "--boogie",
+        "/proverOpt:O:smt.case_split=0"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "control-wrong-coins",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/wrong-coins.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Encaps.",
+        "--isolate-assertions",
+        "--filter-position",
+        "wrong-coins.dfy:944",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-matrix-axis",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/matrix-axis.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Sample.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-matrix-transpose",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/matrix-transpose.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Row.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-reused-nonce",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/reused-nonce.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Noise.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-wrong-fallback-seed",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/wrong-fallback-seed.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Decaps.",
+        "--isolate-assertions",
+        "--filter-position",
+        "wrong-fallback-seed.dfy:1070",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-constant-selection",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/constant-selection.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Select.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-short-comparison",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/short-comparison.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Select.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-modulus-error-kind",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/modulus-error-kind.dfy",
+        "--filter-symbol",
+        "NativeMlKem.Parse.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-short-sampler",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/short-sampler.dfy",
+        "--filter-symbol",
+        "NativeMlKem.SamplePrefix.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-missing-failure-wipe",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/missing-failure-wipe.dfy",
+        "--filter-symbol",
+        "NativeMlKem.SamplePrefix.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "control-missing-byte-wipe",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "verify",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/missing-byte-wipe.dfy",
+        "--filter-symbol",
+        "NativeMlKem.WipeBytes.",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 4
+    },
+    {
+      "label": "generate-java",
+      "command": [
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+        "translate",
+        "java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeMlKem.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/NativeJdkHash.dfy",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_kem_domain.dfy",
+        "--output",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem",
+        "--cores",
+        "2",
+        "--verification-time-limit",
+        "30",
+        "--resource-limit",
+        "50000000",
+        "--solver-path",
+        "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "javac",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-cp",
+        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "-d",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/DecodeResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/DecodeResult_Decoded.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/DecodeResult_InvalidLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/DecodeResult_InvalidWidth.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/DecodeResult_ModulusError.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/CodecSpec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/Encapsulation.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_InvalidCiphertextLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_InvalidKeyLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_InvalidMessageLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_InvalidSeedLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_ModulusError.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/FailureKind_RejectionLimit.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/PublicKey.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/Result.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/Result_Failure.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/Result_Success.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/KemSpec/SecretKey.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/DecodeResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/DecodeResult_Decoded.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/DecodeResult_InvalidLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/DecodeResult_InvalidWidth.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/DecodeResult_ModulusError.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeCodec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeField/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeKeccak/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeKemDomain/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeMlKem/Encapsulation.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeMlKem/PublicKey.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeMlKem/SecretKey.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeMlKem/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeMlKem.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativePolynomial/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/FeedResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/FeedResult_Full.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/FeedResult_InvalidBlockLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/FeedResult_InvalidPrefix.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/FeedResult_NeedMore.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeSampling/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeShake/Sponge.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeShake/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeTypes/I.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/NativeTypes/L.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/PolySpec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/PolynomialRing/Residue.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/PolynomialRing/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/FeedResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/FeedResult_Full.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/FeedResult_InvalidBlockLength.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/FeedResult_InvalidPrefix.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/FeedResult_NeedMore.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SamplingSpec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/ReadResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/State.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/UpdateResult.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/UpdateResult_InputAfterOutput.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/UpdateResult_InvalidSlice.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/UpdateResult_Updated.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/SpongeSpec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedCodec/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedField/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedKeccak/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedPolynomial/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedSampling/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/NativeMlKem-java/VerifiedShake/__default.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_kem_test.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/native_kem_hash.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/reference/MlKem768.java",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/crypto/reference/Shake.java"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "native-runtime-bytecode",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes",
+        "NativeCodec.DecodeResult",
+        "NativeCodec.DecodeResult_Decoded",
+        "NativeCodec.DecodeResult_InvalidLength",
+        "NativeCodec.DecodeResult_InvalidWidth",
+        "NativeCodec.DecodeResult_ModulusError",
+        "NativeCodec.__default",
+        "NativeField.__default",
+        "NativeKeccak.__default",
+        "NativeMlKem.Encapsulation",
+        "NativeMlKem.PublicKey",
+        "NativeMlKem.SecretKey",
+        "NativeMlKem.__default",
+        "NativePolynomial.__default",
+        "NativeSampling.FeedResult",
+        "NativeSampling.FeedResult_Full",
+        "NativeSampling.FeedResult_InvalidBlockLength",
+        "NativeSampling.FeedResult_InvalidPrefix",
+        "NativeSampling.FeedResult_NeedMore",
+        "NativeSampling.__default",
+        "NativeShake.Sponge",
+        "NativeShake.__default"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "runtime-helpers-bytecode",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "-cp",
+        "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "dafny.Helpers"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "jdk-byte-conversions",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "java.lang.Byte"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "compile-selector-narrow-helper",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "-d",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-narrow-helper",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-narrow-helper/NativeMlKem/__default.java"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "inspect-selector-narrow-helper",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-narrow-helper:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes",
+        "NativeMlKem.__default"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "compile-selector-payload-branch",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "-d",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-branch",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-branch/NativeMlKem/__default.java"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "inspect-selector-payload-branch",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-branch:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes",
+        "NativeMlKem.__default"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "compile-selector-payload-boxing",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "-d",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-boxing",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-boxing/NativeMlKem/__default.java"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "inspect-selector-payload-boxing",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/selector-payload-boxing:/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes",
+        "NativeMlKem.__default"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-0-version",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "-version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-0-byte-conversions",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "java.lang.Byte"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-0",
+      "command": [
+        "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "-Xmx1024m",
+        "-ea",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "io.github.mahmoudimus.quic.tls.native_kem_test"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-1-version",
+      "command": [
+        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "-version"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-1-byte-conversions",
+      "command": [
+        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/javap",
+        "-c",
+        "-p",
+        "-s",
+        "java.lang.Byte"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "java-1",
+      "command": [
+        "/tmp/microproxy-jdk25-constraints/jdk-25.0.5+8/Contents/Home/bin/java",
+        "-Xmx1024m",
+        "-ea",
+        "-cp",
+        "/Users/mahmoud/.codex/worktrees/security-review/microproxy/.superpowers/sdd/2026-10-29-dafny-crypto-completion/kem/native-kem-1jp99hm0/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "io.github.mahmoudimus.quic.tls.native_kem_test"
+      ],
+      "exit": 0
+    }
+  ],
+  "proofs": {
+    "proof-native-composition": 2774,
+    "proof-reference-graph": 2649,
+    "proof-native-kernels": 3487,
+    "generate-java": 162
+  },
+  "controls": {
+    "wrong-coins": {
+      "verified": 4,
+      "errors": 1
+    },
+    "matrix-axis": {
+      "verified": 1,
+      "errors": 1
+    },
+    "matrix-transpose": {
+      "verified": 1,
+      "errors": 1
+    },
+    "reused-nonce": {
+      "verified": 1,
+      "errors": 1
+    },
+    "wrong-fallback-seed": {
+      "verified": 5,
+      "errors": 1
+    },
+    "constant-selection": {
+      "verified": 1,
+      "errors": 1
+    },
+    "short-comparison": {
+      "verified": 1,
+      "errors": 1
+    },
+    "modulus-error-kind": {
+      "verified": 137,
+      "errors": 1
+    },
+    "short-sampler": {
+      "verified": 1,
+      "errors": 1
+    },
+    "missing-failure-wipe": {
+      "verified": 1,
+      "errors": 1
+    },
+    "missing-byte-wipe": {
+      "verified": 1,
+      "errors": 1
+    }
+  },
+  "java": [
+    {
+      "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)\n",
+      "tests": {
+        "assertions": 7813,
+        "rounds": 100,
+        "malformed": 30,
+        "selections": 3265,
+        "destroyed": 101
+      }
+    },
+    {
+      "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)\n",
+      "tests": {
+        "assertions": 7813,
+        "rounds": 100,
+        "malformed": 30,
+        "selections": 3265,
+        "destroyed": 101
+      }
+    }
+  ],
+  "limitations": [
+    "Proposed 280-iteration sampling cap requires production policy review; owned source writes are proved, physical erasure is a compiler/JIT/provider assumption.",
+    "JVM timing, compiler/runtime/provider correctness, entropy and cryptographic security are not proved.",
+    "Finite Java comparisons do not prove universal source/compiler refinement.",
+    "The Java facade must hide generated mutable key constructors/fields, prevent external aliases and enforce Valid/destroyed-state lifetimes."
+  ],
+  "provider_assumptions": {
+    "primitive_count": 2,
+    "declaration_count": 4,
+    "declarations": [
+      "formal/crypto/JdkHash.dfy(8,4): Warning: H: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.",
+      "formal/crypto/JdkHash.dfy(11,4): Warning: G: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.",
+      "formal/crypto/NativeJdkHash.dfy(12,4): Warning: Hash: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test.",
+      "formal/crypto/NativeJdkHash.dfy(17,4): Warning: Expand: Declaration has explicit `{:axiom}` attribute. Possible mitigation: Provide a proof or test."
+    ]
+  },
+  "native_runtime_guard": {
+    "selector_bounds": [
+      1088,
+      32
+    ],
+    "selector_conditional_opcodes": [
+      "if_icmpge",
+      "if_icmpge"
+    ],
+    "runtime_helper_calls": [
+      [
+        "bv64ShiftLeft",
+        "(JB)J"
+      ],
+      [
+        "bv64ShiftRight",
+        "(JB)J"
+      ],
+      [
+        "toInt",
+        "(I)I"
+      ],
+      [
+        "toInt",
+        "(J)I"
+      ],
+      [
+        "toInt",
+        "(Ljava/math/BigInteger;)I"
+      ],
+      [
+        "toIntChecked",
+        "(JLjava/lang/String;)I"
+      ],
+      [
+        "toIntChecked",
+        "(Ljava/math/BigInteger;Ljava/lang/String;)I"
+      ],
+      [
+        "toString",
+        "(Ljava/lang/Object;)Ljava/lang/String;"
+      ]
+    ],
+    "wide_shift_helpers": {
+      "bv64ShiftRight": "Only shift-distance==64 branch; first operand never tested",
+      "bv64ShiftLeft": "Only shift-distance==64 branch; first operand never tested"
+    },
+    "unsigned_byte_conversions": "branchless primitive operations",
+    "constant_zero_boxings": [
+      {
+        "instruction": "24: invokestatic  #145                // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "52: invokestatic  #197                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "40: invokestatic  #197                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "55: invokestatic  #197                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "27: invokestatic  #94                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "27: invokestatic  #94                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "21: invokestatic  #167                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "54: invokestatic  #167                // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "21: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "31: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "26: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "79: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "25: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "28: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "23: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "28: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "23: invokestatic  #99                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "51: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "31: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "31: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #65                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "24: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "65: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "294: invokestatic  #39                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "36: invokestatic  #77                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "74: invokestatic  #77                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "112: invokestatic  #77                 // Method java/lang/Long.valueOf:(J)Ljava/lang/Long;",
+        "source": "fixed public zero/Witness0"
+      },
+      {
+        "instruction": "59: invokestatic  #52                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;",
+        "source": "fixed public zero/Witness0"
+      }
+    ],
+    "payload_scalar_boxings": 0,
+    "metadata_boundary": "toInt/toIntChecked and Euclidean calls carry public lengths, indices, widths, loop counts and table offsets; BigInteger carries only fixed-size initialization indices or array lengths.",
+    "scope": "Native executable classes and pinned runtime helper bodies; source/bytecode discipline, not a JVM timing theorem",
+    "caller_inventory": [
+      {
+        "file": "NativeCodec/DecodeResult_Decoded.java",
+        "method": "toString",
+        "line": 44,
+        "source": "s.append(dafny.Helpers.toString(this._words));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Wipe",
+        "line": 25,
+        "source": "(a)[dafny.Helpers.toInt((_1_i))] = 0;"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Pow2",
+        "line": 32,
+        "source": "if (java.lang.Integer.signum((d)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "BytePower",
+        "line": 79,
+        "source": "if (java.lang.Integer.signum((j)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "WordPower",
+        "line": 96,
+        "source": "if (java.lang.Integer.signum((j)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "WordPower",
+        "line": 102,
+        "source": "if (java.lang.Integer.signum((j)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "WordPower",
+        "line": 112,
+        "source": "if (java.lang.Integer.signum((j)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Extract",
+        "line": 122,
+        "source": "long _1_shifted = (long) dafny.Helpers.bv64ShiftRight(_0_word, ((byte) (shift)));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Shift",
+        "line": 129,
+        "source": "return ((int) ((long) dafny.Helpers.bv64ShiftRight(_0_word, ((byte) (shift)))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "PublicDiv",
+        "line": 131,
+        "source": "public static int PublicDiv(int value, int divisor)"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "PublicDiv",
+        "line": 133,
+        "source": "return dafny.DafnyEuclidean.EuclideanDivision(value, divisor);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "PublicMod",
+        "line": 135,
+        "source": "public static int PublicMod(int value, int divisor)"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "PublicMod",
+        "line": 137,
+        "source": "return dafny.DafnyEuclidean.EuclideanModulus(value, divisor);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Compress",
+        "line": 150,
+        "source": "_3_quotient = ((int) ((long) dafny.Helpers.bv64ShiftRight((_2_product), ((byte) (24)))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Compress",
+        "line": 156,
+        "source": "_6_correction = ((int) ((long) (long) (((long) dafny.Helpers.bv64ShiftRight(((long) (_5_biased)), ((byte) (15)))) & ((long) 1L))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Decompress",
+        "line": 195,
+        "source": "_1_dividend = (int) (((int) ((3329) * (y))) + (__default.PublicDiv(_0_p, 2)));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Decompress",
+        "line": 200,
+        "source": "r = ((int) ((long) dafny.Helpers.bv64ShiftRight((_3_product), ((byte) (24)))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "EncodeTenByte",
+        "line": 219,
+        "source": "return ((byte) (((java.lang.Integer.signum((at)) == 0) ? (__default.Extract(((long) (a)), 0, 8)) : ((((at) == (1)) ? ((int) ((__default.Shift(((long) (a)), 8)) + ((int) ((4) * (__default.Extract(((long) (b)), 0, 6)))))) : ((((at) == (2)) ? ((int) ((__default.Shift(((long) (b)), 6)) + ((int) ((16) * (__default.Extract(((long) (c)), 0, 4)))))) : ((((at) == (3)) ? ((int) ((__default.Shift(((long) (c)), 4)) + ((int) ((64) * (__default.Extract(((long) (d)), 0, 2)))))) : (__default.Shift(((long) (d)), 2)))))))))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "EncodeTwelveByte",
+        "line": 223,
+        "source": "return ((byte) (((java.lang.Integer.signum((at)) == 0) ? (__default.Extract(((long) (a)), 0, 8)) : ((((at) == (1)) ? ((int) ((__default.Shift(((long) (a)), 8)) + ((int) ((16) * (__default.Extract(((long) (b)), 0, 4)))))) : (__default.Shift(((long) (b)), 4)))))));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodeTenWord",
+        "line": 227,
+        "source": "if (java.lang.Integer.signum((at)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodeTwelveWord",
+        "line": 239,
+        "source": "if (java.lang.Integer.signum((at)) == 0) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "EncodedByte",
+        "line": 247,
+        "source": "int _0_group = __default.PublicDiv(i, __default.GroupBytes(d));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "EncodedByte",
+        "line": 248,
+        "source": "int _1_at = __default.PublicMod(i, __default.GroupBytes(d));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Encode",
+        "line": 262,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked(((int) ((32) * (d))), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Encode",
+        "line": 266,
+        "source": "(b)[dafny.Helpers.toInt((_0_i))] = __default.EncodedByte(f, d, _0_i);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodedWord",
+        "line": 284,
+        "source": "int _0_group = __default.PublicDiv(i, __default.GroupWords(d));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodedWord",
+        "line": 285,
+        "source": "int _1_at = __default.PublicMod(i, __default.GroupWords(d));"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "IsCanonical",
+        "line": 300,
+        "source": "if ((java.lang.Integer.signum(((a)[(_0_i)])) == -1) || (((a)[(_0_i)]) >= (3329))) {"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Decode",
+        "line": 320,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "Decode",
+        "line": 324,
+        "source": "(_0_a)[dafny.Helpers.toInt((_1_i))] = __default.DecodedWord(b, d, _1_i);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "CompressAndEncode",
+        "line": 349,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "CompressAndEncode",
+        "line": 355,
+        "source": "(_0_a)[dafny.Helpers.toInt((_1_i))] = _out1;"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodeAndDecompress",
+        "line": 380,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeCodec/__default.java",
+        "method": "DecodeAndDecompress",
+        "line": 386,
+        "source": "(_1_a)[dafny.Helpers.toInt((_2_i))] = _out1;"
+      },
+      {
+        "file": "NativeField/__default.java",
+        "method": "ReduceOnce",
+        "line": 24,
+        "source": "_1_atLeastQ = (long) (long) (((long) dafny.Helpers.bv64ShiftRight(((long) (_0_biased)), ((byte) (15)))) & ((long) 1L));"
+      },
+      {
+        "file": "NativeField/__default.java",
+        "method": "Reduce",
+        "line": 36,
+        "source": "_1_shifted = (long) dafny.Helpers.bv64ShiftRight((_0_product), ((byte) (24)));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Rotate",
+        "line": 24,
+        "source": "if (java.lang.Integer.signum((n)) == 0) {"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Rotate",
+        "line": 27,
+        "source": "return (long) (long) (((long) (long) (((long) dafny.Helpers.bv64ShiftLeft(v, ((byte) (n)))))) | ((long) dafny.Helpers.bv64ShiftRight(v, ((byte) ((int) ((64) - (n)))))));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Constant",
+        "line": 31,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Offset",
+        "line": 82,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "NewOffsets",
+        "line": 138,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "NewOffsets",
+        "line": 142,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.Offset(_0_i);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Source",
+        "line": 148,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "NewSources",
+        "line": 204,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "NewSources",
+        "line": 208,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.Source(_0_i);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "SetLane",
+        "line": 215,
+        "source": "(a)[dafny.Helpers.toInt((index))] = value;"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Iota",
+        "line": 220,
+        "source": "_0_value = (long) (long) (((a)[(dafny.Helpers.toInt((java.math.BigInteger.ZERO)))]) ^ (rc));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Theta",
+        "line": 227,
+        "source": "(c)[dafny.Helpers.toInt((_0_x))] = (long) (long) (((long) (long) (((long) (long) (((long) (long) (((a)[(_0_x)]) ^ ((a)[((int) ((_0_x) + (5)))]))) ^ ((a)[((int) ((_0_x) + (10)))]))) ^ ((a)[((int) ((_0_x) + (15)))]))) ^ ((a)[((int) ((_0_x) + (20)))]));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Theta",
+        "line": 232,
+        "source": "_2_d = (long) (long) (((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (4)), 5))]) ^ (__default.Rotate((c)[(dafny.DafnyEuclidean.EuclideanModulus((int) ((_1_x) + (1)), 5))], 1)));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Theta",
+        "line": 237,
+        "source": "(a)[dafny.Helpers.toInt((_4_i))] = (long) (long) (((a)[(_4_i)]) ^ (_2_d));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "RhoPi",
+        "line": 247,
+        "source": "(b)[dafny.Helpers.toInt((_0_i))] = __default.Rotate((a)[(_1_j)], (offsets)[(_1_j)]);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Chi",
+        "line": 255,
+        "source": "_1_row = (int) ((5) * (dafny.DafnyEuclidean.EuclideanDivision(_0_i, 5)));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Chi",
+        "line": 257,
+        "source": "_2_x = dafny.DafnyEuclidean.EuclideanModulus(_0_i, 5);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Chi",
+        "line": 258,
+        "source": "(a)[dafny.Helpers.toInt((_0_i))] = (long) (long) (((b)[(_0_i)]) ^ ((long) (long) (((long) (long) (((long) ~((b)[((int) ((_1_row) + (dafny.DafnyEuclidean.EuclideanModulus((int) ((_2_x) + (1)), 5))))])))) & ((b)[((int) ((_1_row) + (dafny.DafnyEuclidean.EuclideanModulus((int) ((_2_x) + (2)), 5))))]))));"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Permute",
+        "line": 278,
+        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Permute",
+        "line": 281,
+        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "file": "NativeKeccak/__default.java",
+        "method": "Wipe",
+        "line": 301,
+        "source": "(a)[dafny.Helpers.toInt((_1_i))] = (long) 0L;"
+      },
+      {
+        "file": "NativeMlKem/Encapsulation.java",
+        "method": "toString",
+        "line": 54,
+        "source": "s.append(dafny.Helpers.toString(this._key));"
+      },
+      {
+        "file": "NativeMlKem/Encapsulation.java",
+        "method": "toString",
+        "line": 56,
+        "source": "s.append(dafny.Helpers.toString(this._ciphertext));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "WipeBytes",
+        "line": 33,
+        "source": "(a)[dafny.Helpers.toInt((_1_i))] = (byte) 0;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "WipeInts",
+        "line": 42,
+        "source": "(a)[dafny.Helpers.toInt((_1_i))] = 0;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Slice",
+        "line": 58,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked((length), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Slice",
+        "line": 62,
+        "source": "(b)[dafny.Helpers.toInt((_0_i))] = (a)[(dafny.Helpers.toInt((long) (long) ((((long) (start))) + (((long) (_0_i))))))];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Join",
+        "line": 75,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked(((int) ((_0_n) + (_1_m))), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Join",
+        "line": 79,
+        "source": "(c)[dafny.Helpers.toInt((_2_i))] = (a)[(_2_i)];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Join",
+        "line": 84,
+        "source": "(c)[dafny.Helpers.toInt(_index0)] = (b)[(_3_i)];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Tag",
+        "line": 95,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked(((int) ((_0_n) + (1))), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Tag",
+        "line": 99,
+        "source": "(b)[dafny.Helpers.toInt((_1_i))] = (a)[(_1_i)];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Tag",
+        "line": 101,
+        "source": "(b)[dafny.Helpers.toInt((_0_n))] = tag;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Select",
+        "line": 116,
+        "source": "_2_mask = ((byte) ((long) dafny.Helpers.bv64ShiftRight((long) (long) (((long) (long) (((long) java.lang.Byte.toUnsignedLong(_0_diff)) - ((long) 1L)))), (byte) 56)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Select",
+        "line": 117,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked((32), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Select",
+        "line": 121,
+        "source": "(r)[dafny.Helpers.toInt((_3_i))] = (byte) (byte) ((byte)(((byte) (byte) ((byte)(((candidate)[(_3_i)]) & (_2_mask)))) | ((byte) (byte) ((byte)(((fallback)[(_3_i)]) & ((byte) (byte) (((byte) ~(_2_mask)))))))));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "CopyInto",
+        "line": 133,
+        "source": "(b)[dafny.Helpers.toInt(_index0)] = (a)[(_1_i)];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "SamplePrefix",
+        "line": 160,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 203,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 206,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_2_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_3_i_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 207,
+        "source": "java.math.BigInteger _3_i = ((java.math.BigInteger)(java.lang.Object)(_3_i_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 210,
+        "source": "int[][] _nw1 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((9), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 211,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 212,
+        "source": "_nw1[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 219,
+        "source": "_out0 = __default.Sample(rho, dafny.DafnyEuclidean.EuclideanDivision(_4_k, 3), dafny.DafnyEuclidean.EuclideanModulus(_4_k, 3));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ExpandMatrix",
+        "line": 226,
+        "source": "(_1_a)[dafny.Helpers.toInt((_4_k))] = (_5_sample).dtor_value();"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "EncodeVector",
+        "line": 247,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked(((int) ((96) * (d))), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 266,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 268,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 269,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 272,
+        "source": "int[][] _nw1 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((3), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 273,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 274,
+        "source": "_nw1[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "NoiseVector",
+        "line": 291,
+        "source": "(a)[dafny.Helpers.toInt((_3_i))] = _4_f;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 301,
+        "source": "_0_first = (a)[(dafny.Helpers.toInt((java.math.BigInteger.ZERO)))];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 302,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_first) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_j_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 303,
+        "source": "java.math.BigInteger _2_j = ((java.math.BigInteger)(java.lang.Object)(_2_j_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 306,
+        "source": "int[][] _nw0 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((3), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 307,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw0))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 308,
+        "source": "_nw0[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Row",
+        "line": 313,
+        "source": "(r)[dafny.Helpers.toInt((_3_j))] = (a)[(((transposed) ? ((int) (((int) ((3) * (_3_j))) + (i))) : ((int) (((int) ((3) * (i))) + (_3_j)))))];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "CopyInts",
+        "line": 324,
+        "source": "(b)[dafny.Helpers.toInt((_1_i))] = (a)[(_1_i)];"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Dot",
+        "line": 346,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Dot",
+        "line": 350,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = 0;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 396,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 398,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 399,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 402,
+        "source": "int[][] _nw1 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((3), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 403,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 404,
+        "source": "_nw1[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "MatrixProduct",
+        "line": 411,
+        "source": "(r)[dafny.Helpers.toInt((_3_i))] = _out0;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "KeyGen",
+        "line": 503,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((seed))), java.math.BigInteger.valueOf(64L))) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 569,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 572,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_2_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_3_i_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 573,
+        "source": "java.math.BigInteger _3_i = ((java.math.BigInteger)(java.lang.Object)(_3_i_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 576,
+        "source": "int[][] _nw1 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((3), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 577,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 578,
+        "source": "_nw1[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "ParseWords",
+        "line": 593,
+        "source": "(_1_t)[dafny.Helpers.toInt((_5_i))] = (_6_f).dtor_words();"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Parse",
+        "line": 608,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((bytes))), java.math.BigInteger.valueOf(1184L))) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 761,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((0), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 763,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 764,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 767,
+        "source": "int[][] _nw1 = (int[][]) dafny.TypeDescriptor.INT_ARRAY.newArray(dafny.Helpers.toIntChecked((3), \"Java arrays may be no larger than the maximum 32-bit signed int\"));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 768,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 769,
+        "source": "_nw1[dafny.Helpers.toInt(_i0_0)] = ((int[])(java.lang.Object)(_init0.apply(_i0_0)));"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecodeCipherU",
+        "line": 776,
+        "source": "(u)[dafny.Helpers.toInt((_3_i))] = _out0;"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Encaps",
+        "line": 845,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((m))), java.math.BigInteger.valueOf(32L))) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "Decaps",
+        "line": 898,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((ciphertext))), java.math.BigInteger.valueOf(1088L))) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "DecapsFromSeed",
+        "line": 962,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((ciphertext))), java.math.BigInteger.valueOf(1088L))) {"
+      },
+      {
+        "file": "NativeMlKem/__default.java",
+        "method": "SerializeSecret",
+        "line": 994,
+        "source": "byte[] _nw0 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked((2400), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Len",
+        "line": 27,
+        "source": "if (java.lang.Integer.signum((s)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk0",
+        "line": 44,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk1",
+        "line": 79,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk2",
+        "line": 114,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk3",
+        "line": 149,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk4",
+        "line": 184,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk5",
+        "line": 219,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk6",
+        "line": 254,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ZetasChunk7",
+        "line": 289,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "NewZetas",
+        "line": 346,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((128), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "NewZetas",
+        "line": 350,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.ZetasValue(_0_i);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk0",
+        "line": 356,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk1",
+        "line": 391,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk2",
+        "line": 426,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk3",
+        "line": 461,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk4",
+        "line": 496,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk5",
+        "line": 531,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk6",
+        "line": 566,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "GammasChunk7",
+        "line": 601,
+        "source": "if (java.lang.Integer.signum((i)) == 0) {"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "NewGammas",
+        "line": 658,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((128), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "NewGammas",
+        "line": 662,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = __default.GammasValue(_0_i);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Add",
+        "line": 671,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Add",
+        "line": 677,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = _out0;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Sub",
+        "line": 686,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Sub",
+        "line": 692,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = _out0;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Copy",
+        "line": 701,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Copy",
+        "line": 705,
+        "source": "(r)[dafny.Helpers.toInt((_0_i))] = (f)[(_0_i)];"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ForwardStage",
+        "line": 715,
+        "source": "_1_blocks = dafny.DafnyEuclidean.EuclideanDivision(128, _0_l);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ForwardStage",
+        "line": 721,
+        "source": "_4_k = (int) ((dafny.DafnyEuclidean.EuclideanDivision(128, _0_l)) + (_2_block));"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ForwardStage",
+        "line": 734,
+        "source": "(r)[dafny.Helpers.toInt((_7_i))] = _out1;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "ForwardStage",
+        "line": 738,
+        "source": "(r)[dafny.Helpers.toInt(_index0)] = _out2;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "InverseStage",
+        "line": 747,
+        "source": "_1_blocks = dafny.DafnyEuclidean.EuclideanDivision(128, _0_l);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "InverseStage",
+        "line": 753,
+        "source": "_4_k = (int) (((int) ((dafny.DafnyEuclidean.EuclideanDivision(256, _0_l)) - (1))) - (_2_block));"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "InverseStage",
+        "line": 762,
+        "source": "(r)[dafny.Helpers.toInt((_7_i))] = _out0;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "InverseStage",
+        "line": 766,
+        "source": "(r)[dafny.Helpers.toInt(_index0)] = _out1;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Scale",
+        "line": 776,
+        "source": "(a)[dafny.Helpers.toInt((_0_i))] = _out0;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Ntt",
+        "line": 787,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "InverseNtt",
+        "line": 813,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "BaseCase",
+        "line": 853,
+        "source": "_lhs0[dafny.Helpers.toInt(_lhs1)] = _rhs0;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "BaseCase",
+        "line": 854,
+        "source": "_lhs2[dafny.Helpers.toInt(_lhs3)] = _rhs1;"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "NttMul",
+        "line": 860,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativePolynomial/__default.java",
+        "method": "Wipe",
+        "line": 879,
+        "source": "(a)[dafny.Helpers.toInt((_1_i))] = 0;"
+      },
+      {
+        "file": "NativeSampling/FeedResult_Full.java",
+        "method": "toString",
+        "line": 49,
+        "source": "s.append(dafny.Helpers.toString(this._coeffs));"
+      },
+      {
+        "file": "NativeSampling/FeedResult_NeedMore.java",
+        "method": "toString",
+        "line": 49,
+        "source": "s.append(dafny.Helpers.toString(this._coeffs));"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "IsPrefix",
+        "line": 32,
+        "source": "if ((java.lang.Integer.signum(((a)[(_1_i)])) == -1) || (((a)[(_1_i)]) >= (3329))) {"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Cbd2",
+        "line": 44,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Cbd2",
+        "line": 49,
+        "source": "_1_x = (long) java.lang.Byte.toUnsignedLong((b)[(NativeCodec.__default.PublicDiv(_0_i, 2))]);"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Cbd2",
+        "line": 51,
+        "source": "_2_j = (int) ((4) * (NativeCodec.__default.PublicMod(_0_i, 2)));"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Cbd2",
+        "line": 58,
+        "source": "(f)[dafny.Helpers.toInt((_0_i))] = _out0;"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 76,
+        "source": "if (java.lang.Integer.signum((NativeCodec.__default.PublicMod(_1_size, 3))) != 0) {"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 81,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((256), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 87,
+        "source": "(_2_a)[dafny.Helpers.toInt((_4_i))] = (current)[(_4_i)];"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 97,
+        "source": "(_2_a)[dafny.Helpers.toInt((_3_used))] = _6_x;"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 101,
+        "source": "(_2_a)[dafny.Helpers.toInt((_3_used))] = _7_y;"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 111,
+        "source": "int[] _nw1 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((_3_used), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "file": "NativeSampling/__default.java",
+        "method": "Feed",
+        "line": 115,
+        "source": "(_8_partial)[dafny.Helpers.toInt((_9_i))] = (_2_a)[(_9_i)];"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "__ctor",
+        "line": 43,
+        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "__ctor",
+        "line": 45,
+        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "__ctor",
+        "line": 47,
+        "source": "long[] _nw2 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "__ctor",
+        "line": 56,
+        "source": "((this).lanes())[dafny.Helpers.toInt((_2_i))] = (long) 0L;"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "XorByte",
+        "line": 62,
+        "source": "_0_j = dafny.DafnyEuclidean.EuclideanDivision(at, 8);"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "Update",
+        "line": 91,
+        "source": "if ((((java.lang.Integer.signum((offset)) == -1) || ((offset) > (_0_size))) || (java.lang.Integer.signum((length)) == -1)) || ((length) > ((int) ((_0_size) - (offset))))) {"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "Next",
+        "line": 121,
+        "source": "value = ((byte) ((long) (long) (((long) dafny.Helpers.bv64ShiftRight(((this).lanes())[(dafny.DafnyEuclidean.EuclideanDivision(this.position, 8))], ((byte) ((int) ((8) * (dafny.DafnyEuclidean.EuclideanModulus(this.position, 8))))))) & ((long) 255L))));"
+      },
+      {
+        "file": "NativeShake/Sponge.java",
+        "method": "Read",
+        "line": 135,
+        "source": "(output)[dafny.Helpers.toInt((_1_i))] = _out0;"
+      },
+      {
+        "file": "NativeShake/__default.java",
+        "method": "XorWord",
+        "line": 25,
+        "source": "return (long) (long) ((word) ^ ((long) (long) (((long) dafny.Helpers.bv64ShiftLeft((long) java.lang.Byte.toUnsignedLong(value), ((byte) ((int) ((8) * (dafny.DafnyEuclidean.EuclideanModulus(at, 8))))))))));"
+      },
+      {
+        "file": "NativeShake/__default.java",
+        "method": "Xof",
+        "line": 41,
+        "source": "byte[] _nw1 = (byte[]) dafny.TypeDescriptor.BYTE.fillThenReturnArray(dafny.TypeDescriptor.BYTE.newArray(dafny.Helpers.toIntChecked((length), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (byte) 0);"
+      }
+    ],
+    "caller_review": {
+      "NativeMlKem": "ExpandMatrix divides/mods only its public k=0..8 counter. BigInteger carries fixed3/9 reference-array initialization indices or public array lengths. Select uses only literal56 for its wide shift.",
+      "NativePolynomial": "Stage, block, coefficient and twiddle-table indices control all division, table selection and allocation; coefficients enter only the verified native field operations.",
+      "NativeKeccak/NativeShake": "Rate, phase, position, input/output lengths, fixed25/5 arrays and public rotation-offset tables control metadata helpers. Payload lanes enter only bv64 shifts with public distances.",
+      "NativeCodec/NativeSampling": "Widths, grouping indices and lengths are public; component operand-stack data-flow guards check PublicDiv/PublicMod/Extract/Shift boundaries. Decode(m,1) validates secret message bits, but decoded d1/d4/d10 values are bounded by1/15/1023, so IsCanonical outcomes are constant. Only d12 validation can vary; its KEM caller parses public encoded keys. Feed validates the empty/public prefix and rejects public rho-derived matrix candidates; CBD payloads avoid those branches.",
+      "allocation/tuple/result": "TypeDescriptor allocation/fill dispatch uses public dimensions/type descriptors and fixed zero values. Tuple2 and Result constructors/getters retain references. No owned KEM call reaches IntegerRange, payload toString/hashCode or mutable metadata writes.",
+      "boundary": "Generated constructors, mutable arrays and metadata are internal; the production facade must keep them inaccessible to callers. This review is source/runtime discipline, not a JVM timing theorem."
+    }
+  },
+  "bytecode_controls": {
+    "selector-narrow-helper": {
+      "rejected": "Unreviewed or payload-sensitive runtime helper"
+    },
+    "selector-payload-branch": {
+      "rejected": "Selector payload branch or changed loop control"
+    },
+    "selector-payload-boxing": {
+      "rejected": "Payload scalar boxing: 47: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;"
+    }
+  },
+  "inputs": {
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "6d152fe99d6a483912e67daa6117ca9384a69c5ffa8bcbbc50f2a45dc18d8e63",
+    "formal/crypto/NativeMlKem.dfy": "8350067771a66ae809d1e04d7bcf1efc4b70c7ffe549b7ddf75df8ed556cf100",
+    "formal/crypto/NativePolynomial.dfy": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+    "formal/crypto/NativeSampling.dfy": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+    "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/crypto/native_kem_checks.py": "4341752e4435d7e9717a14bbab756722327164777647edec3eb34553ca5417ce",
+    "formal/crypto/native_kem_test.java": "8134a9adf34634324b13690006ad7b9faa12ca084180bed49333822d2e36b56c",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697"
+  },
+  "native_big_integer_sites": {
+    "NativeMlKem.java": [],
+    "NativeMlKem/__default.java": [
+      {
+        "line": 206,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_2_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_3_i_boxed0) -> {"
+      },
+      {
+        "line": 207,
+        "source": "java.math.BigInteger _3_i = ((java.math.BigInteger)(java.lang.Object)(_3_i_boxed0));"
+      },
+      {
+        "line": 211,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 268,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "line": 269,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "line": 273,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 301,
+        "source": "_0_first = (a)[(dafny.Helpers.toInt((java.math.BigInteger.ZERO)))];"
+      },
+      {
+        "line": 302,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_first) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_j_boxed0) -> {"
+      },
+      {
+        "line": 303,
+        "source": "java.math.BigInteger _2_j = ((java.math.BigInteger)(java.lang.Object)(_2_j_boxed0));"
+      },
+      {
+        "line": 307,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw0))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 398,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "line": 399,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "line": 403,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 503,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((seed))), java.math.BigInteger.valueOf(64L))) {"
+      },
+      {
+        "line": 572,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_2_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_3_i_boxed0) -> {"
+      },
+      {
+        "line": 573,
+        "source": "java.math.BigInteger _3_i = ((java.math.BigInteger)(java.lang.Object)(_3_i_boxed0));"
+      },
+      {
+        "line": 577,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 608,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((bytes))), java.math.BigInteger.valueOf(1184L))) {"
+      },
+      {
+        "line": 763,
+        "source": "java.util.function.Function<java.math.BigInteger, int[]> _init0 = ((java.util.function.Function<int[], java.util.function.Function<java.math.BigInteger, int[]>>)(_1_empty) -> ((java.util.function.Function<java.math.BigInteger, int[]>)(_2_i_boxed0) -> {"
+      },
+      {
+        "line": 764,
+        "source": "java.math.BigInteger _2_i = ((java.math.BigInteger)(java.lang.Object)(_2_i_boxed0));"
+      },
+      {
+        "line": 768,
+        "source": "for (java.math.BigInteger _i0_0 = java.math.BigInteger.ZERO; _i0_0.compareTo(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength(_nw1))) < 0; _i0_0 = _i0_0.add(java.math.BigInteger.ONE)) {"
+      },
+      {
+        "line": 845,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((m))), java.math.BigInteger.valueOf(32L))) {"
+      },
+      {
+        "line": 898,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((ciphertext))), java.math.BigInteger.valueOf(1088L))) {"
+      },
+      {
+        "line": 962,
+        "source": "if (!java.util.Objects.equals(java.math.BigInteger.valueOf(java.lang.reflect.Array.getLength((ciphertext))), java.math.BigInteger.valueOf(1088L))) {"
+      }
+    ],
+    "NativeMlKem/Encapsulation.java": [],
+    "NativeMlKem/PublicKey.java": [],
+    "NativeMlKem/SecretKey.java": [],
+    "NativeKeccak/__default.java": [
+      {
+        "line": 138,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "line": 204,
+        "source": "int[] _nw0 = (int[]) NativeTypes.I._typeDescriptor().fillThenReturnArray(NativeTypes.I._typeDescriptor().newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), NativeTypes.I.Witness);"
+      },
+      {
+        "line": 220,
+        "source": "_0_value = (long) (long) (((a)[(dafny.Helpers.toInt((java.math.BigInteger.ZERO)))]) ^ (rc));"
+      },
+      {
+        "line": 278,
+        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "line": 281,
+        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      }
+    ],
+    "NativePolynomial/__default.java": [],
+    "NativeTypes/I.java": [
+      {
+        "line": 10,
+        "source": "public static java.util.ArrayList<java.lang.Integer> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
+      },
+      {
+        "line": 12,
+        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Integer.valueOf(j.intValue())); }"
+      },
+      {
+        "line": 15,
+        "source": "public static int Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).intValue();"
+      }
+    ],
+    "NativeTypes/L.java": [
+      {
+        "line": 10,
+        "source": "public static java.util.ArrayList<java.lang.Long> IntegerRange(java.math.BigInteger lo, java.math.BigInteger hi) {"
+      },
+      {
+        "line": 12,
+        "source": "for (java.math.BigInteger j = lo; j.compareTo(hi) < 0; j = j.add(java.math.BigInteger.ONE)) { arr.add(java.lang.Long.valueOf(j.longValue())); }"
+      },
+      {
+        "line": 15,
+        "source": "public static long Witness = ((java.lang.Number) (java.math.BigInteger.ZERO)).longValue();"
+      }
+    ],
+    "NativeShake/__default.java": [],
+    "NativeShake/Sponge.java": [
+      {
+        "line": 43,
+        "source": "long[] _nw0 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "line": 45,
+        "source": "long[] _nw1 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(25L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      },
+      {
+        "line": 47,
+        "source": "long[] _nw2 = (long[]) dafny.TypeDescriptor.LONG.fillThenReturnArray(dafny.TypeDescriptor.LONG.newArray(dafny.Helpers.toIntChecked((java.math.BigInteger.valueOf(5L)), \"Java arrays may be no larger than the maximum 32-bit signed int\")), (long) 0);"
+      }
+    ],
+    "NativeSampling/__default.java": [],
+    "NativeSampling/FeedResult.java": [],
+    "NativeSampling/FeedResult_Full.java": [],
+    "NativeSampling/FeedResult_NeedMore.java": [],
+    "NativeSampling/FeedResult_InvalidBlockLength.java": [],
+    "NativeSampling/FeedResult_InvalidPrefix.java": [],
+    "NativeCodec/__default.java": [],
+    "NativeCodec/DecodeResult_InvalidWidth.java": [],
+    "NativeCodec/DecodeResult_ModulusError.java": [],
+    "NativeCodec/DecodeResult_InvalidLength.java": [],
+    "NativeCodec/DecodeResult.java": [],
+    "NativeCodec/DecodeResult_Decoded.java": [],
+    "NativeKemDomain/__default.java": [],
+    "NativeField/__default.java": []
+  },
+  "generated_java": {
+    "CodecSpec/DecodeResult.java": "4b0c6bafb10a5e8d9a6e98d4c4e36b1a60b7798ee723aac6e35edbd18b898851",
+    "CodecSpec/DecodeResult_Decoded.java": "422a9d9330dddd787d6ccb6a4eb0752e9f8482e7dfd71ac17a33c9b818945b06",
+    "CodecSpec/DecodeResult_InvalidLength.java": "8440505d7faa24e13b299f5c5961c9adb7d06b87c37c8effe7b6f1c977721420",
+    "CodecSpec/DecodeResult_InvalidWidth.java": "910a4f9b4dde7d40d1c9229e391b4a95a9691310d187dfce4ee6adfcfa166424",
+    "CodecSpec/DecodeResult_ModulusError.java": "2b95297273e768536e7ca94a0369a453572bea4966a31fa00190f50ddfad8bb0",
+    "CodecSpec/__default.java": "e47d1cc130a1938f8ea8f1d0298c55ef3b31661029ee72f93a6e0697a6175757",
+    "KemSpec/Encapsulation.java": "a7e25371ef40cb1b25e1f041cad1a8301372357840739d2ace29fe3c382fd312",
+    "KemSpec/FailureKind.java": "4c6cd96e0ed511cb3b774666b55655ec08d85964b512ca7aed020d0ea079e278",
+    "KemSpec/FailureKind_InvalidCiphertextLength.java": "0d414c14e9882c7059058080323d521d986bcd54b9b74c517a500484ae6c4e63",
+    "KemSpec/FailureKind_InvalidKeyLength.java": "53919ab300ba1733fca6a4d9b6fad44f61544342321410e95d95668c6dcc2631",
+    "KemSpec/FailureKind_InvalidMessageLength.java": "77f85383326886b3b87db3af362594fe0f972930737c132278405864221fd458",
+    "KemSpec/FailureKind_InvalidSeedLength.java": "c36500b151c8350a8197ea247155c2b4ed4ba24f022c60b281cbc9010c19d9da",
+    "KemSpec/FailureKind_ModulusError.java": "321a6b41f93d24dc3a31ea15b0a05c0a10269109a2a9bdebe4531c1c0d7398e9",
+    "KemSpec/FailureKind_RejectionLimit.java": "b3ef59e6913b891ba317dad8180a0d0c4d22807bb1f7aee860e54878d833110e",
+    "KemSpec/PublicKey.java": "803fb4afc6d40612ded3333ab5cc5264da372766557f220536c2c9fb7a8b4378",
+    "KemSpec/Result.java": "b711a4a8f94e042777effcea8f79ec325311cf955e6ecea3f036088d1e4b6b22",
+    "KemSpec/Result_Failure.java": "1b7d864b55304e37376b1cb3da51a0d1fd1296b1d52d4b8e0688b23b703b972c",
+    "KemSpec/Result_Success.java": "895b17275bfa17df3ed44ce562e831c12dec1b0b529ecee4075bc940677c2d88",
+    "KemSpec/SecretKey.java": "848f3b668edea8cb19ddb0ff2da2e6fed72105832f8c74315fcb7f556925d5fa",
+    "NativeCodec/DecodeResult.java": "3ee8c158c6363b9ff4d770fd68cfeeae3538ae61f642bda0d789b598c97b637c",
+    "NativeCodec/DecodeResult_Decoded.java": "5226bbdb5bb78a17dc29da2516cd3a0afa10db773494385561521db0d3e916be",
+    "NativeCodec/DecodeResult_InvalidLength.java": "2ad461d0b4caee6dbd9107e2d9068186e1cd32e8b67e9a8f5bbe6604476e88aa",
+    "NativeCodec/DecodeResult_InvalidWidth.java": "7d080cc91cb9a69caac8c7b934e706b3b50f9934dbf05f59058bda8c67c649ae",
+    "NativeCodec/DecodeResult_ModulusError.java": "6901f5aa466ba0fb2618f9b5032eff89465c708f5b4d609427561963ac29a293",
+    "NativeCodec/__default.java": "bdb1c525d959b30e55ab7b96c0d74c4a9add4b571ae4934ad18b09df318637e5",
+    "NativeField/__default.java": "525b8b4b80d3698aa7b46536ca4a2d7f0d40dadcd88e5291969f1fcdbd8fe0e0",
+    "NativeKeccak/__default.java": "4e4dcbaad8f37f5be66cb361f183172a742b4642cbffba9b1278305ff66e4e4f",
+    "NativeKemDomain/__default.java": "151da15cae27bae5bf18b7f973b6e219b5ed2f1fc656b0f25dce28d8b7558990",
+    "NativeMlKem/Encapsulation.java": "b1a94983b2da09342987e943fd843c9419a67810a3a6f7ab792119f0d7c1c71f",
+    "NativeMlKem/PublicKey.java": "b975b1eb556fbb4f9925b77852fb0b9caad69990db3b2eb9096755491c856b49",
+    "NativeMlKem/SecretKey.java": "28d61138336284b7bb2696b68c34ced9232e4e7ca036b1dc6b118027772be445",
+    "NativeMlKem/__default.java": "29acdc30dca3e8830d52cb3203af7e205c7f7a9116bdaf5caa8556ccc86e31c5",
+    "NativeMlKem.java": "1d2abce549d6335b56abc2deaeedb606178f9f84de336ef9ebf402d009785a25",
+    "NativePolynomial/__default.java": "a300a111c3cb514194ecaa8e6a2d66260807a04414290894acfcb76aa11af96d",
+    "NativeSampling/FeedResult.java": "8158dbf4e122e01573eb73e2ab6dc3faa70d46089ef1b9214eab547ca79c89c0",
+    "NativeSampling/FeedResult_Full.java": "ec2bb4a41eb8a31e01fea9be42f2e7b84eb07f39a516c153613c41f954e746e4",
+    "NativeSampling/FeedResult_InvalidBlockLength.java": "0136d2a239b506ec609f1e9d413b6a1176f5bc861fe3724dc3af4334905eae2f",
+    "NativeSampling/FeedResult_InvalidPrefix.java": "f37b384b4001cf5d6969ec3b05a4f603f58b126ab5319df217bac6e4579ca520",
+    "NativeSampling/FeedResult_NeedMore.java": "c62ed5d9de2f7a01f77e2b2cc7dc4659d4ba252e2a56d124b28716885bcc12f0",
+    "NativeSampling/__default.java": "1ec6309639a94d1c288479fb9286bc44475b580a276b93c1cb628141f67e0135",
+    "NativeShake/Sponge.java": "15e204e4b950e159e18542ce624ab3f7304299a7e5b17f74d99482bf117b7c48",
+    "NativeShake/__default.java": "dd93ad8b5750204ab828cab3643b1fdf9eb0ee3539e27a85ad43b1843b81f8dc",
+    "NativeTypes/I.java": "99c223d8c172ce34cfeffd1fbc4252e964758b12b952ed46e2f0ef8db1610884",
+    "NativeTypes/L.java": "95465a1ba5b6fd7ee9f9af6f37f0845b7771a790c74e4140aa3ebf646882c834",
+    "PolySpec/__default.java": "01067a09a21eed61ba8d6a990835bf55c062b9140429a6e176c96bce7aff3fd0",
+    "PolynomialRing/Residue.java": "a100356817f2dda7f3693db3a4a345a3be6840d9842f96b413569468bec86650",
+    "PolynomialRing/__default.java": "a023d745e1e43e00e12ac1b03f5553ea57235b63b3ce0c7f005ba2dc5b2167d0",
+    "SamplingSpec/FeedResult.java": "6949e96eb06523fb92135e9f864b58e751503e55a80c3af7f0b84860d715ca58",
+    "SamplingSpec/FeedResult_Full.java": "29a65622b4aa7957f51d4ca3888429579229a017337b7eeb80a3ee6e3636bffb",
+    "SamplingSpec/FeedResult_InvalidBlockLength.java": "62ce380fc4596153207166b8b949871af4d81f0ecbb60f905b0e27dfa6591077",
+    "SamplingSpec/FeedResult_InvalidPrefix.java": "f2e09bed4026a4144b5e700e2a0ac6e1b72e4f788b2745900a28acb78786ce34",
+    "SamplingSpec/FeedResult_NeedMore.java": "98d2e6452187832a248c1da0e9ebf66f09cd4dd9f072850f5011ca6d9d1bdffa",
+    "SamplingSpec/__default.java": "b86ef617cfc513df75fb228d964bbc044ee561846763be4f0b4fabcd9f8735c0",
+    "SpongeSpec/ReadResult.java": "8a0755b8a2c5e769084e2586251d4fa86c0481ef3716ac476921a4f4e232d660",
+    "SpongeSpec/State.java": "e6e3aa917767342508e0b214ffa7112c90d5e7c9477f4a0f3fcb0a29f5d3d08d",
+    "SpongeSpec/UpdateResult.java": "092947f2d9b028ff57af3306eed3a383d4f8b67ef0bda5f96397b75c97b69c68",
+    "SpongeSpec/UpdateResult_InputAfterOutput.java": "5c9563fda4f9f3b5b7f838c8a3ffcc099bb53e6cfb82acfd0a8a9180dd388074",
+    "SpongeSpec/UpdateResult_InvalidSlice.java": "5fec96889737ab3e48c8c380c24a7b72af312576a897cd1b0e50bc7741fa36d8",
+    "SpongeSpec/UpdateResult_Updated.java": "66d9ffaef1d625134e7ba1981c990c8d67d3f07ad8c04d89523e78f731867ce0",
+    "SpongeSpec/__default.java": "0ec862047d97895e1580c4226346d8f7e0bc209854a91ea06ef43428186da7cb",
+    "VerifiedCodec/__default.java": "33d03a5f793482ff163a20b9835d8877851f95c254a4500a2091d457a4e803cd",
+    "VerifiedField/__default.java": "5a253ecedf733646e60b8701a46d14f6b6de83c218706c7a1261df3870ab50c6",
+    "VerifiedKeccak/__default.java": "1af7be29d0a8b1275e20414c5c76c591afbfe8a15476fd80cbe3608014b1a866",
+    "VerifiedPolynomial/__default.java": "f7cc80a2faec5f55736dad124efb86ebd84647245490f510b00d00f87d51b811",
+    "VerifiedSampling/__default.java": "166c947676e1be30b1f89b55cbc3b3821658e537310aab50c9870018edabb103",
+    "VerifiedShake/__default.java": "4ba4d8bce07195ad3acfedc6da95215a48d3fb644db091aa93c31fc395bfb18f"
+  },
+  "compiled_classes": {
+    "CodecSpec/DecodeResult.class": "ed5244f54c30660c15bfdd4d49acdc1ce1e21080b24898c86c89e2aebddea3a8",
+    "CodecSpec/DecodeResult_Decoded.class": "d6dcb3134e3919e01f2f9e006c84937891ef7ca314fa1cd55c20380f9496f0e7",
+    "CodecSpec/DecodeResult_InvalidLength.class": "815b97e3362e5cc127bbca2d01de1077220756e6ac04bcf34c1738ecaa8f3d21",
+    "CodecSpec/DecodeResult_InvalidWidth.class": "17a6e8e9b09e3650fcdbdde9a9e2e895a9a79ac7ff0b6990561469527502aabb",
+    "CodecSpec/DecodeResult_ModulusError.class": "069dacacd86ca9d17c07cd5e6d8e105967c22736da402f4ceab420d20a994e5b",
+    "CodecSpec/__default.class": "dc2d5b6b712b71830b176823ffd3aac21228590d87f9777f4181557d9b6b605a",
+    "KemSpec/Encapsulation.class": "88978bf13fa33ab28cd1ca4b4e939b868750d593384942e3a8e0ce73eab4c7c7",
+    "KemSpec/FailureKind.class": "f33cf5ea9dee8a6bdf603415d589a8a540cc4946ae5d2a4dc2a92c34771c0b44",
+    "KemSpec/FailureKind_InvalidCiphertextLength.class": "bdfc2dfd2605e07cf92246ef8576d92a71f46396c38f4d4c40ad04fc18aca02e",
+    "KemSpec/FailureKind_InvalidKeyLength.class": "b096794a2330761d8d1b775a47020ae5f78c4cb13c71989eaea340be2edad594",
+    "KemSpec/FailureKind_InvalidMessageLength.class": "cc172f6747b998e7b45db3be4496acb81c0bc3eb27f5740c42bf3b91fc908059",
+    "KemSpec/FailureKind_InvalidSeedLength.class": "d4d7729923cf2e3668c6770e1e682bea88b9fcf4f63cd646013392184f3e6513",
+    "KemSpec/FailureKind_ModulusError.class": "05b5eba73f7ff2273ae95f1fbfd7bafb88633dacb9e6e709f68033b89918a834",
+    "KemSpec/FailureKind_RejectionLimit.class": "3bf69d2282d89e75751d5fae62e3acd80a1cf11858a2a1fc8d05f8445edb5a6a",
+    "KemSpec/PublicKey.class": "1e84454fb3272e6ea01e8690d6d8da182bddab2f870ad27329b8ff02ffabbe77",
+    "KemSpec/Result.class": "66a7ace42cfca9431e060513af27a2ca7484e9297d3b5ad4d6445c2e3ecd2f90",
+    "KemSpec/Result_Failure.class": "c92caa68fc2e3f06c68b46f7130f22ba7e4ea03868b52571e475cc2f5557bf20",
+    "KemSpec/Result_Success.class": "77e9f5f3cd50c9ed7e87f706e3971262ed8e4c334bce2ace953d06f99d269000",
+    "KemSpec/SecretKey.class": "a3f2161403d3e44ac9b880541fd856c8cc9ab39aee798fb09f4ef31efffe61f2",
+    "NativeCodec/DecodeResult.class": "98a5b7ce13ce73685541288b9b00e45ae674e2d71e87eb423010a1daa522c7b2",
+    "NativeCodec/DecodeResult_Decoded.class": "603958e950c2182e7a7031d1167305f394a8d9d231039e23beafc1d28fde75e2",
+    "NativeCodec/DecodeResult_InvalidLength.class": "aa8711f447c31578dc7d10810863be282dab9fe74015548db33c3b29dd5e50cf",
+    "NativeCodec/DecodeResult_InvalidWidth.class": "ef6891d61c8ebcd1cbb20bdc2f68807f00cc278279855a35dfb08be3b5077bd5",
+    "NativeCodec/DecodeResult_ModulusError.class": "1eb9eee1afc9e4cdc29d3f88fb04367a5ef671f6f919f917100e071ddf6150d3",
+    "NativeCodec/__default.class": "b0f98d0d05f5d5bcaefff0c864ab51c99c0582d009fae33ff27a3a8546d2d620",
+    "NativeField/__default.class": "5eef2b7e404551e4b76013abbf1bd64846c9b44eac310f6937239b1f1c027e7d",
+    "NativeKeccak/__default.class": "0d515eb277e3fc7859d45e037bab8a4ee91b92802338e302a6d55812b6fb1d54",
+    "NativeKemDomain/__default.class": "db7791b2352fcbc7f7f718abf519117351808bbce53a0ca30a635aeb52569e9a",
+    "NativeMlKem/Encapsulation.class": "56aca5332237f22a72dd89a89d08ff95c60038f4386c97e460cf393d255a43d9",
+    "NativeMlKem/PublicKey.class": "87ff48e7df32138cdb3dbc9f72af3d645fafae2584352d61c7b1e230292ed2c5",
+    "NativeMlKem/SecretKey.class": "d09b9f8c65666d4fce873a397c1c0758ab41bc352904ac6cee95e3d97b8c126d",
+    "NativeMlKem/__default.class": "8a18f1e9193a775cf71506868df79e8b8a97441600f2d0079e6302f4dedb3dce",
+    "NativePolynomial/__default.class": "fd9d4f6ad168fba888c89b2628e59eef6e39987df994e109857b97a0b1b4bf5e",
+    "NativeSampling/FeedResult.class": "23bfdac75ac85179f6064e06e4d136e602538b88cb1807b98037020e3efcd073",
+    "NativeSampling/FeedResult_Full.class": "196ed4dcc173da6a3c376b8fd539fb797d574f4499035bf8a1725b19f342afb5",
+    "NativeSampling/FeedResult_InvalidBlockLength.class": "d32a4e807948c69cfc8d835a1122ddf1a320e157a307d062bea7f335bce80088",
+    "NativeSampling/FeedResult_InvalidPrefix.class": "69b5f751fdcb651f26735e0d5415fa86c1663c1d6f9d82fd7d680e86046a65e4",
+    "NativeSampling/FeedResult_NeedMore.class": "8f652debb5bb2574e5cdb3f21abd841bd0d9aa6743e47ebda2a1bb3931e6ba0b",
+    "NativeSampling/__default.class": "678c4036e5873463b81135d8a42a08cddb6f80c4b30a8e231a1522d437d65f44",
+    "NativeShake/Sponge.class": "668de00245b3b598ae813dc3fba624b66f718be511a24fd4240625ee25b6bf79",
+    "NativeShake/__default.class": "4e8bbeefba41f80316473fb74b37ec3eaadde91a06dd9381431e5e76829df424",
+    "NativeTypes/I.class": "502d0ef0c2f80d8a289a1e29c106c470bb38e0dfc47e2093e304a38f5d77a203",
+    "NativeTypes/L.class": "65f64fa2a4e298691f9d0b8298d69fdc0f4e3f435a8f9e417a462bccd93762c9",
+    "PolySpec/__default.class": "0b79c4ca9d3fe9ff35ab4d8a843876fcb2ad78f6493b3bd33a778c537d8d0e62",
+    "PolynomialRing/Residue.class": "27baa244122833e883cbaeb2c2db4de8a38f6a9588f43d5d8c2a067cfa61f089",
+    "PolynomialRing/__default.class": "f112e9f8acfbc8c18f8055898bf6bc755292ad8e882213c00c9b18307395ab4b",
+    "SamplingSpec/FeedResult.class": "7a78c0336c17a3e0383adb3e0a31d749ca82df7df1525ac9698113b2d8bb36e2",
+    "SamplingSpec/FeedResult_Full.class": "fbfe73cb994cd4735862d8ba01628e6999c6e40cdb01b45f290e3f42400530a5",
+    "SamplingSpec/FeedResult_InvalidBlockLength.class": "7c1819fb0b6091dfcf8d77a07e8d117336171cd0525a20a8f3557887fb5667db",
+    "SamplingSpec/FeedResult_InvalidPrefix.class": "45a908821a56bfdc19f4f0c9547d02064b4257a6ca200dacdc3283cbf7f07d3b",
+    "SamplingSpec/FeedResult_NeedMore.class": "897506bba95b70a75cf51920536ff7d7ed697170ea804391d8190d28b0e1bf39",
+    "SamplingSpec/__default.class": "f2550a91f0aaa7af8283d57a3727378242b37aad7be33cfae45380adfcec468f",
+    "SpongeSpec/ReadResult.class": "7b3d7cfcd656c0d6f737c084567692e7c9aaeffd61de7308a173c806b717db9e",
+    "SpongeSpec/State.class": "7e33d4fe76ef3f0e80afea968e3aaa5bea11f7c493480e90f086ff12c483967e",
+    "SpongeSpec/UpdateResult.class": "6fb8a07e0177345eee1b25f80032934e351997976aac96a89984b08f99b9cb02",
+    "SpongeSpec/UpdateResult_InputAfterOutput.class": "01c234b0657fc642d19a1091b769f5c1999e29d24963e07e09000a4883866f53",
+    "SpongeSpec/UpdateResult_InvalidSlice.class": "f1fd9b4ecaa3e417d3eb7693af0648d43ae2d55232993ca42e4b1ed8be76e18f",
+    "SpongeSpec/UpdateResult_Updated.class": "2f3b3d0e0798c761ad79070c97cb873dc335a58662780781806977cd8ada5180",
+    "SpongeSpec/__default.class": "d76e2909a7fbac3747cb1733259f56e56c526481415dbf0c9717afa13a2b5f4f",
+    "VerifiedCodec/__default.class": "3441486761b17c85b318b96f3fa5e6e5cdc6b55417afa3df5f38b71760e30583",
+    "VerifiedField/__default.class": "c96548ff6a4b9b01daef24cd8b27a85f22247992c83bbddae2a22c8dfb4f8eca",
+    "VerifiedKeccak/__default.class": "17ff77d3db5a52e671a08ef6ca93670a1accdadb8f722838674a4dd4a17c2a10",
+    "VerifiedPolynomial/__default.class": "b2c06c155f5aadd07005b7473720c57b433da82f31e383942fe4bc5b7957f895",
+    "VerifiedSampling/__default.class": "11f75670c53e7752e6d5ea2671b86b6dcb1b0945cd7b2044a42e3cadf04a54ea",
+    "VerifiedShake/__default.class": "6dc9385518d3a744ece69470b000f66b0d9304eb34e6e31f5726c680519b72e1",
+    "io/github/mahmoudimus/quic/tls/MlKem768$DecapsulationKey.class": "c118a1145533b8ec793e05367dc7f28976e1049dff9c8e942f4803a9a79ff385",
+    "io/github/mahmoudimus/quic/tls/MlKem768$Encapsulation.class": "a2000d350ccaa75624983bb2486ec1371521aebda98339895e9d9eae822febb7",
+    "io/github/mahmoudimus/quic/tls/MlKem768$EncryptionKey.class": "179a7f4264cee3d293b21e478b3691fc83b3a895e1dccf398904df9184096fdc",
+    "io/github/mahmoudimus/quic/tls/MlKem768.class": "359c10434957997f9473dce8b3aacffc96496cca49a785b2ddc339816ffed7a0",
+    "io/github/mahmoudimus/quic/tls/Shake.class": "904d24225efdf74f3761f1577988734ab0097660fbefc650c9feec10218b30ed",
+    "io/github/mahmoudimus/quic/tls/native_kem_test.class": "c54aa8932f005b24becf5a3a2a6261f6c4f4683f8ed7a17e38f74c366380e794",
+    "io/github/mahmoudimus/verifiedcrypto/native_kem_hash.class": "e2812917aebe9a81568207da0c72053485dbdf043c97bcadb3660f68221937df"
+  },
+  "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+  "solver_sha256": "5eaebf0f9dd366b7acd0f69bb390dac285c12bb684310504d17502b54917a396",
+  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+  "runtime_coordinate": "org.dafny:DafnyRuntime:4.9.1",
+  "footprint": {
+    "generated_java_bytes": 274572,
+    "compiled_class_bytes": 205311,
+    "runtime_bytes": 159922
+  },
+  "independent_review": "Approved native functional refinement, ownership/cleanup, facade boundary and revised selector runtime/helper structure. Strict final replay recorded here; production delivery and JVM timing are separate."
+}
