@@ -68,10 +68,10 @@ def main():
     source = HERE / 'NativePolynomial.dfy'
     field = HERE / 'NativeField.dfy'
     domain = HERE / 'native_polynomial_domain.dfy'
+    references = [HERE/'reference'/name for name in ('MlKem768.java','Shake.java')]
     inputs = [source,field,domain,HERE / 'NativeTypes.dfy',HERE / 'Polynomial.dfy',
               ROOT / 'formal/primitives/Field.dfy',Path(__file__).resolve(),HERE / 'native_polynomial_test.java',
-              ROOT / 'formal/crypto/reference/MlKem768.java',
-              ROOT / 'formal/crypto/reference/Shake.java', HERE/'reference/provenance.json']
+              *references, HERE/'reference/provenance.json']
     pins = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     report = {'status':'incomplete','phase':args.phase,'inputs':pins,
               'domain':'Every array of exactly 256 coefficients in [0,3329); input aliasing permitted',
@@ -202,7 +202,7 @@ module NativeFreshControl {{
             if args.runtime_sha256 and runtime_pin != args.runtime_sha256:
                 raise RuntimeError('Selected runtime JAR checksum mismatch')
             report['runtime_path'] = str(runtime)
-            positive([jdk/'bin/javac','--release','21','-cp',runtime,'-d',classes,*generated_sources,HERE/'native_polynomial_test.java',*inputs[-2:]],output/'javac.log',env)
+            positive([jdk/'bin/javac','--release','21','-cp',runtime,'-d',classes,*generated_sources,HERE/'native_polynomial_test.java',*references],output/'javac.log',env)
             bytecode = positive([jdk/'bin/javap','-c','-p','-s','-cp',f'{classes}{os.pathsep}{runtime}',
                                  'NativePolynomial.__default','NativeField.__default'],output/'native-bytecode.log',env)
             forbidden = r'java/math/BigInteger|dafny/DafnySequence|dafny/Tuple|java/lang/Long.valueOf'

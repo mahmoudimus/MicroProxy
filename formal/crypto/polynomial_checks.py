@@ -62,9 +62,9 @@ def main():
     solver = dafny.parent / 'z3/bin/z3-4.12.1'
     flags = ['--cores', '2', '--verification-time-limit', '30', '--resource-limit', '50000000',
              '--solver-path', solver]
+    references = [HERE/'reference'/name for name in ('MlKem768.java','Shake.java')]
     inputs = [SOURCE, FIELD, Path(__file__).resolve(), HERE / 'polynomial_java.java',
-              ROOT / 'formal/crypto/reference/MlKem768.java',
-              ROOT / 'formal/crypto/reference/Shake.java', HERE/'reference/provenance.json']
+              *references, HERE/'reference/provenance.json']
     pins = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     report['inputs'] = pins
     source_text = SOURCE.read_text()
@@ -222,7 +222,7 @@ module PolynomialDomain {{
                     raise RuntimeError('No generated Java source')
                 source_pins = {str(p.relative_to(generated)): digest(p) for p in generated_sources}
                 positive([jdk / 'bin/javac', '--release', '21', '-cp', runtime, '-d', classes,
-                          *generated_sources, HERE / 'polynomial_java.java', *inputs[-2:]],
+                          *generated_sources, HERE / 'polynomial_java.java', *references],
                          output / 'polynomial_javac.log', env)
                 java_runs = []
                 for index, home in enumerate([jdk, *args.runtime_home]):
