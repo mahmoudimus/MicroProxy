@@ -108,3 +108,13 @@ repeats frozen verification/generation and retains the original strict lint for
 handwritten Java. The runtime guard does not prove whole-program noninterference.
 `publish` requires a stage-bound decision and only installs exact canonical
 sources; it cannot silently overwrite changed generated files.
+
+The [native polynomial replay](../NATIVE-POLYNOMIAL-EVIDENCE.json) records a later
+negative-control harness repair. The index mutant now checks its actual first
+lane on a legal stage-0 sparse input, paired with the original operation on the
+same input. Full positive domains, all 14 control identities, normal semantic
+exit requirements and solver budgets are preserved. The fresh evidence separates
+the full macOS replay from the Linux control replay. Artifact acceptance above
+retains its original pins: all 32 stage inputs, 25 native replay inputs, 66
+delivered sources and 66 canonical classes were rehashed unchanged; the repaired
+polynomial runner is outside those frozen stage inputs.

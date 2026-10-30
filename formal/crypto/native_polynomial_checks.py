@@ -50,6 +50,27 @@ def absolute_includes(text):
     return re.sub(r'include "([^"]+)"', lambda m: f'include "{(HERE / m.group(1)).resolve()}"', text)
 
 
+def index_control_witness(text):
+    """Focus the actual first mutated lane before false loop facts can be used."""
+    start = text.index('  method {:isolate_assertions} ForwardStage(')
+    end = text.index('  method {:isolate_assertions} InverseStage(', start)
+    body = text[start:end]
+    precondition = '    requires T.Canonical(f) && r.Length == 256 && 0 <= s < 7\n'
+    anchor = '        r[i] := F.Add(f[i],t);'
+    if body.count(precondition) != 1 or body.count(anchor) != 1:
+        raise RuntimeError('Index control witness anchor changed')
+    body = body.replace(precondition, precondition+
+        '    requires s == 0 && T.Ints(f) == seq(256,i => if i == 128 then 1 else 0)\n', 1)
+    assertion = '        if i == 0 { assert r[i] as int == S.ForwardLane(T.Ints(f),s as int,i as int); }'
+    body = body.replace(anchor, anchor+'\n'+assertion, 1)
+    text = text[:start]+body+text[end:]
+    position = next(i+1 for i, line in enumerate(text.splitlines()) if line == assertion)
+    witness = {'stage':0, 'nonzero_coefficient':128, 'value':1, 'other_coefficients':0,
+               'checked_lane':0, 'expected_lane':1729, 'mutant_lane':0,
+               'scope':'temporary negative copy and paired original-body check only'}
+    return text, position, witness
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dafny', type=Path, default=DAFNY)
@@ -175,16 +196,38 @@ module NativeFreshControl {{
                     if witness:
                         text = mutation(text,'    requires 0 <= a <= MaxReduce\n',
                                         f"    requires 0 <= a <= MaxReduce\n    requires {witness['requires']}\n")
+                    focus = []
+                    correct_path = None
+                    if name == 'index':
+                        # A legal basis vector deterministically distinguishes
+                        # f[i+l] from f[i]. Positive full-domain proofs above
+                        # retain their original inputs and obligations.
+                        text, position, witness = index_control_witness(text)
+                        focus = ['--isolate-assertions','--filter-position',
+                                 f'native_polynomial_{name}.dfy:{position}']
+                        correct = mutation(text,'var t := F.Mul(z,f[i]);',
+                                          'var t := F.Mul(z,f[i+l]);')
+                        correct_path = Path(temporary)/'native_polynomial_index_original.dfy'
+                        correct_path.write_text(correct)
+                        correct_text = positive([dafny,'verify',correct_path,'--filter-symbol',symbol,
+                            '--isolate-assertions','--filter-position',f'{correct_path.name}:{position}',
+                            *native],output/'control-index-original.log')
+                        if not re.search(r'finished with [1-9]\d* assertions verified, 0 errors\s*$',correct_text):
+                            raise RuntimeError('Index control original-body witness did not verify')
                     path = Path(temporary)/f'native_polynomial_{name}.dfy'; path.write_text(text)
                     log = output/f'control-{name}.log'
-                    status,result = run([dafny,'verify',path,'--filter-symbol',symbol,*native],log)
+                    status,result = run([dafny,'verify',path,'--filter-symbol',symbol,*focus,*native],log)
                     if status != 4 or not re.search(r'Error: (a postcondition|this invariant|a loop invariant|a precondition|a postcondition might|assertion might not hold|value does not satisfy)',result):
                         raise RuntimeError(f'{name}: did not fail a genuine proof obligation')
                     if re.search(r'out of resource|timed out|parse errors|resolution/type errors',result,re.I):
                         raise RuntimeError(f'{name}: inconclusive')
                     report['controls'][name] = {'result':'semantic proof failure','sha256':digest(path),'symbol':symbol,'log':log.name}
                     if witness:
-                        report['controls'][name]['witness'] = {**witness,'scope':'temporary negative copy only'}
+                        report['controls'][name]['witness'] = {**witness,
+                            'scope':witness.get('scope','temporary negative copy only')}
+                    if correct_path:
+                        report['controls'][name]['correct_witness_sha256'] = digest(correct_path)
+                        report['controls'][name]['correct_witness_log'] = 'control-index-original.log'
         if args.phase in ['all','java']:
             jdk = args.java_home.resolve()
             env = dict(os.environ,JAVA_HOME=str(jdk),PATH=str(jdk/'bin')+os.pathsep+os.environ['PATH'])
