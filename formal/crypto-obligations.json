@@ -188,7 +188,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "bbc02d8ee5c46a0a64a746e889701129d0a0f2cda468850eb399eb0c32e23362",
+          "sha256": "9cd8f89dc3c5577dbcbdcc27e893932c68619f82bb07a6c97e87749dc5cea7b5",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -2189,6 +2189,18 @@
             "quic/src/"
           ]
         }
+      ],
+      "text_checks": [
+        {
+          "path": "formal/packet/EVIDENCE.md",
+          "markers": [
+            "| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |",
+            "| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |",
+            "| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |",
+            "All33 Python gate tests passed on macOS and Linux.",
+            "The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix"
+          ]
+        }
       ]
     },
     {
@@ -2216,7 +2228,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "af67b58dce07c7f41557d957be0dbab721a84a72d63634791d2bfda3708b38b5",
+          "sha256": "e60b41adf7b5534472d8955b1ed74d2bd70ab86e594f0a709490cf9583e58e76",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2228,13 +2240,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "bbc02d8ee5c46a0a64a746e889701129d0a0f2cda468850eb399eb0c32e23362",
+          "sha256": "9cd8f89dc3c5577dbcbdcc27e893932c68619f82bb07a6c97e87749dc5cea7b5",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "f3d6ab7a1b520af4a0dfaf856833bcea985542881ece69e269b251f9b1b06d97",
+          "sha256": "42d04cd7cf684ce5b8968e76ecfb168de348561cc983edd578c0c49b2d37acb4",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },

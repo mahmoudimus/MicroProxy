@@ -192,6 +192,19 @@ class Fixture:
             current = current[part]
         return current
 
+    def _expected_receipt_value(self, oid: str, receipt_path: str, value_path: str):
+        matches = []
+        for (exact_oid, exact_receipt, exact_path), expected in obligations.REQUIRED_RECEIPT_EXACT.items():
+            if exact_oid != oid or exact_receipt != receipt_path:
+                continue
+            if value_path == exact_path:
+                matches.append((len(exact_path), expected))
+            elif value_path.startswith(exact_path + "."):
+                matches.append((len(exact_path), self._nested_get(expected, value_path[len(exact_path) + 1:])))
+        if matches:
+            return max(matches, key=lambda item: item[0])[1]
+        return None
+
     def _refresh_receipt_checks(self, oid: str) -> None:
         for check in self.obligation(oid).get("receipt_checks", []):
             receipt = self._load_json(check["receipt"])
@@ -332,7 +345,7 @@ class Fixture:
             receipt = self._load_json(receipt_path)
             values = {}
             for path in value_paths:
-                exact = obligations.REQUIRED_RECEIPT_EXACT.get((oid, receipt_path, path))
+                exact = self._expected_receipt_value(oid, receipt_path, path)
                 if exact is not None:
                     value = exact
                 elif path in {"runtime.sha256", "runtime_sha256"}:
@@ -396,7 +409,10 @@ class Fixture:
             value = {"errors": 1, "result": "semantic proof failure",
                      "rejected": "fixture rejected mutation"}[field]
             controls = {name: {field: value} for name in obligations.REQUIRED_CONTROL_INVENTORY[group_id]}
-            if group_id == "saw-scoped-replay":
+            exact_controls = obligations.REQUIRED_RECEIPT_EXACT.get((oid, receipt_path, controls_path))
+            if isinstance(exact_controls, dict):
+                controls = exact_controls
+            elif group_id == "saw-scoped-replay":
                 controls = {
                     "proof": {"result": "verified"},
                     "wrong_modulus": {"result": "proof_counterexample", "exit_code": 2},
@@ -731,6 +747,87 @@ class ObligationLedgerTests(unittest.TestCase):
             fixture._set_evidence("V4", group["receipt"], "component-receipt")
             with self.assertRaisesRegex(obligations.LedgerError, "missing required failure field"):
                 obligations.validate_ledger(fixture.root, fixture.write_ledger())
+
+    def _set_receipt_expected(self, oid: str, receipt_path: str, values: dict) -> None:
+        for check in self.fixture.obligation(oid).get("receipt_checks", []):
+            if check["receipt"] == receipt_path:
+                check["values"].update(values)
+
+    def test_v4_positive_proof_metadata_cannot_be_zeroed_after_repin(self):
+        self.fixture.make_production_supported()
+        receipt_path = "formal/crypto/SHAKE-EVIDENCE.json"
+        receipt = self.fixture._load_json(receipt_path)
+        receipt["proofs"] = {}
+        receipt["audits"] = {}
+        receipt["generation"] = {"status": "fabricated"}
+        receipt["vectors"]["count"] = 0
+        self.fixture._write_json(receipt_path, receipt)
+        self._set_receipt_expected("V4", receipt_path, {
+            "proofs": {}, "audits": {}, "generation": {"status": "fabricated"},
+            "vectors.count": 0,
+        })
+        self.fixture._set_evidence("V4", receipt_path, "component-receipt")
+        self.assert_invalid("required receipt value changed: formal/crypto/SHAKE-EVIDENCE.json")
+
+    def test_v5_positive_proof_metadata_cannot_be_zeroed_after_repin(self):
+        self.fixture.make_production_supported()
+        codec_path = "formal/crypto/CODEC-EVIDENCE.json"
+        poly_path = "formal/crypto/POLYNOMIAL-EVIDENCE.json"
+        codec = self.fixture._load_json(codec_path)
+        codec["proofs"] = {}
+        self.fixture._write_json(codec_path, codec)
+        poly = self.fixture._load_json(poly_path)
+        poly["verified"] = 0
+        self.fixture._write_json(poly_path, poly)
+        self._set_receipt_expected("V5", codec_path, {
+            "proofs.proof-Codec": 0, "proofs.proof-Sampling": 0,
+            "proofs.codec_domain": 0, "proofs.sampling_domain": 0,
+        })
+        self._set_receipt_expected("V5", poly_path, {"verified": 0})
+        self.fixture._set_evidence("V5", codec_path, "component-receipt")
+        self.fixture._set_evidence("V5", poly_path, "component-receipt")
+        self.assert_invalid("required receipt value changed")
+
+    def test_v6_positive_proof_metadata_cannot_be_zeroed_after_repin(self):
+        self.fixture.make_production_supported()
+        kem_path = "formal/crypto/KEM-EVIDENCE.json"
+        native_path = "formal/crypto/NATIVE-KEM-EVIDENCE.json"
+        linux_path = "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json"
+        kem = self.fixture._load_json(kem_path)
+        kem["proofs"] = {"proof-full": 0, "generate-java": 0}
+        self.fixture._write_json(kem_path, kem)
+        native = self.fixture._load_json(native_path)
+        native["proofs"] = {
+            "proof-native-composition": 0, "proof-reference-graph": 0,
+            "proof-native-kernels": 0, "generate-java": 0,
+        }
+        self.fixture._write_json(native_path, native)
+        linux = self.fixture._load_json(linux_path)
+        linux["verified"] = 0
+        self.fixture._write_json(linux_path, linux)
+        self._set_receipt_expected("V6", kem_path, {
+            "proofs.proof-full": 0, "proofs.generate-java": 0,
+        })
+        self._set_receipt_expected("V6", native_path, {
+            "proofs.proof-native-composition": 0, "proofs.proof-reference-graph": 0,
+            "proofs.proof-native-kernels": 0, "proofs.generate-java": 0,
+        })
+        self._set_receipt_expected("V6", linux_path, {"verified": 0})
+        for path in (kem_path, native_path, linux_path):
+            self.fixture._set_evidence("V6", path, "component-receipt")
+        self.assert_invalid("required receipt value changed")
+
+    def test_v7_packet_positive_text_metadata_cannot_be_zeroed_after_repin(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        evidence_path = "formal/packet/EVIDENCE.md"
+        original = (self.root / evidence_path).read_text(encoding="utf-8")
+        mutated = original.replace("46 verified,0 errors", "0 verified,0 errors")
+        self.fixture.write(evidence_path, mutated)
+        text_check = self.fixture.obligation("V7")["text_checks"][0]
+        text_check["markers"] = [marker.replace("46 verified,0 errors", "0 verified,0 errors")
+                                 for marker in text_check["markers"]]
+        self.fixture._set_evidence("V7", evidence_path, "component-receipt")
+        self.assert_invalid("required reviewed text checks removed")
 
     def test_unvalidated_future_categories_fail_closed_even_with_receipts(self):
         cases = (

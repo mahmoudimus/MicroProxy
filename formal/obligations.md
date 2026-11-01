@@ -65,7 +65,10 @@ a missing or newly added generated file fails even when all remaining hashes sti
 match. HKDF additionally requires the exact 10-control inventory, sole Mac
 assumption, 21/22 proof counts, two 45-case/2766-assertion JDK records, adapter
 discipline metadata, and full input/generated/class key inventories from constants,
-not editable receipt expectations.
+not editable receipt expectations. V4-V6 additionally pin exact positive proof,
+audit, generation, vector, assumption, provider, and Java-result records in code;
+V7 pins the packet positive/trace text/result markers. Zeroing those values and
+renewing the ledger/receipt hashes does not preserve a supported claim.
 
 Validation sections are not optional for a supported claim. A reviewed constant
 contract per component pins its required evidence paths/kinds, named control groups
@@ -174,8 +177,12 @@ At this snapshot:
   timing theorem and no constant-time claim.
 - Timing measurements are raw local observations with no statistical pass/fail
   threshold. Independent external cryptographic/proof review is absent.
-- The historical whole-class/JAR adoption receipts pre-date current main and are
-  snapshot evidence only. No fresh current-JAR identity claim is present.
+- The original SHAKE/ML-KEM adoption receipts are historical snapshots. The later
+  [HKDF adoption build](crypto/adoption/hkdf/README.md) independently checks all 467
+  library and retained bundle classes and records a successful actual bundle smoke.
+  The static ledger still leaves `current-release-jar-identity` deferred: accepting
+  a build snapshot does not authenticate a later artifact or a running deployment,
+  and that claim needs its own reviewed validator with actual artifact inputs.
 
 No generic "secure" or exhaustive-verification label follows. Functional
 correctness, cryptographic hardness, side-channel behavior and deployment identity
@@ -186,9 +193,11 @@ are separate claims.
 HKDF integration pins are now current and are not pending repin. Future renewals
 must be tied to an actual reviewed receipt, not a label:
 
-1. A fresh independent canonical full-class/JAR stage receipt is still required for
-   `current-release-jar-identity`; a 12-class component probe or local source/class
-   manifest is not a full-JAR receipt.
+1. The actual full-class/JAR checks now have a concrete build snapshot, separate
+   from the 12-class HKDF component probe. Before enabling the ledger's
+   `current-release-jar-identity`, implement and review a validator that consumes
+   the specified actual artifacts and their complete source/stage bindings; a
+   schema marker or a historical receipt alone is insufficient.
 2. Keep V1 `partial` until a reviewed successful AWS dependency-closure receipt with
    `full_dependency_graph_verified=true` exists. Target-only 9-declaration success
    must not be promoted to closure.
@@ -196,6 +205,6 @@ must be tied to an actual reviewed receipt, not a label:
    and independent external expert evidence genuinely exist.
 4. If the HKDF final delivery store or production adapter changes, renew the exact
    input/tool/generated-source/class/provider/facade pins and their receipt
-   validators, then rerun the 58 tests and all normal/narrow/all-required checks.
+   validators, then rerun the 62 tests and all normal/narrow/all-required checks.
 5. Do not convert agent-assisted development review into an independent external
    expert-review receipt.
