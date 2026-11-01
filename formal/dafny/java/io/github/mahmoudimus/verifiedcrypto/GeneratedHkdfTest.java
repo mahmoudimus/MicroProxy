@@ -1,9 +1,9 @@
 package io.github.mahmoudimus.verifiedcrypto;
 
-import VerifiedHkdf.BytesResult;
-import VerifiedHkdf.__default;
+import dafny.BulkOnlySequence;
+import io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult;
+import io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default;
 import dafny.DafnySequence;
-import io.github.mahmoudimus.quic.Hkdf;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -29,15 +29,15 @@ public final class GeneratedHkdfTest {
     private static int assertions;
     private static final List<String> failures = new ArrayList<>();
 
-    private record Variant(String algorithm, DafnyHkdf actual, Hkdf canonical, String prk,
+    private record Variant(String algorithm, DafnyHkdf actual, ReferenceHkdf canonical, String prk,
                            String okm, String emptyIkm) {}
 
     private static final Variant[] VARIANTS = {
-        new Variant("HmacSHA256", DafnyHkdf.SHA256, Hkdf.SHA256,
+        new Variant("HmacSHA256", DafnyHkdf.SHA256, ReferenceHkdf.SHA256,
             "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
             "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865",
             "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"),
-        new Variant("HmacSHA384", DafnyHkdf.SHA384, Hkdf.SHA384,
+        new Variant("HmacSHA384", DafnyHkdf.SHA384, ReferenceHkdf.SHA384,
             "704b39990779ce1dc548052c7dc39f303570dd13fb39f7acc564680bef80e8dec70ee9a7e1f3e293ef68eceb072a5ade",
             "9b5097a86038b805309076a44b3a9f38063e25b516dcbf369f394cfab43685f748b6457763e4f0204fc5",
             "6c1f2ee938fad2e24bd91298474382ca218c75db3d83e114b3d4367776d14d3551289e75e8209cd4b792302840234adc"),
@@ -61,6 +61,8 @@ public final class GeneratedHkdfTest {
         run("generated_invalid_hash_is_a_failure_result", GeneratedHkdfTest::invalidHashResults);
         run("generated_length_rejection_precedes_empty_key", GeneratedHkdfTest::failurePrecedence);
         run("provider_rejects_BigInteger_hash_aliases", GeneratedHkdfTest::providerInvalidHashes);
+        run("byte_payloads_use_primitive_bulk_copy_without_select", GeneratedHkdfTest::bulkCopy);
+        run("bulk_copy_negative_control_old_select_loop_fails", GeneratedHkdfTest::bulkCopyControl);
         for (Variant v : VARIANTS) {
             run(v.algorithm + "_fixed_extract_and_expand_answers", () -> fixedAnswers(v));
             run(v.algorithm + "_empty_IKM_and_default_salt", () -> emptyIkm(v));
@@ -291,6 +293,96 @@ public final class GeneratedHkdfTest {
             BytesResult badKey = __default.Expand(BigInteger.valueOf(hash), empty, empty, BigInteger.ZERO);
             check(badKey.is_Failure() && badKey.dtor_reason().is_InvalidKey(), "empty PRK accepted for zero output");
         }
+    }
+
+    private static void bulkCopy() {
+        byte[] all = range(0, 256);
+        DafnySequence<Byte> bulk = BulkOnlySequence.of(all);
+        byte[] first = JdkHmac.bytes(bulk);
+        byte[] second = JdkHmac.bytes(bulk);
+        eq(all, first);
+        eq(all, second);
+        check(first != all && second != all && first != second, "bulk copies must be fresh");
+        first[0] ^= 1;
+        eq(all, JdkHmac.bytes(bulk));
+        eq(all, second);
+
+        for (int start : new int[] {0, 0x80}) {
+            byte[] values = range(start, 256 - start);
+            eq(values, JdkHmac.bytes(BulkOnlySequence.of(values)));
+        }
+
+        byte[] left = range(0x80, 33);
+        byte[] right = range(0x00, 17);
+        byte[] expected = concatenate(left, right);
+        DafnySequence<Byte> joined = DafnySequence.concatenate(
+                BulkOnlySequence.of(left), DafnySequence.of(right));
+        eq(expected, JdkHmac.bytes(joined));
+        eq(java.util.Arrays.copyOfRange(expected, 0, 20), JdkHmac.bytes(joined.take(20)));
+        eq(java.util.Arrays.copyOfRange(expected, 20, expected.length), JdkHmac.bytes(joined.drop(20)));
+        eq(java.util.Arrays.copyOfRange(expected, 5, 29), JdkHmac.bytes(joined.subsequence(5, 29)));
+
+        byte[] wrapped = range(0x80, 40);
+        eq(wrapped, JdkHmac.bytes(DafnySequence.fromBytes(wrapped)));
+        byte[] unsafeRaw = range(0x40, 19);
+        DafnySequence<Byte> unsafe = DafnySequence.unsafeWrapBytes(unsafeRaw);
+        byte[] unsafeCopy = JdkHmac.bytes(unsafe);
+        eq(unsafeRaw, unsafeCopy);
+        check(unsafeCopy != unsafeRaw, "bulk copy must clone unsafe-wrapped storage");
+        unsafeCopy[0] ^= 1;
+        eq(unsafeRaw, JdkHmac.bytes(unsafe));
+        byte[] emptyA = JdkHmac.bytes(DafnySequence.empty(dafny.TypeDescriptor.BYTE));
+        byte[] emptyB = JdkHmac.bytes(DafnySequence.empty(dafny.TypeDescriptor.BYTE));
+        check(emptyA.length == 0 && emptyB.length == 0 && emptyA != emptyB, "empty bulk copies must be fresh");
+        byte[] created = JdkHmac.bytes(DafnySequence.Create(dafny.TypeDescriptor.BYTE,
+                java.math.BigInteger.valueOf(37), i -> (byte) (i.intValue() ^ 0x5a)));
+        int[] expectedCreated = new int[37];
+        for (int i = 0; i < expectedCreated.length; i++) expectedCreated[i] = i ^ 0x5a;
+        eq(expectedCreated, created);
+
+        // A standard RFC 5869 A.1 HMAC with both key and input supplied by the no-select path.
+        byte[] salt = hex("000102030405060708090a0b0c");
+        byte[] ikm = repeated(0x0b, 22);
+        eq(hex("077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5"),
+                bytes(JdkHmac.compute(java.math.BigInteger.valueOf(32),
+                        BulkOnlySequence.of(salt), BulkOnlySequence.of(ikm))));
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        DafnySequence<? extends Byte> wrong = (DafnySequence) DafnySequence.of(new short[] {1});
+        expect(IllegalStateException.class, () -> JdkHmac.bytes(wrong));
+    }
+
+    private static void bulkCopyControl() {
+        DafnySequence<Byte> bulk = BulkOnlySequence.of(range(0x80, 17));
+        try {
+            oldSelectLoop(bulk);
+            throw new AssertionError("old select loop unexpectedly read a bulk-only payload");
+        } catch (AssertionError expected) {
+            check(expected.getMessage() != null && expected.getMessage().contains("payload element access"),
+                    "negative control threw the wrong assertion: " + expected.getMessage());
+        }
+        eq(range(0x80, 17), JdkHmac.bytes(bulk));
+    }
+
+    /** Deliberately retains the pre-fix payload conversion so the control proves it fails. */
+    private static byte[] oldSelectLoop(DafnySequence<? extends Byte> sequence) {
+        byte[] result = new byte[sequence.length()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = sequence.select(i);
+        }
+        return result;
+    }
+
+    private static byte[] concatenate(byte[] left, byte[] right) {
+        byte[] result = java.util.Arrays.copyOf(left, left.length + right.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
+    }
+
+    private static void eq(int[] expected, byte[] actual) {
+        byte[] expectedBytes = new byte[expected.length];
+        for (int i = 0; i < expected.length; i++) expectedBytes[i] = (byte) expected[i];
+        eq(expectedBytes, actual);
     }
 
     private static void providerInvalidHashes() {

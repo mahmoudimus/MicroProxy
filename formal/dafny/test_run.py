@@ -11,6 +11,8 @@ import unittest
 from unittest.mock import patch, Mock
 from zipfile import ZipFile, ZipInfo
 
+import check_adapter_discipline
+import deliver_hkdf
 import run
 import toolchain
 
@@ -82,6 +84,139 @@ class TrustGates(unittest.TestCase):
             (root / 'A.java').write_text('B')
             with self.assertRaisesRegex(RuntimeError, 'Generated Java changed'):
                 run.check_generated(root, original)
+
+    def test_delivered_generated_sources_must_match_fresh_translation(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            fresh = root / 'fresh/Pkg/Module'
+            committed = root / 'committed'
+            fresh.mkdir(parents=True)
+            committed.mkdir()
+            (fresh / 'A.java').write_text('generated A\n')
+            (committed / 'A.java').write_text('generated A\n')
+            with patch.object(run, 'GENERATED_PACKAGE', Path('Pkg/Module')), \
+                    patch.object(run, 'GENERATED_SOURCE', committed):
+                self.assertEqual({'A.java': run.digest(fresh / 'A.java')},
+                                 run.check_delivered_generated(root / 'fresh'))
+                (committed / 'A.java').write_text('hand edited\n')
+                with self.assertRaisesRegex(RuntimeError, 'changed=.*A.java'):
+                    run.check_delivered_generated(root / 'fresh')
+                (committed / 'A.java').write_text('generated A\n')
+                (committed / 'Extra.java').write_text('extra\n')
+                with self.assertRaisesRegex(RuntimeError, 'extra=.*Extra.java'):
+                    run.check_delivered_generated(root / 'fresh')
+                (committed / 'Extra.java').unlink()
+                (fresh / 'B.java').write_text('new\n')
+                with self.assertRaisesRegex(RuntimeError, 'missing=.*B.java'):
+                    run.check_delivered_generated(root / 'fresh')
+
+    BULK_BYTES = (
+        '  public static byte[] bytes(dafny.DafnySequence<? extends java.lang.Byte>);\n'
+        '    Code:\n'
+        '       0: aload_0\n'
+        '       1: invokevirtual #101 // Method dafny/DafnySequence.toRawArray:()Ljava/lang/Object;\n'
+        '       4: astore_1\n'
+        '       5: aload_1\n'
+        '       6: instanceof #109 // class "[B"\n'
+        '       9: ifeq 19\n'
+        '      12: aload_1\n'
+        '      13: checkcast #109 // class "[B"\n'
+        '      16: areturn\n'
+        '      17: new #77 // class java/lang/IllegalStateException\n'
+        '      20: athrow\n')
+    BARE_CAST = (
+        '  public static byte[] bytes(dafny.DafnySequence<? extends java.lang.Byte>);\n'
+        '    Code:\n'
+        '       0: aload_0\n'
+        '       1: invokevirtual #101 // Method dafny/DafnySequence.toRawArray:()Ljava/lang/Object;\n'
+        '       4: checkcast #109 // class "[B"\n'
+        '       7: areturn\n')
+    BRIDGE_BYTES = (
+        '  private static byte[] bytes(dafny.DafnySequence<? extends java.lang.Byte>);\n'
+        '    Code:\n'
+        '       0: aload_0\n'
+        '       1: invokestatic #122 // Method io/github/mahmoudimus/verifiedcrypto/'
+        'JdkHmac.bytes:(Ldafny/DafnySequence;)[B\n'
+        '       4: areturn\n')
+    NO_BRANCH = (
+        '  public static byte[] bytes(dafny.DafnySequence<? extends java.lang.Byte>);\n'
+        '    Code:\n'
+        '       0: aload_0\n'
+        '       1: invokevirtual #101 // Method dafny/DafnySequence.toRawArray:()Ljava/lang/Object;\n'
+        '       4: astore_1\n'
+        '       5: aload_1\n'
+        '       6: instanceof #109 // class "[B"\n'
+        '       9: istore_2\n'
+        '      10: aload_1\n'
+        '      11: checkcast #109 // class "[B"\n'
+        '      14: areturn\n')
+    DECOY_METHOD = (
+        '  private static byte[] decoy(dafny.DafnySequence<? extends java.lang.Byte>);\n'
+        '    Code:\n'
+        '       0: aload_0\n'
+        '       1: invokevirtual #101 // Method dafny/DafnySequence.toRawArray:()Ljava/lang/Object;\n'
+        '       4: astore_1\n'
+        '       5: aload_1\n'
+        '       6: instanceof #109 // class "[B"\n'
+        '       9: ifeq 19\n'
+        '      12: aload_1\n'
+        '      13: checkcast #109 // class "[B"\n'
+        '      16: areturn\n'
+        '      17: new #77 // class java/lang/IllegalStateException\n'
+        '      20: athrow\n')
+
+    def test_adapter_discipline_rejects_payload_select_and_byte_value(self):
+        select = ('  public static dafny.DafnySequence compute(dafny.DafnySequence value);\n'
+                  '    Code:\n'
+                  '       1: invokevirtual #1 // Method dafny/DafnySequence.select:(I)Ljava/lang/Object;\n'
+                  '       4: areturn\n')
+        value = ('  public static dafny.DafnySequence compute(dafny.DafnySequence value);\n'
+                 '    Code:\n'
+                 '       1: invokestatic #2 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;\n'
+                 '       4: areturn\n')
+        for extra in (select, value):
+            found = check_adapter_discipline.violations(
+                self.BULK_BYTES + extra, 'io.github.mahmoudimus.verifiedcrypto.JdkHmac')
+            self.assertTrue(found, extra)
+
+    def test_adapter_discipline_requires_guarded_bulk_shape_and_delegation(self):
+        self.assertEqual([], check_adapter_discipline.violations(
+            self.BULK_BYTES, 'io.github.mahmoudimus.verifiedcrypto.JdkHmac'))
+        self.assertEqual([], check_adapter_discipline.violations(
+            self.BRIDGE_BYTES, 'io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge'))
+        self.assertTrue(check_adapter_discipline.violations(
+            self.BARE_CAST, 'io.github.mahmoudimus.verifiedcrypto.JdkHmac'))
+        self.assertTrue(check_adapter_discipline.violations(
+            self.NO_BRANCH, 'io.github.mahmoudimus.verifiedcrypto.JdkHmac'))
+        self.assertTrue(check_adapter_discipline.violations(
+            self.BARE_CAST + self.DECOY_METHOD, 'io.github.mahmoudimus.verifiedcrypto.JdkHmac'))
+        self.assertTrue(check_adapter_discipline.violations(
+            self.BRIDGE_BYTES.replace('JdkHmac.bytes', 'Other.bytes'),
+            'io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge'))
+
+    def test_delivery_change_list_and_exact_jar_hook(self):
+        self.assertEqual({'added': ['b'], 'removed': ['c'], 'changed': ['a']},
+                         deliver_hkdf.changes({'a': '1', 'c': '3'}, {'a': '2', 'b': '4'}))
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            jar = root / 'sample.jar'
+            with ZipFile(jar, 'w') as bundle:
+                bundle.writestr('a/B.class', b'pinned')
+            class_map = {'a/B.class': deliver_hkdf.sha256_bytes(b'pinned')}
+            deliver_hkdf.check_jar(jar, class_map)
+            with self.assertRaisesRegex(RuntimeError, 'missing'):
+                deliver_hkdf.check_jar(jar, dict(class_map, **{'a/C.class': '0' * 64}))
+            with self.assertRaisesRegex(RuntimeError, 'bytes differ'):
+                deliver_hkdf.check_jar(jar, {'a/B.class': '0' * 64})
+
+    def test_top_level_aggregator_must_define_no_executable_content(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / 'HkdfCrypto.java'
+            path.write_text('// Dafny program Hkdf.dfy compiled into Java\n\nimport a.b.*;\n')
+            run.check_aggregator(path)
+            path.write_text('package a;\nclass X {}\n')
+            with self.assertRaisesRegex(RuntimeError, 'executable top-level'):
+                run.check_aggregator(path)
 
     def test_report_is_invalidated_even_when_setup_fails(self):
         with tempfile.TemporaryDirectory() as name:

@@ -1,13 +1,15 @@
 package io.github.mahmoudimus.verifiedcrypto;
 
-import VerifiedHkdf.BytesResult;
-import VerifiedHkdf.__default;
+import io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult;
+import io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default;
 import dafny.DafnySequence;
 import java.math.BigInteger;
 import java.util.Objects;
 
 /**
  * Java boundary for the Dafny-generated implementation of RFC 5869 and RFC 8446 section 7.1.
+ * The generated classes are the exact production namespace compiled by the adoption replay;
+ * this adapter remains test/formal-side and is not the production facade.
  *
  * <p>The kernel implements the standard algorithms; this adapter only converts values and failures.
  * Its Java conversions, Dafny's compiler/runtime, and the JCE HMAC provider remain trusted. The

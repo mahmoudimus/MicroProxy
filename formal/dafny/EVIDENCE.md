@@ -36,3 +36,46 @@ per-run source/generated/class hashes, commands, provider/JDK identities and log
 are emitted to `target/dafny-hkdf/report.json` and uploaded by CI. The Linux local
 check used `--output /evidence` mounted at `target/dafny-hkdf-linux`. Re-running the
 commands is required for a fresh claim after a pinned input or tool change.
+
+## Post-adoption local replay
+
+The production adoption reuses the same verified `hkdf/Hkdf.dfy` (source hash
+unchanged) and translates it with `--outer-module
+io.github.mahmoudimus.quic.internal.verifiedhkdf` into the committed package
+`.../internal/verifiedhkdf/VerifiedHkdf`. `run.py` requires fresh output to equal
+that package byte for byte, then compiles and exercises the real `quic.Hkdf`,
+`HkdfBridge` and `JdkHmac` boundary.
+
+Local macOS arm64 replay (JDK 21.0.12.1, additional Temurin 25.0.5+8 run):
+kernel 21 verified/0 errors, unrestricted-domain harness 22 verified/0 errors,
+all ten negative/skip/extra-assumption/Java-adapter controls rejected by proof
+obligation, audit or the structural gate, exactly the permitted
+`VerifiedHkdf.Mac` axiom, 9 generated source files plus the import-only top-level
+file, 12 pinned classes, and 45 generated adapter cases / 2766 assertions on each
+runtime. Java adapter controls compile old select-loop, bare-cast and
+dead-method-decoy mutants of `JdkHmac`/`HkdfBridge` and require
+`check_adapter_discipline.py` to reject them; the gate parses the actual compiled
+`JdkHmac.bytes` method for `toRawArray`, guarded `instanceof [B`/branch/
+`checkcast`/`areturn`, and `HkdfBridge.bytes` delegation. The bulk path uses
+`toRawArray()` and a primitive `byte[]`. Generated `LabelInfo` still selects
+public 16-bit label units; labels are public and that generated code is outside
+the adapter gate. The QUIC-side generated-adoption test adds 13 JUnit cases
+covering RFC 5869, RFC 9001, the TLS label/key schedule, bounds, null
+compatibility, ownership, determinism and concurrency; it passed on JDK 21 and
+JDK 25 in an isolated classpath run.
+
+`hkdf/GENERATED.json` records the exact generated source, class, aggregator and
+translation-metadata hashes. `deliver_hkdf.py` reproduced the package unchanged
+and matched a locally built JAR's 12 class entries exactly. These are build
+reproducibility checks, not whole-bytecode or JVM-equivalence proofs.
+
+`bench_hkdf.py` measured a TLS 1.3-shaped key schedule after the bulk-copy fix at
+roughly 2.3x (SHA-256) and 1.9x (SHA-384) the `ReferenceHkdf` CPU cost in paired
+medians (thread CPU time), with allocation about 4-5x on a shared host. A separate
+earlier run of the boxed/select generated adapter measured about 3.0-3.6x versus
+`ReferenceHkdf`; that is a diagnostic, not a paired pre/post or speedup claim. See
+the README for exact caveats and observed ranges; root must rerun the
+complete-handshake benchmark. No constant-time, secret-erasure, provider-correctness or
+JVM-timing theorem follows. The coordinator still needs to update the
+`formal/crypto` delivery classification/acceptance inventories for the new
+generated prefix and the enlarged main class/JAR set.

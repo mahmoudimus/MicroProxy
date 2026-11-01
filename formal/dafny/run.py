@@ -19,6 +19,17 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 FLAGS = ['--allow-external-contracts', '--verification-time-limit', '30', '--resource-limit', '10000000']
 SUMMARY = r'Dafny program verifier finished with (\d+) verified, (\d+) errors?'
+OUTER_MODULE = 'io.github.mahmoudimus.quic.internal.verifiedhkdf'
+OUTPUT_NAME = 'HkdfCrypto'
+GENERATED_MODULE = 'VerifiedHkdf'
+GENERATED_PACKAGE = Path(*OUTER_MODULE.split('.')) / GENERATED_MODULE
+GENERATED_SOURCE = ROOT / 'quic/src/main/java' / GENERATED_PACKAGE
+GENERATED_RECEIPT = 'formal/dafny/hkdf/GENERATED.json'
+PRODUCTION_INPUTS = (
+    'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java',
+    'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java',
+    'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',
+)
 
 
 def atomic_report(path, report):
@@ -42,6 +53,31 @@ def snapshot(root, pattern):
 def check_generated(root, expected):
     if snapshot(root, '*.java') != expected:
         raise RuntimeError('Generated Java changed during replay')
+
+
+def generated_class_sources(generated):
+    package = generated / GENERATED_PACKAGE
+    return {str(p.relative_to(package)): digest(p) for p in sorted(package.rglob('*.java'))}
+
+
+def check_delivered_generated(generated):
+    """Require the committed production package to be byte-identical to fresh translation."""
+    fresh = generated_class_sources(generated)
+    committed = {str(p.relative_to(GENERATED_SOURCE)): digest(p)
+                 for p in sorted(GENERATED_SOURCE.rglob('*.java'))}
+    missing = sorted(set(fresh) - set(committed))
+    extra = sorted(set(committed) - set(fresh))
+    changed = sorted(name for name in set(fresh) & set(committed) if fresh[name] != committed[name])
+    if missing or extra or changed:
+        raise RuntimeError('Committed generated HKDF sources diverge from fresh translation: '
+                           f'missing={missing} extra={extra} changed={changed}')
+    return committed
+
+
+def check_aggregator(path):
+    clean = re.sub(r'//[^\n]*', '', path.read_text())
+    if re.sub(r'\bimport\s+[\w.*]+\s*;', '', clean).strip():
+        raise RuntimeError('Unexpected executable top-level generated file')
 
 
 def live_group(group):
@@ -184,12 +220,19 @@ def mutations(source):
     return results
 
 
+def input_inventory():
+    required = {str(p.relative_to(ROOT)) for p in HERE.rglob('*')
+                if p.suffix in {'.dfy', '.java', '.py'} or p.name == 'tools.json'}
+    required.update(PRODUCTION_INPUTS)
+    required.update(str(p.relative_to(ROOT)) for p in GENERATED_SOURCE.rglob('*.java'))
+    required.add(GENERATED_RECEIPT)
+    return required
+
+
 def pipeline(args, output):
     manifest = json.loads((HERE / 'inputs.json').read_text())
     pins = manifest['inputs']
-    required = {str(p.relative_to(ROOT)) for p in HERE.rglob('*')
-                if p.suffix in {'.dfy', '.java', '.py'} or p.name == 'tools.json'}
-    required.add('quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java')
+    required = input_inventory()
     if set(pins) != required:
         raise RuntimeError('Proof input inventory changed; review manifest')
     check_inputs(ROOT, pins)
@@ -249,12 +292,18 @@ def pipeline(args, output):
     else:
         raise RuntimeError('Skipped proof was accepted')
 
-    prefix = workspace / 'Kernel'
-    check_verified(*call('generate-java', [dafny, 'translate', 'java', '--output', prefix, source, *FLAGS]), 21)
-    generated = workspace / 'Kernel-java'
+    prefix = workspace / OUTPUT_NAME
+    check_verified(*call('generate-java', [dafny, 'translate', 'java', '--outer-module', OUTER_MODULE,
+        '--output', prefix, source, *FLAGS]), 21)
+    generated = workspace / f'{OUTPUT_NAME}-java'
     generated_hashes = snapshot(generated, '*.java')
-    if not generated_hashes or not (generated / 'VerifiedHkdf/__default.java').is_file():
+    aggregator = generated / f'{OUTPUT_NAME}.java'
+    if not generated_hashes or not (generated / GENERATED_PACKAGE / '__default.java').is_file():
         raise RuntimeError('Missing generated HKDF implementation')
+    if not aggregator.is_file():
+        raise RuntimeError('Missing generated top-level translation file')
+    check_aggregator(aggregator)
+    delivered = check_delivered_generated(generated)
     classes = workspace / 'classes'
     classes.mkdir()
     java_home = Path(os.environ.get('JAVA_HOME', ''))
@@ -264,11 +313,34 @@ def pipeline(args, output):
     status, javac_version = call('javac-version', [javac, '-version'])
     if status:
         raise RuntimeError('JDK compiler unavailable')
-    java_sources = sorted(generated.rglob('*.java')) + sorted((HERE / 'java').rglob('*.java'))
-    java_sources.append(ROOT / 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java')
-    status, _ = call('javac', [javac, '--release', '21', '-cp', runtime, '-d', classes, *java_sources])
+    java_sources = (sorted((generated / GENERATED_PACKAGE).rglob('*.java'))
+                    + sorted((HERE / 'java').rglob('*.java'))
+                    + [ROOT / name for name in PRODUCTION_INPUTS])
+    status, diagnostics = call('javac', [javac, '--release', '21', '-g:lines,vars,source', '-encoding', 'UTF-8',
+        '-Xpkginfo:always', '-Xlint:all,-serial,-cast,-rawtypes', '-cp', runtime, '-d', classes, *java_sources])
+    if status or diagnostics.strip():
+        raise RuntimeError('Generated Java compilation failed or emitted diagnostics: ' + diagnostics[-4000:])
+    status, diagnostics = call('adapter-discipline', [sys.executable,
+        HERE / 'check_adapter_discipline.py', '--java-home', java_home,
+        '--classes', classes, '--runtime', runtime])
     if status:
-        raise RuntimeError('Generated Java compilation failed')
+        raise RuntimeError('Adapter discipline gate failed: ' + diagnostics[-4000:])
+    status, diagnostics = call('adapter-control', [sys.executable,
+        HERE / 'check_adapter_discipline.py', '--java-home', java_home,
+        '--classes', classes, '--runtime', runtime, '--self-test'])
+    if status:
+        raise RuntimeError('Adapter discipline negative control failed: ' + diagnostics[-4000:])
+    controls['adapter-select-loop'] = 'bytecode-rejected'
+    controls['adapter-bare-cast'] = 'bytecode-rejected'
+    controls['adapter-dead-decoy'] = 'bytecode-rejected'
+    strict = workspace / 'strict-handwritten'
+    strict.mkdir()
+    status, diagnostics = call('handwritten-javac', [javac, '--release', '21', '-g:lines,vars,source', '-encoding', 'UTF-8',
+        '-Xpkginfo:always', '-Xlint:all,-serial', '-cp', f'{classes}{os.pathsep}{runtime}', '-d', strict,
+        *[ROOT / name for name in PRODUCTION_INPUTS]])
+    if status or diagnostics.strip():
+        raise RuntimeError('Strict handwritten production compilation failed or emitted diagnostics: '
+                           + diagnostics[-4000:])
     runtimes = [java] + [home / 'bin/java' for home in args.java_home]
     java_results = []
     for index, executable in enumerate(runtimes):
@@ -277,7 +349,7 @@ def pipeline(args, output):
             raise RuntimeError('JDK runtime unavailable')
         status, tests = call(f'java-{index}-tests', [executable, '-ea', '-cp', f'{classes}{os.pathsep}{runtime}',
                             'io.github.mahmoudimus.verifiedcrypto.GeneratedHkdfTest'])
-        if status or not re.search(r'43 cases.*2745 assertions', tests):
+        if status or not re.search(r'45 cases.*2766 assertions', tests):
             raise RuntimeError('Generated Java regression tests failed or test inventory changed')
         java_results.append({'version': runtime_version.strip(), 'tests': tests.strip(),
                              'executable_sha256': digest(executable)})
@@ -286,20 +358,26 @@ def pipeline(args, output):
     class_hashes = snapshot(classes, '*.class')
     # Snapshot includes the canonical handwritten reference and test harness;
     # footprint below counts the generated implementation separately.
-    generated_classes = [p for p in (classes / 'VerifiedHkdf').rglob('*.class')]
+    generated_classes = [p for p in (classes / GENERATED_PACKAGE).rglob('*.class')]
     with ZipFile(runtime) as jar:
         runtime_classes = len([n for n in jar.namelist() if n.endswith('.class')])
     return {
-        'status': 'complete', 'scope': 'Generated HKDF component; production Hkdf remains unchanged',
+        'status': 'complete', 'scope': 'Generated HKDF adopted by quic.Hkdf via the reviewed HkdfBridge/JdkHmac boundary',
         'claims': ['Dafny Extract/Expand/TLS label functional equations relative to abstract HMAC',
-                   'Public methods callable for all mathematical inputs; errors returned as data',
-                   'Generated Java tested with real JCE; compiler, runtime and Java adapters trusted'],
+                   'Committed production generated sources equal fresh pinned translation byte for byte',
+                   'Generated Java and reviewed Java adapters tested with real JCE; production facade compiled with strict lint'],
+        'production_test_note': 'quic HkdfTest and HkdfGeneratedAdoptionTest are run separately; this replay does not execute them',
         'not_proved': ['HMAC security/correctness', 'Java adapter refinement', 'JVM/provider timing',
-                       'constant-time traces', 'secret erasure', 'production Hkdf refinement', 'ML-KEM/SHAKE'],
+                       'constant-time traces', 'secret erasure', 'whole-bytecode equivalence', 'ML-KEM/SHAKE'],
         'inputs': pins, 'dafny_version': version.strip(), 'tool_asset': asset,
         'verified': verified, 'public_domain_verified': domain_count,
         'assumptions': ['VerifiedHkdf.Mac: deterministic external HMAC with fixed output length'],
-        'controls': controls, 'generated_java': generated_hashes, 'classes': class_hashes,
+        'controls': controls,
+        'adapter_discipline': 'JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected',
+        'generated_java': generated_hashes, 'delivered_generated_java': delivered,
+        'top_level_aggregator_sha256': digest(aggregator),
+        'translation_metadata_sha256': digest(generated / f'{OUTPUT_NAME}-java.dtr'),
+        'classes': class_hashes,
         'javac_version': javac_version.strip(), 'java_runs': java_results,
         'runtime_sha256': digest(runtime),
         'footprint': {'generated_java_files': len(generated_hashes),

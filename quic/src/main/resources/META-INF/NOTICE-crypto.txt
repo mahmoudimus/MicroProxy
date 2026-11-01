@@ -6,6 +6,13 @@ refinements are MicroProxy work. ML-KEM arithmetic and composition formulas
 derive from the earlier Go port, Copyright 2023 The Go Authors (BSD-3-Clause).
 The original Go license is retained in LICENSE-go-mlkem.txt.
 
+HKDF Java is generated from formal/dafny/hkdf/Hkdf.dfy. Its recurrence and
+invariant structure adapts AWS Cryptographic Material Providers Library at
+commit c787ad12612ac0f35975afe9209e5dbe6b546654 (Apache License 2.0).
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+MicroProxy adds independent total functional contracts and Java/JCE adapters;
+no AWS library or runtime is linked. See formal/dafny/NOTICE in the source.
+
 The generated code uses org.dafny:DafnyRuntime:4.9.1, Copyright (c) Microsoft
 Corporation, under the MIT License retained in LICENSE-dafny.txt. The compiler,
 runtime and JDK providers remain explicit verification trust assumptions.
