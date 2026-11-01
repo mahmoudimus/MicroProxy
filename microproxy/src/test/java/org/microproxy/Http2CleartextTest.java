@@ -123,8 +123,8 @@ class Http2CleartextTest {
         String raw = TestSupport.rawExchange(proxy.getListenAddress(), "GET " + TestSupport.url(origin, "/up")
                 + " HTTP/1.1\r\nHost: " + authority(origin) + "\r\nConnection: Upgrade, HTTP2-Settings\r\n"
                 + "Upgrade: h2c\r\nHTTP2-Settings: AAMAAABkAAQAAP__\r\nConnection: close\r\n\r\n");
+        // A 200 status excludes an upgrade; the echoed origin port may itself contain "101".
         assertTrue(raw.startsWith("HTTP/1.1 200"), raw);
-        assertTrue(!raw.contains("101"), raw);
     }
 
     @Test
