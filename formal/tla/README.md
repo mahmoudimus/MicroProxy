@@ -12,11 +12,11 @@ not an extraction or a refinement proof of the Java implementation.
 | --- | --- |
 | `Consume` | `TlsRecordLayer.Tls13.cipher` (line 95): IV/sequence nonce construction, then `sequence++` before cipher initialization and output. Attempts count even if encryption/decryption or output subsequently fails. |
 | `ApplicationFragment`, `BeginAutomaticUpdate` | `TlsRecordLayer.write(..., KeyUpdater)` (line 299): test the current counter before **each** fragment; reserve the old key's final slot for KeyUpdate. |
-| `SendKeyUpdate`, `FlushKeyUpdate`, write-key decision | `TlsClientConnection.updateWriteKeys` (line 1161): old-key KeyUpdate, flush, derive next secret, validate and install protection. |
+| `SendKeyUpdate`, `FlushKeyUpdate`, write-key decision | `TlsClientConnection.updateWriteKeys` (line 1163): old-key KeyUpdate, flush, derive next secret, validate and install protection. |
 | `AcceptWriteKey`, `RejectWriteKey`, read-key decision | `TlsRecordLayer.writeKeys/readKeys` (lines 240/247): construct the actual candidate protection, call `policy.trafficKey` on its key, assign only on acceptance. A rejected label is never activated. |
-| `ReceiveKeyUpdate`, `RespondToPeer` | `TlsClientConnection.onKeyUpdate` (line 1144): consume the peer record using old read protection, validate/install next read protection, optionally acquire `writeLock` and answer using the current write protection. |
+| `ReceiveKeyUpdate`, `RespondToPeer` | `TlsClientConnection.onKeyUpdate` (line 1146): consume the peer record using old read protection, validate/install next read protection, optionally acquire `writeLock` and answer using the current write protection. |
 | `ExhaustedKeyUpdate`, `ReadLimitFailure` | `writeRecord` (line 323) and `read` (line 367): reject an exhausted protection before another nonce attempt. |
-| `Fail`, `HandleReadFailure`, `CloseWrite` | `TlsClientConnection.fail` (line 1244), `closeWrite` (line 1204): lock the writer, attempt an old-key alert if a nonce slot remains, and close the applicable directions. |
+| `Fail`, `HandleReadFailure`, `CloseWrite` | `TlsClientConnection.fail` (line 1246), `closeWrite` (line 1206): lock the writer, attempt an old-key alert if a nonce slot remains, and close the applicable directions. |
 | Generic failed write/flush, `ReadIOException` | `write` (line 1192) and `read` catch only the relevant `QuicException` paths. Ordinary `IOException` does **not** imply closure or counter reset. |
 
 Line numbers describe the source used when this artifact was added; method names

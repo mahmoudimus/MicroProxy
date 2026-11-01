@@ -732,6 +732,9 @@ final class TlsClientConnection {
         serverHandshakeSecret = keySchedule.deriveSecret(KeySchedule.SERVER_HANDSHAKE_TRAFFIC, hash);
         keySchedule.inputEmpty();
         records.readKeys(suite, serverHandshakeSecret);
+        // From here on every record we write is protected, an alert for a rejected certificate included
+        // (RFC 8446 section 6); the compatibility change_cipher_spec stays plaintext.
+        records.writeKeys(suite, clientHandshakeSecret);
     }
 
     private void onEncryptedExtensions(Message m) throws QuicException {
@@ -923,7 +926,6 @@ final class TlsClientConnection {
      */
     private void sendSecondFlight(CertificateRequest request) throws IOException, QuicException {
         sendChangeCipherSpec();
-        records.writeKeys(suite, clientHandshakeSecret);
         if (peerApplicationSettings != null) {
             byte[] ours = config.applicationSettings().get(negotiatedAlpn);
             byte[] ee = new EncryptedExtensions(List.of(new Extension(ProfileExtensions.APPLICATION_SETTINGS, ours)))
