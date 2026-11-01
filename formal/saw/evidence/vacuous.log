@@ -1,0 +1,11 @@
+Loading file "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/vacuous.saw"
+Warning: Contradiction detected!
+Warning: Computing minimal core of contradictory assumptions:
+   {specification assertion at /Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/vacuous.saw:9:3 in jvm_precond} precondition
+   {specification assertion at /Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/vacuous.saw:10:3 in jvm_precond} precondition
+Warning: Because of the contradiction, the following proofs may be vacuous.
+registering standard overrides
+registering user-provided overrides
+registering assumptions
+simulating function
+Proof succeeded! reduceOnce

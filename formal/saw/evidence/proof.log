@@ -1,0 +1,18 @@
+Loading file "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/mlkem-reduce-once.saw"
+Sat: [
+a = 1
+]
+registering standard overrides
+registering user-provided overrides
+registering assumptions
+simulating function
+Proof succeeded! reduceOnce
+# JVM Methods Analyzed
+
+* reduceOnce
+    * verified
+
+
+# Solvers Used
+
+* abc_verilog
