@@ -67,6 +67,7 @@ validation:
 
 nav:
   - Home: index.md
+  - GitHub: https://github.com/mahmoudimus/MicroProxy
   - Getting started:
       - Install: getting-started/install.md
       - Quick start: getting-started/quick-start.md
