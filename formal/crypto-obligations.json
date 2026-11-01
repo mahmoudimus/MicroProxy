@@ -1,0 +1,2789 @@
+{
+  "schema": "microproxy.crypto-obligations/v1",
+  "scope": "Provenance and declared-claim gate for MicroProxy V0-V8. Functional source proofs under explicit compiler/runtime/provider/facade trust are distinct from model proofs, finite tests, historical bytecode snapshots, blocked alternate routes and deferred timing/expert work. This ledger never proves the mathematics itself.",
+  "assumptions": {
+    "dafny-toolchain": {
+      "statement": "Dafny 4.9.1 and Z3 4.12.1 implementation correctness; official archive bytes are pinned and checked.",
+      "evidence": [
+        "formal/dafny/tools.json",
+        "formal/crypto/delivery.json"
+      ]
+    },
+    "dafny-runtime": {
+      "statement": "The pinned Maven DafnyRuntime 4.9.1 jar is trusted and differs from the compiler-bundled runtime; byte differences are not assumed away.",
+      "evidence": [
+        "formal/crypto/delivery.json",
+        "formal/crypto/adoption/stage-receipt.json"
+      ]
+    },
+    "javac-jvm": {
+      "statement": "javac and JVM correctness, including exact class/JAR delivery; no JIT/CPU timing property is assumed.",
+      "evidence": [
+        "formal/crypto/delivery.json",
+        "formal/crypto/adoption/stage-receipt.json"
+      ]
+    },
+    "jdk-primitives": {
+      "statement": "Selected JDK SHA-2/SHA-3/HMAC/AEAD/classical providers implement their documented primitives; entropy and cryptographic hardness are separate assumptions.",
+      "evidence": [
+        "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+        "formal/dafny/EVIDENCE.md"
+      ]
+    },
+    "generated-runtime-discipline": {
+      "statement": "Reviewed generated-runtime/bytecode metadata boundaries hold for the pinned emitted graph; this is not a whole-program noninterference or timing theorem.",
+      "evidence": [
+        "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+        "formal/crypto/NATIVE-CODEC-EVIDENCE.json"
+      ]
+    },
+    "reviewed-java-facades": {
+      "statement": "The small handwritten Shake and ML-KEM facades are reviewed and tested adapters, not Dafny-proved code.",
+      "evidence": [
+        "formal/crypto/adoption/Shake.java",
+        "formal/crypto/adoption/MlKem768.java",
+        "formal/crypto/delivery.json"
+      ]
+    },
+    "packet-compiler-lowering": {
+      "statement": "The packet component trusts exactly two documented bounded-shift compiler lowerings; all other compiler output is not rewritten.",
+      "evidence": [
+        "formal/packet/inputs.json",
+        "formal/packet/EVIDENCE.md"
+      ]
+    },
+    "saw-toolchain": {
+      "statement": "SAW/Crucible bytecode semantics/translation, Cryptol, the bundled solver and the selected JDK class-file model are trusted.",
+      "evidence": [
+        "formal/saw/inputs.json",
+        "formal/saw/README.md"
+      ]
+    },
+    "lean-toolchain": {
+      "statement": "Lean 4.35.0 kernel checking and the explicitly allowed standard axioms are trusted; untrusted axioms/holes/native evaluation are rejected by the runner.",
+      "evidence": [
+        "formal/assurance.json",
+        "scripts/security/formal_check.py"
+      ]
+    },
+    "tlc-finite-model": {
+      "statement": "TLC exhaustively explores only the configured finite caps; this is bounded model checking, not unbounded refinement.",
+      "evidence": [
+        "formal/assurance.json",
+        "formal/tla/TrafficKeys.tla"
+      ]
+    },
+    "crypto-hardness-entropy": {
+      "statement": "Cryptographic hardness, PRF/PRP/entropy and security reductions are assumptions; functional proofs do not imply them.",
+      "evidence": [
+        "docs/formal-security.md",
+        "formal/dafny/README.md"
+      ]
+    },
+    "jvm-timing-jit-cpu-gc": {
+      "statement": "HotSpot/JIT, CPU, GC, provider and physical-erasure timing are outside the proofs; local samples are observations, not a constant-time theorem.",
+      "evidence": [
+        "docs/security-timing-audit.md",
+        "scripts/security/assess-local-timing.sh"
+      ]
+    }
+  },
+  "obligations": [
+    {
+      "id": "V0",
+      "title": "Obligation ledger and tool trust gates",
+      "status": "finite-tests",
+      "statement": "The fixed V0-V8 inventory is implemented and tested (not formally proved Python) as a fail-closed provenance/declared-claim gate: pinned relative evidence, explicit assumptions, mandatory component controls and a root-reachable dependency graph. It never proves the mathematics itself.",
+      "dependencies": [],
+      "assumptions": [
+        "lean-toolchain",
+        "tlc-finite-model",
+        "saw-toolchain",
+        "dafny-toolchain"
+      ],
+      "evidence": [
+        {
+          "path": "formal/assurance.json",
+          "sha256": "8ef535202e4ca98729ba1702bd2eda704882c2402390f66e0fb2b200a9881a9c",
+          "kind": "component-receipt",
+          "role": "Lean theorem inventory, Java source pins and TLC cases"
+        },
+        {
+          "path": "formal/lean/RecordBounds.lean",
+          "sha256": "8be34bf9b0b14f0368c1d105820a9dd35a8340b591e1ea3e98d357eaa0991bbe",
+          "kind": "model-source",
+          "role": "record/key epoch model"
+        },
+        {
+          "path": "formal/lean/ResourceBounds.lean",
+          "sha256": "494b806751b789ba8db619a4e95f1682f3d1af9130a0a3b85a655927b3db15b8",
+          "kind": "model-source",
+          "role": "budget/cache model"
+        },
+        {
+          "path": "formal/lean/CryptoEncoding.lean",
+          "sha256": "b88e2c461ecc7804ea40373cd9409fe660cec113a1b8f5f9450d8f5b6bf04d74",
+          "kind": "model-source",
+          "role": "nonce/label encoding model"
+        },
+        {
+          "path": "formal/tla/TrafficKeys.tla",
+          "sha256": "b661d344d6a71930da469ffb7bd6c2fa504824d9db089a9f3eb0fde12e966f6e",
+          "kind": "model-source",
+          "role": "finite key-update model"
+        },
+        {
+          "path": "formal/tla/TrafficKeys-cap2.cfg",
+          "sha256": "d1db066008ddd10d4eec67961a34df2197d5183cc8f0b71c07d2b87a6e7bbbcf",
+          "kind": "model-source",
+          "role": "positive finite TLC configuration"
+        },
+        {
+          "path": "formal/tla/TrafficKeys-unsafe-reuse.cfg",
+          "sha256": "0032bedd520bab7c158f547ecb338ebd6031c887554c2eaca699ba0df458dcdb",
+          "kind": "model-source",
+          "role": "negative TLC configuration"
+        },
+        {
+          "path": "formal/saw/evidence/report.json",
+          "sha256": "0ca0375e3aec7f1b53c8a27cf3fadd37f0e180505a11403c0161f26a8d87feeb",
+          "kind": "bytecode-report",
+          "role": "SAW replay/controls report"
+        },
+        {
+          "path": "formal/saw/evidence/proof.log",
+          "sha256": "9963316d5db9d19c86f56ec2a1d7aec61790a576328dd878d0935302c14ee2ba",
+          "kind": "proof-log",
+          "role": "SAW satisfiable precondition and successful proof"
+        },
+        {
+          "path": "formal/packet/inputs.json",
+          "sha256": "d1360e6a9b92049fa2e0ca40cd5a362e0d93eca4c647574cf0133bc6b2a80237",
+          "kind": "input-manifest",
+          "role": "packet kernel/checker/class pins"
+        },
+        {
+          "path": "formal/packet/EVIDENCE.md",
+          "sha256": "20c99f9fa8b44d40018e7f9404aa38dd7d84d2b3ecc8f404d7505d21483db262",
+          "kind": "component-receipt",
+          "role": "packet replay counts and trust boundaries"
+        },
+        {
+          "path": "formal/primitives/inputs.json",
+          "sha256": "9ca6d3f097fb3fee2dd2d357e59990df36f6c4732cb755547d74e483786de9d8",
+          "kind": "input-manifest",
+          "role": "Keccak/field source/tool pins"
+        },
+        {
+          "path": "formal/primitives/EVIDENCE.md",
+          "sha256": "9a007717edcb5589b1bf9ebb843756f53f16a154ca5c2f82df38276fd05f2424",
+          "kind": "component-receipt",
+          "role": "primitive proof/control record"
+        },
+        {
+          "path": "scripts/security/formal_check.py",
+          "sha256": "930143f2730c63077a5ef72e3654ea82a614122337d72fbd867fa587aa522ffe",
+          "kind": "tool-manifest",
+          "role": "Lean/TLC/production-observation replay gate"
+        },
+        {
+          "path": "scripts/security/test_crypto_obligations.py",
+          "sha256": "bbc02d8ee5c46a0a64a746e889701129d0a0f2cda468850eb399eb0c32e23362",
+          "kind": "test-source",
+          "role": "gate-specific fail-closed regression controls"
+        }
+      ],
+      "limitations": [
+        "The Python ledger/release gate is tested (32 independent negative-control tests), not formally verified; V0 remains finite-tests.",
+        "Ledger validation is not a semantic proof or expert review.",
+        "SAW/Lean/TLC/Dafny component scopes remain exactly those in their receipts.",
+        "A matching hash detects drift only; it does not establish refinement.",
+        "Historical SAW reduceOnce evidence is not a proof of the current generated backend.",
+        "V0 nonvacuity is the gate-specific bad-ledger/dependency regression, not the unrelated SAW proof log.",
+        "Shared formal/dafny runner pins are in progress and are not validated by this snapshot; root repins them after HKDF integration.",
+        "The assurance Hkdf.java source pin is historical and excluded pending HKDF production repin; Lean/TLC model results are unchanged."
+      ],
+      "control_groups": [
+        {
+          "id": "saw-scoped-replay",
+          "receipt": "formal/saw/evidence/report.json",
+          "controls_path": "runs",
+          "expected": {
+            "proof": {
+              "result": "verified",
+              "exit_code": 0
+            },
+            "wrong_modulus": {
+              "result": "proof_counterexample",
+              "exit_code": 2
+            },
+            "vacuous": {
+              "result": "rejected_vacuous_specification",
+              "exit_code": 0
+            },
+            "nonce": {
+              "result": "blocked_by_array_clone_translation",
+              "exit_code": 2
+            }
+          },
+          "require_semantic_failure": true
+        }
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/assurance.json",
+          "values": {
+            "schema": 1,
+            "minimum_observations.record": 104,
+            "minimum_observations.nonce": 60,
+            "minimum_observations.budget": 35,
+            "minimum_observations.cache": 256,
+            "minimum_observations.label": 128
+          }
+        },
+        {
+          "receipt": "formal/saw/evidence/report.json",
+          "values": {
+            "status": "complete",
+            "runs.proof.result": "verified",
+            "runs.wrong_modulus.result": "proof_counterexample",
+            "runs.wrong_modulus.exit_code": 2,
+            "runs.vacuous.result": "rejected_vacuous_specification",
+            "runs.nonce.result": "blocked_by_array_clone_translation"
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/assurance.json",
+          "path": "java_sources"
+        },
+        {
+          "receipt": "formal/packet/inputs.json",
+          "path": "inputs",
+          "include_prefixes": [
+            "formal/packet/",
+            "quic/src/"
+          ]
+        },
+        {
+          "receipt": "formal/primitives/inputs.json",
+          "path": "inputs",
+          "include_prefixes": [
+            "formal/primitives/",
+            "formal/crypto/reference/"
+          ]
+        }
+      ],
+      "nonvacuity": {
+        "name": "gate-bad-ledger-and-dependency-controls",
+        "path": "scripts/security/test_crypto_obligations.py",
+        "markers": [
+          "test_v0_finite_fixture_cannot_be_relabelled_as_production_claim",
+          "test_dependency_cycle_fails"
+        ]
+      }
+    },
+    {
+      "id": "V1",
+      "title": "Dafny HKDF functional specification",
+      "status": "partial",
+      "statement": "The local Dafny HKDF kernel is a scoped functional implementation proof over its general public domain relative to deterministic external HMAC, with exact generated-source/class/production binding, 10/10 rejected controls and two 45-case/2766-assertion JDK result records. The V1 milestone remains partial because the pinned AWS full dependency-closure replay failed; target-only success is not closure.",
+      "dependencies": [
+        "V0"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "jdk-primitives",
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        {
+          "path": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "sha256": "04d3451b4301924a358abb43c8c775f341c050860741c90e3ea84ad1ecaecdd5",
+          "kind": "component-receipt",
+          "role": "fresh pinned production replay: local proof/domain/controls/generation/provider/JCE"
+        },
+        {
+          "path": "formal/dafny/inputs.json",
+          "sha256": "2bdd6dc02c8a26a973b134e40f6119742052e25043819e6ef03db315b0671ef9",
+          "kind": "input-manifest",
+          "role": "current exact HKDF production/replay input graph"
+        },
+        {
+          "path": "formal/dafny/hkdf/GENERATED.json",
+          "sha256": "e14fe0cb87177bfa14eac422b33b4c8ad1c2ba7ba667d11bb19351174f1ae9b2",
+          "kind": "delivery-receipt",
+          "role": "pinned 9 generated sources, 12 canonical classes, aggregator and translation metadata"
+        },
+        {
+          "path": "formal/dafny/hkdf/Hkdf.dfy",
+          "sha256": "44987c1d1a91ec785017f416a5340603851e571381117349750d54adb406b34e",
+          "kind": "spec-source",
+          "role": "unchanged verified HKDF kernel with general public-domain result equations"
+        },
+        {
+          "path": "formal/dafny/deliver_hkdf.py",
+          "sha256": "a52660080d2dfaeb86295c4b0cde90559e7650a2079299059c27763b1e813a69",
+          "kind": "tool-manifest",
+          "role": "deterministic HKDF generation/delivery/check/JAR tool"
+        },
+        {
+          "path": "formal/dafny/run.py",
+          "sha256": "f5b09da075366bd564d7249f790d56a20b738007c0a095dc3e03e779edd64978",
+          "kind": "tool-manifest",
+          "role": "fresh HKDF replay and generated-byte equality runner"
+        },
+        {
+          "path": "formal/dafny/test_run.py",
+          "sha256": "d128e53704f53c61b0ce7509bbc784d3d3532189149b559c97a28eeae1099ed4",
+          "kind": "test-source",
+          "role": "HKDF replay negative-control tests"
+        },
+        {
+          "path": "formal/dafny/check_adapter_discipline.py",
+          "sha256": "74da9dd8527f6e68dfb6936c8064f04cb4e8549922d679c1fd0d38a4855a0891",
+          "kind": "tool-manifest",
+          "role": "bytecode gate for primitive bulk-copy conversion discipline"
+        },
+        {
+          "path": "formal/dafny/java/dafny/BulkOnlySequence.java",
+          "sha256": "a4b1fad6f71e77e95a9e1e1080f6bef137b72ccba9e9eb85e4d8ff42193f3788",
+          "kind": "generated-source",
+          "role": "bulk-copy support source used by generated HKDF adapters"
+        },
+        {
+          "path": "formal/dafny/tools.json",
+          "sha256": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+          "kind": "tool-manifest",
+          "role": "Dafny/Z3 archive and runtime pins"
+        },
+        {
+          "path": "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
+          "sha256": "01d29531f84eaf1c3584cfcee3d741f6c637f26c6e67e51799bea674d3875b67",
+          "kind": "test-source",
+          "role": "frozen pre-adoption differential oracle (non-circular)"
+        },
+        {
+          "path": "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
+          "sha256": "f6e7e29b4dd6691fcc926e01edc1f8be9ab6ab223ba530de8d4ae9739cfd0e1e",
+          "kind": "test-source",
+          "role": "generated adapter JCE suite"
+        },
+        {
+          "path": "formal/reference/aws-hkdf/TARGET-RECEIPT.json",
+          "sha256": "e4f2b03756d14124d452769ab2c00bd601da611592b1ce48d339ac28076672af",
+          "kind": "component-receipt",
+          "role": "pinned AWS HKDF target-only replay: 9 verified, 0 errors; dependencies not verified"
+        },
+        {
+          "path": "formal/reference/aws-hkdf/CLOSURE-RECEIPT.json",
+          "sha256": "e6742ad34428e9721dbcd35579a8c65b24cb4444505bfcb0109c0e3e0cc280a9",
+          "kind": "upstream-closure-receipt",
+          "role": "pinned full dependency-closure replay: failed, no obligation discharged"
+        },
+        {
+          "path": "formal/reference/aws-hkdf/EXECUTION-INPUTS.json",
+          "sha256": "bc446dbbbf2fc84a74adbb642a7e92fe9ae6f1e23790c40d78036a293361442c",
+          "kind": "input-manifest",
+          "role": "exact historical upstream execution manifest (old bc44... identity)"
+        },
+        {
+          "path": "formal/reference/aws-hkdf/inputs.json",
+          "sha256": "c68298f1a93cfcc0bf505b3af3e982e78ce2054bc235199503b1bf0901ef6553",
+          "kind": "input-manifest",
+          "role": "exact 71-file upstream AWS input graph and commit/submodule pins"
+        },
+        {
+          "path": "formal/reference/aws-hkdf/README.md",
+          "sha256": "981a8e7df6e294269291be306fef5aed518290cfe25b2a9745496c899f770734",
+          "kind": "documentation",
+          "role": "AWS reference target/closure baseline and limitations"
+        },
+        {
+          "path": "formal/dafny/NOTICE",
+          "sha256": "615a7c0f9794c258ae436de29f8fd30515274fb474f3f5a9ca5b730705d65538",
+          "kind": "documentation",
+          "role": "AWS HKDF provenance attribution"
+        }
+      ],
+      "limitations": [
+        "Overall V1 is partial: AWS target mode verifies 9 declarations but full closure failed with exit 134/resource/timeouts/backend errors and discharged no obligation.",
+        "The local standalone kernel is independently specified and verified; AWS provenance is attribution for reused recurrence structure, not a full upstream graph replay.",
+        "The pinned local replay has 21 kernel checks, 22 general-domain checks, 10/10 rejected controls and two 45-case/2766-assertion JDK runs; these are finite checks supplemented by a source proof, not a Java adapter refinement theorem.",
+        "The only Dafny assumption is deterministic external HMAC with fixed output length.",
+        "JCE/HMAC correctness, Java adapters, compiler/runtime and JVM execution remain trusted boundaries.",
+        "No cryptographic security reduction, constant-time trace or physical erasure is claimed.",
+        "Compatibility extensions (short nonempty PRKs, empty label suffix) are accepted by the API contract."
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "values": {
+            "status": "complete",
+            "verified": 21,
+            "public_domain_verified": 22,
+            "controls": {
+              "counter": "proof-obligation-rejected",
+              "feedback": "proof-obligation-rejected",
+              "truncation": "proof-obligation-rejected",
+              "prefix": "proof-obligation-rejected",
+              "public-domain": "proof-obligation-rejected",
+              "extra-assumption": "audit-rejected",
+              "skipped-proof": "audit-rejected",
+              "adapter-select-loop": "bytecode-rejected",
+              "adapter-bare-cast": "bytecode-rejected",
+              "adapter-dead-decoy": "bytecode-rejected"
+            },
+            "java_runs": [
+              {
+                "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+                "tests": "PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE",
+                "executable_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
+              },
+              {
+                "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+                "tests": "PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE",
+                "executable_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
+              }
+            ],
+            "adapter_discipline": "JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected",
+            "assumptions": [
+              "VerifiedHkdf.Mac: deterministic external HMAC with fixed output length"
+            ],
+            "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+            "tool_asset": {
+              "archive": "dafny-4.9.1-arm64-macos-11.zip",
+              "directory": "dafny-4.9.1-macos-arm64",
+              "sha256": "3209da6998c98c10e15970b85f6aa27925682c3273cd41539348ab8f7941553e",
+              "runtime_sha256": "2c028565d81751f5f659d962c98613b118e45bfae6a295fb140f5e07f4b82b2f"
+            },
+            "translation_metadata_sha256": "b374f6b9506da02fb5c0c579a6c588807575eac7548a296ef823bc9c89ba4052",
+            "top_level_aggregator_sha256": "c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba"
+          }
+        },
+        {
+          "receipt": "formal/dafny/hkdf/GENERATED.json",
+          "values": {
+            "schema": "microproxy.hkdf-generated/v1",
+            "verified": 21,
+            "outer_module": "io.github.mahmoudimus.quic.internal.verifiedhkdf",
+            "output_name": "HkdfCrypto",
+            "module": "VerifiedHkdf",
+            "aggregator_sha256": "c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba",
+            "translation_metadata_sha256": "b374f6b9506da02fb5c0c579a6c588807575eac7548a296ef823bc9c89ba4052"
+          }
+        },
+        {
+          "receipt": "formal/reference/aws-hkdf/TARGET-RECEIPT.json",
+          "values": {
+            "status": "complete",
+            "scope": "target",
+            "full_dependency_graph_verified": false,
+            "manifest_sha256": "c68298f1a93cfcc0bf505b3af3e982e78ce2054bc235199503b1bf0901ef6553",
+            "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6",
+            "tool_identity.version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2"
+          }
+        },
+        {
+          "receipt": "formal/reference/aws-hkdf/CLOSURE-RECEIPT.json",
+          "values": {
+            "status": "failed",
+            "scope": "closure",
+            "full_dependency_graph_verified": false,
+            "exit_code": 134,
+            "manifest_sha256": "bc446dbbbf2fc84a74adbb642a7e92fe9ae6f1e23790c40d78036a293361442c",
+            "execution_manifest": "EXECUTION-INPUTS.json",
+            "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6"
+          }
+        },
+        {
+          "receipt": "formal/reference/aws-hkdf/EXECUTION-INPUTS.json",
+          "values": {
+            "schema": "microproxy.aws-hkdf-reference/v1",
+            "repository": "https://github.com/aws/aws-cryptographic-material-providers-library",
+            "commit": "c787ad12612ac0f35975afe9209e5dbe6b546654",
+            "entry": "AwsCryptographyPrimitives/src/HKDF/HKDF.dfy",
+            "submodules": {
+              "libraries": "b486ff7faadbf306ed7e71386a2b0aeb1e38bd4d",
+              "smithy-dafny": "d0f6d61d3b030bb9cc7b93cee5e69fb591a246b6"
+            },
+            "dafny_version": "4.9.1"
+          }
+        },
+        {
+          "receipt": "formal/reference/aws-hkdf/inputs.json",
+          "values": {
+            "schema": "microproxy.aws-hkdf-reference/v1",
+            "commit": "c787ad12612ac0f35975afe9209e5dbe6b546654",
+            "entry": "AwsCryptographyPrimitives/src/HKDF/HKDF.dfy",
+            "dafny_version": "4.9.1",
+            "dafny_build": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+            "closure_verified_minimum": null,
+            "tool_inputs": {
+              "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+              "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6"
+            }
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/dafny/inputs.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/reference/aws-hkdf/inputs.json",
+          "path": "tool_inputs"
+        }
+      ],
+      "nonvacuity": {
+        "name": "hkdf-general-public-domain-harness",
+        "path": "formal/dafny/PRODUCTION-EVIDENCE.json",
+        "markers": [
+          "public_domain_verified",
+          "proof-obligation-rejected"
+        ]
+      },
+      "file_set_checks": [
+        {
+          "id": "hkdf-generated-source-inventory",
+          "root": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf",
+          "receipt": "formal/dafny/hkdf/GENERATED.json",
+          "field": "source"
+        }
+      ]
+    },
+    {
+      "id": "V2",
+      "title": "Connect HKDF contracts to actual Java (selected generated route)",
+      "status": "implementation-proof",
+      "statement": "The selected generated route conditionally connects the local verified HKDF kernel to production quic.Hkdf through the reviewed HkdfBridge and exact JdkHmac provider leaf, with the 9 generated sources, 12 canonical production class hashes, 10/10 rejected controls and two 45-case/2766-assertion JDK result records pinned. This is not a whole-handwritten-bytecode or universal mutable-buffer refinement.",
+      "dependencies": [
+        "V1"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "reviewed-java-facades",
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        {
+          "path": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "sha256": "04d3451b4301924a358abb43c8c775f341c050860741c90e3ea84ad1ecaecdd5",
+          "kind": "component-receipt",
+          "role": "fresh pinned production replay: local proof/domain/controls/generation/provider/JCE"
+        },
+        {
+          "path": "formal/dafny/inputs.json",
+          "sha256": "2bdd6dc02c8a26a973b134e40f6119742052e25043819e6ef03db315b0671ef9",
+          "kind": "input-manifest",
+          "role": "current exact HKDF production/replay input graph"
+        },
+        {
+          "path": "formal/dafny/hkdf/GENERATED.json",
+          "sha256": "e14fe0cb87177bfa14eac422b33b4c8ad1c2ba7ba667d11bb19351174f1ae9b2",
+          "kind": "delivery-receipt",
+          "role": "pinned 9 generated sources, 12 canonical classes, aggregator and translation metadata"
+        },
+        {
+          "path": "formal/dafny/hkdf/Hkdf.dfy",
+          "sha256": "44987c1d1a91ec785017f416a5340603851e571381117349750d54adb406b34e",
+          "kind": "spec-source",
+          "role": "unchanged verified HKDF kernel with general public-domain result equations"
+        },
+        {
+          "path": "formal/dafny/deliver_hkdf.py",
+          "sha256": "a52660080d2dfaeb86295c4b0cde90559e7650a2079299059c27763b1e813a69",
+          "kind": "tool-manifest",
+          "role": "deterministic HKDF generation/delivery/check/JAR tool"
+        },
+        {
+          "path": "formal/dafny/run.py",
+          "sha256": "f5b09da075366bd564d7249f790d56a20b738007c0a095dc3e03e779edd64978",
+          "kind": "tool-manifest",
+          "role": "fresh HKDF replay and generated-byte equality runner"
+        },
+        {
+          "path": "formal/dafny/test_run.py",
+          "sha256": "d128e53704f53c61b0ce7509bbc784d3d3532189149b559c97a28eeae1099ed4",
+          "kind": "test-source",
+          "role": "HKDF replay negative-control tests"
+        },
+        {
+          "path": "formal/dafny/check_adapter_discipline.py",
+          "sha256": "74da9dd8527f6e68dfb6936c8064f04cb4e8549922d679c1fd0d38a4855a0891",
+          "kind": "tool-manifest",
+          "role": "bytecode gate for primitive bulk-copy conversion discipline"
+        },
+        {
+          "path": "formal/dafny/java/dafny/BulkOnlySequence.java",
+          "sha256": "a4b1fad6f71e77e95a9e1e1080f6bef137b72ccba9e9eb85e4d8ff42193f3788",
+          "kind": "generated-source",
+          "role": "bulk-copy support source used by generated HKDF adapters"
+        },
+        {
+          "path": "formal/dafny/tools.json",
+          "sha256": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+          "kind": "tool-manifest",
+          "role": "Dafny/Z3 archive and runtime pins"
+        },
+        {
+          "path": "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
+          "sha256": "01d29531f84eaf1c3584cfcee3d741f6c637f26c6e67e51799bea674d3875b67",
+          "kind": "test-source",
+          "role": "frozen pre-adoption differential oracle (non-circular)"
+        },
+        {
+          "path": "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
+          "sha256": "f6e7e29b4dd6691fcc926e01edc1f8be9ab6ab223ba530de8d4ae9739cfd0e1e",
+          "kind": "test-source",
+          "role": "generated adapter JCE suite"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
+          "sha256": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a",
+          "kind": "generated-source",
+          "role": "generated kernel call site binding to the exact external JdkHmac leaf"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+          "sha256": "ddd8d59fa08271e66d69e3826190ad3acad98fcda5a7d8c795f2d87e05b1b160",
+          "kind": "production-source",
+          "role": "reviewed production sequence/exception/ownership bridge"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+          "sha256": "a2e267ce32820b3f37b475418636bdf37f0bde69c7efc20643cba57a5d67590f",
+          "kind": "production-source",
+          "role": "current production facade delegating to generated HKDF"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
+          "sha256": "965fedec2266f18f1f3c4c1eef8726159d4eded8123c89fc86cbb8ec3f5e9059",
+          "kind": "production-source",
+          "role": "exact external JCE HMAC provider leaf"
+        },
+        {
+          "path": "quic/src/test/java/io/github/mahmoudimus/quic/HkdfGeneratedAdoptionTest.java",
+          "sha256": "c8f76b4abea80d1f3091dc6c9f2021286d136642794c09aed47dbe8ceed6fe7b",
+          "kind": "test-source",
+          "role": "production facade adoption tests"
+        },
+        {
+          "path": "quic/src/test/java/io/github/mahmoudimus/quic/HkdfTest.java",
+          "sha256": "11fe88b73c51d117b57545a877b36738a1c939c9c7113eb9ff3cda11bf2a74c1",
+          "kind": "test-source",
+          "role": "existing production HKDF tests"
+        },
+        {
+          "path": "formal/crypto/delivery.json",
+          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "kind": "delivery-receipt",
+          "role": "generated-source and handwritten-provider delivery manifest"
+        }
+      ],
+      "limitations": [
+        "Java bridge/provider, javac/JVM and JCE provider are trusted and tested, not proved.",
+        "The pinned 12-class canonical generation receipt is not a fresh full current Maven JAR identity receipt.",
+        "The two 45-case/2766-assertion JDK records are finite JCE adapter checks; 17 production JUnit cases are separate root evidence and are not present as a committed field in PRODUCTION-EVIDENCE.json. This ledger binds source/generated/class inventory, not an external artifact snapshot.",
+        "No whole-handwritten-bytecode equivalence, universal mutable-buffer refinement, JVM timing or physical erasure is claimed.",
+        "Production API compatibility and concurrency/ownership behavior are tested, not proved by Dafny."
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "values": {
+            "status": "complete",
+            "verified": 21,
+            "public_domain_verified": 22,
+            "production_test_note": "quic HkdfTest and HkdfGeneratedAdoptionTest are run separately; this replay does not execute them",
+            "not_proved": [
+              "HMAC security/correctness",
+              "Java adapter refinement",
+              "JVM/provider timing",
+              "constant-time traces",
+              "secret erasure",
+              "whole-bytecode equivalence",
+              "ML-KEM/SHAKE"
+            ],
+            "controls": {
+              "counter": "proof-obligation-rejected",
+              "feedback": "proof-obligation-rejected",
+              "truncation": "proof-obligation-rejected",
+              "prefix": "proof-obligation-rejected",
+              "public-domain": "proof-obligation-rejected",
+              "extra-assumption": "audit-rejected",
+              "skipped-proof": "audit-rejected",
+              "adapter-select-loop": "bytecode-rejected",
+              "adapter-bare-cast": "bytecode-rejected",
+              "adapter-dead-decoy": "bytecode-rejected"
+            },
+            "java_runs": [
+              {
+                "version": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+                "tests": "PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE",
+                "executable_sha256": "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770"
+              },
+              {
+                "version": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)",
+                "tests": "PASS GeneratedHkdfTest: 45 cases, 2766 assertions; providers: HmacSHA256=SunJCE, HmacSHA384=SunJCE, HmacSHA512=SunJCE",
+                "executable_sha256": "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249"
+              }
+            ],
+            "adapter_discipline": "JdkHmac.bytes has a guarded toRawArray/instanceof [B/branch/checkcast/areturn shape; HkdfBridge delegates; select/Byte rejected",
+            "assumptions": [
+              "VerifiedHkdf.Mac: deterministic external HMAC with fixed output length"
+            ],
+            "delivered_generated_java": {
+              "BytesResult.java": "b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6",
+              "BytesResult_Failure.java": "17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f",
+              "BytesResult_Success.java": "52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45",
+              "FailureKind.java": "6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280",
+              "FailureKind_InvalidHash.java": "f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6",
+              "FailureKind_InvalidKey.java": "b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194",
+              "FailureKind_InvalidLabel.java": "81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760",
+              "FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
+              "__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
+            },
+            "top_level_aggregator_sha256": "c23818b14294d7a4da21e329a4fa1a67148549537aac5d07a3f9198bc71955ba",
+            "translation_metadata_sha256": "b374f6b9506da02fb5c0c579a6c588807575eac7548a296ef823bc9c89ba4052"
+          }
+        },
+        {
+          "receipt": "formal/dafny/hkdf/GENERATED.json",
+          "values": {
+            "schema": "microproxy.hkdf-generated/v1",
+            "verified": 21,
+            "source": {
+              "BytesResult.java": "b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6",
+              "BytesResult_Failure.java": "17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f",
+              "BytesResult_Success.java": "52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45",
+              "FailureKind.java": "6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280",
+              "FailureKind_InvalidHash.java": "f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6",
+              "FailureKind_InvalidKey.java": "b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194",
+              "FailureKind_InvalidLabel.java": "81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760",
+              "FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
+              "__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
+            },
+            "classes": {
+              "io/github/mahmoudimus/quic/Hkdf.class": "b096db75e610d1a8aec5e6f85e615557b17be6673d353e92add4611b42d65b6e",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class": "4a1d2f0aeef211e31bc8f204ea455bd0a5ee0d43a56c1ebfb5baea4d8ea847ef",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.class": "0e10e3dc75b944c5bf1b5c4986135a0c7d9b84d4bd68cec561c3e8179adfa89b",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.class": "8406abdea86743df597c5ef3a5fdcd5a5bda053b3040eaa575009ee2862f0256",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.class": "b1be80387efcd1dccd87ad586b4cc03c8c2942583947c786c95779132f725ce4",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.class": "b6fed8819f430368ce56ef3f38bede250405feab0b0911d71fc77407aa8db48b",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.class": "9f32cbaa3220d547003a5f0f8872a8842682cba11532571bb9d61a09da986446",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.class": "8e0600b18dce5a6ebaec135ae8f17e1b55bbde8b733ba06f3705ef61ebe54f2e",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.class": "f69ef50597d54f66b0cf03b253511aa737e503fd2406bd99a4d83f198deeeb14",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.class": "147e8dee1936965914cd70f74f5565cfe068bf9c955d5a18dbd29f3080433b2b",
+              "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class": "c1df4e947257748b79568313e8381d02e83db8f58c1e42342c1bbbb98f76b0d5",
+              "io/github/mahmoudimus/verifiedcrypto/JdkHmac.class": "08b9ffd9cdb9d350732ba66f44ed5c4374652776e78f7a4ab28adcf5df84666b"
+            }
+          }
+        },
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "values": {
+            "existing_generated_dependencies": {
+              "io/github/mahmoudimus/verifiedcrypto/JdkHmac.java": "965fedec2266f18f1f3c4c1eef8726159d4eded8123c89fc86cbb8ec3f5e9059"
+            }
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/dafny/inputs.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/dafny/PRODUCTION-EVIDENCE.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "path": "existing_generated_sources",
+          "include_prefixes": [
+            "io/github/mahmoudimus/quic/internal/verifiedhkdf/"
+          ],
+          "path_prefix": "quic/src/main/java"
+        },
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "path": "existing_generated_dependencies",
+          "path_prefix": "quic/src/main/java"
+        }
+      ],
+      "text_checks": [
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
+          "markers": [
+            "io.github.mahmoudimus.verifiedcrypto.JdkHmac",
+            "compute"
+          ]
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+          "markers": [
+            "class HkdfBridge"
+          ]
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+          "markers": [
+            "HkdfBridge"
+          ]
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
+          "markers": [
+            "javax.crypto.Mac",
+            "HmacSHA256"
+          ]
+        }
+      ],
+      "nonvacuity": {
+        "name": "hkdf-general-public-domain-harness",
+        "path": "formal/dafny/PRODUCTION-EVIDENCE.json",
+        "markers": [
+          "public_domain_verified",
+          "proof-obligation-rejected"
+        ]
+      },
+      "file_set_checks": [
+        {
+          "id": "hkdf-generated-source-inventory",
+          "root": "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf",
+          "receipt": "formal/dafny/hkdf/GENERATED.json",
+          "field": "source"
+        }
+      ]
+    },
+    {
+      "id": "V3",
+      "title": "Portable SAW and mutable-array bridge",
+      "status": "blocked",
+      "statement": "A historical byte-identical Java 21 reduceOnce bytecode proof is recorded; the actual PacketKey.nonce symbolic proof remains blocked by unsupported primitive-array clone translation, and the portable alternate route is explicitly not selected as complete.",
+      "dependencies": [
+        "V0"
+      ],
+      "assumptions": [
+        "saw-toolchain",
+        "javac-jvm",
+        "jvm-timing-jit-cpu-gc"
+      ],
+      "evidence": [
+        {
+          "path": "formal/saw/inputs.json",
+          "sha256": "a69b5f0e255a504e3bba4cb29d792c2760cf1e649485c07d6f1cb8f259e4a53c",
+          "kind": "input-manifest",
+          "role": "SAW/source/class provenance pins"
+        },
+        {
+          "path": "formal/saw/evidence/report.json",
+          "sha256": "0ca0375e3aec7f1b53c8a27cf3fadd37f0e180505a11403c0161f26a8d87feeb",
+          "kind": "bytecode-report",
+          "role": "complete scoped SAW report and controls"
+        },
+        {
+          "path": "formal/saw/evidence/proof.log",
+          "sha256": "9963316d5db9d19c86f56ec2a1d7aec61790a576328dd878d0935302c14ee2ba",
+          "kind": "proof-log",
+          "role": "successful reduceOnce proof with satisfiable precondition"
+        },
+        {
+          "path": "formal/saw/evidence/wrong_modulus.log",
+          "sha256": "f78c3ed6795e80169d7c10b2c0e9de86290f1f7d5eea79fa8d9f570af7b66d82",
+          "kind": "proof-log",
+          "role": "genuine wrong-modulus counterexample"
+        },
+        {
+          "path": "formal/saw/evidence/vacuous.log",
+          "sha256": "5e82053d6ef914947cd7558350fe04bb822ffb120cc309cf2e0f00a05e17fc46",
+          "kind": "proof-log",
+          "role": "contradictory-precondition vacuity control"
+        },
+        {
+          "path": "formal/saw/evidence/nonce.log",
+          "sha256": "a713d4ff15905b0e10c1fb64d76d046561283e5dec423336903eb010901c433d",
+          "kind": "proof-log",
+          "role": "array-clone translation blocker for PacketKey.nonce"
+        },
+        {
+          "path": "formal/saw/README.md",
+          "sha256": "59e599d841ac26fb7c9d91a8dd76c1690266c4452e58e17bc84491b1b8183a4c",
+          "kind": "documentation",
+          "role": "SAW scope, controls and replay"
+        },
+        {
+          "path": "formal/saw/mlkem-reduce-once.saw",
+          "sha256": "ca7be834d4d2458c19ecc0b641fd6a00afd18012bf421157eabf1af7790a8bf4",
+          "kind": "spec-source",
+          "role": "checked reduceOnce specification"
+        },
+        {
+          "path": "formal/saw/blocked/packet-key-nonce.saw",
+          "sha256": "742925ba131bdfdc5bedc2dc26b5fb19999e87ab10315ca197b4e763277665ce",
+          "kind": "spec-source",
+          "role": "unproved nonce experiment"
+        },
+        {
+          "path": "formal/crypto/reference/MlKem768.java",
+          "sha256": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+          "kind": "spec-source",
+          "role": "historical reference source"
+        },
+        {
+          "path": "formal/crypto/reference/provenance.json",
+          "sha256": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f",
+          "kind": "documentation",
+          "role": "reference provenance"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java",
+          "sha256": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
+          "kind": "production-source",
+          "role": "nonce target for blocked SAW experiment"
+        }
+      ],
+      "limitations": [
+        "The reduceOnce proof is historical pre-adoption bytecode, not current generated NativeField.",
+        "PacketKey.nonce output, IV preservation and allocation freshness remain unproved.",
+        "No Object.clone contract or class-version lowering substitutes for the missing translator support.",
+        "SAW/Crucible/Cryptol/solver/JDK build stay trusted."
+      ],
+      "control_groups": [
+        {
+          "id": "saw-scoped-replay",
+          "receipt": "formal/saw/evidence/report.json",
+          "controls_path": "runs",
+          "expected": {
+            "proof": {
+              "result": "verified",
+              "exit_code": 0
+            },
+            "wrong_modulus": {
+              "result": "proof_counterexample",
+              "exit_code": 2
+            },
+            "vacuous": {
+              "result": "rejected_vacuous_specification",
+              "exit_code": 0
+            },
+            "nonce": {
+              "result": "blocked_by_array_clone_translation",
+              "exit_code": 2
+            }
+          },
+          "require_semantic_failure": true
+        }
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/saw/evidence/report.json",
+          "values": {
+            "status": "complete",
+            "runs.proof.result": "verified",
+            "runs.wrong_modulus.result": "proof_counterexample",
+            "runs.vacuous.result": "rejected_vacuous_specification",
+            "runs.nonce.result": "blocked_by_array_clone_translation"
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/saw/inputs.json",
+          "path": "inputs",
+          "include_prefixes": [
+            "formal/",
+            "quic/src/"
+          ]
+        }
+      ],
+      "nonvacuity": {
+        "name": "saw-wrong-modulus-and-vacuity-controls",
+        "path": "formal/saw/evidence/proof.log",
+        "markers": [
+          "a = 1",
+          "Proof succeeded"
+        ]
+      }
+    },
+    {
+      "id": "V4",
+      "title": "SHAKE/FIPS 202 refinement",
+      "status": "implementation-proof",
+      "statement": "Verified Dafny Keccak/SHAKE128/SHAKE256 sponge and segmented API are connected to generated Java and an adopted reviewed facade, with both rates, arbitrary finite inputs/outputs, padding, ownership and all 14 named semantic controls recorded.",
+      "dependencies": [
+        "V0"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "generated-runtime-discipline",
+        "reviewed-java-facades"
+      ],
+      "evidence": [
+        {
+          "path": "formal/crypto/SHAKE-EVIDENCE.json",
+          "sha256": "5e35879083cba1c40666b717afeb85ab85732e1cf03611c8c76e9b11d4b284ca",
+          "kind": "component-receipt",
+          "role": "SHAKE Dafny/Java/vector/control receipt"
+        },
+        {
+          "path": "formal/crypto/ByteLanes.dfy",
+          "sha256": "ed2c5d10d054b50cdaf411dbfb7b45c3b822483fbbc1f6ef6f854d0f39747ed5",
+          "kind": "spec-source",
+          "role": "byte/lane specification"
+        },
+        {
+          "path": "formal/crypto/Shake.dfy",
+          "sha256": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+          "kind": "spec-source",
+          "role": "executable segmented SHAKE implementation"
+        },
+        {
+          "path": "formal/crypto/SpongeSpec.dfy",
+          "sha256": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+          "kind": "spec-source",
+          "role": "sponge/padding specification"
+        },
+        {
+          "path": "formal/crypto/shake_domain.dfy",
+          "sha256": "15fdfd4eeed09bc8c3d87106e8a3a796e5f3159e1a80ee4023823762087b2897",
+          "kind": "spec-source",
+          "role": "unrestricted public-domain harness"
+        },
+        {
+          "path": "formal/primitives/Keccak.dfy",
+          "sha256": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+          "kind": "proof-receipt",
+          "role": "verified Keccak-f[1600] dependency"
+        },
+        {
+          "path": "formal/crypto/shake_checks.py",
+          "sha256": "dfef8955684371f875584c126e12acee6394fb8894f01aa96467245f885f8ef6",
+          "kind": "tool-manifest",
+          "role": "SHAKE replay runner"
+        },
+        {
+          "path": "formal/crypto/shake_java/io/github/mahmoudimus/quic/tls/GeneratedShakeTest.java",
+          "sha256": "5223ae2569d089c8d8c2db224f4a766c8dab0f7491e751de7ced716bbd449fbc",
+          "kind": "test-source",
+          "role": "generated-SHAKE Java vectors/partitions"
+        },
+        {
+          "path": "formal/crypto/delivery.json",
+          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "kind": "delivery-receipt",
+          "role": "generated crypto delivery/runtime/trust configuration"
+        },
+        {
+          "path": "formal/crypto/adoption/stage-receipt.json",
+          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "kind": "delivery-receipt",
+          "role": "current complete source/generated/class delivery stage"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java",
+          "sha256": "51fc5ae044b73232a702745c94ec1eb725f2bd3558e9d39110e2e7f0c9e6dea1",
+          "kind": "production-source",
+          "role": "adopted generated-SHAKE facade"
+        }
+      ],
+      "limitations": [
+        "JVM/JIT/CPU timing and physical erasure remain unproved.",
+        "Finite hashlib/FIPS/Java vectors supplement, but do not replace, the universal source proof.",
+        "Compiler/runtime and the reviewed facade remain trusted.",
+        "The SHAKE-EVIDENCE embedded input map is historical (pre-adoption handwritten target/runner); current source identity is checked through the stage receipt."
+      ],
+      "control_groups": [
+        {
+          "id": "shake-semantic-controls",
+          "receipt": "formal/crypto/SHAKE-EVIDENCE.json",
+          "controls_path": "controls",
+          "expected": {
+            "padding-suffix": {
+              "verified": 1,
+              "errors": 1
+            },
+            "padding-final-bit": {
+              "verified": 1,
+              "errors": 1
+            },
+            "padding-shared-octet": {
+              "verified": 1,
+              "errors": 1
+            },
+            "zero-read-phase": {
+              "verified": 1,
+              "errors": 1
+            },
+            "input-after-output": {
+              "verified": 71,
+              "errors": 1
+            },
+            "absorb-boundary": {
+              "verified": 1,
+              "errors": 1
+            },
+            "squeeze-boundary": {
+              "verified": 28,
+              "errors": 1
+            },
+            "absorb-byte-order": {
+              "verified": 1,
+              "errors": 1
+            },
+            "squeeze-byte-order": {
+              "verified": 28,
+              "errors": 1
+            },
+            "domain-rates": {
+              "verified": 0,
+              "errors": 1
+            },
+            "domain-states": {
+              "verified": 0,
+              "errors": 1
+            },
+            "domain-slices": {
+              "verified": 0,
+              "errors": 1
+            },
+            "domain-output-lengths": {
+              "verified": 0,
+              "errors": 1
+            },
+            "domain-input-lengths": {
+              "verified": 0,
+              "errors": 1
+            }
+          }
+        }
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/crypto/SHAKE-EVIDENCE.json",
+          "values": {
+            "proofs": {
+              "formal/crypto/ByteLanes.dfy": {
+                "verified": 24,
+                "errors": 0
+              },
+              "formal/crypto/Shake.dfy": {
+                "verified": 115,
+                "errors": 0
+              },
+              "formal/crypto/SpongeSpec.dfy": {
+                "verified": 159,
+                "errors": 0
+              },
+              "formal/crypto/shake_domain.dfy": {
+                "verified": 11,
+                "errors": 0
+              },
+              "formal/primitives/Keccak.dfy": {
+                "verified": 122,
+                "errors": 0
+              }
+            },
+            "audits": {
+              "formal/crypto/ByteLanes.dfy": 0,
+              "formal/crypto/Shake.dfy": 0,
+              "formal/crypto/SpongeSpec.dfy": 0,
+              "formal/crypto/shake_domain.dfy": 0,
+              "formal/primitives/Keccak.dfy": 0
+            },
+            "generation": {
+              "verified": 42,
+              "errors": 0
+            },
+            "vectors.count": 198
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/crypto/adoption/stage-receipt.json",
+          "path": "sources"
+        }
+      ],
+      "nonvacuity": {
+        "name": "shake-unrestricted-public-domain-harness",
+        "path": "formal/crypto/shake_domain.dfy",
+        "markers": [
+          "No message, partition, lane value, or finite output is sampled",
+          "method AllXofs"
+        ]
+      }
+    },
+    {
+      "id": "V5",
+      "title": "ML-KEM arithmetic, NTT, codecs and sampling",
+      "status": "implementation-proof",
+      "statement": "Verified Dafny field, polynomial/NTT, codec, compression and sampling kernels discharge complete 256-coefficient and scalar domains, caller ranges and native bytecode controls, including total decode and finite-prefix sampling failure behavior.",
+      "dependencies": [
+        "V4"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "generated-runtime-discipline"
+      ],
+      "evidence": [
+        {
+          "path": "formal/crypto/CODEC-EVIDENCE.json",
+          "sha256": "46f21172a82d998422b846cf05b1dee96394562ce39cf87d8f2ea9b7bdcfaea6",
+          "kind": "component-receipt",
+          "role": "codec/sampling proof, controls and Java replay"
+        },
+        {
+          "path": "formal/crypto/POLYNOMIAL-EVIDENCE.json",
+          "sha256": "96f4a53ef28278f21f93bdb7e926c7c93b76b84a008031753c6991dd916a50f9",
+          "kind": "component-receipt",
+          "role": "polynomial/NTT proof and semantic controls"
+        },
+        {
+          "path": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+          "sha256": "7e8bd395727c811ab7f209957fa81f7676873e4ac237adfee3ae4a0565e9fc85",
+          "kind": "component-receipt",
+          "role": "native codec/sampling proof reuse and bytecode controls"
+        },
+        {
+          "path": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+          "sha256": "9646f6a4e6b41ed577eb26c5bb8b77b024d46edfa474a068459e28fd32365c89",
+          "kind": "component-receipt",
+          "role": "native polynomial positive and 14-control replays"
+        },
+        {
+          "path": "formal/crypto/Codec.dfy",
+          "sha256": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+          "kind": "spec-source",
+          "role": "codec equations"
+        },
+        {
+          "path": "formal/crypto/Sampling.dfy",
+          "sha256": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+          "kind": "spec-source",
+          "role": "CBD/rejection-sampling equations"
+        },
+        {
+          "path": "formal/crypto/Polynomial.dfy",
+          "sha256": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+          "kind": "spec-source",
+          "role": "polynomial/NTT specification"
+        },
+        {
+          "path": "formal/crypto/NativeCodec.dfy",
+          "sha256": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+          "kind": "proof-receipt",
+          "role": "native codec refinement"
+        },
+        {
+          "path": "formal/crypto/NativeSampling.dfy",
+          "sha256": "a02194e6e2e6803496852365d0ff5ba9ef0b4e73937f6265ab689c70abe1823b",
+          "kind": "proof-receipt",
+          "role": "native sampling refinement"
+        },
+        {
+          "path": "formal/crypto/NativePolynomial.dfy",
+          "sha256": "4740bdb1deb10a6cb4855c279e441f77b2e541b36804c06dc0b896b9fc9dbee1",
+          "kind": "proof-receipt",
+          "role": "native polynomial/NTT refinement"
+        },
+        {
+          "path": "formal/crypto/NativeField.dfy",
+          "sha256": "f6fb7911a9be3559d06b241cc2ca7ebb2acc98e0ff5444979f8459ff503eaa92",
+          "kind": "proof-receipt",
+          "role": "native field arithmetic refinement"
+        },
+        {
+          "path": "formal/crypto/native_codec_domain.dfy",
+          "sha256": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+          "kind": "spec-source",
+          "role": "total decode/domain harness"
+        },
+        {
+          "path": "formal/crypto/native_polynomial_domain.dfy",
+          "sha256": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+          "kind": "spec-source",
+          "role": "complete 256-coefficient domain harness"
+        },
+        {
+          "path": "formal/primitives/Field.dfy",
+          "sha256": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+          "kind": "proof-receipt",
+          "role": "field kernel dependency"
+        },
+        {
+          "path": "formal/crypto/adoption/stage-receipt.json",
+          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "kind": "delivery-receipt",
+          "role": "current complete source/generated/class delivery stage"
+        }
+      ],
+      "limitations": [
+        "Finite Go/Java vectors do not prove universal source/compiler refinement.",
+        "The 280-byte sampling cap follows FIPS 203 Appendix B and is not eventual success for every adversarial stream.",
+        "Physical erasure and JVM timing remain unproved.",
+        "Embedded CODEC/POLYNOMIAL/NATIVE-CODEC input maps include historical pre-adoption targets; current Dafny source identity is checked through the stage receipt.",
+        "CODEC/POLYNOMIAL positive-domain receipts record aggregate verified/errors rather than per-control exit kinds; explicit native control exits and the NativePolynomial semantic-failure receipts provide the stronger timeout/resource/crash distinction."
+      ],
+      "control_groups": [
+        {
+          "id": "codec-semantic-controls",
+          "receipt": "formal/crypto/CODEC-EVIDENCE.json",
+          "controls_path": "controls",
+          "expected": {
+            "compress-rounding": {
+              "verified": 1,
+              "errors": 1
+            },
+            "decompress-half-tie": {
+              "verified": 1,
+              "errors": 1
+            },
+            "encode-bit": {
+              "verified": 1,
+              "errors": 1
+            },
+            "decode-modulus": {
+              "verified": 1,
+              "errors": 1
+            },
+            "cbd-sign": {
+              "verified": 1,
+              "errors": 1
+            },
+            "feed-order": {
+              "verified": 1,
+              "errors": 1
+            },
+            "feed-reject-q": {
+              "verified": 0,
+              "errors": 1
+            },
+            "feed-cap": {
+              "verified": 0,
+              "errors": 1
+            },
+            "feed-consumption": {
+              "verified": 0,
+              "errors": 1
+            },
+            "full-domain": {
+              "verified": 1,
+              "errors": 1
+            }
+          }
+        },
+        {
+          "id": "polynomial-semantic-controls",
+          "receipt": "formal/crypto/POLYNOMIAL-EVIDENCE.json",
+          "controls_path": "controls",
+          "expected": {
+            "root": {
+              "result": "semantic proof failure"
+            },
+            "sign": {
+              "result": "semantic proof failure"
+            },
+            "index": {
+              "result": "semantic proof failure"
+            },
+            "product": {
+              "result": "semantic proof failure"
+            },
+            "wrap": {
+              "result": "semantic proof failure"
+            },
+            "scale": {
+              "result": "semantic proof failure"
+            }
+          }
+        },
+        {
+          "id": "native-codec-semantic-controls",
+          "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+          "controls_path": "reused_evidence.semantic_controls",
+          "expected": {
+            "compress-rounding": {
+              "verified": 3,
+              "errors": 1
+            },
+            "decompress-half-tie": {
+              "verified": 3,
+              "errors": 1
+            },
+            "encode-bit": {
+              "verified": 1,
+              "errors": 1
+            },
+            "native-int-overflow": {
+              "verified": 205,
+              "errors": 1
+            },
+            "decode-modulus": {
+              "verified": 1,
+              "errors": 1
+            },
+            "wipe": {
+              "verified": 1,
+              "errors": 1
+            },
+            "cbd-sign": {
+              "verified": 1,
+              "errors": 1
+            },
+            "feed-order": {
+              "verified": 274,
+              "errors": 2
+            },
+            "feed-reject-q": {
+              "verified": 1,
+              "errors": 1
+            },
+            "feed-cap": {
+              "verified": 4,
+              "errors": 1
+            },
+            "feed-consumption": {
+              "verified": 0,
+              "errors": 1
+            },
+            "extract-shift": {
+              "verified": 87,
+              "errors": 1
+            },
+            "extract-mask": {
+              "verified": 85,
+              "errors": 1
+            },
+            "compress-reciprocal": {
+              "verified": 0,
+              "errors": 1
+            },
+            "full-domain": {
+              "verified": 1,
+              "errors": 1
+            }
+          }
+        },
+        {
+          "id": "native-codec-bytecode-controls",
+          "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+          "controls_path": "bytecode_controls",
+          "expected": {
+            "payload-idiv": {
+              "rejected": "Payload division/remainder NativeCodec/__default.Compress@4: idiv"
+            },
+            "payload-euclidean": {
+              "rejected": "Payload Euclidean arithmetic NativeCodec/__default.Compress@4"
+            },
+            "payload-metadata": {
+              "rejected": "Payload reaches public metadata NativeCodec/__default.Compress@2 -> PublicDiv argument 0"
+            },
+            "payload-array-length": {
+              "rejected": "Payload array allocation size NativeCodec/__default.Compress@1: newarray"
+            },
+            "payload-runtime-array-length": {
+              "rejected": "Payload array allocation size NativeCodec/__default.Compress@4: TypeDescriptor.newArray"
+            },
+            "payload-array-feed": {
+              "rejected": "Payload array allocation size NativeCodec/__default.Compress@1: newarray"
+            },
+            "payload-reference-array": {
+              "rejected": "Payload array allocation size NativeCodec/__default.Compress@1: anewarray"
+            },
+            "payload-runtime-dimensions": {
+              "rejected": "Unreviewed array allocation signature NativeCodec/__default.Compress@12: ([I)Ljava/lang/Object;"
+            }
+          }
+        },
+        {
+          "id": "native-polynomial-mac-controls",
+          "receipt": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+          "controls_path": "mac_full.receipt.controls",
+          "expected": {
+            "reduce": {
+              "result": "semantic proof failure"
+            },
+            "correction-shift": {
+              "result": "semantic proof failure"
+            },
+            "barrett-shift": {
+              "result": "semantic proof failure"
+            },
+            "mask": {
+              "result": "semantic proof failure"
+            },
+            "reciprocal": {
+              "result": "semantic proof failure"
+            },
+            "sign": {
+              "result": "semantic proof failure"
+            },
+            "index": {
+              "result": "semantic proof failure"
+            },
+            "inverse": {
+              "result": "semantic proof failure"
+            },
+            "product": {
+              "result": "semantic proof failure"
+            },
+            "root": {
+              "result": "semantic proof failure"
+            },
+            "wipe": {
+              "result": "semantic proof failure"
+            },
+            "positive-dividend": {
+              "result": "semantic proof failure"
+            },
+            "scale": {
+              "result": "semantic proof failure"
+            },
+            "freshness": {
+              "result": "semantic proof failure"
+            }
+          }
+        },
+        {
+          "id": "native-polynomial-linux-controls",
+          "receipt": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+          "controls_path": "linux_controls.receipt.controls",
+          "expected": {
+            "reduce": {
+              "result": "semantic proof failure"
+            },
+            "correction-shift": {
+              "result": "semantic proof failure"
+            },
+            "barrett-shift": {
+              "result": "semantic proof failure"
+            },
+            "mask": {
+              "result": "semantic proof failure"
+            },
+            "reciprocal": {
+              "result": "semantic proof failure"
+            },
+            "sign": {
+              "result": "semantic proof failure"
+            },
+            "index": {
+              "result": "semantic proof failure"
+            },
+            "inverse": {
+              "result": "semantic proof failure"
+            },
+            "product": {
+              "result": "semantic proof failure"
+            },
+            "root": {
+              "result": "semantic proof failure"
+            },
+            "wipe": {
+              "result": "semantic proof failure"
+            },
+            "positive-dividend": {
+              "result": "semantic proof failure"
+            },
+            "scale": {
+              "result": "semantic proof failure"
+            },
+            "freshness": {
+              "result": "semantic proof failure"
+            }
+          }
+        }
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/crypto/CODEC-EVIDENCE.json",
+          "values": {
+            "proofs.proof-Codec": 469,
+            "proofs.proof-Sampling": 26,
+            "proofs.codec_domain": 7,
+            "proofs.sampling_domain": 2
+          }
+        },
+        {
+          "receipt": "formal/crypto/POLYNOMIAL-EVIDENCE.json",
+          "values": {
+            "status": "passed",
+            "phase": "all",
+            "verified": 1562,
+            "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+            "solver_version": "Z3 version 4.12.1 - 64 bit"
+          }
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+          "values": {
+            "reused_evidence.proofs.proof-NativeField": 84,
+            "reused_evidence.proofs.proof-NativeCodec": 1493,
+            "reused_evidence.proofs.proof-NativeSampling": 281,
+            "reused_evidence.proofs.native_codec_domain": 8,
+            "reused_evidence.proofs.native_sampling_domain": 4
+          }
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+          "values": {
+            "status": "passed",
+            "unchanged_policy.negative_control_count": 14,
+            "unchanged_policy.required_semantic_exit": 4,
+            "mac_full.receipt.status": "passed",
+            "mac_full.receipt.dependency_verified": 1562,
+            "mac_full.receipt.native_verified": 482,
+            "linux_controls.receipt.status": "passed"
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+          "path": "mac_full.receipt.inputs"
+        },
+        {
+          "receipt": "formal/crypto/adoption/stage-receipt.json",
+          "path": "sources"
+        }
+      ],
+      "nonvacuity": {
+        "name": "native-codec-total-decode-and-lossless-domain",
+        "path": "formal/crypto/native_codec_domain.dfy",
+        "markers": [
+          "method TotalDecode",
+          "method Lossless"
+        ]
+      }
+    },
+    {
+      "id": "V6",
+      "title": "Full ML-KEM-768 functional composition",
+      "status": "implementation-proof",
+      "statement": "Verified Dafny ML-KEM-768 key generation, encapsulation, valid/invalid decapsulation, fallback selection, validation, ownership and cleanup are connected through exact generated-source and class inventory to the adopted reviewed facade; JDK SHA3 and compiler/runtime remain explicit trust.",
+      "dependencies": [
+        "V5"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "generated-runtime-discipline",
+        "reviewed-java-facades",
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        {
+          "path": "formal/crypto/KEM-EVIDENCE.json",
+          "sha256": "6f6e8fcc568a564e973917edc337e448de708eb8fc3904f52c6c6ba2ed4d5d22",
+          "kind": "component-receipt",
+          "role": "full mathematical ML-KEM proof/control record"
+        },
+        {
+          "path": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+          "sha256": "ddb88b52b7c9d30133628435cfa80b025cd52ee9eaada7c34c9cec9c39d5014b",
+          "kind": "component-receipt",
+          "role": "native KEM proof/control/bytecode receipt"
+        },
+        {
+          "path": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
+          "sha256": "f85b9cbfaa1a9c2f66ba0367df388de35b84eaeeb3d2d4c8e27cf258f1bc8a41",
+          "kind": "component-receipt",
+          "role": "Linux native composition replay"
+        },
+        {
+          "path": "formal/crypto/MlKem.dfy",
+          "sha256": "f668827a7b891874a0cafd3e4686f544d3304da34d9356be4065d0ede8626152",
+          "kind": "spec-source",
+          "role": "K-PKE/KEM executable specification"
+        },
+        {
+          "path": "formal/crypto/KemSpec.dfy",
+          "sha256": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+          "kind": "spec-source",
+          "role": "ML-KEM result equations and validation"
+        },
+        {
+          "path": "formal/crypto/NativeMlKem.dfy",
+          "sha256": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+          "kind": "proof-receipt",
+          "role": "native primitive-array refinement"
+        },
+        {
+          "path": "formal/crypto/native_kem_domain.dfy",
+          "sha256": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+          "kind": "spec-source",
+          "role": "every-finite-native-input domain harness"
+        },
+        {
+          "path": "formal/crypto/native_kem_hash.java",
+          "sha256": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+          "kind": "production-source",
+          "role": "audited JDK SHA3 provider binding"
+        },
+        {
+          "path": "formal/crypto/kem_hash.java",
+          "sha256": "252a5094b4e224408f2a4cbdc97c803d83521d0ff66d6e80f4becaa92afe04a2",
+          "kind": "production-source",
+          "role": "audited mathematical SHA3 provider binding"
+        },
+        {
+          "path": "formal/crypto/adoption/stage-receipt.json",
+          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "kind": "delivery-receipt",
+          "role": "complete source/generated/class delivery stage"
+        },
+        {
+          "path": "formal/crypto/adoption/ACCEPTANCE.json",
+          "sha256": "b85a8ab9c5966e2d11a3c5bccaa02a27756be75bc096236a66fa708fc7c422f0",
+          "kind": "snapshot-receipt",
+          "role": "historical local adoption acceptance (not a fresh current-JAR receipt)"
+        },
+        {
+          "path": "formal/crypto/adoption/approval.json",
+          "sha256": "0ec65083f58d00855880eb646a5fbb3ad7f8916d6a40d7c5c71cbd6e1d3de8fe",
+          "kind": "snapshot-receipt",
+          "role": "historical delegated adoption approval"
+        },
+        {
+          "path": "formal/crypto/adoption/final-bundle.json",
+          "sha256": "fbdf38870c343fa652fb68f8ffa06321085686b6f1caebfecaa626db8af8d8ac",
+          "kind": "snapshot-receipt",
+          "role": "historical minimized-bundle class comparison"
+        },
+        {
+          "path": "formal/crypto/adoption/publication.json",
+          "sha256": "6d4288945a1168a3b13cda6cc5f3bd79456c5e8fa0ed03c688abf1ba4ccbd586",
+          "kind": "snapshot-receipt",
+          "role": "historical publication counts"
+        },
+        {
+          "path": "formal/crypto/delivery.json",
+          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "kind": "delivery-receipt",
+          "role": "delivery runtime/trust/facade configuration"
+        },
+        {
+          "path": "formal/crypto/adoption/Shake.java",
+          "sha256": "51fc5ae044b73232a702745c94ec1eb725f2bd3558e9d39110e2e7f0c9e6dea1",
+          "kind": "production-source",
+          "role": "reviewed SHAKE facade source"
+        },
+        {
+          "path": "formal/crypto/adoption/MlKem768.java",
+          "sha256": "135928e6645c82c249cca276909ae12ffbea07271c338fc1b701c331132391f3",
+          "kind": "production-source",
+          "role": "reviewed ML-KEM facade source"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java",
+          "sha256": "135928e6645c82c249cca276909ae12ffbea07271c338fc1b701c331132391f3",
+          "kind": "production-source",
+          "role": "current adopted ML-KEM facade"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java",
+          "sha256": "51fc5ae044b73232a702745c94ec1eb725f2bd3558e9d39110e2e7f0c9e6dea1",
+          "kind": "production-source",
+          "role": "current adopted SHAKE facade"
+        }
+      ],
+      "limitations": [
+        "Functional conformance does not prove cryptographic hardness or entropy.",
+        "FIPS 203 permits a nonzero honest decapsulation failure probability; the proof records exact equations, not universal honest success.",
+        "JVM/JIT/CPU timing and physical erasure remain open.",
+        "Historical whole-class/JAR receipts pre-date current main and are snapshot evidence, not a fresh current-JAR receipt.",
+        "The facade must keep generated mutable constructors/fields inaccessible and enforce lifetimes.",
+        "The KEM-EVIDENCE embedded input map is historical pre-adoption evidence; current source identity is checked through NATIVE-KEM and the stage receipt.",
+        "The managed generated-file inventory scopes the native internal/verifiedcrypto prefix; the two provider sources are pinned by the delivery manifest, and concurrent HKDF-owned adapters are outside this component inventory.",
+        "KEM-EVIDENCE control entries record aggregate verified/errors; explicit NATIVE-KEM command exits (semantic exit 4, never timeout/resource/crash) carry the stronger failure-kind classification."
+      ],
+      "control_groups": [
+        {
+          "id": "kem-semantic-controls",
+          "receipt": "formal/crypto/KEM-EVIDENCE.json",
+          "controls_path": "controls",
+          "expected": {
+            "wrong-coins": {
+              "verified": 1,
+              "errors": 1
+            },
+            "matrix-axis": {
+              "verified": 1,
+              "errors": 1
+            },
+            "matrix-transpose": {
+              "verified": 1,
+              "errors": 1
+            },
+            "reused-nonce": {
+              "verified": 1,
+              "errors": 1
+            },
+            "wrong-fallback-seed": {
+              "verified": 1,
+              "errors": 1
+            },
+            "constant-selection": {
+              "verified": 0,
+              "errors": 1
+            },
+            "short-comparison": {
+              "verified": 0,
+              "errors": 1
+            },
+            "modulus-error-kind": {
+              "verified": 1,
+              "errors": 1
+            },
+            "short-sampler": {
+              "verified": 1,
+              "errors": 1
+            }
+          }
+        },
+        {
+          "id": "native-kem-semantic-controls",
+          "receipt": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+          "controls_path": "controls",
+          "expected": {
+            "wrong-coins": {
+              "verified": 4,
+              "errors": 1
+            },
+            "matrix-axis": {
+              "verified": 1,
+              "errors": 1
+            },
+            "matrix-transpose": {
+              "verified": 1,
+              "errors": 1
+            },
+            "reused-nonce": {
+              "verified": 1,
+              "errors": 1
+            },
+            "wrong-fallback-seed": {
+              "verified": 5,
+              "errors": 1
+            },
+            "constant-selection": {
+              "verified": 1,
+              "errors": 1
+            },
+            "short-comparison": {
+              "verified": 1,
+              "errors": 1
+            },
+            "modulus-error-kind": {
+              "verified": 137,
+              "errors": 1
+            },
+            "short-sampler": {
+              "verified": 1,
+              "errors": 1
+            },
+            "missing-failure-wipe": {
+              "verified": 1,
+              "errors": 1
+            },
+            "missing-byte-wipe": {
+              "verified": 1,
+              "errors": 1
+            }
+          }
+        },
+        {
+          "id": "native-kem-bytecode-controls",
+          "receipt": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+          "controls_path": "bytecode_controls",
+          "expected": {
+            "selector-narrow-helper": {
+              "rejected": "Unreviewed or payload-sensitive runtime helper"
+            },
+            "selector-payload-branch": {
+              "rejected": "Selector payload branch or changed loop control"
+            },
+            "selector-payload-boxing": {
+              "rejected": "Payload scalar boxing: 47: invokestatic  #35                 // Method java/lang/Byte.valueOf:(B)Ljava/lang/Byte;"
+            }
+          }
+        }
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/crypto/KEM-EVIDENCE.json",
+          "values": {
+            "scope": "full",
+            "proofs.proof-full": 2775,
+            "proofs.generate-java": 80
+          }
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+          "values": {
+            "scope": "full",
+            "proofs.proof-native-composition": 2776,
+            "proofs.proof-reference-graph": 2649,
+            "proofs.proof-native-kernels": 3487,
+            "proofs.generate-java": 162,
+            "native_runtime_guard.payload_scalar_boxings": 0
+          }
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
+          "values": {
+            "exit": 0,
+            "verified": 2776,
+            "platform": "linux/amd64",
+            "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2"
+          }
+        },
+        {
+          "receipt": "formal/crypto/adoption/stage-receipt.json",
+          "values": {
+            "schema": "microproxy.crypto-delivery-stage/v1",
+            "status": "complete",
+            "entry": "formal/crypto/NativeMlKem.dfy",
+            "generation.status": "translated",
+            "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+          }
+        },
+        {
+          "receipt": "formal/crypto/adoption/ACCEPTANCE.json",
+          "values": {
+            "schema": "microproxy.crypto-local-artifact-acceptance/v1",
+            "status": "complete",
+            "quic_jar_sha256": "9b0181cfce27ddb0a0ae06f8cae778d8f146e03520ef4545ce7ff9b8902b32e1",
+            "all_jar_sha256": "109e4eea359dcba478f867c7e4708c1cce43f2b7a6151640e28e68ed14d4792f"
+          }
+        },
+        {
+          "receipt": "formal/crypto/adoption/final-bundle.json",
+          "values": {
+            "schema": "microproxy.crypto-final-bundle/v1",
+            "status": "complete",
+            "artifact_sha256": "109e4eea359dcba478f867c7e4708c1cce43f2b7a6151640e28e68ed14d4792f",
+            "canonical_crypto_classes_matched": 70
+          }
+        },
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "values": {
+            "schema": "microproxy.crypto-delivery-config/v1",
+            "runtime.coordinate": "org.dafny:DafnyRuntime:4.9.1",
+            "runtime.sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+            "dafny.version_string": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+            "dafny.solver_version_string": "Z3 version 4.12.1 - 64 bit",
+            "native_evidence.replay_inventory.assertions": 7813,
+            "native_evidence.replay_inventory.rounds": 100,
+            "native_evidence.replay_inventory.malformed": 30,
+            "native_evidence.replay_inventory.selections": 3265,
+            "native_evidence.replay_inventory.destroyed": 101,
+            "native_evidence.command_exits.dafny-version": 0,
+            "native_evidence.command_exits.solver-version": 0,
+            "native_evidence.command_exits.audit": 0,
+            "native_evidence.command_exits.proof-native-composition": 0,
+            "native_evidence.command_exits.proof-reference-graph": 0,
+            "native_evidence.command_exits.proof-native-kernels": 0,
+            "native_evidence.command_exits.control-wrong-coins": 4,
+            "native_evidence.command_exits.control-matrix-axis": 4,
+            "native_evidence.command_exits.control-matrix-transpose": 4,
+            "native_evidence.command_exits.control-reused-nonce": 4,
+            "native_evidence.command_exits.control-wrong-fallback-seed": 4,
+            "native_evidence.command_exits.control-constant-selection": 4,
+            "native_evidence.command_exits.control-short-comparison": 4,
+            "native_evidence.command_exits.control-modulus-error-kind": 4,
+            "native_evidence.command_exits.control-short-sampler": 4,
+            "native_evidence.command_exits.control-missing-failure-wipe": 4,
+            "native_evidence.command_exits.control-missing-byte-wipe": 4,
+            "native_evidence.command_exits.generate-java": 0,
+            "native_evidence.command_exits.javac": 0,
+            "native_evidence.command_exits.native-runtime-bytecode": 0,
+            "native_evidence.command_exits.runtime-helpers-bytecode": 0,
+            "native_evidence.command_exits.jdk-byte-conversions": 0,
+            "native_evidence.command_exits.compile-selector-narrow-helper": 0,
+            "native_evidence.command_exits.inspect-selector-narrow-helper": 0,
+            "native_evidence.command_exits.compile-selector-payload-branch": 0,
+            "native_evidence.command_exits.inspect-selector-payload-branch": 0,
+            "native_evidence.command_exits.compile-selector-payload-boxing": 0,
+            "native_evidence.command_exits.inspect-selector-payload-boxing": 0,
+            "native_evidence.command_exits.java-0-version": 0,
+            "native_evidence.command_exits.java-0-byte-conversions": 0,
+            "native_evidence.command_exits.java-0": 0,
+            "native_evidence.command_exits.java-1-version": 0,
+            "native_evidence.command_exits.java-1-byte-conversions": 0,
+            "native_evidence.command_exits.java-1": 0
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+          "path": "inputs"
+        },
+        {
+          "receipt": "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
+          "path": "source_graph"
+        },
+        {
+          "receipt": "formal/crypto/adoption/stage-receipt.json",
+          "path": "sources"
+        }
+      ],
+      "entry_hash_checks": [
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "path": "providers",
+          "path_key": "source",
+          "hash_key": "sha256"
+        },
+        {
+          "receipt": "formal/crypto/delivery.json",
+          "path": "facades",
+          "path_key": "destination",
+          "hash_key": "sha256"
+        }
+      ],
+      "nonvacuity": {
+        "name": "native-kem-every-finite-input-domain",
+        "path": "formal/crypto/native_kem_domain.dfy",
+        "markers": [
+          "Every finite native byte input",
+          "no value-dependent public preconditions"
+        ]
+      },
+      "inventory_checks": [
+        {
+          "id": "native-production-delivery-inventory",
+          "root": "quic/src/main/java",
+          "receipt": "formal/crypto/adoption/stage-receipt.json",
+          "delivered_field": "delivered_sources",
+          "managed_prefixes": [
+            "io/github/mahmoudimus/quic/internal/verifiedcrypto/"
+          ],
+          "facade_manifest": "formal/crypto/delivery.json",
+          "runtime_manifest": "formal/crypto/delivery.json",
+          "expected_runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+        }
+      ]
+    },
+    {
+      "id": "V7",
+      "title": "Secret-trace proof for our code",
+      "status": "partial",
+      "statement": "A scoped paired-run register-machine trace and actual-class packet receive-path check exist; complete paired-execution trace evidence for HKDF orchestration, SHAKE and ML-KEM implicit rejection, and a justified JVM timing link, remain deferred.",
+      "dependencies": [
+        "V1",
+        "V2",
+        "V4",
+        "V6"
+      ],
+      "assumptions": [
+        "jvm-timing-jit-cpu-gc",
+        "crypto-hardness-entropy",
+        "dafny-toolchain",
+        "generated-runtime-discipline",
+        "packet-compiler-lowering"
+      ],
+      "evidence": [
+        {
+          "path": "docs/security-timing-audit.md",
+          "sha256": "de48dfbdfa4cf119ccd958868f4b3fbe18392a4af36250472e427a7a74a4fdb7",
+          "kind": "documentation",
+          "role": "source review and explicit timing exclusions"
+        },
+        {
+          "path": "scripts/security/assess-local-timing.sh",
+          "sha256": "db0a95fb7dbb24f70006505eb3313f90884432b76159f7c32f95757e4dacaf45",
+          "kind": "tool-manifest",
+          "role": "opt-in raw timing observation runner (no pass/fail threshold)"
+        },
+        {
+          "path": "formal/packet/EVIDENCE.md",
+          "sha256": "20c99f9fa8b44d40018e7f9404aa38dd7d84d2b3ecc8f404d7505d21483db262",
+          "kind": "component-receipt",
+          "role": "scoped packet trace evidence and limits"
+        },
+        {
+          "path": "formal/packet/inputs.json",
+          "sha256": "d1360e6a9b92049fa2e0ca40cd5a362e0d93eca4c647574cf0133bc6b2a80237",
+          "kind": "input-manifest",
+          "role": "packet trace source/checker/class pins"
+        },
+        {
+          "path": "formal/packet/README.md",
+          "sha256": "1821e515d084229d010a5414cd44520d0b9522911c07744251153bef19833091",
+          "kind": "documentation",
+          "role": "packet observer/trust boundaries"
+        },
+        {
+          "path": "formal/packet/TraceMachine.dfy",
+          "sha256": "1a298ad08fc5461e75e89908ab86bdc9baf5d9a4aa314620897269d539d3b128",
+          "kind": "model-source",
+          "role": "paired-run register-machine trace model"
+        },
+        {
+          "path": "formal/packet/bytecode_guard.py",
+          "sha256": "66acf6cbd1524b2e6b118c79a01fe191934ae7bd69e28cc20255244c6acfd993",
+          "kind": "tool-manifest",
+          "role": "actual-class structural/taint checker"
+        },
+        {
+          "path": "formal/saw/evidence/report.json",
+          "sha256": "0ca0375e3aec7f1b53c8a27cf3fadd37f0e180505a11403c0161f26a8d87feeb",
+          "kind": "bytecode-report",
+          "role": "blocked PacketKey.nonce SAW route"
+        },
+        {
+          "path": "docs/formal-security.md",
+          "sha256": "98b20e9ffe9fddd15a5f4293b09e97b8ca599db8b22ce5de6edb8d74ea535624",
+          "kind": "documentation",
+          "role": "published claim scope and residual limits"
+        },
+        {
+          "path": "docs/project/2026-10-28-java-crypto-verification.md",
+          "sha256": "2e7aa741e3445d748105fe3119eb712a24a249eb85fb94d296834d3e9053d8b9",
+          "kind": "documentation",
+          "role": "V7 obligations and declassification plan"
+        }
+      ],
+      "limitations": [
+        "No complete secret-trace proof covers HKDF, SHAKE or ML-KEM.",
+        "Packet trace observer excludes JIT/CPU/GC/provider timing, ByteBuffer internals, downstream AEAD/metadata and outbound protection.",
+        "No JVM/machine-code timing theorem or whole-record constant-time claim exists.",
+        "Finite timing samples are not pass/fail evidence.",
+        "Shared formal/dafny runner pins are in progress and are not validated by this snapshot."
+      ],
+      "receipt_checks": [
+        {
+          "receipt": "formal/saw/evidence/report.json",
+          "values": {
+            "runs.nonce.result": "blocked_by_array_clone_translation"
+          }
+        }
+      ],
+      "hash_maps": [
+        {
+          "receipt": "formal/packet/inputs.json",
+          "path": "inputs",
+          "include_prefixes": [
+            "formal/packet/",
+            "quic/src/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "V8",
+      "title": "Runtime evidence and assurance release gate",
+      "status": "partial",
+      "statement": "The non-timing release gate consumes the V0 ledger, validates exactly supported functional claims, and reports residual deferred/blocked claims; runtime timing manifests, deployment machine-code inspection and independent expert review remain open.",
+      "dependencies": [
+        "V0",
+        "V1",
+        "V2",
+        "V3",
+        "V4",
+        "V5",
+        "V6",
+        "V7"
+      ],
+      "assumptions": [
+        "jvm-timing-jit-cpu-gc",
+        "crypto-hardness-entropy",
+        "lean-toolchain",
+        "tlc-finite-model",
+        "saw-toolchain"
+      ],
+      "evidence": [
+        {
+          "path": "scripts/security/check_crypto_obligations.py",
+          "sha256": "af67b58dce07c7f41557d957be0dbab721a84a72d63634791d2bfda3708b38b5",
+          "kind": "tool-manifest",
+          "role": "fail-closed obligation ledger validator"
+        },
+        {
+          "path": "scripts/security/check_crypto_release.py",
+          "sha256": "6802be4fcc3ab3dd503d50ab8ed3b5acc31cb86b07a4922338a3fb1f50ac5463",
+          "kind": "tool-manifest",
+          "role": "claim-level release gate"
+        },
+        {
+          "path": "scripts/security/test_crypto_obligations.py",
+          "sha256": "bbc02d8ee5c46a0a64a746e889701129d0a0f2cda468850eb399eb0c32e23362",
+          "kind": "test-source",
+          "role": "ledger/gate negative-control tests"
+        },
+        {
+          "path": "formal/obligations.md",
+          "sha256": "f3d6ab7a1b520af4a0dfaf856833bcea985542881ece69e269b251f9b1b06d97",
+          "kind": "documentation",
+          "role": "ledger status, renewal and residual guide"
+        },
+        {
+          "path": "scripts/security/assess-local-timing.sh",
+          "sha256": "db0a95fb7dbb24f70006505eb3313f90884432b76159f7c32f95757e4dacaf45",
+          "kind": "tool-manifest",
+          "role": "opt-in raw timing observation runner (no pass/fail threshold)"
+        },
+        {
+          "path": "docs/security-timing-audit.md",
+          "sha256": "de48dfbdfa4cf119ccd958868f4b3fbe18392a4af36250472e427a7a74a4fdb7",
+          "kind": "documentation",
+          "role": "timing limitations"
+        },
+        {
+          "path": "docs/formal-security.md",
+          "sha256": "98b20e9ffe9fddd15a5f4293b09e97b8ca599db8b22ce5de6edb8d74ea535624",
+          "kind": "documentation",
+          "role": "published claim scope and residual limits"
+        },
+        {
+          "path": "formal/crypto/adoption/ACCEPTANCE.json",
+          "sha256": "b85a8ab9c5966e2d11a3c5bccaa02a27756be75bc096236a66fa708fc7c422f0",
+          "kind": "snapshot-receipt",
+          "role": "historical local artifact acceptance"
+        },
+        {
+          "path": "formal/crypto/adoption/final-bundle.json",
+          "sha256": "fbdf38870c343fa652fb68f8ffa06321085686b6f1caebfecaa626db8af8d8ac",
+          "kind": "snapshot-receipt",
+          "role": "historical bundle comparison"
+        },
+        {
+          "path": "formal/crypto/delivery.json",
+          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "kind": "delivery-receipt",
+          "role": "current delivery/runtime pins"
+        },
+        {
+          "path": "formal/crypto/adoption/stage-receipt.json",
+          "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
+          "kind": "delivery-receipt",
+          "role": "current generated-source/class inventory"
+        }
+      ],
+      "limitations": [
+        "The historical adoption JAR/bundle receipts cannot authenticate a fresh current full JAR.",
+        "No pinned multi-JDK/CPU timing manifest or statistical pass/fail claim is provided.",
+        "No independent external cryptographic/proof review exists.",
+        "No generic whole-proxy \"secure\" claim follows from the ledger."
+      ],
+      "text_checks": [
+        {
+          "path": "docs/security-timing-audit.md",
+          "markers": [
+            "statistical pass/fail threshold",
+            "JVM timing remains unproved"
+          ]
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "shake-mlkem-functional-production",
+      "statement": "Production SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny and delivered through the pinned generated-source/class inventory, under the listed compiler/runtime/provider/facade trust assumptions.",
+      "status": "supported",
+      "strength": "implementation",
+      "production": true,
+      "obligations": [
+        "V4",
+        "V5",
+        "V6"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "generated-runtime-discipline",
+        "reviewed-java-facades"
+      ],
+      "evidence": [
+        "formal/crypto/SHAKE-EVIDENCE.json",
+        "formal/crypto/ByteLanes.dfy",
+        "formal/crypto/Shake.dfy",
+        "formal/crypto/SpongeSpec.dfy",
+        "formal/crypto/shake_domain.dfy",
+        "formal/primitives/Keccak.dfy",
+        "formal/crypto/shake_checks.py",
+        "formal/crypto/shake_java/io/github/mahmoudimus/quic/tls/GeneratedShakeTest.java",
+        "formal/crypto/delivery.json",
+        "formal/crypto/adoption/stage-receipt.json",
+        "quic/src/main/java/io/github/mahmoudimus/quic/tls/Shake.java",
+        "formal/crypto/CODEC-EVIDENCE.json",
+        "formal/crypto/POLYNOMIAL-EVIDENCE.json",
+        "formal/crypto/NATIVE-CODEC-EVIDENCE.json",
+        "formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json",
+        "formal/crypto/Codec.dfy",
+        "formal/crypto/Sampling.dfy",
+        "formal/crypto/Polynomial.dfy",
+        "formal/crypto/NativeCodec.dfy",
+        "formal/crypto/NativeSampling.dfy",
+        "formal/crypto/NativePolynomial.dfy",
+        "formal/crypto/NativeField.dfy",
+        "formal/crypto/native_codec_domain.dfy",
+        "formal/crypto/native_polynomial_domain.dfy",
+        "formal/primitives/Field.dfy",
+        "formal/crypto/KEM-EVIDENCE.json",
+        "formal/crypto/NATIVE-KEM-EVIDENCE.json",
+        "formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json",
+        "formal/crypto/MlKem.dfy",
+        "formal/crypto/KemSpec.dfy",
+        "formal/crypto/NativeMlKem.dfy",
+        "formal/crypto/native_kem_domain.dfy",
+        "formal/crypto/native_kem_hash.java",
+        "formal/crypto/kem_hash.java",
+        "formal/crypto/adoption/ACCEPTANCE.json",
+        "formal/crypto/adoption/approval.json",
+        "formal/crypto/adoption/final-bundle.json",
+        "formal/crypto/adoption/publication.json",
+        "formal/crypto/adoption/Shake.java",
+        "formal/crypto/adoption/MlKem768.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java"
+      ],
+      "limitations": [
+        "Functional equations only; no cryptographic-hardness, JVM-timing or physical-erasure claim.",
+        "Historical whole-JAR receipts are not fresh current-release identity evidence."
+      ]
+    },
+    {
+      "id": "hkdf-isolated-functional",
+      "statement": "The current local generated-Java Dafny HKDF kernel meets its stated Extract/Expand/TLS-label result equations relative to deterministic abstract HMAC over its general public domain, with exact generated-source/class binding and real-JCE adapter tests; it does not include a verified AWS dependency closure.",
+      "status": "supported",
+      "strength": "implementation",
+      "production": false,
+      "obligations": [
+        "V1",
+        "V2"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "reviewed-java-facades",
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        "formal/dafny/PRODUCTION-EVIDENCE.json",
+        "formal/dafny/inputs.json",
+        "formal/dafny/hkdf/GENERATED.json",
+        "formal/dafny/hkdf/Hkdf.dfy",
+        "formal/dafny/deliver_hkdf.py",
+        "formal/dafny/run.py",
+        "formal/dafny/test_run.py",
+        "formal/dafny/check_adapter_discipline.py",
+        "formal/dafny/java/dafny/BulkOnlySequence.java",
+        "formal/dafny/tools.json",
+        "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
+        "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
+        "formal/reference/aws-hkdf/TARGET-RECEIPT.json",
+        "formal/reference/aws-hkdf/CLOSURE-RECEIPT.json",
+        "formal/reference/aws-hkdf/EXECUTION-INPUTS.json",
+        "formal/reference/aws-hkdf/inputs.json",
+        "formal/reference/aws-hkdf/README.md",
+        "formal/dafny/NOTICE",
+        "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+        "quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
+        "quic/src/test/java/io/github/mahmoudimus/quic/HkdfGeneratedAdoptionTest.java",
+        "quic/src/test/java/io/github/mahmoudimus/quic/HkdfTest.java",
+        "formal/crypto/delivery.json"
+      ],
+      "limitations": [
+        "V1 remains partial because the AWS full dependency closure failed; target-only success is not closure.",
+        "Adapters, compiler/runtime and JCE provider are trusted and tested, not proved; this is not an adapter refinement theorem.",
+        "No full-JAR identity, whole-bytecode equivalence, timing or security proof."
+      ]
+    },
+    {
+      "id": "hkdf-production-functional",
+      "statement": "Production quic.Hkdf conditionally implements the verified local Dafny HKDF equations through the generated package, reviewed HkdfBridge and exact JdkHmac provider leaf, under explicit compiler/runtime/provider/facade trust; this is a component functional/production claim, not full-JAR identity or whole-bytecode equivalence.",
+      "status": "supported",
+      "strength": "implementation",
+      "production": true,
+      "obligations": [
+        "V1",
+        "V2"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "javac-jvm",
+        "jdk-primitives",
+        "reviewed-java-facades"
+      ],
+      "evidence": [
+        "formal/dafny/PRODUCTION-EVIDENCE.json",
+        "formal/dafny/inputs.json",
+        "formal/dafny/hkdf/GENERATED.json",
+        "formal/dafny/hkdf/Hkdf.dfy",
+        "formal/dafny/deliver_hkdf.py",
+        "formal/dafny/run.py",
+        "formal/dafny/test_run.py",
+        "formal/dafny/check_adapter_discipline.py",
+        "formal/dafny/java/dafny/BulkOnlySequence.java",
+        "formal/dafny/tools.json",
+        "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java",
+        "formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java",
+        "formal/reference/aws-hkdf/TARGET-RECEIPT.json",
+        "formal/reference/aws-hkdf/CLOSURE-RECEIPT.json",
+        "formal/reference/aws-hkdf/EXECUTION-INPUTS.json",
+        "formal/reference/aws-hkdf/inputs.json",
+        "formal/reference/aws-hkdf/README.md",
+        "formal/dafny/NOTICE",
+        "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java",
+        "quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java",
+        "quic/src/test/java/io/github/mahmoudimus/quic/HkdfGeneratedAdoptionTest.java",
+        "quic/src/test/java/io/github/mahmoudimus/quic/HkdfTest.java",
+        "formal/crypto/delivery.json"
+      ],
+      "limitations": [
+        "Component functional/generation claim only; no fresh full-JAR identity, whole-bytecode equivalence, adapter refinement, timing or security proof.",
+        "V1 remains partial because the AWS full dependency closure failed."
+      ]
+    },
+    {
+      "id": "mlkem-reduceonce-historical-bytecode",
+      "statement": "Historical pre-adoption Java 21 MlKem768.reduceOnce bytecode satisfies a mod-3329 result for 0 <= a < 6658.",
+      "status": "snapshot",
+      "strength": "bytecode",
+      "production": false,
+      "obligations": [
+        "V3"
+      ],
+      "assumptions": [
+        "saw-toolchain",
+        "javac-jvm"
+      ],
+      "evidence": [
+        "formal/saw/evidence/report.json",
+        "formal/saw/evidence/proof.log",
+        "formal/saw/inputs.json"
+      ],
+      "limitations": [
+        "Historical reference class, not current generated NativeField.",
+        "Callers, other ML-KEM operations and timing are outside the proof."
+      ]
+    },
+    {
+      "id": "packet-nonce-bytecode",
+      "statement": "Actual PacketKey.nonce(long) bytecode is proved equivalent to the intended nonce construction for all IV and packet-number bits.",
+      "status": "blocked",
+      "strength": "bytecode",
+      "production": false,
+      "obligations": [
+        "V3"
+      ],
+      "assumptions": [
+        "saw-toolchain",
+        "javac-jvm"
+      ],
+      "evidence": [
+        "formal/saw/evidence/report.json",
+        "formal/saw/evidence/nonce.log",
+        "formal/saw/README.md"
+      ],
+      "limitations": [
+        "Blocked by unsupported primitive-array clone translation; no clone contract or result was admitted."
+      ]
+    },
+    {
+      "id": "saw-portable-alternate-route",
+      "statement": "The portable SAW/Crucible array-clone route is selected and complete for the nonce bridge.",
+      "status": "not-selected",
+      "strength": "bytecode",
+      "production": false,
+      "obligations": [
+        "V3"
+      ],
+      "assumptions": [
+        "saw-toolchain"
+      ],
+      "evidence": [
+        "formal/saw/README.md",
+        "formal/saw/evidence/report.json"
+      ],
+      "limitations": [
+        "This alternate route is not complete; the selected implementation route is generated Dafny Java."
+      ]
+    },
+    {
+      "id": "packet-receive-trace-scoped",
+      "statement": "A paired-run atomic-word/register trace model applies to actual packet receive scalar classes for the documented receive-path observer, with fixed-address adapters and structural/taint checks.",
+      "status": "supported",
+      "strength": "model",
+      "production": false,
+      "obligations": [
+        "V7"
+      ],
+      "assumptions": [
+        "packet-compiler-lowering",
+        "generated-runtime-discipline",
+        "jvm-timing-jit-cpu-gc"
+      ],
+      "evidence": [
+        "formal/packet/EVIDENCE.md",
+        "formal/packet/inputs.json",
+        "formal/packet/TraceMachine.dfy",
+        "formal/packet/bytecode_guard.py"
+      ],
+      "limitations": [
+        "Scoped receive-path source/bytecode trace only; excludes JIT/CPU/GC/provider timing and downstream record processing.",
+        "Does not complete V7 for HKDF, SHAKE or ML-KEM."
+      ]
+    },
+    {
+      "id": "v8-nontiming-release-gate",
+      "statement": "The ledger/release gate rejects stale, incomplete, vacuous, finite-only, misclassified-control, model-only-production, broad-security/timing/expert and deferred-as-done claims while allowing honest residual reporting.",
+      "status": "supported",
+      "strength": "finite",
+      "production": false,
+      "obligations": [
+        "V0",
+        "V8"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "lean-toolchain",
+        "tlc-finite-model",
+        "saw-toolchain"
+      ],
+      "evidence": [
+        "scripts/security/check_crypto_obligations.py",
+        "scripts/security/check_crypto_release.py",
+        "scripts/security/test_crypto_obligations.py",
+        "formal/obligations.md"
+      ],
+      "limitations": [
+        "The gate validates provenance and declared claims, not the mathematical proofs themselves.",
+        "It does not make timing or expert-review evidence exist."
+      ]
+    },
+    {
+      "id": "v8-timing-release-evidence",
+      "statement": "Pinned multi-JDK/CPU runtime manifests, machine-code/intrinsic inspection and statistically justified timing conclusions support a release timing claim.",
+      "status": "deferred",
+      "strength": "finite",
+      "production": false,
+      "obligations": [
+        "V8",
+        "V7"
+      ],
+      "assumptions": [
+        "jvm-timing-jit-cpu-gc"
+      ],
+      "evidence": [
+        "scripts/security/assess-local-timing.sh",
+        "docs/security-timing-audit.md"
+      ],
+      "limitations": [
+        "Only raw opt-in local observations exist; no pass/fail threshold or deployment machine-code proof."
+      ]
+    },
+    {
+      "id": "current-release-jar-identity",
+      "statement": "A fresh receipt binds the current release full JAR/class entries to the verified generated-source graph at the current revision.",
+      "status": "deferred",
+      "strength": "implementation",
+      "production": true,
+      "obligations": [
+        "V4",
+        "V5",
+        "V6"
+      ],
+      "assumptions": [
+        "dafny-runtime",
+        "javac-jvm",
+        "generated-runtime-discipline"
+      ],
+      "evidence": [
+        "formal/crypto/adoption/stage-receipt.json",
+        "formal/crypto/adoption/ACCEPTANCE.json",
+        "formal/crypto/adoption/final-bundle.json"
+      ],
+      "limitations": [
+        "Existing acceptance/final-bundle receipts pre-date current main and cannot authenticate a fresh current full JAR."
+      ]
+    },
+    {
+      "id": "historical-adoption-jar-identity",
+      "statement": "Historical local acceptance compared generated crypto classes and a minimized bundle at the recorded adoption stage.",
+      "status": "snapshot",
+      "strength": "implementation",
+      "production": false,
+      "obligations": [
+        "V4",
+        "V5",
+        "V6"
+      ],
+      "assumptions": [
+        "dafny-runtime",
+        "javac-jvm"
+      ],
+      "evidence": [
+        "formal/crypto/adoption/ACCEPTANCE.json",
+        "formal/crypto/adoption/final-bundle.json",
+        "formal/crypto/adoption/stage-receipt.json"
+      ],
+      "limitations": [
+        "Snapshot only; matching historical hashes do not authenticate the current JAR or constitute semantic proof."
+      ]
+    },
+    {
+      "id": "independent-expert-review",
+      "statement": "Independent external cryptographic/proof experts reviewed the current proofs, implementation and claims.",
+      "status": "unsupported",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V8"
+      ],
+      "assumptions": [
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        "docs/formal-security.md",
+        "docs/security-timing-audit.md"
+      ],
+      "limitations": [
+        "Only agent-assisted development review exists; no independent external audit is claimed."
+      ]
+    },
+    {
+      "id": "cryptographic-security-proof",
+      "statement": "The cryptographic constructions are proved secure under a named reduction and adversary model.",
+      "status": "unsupported",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V6",
+        "V7"
+      ],
+      "assumptions": [
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        "docs/formal-security.md",
+        "docs/security-timing-audit.md"
+      ],
+      "limitations": [
+        "Functional proofs do not imply cryptographic hardness or security reductions."
+      ]
+    },
+    {
+      "id": "jvm-constant-time",
+      "statement": "The deployed JVM/JIT/CPU/provider implementation is constant time for all secret-dependent operations.",
+      "status": "unsupported",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V7"
+      ],
+      "assumptions": [
+        "jvm-timing-jit-cpu-gc"
+      ],
+      "evidence": [
+        "docs/security-timing-audit.md",
+        "scripts/security/assess-local-timing.sh"
+      ],
+      "limitations": [
+        "JVM/CPU/GC/provider timing is explicitly deferred; no constant-time claim is supported."
+      ]
+    },
+    {
+      "id": "whole-proxy-security",
+      "statement": "The whole MicroProxy is proved secure.",
+      "status": "unsupported",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V8"
+      ],
+      "assumptions": [
+        "crypto-hardness-entropy",
+        "jvm-timing-jit-cpu-gc"
+      ],
+      "evidence": [
+        "docs/formal-security.md"
+      ],
+      "limitations": [
+        "No end-to-end security proof, protocol refinement or independent audit exists."
+      ]
+    },
+    {
+      "id": "aws-full-upstream-hkdf-replay",
+      "statement": "The full AWS MPL upstream HKDF dependency/submodule graph was independently replayed for this repository.",
+      "status": "unsupported",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V1",
+        "V2"
+      ],
+      "assumptions": [
+        "dafny-toolchain"
+      ],
+      "evidence": [
+        "formal/reference/aws-hkdf/CLOSURE-RECEIPT.json",
+        "formal/reference/aws-hkdf/inputs.json",
+        "formal/reference/aws-hkdf/README.md"
+      ],
+      "limitations": [
+        "Only the standalone local kernel was verified; upstream provenance is attribution for reused structure, not a full graph replay."
+      ]
+    },
+    {
+      "id": "all-v0-v8-complete",
+      "statement": "Every V0-V8 obligation, including production HKDF adoption, complete secret-trace/timing evidence, fresh current-JAR identity and independent expert review, is closed.",
+      "status": "deferred",
+      "strength": "none",
+      "production": false,
+      "obligations": [
+        "V0",
+        "V1",
+        "V2",
+        "V3",
+        "V4",
+        "V5",
+        "V6",
+        "V7",
+        "V8"
+      ],
+      "assumptions": [
+        "jvm-timing-jit-cpu-gc",
+        "crypto-hardness-entropy"
+      ],
+      "evidence": [
+        "formal/obligations.md",
+        "scripts/security/check_crypto_release.py"
+      ],
+      "limitations": [
+        "Deferred/blocked/unsupported residuals remain; --require-all must fail until they are genuinely closed."
+      ]
+    }
+  ]
+}
