@@ -1,0 +1,187 @@
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/JSON/Utils/Views.Writers.dfy(117,12): Error: unless an initializer is provided for the array elements, a new array of 'byte' must have empty size
+    |
+117 |       bs := new byte[length];
+    |             ^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/UInt.dfy(219,8): Error: Verification out of resource (StandardLibrary.UInt.UInt64SeqSerialize)
+    |
+219 |   lemma UInt64SeqSerialize(x: uint64, s: seq<uint8>)
+    |         ^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64Lemmas.dfy(61,63): Error: Verification out of resource (Base64Lemmas.DecodeValidEncode1Padding)
+   |
+61 |       EncodeUnpadded(DecodeValid(s)[..(|DecodeValid(s)| - 2)]) + Encode1Padding(DecodeValid(s)[(|DecodeValid(s)| - 2)..]);
+   |                                                                ^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64Lemmas.dfy(112,63): Error: Verification out of resource (Base64Lemmas.DecodeValidEncode2Padding)
+    |
+112 |       EncodeUnpadded(DecodeValid(s)[..(|DecodeValid(s)| - 1)]) + Encode2Padding(DecodeValid(s)[(|DecodeValid(s)| - 1)..]);
+    |                                                                ^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64.dfy(382,12): Error: Verification out of resource (Base64.Encode1Padding)
+    |
+382 |     ensures Decode1Padding(s) == b
+    |             ^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64.dfy(390,8): Error: Verification out of resource (Base64.DecodeEncode1Padding)
+    |
+390 |   lemma DecodeEncode1Padding(s: seq<char>)
+    |         ^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64.dfy(420,18): Error: Verification out of resource (Base64.Encode2Padding)
+    |
+420 |   function method Encode2Padding(b: seq<uint8>): (s: seq<char>)
+    |                   ^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64.dfy(432,8): Error: Verification out of resource (Base64.DecodeEncode2Padding)
+    |
+432 |   lemma DecodeEncode2Padding(s: seq<char>)
+    |         ^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/StandardLibrary/src/Base64.dfy(552,8): Error: Verification out of resource (Base64.EncodeLengthExact)
+    |
+552 |   lemma EncodeLengthExact(b: seq<uint8>)
+    |         ^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/JSON/ZeroCopy/Deserializer.dfy(73,13): Error: Verification out of resource (JSON.ZeroCopy.Deserializer.Core.TryStructural)
+   |
+73 |     function TryStructural(cs: FreshCursor)
+   |              ^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(30,6): Error: a precondition for this call could not be proved
+   |
+30 |       LemmaInductionHelper(n, f, x - n);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(23,13): Related location: this is the precondition that could not be proved
+   |
+23 |     requires forall i {:trigger f(i), f(i + n)} :: i >= 0 && f(i) ==> f(i + n)
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(30,6): Error: a precondition for this call could not be proved
+   |
+30 |       LemmaInductionHelper(n, f, x - n);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(24,13): Related location: this is the precondition that could not be proved
+   |
+24 |     requires forall i {:trigger f(i), f(i - n)} :: i < n  && f(i) ==> f(i - n)
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(35,6): Error: a precondition for this call could not be proved
+   |
+35 |       LemmaInductionHelper(n, f, x + n);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(23,13): Related location: this is the precondition that could not be proved
+   |
+23 |     requires forall i {:trigger f(i), f(i + n)} :: i >= 0 && f(i) ==> f(i + n)
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(35,6): Error: a precondition for this call could not be proved
+   |
+35 |       LemmaInductionHelper(n, f, x + n);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(24,13): Related location: this is the precondition that could not be proved
+   |
+24 |     requires forall i {:trigger f(i), f(i - n)} :: i < n  && f(i) ==> f(i - n)
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(36,13): Error: assertion might not hold
+   |
+36 |       assert f((x + n) - n);
+   |              ^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/MulInternals.dfy(43,28): Error: a precondition for this call could not be proved
+   |
+43 |     forall i ensures f(i) { LemmaInductionHelper(1, f, i); }
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/GeneralInternals.dfy(24,13): Related location: this is the precondition that could not be proved
+   |
+24 |     requires forall i {:trigger f(i), f(i - n)} :: i < n  && f(i) ==> f(i - n)
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/MulInternals.dfy(47,8): Error: Verification of 'MulInternals.LemmaMulCommutes' timed out after 100 seconds
+   |
+47 |   lemma LemmaMulCommutes()
+   |         ^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Internals/MulInternals.dfy(75,8): Error: Verification of 'MulInternals.LemmaMulDistributes' timed out after 100 seconds
+   |
+75 |   lemma LemmaMulDistributes()
+   |         ^^^^^^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/Collections/Sequences/Seq.dfy(630,55): Error: function precondition could not be proved
+    |
+630 |                 reads set i, o | 0 <= i < |xs| && o in f.reads(xs[i]) :: o
+    |                                                        ^^^^^^^^^^^^^^
+
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/Collections/Sequences/Seq.dfy(706,63): Error: Verification out of resource (Seq.LemmaFilterDistributesOverConcat)
+    |
+706 |         { assert {:split_here} [(xs + ys)[0]] + (xs[1..] + ys) == xs + ys; }
+    |                                                                ^^
+
+Encountered internal compilation exception: Boogie program had 8 resolution errors:
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+/tmp/microproxy-117-20261101/aws-mpl/libraries/src/NonlinearArithmetic/Mul.dfy(25,8): Error: Internal error occurred during verification: Boogie program had 8 resolution errors:
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+ Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+    at Microsoft.Boogie.ExecutionEngine.GetVerificationTasks(Program program, CancellationToken cancellationToken)
+    at Microsoft.Dafny.LanguageServer.Language.DafnyProgramVerifier.GetVerificationTasksAsync(ExecutionEngine engine, ResolutionResult resolution, ModuleDefinition moduleDefinition, CancellationToken cancellationToken)
+    at Microsoft.Dafny.Compilation.<>c__DisplayClass58_0.<<VerifyUnverifiedSymbol>b__1>d.MoveNext()
+ --- End of stack trace from previous location ---
+    at Microsoft.Dafny.Compilation.VerifyUnverifiedSymbol(Boolean onlyPrepareVerificationForGutterTests, ICanVerify canVerify, ResolutionResult resolution, Func`2 taskFilter, Nullable`1 randomSeed)
+    at Microsoft.Dafny.Compilation.VerifyUnverifiedSymbol(Boolean onlyPrepareVerificationForGutterTests, ICanVerify canVerify, ResolutionResult resolution, Func`2 taskFilter, Nullable`1 randomSeed)
+   |
+25 |   lemma LemmaMulIsMulRecursive(x: int, y: int)
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+
+Unhandled exception. System.ArgumentException: Boogie program had 8 resolution errors:
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+Microsoft.Dafny.BoogieRangeOrigin: arithmetic comparisons are not allowed in triggers
+   at Microsoft.Boogie.ExecutionEngine.GetVerificationTasks(Program program, CancellationToken cancellationToken)
+   at Microsoft.Dafny.LanguageServer.Language.DafnyProgramVerifier.GetVerificationTasksAsync(ExecutionEngine engine, ResolutionResult resolution, ModuleDefinition moduleDefinition, CancellationToken cancellationToken)
+   at Microsoft.Dafny.Compilation.<>c__DisplayClass58_0.<<VerifyUnverifiedSymbol>b__1>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.Dafny.Compilation.VerifyUnverifiedSymbol(Boolean onlyPrepareVerificationForGutterTests, ICanVerify canVerify, ResolutionResult resolution, Func`2 taskFilter, Nullable`1 randomSeed)
+   at Microsoft.Dafny.Compilation.VerifyUnverifiedSymbol(Boolean onlyPrepareVerificationForGutterTests, ICanVerify canVerify, ResolutionResult resolution, Func`2 taskFilter, Nullable`1 randomSeed)
+   at Microsoft.Dafny.Compilation.VerifyUnverifiedSymbol(Boolean onlyPrepareVerificationForGutterTests, ICanVerify canVerify, ResolutionResult resolution, Func`2 taskFilter, Nullable`1 randomSeed)
+   at DafnyDriver.Commands.CliCompilation.VerifyAllLazily(Nullable`1 randomSeed)+System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult()
+   at System.Linq.AsyncEnumerable.ToObservableObservable`1.<>c__DisplayClass2_0.<<Subscribe>g__Core|0>d.MoveNext() in /_/Ix.NET/Source/System.Linq.Async/System/Linq/Operators/ToObservable.cs:line 50
+--- End of stack trace from previous location ---
+   at System.Reactive.PlatformServices.ExceptionServicesImpl.Rethrow(Exception exception) in /_/Rx.NET/Source/src/System.Reactive/Internal/ExceptionServicesImpl.cs:line 16
+   at System.Reactive.ExceptionHelpers.Throw(Exception exception) in /_/Rx.NET/Source/src/System.Reactive/Internal/ExceptionServices.cs:line 14
+   at System.Reactive.Stubs.<>c.<.cctor>b__2_1(Exception ex) in /_/Rx.NET/Source/src/System.Reactive/Internal/Stubs.cs:line 16
+   at System.Reactive.AnonymousObserver`1.OnErrorCore(Exception error) in /_/Rx.NET/Source/src/System.Reactive/AnonymousObserver.cs:line 73
+   at System.Reactive.ObserverBase`1.OnError(Exception error) in /_/Rx.NET/Source/src/System.Reactive/ObserverBase.cs:line 59
+   at System.Reactive.Subjects.Subject`1.OnError(Exception error) in /_/Rx.NET/Source/src/System.Reactive/Subjects/Subject.cs:line 124
+   at System.Linq.AsyncEnumerable.ToObservableObservable`1.<>c__DisplayClass2_0.<<Subscribe>g__Core|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at System.Linq.AsyncEnumerable.ToObservableObservable`1.<>c__DisplayClass2_0.<<Subscribe>g__Core|0>d.MoveNext() in /_/Ix.NET/Source/System.Linq.Async/System/Linq/Operators/ToObservable.cs:line 74
+--- End of stack trace from previous location ---
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_1(Object state)
+   at System.Threading.QueueUserWorkItemCallbackDefaultContext.Execute()
+   at System.Threading.ThreadPoolWorkQueue.Dispatch()
+   at System.Threading.PortableThreadPool.WorkerThread.WorkerThreadStart()
+   at System.Threading.Thread.StartCallback()

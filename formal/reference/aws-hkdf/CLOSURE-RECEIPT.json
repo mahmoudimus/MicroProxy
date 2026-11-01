@@ -1,0 +1,38 @@
+{
+  "schema": "microproxy.aws-hkdf-reference-replay/v1",
+  "status": "failed",
+  "scope": "closure",
+  "full_dependency_graph_verified": false,
+  "manifest_sha256": "bc446dbbbf2fc84a74adbb642a7e92fe9ae6f1e23790c40d78036a293361442c",
+  "exit_code": 134,
+  "log_sha256": "cf0b8efeeae33903d02d43c5c6331587ad4548962636cf4142003756388752a0",
+  "summary": "The exact upstream dependency closure did not verify. No obligation was discharged by this failed replay.",
+  "failures": {
+    "determinism": "libraries/src/JSON/Utils/Views.Writers.dfy:117 uninitialized new byte[length]",
+    "resources": "UInt, Base64, JSON and sequence dependency obligations exhausted the upstream 10000000 resource budget.",
+    "timeout": "MulInternals.LemmaMulCommutes and LemmaMulDistributes timed out at the upstream 100-second limit.",
+    "backend": "Boogie resolution errors followed by System.ArgumentException and exit134."
+  },
+  "command": [
+    "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
+    "verify",
+    "--function-syntax",
+    "3",
+    "--unicode-char",
+    "false",
+    "--enforce-determinism",
+    "--verify-included-files",
+    "--allow-deprecation",
+    "--allow-external-contracts",
+    "--cores",
+    "2",
+    "--verification-time-limit",
+    "100",
+    "--resource-limit",
+    "10000000",
+    "/private/tmp/microproxy-117-20261101/aws-mpl/AwsCryptographyPrimitives/src/HKDF/HKDF.dfy"
+  ],
+  "ownership": "Unmodified upstream AWS/library dependency snapshot; not a failure of the independently specified MicroProxy HKDF kernel.",
+  "execution_manifest": "EXECUTION-INPUTS.json",
+  "dafny_sha256": "9ae7c1d3dc24d82d2bd0058b3c29a1071eacfcebb5782f05d5ed53f8e41662c6"
+}
