@@ -1,0 +1,30 @@
+Loading file "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/wrong-modulus.saw"
+registering standard overrides
+registering user-provided overrides
+registering assumptions
+simulating function
+Subgoal failed: reduceOnce Literal equality postcondition
+Expected term: 
+wrongReduceOnce a
+Actual term:
+let { _x`1 = bvNat 32 65535;
+      _x`2 = bvAnd 32 _x`1 (bvAdd 32 (bvNat 32 4294963967) a);
+    }
+ in bvAnd 32 _x`1
+      (bvAdd 32 _x`2
+         (bvMul 32 (bvNat 32 3329)
+            (bvShr 32 _x`2 (bvToNat 32 (bvNat 32 15)))))
+
+Goal size 125. Provers used: abc_verilog
+----------Counterexample----------
+  a: 4095
+----------------------------------
+Stack trace:
+   (builtin) in abc
+   /Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/wrong-modulus.saw:12:3-12:6 in (callback)
+   (builtin) in abc
+   /Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/wrong-modulus.saw:12:3-12:6 in (callback)
+   (builtin) in jvm_verify
+   /Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/controls/wrong-modulus.saw:7:1-12:6 (at top level)
+Proof failed.
+

@@ -1,0 +1,11 @@
+Loading file "/Users/mahmoud/.codex/worktrees/security-review/microproxy/formal/saw/blocked/packet-key-nonce.saw"
+registering standard overrides
+registering user-provided overrides
+registering assumptions
+simulating function
+TODO: invoke virtual "clone" unsupported for arrays
+CallStack (from HasCallStack):
+  error, called at src/Lang/Crucible/JVM/Translation/Monad.hs:62:15 in crucible-jvm-0.2.1.0.99-inplace:Lang.Crucible.JVM.Translation.Monad
+  jvmFail, called at src/Lang/Crucible/JVM/Translation.hs:413:21 in crucible-jvm-0.2.1.0.99-inplace:Lang.Crucible.JVM.Translation
+  sgFail, called at src/Lang/Crucible/JVM/Translation.hs:874:7 in crucible-jvm-0.2.1.0.99-inplace:Lang.Crucible.JVM.Translation
+  generateInstruction, called at src/Lang/Crucible/JVM/Translation.hs:353:31 in crucible-jvm-0.2.1.0.99-inplace:Lang.Crucible.JVM.Translation
