@@ -48,7 +48,7 @@
     "quic/src/main/java/io/github/mahmoudimus/quic/CipherSuite.java": "5bbc73d63ce71c352b14f3cf14eb7780440ca78cf1ac07f1a30c2ef150ae1fe1",
     "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
     "quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsRecordLayer.java": "81cf84c744fb21acf9e1b60c68cd87089986a0799cc0a4c0473a353150a777b4",
-    "quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java": "39b97f56741589e059404bdba5ac0f45f1336f253cb8496929f60d5a5837d117",
+    "quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java": "03c3add7e2bf392fad9cffdef4fb4dd3e05e3762d3a2e9f99ed4b5592782c529",
     "quic/src/main/java/io/github/mahmoudimus/quic/tls/Tls12CipherSuite.java": "899a9f1a198649bea3015f930cb706e7225445213cec1969816aa1b9b46ed79c",
     "microproxy/src/main/java/org/microproxy/dns/DnssecValidator.java": "e612489bc8a9c232777eea5b422d2090251937b238af8b8cfa31d92cf3bb0a98",
     "microproxy/src/main/java/org/microproxy/dns/DnssecHostResolver.java": "1b888b6e27a2d16c8540b1379b3fbe443af8dbd941e879b6fd7142490a4cc22a",
