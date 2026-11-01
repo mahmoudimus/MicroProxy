@@ -89,6 +89,15 @@ class Fixture:
         return next(item for item in self.ledger["claims"] if item["id"] == claim_id)
 
     def _build(self) -> dict:
+        # The unified V7 report validator is always active; fixture roots carry
+        # the actual component report/manifest data rather than a shape stub.
+        for relative in ("formal/timing/PRODUCTION-EVIDENCE.json", "formal/timing/inputs.json"):
+            target = self.root / relative
+            if not target.exists():
+                real = self.REAL_ROOT / relative
+                if real.is_file():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(real.read_bytes())
         packed = self.assumptions
         items = []
         for index, oid in enumerate(obligations.REQUIRED_OBLIGATIONS):
@@ -829,6 +838,77 @@ class ObligationLedgerTests(unittest.TestCase):
         self.fixture._set_evidence("V7", evidence_path, "component-receipt")
         self.assert_invalid("required reviewed text checks removed")
 
+    def _repin_trace_report(self) -> str:
+        path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        self.fixture._set_evidence("V7", path, "component-receipt")
+        return path
+
+    def test_trace_positive_fixture_and_mutant_diagnostic_snapshot_bound(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        report = self.fixture._load_json(path)
+        positive = report["fixtures"]["ConstantTime"]
+        positive["obligations"] = 0
+        positive["instructions"] = 0
+        positive["instructions_reachable"] = 0
+        report["certificate_mutants"]["secret-guard"]["diagnostic"] = "timeout"
+        self.fixture._write_json(path, report)
+        self._repin_trace_report()
+        self.assert_invalid("trace report does not match reviewed snapshot")
+
+    def test_trace_owned_contract_and_open_reason_snapshot_bound(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        report = self.fixture._load_json(path)
+        report["assumed_owned_callees"][0]["contract"]["result"] = "sec"
+        report["open_roots"][0]["reason"] = "fabricated reason"
+        self.fixture._write_json(path, report)
+        self._repin_trace_report()
+        self.assert_invalid("trace report does not match reviewed snapshot")
+
+    def test_trace_budget_command_and_class_binding_values_snapshot_bound(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        report = self.fixture._load_json(path)
+        command = report["roots"][0]["verify_command"]
+        command[command.index("30")] = "999"
+        first_class = next(iter(report["class_binding"]))
+        report["class_binding"][first_class]["class_sha256"] = "0" * 64
+        self.fixture._write_json(path, report)
+        self._repin_trace_report()
+        self.assert_invalid("trace report does not match reviewed snapshot")
+
+    def test_trace_input_drift_cannot_be_hidden_by_repin(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        inputs_path = "formal/timing/inputs.json"
+        report_path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        inputs = self.fixture._load_json(inputs_path)
+        removed = next(iter(inputs["inputs"]))
+        del inputs["inputs"][removed]
+        self.fixture._write_json(inputs_path, inputs)
+        report = self.fixture._load_json(report_path)
+        report["inputs"].pop(removed, None)
+        self.fixture._write_json(report_path, report)
+        self.fixture._set_evidence("V7", inputs_path, "input-manifest")
+        self.fixture._set_evidence("V7", report_path, "component-receipt")
+        self.assert_invalid("pinned map key inventory changed|trace report inputs differ|trace report does not match reviewed snapshot")
+
+    def test_trace_scope_deletion_and_fake_closure_fail(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        report_path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        report = self.fixture._load_json(report_path)
+        report["open_roots"] = report["open_roots"][1:]
+        report["assumed_owned_callees"] = []
+        report["unchecked_owned_callees"] = []
+        self.fixture._write_json(report_path, report)
+        self.fixture._set_evidence("V7", report_path, "component-receipt")
+        self.assert_invalid("assumed owned callee set changed|open owned root|unchecked owned callee|trace report does not match reviewed snapshot")
+
+    def test_v7_cannot_be_promoted_with_open_roots_or_assumed_callees(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        self.fixture.obligation("V7")["status"] = "bytecode-proof"
+        self.assert_invalid("V7 cannot be promoted")
+
     def test_unvalidated_future_categories_fail_closed_even_with_receipts(self):
         cases = (
             ("cryptographic-security-proof", "security-reduction-receipt", "V6"),
@@ -1089,7 +1169,7 @@ class ObligationLedgerTests(unittest.TestCase):
             "evidence": [path for path, _ in policy["required_evidence"]],
             "limitations": ["derived completion"],
         })
-        self.assert_invalid("no reviewed semantic evidence validator|required claims are not supported|obligations are not complete")
+        self.assert_invalid("no reviewed semantic evidence validator|required claims are not supported|obligations are not complete|V7 cannot be promoted")
 
     def test_repinned_source_with_old_receipt_still_fails(self):
         self.fixture.make_production_supported()

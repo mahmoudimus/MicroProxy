@@ -172,9 +172,23 @@ At this snapshot:
   component functional/generation claim; it is not a fresh full-JAR identity, whole
   handwritten-bytecode refinement, JVM timing or security proof. V1 stays partial
   for the failed AWS upstream closure.
-- Packet receive-path trace evidence is scoped to its documented observer. There is
-  no complete secret-trace proof for HKDF, SHAKE or ML-KEM, no JVM/machine-code
-  timing theorem and no constant-time claim.
+- V7 now catalogues the stable `formal/timing` component as conditional caller/model
+  evidence: a two-run `SecretTrace` theorem, five actual-bytecode caller
+  certificates (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169),
+  57 model / 17 HKDF-shape obligations, 14 fixtures (1 positive, 13 policy rejects)
+  and 4 genuine certificate mutants. Its report has 15 open owned roots, 19 assumed
+  owned helper/adapter trace contracts and 31 unchecked owned callees/labels. Those
+  assumptions are explicit; the trusted javap extractor/policy is recorded. V7 is
+  not promoted and cannot be promoted while the open roots/assumed callees remain;
+  this is not a universal JVM bytecode proof, JVM timing theorem, source functional
+  proof of new modules, or complete secret-trace proof for HKDF/SHAKE/ML-KEM. The
+  exact reviewed report snapshot SHA-256
+  `9782ef72d7a725d12cc1098b88f21506b802a344c6dbcb858549ef2804a2de54` is pinned in
+  code; advancing that baseline requires explicit source/policy review as well as a
+  data-hash update, not a self-declared ledger/receipt repin.
+- Packet receive-path trace evidence remains separately scoped. The existing
+  `packet-receive-trace-scoped` claim covers only its documented packet observer; it
+  does not claim the new whole-crypto timing-component results.
 - Timing measurements are raw local observations with no statistical pass/fail
   threshold. Independent external cryptographic/proof review is absent.
 - The original SHAKE/ML-KEM adoption receipts are historical snapshots. The later
@@ -201,10 +215,11 @@ must be tied to an actual reviewed receipt, not a label:
 2. Keep V1 `partial` until a reviewed successful AWS dependency-closure receipt with
    `full_dependency_graph_verified=true` exists. Target-only 9-declaration success
    must not be promoted to closure.
-3. Keep V7/V8 partial and all-complete unsupported until trace/timing, current-JAR
-   and independent external expert evidence genuinely exist.
+3. Keep V7/V8 partial and all-complete unsupported until the 15 open owned trace
+   roots, 19 assumed owned helper contracts, runtime timing/current-JAR and
+   independent external expert evidence genuinely close.
 4. If the HKDF final delivery store or production adapter changes, renew the exact
    input/tool/generated-source/class/provider/facade pins and their receipt
-   validators, then rerun the 62 tests and all normal/narrow/all-required checks.
+   validators, then rerun the 68 tests and all normal/narrow/all-required checks.
 5. Do not convert agent-assisted development review into an independent external
    expert-review receipt.

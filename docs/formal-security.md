@@ -2,8 +2,8 @@
 
 ## Functionally verified cryptographic implementations with documented trust assumptions
 
-Production SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny
-implementations. The proofs cover their stated functional specifications; checked source,
+Production HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified
+Dafny implementations. The proofs cover their stated functional specifications; checked source,
 class and JAR delivery connects the verified source to the packaged Java. Compiler/runtime,
 reviewed Java facades and selected JDK primitives remain trusted, as detailed below.
 
@@ -27,7 +27,7 @@ remaining assumptions.
 |---|---|---|
 | TLA+ with TLC | Explore TLS key/sequence/closure transitions and check invariants within the configured finite state space | Model checking plus finite observations of production behavior; it does not generate our Java or prove unbounded refinement. |
 | Lean 4 | Kernel-checked mathematical theorems about counters, nonce/label encodings and resource bounds | Universal model theorems plus separately identified finite Java observations; it does not generate the production implementation. |
-| Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Production SHAKE/ML-KEM use native-array refinements and checked Java delivery. The packet kernel is integrated; HKDF remains isolated. Compiler/runtime, facades and any lowering are explicit trust boundaries. |
+| Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Production HKDF, SHAKE and ML-KEM use generated Java with checked delivery. SHAKE/ML-KEM use native-array refinements; HKDF implements complete Extract/Expand/label equations. The packet kernel is integrated. Compiler/runtime, facades and any lowering are explicit trust boundaries. |
 | SAW/Crucible | Prove a property of supported actual Java class-file methods | One bounded reduction method from the pre-adoption Java artifact; it does not prove the current generated backend. Unsupported operations and caller preconditions remain outside that experiment. |
 
 For generated components the delivery sequence is:
@@ -71,8 +71,7 @@ Provider choice, runtime, native intrinsics, CPU and deployment configuration re
 | Component | Our responsibility | Evidence and remaining boundary |
 |---|---|---|
 | `TlsRecordLayer`, `crypto/PacketKey` | Key/IV/nonce construction, counters, AAD, buffers, errors and lifetime around JDK AEAD | Published record/packet vectors, rejection tests, counter/nonce model proofs. No full Java record refinement. |
-| `Hkdf` | Extract/Expand feedback/counter/block copying and TLS labels around JDK HMAC | RFC 5869/9001 vectors, validation and label model checks. Full Expand-loop equivalence/HKDF security reduction is not proved here. |
-| Generated Dafny HKDF component | Extract/Expand/TLS-label implementation compiled from verified Dafny | Full functional result equations relative to abstract HMAC, unrestricted input harness and negative controls; generated Java tested with real JCE. Isolated component, not the production `Hkdf` replacement. |
+| `Hkdf`, generated HKDF and Java/JCE adapters | Extract/Expand feedback/counters, block copying and TLS labels around JDK HMAC | The production facade delegates to the generated kernel. Full result equations, a general-domain harness, mutation controls, RFC/JCE vectors and source/class/JAR checks cover the selected route. The adapters, compiler/runtime and HMAC provider remain trusted; no HKDF security reduction or JVM timing proof. |
 | `KeySchedule`, `Tls12Prf`, `Hpke`, `crypto/Keys` | Role/stage order, transcripts, labels, contexts and updates | TLS/HPKE/QUIC vectors and integration tests; no general protocol/key-schedule security proof. |
 | `crypto/HeaderKey`, `packet/PacketNumber` | Mask/sample offsets, header bits, PN prefix/reconstruction | JDK AES/ChaCha plus packet vectors; generated scalar functional/trace proofs and fixed-address adapter checks below. No complete Java buffer/provider or whole-record timing refinement. |
 | `KeyExchange`, `EcCurves`, `Signatures` | Encodings, hybrid order, public point/zero checks, signature contexts/parameters | JDK classical primitives plus vectors/interop/negative tests. Wire/policy glue remains ours. |
@@ -162,7 +161,7 @@ CI job and currently requires the documented local tool setup.
 
 ### Verified Dafny implementation and Java generation
 
-The [Dafny HKDF component](https://github.com/mahmoudimus/MicroProxy/blob/73c12c57baa765caeea78971ae8c3a7bc4f17f1d/formal/dafny/README.md) implements Extract, Expand,
+The [Dafny HKDF component](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/dafny/README.md) implements Extract, Expand,
 TLS label serialization and their composition. All four methods return explicit
 validation results and have full output equations, with no caller preconditions.
 The kernel verifies 21 checks; a separate harness verifies that all methods remain
@@ -171,6 +170,13 @@ truncation and prefix, a narrowed domain, an extra axiom and skipped verificatio
 must be rejected. The sole permitted Dafny assumption is deterministic abstract
 HMAC with its fixed output-length contract.
 
+The production byte adapters copy primitive arrays in bulk. An earlier integration
+loop used `DafnySequence.select` on each secret byte; the pinned runtime boxed that
+byte through Java's byte cache. The replacement uses the reviewed primitive-array
+copy route. Actual-class checks and old-loop mutants guard both converters.
+The pinned runtime's copying behavior remains an inspected and tested assumption;
+this change does not prove HotSpot constant time.
+
 The runner generates Java with verification enabled and compiles/tests that exact
 output with the actual Java/JCE adapters. The small adapters, Dafny/Boogie/Z3,
 Dafny's compiler/runtime, `javac`, JVM and provider remain trusted. Finite tests
@@ -178,10 +184,32 @@ check RFC 5869/9001 values, all three HMAC digests, high-bit octets, Unicode lab
 validation bounds, array ownership and concurrent calls. They do not prove the
 adapter or compiler correct. Source/generated/class hashes identify the replay.
 
-This component is outside the default Maven runtime. Production `Hkdf` is unchanged
-and used as a test reference; its general refinement remains open. The API retains
-existing compatibility extensions for short nonempty PRKs and empty label suffixes.
-No cryptographic security reduction or JVM/provider timing guarantee is added.
+Production `Hkdf` delegates Extract, Expand and label serialization to this generated
+kernel. A frozen copy of the earlier handwritten implementation supplies the test
+oracle, so the differential comparison is independent of the new implementation.
+The facade retains short nonempty PRKs, empty label suffixes, null IKM/info handling
+and the public API. Java value/error conversion and the one-line composition in
+`expandLabel` are reviewed and tested adapters, not universal Java refinement proofs.
+Each HMAC block uses a fresh JCE `Mac`; the feedback loop shares no provider state.
+No cryptographic security reduction or JVM/provider timing guarantee follows.
+
+The [HKDF adoption record](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/crypto/adoption/hkdf)
+retains the fresh canonical replay, all 467 Maven library classes and minimized
+bundle checks. The bundle's 82 scoped crypto classes, packaged runtime and notices
+match the expected artifacts; full hybrid-handshake smoke tests check loaded-class
+origins on JDK 21 and 25. These are artifact and finite integration checks.
+The HKDF-only experiment adds 30.45% allocation on JDK 21 and 27.85% on JDK 25
+per complete handshake relative to the previous HKDF with the same generated
+SHAKE/ML-KEM backend.
+Shared-host fork drift leaves CPU impact inconclusive; no capacity or timing-security
+claim follows from those measurements.
+
+The pinned AWS reference target replays with nine verified checks. Its full
+71-file include graph failed with dependency obligations, resource/time limits and
+a verifier backend exception. Those obligations remain open; our standalone
+kernel is independently verified and imports none of that graph. The
+[reference replay record](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/reference/aws-hkdf)
+keeps target success and full-graph failure separate.
 
 ### Reference implementations
 
@@ -197,8 +225,8 @@ is feasible, not an adopted replacement for our code.
 The reviewed external candidates did not supply a ready verified Java backend.
 Porting a verified native implementation would require a checked link before its
 proof could apply to Java. Our generated SHAKE/ML-KEM implementation and its Java
-delivery boundary are described below. Generated HKDF adoption and its
-provider/Java boundary remain separate work.
+delivery boundary are described below. Production HKDF follows the same generated
+implementation approach with its own explicit provider/Java boundary.
 
 ### Packet scalar and trace verification
 
@@ -295,9 +323,10 @@ Production SHAKE/ML-KEM now use the generated Java after compatibility and
 performance review, with the pinned Maven DafnyRuntime 4.9.1 dependency. The
 [adoption record](https://github.com/mahmoudimus/MicroProxy/blob/diff/dafny-shake-mlkem/formal/crypto/adoption/README.md)
 binds the final stage, generated-source/class identity and agent evaluation to
-the prior user authorization. Complete in-memory hybrid TLS handshakes cost
-about 21-22% more CPU and 29-30% more allocation; observed local throughput is
-13-27% lower. These measurements are not network-capacity or side-channel evidence. The
+the prior user authorization. Those earlier SHAKE/ML-KEM adoption measurements,
+before generated HKDF, recorded about 21-22% more CPU and 29-30% more allocation
+per complete in-memory hybrid handshake; observed local throughput was 13-27% lower.
+These measurements are not network-capacity or side-channel evidence. The
 [completion plan](project/2026-10-29-dafny-crypto-completion.md) and component README
 record acceptance criteria and replay commands. ML-KEM formulas retain their Go
 provenance; the Dafny specifications, proofs and native ownership refinements are
@@ -314,15 +343,43 @@ independence from secrets. Connecting that to HotSpot machine code, native provi
 allocation and GC requires another justified link. Branchless source and noisy timing checks do
 not supply it. Our JDK primitive/runtime boundary is explicit; see the [timing review](security-timing-audit.md).
 
+The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)
+adds a Dafny paired-execution model and a checked extraction route for selected
+compiled methods. Its observer and public/secret classifications are explicit.
+The current five caller certificates cover ML-KEM comparison/selection,
+public-seed rejection sampling and generated HKDF Extract, Expand and label
+serialization. Their 19 opaque owned helper/adapter contracts are explicit
+assumptions; checked class identity does not prove those callees' traces.
+Only methods accepted by the extractor and covered by successful certificates
+are in scope; unsupported operations, unresolved callees and assumptions stay
+visible. The bytecode mapper and provider/runtime contracts remain trusted.
+This work does not yet close the compositional trace obligation for all crypto
+and authentication paths.
+
+### Obligation and release-claim gates
+
+The [unified ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)
+tracks V0-V8, their dependencies, source/tool pins, proof and control receipts,
+trust assumptions and remaining blockers. Its validator rejects missing evidence,
+stale hashes and claims stronger than the selected evidence policy. It is a
+tested Python gate, not a proof of the validator or of all project code.
+
+Functional production claims, a current artifact identity check, complete upstream
+reference replay, source-trace independence, physical timing and external expert
+review are separate claims. A scoped functional claim can pass while the aggregate
+`--require-all` gate fails. The latter must continue to fail while required work
+remains open; agent review cannot satisfy external expert review.
+
 Established projects name the layer they verify. [HACL*/EverCrypt](https://github.com/hacl-star/hacl-star)
 verifies functional behavior and secret independence in F*/Low*, with Vale for selected assembly.
 [s2n's HMAC verification](https://aws.amazon.com/blogs/security/automated-reasoning-and-amazon-s2n/)
 is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/saw-script/master/saw-user-manual/verifying-code.html)
 supplies the bytecode interface used by the scoped experiment above.
 
-Remaining work includes generated HKDF adoption and its Java trust boundary,
-and a justified timing model for the final JVM implementations. The scoped results above do not establish that all
-custom TLS/QUIC glue is formally verified or that the whole proxy is secure.
+Remaining work includes the unclosed AWS dependency replay, broader compositional
+secret-trace coverage, independent expert review and a justified timing model for the
+final JVM implementations. The scoped results do not establish that all custom
+TLS/QUIC glue is formally verified or that the whole proxy is secure.
 
 The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
 uses Dafny across HKDF, SHAKE and ML-KEM, with TLA+/TLC and Lean covering their

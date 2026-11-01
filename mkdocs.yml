@@ -124,6 +124,7 @@ nav:
   - Java API (Javadoc): java-api.md
   - Project:
       - QUIC and crypto roadmap:
+          - Crypto issue 117 execution: project/2026-11-01-crypto-117-completion.md
           - Design and scope: project/2026-10-28-quic-crypto-assurance-design.md
           - QUIC implementation plan: project/2026-10-28-quic-feature-completion.md
           - Crypto verification plan: project/2026-10-28-java-crypto-verification.md

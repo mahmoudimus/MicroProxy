@@ -52,7 +52,7 @@ class BundleArtifactTests(unittest.TestCase):
                         'classes': {n: delivery.digest(self.classes/n) for n in self.entries},
                         'jar_sha256': delivery.digest(self.library),
                         'stage_receipt_sha256': 'a'*64, 'generated_class_count': 2,
-                        'handwritten_sources': 6, 'handwritten_lint': 'all,-serial',
+                        'handwritten_sources': 6, 'handwritten_lint': ['-Xlint:all,-serial'],
                         'existing_generated_sources': {'fixture.java': 'b'*64},
                         'comparison': 'exact class bytes including all debug attributes'}
         self.canonical = deepcopy({k: v for k, v in self.receipt.items() if k not in ('status', 'jar_sha256', 'class_count')})

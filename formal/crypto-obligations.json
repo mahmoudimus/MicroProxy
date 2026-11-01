@@ -86,6 +86,22 @@
         "docs/security-timing-audit.md",
         "scripts/security/assess-local-timing.sh"
       ]
+    },
+    "trusted-bytecode-mapper-policy": {
+      "statement": "The javap-based extractor, CFG/taint/dispatch policy mapping and certificate emitter are trusted reviewed code, mutation-tested but not formally verified; certificate semantics are not JVM value/timing semantics.",
+      "evidence": [
+        "formal/timing/bytecode_trace.py",
+        "formal/timing/policy.json",
+        "formal/timing/threat-model.md"
+      ]
+    },
+    "assumed-owned-helper-trace-contracts": {
+      "statement": "The five checked caller certificates assume 19 opaque owned helper/adapter trace contracts; every assumed target remains in the unchecked-owned inventory and is not a provider or proved callee.",
+      "evidence": [
+        "formal/timing/PRODUCTION-EVIDENCE.json",
+        "formal/timing/threat-model.md",
+        "formal/timing/README.md"
+      ]
     }
   },
   "obligations": [
@@ -188,7 +204,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "9cd8f89dc3c5577dbcbdcc27e893932c68619f82bb07a6c97e87749dc5cea7b5",
+          "sha256": "9179cad1b661540eef2e580365887a2567af90f90cc22555d1d9d09ff824098a",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -2089,7 +2105,7 @@
       "id": "V7",
       "title": "Secret-trace proof for our code",
       "status": "partial",
-      "statement": "A scoped paired-run register-machine trace and actual-class packet receive-path check exist; complete paired-execution trace evidence for HKDF orchestration, SHAKE and ML-KEM implicit rejection, and a justified JVM timing link, remain deferred.",
+      "statement": "A scoped two-run SecretTrace model and five actual-bytecode caller certificates are catalogued for Select, Feed, Extract, Expand and LabelInfo under a trusted extractor/policy and 19 assumed owned helper trace contracts. The result is conditional caller/model evidence, not a universal JVM bytecode proof or full V7 closure: 15 owned roots remain open and 31 owned callees/adapters unchecked.",
       "dependencies": [
         "V1",
         "V2",
@@ -2101,12 +2117,14 @@
         "crypto-hardness-entropy",
         "dafny-toolchain",
         "generated-runtime-discipline",
-        "packet-compiler-lowering"
+        "packet-compiler-lowering",
+        "trusted-bytecode-mapper-policy",
+        "assumed-owned-helper-trace-contracts"
       ],
       "evidence": [
         {
           "path": "docs/security-timing-audit.md",
-          "sha256": "de48dfbdfa4cf119ccd958868f4b3fbe18392a4af36250472e427a7a74a4fdb7",
+          "sha256": "1d37e4a2555f8123afa6dad5fee3343c149c05797057575143a9361cdd28b859",
           "kind": "documentation",
           "role": "source review and explicit timing exclusions"
         },
@@ -2153,8 +2171,74 @@
           "role": "blocked PacketKey.nonce SAW route"
         },
         {
+          "path": "formal/timing/README.md",
+          "sha256": "ac73d456cac707895cd358ca946cbb884f96f773aba60b89ed73aa40c511a977",
+          "kind": "documentation",
+          "role": "V7 component scope, checked roots and open scope"
+        },
+        {
+          "path": "formal/timing/threat-model.md",
+          "sha256": "b82aaf47d47c36d3955a7f00ab9556a2d5754a57fb1362df52ca2987cb867e99",
+          "kind": "documentation",
+          "role": "two-run observer, declassification and TCB exclusions"
+        },
+        {
+          "path": "formal/timing/inputs.json",
+          "sha256": "e318c372251358b12140363ddc9580b2bd9050ab186ec2f9c3c427024a631231",
+          "kind": "input-manifest",
+          "role": "104 pinned timing sources/fixtures/production inputs/tools"
+        },
+        {
+          "path": "formal/timing/policy.json",
+          "sha256": "456748990d3f0ee782a3dc07aa0d0e274c2345cde0f2cfc96511b32b2888b6f2",
+          "kind": "component-receipt",
+          "role": "checked roots, open roots, dispatch/call policy and budgets"
+        },
+        {
+          "path": "formal/timing/run.py",
+          "sha256": "3f4b92c4c5a6df8020562a6fa713d1fb28e39459d0c8d0cb84892e1cfd52793d",
+          "kind": "tool-manifest",
+          "role": "atomic timing replay and certificate runner"
+        },
+        {
+          "path": "formal/timing/bytecode_trace.py",
+          "sha256": "df321a521e735ca96b36323fcaf1d44058c296dd5e2ee199b027667020897d17",
+          "kind": "tool-manifest",
+          "role": "trusted javap extractor, CFG/taint/dispatch audit"
+        },
+        {
+          "path": "formal/timing/SecretTrace.dfy",
+          "sha256": "95e683435ca753ee97b53e2a6b2c1b8b07a8b7db5cd974f99e2ca7cd3e93be15",
+          "kind": "model-source",
+          "role": "two-run machine/trace theorem and positive model instance"
+        },
+        {
+          "path": "formal/timing/HkdfShape.dfy",
+          "sha256": "e97ece26d90e905bc31e39f44f52fecafca72efa99fe219edfd68ed2a9adbb88",
+          "kind": "model-source",
+          "role": "source-level HKDF public shape invariant"
+        },
+        {
+          "path": "formal/timing/PositiveTraceCheck.dfy",
+          "sha256": "5428fb89db59695f46442c083dec626005de16cff93e158736b896e76382e9b0",
+          "kind": "finite-test",
+          "role": "compiled positive execution control"
+        },
+        {
+          "path": "formal/timing/test_trace.py",
+          "sha256": "c35d904f648f7231631f05dd38f00871c0f11ed9bfa031bb7fff6f84d050b667",
+          "kind": "test-source",
+          "role": "27 parser/audit/CFG/rejection/callee-scope tests"
+        },
+        {
+          "path": "formal/timing/PRODUCTION-EVIDENCE.json",
+          "sha256": "9782ef72d7a725d12cc1098b88f21506b802a344c6dbcb858549ef2804a2de54",
+          "kind": "component-receipt",
+          "role": "actual-bytecode certificate report with open scope and assumptions"
+        },
+        {
           "path": "docs/formal-security.md",
-          "sha256": "98b20e9ffe9fddd15a5f4293b09e97b8ca599db8b22ce5de6edb8d74ea535624",
+          "sha256": "fcd691018fd743f0acbc63b5d854d224a503f6ee97288593d8e009b1db074466",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2170,7 +2254,9 @@
         "Packet trace observer excludes JIT/CPU/GC/provider timing, ByteBuffer internals, downstream AEAD/metadata and outbound protection.",
         "No JVM/machine-code timing theorem or whole-record constant-time claim exists.",
         "Finite timing samples are not pass/fail evidence.",
-        "Shared formal/dafny runner pins are in progress and are not validated by this snapshot."
+        "The timing component has 15 open owned roots and 19 assumed owned helper/adapter trace contracts; every assumed target remains in the checked unchecked-owned inventory.",
+        "Five actual-bytecode caller certificates are conditional on the trusted javap extractor/policy and abstract SecretTrace semantics; they do not prove JVM value refinement, implicit exceptions or timing.",
+        "Packet receive trace remains separately scoped; this does not promote the whole V7 obligation."
       ],
       "receipt_checks": [
         {
@@ -2188,6 +2274,10 @@
             "formal/packet/",
             "quic/src/"
           ]
+        },
+        {
+          "receipt": "formal/timing/inputs.json",
+          "path": "inputs"
         }
       ],
       "text_checks": [
@@ -2228,7 +2318,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "e60b41adf7b5534472d8955b1ed74d2bd70ab86e594f0a709490cf9583e58e76",
+          "sha256": "61f2d0ee10e2bc1cb3ccacc6cba1546317db2021219583c6e85685140b8022c0",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2240,13 +2330,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "9cd8f89dc3c5577dbcbdcc27e893932c68619f82bb07a6c97e87749dc5cea7b5",
+          "sha256": "9179cad1b661540eef2e580365887a2567af90f90cc22555d1d9d09ff824098a",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "42d04cd7cf684ce5b8968e76ecfb168de348561cc983edd578c0c49b2d37acb4",
+          "sha256": "88a86a596d54e43a31cd44ad988ca74a89843eed8acf09fd2b2e1619e9304d0e",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -2258,13 +2348,13 @@
         },
         {
           "path": "docs/security-timing-audit.md",
-          "sha256": "de48dfbdfa4cf119ccd958868f4b3fbe18392a4af36250472e427a7a74a4fdb7",
+          "sha256": "1d37e4a2555f8123afa6dad5fee3343c149c05797057575143a9361cdd28b859",
           "kind": "documentation",
           "role": "timing limitations"
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "98b20e9ffe9fddd15a5f4293b09e97b8ca599db8b22ce5de6edb8d74ea535624",
+          "sha256": "fcd691018fd743f0acbc63b5d854d224a503f6ee97288593d8e009b1db074466",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },

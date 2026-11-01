@@ -162,7 +162,8 @@ public final class HashlibModule implements StarlarkValue {
      * @return whether the byte representations are equal
      * @throws EvalException if the types differ, are unsupported or contain non-ASCII text
      */
-    @StarlarkMethod(name = "compare_digest", doc = "Compares two str or bytes values in constant time.",
+    @StarlarkMethod(name = "compare_digest", doc = "Compares like-typed bytes or ASCII strings with the JDK "
+            + "digest comparison, avoiding prefix early exit. Length/type validation and JVM timing are not covered.",
             parameters = {@Param(name = "a"), @Param(name = "b")})
     public boolean compareDigest(Object a, Object b) throws EvalException {
         byte[] x;

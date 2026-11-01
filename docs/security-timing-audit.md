@@ -13,7 +13,7 @@ behavior of JIT-generated code, JCA providers, or a deployed service.
 | `impl/AdminServer.authorized` / `matches` | Secret admin bearer token or Basic credential. Retain cached expected UTF-8 bytes first in `MessageDigest.isEqual`. Scheme names and Basic delimiters are public parsing. |
 | `ProxyAuthenticator` / SOCKS authentication | Basic decoding forwards to the configured authenticator; there is no built-in username/password database. Custom authenticators and script decisions own verification. The guides use byte comparisons or a verifier API. |
 | `UpstreamProxyManager.UrlProxy.equals` | Configured upstream credentials affect account and HTTP/2 connection reuse. Compare cached username and password bytes, evaluating both. Redacted URL equality alone must not merge different users. |
-| Starlark `digest.equal` and `hmac.compare_digest` | Secret-comparison helpers already use `MessageDigest.isEqual`. Keep them. Scripts must call these helpers themselves; arbitrary script `==` is not timing-safe. |
+| Starlark `digest.equal` and `hmac.compare_digest` | Both use `MessageDigest.isEqual` for byte comparison. `compare_digest` accepts like-typed bytes or ASCII strings; `digest.equal` also converts strings to UTF-8. Encoding and type/length validation are outside the byte-comparison guarantee; prefer bytes and cached expected digests. Scripts must call these helpers themselves; arbitrary script `==` is not timing-safe. |
 | TLS Finished, TLS 1.2 Finished, PSK binders, ECH confirmations | Secret-dependent authentication values already use `MessageDigest.isEqual` with the expected value first. Keep them. |
 | QUIC reset tokens | Secret tokens already use `MessageDigest.isEqual` on fixed 16-byte arrays. Keep them. |
 | QUIC protected packet-number fields | These fields are confidential before authentication. Receive-side header unmasking, fixed-prefix reading and number reconstruction now use generated scalar code and fixed-address adapters, with scoped functional/trace evidence described below. Downstream AEAD/key-phase/metadata handling remains outside that trace claim. |
@@ -54,7 +54,7 @@ source review, and no new empirical timing result is inferred from these proofs.
 
 ## Generated crypto runtime follow-up
 
-Production SHAKE/ML-KEM uses Java generated from verified Dafny through the checked
+Production HKDF and SHAKE/ML-KEM use Java generated from verified Dafny through the checked
 delivery route. An initial prototype used
 coefficient division where the earlier Java used shifts/Barrett reduction.
 Those paths now use proved primitive arithmetic. Codec checks also reject
@@ -73,6 +73,22 @@ Source zeroing does not prove physical erasure. Earlier timing samples preceded
 this backend; the new CPU/throughput measurements are performance evidence only.
 See [formal security](formal-security.md)
 for exact scope and toolchain assumptions.
+
+The HKDF integration exposed another concrete conversion hazard: reading private
+bytes with `DafnySequence.select` called the pinned runtime's boxing path, which
+can index Java's `Byte` cache by the secret value. The adapters now use primitive
+bulk copies through `toRawArray`, with a checked `byte[]` representation. The
+reachable array/concat/view representations and fresh-copy contract were inspected
+in DafnyRuntime 4.9.1 and exercised by regression tests. Compiled adapter gates
+reject `select` and byte boxing/unboxing, and deliberate old-loop mutants must fail.
+This removes the identified owned conversion path; no remote exploit or whole-JVM
+timing guarantee is inferred.
+
+The separate Dafny secret-trace work records a precise observer, accepted method
+certificates and unresolved call boundaries. Its bytecode mapper is trusted and
+its selected scope must not be extended to an entire handshake by implication.
+Remaining owned source-level trace obligations are tracked separately from the
+deferred physical JIT/provider/GC/CPU timing work.
 
 ## Advisory relevance
 

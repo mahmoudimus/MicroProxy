@@ -69,7 +69,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 ## More
 
 - [Security](https://mahmoudimus.github.io/MicroProxy/security/): What MicroProxy does to stay safe with untrusted clients and servers, and what an operator has to decide: who may reach the proxy, which servers clients may reach through it, what it trusts, and what it logs.
-- [Security assurance](https://mahmoudimus.github.io/MicroProxy/formal-security/): Production SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations.
+- [Security assurance](https://mahmoudimus.github.io/MicroProxy/formal-security/): Production HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations.
 - [Timing review](https://mahmoudimus.github.io/MicroProxy/security-timing-audit/): This source review distinguishes secret authentication material from public protocol data.
 - [Migrating from LittleProxy](https://mahmoudimus.github.io/MicroProxy/migrating-from-littleproxy/): How to move a LittleProxy deployment or embedding to MicroProxy: the command line, the configuration file, embedding, filters, MITM and activity logging, mapped topic by topic to their MicroProxy equivalents, then the API renames and the behaviour that differs.
 - [Architecture](https://mahmoudimus.github.io/MicroProxy/architecture/): How MicroProxy is built: why it uses virtual threads and blocking I/O instead of Netty, what that costs and saves, how the modules fit together, and where to read the internals.
@@ -77,6 +77,7 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 ## QUIC and crypto roadmap
 
+- [Crypto issue 117 execution](https://mahmoudimus.github.io/MicroProxy/project/2026-11-01-crypto-117-completion/): Goal: Complete the remaining implementation and assurance work in issue 117, preserving explicit gaps that require external review or deferred JVM timing work.
 - [Design and scope](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-crypto-assurance-design/): This roadmap completes a named QUIC feature baseline and builds implementation proofs for our Java cryptography, starting with HKDF.
 - [QUIC implementation plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-feature-completion/): Goal: Complete and demonstrate the named protocol/application feature baseline without changing captured browser behavior by default.
 - [Crypto verification plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-java-crypto-verification/): Goal: Use Dafny to establish checked functional and secret-trace properties across our cryptographic code, starting with HKDF and its pinned AWS reference.

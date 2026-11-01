@@ -11,7 +11,7 @@ connection runs on its own **virtual thread** (Project Loom) and uses plain bloc
 
 ## Functionally verified cryptographic implementations with documented trust assumptions
 
-SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations,
+HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations,
 with checks that the packaged Java matches the generated artifacts. Compiler/runtime,
 reviewed Java facades and selected JDK primitives remain trusted. Whole-stack TLS/QUIC security
 and constant-time JVM execution remain outside these proofs. See the

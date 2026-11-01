@@ -16,7 +16,7 @@ and exposes LittleProxy's filter API.
 
 ## Functionally verified cryptographic implementations with documented trust assumptions
 
-SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations.
+HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified Dafny implementations.
 The packaged Java is checked against the generated artifacts. Compiler/runtime, reviewed
 Java facades and selected JDK primitives remain explicit trust boundaries.
 

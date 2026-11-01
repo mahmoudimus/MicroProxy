@@ -30,7 +30,7 @@ runtime and JCE provider remain explicit trust assumptions.
 
 ## Compatibility and cost
 
-Full Maven verification passed on JDK 21 and 25: 4,120 test executions per run,
+Full Maven verification passed on JDK 21 and 25: 4,146 test executions per run,
 zero failures/errors and 23 skips; captured browser fingerprint tests passed.
 Skipped optional peer/live tests are not claimed as exercised locally. Exact-head
 CI repeats its configured interoperability and proof jobs.

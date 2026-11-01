@@ -590,9 +590,10 @@ final class Builtins {
 
         @StarlarkMethod(
                 name = "equal",
-                doc = "Whether a and b (bytes, or strings as UTF-8) are equal, in time that does not depend on "
-                        + "where they differ. Use it to compare secrets; compare digests of both sides so that "
-                        + "lengths do not leak either.",
+                doc = "Whether a and b (bytes, or strings as UTF-8) are equal, using the JDK digest comparison "
+                        + "to avoid prefix early exit. UTF-8 conversion, lengths, type checks and JVM timing "
+                        + "are outside that comparison guarantee. Prefer bytes and cached expected digests "
+                        + "for secret checks.",
                 parameters = {@Param(name = "a"), @Param(name = "b")})
         public boolean equal(Object a, Object b) throws EvalException {
             return MessageDigest.isEqual(bytes(a, "a"), bytes(b, "b"));
