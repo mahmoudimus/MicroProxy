@@ -1,0 +1,1396 @@
+{
+  "schema": 1,
+  "roots": [
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default",
+      "name": "Select",
+      "descriptor": "([B[B[B[B)[B"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default",
+      "name": "Feed",
+      "descriptor": "([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default",
+      "name": "Extract",
+      "descriptor": "(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default",
+      "name": "Expand",
+      "descriptor": "(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default",
+      "name": "LabelInfo",
+      "descriptor": "(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;"
+    }
+  ],
+  "calls": {
+    "java/lang/Byte.toUnsignedLong:(B)J": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Byte.toUnsignedInt:(B)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Byte.valueOf:(B)Ljava/lang/Byte;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Integer.signum:(I)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Integer.valueOf:(I)Ljava/lang/Integer;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Long.valueOf:(J)Ljava/lang/Long;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.toInt:(I)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.toInt:(J)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.toIntChecked:(JLjava/lang/String;)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.bv64ShiftRight:(JB)J": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.bv64ShiftLeft:(JB)J": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/DafnyEuclidean.EuclideanModulus:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/DafnyEuclidean.EuclideanDivision:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/TypeDescriptor.newArray:(I)Ljava/lang/Object;": {
+      "kind": "alloc",
+      "size_arg": 0,
+      "role_taint": "sec"
+    },
+    "dafny/TypeDescriptor.fillThenReturnArray:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;": {
+      "kind": "fill"
+    },
+    "java/util/Objects.equals:(Ljava/lang/Object;Ljava/lang/Object;)Z": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/security/MessageDigest.isEqual:([B[B)Z": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/IllegalArgumentException.<init>:(Ljava/lang/String;)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/IllegalArgumentException.<init>:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/IllegalStateException.<init>:(Ljava/lang/String;)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/IllegalStateException.<init>:(Ljava/lang/Throwable;)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/reflect/Array.getLength:(Ljava/lang/Object;)I": {
+      "kind": "length"
+    },
+    "java/math/BigInteger.valueOf:(J)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.compareTo:(Ljava/math/BigInteger;)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.add:(Ljava/math/BigInteger;)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.ZERO": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.lanes:()[J": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes.ref",
+      "taint": "pub",
+      "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes",
+      "array_taint": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.scratch:()[J": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch.ref",
+      "taint": "pub",
+      "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch",
+      "array_taint": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.parity:()[J": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity.ref",
+      "taint": "pub",
+      "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity",
+      "array_taint": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.offsets:()[I": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets.ref",
+      "taint": "pub",
+      "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets",
+      "array_taint": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.sources:()[I": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources.ref",
+      "taint": "pub",
+      "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources",
+      "array_taint": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.rate:()I": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate",
+      "taint": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position:()I": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position",
+      "taint": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing:()Z": {
+      "kind": "getfield",
+      "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing",
+      "taint": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Permute:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.XorByte:(IB)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.AbsorbOne:(B)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Read:([B)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Start:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Next:()B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Destroy:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch:([J[J[J[I[I)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.XorInto:(J[BII)J": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.XorWord:(JIB)J": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.NewOffsets:()[I": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.NewSources:()[I": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_Full:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_NeedMore:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidPrefix:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidBlockLength:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.IsPrefix:([I)Z": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.s:()[[I": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.ek:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.seed:()[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.hash:()[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.Destroy:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.encoded:()[B": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.hash:()[B": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.Destroy:()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Decrypt:([[I[B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Join:([B[B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Slice:([BII)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Encrypt:([B[B[B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Select:([B[B[B[B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.WipeBytes:([B)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.WipeInts:([I)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.WipePolys:([[I)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.WipeDecapsBuffers:([B[B[B[B[B[B[B[B[B)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/verifiedcrypto/native_kem_hash.sha3_512:([B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.__ctor:(I)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.Update:([BII)I": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.Xof:(I[BI)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.Encrypt:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey;[B[B)[B": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.Default:(Ldafny/TypeDescriptor;)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.create_Failure:(Ldafny/TypeDescriptor;Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind;)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.create_Success:(Ldafny/TypeDescriptor;Ljava/lang/Object;)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.create_InvalidCiphertextLength:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ExpandLabel:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ValidHash:(Ljava/math/BigInteger;)Z": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Success:(Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.is_Success:()Z": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.dtor_bytes:()Ldafny/DafnySequence;": {
+      "kind": "call",
+      "result": "sec",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.dtor_reason:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidHash:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.is_InvalidHash:()Z": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidKey:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.is_InvalidKey:()Z": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLabel:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.is_InvalidLabel:()Z": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLength:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.is_InvalidLength:()Z": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "dafny/DafnySequence.length:()I": {
+      "kind": "length"
+    },
+    "dafny/DafnySequence.cardinalityInt:()I": {
+      "kind": "length"
+    },
+    "dafny/DafnySequence.select:(I)Ljava/lang/Object;": {
+      "kind": "seq_load"
+    },
+    "dafny/DafnySequence.of:([B)Ldafny/DafnySequence;": {
+      "kind": "seq_of"
+    },
+    "dafny/DafnySequence.of:([S)Ldafny/DafnySequence;": {
+      "kind": "seq_of"
+    },
+    "dafny/DafnySequence.concatenate:(Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;": {
+      "kind": "seq_concat"
+    },
+    "dafny/DafnySequence.take:(Ljava/math/BigInteger;)Ldafny/DafnySequence;": {
+      "kind": "seq_take",
+      "size_arg": 0
+    },
+    "dafny/DafnySequence.empty:(Ldafny/TypeDescriptor;)Ldafny/DafnySequence;": {
+      "kind": "empty",
+      "role_taint": "pub"
+    },
+    "dafny/DafnySequence.Create:(Ldafny/TypeDescriptor;Ljava/math/BigInteger;Ljava/util/function/Function;)Ldafny/DafnySequence;": {
+      "kind": "alloc",
+      "size_arg": 1,
+      "role_taint": "pub"
+    },
+    "dafny/DafnySequence.toRawArray:()Ljava/lang/Object;": {
+      "kind": "seq_to_array"
+    },
+    "dafny/DafnySet.of:([Ljava/lang/Object;)Ldafny/DafnySet;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/DafnySet.contains:(Ljava/lang/Object;)Z": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/DafnyEuclidean.EuclideanDivision:(Ljava/math/BigInteger;Ljava/math/BigInteger;)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/DafnyEuclidean.EuclideanModulus:(Ljava/math/BigInteger;Ljava/math/BigInteger;)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "dafny/Helpers.toInt:(Ljava/math/BigInteger;)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.signum:()I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.subtract:(Ljava/math/BigInteger;)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.multiply:(Ljava/math/BigInteger;)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/math/BigInteger.byteValue:()B": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Byte.byteValue:()B": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Short.shortValue:()S": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/Integer.compareUnsigned:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/String.length:()I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/String.charAt:(I)C": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "java/util/Objects.requireNonNull:(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;": {
+      "kind": "requireNonNull"
+    },
+    "java/lang/Object.\"<init>\":()V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/IllegalArgumentException.\"<init>\":(Ljava/lang/String;)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "java/lang/IllegalStateException.\"<init>\":(Ljava/lang/String;)V": {
+      "kind": "call",
+      "result": "sec"
+    },
+    "io/github/mahmoudimus/verifiedcrypto/JdkHmac.compute:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;": {
+      "kind": "call",
+      "result": "sec",
+      "seq_taint": "sec",
+      "shape": true,
+      "length_arg": 0
+    },
+    "io/github/mahmoudimus/verifiedcrypto/JdkHmac.bytes:(Ldafny/DafnySequence;)[B": {
+      "kind": "call",
+      "result": "sec",
+      "array_taint": "sec",
+      "shape": true,
+      "length_role": 0
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.hash:(I)Ljava/math/BigInteger;": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.sequence:([BLjava/lang/String;)Ldafny/DafnySequence;": {
+      "kind": "call",
+      "result": "pub",
+      "seq_taint": "sec",
+      "shape": true,
+      "length_role": 0
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.bytes:(Ldafny/DafnySequence;)[B": {
+      "kind": "call",
+      "result": "sec",
+      "array_taint": "sec",
+      "shape": true,
+      "length_role": 0
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;": {
+      "kind": "call",
+      "result": "pub",
+      "shape": true
+    },
+    "[B.clone:()Ljava/lang/Object;": {
+      "kind": "clone"
+    }
+  },
+  "statics": {
+    "dafny/TypeDescriptor.BYTE:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.LONG:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.INT:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.BYTE_ARRAY:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.INT_ARRAY:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.LONG_ARRAY:Ldafny/TypeDescriptor;": "lit",
+    "dafny/TypeDescriptor.INT_2_ARRAY:Ldafny/TypeDescriptor;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.Witness:I": "lit",
+    "java/math/BigInteger.ZERO:Ljava/math/BigInteger;": "lit",
+    "java/math/BigInteger.ONE:Ljava/math/BigInteger;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.InvalidHash:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.InvalidKey:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.InvalidLabel:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.InvalidLength:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.SHA256:Ljava/math/BigInteger;": "lit",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.SHA384:Ljava/math/BigInteger;": "lit"
+  },
+  "classes": {
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default": {
+      "fields": {
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing:Z": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets",
+          "array_taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources",
+          "array_taint": "pub"
+        }
+      },
+      "methods": {
+        "Select:([B[B[B[B)[B": {
+          "params": [
+            "array_sec",
+            "array_sec",
+            "array_sec",
+            "array_sec"
+          ]
+        },
+        "Update:([BII)I": {
+          "params": [
+            "array_sec",
+            "pub",
+            "pub"
+          ]
+        },
+        "AbsorbOne:(B)V": {
+          "params": [
+            "sec"
+          ]
+        },
+        "XorByte:(IB)V": {
+          "params": [
+            "pub",
+            "sec"
+          ]
+        },
+        "Next:()B": {
+          "params": []
+        },
+        "Start:()V": {
+          "params": []
+        },
+        "Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+          "params": [
+            "pub",
+            "array_sec"
+          ]
+        },
+        "Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+          "params": [
+            "array_pub",
+            "array_pub"
+          ]
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default": {
+      "fields": {},
+      "methods": {
+        "Select:([B[B[B[B)[B": {
+          "params": [
+            "array_sec",
+            "array_sec",
+            "array_sec",
+            "array_sec"
+          ]
+        },
+        "Update:([BII)I": {
+          "params": [
+            "array_sec",
+            "pub",
+            "pub"
+          ]
+        },
+        "AbsorbOne:(B)V": {
+          "params": [
+            "sec"
+          ]
+        },
+        "XorByte:(IB)V": {
+          "params": [
+            "pub",
+            "sec"
+          ]
+        },
+        "Next:()B": {
+          "params": []
+        },
+        "Start:()V": {
+          "params": []
+        },
+        "Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+          "params": [
+            "pub",
+            "array_sec"
+          ]
+        },
+        "Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+          "params": [
+            "array_pub",
+            "array_pub"
+          ]
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge": {
+      "fields": {
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing:Z": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets",
+          "array_taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources",
+          "array_taint": "pub"
+        }
+      },
+      "methods": {
+        "Select:([B[B[B[B)[B": {
+          "params": [
+            "array_sec",
+            "array_sec",
+            "array_sec",
+            "array_sec"
+          ]
+        },
+        "Update:([BII)I": {
+          "params": [
+            "array_sec",
+            "pub",
+            "pub"
+          ]
+        },
+        "AbsorbOne:(B)V": {
+          "params": [
+            "sec"
+          ]
+        },
+        "XorByte:(IB)V": {
+          "params": [
+            "pub",
+            "sec"
+          ]
+        },
+        "Next:()B": {
+          "params": []
+        },
+        "Start:()V": {
+          "params": []
+        },
+        "Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+          "params": [
+            "pub",
+            "array_sec"
+          ]
+        },
+        "Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+          "params": [
+            "array_pub",
+            "array_pub"
+          ]
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default": {
+      "fields": {
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.position",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing:Z": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.squeezing",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate:I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._rate",
+          "taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._lanes",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._scratch",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity:[J": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._parity",
+          "array_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._offsets",
+          "array_taint": "pub"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources:[I": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources.ref",
+          "taint": "pub",
+          "array_role": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge._sources",
+          "array_taint": "pub"
+        }
+      },
+      "methods": {
+        "Select:([B[B[B[B)[B": {
+          "params": [
+            "array_sec",
+            "array_sec",
+            "array_sec",
+            "array_sec"
+          ]
+        },
+        "Update:([BII)I": {
+          "params": [
+            "array_sec",
+            "pub",
+            "pub"
+          ]
+        },
+        "AbsorbOne:(B)V": {
+          "params": [
+            "sec"
+          ]
+        },
+        "XorByte:(IB)V": {
+          "params": [
+            "pub",
+            "sec"
+          ]
+        },
+        "Next:()B": {
+          "params": []
+        },
+        "Start:()V": {
+          "params": []
+        },
+        "Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;": {
+          "params": [
+            "pub",
+            "array_sec"
+          ]
+        },
+        "Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;": {
+          "params": [
+            "array_pub",
+            "array_pub"
+          ]
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default": {
+      "fields": {
+        "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success._bytes:Ldafny/DafnySequence;": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._bytes.ref",
+          "taint": "pub",
+          "seq_role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._bytes",
+          "seq_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure._reason:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._reason",
+          "taint": "pub"
+        }
+      },
+      "methods": {
+        "Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+          "params": [
+            "pub",
+            "seq_sec",
+            "seq_sec"
+          ],
+          "allow_raise": true
+        },
+        "Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+          "params": [
+            "pub",
+            "seq_sec",
+            "seq_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+          "params": [
+            "seq_pub",
+            "seq_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "ExpandLabel:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;": {
+          "params": [
+            "pub",
+            "seq_sec",
+            "seq_pub",
+            "seq_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge": {
+      "fields": {
+        "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success._bytes:Ldafny/DafnySequence;": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._bytes.ref",
+          "taint": "pub",
+          "seq_role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._bytes",
+          "seq_taint": "sec"
+        },
+        "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure._reason:Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;": {
+          "role": "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult._reason",
+          "taint": "pub"
+        }
+      },
+      "methods": {
+        "extract:(I[B[B)[B": {
+          "params": [
+            "pub",
+            "array_sec",
+            "array_sec"
+          ],
+          "allow_raise": true
+        },
+        "expand:(I[B[BI)[B": {
+          "params": [
+            "pub",
+            "array_sec",
+            "array_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "labelInfo:(Ljava/lang/String;[BI)[B": {
+          "params": [
+            "pub",
+            "array_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "hash:(I)Ljava/math/BigInteger;": {
+          "params": [
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "sequence:([BLjava/lang/String;)Ldafny/DafnySequence;": {
+          "params": [
+            "array_sec",
+            "pub"
+          ],
+          "allow_raise": true
+        },
+        "labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;": {
+          "params": [
+            "pub"
+          ],
+          "allow_raise": true,
+          "alloc_public": true
+        },
+        "failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;": {
+          "params": [
+            "pub",
+            "pub",
+            "pub"
+          ],
+          "allow_raise": true
+        }
+      }
+    }
+  },
+  "roles": {},
+  "fixtures": [
+    {
+      "class": "ConstantTime",
+      "method": "select:([B[B[B[B)[B",
+      "params": [
+        "array_sec",
+        "array_sec",
+        "array_sec",
+        "array_sec"
+      ],
+      "expect": "accept"
+    },
+    {
+      "class": "SecretBranch",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "SecretIndex",
+      "method": "run:([B[I)I",
+      "params": [
+        "array_sec",
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "EarlyCompare",
+      "method": "run:([B[B)I",
+      "params": [
+        "array_sec",
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "ExceptionOracle",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "SecretAlloc",
+      "method": "run:([B)[B",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "SecretLoopBound",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "SecretDigestBranch",
+      "method": "run:([B[B)I",
+      "params": [
+        "array_sec",
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "FieldAlias",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject",
+      "fields": {
+        "FieldAlias.f:[I": {
+          "role": "FieldAlias.f.ref",
+          "taint": "pub",
+          "array_role": "FieldAlias.f",
+          "array_taint": "pub"
+        }
+      }
+    },
+    {
+      "class": "VirtualDispatch",
+      "method": "run:([BLVirtualDispatch$Base;)I",
+      "params": [
+        "array_sec",
+        "pub"
+      ],
+      "expect": "reject",
+      "calls": {
+        "VirtualDispatch$Base.tag:()I": {
+          "kind": "call",
+          "result": "args"
+        }
+      }
+    },
+    {
+      "class": "ClassOracle",
+      "method": "run:([BLjava/lang/Object;)I",
+      "params": [
+        "array_sec",
+        "pub"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "NewIdentity",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "ResultArrayCall",
+      "method": "run:([B)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject",
+      "calls": {
+        "ResultArrayCall.make:([B)[B": {
+          "kind": "call",
+          "result": "sec"
+        }
+      }
+    },
+    {
+      "class": "CategoryTwo",
+      "method": "run:(J)J",
+      "params": [
+        "pub"
+      ],
+      "expect": "reject"
+    }
+  ],
+  "limits": {
+    "Decaps": {
+      "time": 60,
+      "resources": 100000000
+    },
+    "Feed": {
+      "time": 120,
+      "resources": 200000000,
+      "justification": "167-instruction Feed certificate TwoRun is resource-heavy; no timeout/resource counts as success",
+      "solver_options": []
+    },
+    "Expand": {
+      "time": 120,
+      "resources": 200000000,
+      "solver_options": [],
+      "justification": "large generated-HKDF certificate (102/158 instructions); no timeout/resource counts as success"
+    },
+    "LabelInfo": {
+      "time": 120,
+      "resources": 200000000,
+      "solver_options": [],
+      "justification": "large generated-HKDF certificate (102/158 instructions); no timeout/resource counts as success"
+    }
+  },
+  "open_roots": [
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "method": "Update:([BII)I",
+      "status": "unsupported",
+      "reason": "owned class Sponge and getter/virtual methods are public non-final; unproven invokevirtual dispatch (F2)"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "method": "AbsorbOne:(B)V",
+      "status": "unsupported",
+      "reason": "unproven virtual dispatch to XorByte/rate; owned non-final class"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "method": "XorByte:(IB)V",
+      "status": "unsupported",
+      "reason": "unproven virtual dispatch to lanes; owned non-final class"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "method": "Next:()B",
+      "status": "unsupported",
+      "reason": "unproven virtual dispatch to rate/lanes/XorByte; owned non-final class"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge",
+      "method": "Start:()V",
+      "status": "unsupported",
+      "reason": "unproven virtual dispatch to XorByte; owned non-final class"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default",
+      "method": "Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;",
+      "status": "caller-skeleton-unsupported",
+      "reason": "owned SecretKey/PublicKey virtual getters; unproven exact receiver type (F2/F5)"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default",
+      "method": "ExpandLabel:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;",
+      "status": "unsupported-object-dispatch",
+      "reason": "owned BytesResult/FailureKind virtual dispatch, new/instanceof/cast and object-identity restrictions; final canonical21 build exists, adapter refinement remains open"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "extract:(I[B[B)[B",
+      "status": "unsupported-object-dispatch",
+      "reason": "owned BytesResult/FailureKind virtual dispatch, new/instanceof/cast and object-identity restrictions; final canonical21 build exists, adapter refinement remains open"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "expand:(I[B[BI)[B",
+      "status": "unsupported-object-dispatch",
+      "reason": "owned BytesResult/FailureKind virtual dispatch, new/instanceof/cast and object-identity restrictions; final canonical21 build exists, adapter refinement remains open"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "labelInfo:(Ljava/lang/String;[BI)[B",
+      "status": "unsupported-object-dispatch",
+      "reason": "owned BytesResult/FailureKind virtual dispatch, new/instanceof/cast and object-identity restrictions; final canonical21 build exists, adapter refinement remains open"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;",
+      "status": "unsupported",
+      "reason": "owned FailureKind virtual is_* and object construction/type checks (F2/F5)"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "hash:(I)Ljava/math/BigInteger;",
+      "status": "unsupported",
+      "reason": "object construction/switch helper; owned exception construction (F5)"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "sequence:([BLjava/lang/String;)Ldafny/DafnySequence;",
+      "status": "unsupported-adapter-object",
+      "reason": "adapter conversion path uses object/type/ownership operations outside the checked subset; final canonical21 build exists"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;",
+      "status": "unsupported-adapter-object",
+      "reason": "adapter conversion path uses object/type/ownership operations outside the checked subset; final canonical21 build exists"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "method": "bytes:(Ldafny/DafnySequence;)[B",
+      "status": "unsupported",
+      "reason": "instanceof/checkcast runtime type test and reviewed primitive-copy ABI; adapter trace remains open (final build exists)"
+    }
+  ],
+  "lambdas": [
+    "apply:()Ljava/util/function/Function;",
+    "makeConcatWithConstants"
+  ],
+  "external_dispatch": [
+    "java/math/BigInteger",
+    "dafny/DafnySequence",
+    "dafny/DafnySet",
+    "dafny/TypeDescriptor",
+    "java/lang/String",
+    "java/lang/Short",
+    "java/lang/Byte",
+    "java/lang/Integer",
+    "java/lang/Long"
+  ],
+  "external_casts": [
+    "java/lang/Short",
+    "java/lang/Byte"
+  ],
+  "unchecked_owned_callees": [
+    "NativeHkdf.Expanded bytes via bridges (not all adapter paths)",
+    "NativeKeccak.Permute",
+    "NativeKeccak.PermuteScratch",
+    "NativeMlKem.Decaps (caller skeleton only)",
+    "NativeMlKem.Decrypt",
+    "NativeMlKem.Encaps",
+    "NativeMlKem.Encrypt",
+    "NativeMlKem.ExpandMatrix",
+    "NativeMlKem.Field/NTT/codec/sampling helpers",
+    "NativeMlKem.KeyGen",
+    "NativeShake.Sponge.*",
+    "NativeShake.Xof",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_Full:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidBlockLength:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidPrefix:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_NeedMore:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.IsPrefix:([I)Z",
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Success:(Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidHash:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidKey:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLabel:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLength:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ValidHash:(Ljava/math/BigInteger;)Z",
+    "io/github/mahmoudimus/verifiedcrypto/JdkHmac.compute:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;"
+  ]
+}
