@@ -29,6 +29,20 @@ class DeliveryTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 
+    def test_default_delivery_jar_tracks_the_declared_maven_version(self):
+        pom = self.write('quic/pom.xml', '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+                '<parent><version>0.6.1-SNAPSHOT</version></parent><artifactId>quic</artifactId></project>')
+        self.assertEqual(delivery.maven_jar(self.root), self.root/'quic/target/quic-0.6.1-SNAPSHOT.jar')
+        pom.write_text(pom.read_text().replace('</artifactId>', '</artifactId><version>0.7.0</version>'))
+        self.assertEqual(delivery.maven_jar(self.root), self.root/'quic/target/quic-0.7.0.jar')
+
+    def test_default_delivery_jar_rejects_unresolved_or_redirected_names(self):
+        for version in ['${revision}', '../elsewhere', '/tmp/elsewhere', '']:
+            self.write('quic/pom.xml', '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+                    '<artifactId>quic</artifactId><version>'+version+'</version></project>')
+            with self.subTest(version=version), self.assertRaisesRegex(RuntimeError, 'explicit --jar'):
+                delivery.maven_jar(self.root)
+
     def write(self, name, text):
         path = self.root/name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -571,6 +585,40 @@ class DeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'changed input'):
             delivery.compile_handwritten(self.root/'source', 'new.generated', JDK, [],
                     self.root/'stale', options, existing_generated_sources=pins)
+
+    @unittest.skipUnless((JDK/'bin/javac').exists(), 'explicit JDK21 unavailable')
+    def test_generated_external_provider_is_compiled_with_strict_handwritten_lint(self):
+        generated = self.write('source/generated/G.java',
+                'package generated; public class G { public static int f(){return (int)provider.P.f();} }')
+        provider = self.write('source/provider/P.java',
+                'package provider; public class P { public static int f(){return 7;} }')
+        self.write('source/handwritten/H.java',
+                'package handwritten; public class H { public static int f(){return generated.G.f();} }')
+        pins = {'generated/G.java': delivery.digest(generated)}
+        dependencies = {'provider/P.java': delivery.digest(provider)}
+        options = {'debug': 'lines,vars,source', 'encoding': 'UTF-8',
+                   'handwritten_lint': ['-Xlint:all,-serial'], 'lint': ['-Xlint:all,-serial,-cast,-rawtypes']}
+        result = delivery.compile_handwritten(self.root/'source', 'new.generated', JDK, [],
+                self.root/'good', options, existing_generated_sources=pins,
+                existing_generated_dependencies=dependencies)
+        self.assertEqual(set(result['sources']), {'provider/P.java', 'handwritten/H.java'})
+        self.assertEqual(set(result['classes']), {'generated/G.class', 'provider/P.class', 'handwritten/H.class'})
+        provider.write_text(provider.read_text().replace('return 7', 'return (int)7'))
+        dependencies = {'provider/P.java': delivery.digest(provider)}
+        with self.assertRaisesRegex(RuntimeError, 'Strict generated dependency compilation failed or warned'):
+            delivery.compile_handwritten(self.root/'source', 'new.generated', JDK, [],
+                    self.root/'bad', options, existing_generated_sources=pins,
+                    existing_generated_dependencies=dependencies)
+
+    def test_generated_dependency_cannot_also_be_exempted_from_handwritten_lint(self):
+        generated = self.write('source/generated/G.java', 'package generated; public class G {}')
+        pins = {'generated/G.java': delivery.digest(generated)}
+        options = {'debug': 'lines,vars,source', 'encoding': 'UTF-8',
+                   'handwritten_lint': ['-Xlint:all,-serial'], 'lint': ['-Xlint:all,-serial,-cast,-rawtypes']}
+        with self.assertRaisesRegex(RuntimeError, 'Generated dependencies must remain handwritten sources'):
+            delivery.compile_handwritten(self.root/'source', 'new.generated', JDK, [],
+                    self.root/'bad', options, existing_generated_sources=pins,
+                    existing_generated_dependencies=pins)
 
     @unittest.skipUnless((JDK/'bin/javac').exists(), 'explicit JDK21 unavailable')
     def test_non_name_modified_utf8_constants_do_not_change_class_identity(self):

@@ -127,9 +127,18 @@
     "User authorization to integrate after checks and the later evidence-based compatibility/performance adoption decision are separate policy inputs. A delegated decision records the prior user authority, agent evaluator, exact stage/source hashes and pinned evidence; passing tests or elapsed time never create authorization. JVM timing, JIT/CPU behavior, physical erasure, entropy and cryptographic hardness are not proved."
   ],
   "existing_generated_sources": {
-    "io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f"
+    "io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java": "b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java": "17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java": "52b31fc22b8ff74be795aefe9105025c7d580adb869b8e8750496a4e47321d45",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java": "6e653532074d933ae42d76eef1ab1511de31ef82bfe298421c16794e6c4a2280",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java": "f87dc02237947a2f0932941bdccc003a08abfb5a85b267b7423c92ee14c779b6",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java": "b2f2f1ab069343ca8a5f282bf60389ef0787d3fa13d423df9e4c847a0d6c2194",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java": "81db1c35cf12d398c447151c7f479941ae2047c987a377b9849bd82702f1e760",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
+    "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
   },
-  "existing_generated_provenance": "Exact existing packet compiler-output source pin from formal/packet/inputs.json; only this file is excluded from handwritten lint. It is separately compiled under explicit generated-code flags and its exact class bytes join final Maven class/JAR comparison.",
+  "existing_generated_provenance": "Exact existing packet compiler output is pinned by formal/packet/inputs.json; nine HKDF compiler-output files are reproduced by formal/dafny/deliver_hkdf.py and pinned in formal/dafny/hkdf/GENERATED.json. Only these generated files receive generated-code lint. The HKDF external provider remains handwritten and is compiled with strict lint before its generated callers and again with all handwritten sources. Every resulting class joins the independent full Maven class/JAR comparison.",
   "native_evidence": {
     "schema": "microproxy.native-kem-evidence-contract/v2",
     "receipt_format": "native_kem_checks.py unversioned JSON, identified by this versioned contract and exact runner SHA256",
@@ -323,5 +332,8 @@
       "destination": "quic/src/main/java/io/github/mahmoudimus/quic/tls/MlKem768.java",
       "sha256": "135928e6645c82c249cca276909ae12ffbea07271c338fc1b701c331132391f3"
     }
-  ]
+  ],
+  "existing_generated_dependencies": {
+    "io/github/mahmoudimus/verifiedcrypto/JdkHmac.java": "965fedec2266f18f1f3c4c1eef8726159d4eded8123c89fc86cbb8ec3f5e9059"
+  }
 }

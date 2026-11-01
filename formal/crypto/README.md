@@ -329,6 +329,15 @@ the verified ownership boundary under the documented Java/compiler assumptions.
 
 ## Production delivery
 
+The later [HKDF adoption record](adoption/hkdf/README.md) extends the delivery
+configuration to the separately verified HKDF component. Its nine existing
+generated sources use the generated-code lint policy; the handwritten JCE provider
+is precompiled and then checked again with the full strict handwritten-source
+compilation. The current full-library gate independently reconstructs all 467
+classes, and the minimized-bundle gate derives the same canonical map before
+checking scoped crypto/runtime bytes, notices and actual class origins. Historical
+adoption receipts below remain snapshots of their original builds.
+
 Production `Shake` and `MlKem768` delegate to the unmodified generated native
 classes. The [delivery archive](adoption/README.md) records the 18-root verified
 stage, exact 66-source/66-class identity, four freshly compiled facade classes,

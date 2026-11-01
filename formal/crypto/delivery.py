@@ -75,6 +75,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 HERE = Path(__file__).resolve().parent
@@ -728,7 +729,7 @@ def handwritten_inventory(source_root, namespace, existing_generated_sources=Non
 
 
 def compile_handwritten(source_root, namespace, java_home, classpath, output, options, timeout=1800,
-                        existing_generated_sources=None):
+                        existing_generated_sources=None, existing_generated_dependencies=None):
     """Restore the original lint policy outside the exact generated namespace."""
     lint = options.get('handwritten_lint')
     if lint != ['-Xlint:all,-serial']:
@@ -737,8 +738,12 @@ def compile_handwritten(source_root, namespace, java_home, classpath, output, op
     java_home = Path(java_home).resolve()
     classpath = [Path(path).resolve() for path in classpath]
     existing_generated_sources = existing_generated_sources or {}
+    existing_generated_dependencies = existing_generated_dependencies or {}
     check_pins(source_root, existing_generated_sources)
     sources = handwritten_inventory(source_root, namespace, existing_generated_sources)
+    if not set(existing_generated_dependencies).issubset(sources):
+        raise RuntimeError('Generated dependencies must remain handwritten sources')
+    check_pins(source_root, existing_generated_dependencies)
     if not sources:
         raise RuntimeError('No handwritten source coverage for the strict lint replacement')
     output = Path(output).resolve()
@@ -748,11 +753,21 @@ def compile_handwritten(source_root, namespace, java_home, classpath, output, op
     freeze_inputs(source_root, all_inputs, frozen)
     classes = output/'classes'
     classes.mkdir()
+    if existing_generated_dependencies:
+        # External provider leaves must exist before compiling their generated callers.
+        # They retain strict lint here and in the complete handwritten compilation below.
+        dependency_command = [Path(java_home)/'bin/javac', '--release', '21', '-g:'+options['debug'],
+            '-encoding', options['encoding'], *options.get('common_args', []), *lint, '-sourcepath', '',
+            '-cp', os.pathsep.join(map(str, classpath)), '-d', classes,
+            *[frozen/name for name in existing_generated_dependencies]]
+        status, diagnostics = run_command(dependency_command, output/'generated-dependencies-javac.log', source_root, timeout)
+        if status or diagnostics.strip():
+            raise RuntimeError('Strict generated dependency compilation failed or warned: '+diagnostics[-4000:])
     existing_classes = {}
     if existing_generated_sources:
         generated_command = [Path(java_home)/'bin/javac', '--release', '21', '-g:'+options['debug'],
             '-encoding', options['encoding'], *options.get('common_args', []), *options['lint'], '-sourcepath', '',
-            '-cp', os.pathsep.join(map(str, classpath)), '-d', classes,
+            '-cp', os.pathsep.join(map(str, [classes, *classpath])), '-d', classes,
             *[frozen/name for name in existing_generated_sources]]
         status, diagnostics = run_command(generated_command, output/'existing-generated-javac.log', source_root, timeout)
         if status or diagnostics.strip():
@@ -1137,6 +1152,20 @@ def publish(args, manifest):
     return {'status':'published', 'stage_receipt_sha256':digest(receipt), 'source_files':len(data['delivered_sources'])}
 
 
+def maven_jar(root):
+    """Resolve this module's ordinary Maven name without guessing a release version."""
+    namespace = {'m': 'http://maven.apache.org/POM/4.0.0'}
+    project = ET.parse(Path(root)/'quic/pom.xml').getroot()
+    artifact = project.findtext('m:artifactId', namespaces=namespace)
+    version = project.findtext('m:version', namespaces=namespace) or project.findtext('m:parent/m:version', namespaces=namespace)
+    final_name = project.findtext('m:build/m:finalName', namespaces=namespace)
+    values = [final_name] if final_name is not None else [artifact, version]
+    if any(not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', value) for value in values):
+        raise RuntimeError('Unresolved Maven artifact name; supply an explicit --jar')
+    name = final_name if final_name is not None else artifact+'-'+version
+    return Path(root)/'quic/target'/(name+'.jar')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('mode', choices=('stage', 'publish', 'check', 'runtime'))
@@ -1149,9 +1178,11 @@ def main():
     parser.add_argument('--stage', type=Path)
     parser.add_argument('--approval', type=Path)
     parser.add_argument('--classes', type=Path, default=ROOT/'quic/target/classes')
-    parser.add_argument('--jar', type=Path, default=ROOT/'quic/target/quic-0.6.0.jar')
+    parser.add_argument('--jar', type=Path, help='built QUIC JAR (default: declared Maven artifact/version)')
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
+    if args.mode == 'check' and args.jar is None:
+        args.jar = maven_jar(ROOT)
     for name in ('cache', 'runtime', 'java_home', 'output', 'evidence', 'stage', 'approval', 'classes', 'jar'):
         path = getattr(args, name)
         if path is not None:
@@ -1182,7 +1213,8 @@ def main():
                 handwritten = compile_handwritten(ROOT/manifest['destination'], manifest['namespace'],
                     Path(data['jdk_home']), [args.stage/'classes', args.runtime],
                     Path(temporary)/'strict', manifest['javac'], args.timeout,
-                    existing_generated_sources=manifest['existing_generated_sources'])
+                    existing_generated_sources=manifest['existing_generated_sources'],
+                    existing_generated_dependencies=manifest.get('existing_generated_dependencies', {}))
                 expected = dict(data['canonical_classes'])
                 for name, sha in handwritten['classes'].items():
                     if name in expected and expected[name] != sha:
@@ -1204,6 +1236,7 @@ def main():
                     raise RuntimeError('Maven JAR changed during delivery check')
                 result = {'status':'checked', 'stage_receipt_sha256':digest(receipt), 'jar_sha256':jar_sha,
                           'class_count':len(expected), 'generated_class_count':len(data['canonical_classes']),
+                          'classes':expected,
                           'handwritten_sources':len(handwritten['sources']), 'handwritten_lint':handwritten['lint'],
                           'existing_generated_sources':manifest['existing_generated_sources'],
                           'comparison':'exact class bytes including all debug attributes'}
