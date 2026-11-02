@@ -20,6 +20,11 @@ HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified 
 The packaged Java is checked against the generated artifacts. Compiler/runtime, reviewed
 Java facades and selected JDK primitives remain explicit trust boundaries.
 
+These claims apply to current `main` source and explicitly validated builds. The
+published [`v0.6.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.6.0)
+predates this integration; its download binaries are outside this proof scope.
+[Build current source](docs/getting-started/install.md#building-from-source) to use the verified backend.
+
 MicroProxy includes custom TLS/QUIC code. Interoperability tests,
 adversarial regression tests, and scoped formal models provide different kinds of evidence;
 they do not establish whole-stack security or constant-time JVM execution. No independent expert

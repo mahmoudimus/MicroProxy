@@ -1509,5 +1509,146 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertFalse(payload["ok"])
 
 
+class PromotedTraceControlTests(unittest.TestCase):
+    """Falsify control facts even after an accepted snapshot digest is renewed.
+
+    Call the semantic validators directly: a hash mismatch cannot mask a missing
+    control. The baseline is the reviewed trace receipt, not a fresh HKDF run.
+    """
+
+    def setUp(self):
+        root = Path(__file__).resolve().parents[2]
+        self.report = json.loads((root / "formal/timing/PRODUCTION-EVIDENCE.json").read_text())
+
+    def validate(self):
+        obligations._validate_trace_composition(self.report, "V7:trace-report")
+        obligations._validate_trace_promoted_controls(self.report, "V7:trace-report")
+        obligations._validate_trace_boundaries(self.report, "V7:trace-report")
+
+    def field(self, name="Add"):
+        return next(item for item in self.report["callee_roots"]
+                    if item["class"].endswith("NativeField.__default")
+                    and item["method"].startswith(name + ":"))
+
+    def helper(self, name):
+        return next(item for item in self.report["roots"]
+                    if item["class"].endswith("HkdfBridge")
+                    and item["method"].startswith(name + ":"))
+
+    def test_reviewed_promoted_controls_are_accepted(self):
+        self.validate()
+
+    def test_private_requirement_cannot_become_not_applicable(self):
+        self.field()["execution_control"]["status"] = "not-applicable: no private parameters or private parameter roles"
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_return_liveness_cannot_be_replaced_with_parameter_liveness(self):
+        control = self.field()["execution_control"]
+        control["differing_registers"] = list(control["parameter_registers"])
+        control["non_parameter_differing"] = []
+        control["return_differs"] = False
+        with self.assertRaisesRegex(obligations.LedgerError, "return liveness"):
+            self.validate()
+
+    def test_private_requirement_and_return_register_are_independent(self):
+        control = self.field()["execution_control"]
+        control["require_liveness"] = False
+        control["return_register"] = control["parameter_registers"][0]
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_non_parameter_initial_values_cannot_fake_flow(self):
+        self.field()["execution_control"]["state_invariants"]["non_parameter_private_start_at_zero"] = False
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_equal_input_pair_is_not_private_evidence(self):
+        self.field()["execution_control"]["seeds"]["T"] = [11, 3]
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_success_flags_cannot_hide_different_observation_tapes(self):
+        self.field()["execution_control"]["events"]["t"].append(["guard", 0, True])
+        with self.assertRaisesRegex(obligations.LedgerError, "observation tapes"):
+            self.validate()
+
+    def test_private_shift_admission_remains_an_enforced_audit_gate(self):
+        self.field()["execution_control"]["shift_count_rule"]["shift_calls"][0]["count_taint"] = "sec"
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_fully_expanded_body_cannot_reintroduce_owned_call(self):
+        self.field()["call_targets"]["io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I"] = 99
+        with self.assertRaisesRegex(obligations.LedgerError, "identity/contract"):
+            self.validate()
+
+    def test_field_source_and_compiled_identity_cannot_be_relabelled(self):
+        self.field()["source_rebuild_sha256"]["class_sha256"] = "0" * 64
+        with self.assertRaisesRegex(obligations.LedgerError, "identity/contract"):
+            self.validate()
+
+    def test_timeout_is_not_a_genuine_field_proof_mutant(self):
+        self.field()["mutants"]["public-result-from-secret-arg"]["status"] = "timeout"
+        with self.assertRaisesRegex(obligations.LedgerError, "proof-mutant"):
+            self.validate()
+
+    def test_sequence_pair_cannot_claim_copy_or_private_output_refinement(self):
+        self.helper("sequence")["execution_control"]["return_differs"] = True
+        with self.assertRaisesRegex(obligations.LedgerError, "must not claim"):
+            self.validate()
+
+    def test_sequence_requires_the_actual_private_input_role(self):
+        self.helper("sequence")["execution_control"]["secret_parameter_roles"] = ["unrelated"]
+        with self.assertRaisesRegex(obligations.LedgerError, "private execution control"):
+            self.validate()
+
+    def test_public_label_controls_cannot_skip_an_executed_length(self):
+        self.helper("labelUnits")["execution_control"]["lengths"]["runs"][-1]["stores"] = 0
+        with self.assertRaisesRegex(obligations.LedgerError, "executed length"):
+            self.validate()
+
+    def test_duplicated_control_summary_must_match_the_checked_body(self):
+        row = self.report["promoted_controls"]["records"][0]
+        row["control"]["status"] = "FAILED"
+        with self.assertRaisesRegex(obligations.LedgerError, "not bound"):
+            self.validate()
+
+    def test_new_helpers_do_not_authorize_larger_solver_budgets(self):
+        self.field()["solver_limits"]["time"] = 120
+        with self.assertRaisesRegex(obligations.LedgerError, "identity/contract"):
+            self.validate()
+
+    def test_private_root_cannot_disable_its_declared_control_requirement(self):
+        self.field()["execution_control_required"] = False
+        with self.assertRaisesRegex(obligations.LedgerError, "identity/contract"):
+            self.validate()
+
+    def test_summary_cannot_disable_the_private_input_requirement(self):
+        self.report["promoted_controls"]["records"][0]["require_applicable"] = False
+        with self.assertRaisesRegex(obligations.LedgerError, "not bound"):
+            self.validate()
+
+    def test_receipt_cannot_hide_its_trusted_code(self):
+        self.report["trusted"] = []
+        with self.assertRaisesRegex(obligations.LedgerError, "trust/scope boundary"):
+            self.validate()
+
+    def test_receipt_cannot_hide_the_interpreter_scope(self):
+        self.report["execution_controls"]["scope"] = ""
+        with self.assertRaisesRegex(obligations.LedgerError, "trust/scope boundary"):
+            self.validate()
+
+    def test_receipt_cannot_relabel_partial_composition_as_complete(self):
+        self.report["composition_not_a_closure"] = "All owned calls are proved."
+        with self.assertRaisesRegex(obligations.LedgerError, "trust/scope boundary"):
+            self.validate()
+
+    def test_finite_controls_must_keep_their_value_refinement_limit(self):
+        self.report["promoted_controls"]["note"] = ""
+        with self.assertRaisesRegex(obligations.LedgerError, "trust/scope boundary"):
+            self.validate()
+
+
 if __name__ == "__main__":
     unittest.main()

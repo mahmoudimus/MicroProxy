@@ -7,6 +7,13 @@ Dafny implementations. The proofs cover their stated functional specifications; 
 class and JAR delivery connects the verified source to the packaged Java. Compiler/runtime,
 reviewed Java facades and selected JDK primitives remain trusted, as detailed below.
 
+**Version scope:** these claims describe current `main` source and explicitly
+validated build artifacts. The published
+[`v0.6.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.6.0)
+predates the generated-backend integration; its downloadable binaries are outside
+this proof scope. [Build current source](getting-started/install.md#building-from-source)
+to use the verified backend. A future release needs its own actual-artifact gate.
+
 MicroProxy has a custom TLS/QUIC implementation. Its assurance includes development review,
 published standards vectors, interoperability/rejection tests, exploratory timing observations,
 and the scoped models below. No end-to-end security proof, independent expert cryptographic
@@ -388,6 +395,14 @@ can throw when called by the generated Extract/Expand bodies; its exceptions
 are not modeled. The other three handler-bearing wrapper methods in the class
 inventory are outside the certified call graph. Implicit exceptions and JVM
 timing remain outside this observer.
+
+The component also checks two static HKDF helper bodies and seven private field
+arithmetic bodies, supported by two public constant helpers. Owned field calls
+are expanded into their certificates; their remaining shift runtime contract is
+explicit. These additions leave 13 open roots, the original 19 caller assumptions
+and 31 aggregate unchecked labels. The clone/sequence model does not prove copied
+contents or alias ownership, and modeled arithmetic does not refine JVM values.
+The full adapter, polynomial/NTT and KEM trace composition remains open.
 
 ### Obligation and release-claim gates
 

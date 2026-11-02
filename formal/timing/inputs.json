@@ -5,10 +5,10 @@
     "formal/timing/PositiveTraceCheck.dfy": "5428fb89db59695f46442c083dec626005de16cff93e158736b896e76382e9b0",
     "formal/timing/HkdfShape.dfy": "e97ece26d90e905bc31e39f44f52fecafca72efa99fe219edfd68ed2a9adbb88",
     "formal/timing/bytecode_trace.py": "6b85f4630868c826bdb7139b16e362ef096f102d73786454e3bf24b3e44227b4",
-    "formal/timing/policy.json": "66b0dfec3ba06b5641dbd193c44a0798400f6ed680051f23ac271110239437c4",
-    "formal/timing/run.py": "9dcb9b64d933472cd151ed5ba60cb05cc67b81884777079afe04d55d975b58f8",
-    "formal/timing/threat-model.md": "460a392275f78b47652fdbfd0a44b27d86fe64f4bc5fa2912419d2e022dd2cf3",
-    "formal/timing/README.md": "f316fd5397041071a9207995086454ec2f50942b3427634b1bb0086b484fbd7f",
+    "formal/timing/policy.json": "753a283cb8cc8eee48ac0f4d1491ba41f9937e7279d4562af8edf8751eabb33f",
+    "formal/timing/run.py": "5f71e646f64a7af128f5f8da8fbecd4f86d797724bb299033ab01a3b5831c7e2",
+    "formal/timing/threat-model.md": "1c92606b40240bcccc06c48f7ea834ab503e43294c958fc2c1a2c65ef1ff7ae0",
+    "formal/timing/README.md": "6c8c18fa3ec70f8ef1c863f3ae389349a2d5bedf76e3b9faec5bf4de7695d801",
     "formal/timing/test_trace.py": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
     "formal/timing/fixtures/CategoryTwo.java": "297819f8daabe05cb0349c1f91c3c3839a4304205f7d45109a271863b8a4f70a",
     "formal/timing/fixtures/ClassOracle.java": "6e3cce568f3ba1fcecf5d948fa59af096f82953d944cfdf37f27e76219a8f80d",
@@ -127,6 +127,8 @@
     "formal/timing/fixtures/MergeRoleCallee.java": "53c51a578f59592ebf610dffa865d00cb2db14ff7903864050ddd2d22d62df77",
     "formal/timing/fixtures/MergeRoleCaller.java": "af642d6f990d6efa8bd18101ac8d8efc69ff5dc3dde41dd8ea420c26cf8dee79",
     "formal/timing/fixtures/RecursiveCallee.java": "2ba78c01041cb187a186a21411fc677d384e1f6ee528f6bc14e10a3cf9cb0c8b",
-    "formal/timing/test_exception_table.py": "4ec876f9fb557268ee1059066d14794472df29ac1a5405fbd9f5f32fec3a183d"
+    "formal/timing/test_exception_table.py": "4ec876f9fb557268ee1059066d14794472df29ac1a5405fbd9f5f32fec3a183d",
+    "formal/timing/execution_controls.py": "663a4d984885fb6246cc202a8f02ada86841cc752d6351a155f3d42e6459ee85",
+    "formal/timing/test_coverage.py": "552fbf449ac80e042530e30970b3b639c4e2dd94a0d3ede596707e90a1481159"
   }
 }

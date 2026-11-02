@@ -242,7 +242,7 @@ At this snapshot:
 - V7 records corrected conditional caller/model evidence: five caller certificates
   (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169), four owned
   helper certificates and a separate 369-instruction composed Feed. The model and
-  HKDF-shape proofs remain 57 and 17; 105 unit tests, 27 fixtures (four accepted,
+  HKDF-shape proofs remain 57 and 17; 128 unit tests, 27 fixtures (four accepted,
   23 policy rejects), four Select mutants and five callee mutants cover the
   extraction/gate controls. A compiled 138-row Apply probe cross-checks the finite
   execution interpreter. Wipe's witness must execute four stores to its secret
@@ -250,15 +250,21 @@ At this snapshot:
   controls supplement the theorem and do not prove JVM semantics or timing.
   The original five-caller set still assumes 19 owned contracts; the separate
   composed Feed removes three from its own set (ten to seven), with 16 in the
-  hypothetical replacement union. Fifteen roots and 31 unchecked labels remain.
+  hypothetical replacement union. Thirteen roots and 31 aggregate unchecked labels remain.
+  Two static HKDF helper roots and nine NativeField helpers now supplement that
+  evidence: seven private field bodies have their owned calls fully expanded,
+  supported by two public constant leaves. The existing shift runtime contract
+  is admitted by a trusted audit rule. Required finite private controls cannot
+  pass as public-only; the sequence allocation model does not prove copy/alias
+  ownership, and arithmetic values do not refine JVM values.
   V7 stays partial. The snapshot
-  `29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f`
+  `7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b`
   preserves the corrected copy operands and enforces rejection of every declared
   javap exception table, malformed method boundaries and duplicate/backwards
   offsets. Fifteen additional real-javap/malformed-input regression tests cover
   those guards; selected bodies contain no handlers and are unchanged apart
   from the include path. Its source/policy,
-  127-input inventory, helper contracts, execution controls and residual sets are
+  129-input inventory, helper contracts, execution controls and residual sets are
   checked independently of a data-only digest renewal. The extractor, splice,
   target-to-model-kind mapping and runtime contracts remain trusted; full value,
   alias/dispatch, implicit-exception and physical-timing refinement remain open.
@@ -290,7 +296,7 @@ must be tied to an actual reviewed receipt, not a label:
 2. Keep V1 `partial` until a reviewed successful AWS dependency-closure receipt with
    `full_dependency_graph_verified=true` exists. Target-only 9-declaration success
    must not be promoted to closure.
-3. Keep V7/V8 partial and all-complete unsupported until the 15 open owned trace
+3. Keep V7/V8 partial and all-complete unsupported until the 13 open owned trace
    roots, 19 assumed owned helper contracts, runtime timing and
    independent external expert evidence genuinely close.
 4. If the HKDF final delivery store or production adapter changes, renew the exact

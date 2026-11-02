@@ -1,10 +1,10 @@
 # Checked secret-trace evidence
 
 The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
-`29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f`.
-It records the 2026-11-01 macOS arm64 replay at
-`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/report.json`
-(workspace `replay-xg5me5ku`) over the preserved JDK 21 library classes.
+`7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b`.
+It records the 2026-11-02 macOS arm64 replay at
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/primitive-final-full-replay/report.json`
+(workspace `replay-kuy03ljl`) over the preserved JDK 21 library classes.
 The central ledger pins the snapshot and independently requires its input,
 root, fixture, execution-control and residual inventories. A future receipt
 needs source review and an explicit checker-baseline renewal.
@@ -18,10 +18,11 @@ hardness, implicit-exception coverage or physical secret erasure.
 - Dafny `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3 `4.12.1`.
 - Homebrew JDK `21.0.12.1`; DafnyRuntime SHA-256
   `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`.
-- 127 pinned inputs and 77 matching source-rebuilt class bindings.
-- 105 unit tests by discovery: 90 in `test_trace.py` and 15 real-javap and
-  malformed-input regressions in `test_exception_table.py`. The original module
-  and direct-script entry points still run their 90 tests.
+- 129 pinned inputs and 77 matching source-rebuilt class bindings.
+- 128 unit tests by discovery: 90 trace, 15 exception/member-boundary and
+  23 coverage/applicability regressions. The trace module/direct script still
+  run their 90 tests. The ledger/release suite separately checks the receipt
+  semantics, including corruption after snapshot-digest renewal.
 - Unchanged `SecretTrace.dfy`: 57 verified declarations; unchanged
   `HkdfShape.dfy`: 17; compiled positive control executed.
 - Compiled `ApplyProbe.dfy`: 138 rows and nine operand-sensitive expectations,
@@ -29,7 +30,7 @@ hardness, implicit-exception coverage or physical secret erasure.
   interpreter against the model; it does not prove the interpreter correct.
 - 27 fixtures: four accepted (`ConstantTime`, `PublicEuclidean`,
   `LongSlotPublic`, `HeapExternalPublic`), 23 normal policy rejections.
-- Four Select certificate mutants and five callee mutants rejected with genuine
+- Four Select certificate mutants and twelve callee mutants rejected with genuine
   proof-obligation failures. Parser, crash, timeout and resource failures never
   count as successful negative controls.
 
@@ -85,6 +86,55 @@ Extract uses 120 s / 100 M; Pow2/PublicMod/Wipe use 30 s / 50 M; the composed
 Feed uses 180 s / 400 M. Exact solver options, including omitted case-split
 overrides, are retained in the snapshot. Budgets were not padded.
 
+## Additional checked helper bodies
+
+The two static adapter helpers are checked roots; exactly `sequence` and
+`labelUnits` leave the open-root list (15 to 13). Nine NativeField roots support
+seven fully expanded private arithmetic bodies and two public constant leaves.
+All new certificates use 30 s / 50 M with the existing case-split option.
+
+| Body | Instructions/reachable | Verified declarations |
+|---|---:|---:|
+| verifiedhkdf.sequence | 5/5 | 11 |
+| verifiedhkdf.labelUnits | 23/23 | 28 |
+| NativeField.ReduceOnce | 23/23 | 29 |
+| NativeField.Reduce | 45/45 | 53 |
+| NativeField.Add | 31/31 | 37 |
+| NativeField.Sub | 35/35 | 43 |
+| NativeField.Mul | 53/53 | 61 |
+| NativeField.MulSub | 59/59 | 67 |
+| NativeField.AddMul | 55/55 | 63 |
+| NativeField.Q | 2/2 | 7 |
+| NativeField.MaxReduce | 2/2 | 7 |
+
+Every expanded private field body has zero opaque owned calls; the existing
+`Helpers.bv64ShiftRight(secretWord, publicCount)` contract remains. Its public
+count is enforced by the trusted audit gate, not by the SMT theorem alone. The
+model's shift value is abstract; functional modular-arithmetic proofs are
+separate. The `Witness` read is represented as a public literal and is overwritten
+before use. The two public leaves are constants, not additional arithmetic proofs.
+
+The new `execution_controls.py` uses the frozen interpreter with distinct
+per-parameter cohorts, other private registers zero and fresh roles equal.
+Seven field pairs terminate with equal observations/public state, non-parameter
+private flow and a differing terminal return register. A required private control
+must be `ok`; a public-only `not-applicable` cannot satisfy it. These are finite
+controls, not universal return-liveness or JVM value-refinement proofs.
+
+For `sequence`, the differing private input role is exercised; modeled
+allocations are constant-filled. Neither copied content, alias ownership nor
+private output-copy liveness is proved. `AliasNoClone` is trace-equivalent under
+this observer. `labelUnits` is all-public, with `alloc_public` narrowed to pc 11;
+model runs at lengths 0/1/3/5 execute that many stores. This is a property under
+`ProviderResult(String.length)`, not a theorem about `java.lang.String`.
+
+The original five callers, four codec helpers and separate Feed retain identical
+mathematical certificate bodies (only repository include paths differ). The
+19-caller contract union and 31 aggregate unchecked labels remain; the broader
+field/NTT/codec/sampling label stays because its callers and other helpers are
+unfinished. The receipt's TCB and partial-composition disclosures are validated
+independently of an accepted snapshot-digest renewal.
+
 ## Execution witnesses and their limits
 
 Only private inputs differ initially; other private registers start equally at
@@ -123,7 +173,7 @@ The separate composed Feed expands Extract, PublicMod and Wipe, with Pow2 as a
 supporting body, reducing Feed's opaque set from ten to seven. Replacing the
 original Feed would reduce the five-caller union to 16; this snapshot keeps both
 certificates and does not claim that replacement or whole-callee closure.
-Fifteen roots and 31 unchecked labels remain open. Dispatch/object identity,
+Thirteen roots and 31 aggregate unchecked labels remain open. Dispatch/object identity,
 implicit exceptions, full arithmetic/value refinement and provider/runtime
 internals remain outside the observer. Shape hashes check direct-translation
 self-consistency; the splice and javap extractor are trusted, mutation-tested
