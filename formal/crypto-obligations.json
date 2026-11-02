@@ -1000,13 +1000,13 @@
         },
         {
           "path": "formal/nonce/run.py",
-          "sha256": "999070f7ddf8bdaa1a0b22b9a16682e8592dbf50ffa74e2a17eab740878d19c8",
+          "sha256": "c32876cc54f8f71982558c8fffe5f8959d5507806d009df09ed2040aceddc663",
           "kind": "tool-manifest",
           "role": "portable nonce proof/control/generation/test runner"
         },
         {
           "path": "formal/nonce/test_run.py",
-          "sha256": "6ba5f22b59dc31b9895f5ccab092f02ba4aa7c7dc9d3138fbfa6274b1a6dda8c",
+          "sha256": "f20c9a303274737166f5eed6d6047facf493621786e56697e769e69d1d1c6db1",
           "kind": "test-source",
           "role": "nonce runner fail-closed regression tests"
         },
@@ -1018,7 +1018,7 @@
         },
         {
           "path": "formal/nonce/inputs.json",
-          "sha256": "9c01b622b5ee23edbccca9e94713aa638d89ef56c69b189818ca61661130f52a",
+          "sha256": "cd6ae07833951fcde99ed7697215a799baf222c24c5c9fc303a21ed709f79dc8",
           "kind": "input-manifest",
           "role": "explicit nonce proof/generation/test closure"
         },
@@ -1030,7 +1030,7 @@
         },
         {
           "path": "formal/nonce/PRODUCTION-EVIDENCE.json",
-          "sha256": "65c4bd2d63e535d911ffe03ab1209f1e54dfc50cd8ccc0fd227985f5855915b6",
+          "sha256": "41d85be74bfaf61427722196ea5260da4bf2c89d53dcfc249c904699852d0947",
           "kind": "component-receipt",
           "role": "pinned generated-nonce production adoption receipt"
         },
@@ -2488,7 +2488,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "b38c811bbd8173929771a7e5e276d5d774a178f0d8f27ba13b019e3eaf24f7bd",
+          "sha256": "4dec175b7e328fbfd1054ea7282dc06483032523adbeae969a53b602f2186356",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },

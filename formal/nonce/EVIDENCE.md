@@ -29,12 +29,13 @@ evidence.
 `formal/nonce/BundleNonceSmoke.java` is a separate adoption/artifact-gate harness.
 It is **not** part of the frozen core proof closure. It is compiled into a
 dedicated temporary directory and executed against the actual minimized bundle
-plus the pinned Maven DafnyRuntime jar: it first calls `PacketKey.nonce`,
+with its bundled Dafny runtime: it first calls `PacketKey.nonce`,
 `seal` and `open` for all three suites and packet numbers 0, 1 and -1, compares
 the nonce with an independent clone/XOR oracle and the ciphertext with fixed
 digests from a separate JCE implementation, and only then asserts that
-`PacketKey`/`VerifiedNonce` loaded from the bundle, `dafny.Helpers` from the
-pinned runtime jar and the harness from its own directory. The TLS-only hybrid
+`PacketKey`, `VerifiedNonce` and `dafny.Helpers` loaded from the bundle and the
+harness from its own directory. The pinned runtime jar is only the reference
+for the bundled-runtime byte-identity check. The TLS-only hybrid
 handshake smoke does not assert nonce origins by name.
 
 ## Portable replay
@@ -46,15 +47,24 @@ validated through the audited `formal/dafny/toolchain.py` against the pinned
 `formal/dafny/tools.json`; the selected identities are recorded in each fresh
 report. No macOS executable hash is used as a cross-platform expectation.
 
-Fresh replay output lives outside the checkout under the operator-supplied
-cache, by default `$HOME/.cache/microproxy-formal/nonce/portable-replay`.
+Replay output defaults to the operator-supplied cache at `$HOME/.cache/microproxy-formal/nonce/portable-replay`.
 The current receipt is self-binding: it records the selected tool asset,
 archive/exe/solver/runtime/tree hashes, explicit JDK hashes, pinned inputs and
-command logs. The report hash is not copied into this file, because doing so
-would create a pin/replay cycle rather than add evidence.
+command logs. This evidence document is outside the frozen 13-file proof-input closure.
+The accepted snapshot hash is pinned in the reviewed checker; it identifies
+provenance and does not substitute for proof replay.
 
-The accepted macOS component replay (report SHA-256
-`82062ab01fb067e95d441a859c85fb1892d04277affd87fa9f8d7bfab3082a59`) is
+The current accepted macOS component replay is SHA-256
+`4c11918847dec99181cd317cad3092f8e5df118f2ce6e07ea6863e73175c617f`,
+archived under `nonce/relative-diagnostics-fixed` in the local evidence cache.
+It reruns the unchanged kernel/domain, all five proof mutants and both JDKs
+with output inside the checkout. Diagnostic paths are resolved against the
+actual tool cwd and error anchors must name the exact owned mutant file;
+21 runner tests include the CI-relative-path failure and wrong-file controls.
+The generated source/class and all proof budgets are unchanged. This snapshot
+replaces the prior portable replay
+`82062ab01fb067e95d441a859c85fb1892d04277affd87fa9f8d7bfab3082a59`, which
+is retained unmodified as historical evidence. The current macOS replay is
 historical component evidence, not a fresh Linux CI pass. A new Linux replay is
 required before that portability is claimed. The earlier historical isolated-component replay at
 `$HOME/.cache/microproxy-formal/issue117-20261101/nonce/component-replay` with

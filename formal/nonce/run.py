@@ -404,30 +404,53 @@ def check_verified(status, output, expected, label):
     return int(summaries[0][0])
 
 
-def parse_locations(output, workspace):
+def parse_locations(output, workspace, *, diagnostic_cwd):
+    """Resolve diagnostic paths against the tool's actual process cwd.
+
+    Dafny reports a path relative to the process cwd whenever the file is under
+    it, even when the file was passed as an absolute path. The replay executor
+    runs tools with cwd=ROOT, so a repo-relative diagnostic must be joined to
+    ROOT, not to the replay workspace. Source text is read only from files that
+    resolve inside the caller-owned workspace; wrong files, traversal, other
+    repositories, URIs, missing files and invalid lines stay unreadable and so
+    can never satisfy a mutant anchor.
+    """
+    workspace = Path(workspace).resolve()
+    diagnostic_cwd = Path(diagnostic_cwd).resolve()
     locations = []
     pattern = re.compile(r'^(.+?\.dfy)\((\d+),(\d+)\): (Error|Related location):(.*)$', re.M)
     for name, line, column, kind, message in pattern.findall(output):
-        path = Path(name)
-        if not path.is_absolute():
-            path = workspace / path
+        raw = Path(name)
+        candidate = raw if raw.is_absolute() else diagnostic_cwd / raw
         try:
-            source_line = path.read_text().splitlines()[int(line) - 1].strip()
-        except (OSError, IndexError):
-            source_line = ''
-        locations.append({'file': path.name, 'line': int(line), 'column': int(column),
-                          'kind': kind, 'source': source_line, 'message': message.strip()})
+            path = candidate.resolve()
+            line_number = int(line)
+            owned = line_number > 0 and path.is_relative_to(workspace)
+        except (OSError, ValueError):
+            path, line_number, owned = candidate, 0, False
+        source_line = ''
+        if owned:
+            try:
+                source_line = path.read_text().splitlines()[line_number - 1].strip()
+            except (OSError, IndexError):
+                source_line = ''
+        locations.append({'file': path.name, 'path': str(path), 'owned': owned,
+                          'line': line_number, 'column': int(column), 'kind': kind,
+                          'source': source_line, 'message': message.strip()})
     return locations
 
 
-def check_rejected(status, output, mutant, workspace):
+def check_rejected(status, output, mutant, mutant_path, *, diagnostic_cwd):
     summaries = SUMMARY.findall(output)
     if status != 4 or len(summaries) != 1 or int(summaries[0][1]) == 0 or BAD.search(output):
         raise RuntimeError(f'Control {mutant["name"]} did not fail a proof obligation '
                            'without timeout/resource/parse failure')
-    locations = parse_locations(output, workspace)
+    mutant_path = Path(mutant_path).resolve()
+    locations = parse_locations(output, mutant_path.parent, diagnostic_cwd=diagnostic_cwd)
     matches = [location for location in locations
-               if location['kind'] == mutant['kind']
+               if location['owned'] and location['path'] == str(mutant_path)
+               and location['kind'] == mutant['kind']
+               and location['source'] and mutant['anchor']
                and mutant['anchor'] in location['source']]
     if not matches:
         observed = [(location['kind'], location['line'], location['source'])
@@ -673,7 +696,8 @@ def pipeline(args, output, locks):
                 raise RuntimeError(f'Control {mutant["name"]} lost its intended mutation')
         status, rejected = call('control-' + mutant['name'],
                                 [dafny, 'verify', path, *FLAGS, '--error-limit', '20'], 180)
-        controls[mutant['name']] = check_rejected(status, rejected, mutant, folder)
+        controls[mutant['name']] = check_rejected(
+            status, rejected, mutant, path, diagnostic_cwd=ROOT)
     if digest(SOURCE) != kernel_source_sha:
         raise RuntimeError('Kernel source changed during negative controls')
 
