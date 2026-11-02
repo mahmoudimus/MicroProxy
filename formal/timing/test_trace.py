@@ -1065,5 +1065,165 @@ class ProofGateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'proof obligation'):
             run.check_proof_rejected(0, self.GOOD)
 
+
+# --------------------------------------------------------------------------- #
+class PutfieldValueBindingTests(unittest.TestCase):
+    """Check scalar field values and reference-field rejection."""
+
+    CLASS = 'FieldStoreProbe'
+    FIELDS = {
+        'FieldStoreProbe.publicValue:I': {
+            'role': 'FieldStoreProbe.publicValue', 'taint': 'pub'},
+        'FieldStoreProbe.publicLong:J': {
+            'role': 'FieldStoreProbe.publicLong', 'taint': 'pub'},
+        'FieldStoreProbe.secretValue:I': {
+            'role': 'FieldStoreProbe.secretValue', 'taint': 'sec'},
+        'FieldStoreProbe.secretLong:J': {
+            'role': 'FieldStoreProbe.secretLong', 'taint': 'sec'},
+        'FieldStoreProbe.refValue:[I': {
+            'role': 'FieldStoreProbe.refValue.ref', 'taint': 'pub',
+            'array_role': 'FieldStoreProbe.refValue', 'array_taint': 'pub'},
+        'FieldStoreProbe.refObject:Ljava/lang/Object;': {
+            'role': 'FieldStoreProbe.refObject.ref', 'taint': 'pub'},
+    }
+
+    def translate(self, method, params, fields=None):
+        policy = {'calls': dict(POLICY['calls']), 'statics': POLICY['statics'],
+                  'classes': {self.CLASS: {
+                      'methods': {method: {'params': params}},
+                      'fields': self.FIELDS if fields is None else fields}}}
+        methods = bt.disassemble(JAVAP, fixture_classes(), self.CLASS)
+        return bt.translate(methods[method], policy, policy['classes'][self.CLASS])
+
+    @staticmethod
+    def store(result):
+        return next(step for step in result['code']
+                    if step['type'] == 'step' and step['kind'][0] == 'store')
+
+    def test_secret_int_putfield_into_public_field_is_rejected(self):
+        result = self.translate('set:(I)V', ['sec'])
+        problems = [failure['problem'] for failure in bt.audit_certificate(result)]
+        self.assertTrue(any('secret write into public array' in problem
+                            for problem in problems), problems)
+
+    def test_secret_long_putfield_into_public_field_is_rejected(self):
+        result = self.translate('setLong:(J)V', ['sec'])
+        problems = [failure['problem'] for failure in bt.audit_certificate(result)]
+        self.assertTrue(any('secret write into public array' in problem
+                            for problem in problems), problems)
+
+    def test_putfield_records_the_argument_register_not_the_receiver(self):
+        # The receiver occupies IR register 1 for an instance method; the
+        # argument is result['param_regs'][0]. The old translator recorded the
+        # receiver in the Store and discarded the argument.
+        for method in ('set:(I)V', 'setLong:(J)V'):
+            result = self.translate(method, ['pub'])
+            self.assertEqual([], bt.audit_certificate(result))
+            self.assertFalse(result['static'])
+            self.assertEqual(result['param_regs'][0], self.store(result)['kind'][3],
+                             method)
+
+    def test_positive_public_scalar_setters_still_accept(self):
+        for method in ('set:(I)V', 'setLong:(J)V'):
+            result = self.translate(method, ['pub'])
+            self.assertEqual([], bt.audit_certificate(result), method)
+            self.assertEqual('pub', result['roles'][self.store(result)['kind'][1]])
+
+    def test_private_scalar_store_keeps_the_secret_value_binding(self):
+        for method in ('setSecret:(I)V', 'setSecretLong:(J)V'):
+            result = self.translate(method, ['sec'])
+            self.assertEqual([], bt.audit_certificate(result), method)
+            store = self.store(result)
+            self.assertEqual(result['param_regs'][0], store['kind'][3], method)
+            self.assertEqual('sec', result['roles'][store['kind'][1]], method)
+
+    def test_public_field_reads_are_unchanged(self):
+        for method in ('get:()I', 'getLong:()J'):
+            result = self.translate(method, [])
+            self.assertEqual([], bt.audit_certificate(result), method)
+            self.assertFalse([step for step in result['code']
+                              if step['type'] == 'step' and step['kind'][0] == 'store'])
+
+    def test_reference_field_write_still_fails_closed(self):
+        with self.assertRaisesRegex(bt.PolicyError, 'reference field'):
+            self.translate('setRef:([I)V', ['pub'])
+
+    def test_finite_execution_stores_the_argument_value(self):
+        # Public setter with receiver 5 and argument 7: the model heap cell must
+        # be 7. The old translation stored the receiver word 5.
+        result = self.translate('set:(I)V', ['pub'])
+        value_reg = result['param_regs'][0]
+        regs = [0] * result['registers']
+        regs[1] = 5
+        regs[value_reg] = 7
+        run = trace_exec.run_to_completion(
+            trace_exec.ProgramView(result), regs, [[0, 0, 0, 0]], 32)
+        self.assertEqual('stop', run['terminal'])
+        self.assertEqual([[7, 0, 0, 0]], run['heap'])
+
+    def test_finite_execution_secret_store_tracks_the_secret_argument(self):
+        result = self.translate('setSecret:(I)V', ['sec'])
+        value_reg = result['param_regs'][0]
+        def at(value):
+            regs = [0] * result['registers']
+            regs[1] = 5
+            regs[value_reg] = value
+            return trace_exec.run_to_completion(
+                trace_exec.ProgramView(result), regs, [[0, 0, 0, 0]], 32)
+        secret_s, secret_t = at(11), at(13)
+        self.assertEqual('stop', secret_s['terminal'])
+        self.assertEqual('stop', secret_t['terminal'])
+        self.assertEqual([[11, 0, 0, 0]], secret_s['heap'])
+        self.assertEqual([[13, 0, 0, 0]], secret_t['heap'])
+
+    def test_array_reference_field_rule_without_role_annotation_is_rejected(self):
+        # Descriptor `[I` with only role/taint: no implicit scalar-word
+        # treatment and no dependence on an array_role annotation.
+        fields = {'FieldStoreProbe.refValue:[I': {
+            'role': 'FieldStoreProbe.refValue.ref', 'taint': 'pub'}}
+        with self.assertRaisesRegex(bt.PolicyError,
+                                    r'write to reference field .* outside alias contract'):
+            self.translate('setRef:([I)V', ['pub'], fields)
+
+    def test_object_reference_field_rule_without_role_annotation_is_rejected(self):
+        # Descriptor `Ljava/lang/Object;` with only role/taint. The old writer
+        # accepted this as a scalar word write.
+        fields = {'FieldStoreProbe.refObject:Ljava/lang/Object;': {
+            'role': 'FieldStoreProbe.refObject.ref', 'taint': 'pub'}}
+        with self.assertRaisesRegex(bt.PolicyError,
+                                    r'write to reference field .* outside alias contract'):
+            self.translate('setRefObject:(Ljava/lang/Object;)V', ['pub'], fields)
+
+    def test_private_flow_witness_rejects_secret_to_public_store_with_live_return(self):
+        # setAndEcho has a live private return *and* a public field store. The
+        # old translator accepted it because the Store named the public receiver
+        # register; the TwoRun trace theorem did not observe the differing return.
+        # The patched translator must bind the secret argument and reject that
+        # secret-to-public Store, not merely a dead-secret input.
+        result = self.translate('setAndEcho:(I)I', ['sec'])
+        value_reg = result['param_regs'][0]
+        store = self.store(result)
+        stop = next(inst for inst in result['code'] if inst['type'] == 'stop')
+        self.assertEqual(value_reg, store['kind'][3])
+        self.assertEqual(value_reg, stop['ret'])
+        self.assertEqual('sec', result['reg_taints'][value_reg])
+        problems = [failure['problem'] for failure in bt.audit_certificate(result)]
+        self.assertTrue(any('secret write into public array' in problem
+                            for problem in problems), problems)
+
+        def at(value):
+            regs = [0] * result['registers']
+            regs[1] = 5
+            regs[value_reg] = value
+            return trace_exec.run_to_completion(
+                trace_exec.ProgramView(result), regs, [[0, 0, 0, 0]], 32)
+        secret_s, secret_t = at(11), at(13)
+        self.assertEqual('stop', secret_s['terminal'])
+        self.assertEqual('stop', secret_t['terminal'])
+        self.assertEqual([[11, 0, 0, 0]], secret_s['heap'])
+        self.assertEqual([[13, 0, 0, 0]], secret_t['heap'])
+        self.assertNotEqual(secret_s['regs'][value_reg], secret_t['regs'][value_reg])
+
+
 if __name__ == '__main__':
     unittest.main()

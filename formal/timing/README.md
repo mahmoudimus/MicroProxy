@@ -29,7 +29,7 @@ declassifications, dispatch/type restrictions, and residuals.
 | `policy.json` | Checked caller/callee/composed roots, open roots, parameter/field/allocation/call policy, enums of external contracts, fixtures, per-root solver budgets |
 | `run.py` | Atomic replay: pins, model and HKDF-shape proofs, compiled control, source→class binding against a chosen class directory, actual-class certificates, fixtures, certificate mutants, structured open scope |
 | `fixtures/` | Constant-time positive control plus branch/index/early-compare/exception/alloc/loop-bound/field-alias/virtual-dispatch/type-test/new-identity/call-length/category-2 mutants, exact-owned-target and call-result/heap composition mutants, public/private Euclidean-runtime controls, long-slot regressions, secret-heap external-call controls and unit-test-only merged-role/extract-shape/recursive composition controls |
-| `test_trace.py` | 90 unit tests over parser, translation, audit, rejection, callee identity/scope, inline composition, frozen-`Apply`/executed-witness controls, contract-driven witness liveness/clearing gates, heap-argument classification (including `javax/`, `jdk/`, `sun/`, `com/sun/`), policy/contract/prefix drift, call-id and recursion fail-closed gates. One test re-runs the compiled `ApplyProbe.dfy` cross-check and is skipped when the pinned Dafny binary is absent (the replay always runs it) |
+| `test_trace.py` | 102 unit tests over parser, translation, audit, rejection, callee identity/scope, inline composition, frozen-`Apply`/executed-witness controls, contract-driven witness liveness/clearing gates, heap-argument classification (including `javax/`, `jdk/`, `sun/`, `com/sun/`), policy/contract/prefix drift, call-id and recursion fail-closed gates. One test re-runs the compiled `ApplyProbe.dfy` cross-check and is skipped when the pinned Dafny binary is absent (the replay always runs it) |
 | `test_exception_table.py` | 15 additional unit tests using independently read real javap tables and member boundaries: typed catches, catch-all/finally and throws declarations; empty/malformed tables, orphan/repeated Code arrays, unbound descriptors and duplicate/backwards offsets; accepted no-handler controls |
 | `EVIDENCE.md` | Recorded local replay and exact open items |
 | `inputs.json` | SHA-256 pins for timing sources, fixtures, inspected production sources and the unchanged HKDF model |
@@ -40,6 +40,21 @@ requires that repository sibling. The shared runner, toolchain installer and too
 manifest are pinned alongside this component's sources. Replay validates the
 official Dafny archive and extracted tools, the Maven runtime checksum and the
 selected JDK tool identities before and after checking the certificates.
+
+## Scalar field-store guard
+
+The extractor consumes JVM `putfield` operands as value followed by receiver.
+Previously it discarded the assigned value and emitted a store of the receiver.
+Twelve regression controls check int/long value flow, live private returns,
+public/private heap classification and reference-field rejection. Reference
+writes remain unsupported even if a field policy omits alias annotations.
+
+The real Java counterexample and the old certificate disagree on the stored
+value. Rebinding the store to the true secret register makes the unchanged
+Dafny model reject the public-field write. Current accepted caller/helper and
+Keccak methods contain no `putfield`, so their program bodies are preserved.
+This repair is required before admitting Sponge field-writing methods; it does
+not close receiver identity, alias ownership or the remaining trace roots.
 
 ## Keccak helper supplement
 
@@ -296,7 +311,7 @@ closure.
 
 ```sh
 cd /path/to/microproxy
-# The trace module and direct script each run 90 tests. Discovery also runs the
+# The trace module and direct script each run 102 tests. Discovery also runs the
 # 15 exception/method-boundary regressions and the coverage/control tests.
 # Current complete-suite counts are recorded in EVIDENCE.md:
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \

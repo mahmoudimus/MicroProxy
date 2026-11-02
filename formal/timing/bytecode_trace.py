@@ -1310,8 +1310,8 @@ class Translator:
                     raise PolicyError(f'{self.m.key}@{pc}: unlisted field {key}')
                 role = rule['role']
                 self.add_role(role, rule['taint'])
-                pop()
                 if op == 'getfield':
+                    pop()
                     if f[2].startswith('['):
                         array_role = rule.get('array_role')
                         if not array_role:
@@ -1327,7 +1327,9 @@ class Translator:
                         push({'id': reg, 't': t, 'w': 2 if f[2] == 'J' else 1, 'role': None})
                 else:
                     val = pop()
-                    if rule.get('array_role') or rule.get('seq_role'):
+                    pop()
+                    if (rule.get('array_role') or rule.get('seq_role')
+                            or f[2].startswith(('L', '['))):
                         raise PolicyError(f'{self.m.key}@{pc}: write to reference field {key} outside alias contract')
                     step(pc, op, 0, ('store', role, 0, val['id']), 'pub')
             elif op == 'getstatic':

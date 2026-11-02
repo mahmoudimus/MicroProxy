@@ -242,7 +242,7 @@ At this snapshot:
 - V7 records corrected conditional caller/model evidence: five caller certificates
   (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169), four owned
   helper certificates and a separate 369-instruction composed Feed. The model and
-  HKDF-shape proofs remain 57 and 17; 197 unit tests (two optional replays skipped),
+  HKDF-shape proofs remain 57 and 17; 209 unit tests (two optional replays skipped),
   27 fixtures (four accepted, 23 policy rejects), four Select mutants and twelve
   callee mutants cover the
   extraction/gate controls. A compiled 138-row Apply probe cross-checks the finite
@@ -265,13 +265,17 @@ At this snapshot:
   negative diagnostics have independent gate pins. Sponge and complete KEM/adapter
   trace composition remain open. See [the trace evidence](timing/EVIDENCE.md).
   V7 stays partial. The snapshot
-  `85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47`
+  `dceff6e678f54ffd2679a0db8ff14de9194320824ad619fdf954d7fcb1b18e4b`
   preserves the corrected copy operands and enforces rejection of every declared
   javap exception table, malformed method boundaries and duplicate/backwards
   offsets. Fifteen additional real-javap/malformed-input regression tests cover
   those guards; selected bodies contain no handlers and are unchanged apart
-  from the include path. Its source/policy,
-  138-input inventory, helper contracts, execution controls and residual sets are
+  from the include path.
+  The scalar-field store guard also binds the real assigned operand and rejects
+  reference writes independently of alias annotations; twelve new controls
+  include a live private-return counterexample. Existing certified methods have
+  no field instructions, so their bodies and the residual scope are preserved.
+  Its source/policy, 139-input inventory, helper contracts, execution controls and residual sets are
   checked independently of a data-only digest renewal. The extractor, splice,
   target-to-model-kind mapping and runtime contracts remain trusted; full value,
   alias/dispatch, implicit-exception and physical-timing refinement remain open.
