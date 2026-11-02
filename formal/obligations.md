@@ -265,7 +265,7 @@ At this snapshot:
   negative diagnostics have independent gate pins. Sponge and complete KEM/adapter
   trace composition remain open. See [the trace evidence](timing/EVIDENCE.md).
   V7 stays partial. The snapshot
-  `968e7e34d6df15045f7f87b1ef2f274590caadc4c566bdf3c6848e5eaa88ea35`
+  `85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47`
   preserves the corrected copy operands and enforces rejection of every declared
   javap exception table, malformed method boundaries and duplicate/backwards
   offsets. Fifteen additional real-javap/malformed-input regression tests cover

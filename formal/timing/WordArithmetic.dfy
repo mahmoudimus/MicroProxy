@@ -156,7 +156,14 @@ module WordArithmetic {
   lemma Div5_16()
     ensures WordModulus(ToWord(16), ToWord(5)) == ToWord(1)
     ensures WordDivision(ToWord(16), ToWord(5)) == ToWord(3)
-  {}
+  {
+    assert Signed(ToWord(16)) == 16;
+    assert Signed(ToWord(5)) == 5;
+    assert EuclideanModulus(16, 5) == 1;
+    assert EuclideanDivision(16, 5) == 3;
+    assert IntToWord(1) == ToWord(1);
+    assert IntToWord(3) == ToWord(3);
+  }
 
   lemma Div5_17()
     ensures WordModulus(ToWord(17), ToWord(5)) == ToWord(2)

@@ -1,10 +1,10 @@
 # Checked secret-trace evidence
 
 The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
-`968e7e34d6df15045f7f87b1ef2f274590caadc4c566bdf3c6848e5eaa88ea35`.
+`85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47`.
 It records the 2026-11-02 macOS arm64 replay at
-`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/report.json`
-(workspace `replay-k77a76wp`) over the preserved JDK 21 library classes.
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/report.json`
+(workspace `replay-bnc6incm`) over the preserved JDK 21 library classes.
 The central ledger pins the snapshot and independently requires its input,
 root, fixture, execution-control and residual inventories. A future receipt
 needs source review and an explicit checker-baseline renewal.
@@ -160,7 +160,11 @@ Each concrete certificate proves that every remaining call has a known target,
 exact argument count, public scalar arguments and no heap arguments. The total
 fallback oracle is unreachable for these programs' call shapes. Provider purity,
 JVM narrowing, BigInteger identity and primitive costs remain trusted boundaries.
-All new proofs use 30 s / 50 M and the existing case-split option.
+All new proofs use 30 s / 50 M and the existing case-split option. The Linux solver
+initially exhausted its budget on `Div5_16`; six intermediate assertions repair
+that proof without changing its result, functions, assumptions or budget. The
+original Linux binary reproduces the failure; the repaired three models and
+seven certificates all verify with that binary at the same limits.
 
 The actual pinned `Helpers.class` left/right bodies each have 12 checks with a
 witness and 11 without. Their branch depends on the public byte count; private

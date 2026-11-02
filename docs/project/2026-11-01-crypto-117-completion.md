@@ -148,7 +148,10 @@ diagnostic identities. All 200 ledger/release regression tests pass; the 197-tes
 component discovery has two optional skips and its expensive API replay passes
 separately. Strict MkDocs and generated-document checks pass.
 The source algorithms, production Java and browser fingerprints are unchanged.
-This supplement does not complete Task 2 or close the 13/19/31 residual sets.
+This supplement does not complete Task 2 or close the 13/19/31 residual sets. The first Linux CI replay
+exhausted its fixed budget on `Div5_16`. Six intermediate assertions preserve
+that theorem and its 56 checks; the three models and seven helper certificates
+now also verify with the Linux binary at the original budget.
 
 The next implementation work is to establish exact receiver/type and ownership
 contracts for the production factories, then compose SHAKE sponge, Keccak,

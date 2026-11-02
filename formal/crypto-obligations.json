@@ -2318,7 +2318,7 @@
         },
         {
           "path": "formal/timing/README.md",
-          "sha256": "474186e4802bd0c04850ee457978554e1f15eb6240c814576b967ea203ba29c8",
+          "sha256": "9c4930db0a4fee09ed30d690ad46816b02396282013bed44b7818c4e2c4affc9",
           "kind": "documentation",
           "role": "V7 component scope, checked roots and open scope"
         },
@@ -2330,7 +2330,7 @@
         },
         {
           "path": "formal/timing/inputs.json",
-          "sha256": "4266d5e93d9ea9b1e8058cbc3ccebde214c861a7eac5913c0c15dd47120dc77a",
+          "sha256": "543b4af57b39d56730ade7bb79ba39d6d4e35c00d03ab647c870ea743ed3e3de",
           "kind": "input-manifest",
           "role": "138 pinned timing sources/fixtures/production inputs/tools"
         },
@@ -2384,7 +2384,7 @@
         },
         {
           "path": "formal/timing/PRODUCTION-EVIDENCE.json",
-          "sha256": "968e7e34d6df15045f7f87b1ef2f274590caadc4c566bdf3c6848e5eaa88ea35",
+          "sha256": "85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47",
           "kind": "component-receipt",
           "role": "actual-bytecode certificate report with open scope and assumptions"
         },
@@ -2420,7 +2420,7 @@
         },
         {
           "path": "formal/timing/EVIDENCE.md",
-          "sha256": "0f17a5e5e755ec7a6882e388d004ae98ad634e9a5a196f465940b8eb1102ecbf",
+          "sha256": "335c89f6174d6df9029ce878fd625d0f566ad4c786155729bde1a38f51e2a16b",
           "kind": "documentation",
           "role": "corrected receipt and remaining scope"
         },
@@ -2450,7 +2450,7 @@
         },
         {
           "path": "formal/timing/WordArithmetic.dfy",
-          "sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
+          "sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
           "kind": "model-source",
           "role": "public arithmetic for concrete oracle instantiation"
         },
@@ -2562,7 +2562,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "681e5b19e7d16c2a558460af5dc738ef1f85af24345390c94108092b606ab857",
+          "sha256": "6553c3cb1dcc8aa29d33092705e63e4b4571a29f166ab381ce9679a7efa4924f",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2580,7 +2580,7 @@
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "3ada02b4953972a87d1271699062094426f4385c5c0937df92c8f8a216fc45cd",
+          "sha256": "7d03dae93dbf14edf08453d912de2a57e48e1f58f2a93c68f6e95a3f2b0350bb",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },

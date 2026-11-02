@@ -59,6 +59,11 @@ and the word arithmetic 56. The seven certificates have respectively
 structural postconditions and identity with the concrete emitted program;
 opacity controls solver unfolding. It adds no assumed success flag.
 
+The finite `Div5_16` lemma spells out signed-word conversions and integer
+arithmetic as intermediate assertions. This avoids the Linux solver's resource
+exhaustion on the combined cast/modulus goal without increasing the budget or
+changing the theorem, arithmetic functions or production implementation.
+
 The finite permutation control completes all 24 rounds on 25/25/5 private-lane
 workspaces and two public 25-entry tables. It checks equal traces, public
 registers and public heaps, no faults, and live private outputs. A separately

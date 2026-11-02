@@ -704,7 +704,7 @@ REQUIRED_RECEIPT_EXACT.update({
 REQUIRED_COMPONENT_CHECKS['V7'] = dict(REQUIRED_COMPONENT_CHECKS['V7'])
 REQUIRED_COMPONENT_CHECKS['V7']['text_checks'] = (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),)
 
-REQUIRED_TRACE_REPORT_SHA256 = '968e7e34d6df15045f7f87b1ef2f274590caadc4c566bdf3c6848e5eaa88ea35'
+REQUIRED_TRACE_REPORT_SHA256 = '85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47'
 
 REQUIRED_TRACE_ROOTS = ({'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default',
   'method': 'Select:([B[B[B[B)[B',
@@ -2516,27 +2516,27 @@ KECCAK_MODEL_ARTIFACTS = {'PublicProvider': {'source_sha256': '0b974605e8c43276b
                     'log_sha256': 'a1abf91819beff25935d30304cae9adc6e4fe0bbe4468ba36ae5576a5ecac8a0'},
  'PublicProviderPublic': {'source_sha256': '8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94',
                           'log_sha256': '3f70ba253123bed848ea5673ef78da6828f7f543eff36fc835390796c904a726'},
- 'WordArithmetic': {'source_sha256': '1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be',
+ 'WordArithmetic': {'source_sha256': '76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a',
                     'log_sha256': '77a8844ef1f1bca3553a87f7c7991a556402b4e8df81beea956eda4a294217b9'}}
-KECCAK_PROOF_ARTIFACTS = {'Rotate': {'source_sha256': 'f7500cf03a92c5cbab2ac4d1324480722cb4604571de89e82e322ac6b820cde5',
+KECCAK_PROOF_ARTIFACTS = {'Rotate': {'source_sha256': 'f1aa689da9e97acd830ad48ad4dbbef63972c3ea1fa42f4eb7a71ead0b32f525',
             'log_sha256': 'ceb555bd2c219d803843ffa7a9d05df4e0088ecb328d43dfd119639a4e48781c',
             'oracle_sha256': '0a07658fcbf4c453134a830066ae61d591ca734adafb94cd5bec4b097033562e'},
- 'Theta': {'source_sha256': 'c8da47191378f617f3890b232be04960c1c8d8ceb13412be49ee275405746aea',
+ 'Theta': {'source_sha256': '9769faae784cccf0dc98f13a8db5c78e3e0edf92e9f30886b53b56d5debcada2',
            'log_sha256': '6c46b70d5da52196aeff921183529d91d9e20ef050f623476a8f6142fb1e7d23',
            'oracle_sha256': '0c090b9bb08e5d70fc0a7dd5173e3cff5034648b68acf97c354151c0597073ac'},
- 'RhoPi': {'source_sha256': '1b812a101e786b17645ecdae0f801c60d5b118a488c8b9cb1e59bc9e6f6dcb3b',
+ 'RhoPi': {'source_sha256': '1bbd901885d2793ac6a015a169f173eb338a83b5c9bf080765dee60bee5aa94f',
            'log_sha256': '8a627c10412758918e8163071fa096df30bdc46c786cffa53fffda9ffe3f08f8',
            'oracle_sha256': '19e792d293aeb73295df86e0b956e435f862c1a3165e5c745b8f8baf13182780'},
- 'Iota': {'source_sha256': '53c03b4f727405f0a35d06810fde9f255098a33650209c30480c3058c76ea556',
+ 'Iota': {'source_sha256': 'd35ba5c2b6adf8c04bc2b8b2d1340f4b2a7657a0564a4a875906fbac92a6260a',
           'log_sha256': '25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2',
           'oracle_sha256': 'e3b50f9f5f67c6f90a069c86d3e5fd783749f411b8f39b83d1cfc889e2f343f5'},
- 'Chi': {'source_sha256': '37052e76fb2a2420e56941302eb3a25577aeccecfd92c41261ff00b61447f327',
+ 'Chi': {'source_sha256': '818ff760d0c0b253962538f1258290828d6ebfe245586c6f9b17dd82b926982a',
          'log_sha256': '3772eb42a41cd32b59b3a418580302f4c962af9af75bcb4bc0178469263e4388',
          'oracle_sha256': 'ac223683bcbdbe1c47524da543bf0d33bd6c246e0130b6ecefdb262cf71de17f'},
- 'Round': {'source_sha256': '618aea277ef0ea11164019d09ed8aff4e6154ff0e88a9166b23172386c941dd6',
+ 'Round': {'source_sha256': '4ebd01dfbd116600b7943c03b7879a6c3507acb1898e6c9bbc89f37f44a0c166',
            'log_sha256': 'ec9d2793da03e07b435131e9d9709f3b567b27d4518aa275b41311f929429960',
            'oracle_sha256': '9e63157ef6922aaba41fc6ec0c7c4f44114b9cfe1c123ae5ae7a58db48ddacd7'},
- 'PermuteScratch': {'source_sha256': 'fd25b6c8eee31680ca90374b4e6d7cde0ffac554d69f08d91c9626a114199789',
+ 'PermuteScratch': {'source_sha256': 'e374ccfa93ebfe8cd603660ac576fcca5b31f06902e0509b77e172f02337b154',
                     'log_sha256': 'be5c46f34dfdad01a2d5d2e76ccf552ff2e59db0a93ef45a58a5c9f3e9f5c3b9',
                     'oracle_sha256': '05f24c6cee1734399a5672a29ddb53f64d885626c83e5985a3d089b38897aa2d'}}
 KECCAK_AUXILIARY_IDENTITIES = {'Rotate': 'c976146b84b7ec025d24082a42d9a62e6c92e6d1026cdfbcbda0e98d843fe65f',
@@ -2547,9 +2547,9 @@ KECCAK_AUXILIARY_IDENTITIES = {'Rotate': 'c976146b84b7ec025d24082a42d9a62e6c92e6
  'Round': '4fd807a2cab08c969a3472c1e5bd9b52b77955ee8f351124bf06e7c26c333b81',
  'PermuteScratch': 'db42052c2916ecd8ed279b7b22c50801ec930f25afc556b5876ca3fc870392ba'}
 KECCAK_COMPONENT_IDENTITIES = {'overlay': 'fdf47c5f53e92046dae2b0bdb28ce636c8f0152fc2229260489bac1bb75f5602',
- 'actual_tables': '6c15f868f6ccf30cd6df05a781374dbd3f1125d2fd64689c0f70916e62492524',
+ 'actual_tables': 'ca33b50ca92b50e996f7b3682ba2f1732197dbb13f72cec4c69d9806457c17c2',
  'binding_controls': '9eed7c0225af69042779625f8484b1758300927fa0e5653308516ffeb142748a',
- 'oracle_kats': '5b28081fc8c4f75f630db3c5758a9f013859e83441a34c3af70ddc8b7473762b'}
+ 'oracle_kats': '6e39e2d21cc342c8d171b4446ac1ab238b8ac3465471a7787054feaac728dd2e'}
 
 
 def _validate_trace_keccak(report: dict[str, Any], label: str) -> int:

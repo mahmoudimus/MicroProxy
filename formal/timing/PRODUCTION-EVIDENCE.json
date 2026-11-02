@@ -99,7 +99,7 @@
       "before": {
         "inputs": {
           "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/inputs.json",
-          "sha256": "4266d5e93d9ea9b1e8058cbc3ccebde214c861a7eac5913c0c15dd47120dc77a"
+          "sha256": "543b4af57b39d56730ade7bb79ba39d6d4e35c00d03ab647c870ea743ed3e3de"
         },
         "modules": {
           "bytecode_trace": {
@@ -173,8 +173,8 @@
           "word_arithmetic": {
             "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/WordArithmetic.dfy",
             "pin_key": "formal/timing/WordArithmetic.dfy",
-            "expected_sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
-            "actual_sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be"
+            "expected_sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
+            "actual_sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a"
           },
           "native_source": {
             "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java",
@@ -210,7 +210,7 @@
       "after": {
         "inputs": {
           "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/inputs.json",
-          "sha256": "4266d5e93d9ea9b1e8058cbc3ccebde214c861a7eac5913c0c15dd47120dc77a"
+          "sha256": "543b4af57b39d56730ade7bb79ba39d6d4e35c00d03ab647c870ea743ed3e3de"
         },
         "modules": {
           "bytecode_trace": {
@@ -284,8 +284,8 @@
           "word_arithmetic": {
             "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/WordArithmetic.dfy",
             "pin_key": "formal/timing/WordArithmetic.dfy",
-            "expected_sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
-            "actual_sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be"
+            "expected_sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
+            "actual_sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a"
           },
           "native_source": {
             "path": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java",
@@ -297,7 +297,7 @@
       }
     },
     "runtime_replay": {
-      "evidence": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/runtime-primitives.json",
+      "evidence": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/runtime-primitives.json",
       "status": "verified",
       "jar_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
       "helpers_entry_sha256": "4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c",
@@ -419,21 +419,21 @@
           21
         ]
       },
-      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/table-adapter/TableProbe.java",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/table-adapter/TableProbe.java",
       "source_sha256": "d040b40dab09dbe4ed32439f667c3e7ddfbc56d0049ade8fd3e4838bb7d86bcc",
       "compile_command": [
         "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/javac",
         "-cp",
         "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/target/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/table-adapter/classes",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/table-adapter/TableProbe.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/table-adapter/classes",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/table-adapter/TableProbe.java"
       ],
       "compile_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "run_command": [
         "/opt/homebrew/Cellar/openjdk@21/21.0.12.1/libexec/openjdk.jdk/Contents/Home/bin/java",
         "-cp",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/table-adapter/classes:/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/target/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/table-adapter/classes:/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/quic/target/classes:/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "TableProbe"
       ],
       "run_log_sha256": "92c482ec85f4bedce9d48c485793afe38051a792156c698a6571bc8ad920e012",
@@ -451,7 +451,7 @@
         "obligation": null,
         "log_sha256": "a1abf91819beff25935d30304cae9adc6e4fe0bbe4468ba36ae5576a5ecac8a0",
         "status": "verified",
-        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/PublicProvider.log",
+        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/PublicProvider.log",
         "source_sha256": "0b974605e8c43276b422f973c3271996cc45fe33aae579e0641cd16fcef8c94b",
         "command": [
           "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
@@ -477,7 +477,7 @@
         "obligation": null,
         "log_sha256": "3f70ba253123bed848ea5673ef78da6828f7f543eff36fc835390796c904a726",
         "status": "verified",
-        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/PublicProviderPublic.log",
+        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/PublicProviderPublic.log",
         "source_sha256": "8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94",
         "command": [
           "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
@@ -503,8 +503,8 @@
         "obligation": null,
         "log_sha256": "77a8844ef1f1bca3553a87f7c7991a556402b4e8df81beea956eda4a294217b9",
         "status": "verified",
-        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/WordArithmetic.log",
-        "source_sha256": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
+        "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/WordArithmetic.log",
+        "source_sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
         "command": [
           "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
           "verify",
@@ -691,9 +691,9 @@
         "inlined_count": 2,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RotateProvider.dfy",
-          "certificate_sha256": "f7500cf03a92c5cbab2ac4d1324480722cb4604571de89e82e322ac6b820cde5",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_Rotate.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RotateProvider.dfy",
+          "certificate_sha256": "f1aa689da9e97acd830ad48ad4dbbef63972c3ea1fa42f4eb7a71ead0b32f525",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_Rotate.dfy",
           "oracle_sha256": "0a07658fcbf4c453134a830066ae61d591ca734adafb94cd5bec4b097033562e",
           "oracle_module": "Oracle_Rotate",
           "oracle_function": "PublicOracle",
@@ -722,12 +722,12 @@
           "obligation": null,
           "log_sha256": "ceb555bd2c219d803843ffa7a9d05df4e0088ecb328d43dfd119639a4e48781c",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/RotateProvider.log",
-          "source_sha256": "f7500cf03a92c5cbab2ac4d1324480722cb4604571de89e82e322ac6b820cde5",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/RotateProvider.log",
+          "source_sha256": "f1aa689da9e97acd830ad48ad4dbbef63972c3ea1fa42f4eb7a71ead0b32f525",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RotateProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RotateProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -1129,9 +1129,9 @@
         "inlined_count": 3,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/ThetaProvider.dfy",
-          "certificate_sha256": "c8da47191378f617f3890b232be04960c1c8d8ceb13412be49ee275405746aea",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_Theta.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/ThetaProvider.dfy",
+          "certificate_sha256": "9769faae784cccf0dc98f13a8db5c78e3e0edf92e9f30886b53b56d5debcada2",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_Theta.dfy",
           "oracle_sha256": "0c090b9bb08e5d70fc0a7dd5173e3cff5034648b68acf97c354151c0597073ac",
           "oracle_module": "Oracle_Theta",
           "oracle_function": "PublicOracle",
@@ -1166,12 +1166,12 @@
           "obligation": null,
           "log_sha256": "6c46b70d5da52196aeff921183529d91d9e20ef050f623476a8f6142fb1e7d23",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/ThetaProvider.log",
-          "source_sha256": "c8da47191378f617f3890b232be04960c1c8d8ceb13412be49ee275405746aea",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/ThetaProvider.log",
+          "source_sha256": "9769faae784cccf0dc98f13a8db5c78e3e0edf92e9f30886b53b56d5debcada2",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/ThetaProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/ThetaProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -1727,9 +1727,9 @@
         "inlined_count": 3,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RhoPiProvider.dfy",
-          "certificate_sha256": "1b812a101e786b17645ecdae0f801c60d5b118a488c8b9cb1e59bc9e6f6dcb3b",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_RhoPi.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RhoPiProvider.dfy",
+          "certificate_sha256": "1bbd901885d2793ac6a015a169f173eb338a83b5c9bf080765dee60bee5aa94f",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_RhoPi.dfy",
           "oracle_sha256": "19e792d293aeb73295df86e0b956e435f862c1a3165e5c745b8f8baf13182780",
           "oracle_module": "Oracle_RhoPi",
           "oracle_function": "PublicOracle",
@@ -1761,12 +1761,12 @@
           "obligation": null,
           "log_sha256": "8a627c10412758918e8163071fa096df30bdc46c786cffa53fffda9ffe3f08f8",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/RhoPiProvider.log",
-          "source_sha256": "1b812a101e786b17645ecdae0f801c60d5b118a488c8b9cb1e59bc9e6f6dcb3b",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/RhoPiProvider.log",
+          "source_sha256": "1bbd901885d2793ac6a015a169f173eb338a83b5c9bf080765dee60bee5aa94f",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RhoPiProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RhoPiProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -2158,9 +2158,9 @@
         "inlined_count": 1,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/IotaProvider.dfy",
-          "certificate_sha256": "53c03b4f727405f0a35d06810fde9f255098a33650209c30480c3058c76ea556",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_Iota.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/IotaProvider.dfy",
+          "certificate_sha256": "d35ba5c2b6adf8c04bc2b8b2d1340f4b2a7657a0564a4a875906fbac92a6260a",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_Iota.dfy",
           "oracle_sha256": "e3b50f9f5f67c6f90a069c86d3e5fd783749f411b8f39b83d1cfc889e2f343f5",
           "oracle_module": "Oracle_Iota",
           "oracle_function": "PublicOracle",
@@ -2192,12 +2192,12 @@
           "obligation": null,
           "log_sha256": "25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/IotaProvider.log",
-          "source_sha256": "53c03b4f727405f0a35d06810fde9f255098a33650209c30480c3058c76ea556",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/IotaProvider.log",
+          "source_sha256": "d35ba5c2b6adf8c04bc2b8b2d1340f4b2a7657a0564a4a875906fbac92a6260a",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/IotaProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/IotaProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -2372,9 +2372,9 @@
         "inlined_count": 0,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/ChiProvider.dfy",
-          "certificate_sha256": "37052e76fb2a2420e56941302eb3a25577aeccecfd92c41261ff00b61447f327",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_Chi.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/ChiProvider.dfy",
+          "certificate_sha256": "818ff760d0c0b253962538f1258290828d6ebfe245586c6f9b17dd82b926982a",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_Chi.dfy",
           "oracle_sha256": "ac223683bcbdbe1c47524da543bf0d33bd6c246e0130b6ecefdb262cf71de17f",
           "oracle_module": "Oracle_Chi",
           "oracle_function": "PublicOracle",
@@ -2409,12 +2409,12 @@
           "obligation": null,
           "log_sha256": "3772eb42a41cd32b59b3a418580302f4c962af9af75bcb4bc0178469263e4388",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/ChiProvider.log",
-          "source_sha256": "37052e76fb2a2420e56941302eb3a25577aeccecfd92c41261ff00b61447f327",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/ChiProvider.log",
+          "source_sha256": "818ff760d0c0b253962538f1258290828d6ebfe245586c6f9b17dd82b926982a",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/ChiProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/ChiProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -4436,9 +4436,9 @@
         "inlined_count": 11,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RoundProvider.dfy",
-          "certificate_sha256": "618aea277ef0ea11164019d09ed8aff4e6154ff0e88a9166b23172386c941dd6",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_Round.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RoundProvider.dfy",
+          "certificate_sha256": "4ebd01dfbd116600b7943c03b7879a6c3507acb1898e6c9bbc89f37f44a0c166",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_Round.dfy",
           "oracle_sha256": "9e63157ef6922aaba41fc6ec0c7c4f44114b9cfe1c123ae5ae7a58db48ddacd7",
           "oracle_module": "Oracle_Round",
           "oracle_function": "PublicOracle",
@@ -4479,12 +4479,12 @@
           "obligation": null,
           "log_sha256": "ec9d2793da03e07b435131e9d9709f3b567b27d4518aa275b41311f929429960",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/RoundProvider.log",
-          "source_sha256": "618aea277ef0ea11164019d09ed8aff4e6154ff0e88a9166b23172386c941dd6",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/RoundProvider.log",
+          "source_sha256": "4ebd01dfbd116600b7943c03b7879a6c3507acb1898e6c9bbc89f37f44a0c166",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/RoundProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/RoundProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -7352,9 +7352,9 @@
         "inlined_count": 13,
         "audit_failures": [],
         "certificate": {
-          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/PermuteScratchProvider.dfy",
-          "certificate_sha256": "fd25b6c8eee31680ca90374b4e6d7cde0ffac554d69f08d91c9626a114199789",
-          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracles/Oracle_PermuteScratch.dfy",
+          "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/PermuteScratchProvider.dfy",
+          "certificate_sha256": "e374ccfa93ebfe8cd603660ac576fcca5b31f06902e0509b77e172f02337b154",
+          "oracle": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracles/Oracle_PermuteScratch.dfy",
           "oracle_sha256": "05f24c6cee1734399a5672a29ddb53f64d885626c83e5985a3d089b38897aa2d",
           "oracle_module": "Oracle_PermuteScratch",
           "oracle_function": "PublicOracle",
@@ -7395,12 +7395,12 @@
           "obligation": null,
           "log_sha256": "be5c46f34dfdad01a2d5d2e76ccf552ff2e59db0a93ef45a58a5c9f3e9f5c3b9",
           "status": "verified",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/logs/PermuteScratchProvider.log",
-          "source_sha256": "fd25b6c8eee31680ca90374b4e6d7cde0ffac554d69f08d91c9626a114199789",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/logs/PermuteScratchProvider.log",
+          "source_sha256": "e374ccfa93ebfe8cd603660ac576fcca5b31f06902e0509b77e172f02337b154",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/PermuteScratchProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/PermuteScratchProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8037,14 +8037,14 @@
     "oracle_kats": {
       "status": "compiled-dafny-equals-python-kat",
       "cases": 243,
-      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracle-kat/OracleProbe.dfy",
+      "source": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracle-kat/OracleProbe.dfy",
       "source_sha256": "d7377ff3a1bb1cd8440eef9498559c39c240b5bfee081f371fcd0e2833dcb1f9",
-      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracle-kat/oracle-kat.log",
+      "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracle-kat/oracle-kat.log",
       "log_sha256": "551d6c066b7805900b25111e981f1d55a0e50eb3d33801098aa763d3b9773600",
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "run",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/oracle-kat/OracleProbe.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/oracle-kat/OracleProbe.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -8085,8 +8085,8 @@
           "site": 5,
           "register": 12
         },
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_BranchProvider.dfy",
-        "certificate_sha256": "849688cf8eddf47f6a4b3c2328093266359f7d551fcca43aae78102454758d8f",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_BranchProvider.dfy",
+        "certificate_sha256": "923a18bebac6f32d64c1dec2ed4d40877b86b53c0708d80899a971eaa6770ee3",
         "proof": {
           "returncode": 4,
           "verified": 471,
@@ -8095,13 +8095,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "c21414eedf08582a5b40c024e1028e8cc401737c6301b2031c05f5fdfe7053a8",
+          "log_sha256": "f1b7c839b2b502cae28b31a23f1ec5859402b2ca9806c806974423024ab6232c",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_Branch.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_Branch.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_BranchProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_BranchProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8112,7 +8112,7 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_BranchProvider.dfy(429,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_BranchProvider.dfy(429,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/SecretTrace.dfy(227,28): Related location: this proposition could not be proved"
           ],
           "contains_structure_error": true
@@ -8125,8 +8125,8 @@
           "register": 147,
           "operation": "load"
         },
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_IndexProvider.dfy",
-        "certificate_sha256": "03b6afe634fcc4edd4495059ff5dfc680d490584f4f6fc30b2feb122cbfc5075",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_IndexProvider.dfy",
+        "certificate_sha256": "b6694f74e12d57c3099c1b24280eb5f8e248c712349f45e39dbec5bf2871228b",
         "proof": {
           "returncode": 4,
           "verified": 469,
@@ -8135,13 +8135,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "5296ec874775241fae9dfeccefb76593a968f6e4cd0614d5ed71158f3d4bade6",
+          "log_sha256": "562ae8ba396b588084f455787f1942491da9aedca894aea2b55fa904142acb1e",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_Index.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_Index.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_IndexProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_IndexProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8152,11 +8152,11 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_IndexProvider.dfy(617,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_IndexProvider.dfy(617,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/SecretTrace.dfy(224,31): Related location: this proposition could not be proved",
             "formal/timing/SecretTrace.dfy(200,8): Related location: this proposition could not be proved",
             "formal/timing/SecretTrace.dfy(44,4): Related location: this proposition could not be proved",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_IndexProvider.dfy(617,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_IndexProvider.dfy(617,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/SecretTrace.dfy(224,31): Related location: this proposition could not be proved",
             "formal/timing/SecretTrace.dfy(218,14): Related location: this proposition could not be proved",
             "formal/timing/SecretTrace.dfy(44,4): Related location: this proposition could not be proved"
@@ -8167,8 +8167,8 @@
     },
     "public_call_mutants": {
       "private_argument": {
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateArgProvider.dfy",
-        "certificate_sha256": "4756b709023f9b9e1721ccbce956c8f4526cd75bb566493955056da21ecb2e1e",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateArgProvider.dfy",
+        "certificate_sha256": "8ca45a2b4b9f2520550268c615cf3dcc621068b49ae058bdb903486802389b14",
         "mutation": {
           "kind": "one_secret_scalar_argument",
           "arity": 2
@@ -8186,13 +8186,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "494e8fde7a3203aa3697f6cdf9b89a7f2a8496798d964dfb659c9181eb86e6b7",
+          "log_sha256": "46d5fae1429bb1b294723c204e76d2a1a84f1e2b35d4337b705828b1c674dcb0",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_PrivateArg.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_PrivateArg.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateArgProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateArgProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8203,7 +8203,7 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateArgProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateArgProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/PublicProviderPublic.dfy(35,33): Related location: this proposition could not be proved",
             "formal/timing/PublicProviderPublic.dfy(28,7): Related location: this proposition could not be proved"
           ],
@@ -8211,8 +8211,8 @@
         }
       },
       "unknown_target": {
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_UnknownTargetProvider.dfy",
-        "certificate_sha256": "c5e07dad0f9b8cd8ba02a8c37a31a971f4b466a503d4a092a1529ee54db61394",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_UnknownTargetProvider.dfy",
+        "certificate_sha256": "d8671dc2803bcf91c74855f180ca28567a9f2c8cc61db773819b9bfc45bf8cf3",
         "mutation": {
           "kind": "unknown_target_all_public",
           "arity": 1
@@ -8230,13 +8230,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "da7f3aa325414dc1cf959237305828c01f76ac0d42cd9ec603cdb2741f397160",
+          "log_sha256": "940fc0400f66e8aa49d6637911195a4560bbf4c73ff3b2cf62acf08f98ba92fc",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_UnknownTarget.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_UnknownTarget.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_UnknownTargetProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_UnknownTargetProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8247,7 +8247,7 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_UnknownTargetProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_UnknownTargetProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/PublicProviderPublic.dfy(35,33): Related location: this proposition could not be proved",
             "formal/timing/PublicProviderPublic.dfy(26,6): Related location: this proposition could not be proved"
           ],
@@ -8255,8 +8255,8 @@
         }
       },
       "private_heap_argument": {
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateHeapProvider.dfy",
-        "certificate_sha256": "05b884b6cddc6e6ba83590acd8ba7ddcc04f67f431054bdbc087a6e400dd5e41",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateHeapProvider.dfy",
+        "certificate_sha256": "40c8b8c1dd2eb6b8bf52da01f57c40800dadc038513a8350531ca249e46e028b",
         "mutation": {
           "kind": "private_heap_argument",
           "arity": 2
@@ -8274,13 +8274,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "1c02f7c67a60cc3787b94df35cd6eba81a59062daceac933159661411bf94071",
+          "log_sha256": "5c1b692e175c82e8545c42b60ef6f77f367fd5872b166b46def30fe8a5a1ad84",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_PrivateHeap.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_PrivateHeap.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateHeapProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateHeapProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8291,7 +8291,7 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_PrivateHeapProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_PrivateHeapProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/PublicProviderPublic.dfy(35,33): Related location: this proposition could not be proved",
             "formal/timing/PublicProviderPublic.dfy(27,6): Related location: this proposition could not be proved"
           ],
@@ -8299,8 +8299,8 @@
         }
       },
       "wrong_arity": {
-        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_WrongArityProvider.dfy",
-        "certificate_sha256": "ac6099bf60ed73f4d8cfed338c6acbfe13dd1ea8078e9136c5f1cd6887591af7",
+        "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_WrongArityProvider.dfy",
+        "certificate_sha256": "deb3dccf94b49b0af5f5e573654ffd6ed34315bd236da2a81c6933ae43edec11",
         "mutation": {
           "kind": "known_target_wrong_arity",
           "expected_arity": 2,
@@ -8319,13 +8319,13 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "09aeebd4872d10c23364103ba2030a7b15fef4af0c1fa121cf5f3b0395732331",
+          "log_sha256": "76427344a332b351f6ee2514fcee4ef180fc65f4c76732b9f8fd43638e6b8e75",
           "status": "proof_failed",
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/mutants/Mutant_WrongArity.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/mutants/Mutant_WrongArity.log",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_WrongArityProvider.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_WrongArityProvider.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8336,7 +8336,7 @@
             "O:smt.case_split=0"
           ],
           "error_lines": [
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/keccak-traces-hln9tgln/certs/Mutant_WrongArityProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/keccak-traces-hvlc56c8/certs/Mutant_WrongArityProvider.dfy(58,14): Error: possible violation of postcondition of forall statement",
             "formal/timing/PublicProviderPublic.dfy(35,33): Related location: this proposition could not be proved",
             "formal/timing/PublicProviderPublic.dfy(29,6): Related location: this proposition could not be proved"
           ],
@@ -8355,12 +8355,12 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "b7f745326ac6729250fe5f3f705c8e021d8bd5dcabd0c4c4102fd80ddbdc7e6e",
+          "log_sha256": "d71efc09cf7357115bf425504a3cfb706ad642e2656d71f85ecd39acfca5c013",
           "status": "proof_failed",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8370,9 +8370,9 @@
             "--solver-option",
             "O:smt.case_split=0"
           ],
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/runtime-primitives-ihduxj4n/RuntimeShiftLeft_PrivateCount_audit.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/runtime-primitives-xb8sskhi/RuntimeShiftLeft_PrivateCount_audit.log",
           "anchor": {
-            "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
+            "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
             "certificate_line": 25,
             "certificate_statement": "ensures InstrOK(p, p.chunks[0][j])",
             "model": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/SecretTrace.dfy",
@@ -8383,7 +8383,7 @@
             "obligation": "Chunk0.InstrOK universal postcondition on secret branch taint",
             "diagnostics": [
               {
-                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
+                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
                 "line": 25,
                 "col": 14,
                 "message": "Error: possible violation of postcondition of forall statement",
@@ -8397,7 +8397,7 @@
                 ]
               },
               {
-                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
+                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftLeft_PrivateCount_audit.dfy",
                 "line": 61,
                 "col": 12,
                 "message": "Error: function precondition could not be proved",
@@ -8420,7 +8420,7 @@
           },
           "anchor_status": "proof_failed_named_chunk0_branch_postcondition"
         },
-        "log_sha256": "b7f745326ac6729250fe5f3f705c8e021d8bd5dcabd0c4c4102fd80ddbdc7e6e",
+        "log_sha256": "d71efc09cf7357115bf425504a3cfb706ad642e2656d71f85ecd39acfca5c013",
         "obligation_named": true
       },
       "right": {
@@ -8433,12 +8433,12 @@
           "bad_run": false,
           "bad_match": null,
           "obligation": "Error: possible violation of postcondition",
-          "log_sha256": "7152930e4838d7251809c9b5d83d5216e8573dd73891b7af549236724db45aff",
+          "log_sha256": "2dc147d5384a4180b5d21a0028f5b66a06e67e5c380ebc8bee70190ba73fa739",
           "status": "proof_failed",
           "command": [
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
             "verify",
-            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
+            "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
             "--solver-path",
             "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
             "--verification-time-limit",
@@ -8448,9 +8448,9 @@
             "--solver-option",
             "O:smt.case_split=0"
           ],
-          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/runtime-primitives-ihduxj4n/RuntimeShiftRight_PrivateCount_audit.log",
+          "log": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/runtime-primitives-xb8sskhi/RuntimeShiftRight_PrivateCount_audit.log",
           "anchor": {
-            "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
+            "certificate": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
             "certificate_line": 25,
             "certificate_statement": "ensures InstrOK(p, p.chunks[0][j])",
             "model": "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/SecretTrace.dfy",
@@ -8461,7 +8461,7 @@
             "obligation": "Chunk0.InstrOK universal postcondition on secret branch taint",
             "diagnostics": [
               {
-                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
+                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
                 "line": 25,
                 "col": 14,
                 "message": "Error: possible violation of postcondition of forall statement",
@@ -8475,7 +8475,7 @@
                 ]
               },
               {
-                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
+                "path": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/keccak/runtime-primitives/certificates/RuntimeShiftRight_PrivateCount_audit.dfy",
                 "line": 61,
                 "col": 12,
                 "message": "Error: function precondition could not be proved",
@@ -8498,7 +8498,7 @@
           },
           "anchor_status": "proof_failed_named_chunk0_branch_postcondition"
         },
-        "log_sha256": "7152930e4838d7251809c9b5d83d5216e8573dd73891b7af549236724db45aff",
+        "log_sha256": "2dc147d5384a4180b5d21a0028f5b66a06e67e5c380ebc8bee70190ba73fa739",
         "obligation_named": true
       }
     },
@@ -8574,7 +8574,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/__default_Select.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/__default_Select.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9153,7 +9153,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/__default_Feed.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/__default_Feed.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -10365,7 +10365,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/__default_Extract.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/__default_Extract.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -10618,7 +10618,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/__default_Expand.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/__default_Expand.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -11447,7 +11447,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/__default_LabelInfo.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/__default_LabelInfo.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -12727,7 +12727,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/HkdfBridge_sequence.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/HkdfBridge_sequence.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -13023,7 +13023,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/HkdfBridge_labelUnits.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/HkdfBridge_labelUnits.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -13347,7 +13347,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Extract.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Extract.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -14067,7 +14067,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Pow2.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Pow2.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -14533,7 +14533,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_PublicMod.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_PublicMod.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -14619,7 +14619,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Wipe.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Wipe.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -14858,7 +14858,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_ReduceOnce.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_ReduceOnce.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -15532,7 +15532,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Reduce.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Reduce.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -16684,7 +16684,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Add.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Add.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -17542,7 +17542,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Sub.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Sub.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -18448,7 +18448,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Mul.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Mul.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -19784,7 +19784,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_MulSub.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_MulSub.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -21251,7 +21251,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_AddMul.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_AddMul.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -22651,7 +22651,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_Q.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_Q.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -22763,7 +22763,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Callee_MaxReduce.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Callee_MaxReduce.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -27334,7 +27334,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Composed_Feed.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Composed_Feed.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -30374,7 +30374,7 @@
     "formal/timing/policy.json": "f506883f3efaffce8ad356713b7d366066036b9ce32433d880cc69635593d227",
     "formal/timing/run.py": "defd08ba0b694a94cfb73c4fbe82e6f1aa490c379ec1dc277e1b8b8441ef24ae",
     "formal/timing/threat-model.md": "550db1f7e29d2a533649a06fecbcf8cc3276477ee30a8e278f458608a6c39665",
-    "formal/timing/README.md": "474186e4802bd0c04850ee457978554e1f15eb6240c814576b967ea203ba29c8",
+    "formal/timing/README.md": "9c4930db0a4fee09ed30d690ad46816b02396282013bed44b7818c4e2c4affc9",
     "formal/timing/test_trace.py": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
     "formal/timing/fixtures/CategoryTwo.java": "297819f8daabe05cb0349c1f91c3c3839a4304205f7d45109a271863b8a4f70a",
     "formal/timing/fixtures/ClassOracle.java": "6e3cce568f3ba1fcecf5d948fa59af096f82953d944cfdf37f27e76219a8f80d",
@@ -30497,7 +30497,7 @@
     "formal/timing/execution_controls.py": "663a4d984885fb6246cc202a8f02ada86841cc752d6351a155f3d42e6459ee85",
     "formal/timing/test_coverage.py": "552fbf449ac80e042530e30970b3b639c4e2dd94a0d3ede596707e90a1481159",
     "formal/timing/PublicProvider.dfy": "0b974605e8c43276b422f973c3271996cc45fe33aae579e0641cd16fcef8c94b",
-    "formal/timing/WordArithmetic.dfy": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
+    "formal/timing/WordArithmetic.dfy": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
     "formal/timing/compact_certificates.py": "87297cf88b5023d460b52448c6907553342687a311950b432246cc467eda2a13",
     "formal/timing/test_compact_certificates.py": "eb90ed8eeec17b143e50a51523f1d040627ca77bc60649dd5179cef3873924c7",
     "formal/timing/runtime_primitives.py": "99f6edcc23984bf6d54dfb42f3d3cb89eea6deb061708ce25a64f22ac5768fb4",
@@ -31218,7 +31218,7 @@
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "run",
         "--no-verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/model/PositiveTraceCheck.dfy"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/model/PositiveTraceCheck.dfy"
       ]
     },
     {
@@ -31227,7 +31227,7 @@
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "run",
         "--no-verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/model/ApplyProbe.dfy"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/model/ApplyProbe.dfy"
       ]
     },
     {
@@ -31235,7 +31235,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Extract_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Extract_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31251,7 +31251,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Pow2_secret_branch_cond.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Pow2_secret_branch_cond.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31267,7 +31267,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_PublicMod_secret_runtime_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_PublicMod_secret_runtime_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31283,7 +31283,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Wipe_secret_store_index.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Wipe_secret_store_index.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31299,7 +31299,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Wipe_secret_branch_cond.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Wipe_secret_branch_cond.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31315,7 +31315,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_ReduceOnce_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_ReduceOnce_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31331,7 +31331,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Reduce_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Reduce_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31347,7 +31347,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Add_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Add_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31363,7 +31363,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Sub_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Sub_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31379,7 +31379,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_Mul_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_Mul_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31395,7 +31395,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_MulSub_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_MulSub_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31411,7 +31411,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/CalleeMutant_AddMul_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/CalleeMutant_AddMul_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31432,7 +31432,7 @@
         "-cp",
         "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/fixtures",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/fixtures",
         "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CalleeDescriptor.java",
         "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CalleeOwner.java",
         "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CategoryTwo.java",
@@ -31473,7 +31473,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Mutant_secret_guard.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Mutant_secret_guard.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31489,7 +31489,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Mutant_secret_index.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Mutant_secret_index.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31505,7 +31505,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Mutant_early_compare_guard.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Mutant_early_compare_guard.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31521,7 +31521,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp/Mutant_public_taint_launder.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm/Mutant_public_taint_launder.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -31533,7 +31533,7 @@
       ]
     }
   ],
-  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/replay-k77a76wp",
+  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/replay-bnc6incm",
   "trusted": [
     "Dafny/Boogie/Z3",
     "javap parser and operand mapping",
