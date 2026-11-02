@@ -2318,21 +2318,21 @@
         },
         {
           "path": "formal/timing/README.md",
-          "sha256": "a091791b61ee0830dba13c54e2d16d6e14a5b46ba9588e6e6328c7712060b499",
+          "sha256": "f316fd5397041071a9207995086454ec2f50942b3427634b1bb0086b484fbd7f",
           "kind": "documentation",
           "role": "V7 component scope, checked roots and open scope"
         },
         {
           "path": "formal/timing/threat-model.md",
-          "sha256": "90cd4e332296fc1ffe1a746dcc18bae465091e16d2f8ff01993a3ada3ca47eb2",
+          "sha256": "460a392275f78b47652fdbfd0a44b27d86fe64f4bc5fa2912419d2e022dd2cf3",
           "kind": "documentation",
           "role": "two-run observer, declassification and TCB exclusions"
         },
         {
           "path": "formal/timing/inputs.json",
-          "sha256": "45e83299aed470da1840bbb9550705edbb0b2d1e834e335ed56e2cb030c27979",
+          "sha256": "05a0aed09e1f8fb82ed89f3875db7c6af53fd896a277b8f711cc89a4cc111363",
           "kind": "input-manifest",
-          "role": "126 pinned timing sources/fixtures/production inputs/tools"
+          "role": "127 pinned timing sources/fixtures/production inputs/tools"
         },
         {
           "path": "formal/timing/policy.json",
@@ -2348,7 +2348,7 @@
         },
         {
           "path": "formal/timing/bytecode_trace.py",
-          "sha256": "763a19ddf4c6237b2bb0efc55cf2b4b92dfd233e89a5574e3366edfc3520e979",
+          "sha256": "6b85f4630868c826bdb7139b16e362ef096f102d73786454e3bf24b3e44227b4",
           "kind": "tool-manifest",
           "role": "trusted javap extractor, CFG/taint/dispatch audit"
         },
@@ -2377,14 +2377,20 @@
           "role": "90 parser/audit/CFG/rejection/callee-scope/execution controls"
         },
         {
+          "path": "formal/timing/test_exception_table.py",
+          "sha256": "4ec876f9fb557268ee1059066d14794472df29ac1a5405fbd9f5f32fec3a183d",
+          "kind": "test-source",
+          "role": "15 real-javap exception/method-boundary and malformed-input fail-closed controls"
+        },
+        {
           "path": "formal/timing/PRODUCTION-EVIDENCE.json",
-          "sha256": "b6ae6560ccf2e107597001afdec3d1abb197582328ad52d64f857419ec543ab6",
+          "sha256": "29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f",
           "kind": "component-receipt",
           "role": "actual-bytecode certificate report with open scope and assumptions"
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "3895b3e92beadb856edd40dead45c8f4ad99360f8d046b84deed19ba5305faf1",
+          "sha256": "f9ce1a533ee915211a02127df8a488bad3f516c54c1bde69d9739c9abd5edd04",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2414,7 +2420,7 @@
         },
         {
           "path": "formal/timing/EVIDENCE.md",
-          "sha256": "93593be193688c61bb468a8911ec4090f5efaf373ce2f748cc79ad57153a2b03",
+          "sha256": "b98bbd513597a227b9722e47d66fd479ca1c74e00939f000d4dad42916660be0",
           "kind": "documentation",
           "role": "corrected receipt and remaining scope"
         }
@@ -2488,7 +2494,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "4dec175b7e328fbfd1054ea7282dc06483032523adbeae969a53b602f2186356",
+          "sha256": "bbb5617b8980e85a325befb365f54514deb1669200c50b0b71a41ae2185193a3",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2506,7 +2512,7 @@
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "ca0a0457b0541a1802bf1358203a32cfd5bcbd854da018aba806f42d674e1a89",
+          "sha256": "422804aa04aa9cb5998c03950fefdd3dcb42ca3ec39cbf3dfd9efb0b521fcd9e",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -2524,7 +2530,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "3895b3e92beadb856edd40dead45c8f4ad99360f8d046b84deed19ba5305faf1",
+          "sha256": "f9ce1a533ee915211a02127df8a488bad3f516c54c1bde69d9739c9abd5edd04",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },

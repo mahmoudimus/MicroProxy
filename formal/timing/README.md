@@ -22,6 +22,7 @@ declassifications, dispatch/type restrictions, and residuals.
 | `run.py` | Atomic replay: pins, model and HKDF-shape proofs, compiled control, source→class binding against a chosen class directory, actual-class certificates, fixtures, certificate mutants, structured open scope |
 | `fixtures/` | Constant-time positive control plus branch/index/early-compare/exception/alloc/loop-bound/field-alias/virtual-dispatch/type-test/new-identity/call-length/category-2 mutants, exact-owned-target and call-result/heap composition mutants, public/private Euclidean-runtime controls, long-slot regressions, secret-heap external-call controls and unit-test-only merged-role/extract-shape/recursive composition controls |
 | `test_trace.py` | 90 unit tests over parser, translation, audit, rejection, callee identity/scope, inline composition, frozen-`Apply`/executed-witness controls, contract-driven witness liveness/clearing gates, heap-argument classification (including `javax/`, `jdk/`, `sun/`, `com/sun/`), policy/contract/prefix drift, call-id and recursion fail-closed gates. One test re-runs the compiled `ApplyProbe.dfy` cross-check and is skipped when the pinned Dafny binary is absent (the replay always runs it) |
+| `test_exception_table.py` | 15 additional unit tests using independently read real javap tables and member boundaries: typed catches, catch-all/finally and throws declarations; empty/malformed tables, orphan/repeated Code arrays, unbound descriptors and duplicate/backwards offsets; accepted no-handler controls |
 | `EVIDENCE.md` | Recorded local replay and exact open items |
 | `inputs.json` | SHA-256 pins for timing sources, fixtures, inspected production sources and the unchanged HKDF model |
 
@@ -226,12 +227,13 @@ closure.
 
 ```sh
 cd /path/to/microproxy
-# All entry points run the same 90 tests (the module adds its own directory to
-# sys.path, and the `unittest.main()` guard is at end of file):
+# The trace module and direct script each run 90 tests; discovery runs all 105,
+# including 15 exception-table and member-boundary regressions. The module adds its own directory
+# to sys.path and puts `unittest.main()` at end of file:
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   python3 -m unittest -v formal.timing.test_trace      # from the repo root
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
-  python3 -m unittest discover -s formal/timing -p 'test_*.py'
+  python3 -m unittest discover -s formal/timing -p 'test_*.py'  # all 105
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   python3 formal/timing/test_trace.py                  # direct script
 # (add DAFNY=/path/to/pinned/dafny to also run the compiled ApplyProbe cross-check;

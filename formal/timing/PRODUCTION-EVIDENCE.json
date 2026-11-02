@@ -61,7 +61,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/__default_Select.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/__default_Select.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -76,7 +76,7 @@
       "status": "checked",
       "obligations": 84,
       "certificate": "__default_Select.dfy",
-      "certificate_sha256": "cf692c1ca95c09a21ce07d7e85a958a05857dfe20116cc89754c7755a8307a16",
+      "certificate_sha256": "a973ed6dc2a13402c9162f961c4fa80d6edb791c3c1c464c583ce75280c052b2",
       "registers": 72,
       "instructions": 75,
       "instructions_reachable": 75,
@@ -640,7 +640,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/__default_Feed.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/__default_Feed.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -653,7 +653,7 @@
       "status": "checked",
       "obligations": 179,
       "certificate": "__default_Feed.dfy",
-      "certificate_sha256": "1e88ed4688b70167119194f0eb79b648ce812707e1e1c23775c1147274078077",
+      "certificate_sha256": "bfb1b1f62d226c61811e4e681c4746b940d43e7f760170f3cd255fc86b5240dd",
       "registers": 152,
       "instructions": 167,
       "instructions_reachable": 167,
@@ -1852,7 +1852,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/__default_Extract.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/__default_Extract.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -1867,7 +1867,7 @@
       "status": "checked",
       "obligations": 34,
       "certificate": "__default_Extract.dfy",
-      "certificate_sha256": "21058146be555cd9c6109aaad341c6d64618f77639147b5f54f50f81c81a7ce5",
+      "certificate_sha256": "31f1fb844a92bd1c8b8466da8a71e81b9c666bafb464daadc254a6f018a14000",
       "registers": 27,
       "instructions": 30,
       "instructions_reachable": 30,
@@ -2105,7 +2105,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/__default_Expand.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/__default_Expand.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -2118,7 +2118,7 @@
       "status": "checked",
       "obligations": 111,
       "certificate": "__default_Expand.dfy",
-      "certificate_sha256": "459b1c3ac18dd04fb964d13d1277d93e6e6cdc84ccec63f30e79225f3bfe4ae3",
+      "certificate_sha256": "94f115de5ca8cd93650794fecff4ac27b2b57347a7e56abb195e84115245c241",
       "registers": 85,
       "instructions": 103,
       "instructions_reachable": 103,
@@ -2934,7 +2934,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/__default_LabelInfo.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/__default_LabelInfo.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -2947,7 +2947,7 @@
       "status": "checked",
       "obligations": 169,
       "certificate": "__default_LabelInfo.dfy",
-      "certificate_sha256": "350ad8062b365feea41bde1af0fdffe3755d79f043003873f12d9bd0c27542cb",
+      "certificate_sha256": "df6335d8e38e1f70d33c4953187d5c56ed5f5e402a626a9d6804491f045b20c5",
       "registers": 123,
       "instructions": 158,
       "instructions_reachable": 158,
@@ -4216,7 +4216,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Callee_Extract.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Callee_Extract.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -4248,7 +4248,7 @@
       },
       "obligations": 97,
       "certificate": "Callee_Extract.dfy",
-      "certificate_sha256": "d045e3d54b906f09c7394a0680caaa0fbcb1b6ea7512cdc30431c901f6137e8d",
+      "certificate_sha256": "fcb9ba44de6fc471f98fe152b948835aa1b31096cf6155a5168a4f89ce53454b",
       "direct_instructions": 12,
       "direct_shape_sha256": "ff4413608a0b06d6d39c54dd98cab3bd1df39e41ddfb57e3e6d2c08b7ed9c8e3",
       "instructions": 87,
@@ -4936,7 +4936,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Callee_Pow2.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Callee_Pow2.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -4964,7 +4964,7 @@
       },
       "obligations": 57,
       "certificate": "Callee_Pow2.dfy",
-      "certificate_sha256": "55d685a708577de941d6d544e2e1aa5af918db36ebb7b0e92c1d098158bff781",
+      "certificate_sha256": "a0ceffa6502656bafb714727cf4d0ae6de44886f23a772bb918cf65dc9b74e21",
       "direct_instructions": 62,
       "direct_shape_sha256": "8ef7ef630bcb300c4f3824f8b3a3aa02aff80392776a102c23f66f5ae26ec59e",
       "instructions": 62,
@@ -5402,7 +5402,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Callee_PublicMod.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Callee_PublicMod.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -5432,7 +5432,7 @@
       },
       "obligations": 7,
       "certificate": "Callee_PublicMod.dfy",
-      "certificate_sha256": "4d10544a0dcfc5accbfad963a0179205243a0326afe309a827b4718ae23bd2a9",
+      "certificate_sha256": "cad78fb2eddb9da6a8b135d76708c1c1e37d65c0fc1ffd8b311c5e6f74b8ec6b",
       "direct_instructions": 2,
       "direct_shape_sha256": "53c880229be500cfa1c4a53e7411b3b8ab6cb5ab23b1ef9aaffe9c92435a5ef8",
       "instructions": 2,
@@ -5488,7 +5488,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Callee_Wipe.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Callee_Wipe.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -5516,7 +5516,7 @@
       },
       "obligations": 25,
       "certificate": "Callee_Wipe.dfy",
-      "certificate_sha256": "0dd3a2cf4a330735dee22081f8297f3d24796bc8cff5f21f1cb41601314423e4",
+      "certificate_sha256": "05bbd566b936e0d660c787b64c5e5a4dea615b1a54153fdd150cb1242e5882b9",
       "direct_instructions": 19,
       "direct_shape_sha256": "76f500c2eb984210cc12e31d1ad9c93e394c4b4ba511cbae6da7385af682d700",
       "instructions": 19,
@@ -5729,7 +5729,7 @@
       "verify_command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Composed_Feed.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Composed_Feed.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -5743,7 +5743,7 @@
       "role": "composed-caller",
       "obligations": 393,
       "certificate": "Composed_Feed.dfy",
-      "certificate_sha256": "47d4aaf9ac5df7bd2f7188b33231be2ad595ec7eb0b378025bbc7bb2d241af94",
+      "certificate_sha256": "23b5f57a408c7da1790abe0296501e902255925181718c7dc5ac4893ec61a14f",
       "instructions": 369,
       "instructions_reachable": 369,
       "cfg_edges_checked": "component-cfgs-and-splice-reachability",
@@ -8419,7 +8419,7 @@
       "status": "checked-inline-expansion",
       "composed_root": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default.Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
       "certificate": "Composed_Feed.dfy",
-      "certificate_sha256": "47d4aaf9ac5df7bd2f7188b33231be2ad595ec7eb0b378025bbc7bb2d241af94",
+      "certificate_sha256": "23b5f57a408c7da1790abe0296501e902255925181718c7dc5ac4893ec61a14f",
       "discharged": [
         "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
         "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
@@ -8543,7 +8543,7 @@
       "instructions": 54,
       "instructions_reachable": 54,
       "cfg_edges_checked": true,
-      "certificate_sha256": "bb3f2474bf29027fb2a2f835499557fe31d83f1359e31604bf6012f8d1cbab55"
+      "certificate_sha256": "1cc2ae838eb91bed691c67f7ce2a940b17042d492b751fd22672786851372562"
     },
     "SecretBranch": {
       "expect": "reject",
@@ -8647,7 +8647,7 @@
       "instructions": 3,
       "instructions_reachable": 3,
       "cfg_edges_checked": true,
-      "certificate_sha256": "a5e614a9bad4d80297d1fa2dda8f4a06e0ed8c0d148a6437a72aae1ff1dfec61"
+      "certificate_sha256": "03d3bbbb8ba9de66460a575ea65389432668aaf00184acbae105440e15c16585"
     },
     "PrivateEuclideanDivision": {
       "expect": "reject",
@@ -8666,7 +8666,7 @@
       "instructions": 6,
       "instructions_reachable": 6,
       "cfg_edges_checked": true,
-      "certificate_sha256": "4d39cea916791efa08dccbacaca9f4851f86894985080a1e65f85d45fc1b0bb6"
+      "certificate_sha256": "673206c912fcf57bb50ced90d843283253ec29db30d4027cd41c236f3fa6d624"
     },
     "LongSlotArray": {
       "expect": "reject",
@@ -8685,7 +8685,7 @@
       "instructions": 2,
       "instructions_reachable": 2,
       "cfg_edges_checked": true,
-      "certificate_sha256": "e48f51ea394d5e416cd8acf9b448f3b13a350ba5d9c2dce774c71a0092ebd753"
+      "certificate_sha256": "5602383055d4242eeb95da1db1e79d5179ba4407062b66aa7a20c7606b83e42d"
     }
   },
   "certificate_mutants": {
@@ -8775,11 +8775,11 @@
     "formal/timing/SecretTrace.dfy": "95e683435ca753ee97b53e2a6b2c1b8b07a8b7db5cd974f99e2ca7cd3e93be15",
     "formal/timing/PositiveTraceCheck.dfy": "5428fb89db59695f46442c083dec626005de16cff93e158736b896e76382e9b0",
     "formal/timing/HkdfShape.dfy": "e97ece26d90e905bc31e39f44f52fecafca72efa99fe219edfd68ed2a9adbb88",
-    "formal/timing/bytecode_trace.py": "763a19ddf4c6237b2bb0efc55cf2b4b92dfd233e89a5574e3366edfc3520e979",
+    "formal/timing/bytecode_trace.py": "6b85f4630868c826bdb7139b16e362ef096f102d73786454e3bf24b3e44227b4",
     "formal/timing/policy.json": "66b0dfec3ba06b5641dbd193c44a0798400f6ed680051f23ac271110239437c4",
     "formal/timing/run.py": "9dcb9b64d933472cd151ed5ba60cb05cc67b81884777079afe04d55d975b58f8",
-    "formal/timing/threat-model.md": "90cd4e332296fc1ffe1a746dcc18bae465091e16d2f8ff01993a3ada3ca47eb2",
-    "formal/timing/README.md": "a091791b61ee0830dba13c54e2d16d6e14a5b46ba9588e6e6328c7712060b499",
+    "formal/timing/threat-model.md": "460a392275f78b47652fdbfd0a44b27d86fe64f4bc5fa2912419d2e022dd2cf3",
+    "formal/timing/README.md": "f316fd5397041071a9207995086454ec2f50942b3427634b1bb0086b484fbd7f",
     "formal/timing/test_trace.py": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
     "formal/timing/fixtures/CategoryTwo.java": "297819f8daabe05cb0349c1f91c3c3839a4304205f7d45109a271863b8a4f70a",
     "formal/timing/fixtures/ClassOracle.java": "6e3cce568f3ba1fcecf5d948fa59af096f82953d944cfdf37f27e76219a8f80d",
@@ -8897,7 +8897,8 @@
     "formal/timing/fixtures/HeapExternalPublic.java": "0eaedc04d0bed3041216080ed0927ba0b54e2d9c9018abc0c1b41a97f850aab2",
     "formal/timing/fixtures/MergeRoleCallee.java": "53c51a578f59592ebf610dffa865d00cb2db14ff7903864050ddd2d22d62df77",
     "formal/timing/fixtures/MergeRoleCaller.java": "af642d6f990d6efa8bd18101ac8d8efc69ff5dc3dde41dd8ea420c26cf8dee79",
-    "formal/timing/fixtures/RecursiveCallee.java": "2ba78c01041cb187a186a21411fc677d384e1f6ee528f6bc14e10a3cf9cb0c8b"
+    "formal/timing/fixtures/RecursiveCallee.java": "2ba78c01041cb187a186a21411fc677d384e1f6ee528f6bc14e10a3cf9cb0c8b",
+    "formal/timing/test_exception_table.py": "4ec876f9fb557268ee1059066d14794472df29ac1a5405fbd9f5f32fec3a183d"
   },
   "class_binding": {
     "io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.class": {
@@ -9587,7 +9588,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/SecretTrace.dfy",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/SecretTrace.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9603,7 +9604,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/HkdfShape.dfy",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/HkdfShape.dfy",
         "--allow-external-contracts",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
@@ -9621,7 +9622,7 @@
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "run",
         "--no-verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/model/PositiveTraceCheck.dfy"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/model/PositiveTraceCheck.dfy"
       ]
     },
     {
@@ -9630,7 +9631,7 @@
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "run",
         "--no-verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/model/ApplyProbe.dfy"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/model/ApplyProbe.dfy"
       ]
     },
     {
@@ -9638,7 +9639,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/CalleeMutant_Extract_public_result_from_secret_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/CalleeMutant_Extract_public_result_from_secret_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9654,7 +9655,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/CalleeMutant_Pow2_secret_branch_cond.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/CalleeMutant_Pow2_secret_branch_cond.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9670,7 +9671,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/CalleeMutant_PublicMod_secret_runtime_arg.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/CalleeMutant_PublicMod_secret_runtime_arg.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9686,7 +9687,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/CalleeMutant_Wipe_secret_store_index.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/CalleeMutant_Wipe_secret_store_index.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9702,7 +9703,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/CalleeMutant_Wipe_secret_branch_cond.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/CalleeMutant_Wipe_secret_branch_cond.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9723,40 +9724,40 @@
         "-cp",
         "/Users/mahmoud/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar",
         "-d",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/fixtures",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CalleeDescriptor.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CalleeOwner.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/CategoryTwo.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/ClassOracle.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/ConstantTime.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/EarlyCompare.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/ExceptionOracle.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/ExtractShape.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/FieldAlias.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/HeapExternalCompare.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/HeapExternalPublic.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/HeapResultLaunder.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/InlineCallee.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/InlineCaller.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/LongSlotArray.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/LongSlotPrivate.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/LongSlotPublic.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/MergeRoleCallee.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/MergeRoleCaller.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/NewIdentity.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/PostWipeLaunder.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/PrivateEuclidean.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/PrivateEuclideanDivision.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/PublicEuclidean.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/RecursiveCallee.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/ResultArrayCall.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretAlloc.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretBranch.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretDigestBranch.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretIndex.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretLoopBound.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/SecretResultBranch.java",
-        "/Users/mahmoud/.codex/worktrees/crypto-release-artifact/microproxy/formal/timing/fixtures/VirtualDispatch.java"
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/fixtures",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/CalleeDescriptor.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/CalleeOwner.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/CategoryTwo.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/ClassOracle.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/ConstantTime.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/EarlyCompare.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/ExceptionOracle.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/ExtractShape.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/FieldAlias.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/HeapExternalCompare.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/HeapExternalPublic.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/HeapResultLaunder.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/InlineCallee.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/InlineCaller.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/LongSlotArray.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/LongSlotPrivate.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/LongSlotPublic.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/MergeRoleCallee.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/MergeRoleCaller.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/NewIdentity.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/PostWipeLaunder.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/PrivateEuclidean.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/PrivateEuclideanDivision.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/PublicEuclidean.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/RecursiveCallee.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/ResultArrayCall.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretAlloc.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretBranch.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretDigestBranch.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretIndex.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretLoopBound.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/SecretResultBranch.java",
+        "/Users/mahmoud/.codex/worktrees/crypto-nonce-dafny/microproxy/formal/timing/fixtures/VirtualDispatch.java"
       ]
     },
     {
@@ -9764,7 +9765,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Mutant_secret_guard.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Mutant_secret_guard.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9780,7 +9781,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Mutant_secret_index.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Mutant_secret_index.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9796,7 +9797,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Mutant_early_compare_guard.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Mutant_early_compare_guard.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9812,7 +9813,7 @@
       "command": [
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny",
         "verify",
-        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu/Mutant_public_taint_launder.dfy",
+        "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku/Mutant_public_taint_launder.dfy",
         "--solver-path",
         "/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/z3/bin/z3-4.12.1",
         "--verification-time-limit",
@@ -9824,7 +9825,7 @@
       ]
     }
   ],
-  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/replay-nvi3byhu",
+  "workspace": "/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/replay-xg5me5ku",
   "trusted": [
     "Dafny/Boogie/Z3",
     "javap parser and operand mapping",
