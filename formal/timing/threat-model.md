@@ -71,6 +71,108 @@ relation (`length_arg`, `length_role`, or `length_zero`); a missing contract
 fails closed. This models allocation/length observation but does not prove that
 a checked callee's returned bytes equal the actual JVM bytes.
 
+## 4a. Inline composition of certified owned callees
+
+An opaque `Call` step is atomic: it observes a static dispatch/public arguments,
+returns an abstract word, and does **not** model callee instructions or heap
+writes. That contract is unchanged for the five original caller certificates. A
+separate, explicitly enumerated expansion removes it for
+`NativeCodec.Extract:(JII)I`, `PublicMod:(II)I` and `Wipe:([I)V` in a
+**separate** composed `NativeSampling.Feed` certificate:
+
+- the exact static target (class + name + descriptor) selects the body; a
+  same-named method on another owner or with another descriptor is an unlisted
+  call and fails closed;
+- the body is re-translated under the caller's actual argument taints and role
+  taints, then re-checked by `Structure` (no callee annotation is trusted);
+- scalar arguments are copied to the callee parameter registers, array
+  parameters alias the caller's static role, and every return site copies the
+  callee's actual return register into the caller destination; a secret result
+  cannot flow into a public destination;
+- array parameter roles must be the *exact plain* identity emitted for that
+  parameter; a merged/derived role (for example a control-flow join of a
+  parameter role with an allocation role) is a composition error rather than a
+  silent alias to some caller role;
+- `Wipe`'s stores are part of the composed program, so its heap effect is
+  modelled rather than assumed away; array contents remain secret and no
+  declassification or physical-erasure claim is made;
+- each inlined body's shape hash is compared with the in-process direct
+  translation of the same callee (nested callee-root inlines included), and the
+  composed certificate must remove exactly the enumerated targets and add no
+  owned target. This is direct-translation *self-consistency* plus the trusted
+  splice: it detects a corrupted or substituted body; it is not a hash of the
+  emitted certificate and not a theorem about the JVM;
+- recursive or unbounded callee expansion is refused before it starts (a
+  call-cycle check over the enumerated callees plus fail-closed expansion
+  limits), and each callee's recorded contract must match the enforced class
+  policy (`params`, role values, result and heap effect).
+
+The expansion is a trusted bridge step (like the javap extractor): plain
+parameter-role aliasing, register and role renaming, entry/return copies, and the
+omission of the constant `invoke`/`return` dispatch events are mutation-tested
+but not formally verified. Locals and phi edges are emitted as
+`Op(12, 0, src)` copies so that the frozen `Apply(12, a, b) == b` model really
+copies `src`; a copy with the source in operand `a` would silently read register
+0 and make loop counters and local values dead. The observed trace is the
+expanded body trace; JVM value refinement, implicit exceptions and physical
+timing remain excluded.
+
+`PublicMod` is admitted only with public `value`/`divisor`: the pinned
+DafnyRuntime `DafnyEuclidean.EuclideanModulus/Division` bodies branch on the
+dividend/divisor value, so the wrapper is a public-context certificate, not a
+private-value constant-time theorem. A zero divisor would throw and is an
+explicit residual of the enumerated DafnyRuntime contract.
+`Extract` is itself composed with the separately certified public `Pow2` body so
+the callee root has no remaining opaque owned call.
+
+Secret-pair witnesses are emitted for the small `Extract`/`Wipe` callee roots.
+The witness is a hypothesis-satisfiability control (`Agree` holds and the secret
+projection differs) and the *executed* witness run is validated by the bounded
+interpreter in `trace_exec.py`. Only private inputs differ initially: private
+scalar parameter registers take different words and secret arrays take different
+contents, while every other secret register is zero in both states, so a final
+difference cannot come from initialisation. `run.check_witness_contract` enforces
+from the certificate's actual `param_regs` and the validated run that
+(a) a callee with a private scalar parameter keeps the secret live in a register
+that is not a parameter register (a parameter-only difference is a rejected dead
+input), and (b) a `parameter-array-clear` callee zeroes every secret *parameter
+array role* and executes at least that role's witness length in stores to that
+role, not merely a global store count. The execution block is reported as
+`witness_execution` and the gate result as `witness_contract`. Because the
+model's atomic `Call` result depends only on public arguments, no secret value in
+`Extract`'s returned register is claimed. A run that exhausts the step cap is reported as
+hypothesis-only and is never described as a completed execution: `Exec` returns
+`(s, [])` at fuel 0, so a truncated prefix must not be counted as a run. The
+interpreter's operand table is compared row-by-row with the compiled
+`ApplyProbe.dfy` table, so it mirrors the frozen model rather than itself. The
+369-instruction composed Feed uses the generic `TwoRun` theorem without a
+concrete witness because a single solver-reducible `Agree` assertion over 286
+registers is not practical.
+
+Every admitted **ordinary external call** in the enumerated standard-runtime
+namespaces `dafny/`, `java/`, `javax/`, `jdk/`, `sun/` and `com/sun/` is
+public-scalar-and-public-heap-argument-only by default: secret array/sequence
+contents are the same kind of value-dependent input as a secret scalar, and an
+atomic `Call` step cannot see a runtime branch on those contents. The prefix list
+is drift-checked against the code table. Targets under any other prefix are not
+admitted by any checked certificate and are outside this claim (no blanket
+third-party-library coverage). The reviewed
+exceptions are the branch-free `Byte.toUnsignedLong/Int` casts (no heap
+arguments) and `Helpers.bv64ShiftRight` (shift count public; value may be
+private). No heap-content exception is granted for any checked root. Abstract
+memory/shape operations (`Load`/`LenOf`/`Alloc`/fill and the enumerated
+`modeled_primitive_kinds`) are not ordinary calls: the extractor replaces them
+with model steps, so they are outside this gate. An unregistered or ambiguous
+call id is an audit failure, and the recorded classification is compared with the
+enforced code tables before the replay starts. This is a classification gate for
+the trace model, not a runtime/compiler timing proof.
+
+The original five caller certificates keep their 19-target union. The composed
+Feed discharges only the three named targets and still assumes its other 7 owned
+contracts; the five-certificate union would be 16 only if the composed
+certificate replaced Feed, which this branch does not claim. This is not a
+whole-callee closure.
+
 ## 5. Dispatch, types and object identity
 
 `invokevirtual`/`invokeinterface` to owned classes is rejected unless a
@@ -104,7 +206,9 @@ path. `JdkHmac.compute` is our reviewed/trusted handwritten bridge to JDK HMAC;
 the provider primitive contract does not prove that Java adapter, and complete
 `HkdfBridge`/Java refinement remains open. The final canonical21 build exists;
 adapter trace roots remain open because of owned object/dispatch/type/exception
-and alias restrictions, not a missing build. Owned
+and alias restrictions, not a missing build. The separate composed Feed
+certificate discharges exactly `NativeCodec.Extract`, `PublicMod` and `Wipe`;
+it does not turn any other owned helper into a provider contract. Owned
 `Encrypt`/`Decrypt`/`ExpandMatrix`/`NativeShake.Xof`/`NativeKeccak` are **not**
 provider assumptions; they are listed as unchecked owned callees and no V7
 closure claim includes them. `Decaps` is a caller skeleton only.
