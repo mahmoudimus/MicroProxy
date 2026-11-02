@@ -106,8 +106,8 @@ relabelled as a production implementation claim.
 
 Supported status is fail-closed to the claims that have a reviewed, implemented
 semantic evidence validator in the checker. Security proofs, timing/constant-time,
-whole-proxy security, independent expert review, AWS full closure, current full-JAR
-identity and all-V0-V8 completion have no such validator yet: marking any of them
+whole-proxy security, independent expert review, AWS full closure
+and all-V0-V8 completion have no such validator yet: marking any of them
 supported fails even if a JSON file asserts a schema, boolean, status or timestamp.
 A future category becomes enabled only by a reviewed code+tests change that validates
 the actual artifact/log/receipt, not by a ledger or receipt self-certification. A
@@ -119,7 +119,7 @@ not closure.
 From the repository root:
 
 ```sh
-python3 -m unittest discover -s scripts/security -p 'test_crypto_obligations.py' -v
+python3 -m unittest discover -s scripts/security -p 'test_crypto*.py' -v
 python3 scripts/security/check_crypto_obligations.py
 python3 scripts/security/check_crypto_release.py
 ```
@@ -135,8 +135,9 @@ python3 scripts/security/check_crypto_release.py \
 python3 scripts/security/check_crypto_release.py \
   --require hkdf-production-functional
 
-# Fails while timing/expert/current-JAR/complete claims are open.
+# Fails without actual artifact inputs; the static claim remains deferred.
 python3 scripts/security/check_crypto_release.py --require current-release-jar-identity
+# Fails while timing/expert/complete claims are open.
 python3 scripts/security/check_crypto_release.py --require-all
 ```
 
@@ -144,6 +145,52 @@ Both commands print machine-readable JSON with `ok`, obligation/claim statuses,
 `residual_claims` and, for release requirements, `claim_failures`. `--output FILE`
 writes the same JSON atomically. Exit `1` is a validation/requirement failure;
 exit `2` is an unexpected internal validator failure.
+
+The output guard also applies in normal mode: `--output` cannot replace the
+validated ledger or checkout sources, including aliases. Use top-level `target/`
+or a path outside the audited checkout. A different `--root` is protected too.
+
+### Validate a particular release artifact
+
+The release CLI can support `current-release-jar-identity` **for one invocation**
+by running the underlying delivery and minimized-bundle checks against explicit
+artifacts. The committed ledger remains `deferred`; a historical receipt alone
+cannot enable the claim.
+
+```sh
+python3 scripts/security/check_crypto_release.py \
+  --require current-release-jar-identity \
+  --artifact-stage /fresh/canonical-stage \
+  --artifact-classes quic/target/classes \
+  --library /built/quic.jar --bundle /built/microproxy-all.jar \
+  --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" \
+  --java-home /trusted/jdk21 --java-home /trusted/jdk25 \
+  --artifact-output target/fresh-artifact-check \
+  --output target/current-release-claims.json
+```
+
+Use a new artifact-output directory. Outputs must be outside the audited checkout
+or under its top-level `target/`, and cannot overlap input artifacts, stage,
+external evidence, classes, ledger or JDKs. The stage compiler must match the
+operator's explicit JDK 21 tool tree before a stage-selected tool can run. Both
+JDK 21 and 25 are required. The checks freshly replay canonical generation,
+compile the complete library, compare every class byte in classes/JAR/bundle,
+validate retained runtime classes and notices, and run origin-checked hybrid
+handshakes on both JDKs. Their successful reports are bound to unchanged inputs
+at the end of this invocation. Missing, altered, stale, malformed or timed-out
+inputs fail closed. This authenticates the supplied artifacts under the
+documented compiler/runtime/provider assumptions; it does not identify a running
+deployment or prove timing or cryptographic hardness.
+
+Stage evidence paths must be absolute. Output protection independently inventories
+all receipt references in the input-evidence envelope, even if the stage's external
+input map omits them. Malformed or unreadable evidence prevents all output writes.
+Reports, logs and copied receipts use exclusive random temporary files and atomic
+replacement inside the fresh private artifact directory.
+
+`crypto_current_release.py` and its regression suite are mandatory, pinned V8
+gate inputs. The native-delivery CI job invokes this CLI instead of separately
+running the same delivery and bundle checks twice.
 
 ## Current snapshot scope
 
@@ -196,7 +243,7 @@ At this snapshot:
   library and retained bundle classes and records a successful actual bundle smoke.
   The static ledger still leaves `current-release-jar-identity` deferred: accepting
   a build snapshot does not authenticate a later artifact or a running deployment,
-  and that claim needs its own reviewed validator with actual artifact inputs.
+  and only an actual-artifact invocation can support that claim for its inputs.
 
 No generic "secure" or exhaustive-verification label follows. Functional
 correctness, cryptographic hardness, side-channel behavior and deployment identity
@@ -207,19 +254,18 @@ are separate claims.
 HKDF integration pins are now current and are not pending repin. Future renewals
 must be tied to an actual reviewed receipt, not a label:
 
-1. The actual full-class/JAR checks now have a concrete build snapshot, separate
-   from the 12-class HKDF component probe. Before enabling the ledger's
-   `current-release-jar-identity`, implement and review a validator that consumes
-   the specified actual artifacts and their complete source/stage bindings; a
-   schema marker or a historical receipt alone is insufficient.
+1. Run the actual-artifact release invocation above for each artifact being
+   assessed, separate from the 12-class HKDF component probe. Keep the static
+   `current-release-jar-identity` deferred; a schema marker or historical receipt
+   cannot substitute for current artifacts and complete source/stage bindings.
 2. Keep V1 `partial` until a reviewed successful AWS dependency-closure receipt with
    `full_dependency_graph_verified=true` exists. Target-only 9-declaration success
    must not be promoted to closure.
 3. Keep V7/V8 partial and all-complete unsupported until the 15 open owned trace
-   roots, 19 assumed owned helper contracts, runtime timing/current-JAR and
+   roots, 19 assumed owned helper contracts, runtime timing and
    independent external expert evidence genuinely close.
 4. If the HKDF final delivery store or production adapter changes, renew the exact
    input/tool/generated-source/class/provider/facade pins and their receipt
-   validators, then rerun the 68 tests and all normal/narrow/all-required checks.
+   validators, then rerun the gate regressions and all normal/narrow/all-required checks.
 5. Do not convert agent-assisted development review into an independent external
    expert-review receipt.

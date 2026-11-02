@@ -356,6 +356,14 @@ visible. The bytecode mapper and provider/runtime contracts remain trusted.
 This work does not yet close the compositional trace obligation for all crypto
 and authentication paths.
 
+Review found a copy-operand mismatch between the bytecode extractor and its trace
+model. It could make modeled loops degenerate despite successful proof checking.
+Affected trace receipts need replacement with corrected extraction and execution
+controls that exercise loop stores and secret-value flow. The functional
+HKDF/SHAKE/ML-KEM proofs are separate. This is also why the extractor remains an
+explicit trust assumption: proving the emitted model does not itself prove that
+the model faithfully represents Java execution.
+
 ### Obligation and release-claim gates
 
 The [unified ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)
@@ -369,6 +377,14 @@ reference replay, source-trace independence, physical timing and external expert
 review are separate claims. A scoped functional claim can pass while the aggregate
 `--require-all` gate fails. The latter must continue to fail while required work
 remains open; agent review cannot satisfy external expert review.
+
+The release CLI accepts explicit classes, library JAR, minimized bundle, canonical
+stage, runtime and JDK 21/25 inputs. It freshly runs the complete delivery and
+bundle checks and supports `current-release-jar-identity` only for that invocation
+and those unchanged artifacts. CI uses this route. The committed ledger keeps the
+claim deferred, so a historical build receipt cannot authenticate a later build
+or deployment. See the ledger guide for the command, output protections and trust
+boundaries. This artifact check adds no timing or cryptographic-security theorem.
 
 Established projects name the layer they verify. [HACL*/EverCrypt](https://github.com/hacl-star/hacl-star)
 verifies functional behavior and secret independence in F*/Low*, with Vale for selected assembly.

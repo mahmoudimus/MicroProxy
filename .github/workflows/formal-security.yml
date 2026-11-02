@@ -18,7 +18,7 @@ jobs:
           python-version: '3.13'
       - name: Test obligation, release-claim and upstream-reference gates
         run: |
-          python -m unittest discover -s scripts/security -p 'test_crypto_obligations.py' -v
+          python -m unittest discover -s scripts/security -p 'test_crypto*.py' -v
           python -m unittest discover -s formal/reference/aws-hkdf -p 'test_*.py' -v
       - name: Require scoped production functional claims with current evidence
         run: |
@@ -109,12 +109,11 @@ jobs:
           python formal/crypto/ci_delivery.py --dafny "$MICROPROXY_DAFNY" --output "$NATIVE_CRYPTO_OUTPUT"
           python formal/crypto/delivery.py stage --java-home "$CRYPTO_JAVA_21" --runtime "$CRYPTO_RUNTIME" --output "$NATIVE_CRYPTO_OUTPUT/canonical" --evidence "$NATIVE_CRYPTO_OUTPUT/inputs.json"
           JAVA_HOME="$CRYPTO_JAVA_21" mvn -q -pl microproxy-starlark -am -DskipTests package
-          python formal/crypto/delivery.py check --runtime "$CRYPTO_RUNTIME" --stage "$NATIVE_CRYPTO_OUTPUT/canonical" > "$NATIVE_CRYPTO_OUTPUT/maven-delivery.json"
           HKDF_DELIVERY_JAR=$(python -c 'import sys; sys.path.insert(0,"formal/crypto"); import delivery; print(delivery.maven_jar(delivery.ROOT))')
           python formal/dafny/deliver_hkdf.py --java-home "$CRYPTO_JAVA_21" --jar "$HKDF_DELIVERY_JAR"
           python formal/crypto/ci_delivery.py check-runtime --classes quic/target/classes --runtime "$CRYPTO_RUNTIME" --java-home "$CRYPTO_JAVA_21" --output "$NATIVE_CRYPTO_OUTPUT/maven-runtime"
           HKDF_BUNDLE_JAR=$(python -c 'import sys; sys.path.insert(0,"formal/crypto"); import delivery; p=delivery.maven_jar(delivery.ROOT); print(delivery.ROOT/"microproxy-starlark/target"/(p.name.replace("quic-", "microproxy-starlark-", 1).removesuffix(".jar")+"-all.jar"))')
-          python formal/crypto/bundle_checks.py --stage "$NATIVE_CRYPTO_OUTPUT/canonical" --library "$HKDF_DELIVERY_JAR" --bundle "$HKDF_BUNDLE_JAR" --delivery-receipt "$NATIVE_CRYPTO_OUTPUT/maven-delivery.json" --runtime "$CRYPTO_RUNTIME" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --output "$NATIVE_CRYPTO_OUTPUT/bundle"
+          python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require current-release-jar-identity --artifact-stage "$NATIVE_CRYPTO_OUTPUT/canonical" --artifact-classes quic/target/classes --library "$HKDF_DELIVERY_JAR" --bundle "$HKDF_BUNDLE_JAR" --runtime "$CRYPTO_RUNTIME" --java-home "$CRYPTO_JAVA_21" --java-home "$JAVA_HOME" --artifact-output "$NATIVE_CRYPTO_OUTPUT/current-release" --output "$NATIVE_CRYPTO_OUTPUT/release-claims.json"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
