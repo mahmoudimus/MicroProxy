@@ -1,0 +1,9 @@
+{
+  "schema": "microproxy.verified-nonce-tools/v1",
+  "dafny": {
+    "version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2"
+  },
+  "runtime": {
+    "sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+  }
+}

@@ -21,11 +21,15 @@ CRYPTO_PREFIXES = (
     'io/github/mahmoudimus/quic/internal/verifiedhkdf/',
     'io/github/mahmoudimus/verifiedcrypto/',
     'io/github/mahmoudimus/quic/Hkdf',
+    'io/github/mahmoudimus/quic/crypto/PacketKey',
+    'io/github/mahmoudimus/quic/crypto/internal/verifiednonce/',
     'io/github/mahmoudimus/quic/tls/Shake',
     'io/github/mahmoudimus/quic/tls/MlKem768',
 )
 REQUIRED_ROOTS = {
     'io/github/mahmoudimus/quic/Hkdf.class',
+    'io/github/mahmoudimus/quic/crypto/PacketKey.class',
+    'io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class',
     'io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.class',
     'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class',
     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.class',
@@ -149,6 +153,85 @@ def assert_load_origins(log, bundle, fixtures, harness):
     return loaded
 
 
+NONCE_SMOKE_SOURCE = delivery.ROOT / 'formal/nonce/BundleNonceSmoke.java'
+NONCE_SMOKE_SCHEMA = 'microproxy.nonce-bundle-smoke/v1'
+NONCE_SMOKE_CASES = 9
+NONCE_SMOKE_SUITES = ('TLS_AES_128_GCM_SHA256', 'TLS_AES_256_GCM_SHA384',
+                      'TLS_CHACHA20_POLY1305_SHA256')
+NONCE_SMOKE_PACKET_NUMBERS = (0, 1, -1)
+
+
+def check_nonce_smoke_summary(summary, expected_origins):
+    """Require exact 9-case execution output and the reviewed origins."""
+    if not isinstance(summary, dict):
+        raise RuntimeError('Nonce smoke summary is not an object')
+    if summary.get('schema') != NONCE_SMOKE_SCHEMA:
+        raise RuntimeError('Nonce smoke summary schema changed')
+    if summary.get('cases') != NONCE_SMOKE_CASES or summary.get('passed') != NONCE_SMOKE_CASES:
+        raise RuntimeError('Nonce smoke did not execute all 9 seal/open cases')
+    origins = summary.get('origins')
+    if origins != expected_origins:
+        raise RuntimeError('Nonce smoke origins differ from the actual bundle/runtime/harness')
+    detail = summary.get('cases_detail')
+    if not isinstance(detail, list) or len(detail) != NONCE_SMOKE_CASES:
+        raise RuntimeError('Nonce smoke case inventory changed')
+    seen = set()
+    for row in detail:
+        if not isinstance(row, dict) or set(row) != {
+                'suite', 'packet_number', 'nonce', 'ciphertext_sha256'}:
+            raise RuntimeError('Nonce smoke case fields changed')
+        suite, packet_number = row['suite'], row['packet_number']
+        if suite not in NONCE_SMOKE_SUITES or type(packet_number) is not int \
+                or packet_number not in NONCE_SMOKE_PACKET_NUMBERS:
+            raise RuntimeError('Unexpected nonce smoke case')
+        if (suite, packet_number) in seen:
+            raise RuntimeError('Duplicate nonce smoke case')
+        seen.add((suite, packet_number))
+        if not isinstance(row['nonce'], str) or len(row['nonce']) != 24 \
+                or not re.fullmatch(r'[0-9a-f]{24}', row['nonce']):
+            raise RuntimeError('Malformed nonce smoke nonce')
+        if not isinstance(row['ciphertext_sha256'], str) \
+                or not delivery.SHA256.fullmatch(row['ciphertext_sha256']):
+            raise RuntimeError('Malformed nonce smoke ciphertext digest')
+    if seen != {(suite, pn) for suite in NONCE_SMOKE_SUITES for pn in NONCE_SMOKE_PACKET_NUMBERS}:
+        raise RuntimeError('Nonce smoke case matrix changed')
+    return {'cases': NONCE_SMOKE_CASES, 'passed': NONCE_SMOKE_CASES,
+            'origins': dict(origins), 'cases_detail': detail}
+
+
+def assert_nonce_smoke_origins(log, bundle, harness):
+    """Require PacketKey/VerifiedNonce/DafnyRuntime all from the actual bundle.
+
+    The execution classpath is only the dedicated harness directory plus the
+    copied bundle jar. A class-load URL is normalized to a real path before it
+    is compared and recorded, so the Python check, the Java summary and the
+    parent artifact consumer all compare plain real paths rather than mixing
+    ``file:`` URLs with plain paths.
+    """
+    expected = {
+        'io.github.mahmoudimus.quic.crypto.PacketKey': bundle,
+        'io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default': bundle,
+        'nonceadoption.BundleNonceSmoke': harness,
+        'dafny.Helpers': bundle,
+    }
+    loaded = {}
+    for owner, source in re.findall(r'\] (\S+) source: ([^\r\n]+)', log):
+        if owner not in expected:
+            continue
+        url = urlparse(source)
+        if url.scheme != 'file':
+            raise RuntimeError('Unexpected nonce smoke class-load origin: ' + owner + ' ' + source)
+        actual = Path(unquote(url.path)).resolve()
+        expected_path = expected[owner].resolve()
+        if actual != expected_path:
+            raise RuntimeError('Unexpected nonce smoke class-load origin: ' + owner + ' ' + source)
+        loaded[owner] = str(actual)
+    missing = sorted(set(expected) - set(loaded))
+    if missing:
+        raise RuntimeError('Nonce smoke did not actually execute/load: ' + ', '.join(missing))
+    return loaded
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--library', type=Path, required=True)
@@ -162,7 +245,7 @@ def main():
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
-    report = {'schema': 'microproxy.crypto-current-bundle/v1', 'status': 'incomplete',
+    report = {'schema': 'microproxy.crypto-current-bundle/v2', 'status': 'incomplete',
               'scope': 'Complete scoped-crypto and retained QUIC-library class identity plus an origin-checked full-handshake smoke; other bundle dependencies and compiler/runtime/providers trusted. No timing or whole-system security theorem',
               'commands': []}
 
@@ -220,7 +303,8 @@ def main():
         harness.mkdir()
         java_sources = [delivery.HERE / 'adoption' / n for n in ['HybridHandshakeBenchmark.java', 'HkdfHandshakeBenchmark.java']]
         report['source_inputs'] = {str(p.relative_to(delivery.ROOT)): delivery.digest(p)
-                                  for p in [Path(__file__).resolve(), delivery.HERE / 'delivery.py', *java_sources]}
+                                  for p in [Path(__file__).resolve(), delivery.HERE / 'delivery.py',
+                                            NONCE_SMOKE_SOURCE, *java_sources]}
         cp = os.pathsep.join(map(str, [out / 'bundle.jar', out / 'fixtures', *junit, harness]))
         call('compile-harness', [jdks['21'] / 'bin/javac', '--release', '21', '-g', '-cp', cp, '-d', harness, *java_sources])
         report['harness_classes'] = delivery.class_map(harness, [''])
@@ -241,6 +325,55 @@ def main():
                 (out / ('jdk' + major + '-classload.log')).read_text(), out / 'bundle.jar',
                 {n: out / 'fixtures' for n in fixtures},
                 {n: harness for n in report['harness_classes']})
+
+        # Independent nonce execution smoke: compile a separate harness into its
+        # own directory and run it against the actual minimized bundle and the
+        # pinned runtime jar only. This executes PacketKey.nonce/seal/open for
+        # all three suites and packet numbers 0,1,-1; the TLS-only handshake
+        # smoke above must not be forced to load the nonce classes by name.
+        nonce_harness = out / 'nonce-harness'
+        nonce_harness.mkdir()
+        call('compile-nonce-smoke', [jdks['21'] / 'bin/javac', '--release', '21', '-g',
+            '-cp', out / 'bundle.jar', '-d', nonce_harness, NONCE_SMOKE_SOURCE])
+        nonce_source_sha = delivery.digest(NONCE_SMOKE_SOURCE)
+        report['nonce_smoke'] = {
+            'schema': NONCE_SMOKE_SCHEMA,
+            'source': str(NONCE_SMOKE_SOURCE.relative_to(delivery.ROOT)),
+            'source_sha256': nonce_source_sha,
+            'harness_classes': delivery.class_map(nonce_harness, ['']),
+            'runs': {},
+        }
+        for major, jdk in jdks.items():
+            classload = out / ('jdk' + major + '-nonce-classload.log')
+            # Execution classpath: dedicated harness directory and the actual
+            # copied bundle only. The bundle already carries the 37 byte-checked
+            # Dafny runtime classes; an external runtime fallback would hide a
+            # missing/incorrect bundled runtime, so it is deliberately absent.
+            text = call('jdk' + major + '-nonce-smoke', [jdk / 'bin/java',
+                '-Xlog:class+load=info:file=' + str(classload),
+                '-cp', os.pathsep.join(map(str, [nonce_harness, out / 'bundle.jar'])),
+                'nonceadoption.BundleNonceSmoke', out / 'bundle.jar', nonce_harness, 'false'])
+            summaries = [json.loads(line) for line in text.splitlines()
+                         if line.startswith('{')]
+            if len(summaries) != 1:
+                raise RuntimeError('Nonce smoke did not print exactly one summary')
+            expected_origins = {
+                'PacketKey': str((out / 'bundle.jar').resolve()),
+                'VerifiedNonce': str((out / 'bundle.jar').resolve()),
+                'DafnyRuntime': str((out / 'bundle.jar').resolve()),
+                'harness': str(nonce_harness.resolve()),
+            }
+            checked = check_nonce_smoke_summary(summaries[0], expected_origins)
+            loaded = assert_nonce_smoke_origins(classload.read_text(), out / 'bundle.jar',
+                                                nonce_harness)
+            report['nonce_smoke']['runs'][major] = {
+                'cases': checked['cases'],
+                'passed': checked['passed'],
+                'origins': checked['origins'],
+                'cases_detail': checked['cases_detail'],
+                'classload_sha256': delivery.digest(classload),
+                'loaded_classes': loaded,
+            }
         for name, path in sources.items():
             if delivery.digest(path) != report['artifact_inputs'][name] or delivery.digest(out / name) != report['artifact_inputs'][name]:
                 raise RuntimeError('Artifact changed during smoke: ' + name)
@@ -256,6 +389,9 @@ def main():
             raise RuntimeError('Canonical stage changed during bundle acceptance')
         delivery.check_tree(out / 'fixtures', fixtures)
         delivery.check_tree(harness, report['harness_classes'])
+        delivery.check_tree(nonce_harness, report['nonce_smoke']['harness_classes'])
+        if delivery.digest(NONCE_SMOKE_SOURCE) != report['nonce_smoke']['source_sha256']:
+            raise RuntimeError('Nonce smoke harness changed during bundle acceptance')
         for p, h in report['junit_inputs'].items():
             if delivery.digest(Path(p)) != h:
                 raise RuntimeError('JUnit changed during smoke')

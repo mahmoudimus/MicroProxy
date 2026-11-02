@@ -86,16 +86,17 @@ class BundleArtifactTests(unittest.TestCase):
                 self.inspect()
 
     def test_missing_and_changed_crypto_class_fail(self):
-        name = next(iter(self.entries))
-        for value in (None, self.entries[name][:-1] + bytes([self.entries[name][-1] ^ 1])):
-            entries = dict(self.bundle_entries)
-            if value is None:
-                del entries[name]
-            else:
-                entries[name] = value
-            self.write_jar(self.bundle, entries)
-            with self.subTest(missing=value is None), self.assertRaises(RuntimeError):
-                self.inspect()
+        # FixtureExtra is optional; every required crypto root must be rejected.
+        for name in sorted(bundle.REQUIRED_ROOTS):
+            for value in (None, self.entries[name][:-1] + bytes([self.entries[name][-1] ^ 1])):
+                entries = dict(self.bundle_entries)
+                if value is None:
+                    del entries[name]
+                else:
+                    entries[name] = value
+                self.write_jar(self.bundle, entries)
+                with self.subTest(name=name, missing=value is None), self.assertRaises(RuntimeError):
+                    self.inspect()
 
     def test_notice_and_runtime_changes_fail(self):
         for name in ['META-INF/NOTICE-crypto.txt', 'dafny/Helpers.class']:
@@ -177,6 +178,104 @@ class BundleArtifactTests(unittest.TestCase):
         self.write_jar(self.bundle, changed)
         with self.assertRaisesRegex(RuntimeError, 'retained library'):
             self.inspect()
+
+
+class NonceSmokeTests(unittest.TestCase):
+    """Fail-closed regressions for the separate executed nonce bundle smoke."""
+
+    ORIGINS = {
+        'PacketKey': '/fixture/bundle.jar',
+        'VerifiedNonce': '/fixture/bundle.jar',
+        'DafnyRuntime': '/fixture/bundle.jar',
+        'harness': '/fixture/nonce-harness',
+    }
+
+    def summary(self, **changes):
+        detail = [{'suite': suite, 'packet_number': pn, 'nonce': '00' * 12,
+                   'ciphertext_sha256': 'a' * 64}
+                  for suite in bundle.NONCE_SMOKE_SUITES for pn in (0, 1, -1)]
+        value = {'schema': bundle.NONCE_SMOKE_SCHEMA, 'cases': 9, 'passed': 9,
+                 'origins': dict(self.ORIGINS), 'cases_detail': detail}
+        value.update(changes)
+        return value
+
+    def test_valid_executed_summary_passes(self):
+        self.assertEqual(bundle.check_nonce_smoke_summary(self.summary(), self.ORIGINS),
+                         {'cases': 9, 'passed': 9, 'origins': self.ORIGINS,
+                          'cases_detail': self.summary()['cases_detail']})
+
+    def test_missing_short_duplicate_and_unknown_cases_fail(self):
+        cases = []
+        cases.append(('cases', 8, 'did not execute all 9'))
+        cases.append(('passed', 8, 'did not execute all 9'))
+        bad = self.summary()
+        bad['cases_detail'] = bad['cases_detail'][:-1]
+        cases.append(('detail-short', bad['cases_detail'], 'case inventory changed'))
+        bad = self.summary()
+        bad['cases_detail'] = bad['cases_detail'][:-1] + [bad['cases_detail'][0]]
+        cases.append(('duplicate', bad['cases_detail'], 'Duplicate nonce smoke case'))
+        bad = self.summary()
+        bad['cases_detail'][0] = dict(bad['cases_detail'][0], suite='TLS_UNKNOWN')
+        cases.append(('unknown-suite', bad['cases_detail'], 'Unexpected nonce smoke case'))
+        for name, value, pattern in cases:
+            with self.subTest(name=name):
+                summary = self.summary()
+                if name in ('cases', 'passed'):
+                    summary[name] = value
+                else:
+                    summary['cases_detail'] = value
+                with self.assertRaisesRegex(RuntimeError, pattern):
+                    bundle.check_nonce_smoke_summary(summary, self.ORIGINS)
+
+    def test_wrong_origins_nonce_and_ciphertext_digest_fail(self):
+        for origins in ({**self.ORIGINS, 'VerifiedNonce': '/elsewhere/nonce.jar'},
+                        {**self.ORIGINS, 'DafnyRuntime': '/elsewhere/runtime.jar'},
+                        {**self.ORIGINS, 'harness': self.ORIGINS['PacketKey']}):
+            with self.assertRaisesRegex(RuntimeError, 'origins differ'):
+                bundle.check_nonce_smoke_summary(self.summary(), origins)
+        for field, value, pattern in (
+                ('nonce', 'not-a-nonce', 'Malformed nonce smoke nonce'),
+                ('ciphertext_sha256', 'x' * 64, 'Malformed nonce smoke ciphertext')):
+            summary = self.summary()
+            summary['cases_detail'][0] = dict(summary['cases_detail'][0], **{field: value})
+            with self.assertRaisesRegex(RuntimeError, pattern):
+                bundle.check_nonce_smoke_summary(summary, self.ORIGINS)
+
+    def test_classload_requires_all_executed_classes_from_the_actual_bundle(self):
+        harness = Path('/fixture/nonce-harness')
+        bundle_path = Path('/fixture/bundle.jar')
+        lines = {
+            'io.github.mahmoudimus.quic.crypto.PacketKey': bundle_path,
+            'io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default': bundle_path,
+            'nonceadoption.BundleNonceSmoke': harness,
+            'dafny.Helpers': bundle_path,
+        }
+
+        def log(overrides=None):
+            entries = dict(lines, **(overrides or {}))
+            return ''.join('[0s][info][class,load] ' + owner + ' source: ' + source.as_uri() + '\n'
+                           for owner, source in entries.items())
+
+        loaded = bundle.assert_nonce_smoke_origins(log(), bundle_path, harness)
+        self.assertEqual(set(loaded), set(lines))
+        # Loaded values are normalized plain real paths, not file: URLs, so the
+        # parent consumer can compare them directly with the summary origins.
+        for owner, value in loaded.items():
+            self.assertFalse(value.startswith('file:'), owner)
+            self.assertEqual(value, str(lines[owner].resolve()))
+        missing = {k: v for k, v in lines.items() if 'verifiednonce' not in k}
+        with self.assertRaisesRegex(RuntimeError, 'did not actually execute/load'):
+            bundle.assert_nonce_smoke_origins(
+                ''.join('[0s][info][class,load] ' + owner + ' source: ' + source.as_uri() + '\n'
+                        for owner, source in missing.items()), bundle_path, harness)
+        with self.assertRaisesRegex(RuntimeError, 'Unexpected nonce smoke class-load origin'):
+            bundle.assert_nonce_smoke_origins(
+                log({'io.github.mahmoudimus.quic.crypto.PacketKey': Path('/elsewhere/bundle.jar')}),
+                bundle_path, harness)
+        # External runtime fallback: dafny.Helpers must not come from a separate jar.
+        with self.assertRaisesRegex(RuntimeError, 'Unexpected nonce smoke class-load origin'):
+            bundle.assert_nonce_smoke_origins(
+                log({'dafny.Helpers': Path('/fixture/runtime.jar')}), bundle_path, harness)
 
 
 if __name__ == '__main__':

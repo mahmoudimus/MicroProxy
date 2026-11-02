@@ -181,7 +181,8 @@ class SharedConnectionPoolUnitTest {
         pool = new SharedConnectionPool(10, 200, Duration.ofMillis(100));
         ServerConnection c = leaseNew(DIRECT_A, HOST_A);
         pool.release(c);
-        for (int i = 0; i < 100 && pool.metrics().totalConnections() > 0; i++) {
+        // Eviction removes the connection from metrics before closing its socket.
+        for (int i = 0; i < 100 && (pool.metrics().totalConnections() > 0 || c.isOpen()); i++) {
             Thread.sleep(20);
         }
         assertEquals(0, pool.metrics().totalConnections());

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "inputs": {
+    "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/nonce/GENERATED.json": "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+    "formal/nonce/Nonce.dfy": "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+    "formal/nonce/NonceDomain.dfy": "9f0ed7272e430fccd3deb984814f0ce51691dac59e6c91b7fc7958d5fe9292e7",
+    "formal/nonce/bench/NonceBenchmark.java": "29b10d806fdb846d458a3a10e6d8606f968bf7f74761ecc9b3001c342f5e89cf",
+    "formal/nonce/bench_nonce.py": "7b951a32584bdab60a2f9f11a4c427abbb29d74e85dc2c15059f172b30b83967",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java": "4434e8f11076e61dc941ff6c8ff3868eafa15a912795bbacfc9b74bc0acec070",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java": "03532fa616870ced3ede2b89f3194403c0480546bf1b4dac33d49feb378970a9",
+    "formal/nonce/run.py": "c32876cc54f8f71982558c8fffe5f8959d5507806d009df09ed2040aceddc663",
+    "formal/nonce/test_run.py": "f20c9a303274737166f5eed6d6047facf493621786e56697e769e69d1d1c6db1",
+    "formal/nonce/tools.json": "96af825819ad09cd2f40d296422ada913ee56f2e3fed24570d8d3ac5fc0cd54a",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06"
+  }
+}

@@ -127,6 +127,7 @@
     "User authorization to integrate after checks and the later evidence-based compatibility/performance adoption decision are separate policy inputs. A delegated decision records the prior user authority, agent evaluator, exact stage/source hashes and pinned evidence; passing tests or elapsed time never create authorization. JVM timing, JIT/CPU behavior, physical erasure, entropy and cryptographic hardness are not proved."
   ],
   "existing_generated_sources": {
+    "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
     "io/github/mahmoudimus/quic/internal/verified/__default.java": "d3cc7b95bb9331ae404f7ffcd3949807b54fba3a4dc0a139cd0d7c9f2debf87f",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java": "b170d437a4dfd2efbf5f18ed61c7a9097e7c370fc419c16be2bbc5376bd5e1c6",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java": "17306de8b1d637f4b4dffef779a60fffb8784a575f753e05dd8be2ceb207a46f",
@@ -138,7 +139,7 @@
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java": "f982da36e5fdc03e5053d5225ea6e3e8d8069aa2950761844dc0d79676de216b",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java": "e03016973f0e0700a760a780cbeb55a255a4dbac93ac6c847b14a1ad5032864a"
   },
-  "existing_generated_provenance": "Exact existing packet compiler output is pinned by formal/packet/inputs.json; nine HKDF compiler-output files are reproduced by formal/dafny/deliver_hkdf.py and pinned in formal/dafny/hkdf/GENERATED.json. Only these generated files receive generated-code lint. The HKDF external provider remains handwritten and is compiled with strict lint before its generated callers and again with all handwritten sources. Every resulting class joins the independent full Maven class/JAR comparison.",
+  "existing_generated_provenance": "Exact existing packet compiler output is pinned by formal/packet/inputs.json; nine HKDF compiler-output files are reproduced by formal/dafny/deliver_hkdf.py and pinned in formal/dafny/hkdf/GENERATED.json; one verified-nonce compiler-output file is reproduced by formal/nonce/run.py and pinned in formal/nonce/GENERATED.json plus formal/nonce/PRODUCTION-EVIDENCE.json. Only these generated files receive generated-code lint. The nonce package is not a Maven-plugin generation hook: it is CI-explicit like HKDF. The HKDF external provider remains handwritten and is compiled with strict lint before its generated callers and again with all handwritten sources. Every resulting class joins the independent full Maven class/JAR comparison.",
   "native_evidence": {
     "schema": "microproxy.native-kem-evidence-contract/v2",
     "receipt_format": "native_kem_checks.py unversioned JSON, identified by this versioned contract and exact runner SHA256",

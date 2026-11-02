@@ -120,7 +120,7 @@
       "evidence": [
         {
           "path": "formal/assurance.json",
-          "sha256": "8ef535202e4ca98729ba1702bd2eda704882c2402390f66e0fb2b200a9881a9c",
+          "sha256": "6253491083b2d9eeceb1dddf78da7e74a88da998518c303069184db12607c69b",
           "kind": "component-receipt",
           "role": "Lean theorem inventory, Java source pins and TLC cases"
         },
@@ -204,7 +204,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "f0669fdcb516bc65792a20d4d64d0424db0f6f529479a5eca0a571d21a3898fe",
+          "sha256": "f57aeb0c2a58b27d07f172e59bb66e275bbf51c763b1eb9a5a6278b939a28c2d",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -701,7 +701,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
           "kind": "delivery-receipt",
           "role": "generated-source and handwritten-provider delivery manifest"
         }
@@ -886,7 +886,7 @@
       "id": "V3",
       "title": "Portable SAW and mutable-array bridge",
       "status": "blocked",
-      "statement": "A historical byte-identical Java 21 reduceOnce bytecode proof is recorded; the actual PacketKey.nonce symbolic proof remains blocked by unsupported primitive-array clone translation, and the portable alternate route is explicitly not selected as complete.",
+      "statement": "A historical byte-identical Java 21 reduceOnce bytecode proof is recorded and the exact pre-adoption PacketKey source is frozen under formal/saw/historical; the actual PacketKey.nonce SAW proof remains blocked by unsupported primitive-array clone translation. Separately, a reviewed generated VerifiedNonce functional implementation with a same-source Dafny proof, negative controls, bounded generation and JDK21/JDK25 differential evidence is adopted in production and supports packet-nonce-functional-production. The blocked SAW status and the separate generated functional claim are not interchangeable.",
       "dependencies": [
         "V0"
       ],
@@ -934,7 +934,7 @@
         },
         {
           "path": "formal/saw/README.md",
-          "sha256": "59e599d841ac26fb7c9d91a8dd76c1690266c4452e58e17bc84491b1b8183a4c",
+          "sha256": "9b58b59fb7f76a41ccb9be0be0018ee171d0e461714c08348fae80bfeda5cb3b",
           "kind": "documentation",
           "role": "SAW scope, controls and replay"
         },
@@ -964,15 +964,154 @@
         },
         {
           "path": "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java",
-          "sha256": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
+          "sha256": "120f456959c3bdd2edd5916d8e9a76e9ed63dbb0ca84f886f31e8ea0814e2c2e",
           "kind": "production-source",
-          "role": "nonce target for blocked SAW experiment"
+          "role": "current nonce bridge delegating to generated VerifiedNonce"
+        },
+        {
+          "path": "formal/saw/run.py",
+          "sha256": "f322f2684fab73413f2af7c5040803bed62a24375170269a329f8a6d1df9f369",
+          "kind": "tool-manifest",
+          "role": "historical SAW replay runner with frozen historical input validation"
+        },
+        {
+          "path": "formal/saw/historical/README.md",
+          "sha256": "31b2ccf6bd1e677c9c8d8fed97ffebec0d7815c85367bb1bab21239c41d1db79",
+          "kind": "documentation",
+          "role": "frozen pre-adoption source provenance and non-repin policy"
+        },
+        {
+          "path": "formal/saw/historical/quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java",
+          "sha256": "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d",
+          "kind": "snapshot-receipt",
+          "role": "frozen pre-adoption PacketKey source (501999, git 30d7c3c)"
+        },
+        {
+          "path": "formal/nonce/Nonce.dfy",
+          "sha256": "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+          "kind": "spec-source",
+          "role": "verified nonce kernel and postconditions"
+        },
+        {
+          "path": "formal/nonce/NonceDomain.dfy",
+          "sha256": "9f0ed7272e430fccd3deb984814f0ce51691dac59e6c91b7fc7958d5fe9292e7",
+          "kind": "spec-source",
+          "role": "universal nonce domain harness"
+        },
+        {
+          "path": "formal/nonce/run.py",
+          "sha256": "c32876cc54f8f71982558c8fffe5f8959d5507806d009df09ed2040aceddc663",
+          "kind": "tool-manifest",
+          "role": "portable nonce proof/control/generation/test runner"
+        },
+        {
+          "path": "formal/nonce/test_run.py",
+          "sha256": "f20c9a303274737166f5eed6d6047facf493621786e56697e769e69d1d1c6db1",
+          "kind": "test-source",
+          "role": "nonce runner fail-closed regression tests"
+        },
+        {
+          "path": "formal/nonce/tools.json",
+          "sha256": "96af825819ad09cd2f40d296422ada913ee56f2e3fed24570d8d3ac5fc0cd54a",
+          "kind": "tool-manifest",
+          "role": "host-neutral nonce Dafny/runtime pins"
+        },
+        {
+          "path": "formal/nonce/inputs.json",
+          "sha256": "cd6ae07833951fcde99ed7697215a799baf222c24c5c9fc303a21ed709f79dc8",
+          "kind": "input-manifest",
+          "role": "explicit nonce proof/generation/test closure"
+        },
+        {
+          "path": "formal/nonce/GENERATED.json",
+          "sha256": "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+          "kind": "generated-source",
+          "role": "generated nonce source/receipt identity"
+        },
+        {
+          "path": "formal/nonce/PRODUCTION-EVIDENCE.json",
+          "sha256": "41d85be74bfaf61427722196ea5260da4bf2c89d53dcfc249c904699852d0947",
+          "kind": "component-receipt",
+          "role": "pinned generated-nonce production adoption receipt"
+        },
+        {
+          "path": "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
+          "sha256": "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
+          "kind": "generated-source",
+          "role": "checked-in generated nonce implementation"
+        },
+        {
+          "path": "quic/src/test/java/io/github/mahmoudimus/quic/crypto/PacketKeyNonceTest.java",
+          "sha256": "c2f1b845b679bc86d1025d6c6b45d3f5ccbda80fe1c1e0382391ec280393fe57",
+          "kind": "test-source",
+          "role": "PacketKey nonce/seal/open JUnit regressions on JDK21 and JDK25"
+        },
+        {
+          "path": "formal/crypto/delivery.json",
+          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
+          "kind": "delivery-receipt",
+          "role": "central delivery manifest including the generated nonce inventory"
+        },
+        {
+          "path": "formal/crypto/bundle_checks.py",
+          "sha256": "d40c5fe6dbfcb6e30b26bc7c21cb26d5e99dbad72baec28fed757e563a940e87",
+          "kind": "tool-manifest",
+          "role": "bundle smoke and scoped nonce bundle roots"
+        },
+        {
+          "path": "scripts/security/crypto_current_release.py",
+          "sha256": "08be8a24065e965fdd051c83f308d75aa9fa7be1d33352f732c3d9fe571a8be7",
+          "kind": "tool-manifest",
+          "role": "current-release class-count and bundle scope constants"
+        },
+        {
+          "path": "formal/nonce/BundleNonceSmoke.java",
+          "sha256": "fa7d29664d70d8abb6f417995d4f32a188417ecad3b086ac67c207d53d1b7232",
+          "kind": "test-source",
+          "role": "executed nonce/seal/open bundle smoke harness (adoption/artifact TCB, not core proof input)"
+        },
+        {
+          "path": "formal/nonce/bench/NonceBenchmark.java",
+          "sha256": "29b10d806fdb846d458a3a10e6d8606f968bf7f74761ecc9b3001c342f5e89cf",
+          "kind": "test-source",
+          "role": "isolated nonce benchmark driver"
+        },
+        {
+          "path": "formal/nonce/bench_nonce.py",
+          "sha256": "7b951a32584bdab60a2f9f11a4c427abbb29d74e85dc2c15059f172b30b83967",
+          "kind": "tool-manifest",
+          "role": "isolated nonce benchmark replay"
+        },
+        {
+          "path": "formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java",
+          "sha256": "4434e8f11076e61dc941ff6c8ff3868eafa15a912795bbacfc9b74bc0acec070",
+          "kind": "test-source",
+          "role": "frozen generated nonce differential test harness"
+        },
+        {
+          "path": "formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java",
+          "sha256": "03532fa616870ced3ede2b89f3194403c0480546bf1b4dac33d49feb378970a9",
+          "kind": "test-source",
+          "role": "frozen independent nonce test oracle"
+        },
+        {
+          "path": "formal/dafny/toolchain.py",
+          "sha256": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+          "kind": "tool-manifest",
+          "role": "shared audited Dafny archive/tree verifier"
+        },
+        {
+          "path": "formal/dafny/tools.json",
+          "sha256": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+          "kind": "tool-manifest",
+          "role": "shared pinned Dafny platform archives"
         }
       ],
       "limitations": [
         "The reduceOnce proof is historical pre-adoption bytecode, not current generated NativeField.",
-        "PacketKey.nonce output, IV preservation and allocation freshness remain unproved.",
-        "No Object.clone contract or class-version lowering substitutes for the missing translator support.",
+        "The historical SAW PacketKey.nonce output/IV-preservation/allocation proof remains blocked by missing array-clone translation; that bytecode route is not claimed.",
+        "The original SAW input map is preserved verbatim; the pre-adoption PacketKey source is validated only through the frozen formal/saw/historical copy and must not be repinned to the current bridge.",
+        "The generated nonce route is a separate functional primitive proof under Dafny/javac/JVM/DafnyRuntime trust, not cryptographic hardness, JVM timing, constant-time or full-JAR identity.",
         "SAW/Crucible/Cryptol/solver/JDK build stay trusted."
       ],
       "control_groups": [
@@ -1018,9 +1157,16 @@
           "receipt": "formal/saw/inputs.json",
           "path": "inputs",
           "include_prefixes": [
-            "formal/",
-            "quic/src/"
+            "formal/"
           ]
+        },
+        {
+          "receipt": "formal/saw/inputs.json",
+          "path": "inputs",
+          "include_prefixes": [
+            "quic/src/"
+          ],
+          "path_prefix": "formal/saw/historical"
         }
       ],
       "nonvacuity": {
@@ -1098,7 +1244,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
           "kind": "delivery-receipt",
           "role": "generated crypto delivery/runtime/trust configuration"
         },
@@ -1792,7 +1938,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
           "kind": "delivery-receipt",
           "role": "delivery runtime/trust/facade configuration"
         },
@@ -2238,7 +2384,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "a66945ccf24928c7281e1f64ea4985dd66d26207859bf8849d7f4d6ed9340529",
+          "sha256": "3895b3e92beadb856edd40dead45c8f4ad99360f8d046b84deed19ba5305faf1",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2342,7 +2488,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "885fe5b8567c55b83394bacfd00c1af6dbed2aecce999e0ad7ed45af42a44b4a",
+          "sha256": "4dec175b7e328fbfd1054ea7282dc06483032523adbeae969a53b602f2186356",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2354,13 +2500,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "f0669fdcb516bc65792a20d4d64d0424db0f6f529479a5eca0a571d21a3898fe",
+          "sha256": "f57aeb0c2a58b27d07f172e59bb66e275bbf51c763b1eb9a5a6278b939a28c2d",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "030f68e0507a4072c5e8f764fca57fbf36fdcd9799b360226be89e7d3cf4a71c",
+          "sha256": "ca0a0457b0541a1802bf1358203a32cfd5bcbd854da018aba806f42d674e1a89",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -2378,7 +2524,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "a66945ccf24928c7281e1f64ea4985dd66d26207859bf8849d7f4d6ed9340529",
+          "sha256": "3895b3e92beadb856edd40dead45c8f4ad99360f8d046b84deed19ba5305faf1",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2396,7 +2542,7 @@
         },
         {
           "path": "formal/crypto/delivery.json",
-          "sha256": "6d80b79715be20fef04cfd30095cb7e0543033bdce6ec028bb1cd99eb0f0ab6c",
+          "sha256": "24b6c1a0760d57b913cc6c2569e21050e609ec189f96c930c92e95bfb8d3f647",
           "kind": "delivery-receipt",
           "role": "current delivery/runtime pins"
         },
@@ -2408,13 +2554,13 @@
         },
         {
           "path": "scripts/security/crypto_current_release.py",
-          "sha256": "f1d82a69de5ee4730ab3f82eb4c121efe37d4170a1c202b3f69735e9e860b5eb",
+          "sha256": "08be8a24065e965fdd051c83f308d75aa9fa7be1d33352f732c3d9fe571a8be7",
           "kind": "tool-manifest",
           "role": "fresh actual-artifact orchestration and end-of-run bindings"
         },
         {
           "path": "scripts/security/test_crypto_current_release.py",
-          "sha256": "0215dc9c10c75e008257a638118ea58a6d66327116cace416b2be656cb8cae97",
+          "sha256": "fe56938d2004ecd0d1fc4af532e3c39bb8498f93fe4ef92e48428ca1ab9e871b",
           "kind": "test-source",
           "role": "actual-artifact gate regression and rejection controls"
         }
@@ -2667,6 +2813,42 @@
       ],
       "limitations": [
         "This alternate route is not complete; the selected implementation route is generated Dafny Java."
+      ]
+    },
+    {
+      "id": "packet-nonce-functional-production",
+      "status": "supported",
+      "strength": "implementation",
+      "production": true,
+      "statement": "The adopted production PacketKey.nonce delegates to the Dafny-verified generated VerifiedNonce primitive: the same frozen source is audited/proved with five genuine proof-obligation rejects before bounded --no-verify generation, the checked-in generated source/class is bound by GENERATED.json and the central delivery inventory, and PacketKey.seal/open plus nonce vectors pass on JDK 21 and JDK 25. This is a functional component claim only.",
+      "obligations": [
+        "V3"
+      ],
+      "assumptions": [
+        "dafny-toolchain",
+        "dafny-runtime",
+        "generated-runtime-discipline",
+        "javac-jvm"
+      ],
+      "evidence": [
+        "formal/nonce/PRODUCTION-EVIDENCE.json",
+        "formal/nonce/Nonce.dfy",
+        "formal/nonce/NonceDomain.dfy",
+        "formal/nonce/GENERATED.json",
+        "formal/nonce/inputs.json",
+        "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java",
+        "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java",
+        "quic/src/test/java/io/github/mahmoudimus/quic/crypto/PacketKeyNonceTest.java",
+        "formal/nonce/BundleNonceSmoke.java",
+        "formal/crypto/delivery.json",
+        "formal/saw/historical/quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java"
+      ],
+      "limitations": [
+        "Functional nonce primitive and PacketKey delegation only; no cryptographic hardness, PRF/entropy, side-channel or constant-time claim.",
+        "The historical SAW PacketKey.nonce bytecode route remains blocked; this claim is a separate generated functional route.",
+        "No JVM timing/capacity claim; the packet benchmark is diagnostic shared-host evidence.",
+        "No current full-JAR or deployment identity claim; that still requires fresh canonical stage and actual-artifact validation.",
+        "Dafny/Boogie/Z3, Dafny Java compiler/runtime, javac, JVM/JCE providers and archive extraction remain trusted."
       ]
     },
     {
