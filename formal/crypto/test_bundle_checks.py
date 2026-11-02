@@ -86,16 +86,17 @@ class BundleArtifactTests(unittest.TestCase):
                 self.inspect()
 
     def test_missing_and_changed_crypto_class_fail(self):
-        name = next(iter(self.entries))
-        for value in (None, self.entries[name][:-1] + bytes([self.entries[name][-1] ^ 1])):
-            entries = dict(self.bundle_entries)
-            if value is None:
-                del entries[name]
-            else:
-                entries[name] = value
-            self.write_jar(self.bundle, entries)
-            with self.subTest(missing=value is None), self.assertRaises(RuntimeError):
-                self.inspect()
+        # FixtureExtra is optional; every required crypto root must be rejected.
+        for name in sorted(bundle.REQUIRED_ROOTS):
+            for value in (None, self.entries[name][:-1] + bytes([self.entries[name][-1] ^ 1])):
+                entries = dict(self.bundle_entries)
+                if value is None:
+                    del entries[name]
+                else:
+                    entries[name] = value
+                self.write_jar(self.bundle, entries)
+                with self.subTest(name=name, missing=value is None), self.assertRaises(RuntimeError):
+                    self.inspect()
 
     def test_notice_and_runtime_changes_fail(self):
         for name in ['META-INF/NOTICE-crypto.txt', 'dafny/Helpers.class']:
