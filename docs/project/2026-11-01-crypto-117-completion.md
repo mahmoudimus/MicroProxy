@@ -4,13 +4,13 @@
 
 **Goal:** Complete the remaining implementation and assurance work in issue 117, preserving explicit gaps that require external review or deferred JVM timing work.
 
-**Status of this plan (2026-11-02): partial, not complete.** The generated-nonce functional
-production route is implemented and locally bound; its required CI and merge gates
-are separate acceptance steps, and the broad issue remains open. This plan does not
-claim that only timing remains: the SAW nonce bytecode route is still blocked, the full AWS
-upstream closure is still unreproduced, the trace work still has open roots/assumed callees
-(the corrected trace snapshot retains 15 open roots, 19 assumed contracts and
-31 unchecked labels), and independent external expert review is absent.
+**Status of this plan (2026-11-02): partial, not complete.** The generated-nonce
+route merged in #128 after 51 exact-head checks; extractor guards merged in #129
+after 50. The next helper-coverage candidate has a checked local replay and awaits
+its own upstream CI/merge gates. Its snapshot has 13 open roots, 19 original
+caller assumptions and 31 aggregate unchecked labels. The SAW alternative remains
+blocked, the unused AWS reference closure remains unreproduced, and independent
+external expert review and physical JVM timing evidence remain open.
 
 **Architecture:** Continue the approved Dafny-to-Java route for HKDF, with the existing generated SHAKE/ML-KEM backend. Establish separate evidence for functional correctness, source-level traces, measured execution and external review. A unified ledger checks the declared scope and provenance; it does not replace proof replays.
 
@@ -93,7 +93,7 @@ canonical-class and actual library/bundle evidence is in the
 It includes the measured allocation increase and inconclusive shared-host CPU
 results, rather than treating performance measurements as timing-security proof.
 
-The combined ledger and release gates have 123 regression tests on this base. The reviewed policy requires
+The combined ledger and release gates have 145 regression tests on the current helper-coverage candidate. The reviewed policy requires
 the complete source/generated-file/control inventories and positive proof/execution results.
 A self-declared JSON status cannot enable future timing, expert-review,
 whole-system, AWS-closure or current-release claims. Actual artifact checks run
@@ -115,22 +115,26 @@ because the historical SAW `PacketKey.nonce` proof is still blocked by array-clo
 translation. No cryptographic-hardness, constant-time, JVM-timing or full-JAR claim
 follows.
 
-The trace milestone covers five conditional caller certificates: ML-KEM's full
-1088-byte comparison/selection, public-seed rejection sampling, and generated HKDF
-Extract, Expand and label serialization. All instructions in those certificates
-are reachable from entry. The corrected snapshot also verifies four owned helpers and a separate composed
-Feed. A compiled 138-row Apply probe, 90 trace tests, 27 fixtures and nine genuine
-proof-failure mutants exercise extraction and execution controls. Wipe must
-execute four stores to its private parameter role; private-input liveness is
-enforced. The original 19 opaque owned helper/adapter contracts used by
-these callers remain explicit assumptions; binding their actual class bytes does
-not prove their traces. This is why the full paired-flow task remains unchecked.
-Unsupported object, dispatch, alias and exception paths are rejected. The separate composed Feed reduces its own opaque set from ten to seven;
-substituting it would yield a 16-contract union, which is not the selected
-five-caller set. The report records 15 open roots and 31 unchecked callee labels instead of hiding them as
-provider code. Those counts are the pre-trace-correction snapshot; the separately
-reviewed trace correction is reconciled by root, not silently reclassified here.
-The final core and replay evidence stays in
+The original trace milestone covers five conditional caller certificates: ML-KEM
+comparison/selection, public-seed rejection sampling, and generated HKDF Extract,
+Expand and label serialization. The current candidate adds two static adapter
+helpers and nine NativeField helpers (seven private bodies with owned calls
+inlined, supported by two public constant leaves) alongside the four codec
+helpers and separate composed Feed. The replay preserves the original ten
+mathematical certificate bodies and solver limits. It records 129 pinned inputs,
+77 source-rebuilt classes, 128 component tests, 27 fixtures and sixteen genuine
+proof-obligation mutants. Required private controls cannot pass as public-only.
+
+The original 19 caller assumptions remain; thirteen roots and 31 aggregate labels
+are open. The field/NTT/codec/sampling label stays because the consuming layers
+are unfinished. Dispatch/type restrictions fail closed in the checked subset;
+copy/alias ownership, exact arithmetic values and exception semantics remain
+explicit refinement gaps. Clone/sequence allocation is constant-filled in the
+model, and the shift runtime's public-count condition is enforced by a trusted
+audit gate. The finite private return controls are not universal value-liveness
+or JVM timing proofs. Feed still removes three opaque contracts from its own set
+(ten to seven); its hypothetical replacement union is sixteen, while the five
+original callers retain nineteen. The latest source, limits and snapshot are in
 [the trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing).
 
 The next implementation work is to establish exact receiver/type and ownership

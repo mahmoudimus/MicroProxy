@@ -27,6 +27,29 @@
       "descriptor": "(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;"
     }
   ],
+  "helper_roots": [
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "name": "sequence",
+      "descriptor": "([BLjava/lang/String;)Ldafny/DafnySequence;",
+      "role": "adapter-helper-root",
+      "witness": true,
+      "note": "DafnySequence.of(requireNonNull(value).clone()); trace shape only - the frozen model constant-fills allocations, so no copy/alias or private-output refinement is claimed"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
+      "name": "labelUnits",
+      "descriptor": "(Ljava/lang/String;)Ldafny/DafnySequence;",
+      "role": "adapter-helper-root",
+      "length_control": [
+        0,
+        1,
+        3,
+        5
+      ],
+      "note": "all-public label path; alloc_public narrowed to the single allocation site"
+    }
+  ],
   "callee_roots": [
     {
       "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
@@ -125,6 +148,291 @@
         "time": 30,
         "resources": 50000000
       }
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "ReduceOnce",
+      "descriptor": "(I)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I"
+      ],
+      "contract": {
+        "params": [
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private word in, private reduced word out",
+        "roles": {
+          "p0": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "Reduce",
+      "descriptor": "(I)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private word in, private reduced word out",
+        "roles": {
+          "p0": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "Add",
+      "descriptor": "(II)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private addition modulo Q",
+        "roles": {
+          "p0": "sec",
+          "p1": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "Sub",
+      "descriptor": "(II)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private subtraction modulo Q",
+        "roles": {
+          "p0": "sec",
+          "p1": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "Mul",
+      "descriptor": "(II)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Reduce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private multiplication modulo Q",
+        "roles": {
+          "p0": "sec",
+          "p1": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "MulSub",
+      "descriptor": "(III)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Reduce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "sec",
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private fused multiply-subtract modulo Q",
+        "roles": {
+          "p0": "sec",
+          "p1": "sec",
+          "p2": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "AddMul",
+      "descriptor": "(IIII)I",
+      "role": "owned-callee",
+      "control": "private-paired",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Reduce:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "sec",
+          "sec",
+          "sec"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "private fused add-of-products modulo Q",
+        "roles": {
+          "p0": "sec",
+          "p1": "sec",
+          "p2": "sec",
+          "p3": "sec",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "fully expanded: Q/ReduceOnce/Reduce inlined by exact static target; no opaque owned NativeField call remains"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "Q",
+      "descriptor": "()I",
+      "role": "owned-callee",
+      "control": "public-leaf",
+      "inline": [],
+      "contract": {
+        "params": [],
+        "result": "pub",
+        "heap": "none",
+        "reading": "public modulus leaf Q() = 3329",
+        "roles": {
+          "result": "pub"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "public constant leaf; no private control required"
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default",
+      "name": "MaxReduce",
+      "descriptor": "()I",
+      "role": "owned-callee",
+      "control": "public-leaf",
+      "inline": [],
+      "contract": {
+        "params": [],
+        "result": "pub",
+        "heap": "none",
+        "reading": "public reduction bound leaf MaxReduce() = 22154496",
+        "roles": {
+          "result": "pub"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000,
+        "solver_options": [
+          "O:smt.case_split=0"
+        ]
+      },
+      "note": "public constant leaf; no private control required"
     }
   ],
   "composed_roots": [
@@ -747,6 +1055,42 @@
     "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I": {
       "kind": "call",
       "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.ReduceOnce:(I)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Reduce:(I)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Add:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Sub:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Mul:(II)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.MulSub:(III)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.AddMul:(IIII)I": {
+      "kind": "call",
+      "result": "args"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.Q:()I": {
+      "kind": "call",
+      "result": "pub"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.MaxReduce:()I": {
+      "kind": "call",
+      "result": "pub"
     }
   },
   "statics": {
@@ -1201,7 +1545,9 @@
             "pub"
           ],
           "allow_raise": true,
-          "alloc_public": true
+          "alloc_public": [
+            11
+          ]
         },
         "failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;": {
           "params": [
@@ -1238,6 +1584,60 @@
           "params": [
             "pub"
           ]
+        }
+      }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default": {
+      "fields": {},
+      "methods": {
+        "ReduceOnce:(I)I": {
+          "params": [
+            "sec"
+          ]
+        },
+        "Reduce:(I)I": {
+          "params": [
+            "sec"
+          ]
+        },
+        "Add:(II)I": {
+          "params": [
+            "sec",
+            "sec"
+          ]
+        },
+        "Sub:(II)I": {
+          "params": [
+            "sec",
+            "sec"
+          ]
+        },
+        "Mul:(II)I": {
+          "params": [
+            "sec",
+            "sec"
+          ]
+        },
+        "MulSub:(III)I": {
+          "params": [
+            "sec",
+            "sec",
+            "sec"
+          ]
+        },
+        "AddMul:(IIII)I": {
+          "params": [
+            "sec",
+            "sec",
+            "sec",
+            "sec"
+          ]
+        },
+        "Q:()I": {
+          "params": []
+        },
+        "MaxReduce:()I": {
+          "params": []
         }
       }
     }
@@ -1616,18 +2016,6 @@
     },
     {
       "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
-      "method": "sequence:([BLjava/lang/String;)Ldafny/DafnySequence;",
-      "status": "unsupported-adapter-object",
-      "reason": "adapter conversion path uses object/type/ownership operations outside the checked subset; final canonical21 build exists"
-    },
-    {
-      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
-      "method": "labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;",
-      "status": "unsupported-adapter-object",
-      "reason": "adapter conversion path uses object/type/ownership operations outside the checked subset; final canonical21 build exists"
-    },
-    {
-      "class": "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge",
       "method": "bytes:(Ldafny/DafnySequence;)[B",
       "status": "unsupported",
       "reason": "instanceof/checkcast runtime type test and reviewed primitive-copy ABI; adapter trace remains open (final build exists)"
@@ -1698,6 +2086,27 @@
     ],
     "Pow2": [
       "secret-branch-cond"
+    ],
+    "ReduceOnce": [
+      "public-result-from-secret-arg"
+    ],
+    "Reduce": [
+      "public-result-from-secret-arg"
+    ],
+    "Add": [
+      "public-result-from-secret-arg"
+    ],
+    "Sub": [
+      "public-result-from-secret-arg"
+    ],
+    "Mul": [
+      "public-result-from-secret-arg"
+    ],
+    "MulSub": [
+      "public-result-from-secret-arg"
+    ],
+    "AddMul": [
+      "public-result-from-secret-arg"
     ]
   },
   "composition": {

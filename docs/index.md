@@ -17,6 +17,11 @@ reviewed Java facades and selected JDK primitives remain trusted. Whole-stack TL
 and constant-time JVM execution remain outside these proofs. See the
 [verification scope and assumptions](formal-security.md).
 
+This describes current `main` source and explicitly validated builds. The published
+[`v0.6.0` binaries](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.6.0)
+predate the verified-backend integration and are outside this proof scope.
+Use a [current source build](getting-started/install.md#building-from-source) for that backend.
+
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).
 - **Dependencies:** the core has no required runtime dependencies. QUIC uses the pinned
   `org.dafny:DafnyRuntime:4.9.1` runtime for its generated crypto. Logging goes through

@@ -35,6 +35,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 import bytecode_trace as bt  # noqa: E402
 import composition as comp  # noqa: E402
+import execution_controls as controls  # noqa: E402
 import trace_exec  # noqa: E402
 
 # Reuse the reviewed bounded-process / report / pin helpers from formal/dafny.
@@ -246,6 +247,83 @@ def check_inline_bindings(events: list, callee_records: dict) -> None:
         if event['callee_shape_sha256'] != record['direct_shape_sha256']:
             raise RuntimeError('inlined body shape differs from the certified callee: '
                                + event['target'])
+
+
+def acceptable_control(control, require_applicable: bool = False) -> bool:
+    """Whether a promoted-root execution control ran to completion acceptably.
+
+    `ok` is the only success for a checked pair/bounded run. A structural
+    `not-applicable` (a program with no private inputs) is accepted **only** when
+    the caller does not require applicability; a required root that degrades to
+    `not-applicable` has lost its private-flow obligation and is rejected. A
+    truncated or failed run is never acceptable. The bounded-length part of a
+    composite control must be strictly `ok` in both modes.
+    """
+    if not isinstance(control, dict):
+        return False
+    if 'paired' in control:
+        return (acceptable_control(control['paired'], require_applicable)
+                and control.get('lengths', {}).get('status') == 'ok')
+    status = control.get('status', '')
+    if status == 'ok':
+        return True
+    return (not require_applicable) and status.startswith('not-applicable')
+
+
+def control_requirement(root: dict) -> bool:
+    """Whether a promoted root/callee *requires* an applicable control.
+
+    Derived from the root's own declared metadata and contract - an explicit
+    private-paired control class, a requested witness, or a private scalar
+    contract parameter - never from the control's self-reported status. This is
+    what keeps a parameter-classification regression from turning a required
+    private-flow obligation into a silently accepted `not-applicable`.
+    """
+    if root.get('control') == 'private-paired':
+        return True
+    if root.get('witness'):
+        return True
+    return any(taint == 'sec'
+               for taint in (root.get('contract') or {}).get('params', []))
+
+
+def verify_promoted_control(name: str, root: dict, control,
+                            witness_value: str | None = None) -> bool:
+    """Fail closed for a promoted root/callee control; return the requirement.
+
+    Requirement comes from `control_requirement(root)`; when it is true the
+    control must be `ok` (never `not-applicable`), and a requested witness must
+    have been validated by the frozen interpreter.
+    """
+    required = control_requirement(root)
+    if not acceptable_control(control, required):
+        raise RuntimeError(name + ': promoted execution control not satisfied '
+                           '(required=%s): %s' % (required, json.dumps(control)[:400]))
+    if required and root.get('witness') and witness_value != 'validated-finite-execution':
+        raise RuntimeError(name + ': requested witness was not validated '
+                           '(got %r): %s' % (witness_value, json.dumps(control)[:400]))
+    if required and isinstance(control, dict):
+        inner = control.get('paired', control)
+        if 'state_invariants' in inner and not (inner.get('private_scalar_parameters')
+                                                or inner.get('secret_parameter_roles')):
+            raise RuntimeError(name + ': required control has no declared private input: '
+                               + json.dumps(control)[:400])
+    return required
+
+
+def promoted_controls_summary(records: list[dict]) -> dict:
+    """Aggregate the promoted controls, honouring each record's requirement."""
+    ok = all(acceptable_control(item.get('control'), item.get('require_applicable', False))
+             for item in records)
+    return {
+        'kind': 'finite paired-state / bounded-length execution controls',
+        'records': records,
+        'status': 'ok' if ok else 'FAILED',
+        'note': ('finite model-execution controls on the exact promoted program text; '
+                 'not JVM value refinement and no claim that every operand affects the '
+                 'result. A required private-flow control must be `ok`; a structural '
+                 '`not-applicable` is accepted only for genuinely public-only targets.'),
+    }
 
 
 def witness_status(result: dict, witness: dict | None) -> str:
@@ -550,8 +628,12 @@ def pipeline(args, output):
     inspected = args.classes.expanduser().resolve()
     binding = bind_classes(workspace, rebuilt, inspected)
 
+    promoted_control_records = []
     roots = []
-    for root in policy['roots']:
+    # NOTE: an entry must live in exactly one of `roots` / `helper_roots`; a
+    # duplicate would emit the same certificate twice and only the checker's
+    # exact-inventory gate would notice.
+    for root in list(policy['roots']) + list(policy.get('helper_roots', [])):
         name = root['class'].split('.')[-1] + '_' + root['name']
         method = disassemble_root(javap, inspected, root)
         class_policy = policy['classes'][root['class'].replace('.', '/')]
@@ -559,7 +641,10 @@ def pipeline(args, output):
         failures = bt.audit_certificate(result)
         if failures:
             raise RuntimeError(f'{name}: independent audit rejected the certificate: {failures[:3]}')
-        path, _ = emit_certificate(workspace, name, result)
+        # Promoted roots opt in to a witness lemma and a finite execution control;
+        # the five original caller roots keep their witness-less certificate exactly.
+        witness = comp.witness(result) if root.get('witness') else None
+        path, _ = emit_certificate(workspace, name, result, witness=witness)
         limits = policy.get('limits', {}).get(root['name'], {})
         if limits:
             root_flags = ['--verification-time-limit', str(limits['time']),
@@ -584,6 +669,26 @@ def pipeline(args, output):
             'source_rebuild_sha256': binding_root(binding, root['class']),
             'solver_limits': limits or {'time': 30, 'resources': 50000000},
         })
+        if root.get('role') or root.get('witness') or root.get('length_control'):
+            record = roots[-1]
+            record['role'] = root.get('role', 'caller-root')
+            record['note'] = root.get('note', '')
+            record['witness'] = witness_status(result, witness)
+            record['witness_execution'] = witness.get('execution') if witness else None
+            record['witness_contract'] = check_witness_contract(name, root, result, witness)
+            paired = controls.paired_control(result, require_liveness=False)
+            if root.get('length_control'):
+                control = {'paired': paired,
+                           'lengths': controls.length_control(
+                               result, tuple(root['length_control']))}
+            else:
+                control = paired
+            record['execution_control'] = control
+            required = verify_promoted_control(name, root, control, record['witness'])
+            record['execution_control_required'] = required
+            promoted_control_records.append({'certificate': name, 'role': record['role'],
+                                             'require_applicable': required,
+                                             'control': control})
 
     # Owned-callee roots: actual bytecode certificates for the exact helpers
     # whose opaque contracts the caller certificates previously assumed. An
@@ -612,6 +717,11 @@ def pipeline(args, output):
             raise RuntimeError(f'{name}: independent audit rejected the certificate: {failures[:3]}')
         if result['instructions_reachable'] != len(result['code']):
             raise RuntimeError(name + ': callee certificate is not fully reachable')
+        remaining_owned = [target for target in result['call_targets']
+                           if target.startswith('io/github/mahmoudimus/')]
+        if remaining_owned:
+            raise RuntimeError(name + ': owned call remains after inline expansion: '
+                               + ', '.join(sorted(remaining_owned)))
         witness = comp.witness(result)
         witness_contract = check_witness_contract(name, root, result, witness)
         path, _ = emit_certificate(workspace, name, result, witness=witness)
@@ -658,6 +768,17 @@ def pipeline(args, output):
             record['mutants'][kind] = {
                 'status': 'proof-obligation-rejected',
                 'diagnostic': check_proof_rejected(status, out)}
+        if root.get('control'):
+            control = controls.paired_control(
+                result, require_liveness=(root['control'] == 'private-paired'),
+                require_no_owned_calls=True)
+            control['requirement'] = root['control']
+            record['execution_control'] = control
+            required = verify_promoted_control(name, root, control, record['witness'])
+            record['execution_control_required'] = required
+            promoted_control_records.append({'certificate': name, 'role': record['role'],
+                                             'require_applicable': required,
+                                             'control': control})
         callee_inline_events.extend(result.get('inlined', []))
         callee_records[root['class'].replace('.', '/') + '.' + root['name'] + ':' + root['descriptor']] = record
         callee_roots.append(record)
@@ -862,6 +983,7 @@ def pipeline(args, output):
                       'timing theorem'),
         },
         'roots': roots, 'callee_roots': callee_roots,
+        'promoted_controls': promoted_controls_summary(promoted_control_records),
         'composed_roots': composed_roots, 'composition': composition_records,
         'fixtures': fixtures, 'certificate_mutants': mutants,
         'hkdf': hkdf, 'inputs': pins, 'class_binding': binding,
@@ -871,10 +993,18 @@ def pipeline(args, output):
         'assumed_owned_callees': owned_contracts(roots, policy),
         'callee_root_assumptions': owned_contracts(callee_roots, policy),
         'composition_not_a_closure': (
-            'The five caller certificates in roots keep their 19 opaque owned contracts. '
-            'The composed Feed certificate is a separate artifact that discharges only '
-            'NativeCodec.Extract, PublicMod and Wipe by inlining their certified bodies. '
-            'No other owned callee or open root is closed by this replay.'),
+            'The five original caller certificates keep their 19 opaque owned contracts '
+            '(unchanged by this replay). The composed Feed certificate is a separate '
+            'artifact that discharges only NativeCodec.Extract, PublicMod and Wipe by '
+            'inlining their certified bodies. In addition, this replay checks two '
+            'adapter-helper roots (HkdfBridge.sequence, HkdfBridge.labelUnits) and nine '
+            'NativeField owned-callee roots (seven private-arithmetic bodies with Q/'
+            'ReduceOnce/Reduce inlined, plus the Q and MaxReduce public leaves) as '
+            'separate certificates; those check new bodies only and do NOT discharge any '
+            'contract of the five original callers. Two of the previously fifteen open '
+            'roots are now checked, so thirteen open roots remain listed in open_roots, '
+            'and every unchecked aggregate label (31, including '
+            '"NativeMlKem.Field/NTT/codec/sampling helpers") remains explicit.'),
         'caller_skeleton': [r for r in policy.get('open_roots', []) if r.get('status') == 'caller-skeleton-unsupported'],
         'commands': commands, 'workspace': str(workspace),
         'trusted': ['Dafny/Boogie/Z3', 'javap parser and operand mapping',
@@ -882,7 +1012,8 @@ def pipeline(args, output):
                     'javac/JVM word-operation observer (atomic, operand-independent cost)',
                     'enumerated external contracts: JDK HMAC/SHA3, DafnyRuntime, JDK BigInteger/String/boxed deterministic calls',
                     'opaque owned helper/adapter contracts listed in assumed_owned_callees; these are not callee trace proofs',
-                    'inline expansion of exact static certified owned callees: plain parameter-role identity, register renaming, entry and return copies (shape-bound to the direct translation, mutation-tested, not a JVM-semantics theorem)'],
+                    'inline expansion of exact static certified owned callees: plain parameter-role identity, register renaming, entry and return copies (shape-bound to the direct translation, mutation-tested, not a JVM-semantics theorem)',
+                    'execution_controls.py paired-state seeding and finite runs over the frozen trace_exec mirror: a control on the promoted roots, not a theorem (parameters are taken from the frozen extractor param_regs; only the chosen finite pair per program is exercised)'],
         'excluded': ['JVM/JIT/CPU/GC/provider timing', 'implicit JVM exceptions and null checks',
                      'exact arithmetic/value refinement (dependency shape only)',
                      'cryptographic hardness and entropy',

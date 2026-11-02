@@ -255,12 +255,31 @@ closure claim includes them. `Decaps` is a caller skeleton only.
   and revalidated after replay. JDK java/javac/javap are recorded before/after.
   Compiler/javap correctness and the generator remain trusted.
 
+## 7a. Additional static helper bodies
+
+`HkdfBridge.sequence` and `labelUnits` are checked static roots under the same
+observer. Clone/sequence construction is modeled through lengths/allocations;
+its contents and copy/alias ownership remain trusted adapter semantics. A finite
+private-input pair for `sequence` establishes equal observations, with no claim
+that the modeled clone/sequence roles contain the original bytes. `labelUnits`
+is entirely public; its allocation declassification is restricted to pc 11.
+
+Seven private `NativeField` arithmetic bodies are checked with their owned calls
+fully expanded; `Q` and `MaxReduce` are public supporting leaves. The checked
+programs retain only the existing private-word/public-shift runtime contract.
+The audit's runtime-admission rule is a trusted rejection gate. The shift's model
+value is abstract and does not refine the JVM shift value. Finite private-input
+pairs check termination, equal observations/public state, and live private result
+registers in these seven programs. Their source-level functional correctness,
+full NTT/KEM composition and physical timing are separate obligations.
+
 ## 8. Explicit open items
 
 `policy.json.open_roots` names every claimed-but-unchecked root: Sponge methods,
 Decaps (caller skeleton), HKDF ExpandLabel, bridge extract/expand/labelInfo/
-failure/hash, and adapter conversion roots (semantic object/dispatch/type/
-exception restrictions; final canonical21 build exists). `unchecked_owned_callees`
+failure/hash and bridge bytes (semantic object/dispatch/type/exception
+restrictions; final canonical21 build exists). The checked sequence/labelUnits
+trace bodies remove exactly those two entries, leaving 13 open roots. `unchecked_owned_callees`
 lists owned code not covered (Encrypt, Decrypt, ExpandMatrix, KeyGen, Encaps,
 Xof, Keccak helpers, field/NTT/codec/sampling). The report includes both lists and
 never reclassifies them as providers. `NativeSampling.Feed` is checked at

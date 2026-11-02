@@ -610,7 +610,7 @@ REQUIRED_HASH_MAP_KEYS = {
     ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'source_graph', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_domain.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
     ('V6', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
     ('V7', 'formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), ''): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
-    ('V7', 'formal/timing/inputs.json', 'inputs', (), ''): ('formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'formal/timing/HkdfShape.dfy', 'formal/timing/PositiveTraceCheck.dfy', 'formal/timing/README.md', 'formal/timing/SecretTrace.dfy', 'formal/timing/bytecode_trace.py', 'formal/timing/fixtures/CategoryTwo.java', 'formal/timing/fixtures/ClassOracle.java', 'formal/timing/fixtures/ConstantTime.java', 'formal/timing/fixtures/EarlyCompare.java', 'formal/timing/fixtures/ExceptionOracle.java', 'formal/timing/fixtures/FieldAlias.java', 'formal/timing/fixtures/NewIdentity.java', 'formal/timing/fixtures/ResultArrayCall.java', 'formal/timing/fixtures/SecretAlloc.java', 'formal/timing/fixtures/SecretBranch.java', 'formal/timing/fixtures/SecretDigestBranch.java', 'formal/timing/fixtures/SecretIndex.java', 'formal/timing/fixtures/SecretLoopBound.java', 'formal/timing/fixtures/VirtualDispatch.java', 'formal/timing/policy.json', 'formal/timing/run.py', 'formal/timing/test_trace.py', 'formal/timing/test_exception_table.py', 'formal/timing/threat-model.md', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/kem_hash.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java'),
+    ('V7', 'formal/timing/inputs.json', 'inputs', (), ''): ('formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'formal/timing/HkdfShape.dfy', 'formal/timing/PositiveTraceCheck.dfy', 'formal/timing/README.md', 'formal/timing/SecretTrace.dfy', 'formal/timing/bytecode_trace.py', 'formal/timing/fixtures/CategoryTwo.java', 'formal/timing/fixtures/ClassOracle.java', 'formal/timing/fixtures/ConstantTime.java', 'formal/timing/fixtures/EarlyCompare.java', 'formal/timing/fixtures/ExceptionOracle.java', 'formal/timing/fixtures/FieldAlias.java', 'formal/timing/fixtures/NewIdentity.java', 'formal/timing/fixtures/ResultArrayCall.java', 'formal/timing/fixtures/SecretAlloc.java', 'formal/timing/fixtures/SecretBranch.java', 'formal/timing/fixtures/SecretDigestBranch.java', 'formal/timing/fixtures/SecretIndex.java', 'formal/timing/fixtures/SecretLoopBound.java', 'formal/timing/fixtures/VirtualDispatch.java', 'formal/timing/policy.json', 'formal/timing/run.py', 'formal/timing/test_trace.py', 'formal/timing/test_exception_table.py', 'formal/timing/threat-model.md', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/kem_hash.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java', 'formal/timing/execution_controls.py', 'formal/timing/test_coverage.py'),
 }
 REQUIRED_FILE_SET_KEYS = {
     ('V1', 'hkdf-generated-source-inventory'): ('BytesResult.java', 'BytesResult_Failure.java', 'BytesResult_Success.java', 'FailureKind.java', 'FailureKind_InvalidHash.java', 'FailureKind_InvalidKey.java', 'FailureKind_InvalidLabel.java', 'FailureKind_InvalidLength.java', '__default.java'),
@@ -704,24 +704,104 @@ REQUIRED_RECEIPT_EXACT.update({
 REQUIRED_COMPONENT_CHECKS['V7'] = dict(REQUIRED_COMPONENT_CHECKS['V7'])
 REQUIRED_COMPONENT_CHECKS['V7']['text_checks'] = (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),)
 
-REQUIRED_TRACE_REPORT_SHA256 = "29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f"
+REQUIRED_TRACE_REPORT_SHA256 = "7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b"
 
-REQUIRED_TRACE_ROOTS = (
-    {'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default', 'method': 'Select:([B[B[B[B)[B', 'status': 'checked', 'obligations': 84, 'instructions': 75, 'instructions_reachable': 75, 'cfg_edges_checked': True},
-    {'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default', 'method': 'Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'status': 'checked', 'obligations': 179, 'instructions': 167, 'instructions_reachable': 167, 'cfg_edges_checked': True},
-    {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default', 'method': 'Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'status': 'checked', 'obligations': 34, 'instructions': 30, 'instructions_reachable': 30, 'cfg_edges_checked': True},
-    {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default', 'method': 'Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'status': 'checked', 'obligations': 111, 'instructions': 103, 'instructions_reachable': 103, 'cfg_edges_checked': True},
-    {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default', 'method': 'LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'status': 'checked', 'obligations': 169, 'instructions': 158, 'instructions_reachable': 158, 'cfg_edges_checked': True},
-)
-REQUIRED_TRACE_ROOT_CASE_SPLIT = {
-    'Select:([B[B[B[B)[B': True,
-    'Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;': False,
-    'Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': True,
-    'Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': False,
-    'LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': False,
-}
+REQUIRED_TRACE_ROOTS = ({'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default',
+  'method': 'Select:([B[B[B[B)[B',
+  'status': 'checked',
+  'obligations': 84,
+  'instructions': 75,
+  'instructions_reachable': 75,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default',
+  'method': 'Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;',
+  'status': 'checked',
+  'obligations': 179,
+  'instructions': 167,
+  'instructions_reachable': 167,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default',
+  'method': 'Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;',
+  'status': 'checked',
+  'obligations': 34,
+  'instructions': 30,
+  'instructions_reachable': 30,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default',
+  'method': 'Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;',
+  'status': 'checked',
+  'obligations': 111,
+  'instructions': 103,
+  'instructions_reachable': 103,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default',
+  'method': 'LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;',
+  'status': 'checked',
+  'obligations': 169,
+  'instructions': 158,
+  'instructions_reachable': 158,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'method': 'sequence:([BLjava/lang/String;)Ldafny/DafnySequence;',
+  'status': 'checked',
+  'obligations': 11,
+  'instructions': 5,
+  'instructions_reachable': 5,
+  'cfg_edges_checked': True},
+ {'class': 'io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'method': 'labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;',
+  'status': 'checked',
+  'obligations': 28,
+  'instructions': 23,
+  'instructions_reachable': 23,
+  'cfg_edges_checked': True})
+REQUIRED_TRACE_ROOT_CASE_SPLIT = {'Select:([B[B[B[B)[B': True,
+ 'Feed:([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;': False,
+ 'Extract:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': True,
+ 'Expand:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': False,
+ 'LabelInfo:(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;': False,
+ 'sequence:([BLjava/lang/String;)Ldafny/DafnySequence;': True,
+ 'labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;': True}
 REQUIRED_TRACE_ASSUMED_TARGETS = ('io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_Full:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidBlockLength:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidPrefix:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_NeedMore:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.IsPrefix:([I)Z', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Success:(Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidHash:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidKey:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLabel:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLength:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ValidHash:(Ljava/math/BigInteger;)Z', 'io/github/mahmoudimus/verifiedcrypto/JdkHmac.compute:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;')
-REQUIRED_TRACE_OPEN_TARGETS = (('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge', 'Update:([BII)I', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge', 'AbsorbOne:(B)V', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge', 'XorByte:(IB)V', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge', 'Next:()B', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge', 'Start:()V', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default', 'Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;', 'caller-skeleton-unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default', 'ExpandLabel:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'unsupported-object-dispatch'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'extract:(I[B[B)[B', 'unsupported-object-dispatch'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'expand:(I[B[BI)[B', 'unsupported-object-dispatch'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'labelInfo:(Ljava/lang/String;[BI)[B', 'unsupported-object-dispatch'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'hash:(I)Ljava/math/BigInteger;', 'unsupported'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'sequence:([BLjava/lang/String;)Ldafny/DafnySequence;', 'unsupported-adapter-object'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;', 'unsupported-adapter-object'), ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge', 'bytes:(Ldafny/DafnySequence;)[B', 'unsupported'))
+REQUIRED_TRACE_OPEN_TARGETS = (('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge',
+  'Update:([BII)I',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge',
+  'AbsorbOne:(B)V',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge',
+  'XorByte:(IB)V',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge',
+  'Next:()B',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeShake.Sponge',
+  'Start:()V',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default',
+  'Decaps:(Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey;[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result;',
+  'caller-skeleton-unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.__default',
+  'ExpandLabel:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;',
+  'unsupported-object-dispatch'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'extract:(I[B[B)[B',
+  'unsupported-object-dispatch'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'expand:(I[B[BI)[B',
+  'unsupported-object-dispatch'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'labelInfo:(Ljava/lang/String;[BI)[B',
+  'unsupported-object-dispatch'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;IZ)Ljava/lang/RuntimeException;',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'hash:(I)Ljava/math/BigInteger;',
+  'unsupported'),
+ ('io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge',
+  'bytes:(Ldafny/DafnySequence;)[B',
+  'unsupported'))
 REQUIRED_TRACE_UNCHECKED = ('NativeHkdf.Expanded bytes via bridges (not all adapter paths)', 'NativeKeccak.Permute', 'NativeKeccak.PermuteScratch', 'NativeMlKem.Decaps (caller skeleton only)', 'NativeMlKem.Decrypt', 'NativeMlKem.Encaps', 'NativeMlKem.Encrypt', 'NativeMlKem.ExpandMatrix', 'NativeMlKem.Field/NTT/codec/sampling helpers', 'NativeMlKem.KeyGen', 'NativeShake.Sponge.*', 'NativeShake.Xof', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_Full:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidBlockLength:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_InvalidPrefix:()Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.create_NeedMore:([II)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.IsPrefix:([I)Z', 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I._typeDescriptor:()Ldafny/TypeDescriptor;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.Default:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Failure:(Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.create_Success:(Ldafny/DafnySequence;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidHash:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidKey:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLabel:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLength:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ValidHash:(Ljava/math/BigInteger;)Z', 'io/github/mahmoudimus/verifiedcrypto/JdkHmac.compute:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;')
 REQUIRED_TRACE_FIXTURES = (('ConstantTime', 'accept', 'checked'),
  ('SecretBranch', 'reject', 'rejected'),
@@ -762,6 +842,7 @@ REQUIRED_TRACE_INPUT_KEYS = ('formal/dafny/hkdf/Hkdf.dfy',
  'formal/timing/SecretTrace.dfy',
  'formal/timing/bytecode_trace.py',
  'formal/timing/composition.py',
+ 'formal/timing/execution_controls.py',
  'formal/timing/fixtures/CalleeDescriptor.java',
  'formal/timing/fixtures/CalleeOwner.java',
  'formal/timing/fixtures/CategoryTwo.java',
@@ -797,6 +878,7 @@ REQUIRED_TRACE_INPUT_KEYS = ('formal/dafny/hkdf/Hkdf.dfy',
  'formal/timing/fixtures/VirtualDispatch.java',
  'formal/timing/policy.json',
  'formal/timing/run.py',
+ 'formal/timing/test_coverage.py',
  'formal/timing/test_exception_table.py',
  'formal/timing/test_trace.py',
  'formal/timing/threat-model.md',
@@ -917,6 +999,8 @@ REQUIRED_COMPONENT_EVIDENCE.update({
         ('formal/timing/PositiveTraceCheck.dfy', 'finite-test'),
         ('formal/timing/test_trace.py', 'test-source'),
         ('formal/timing/test_exception_table.py', 'test-source'),
+        ('formal/timing/execution_controls.py', 'tool-manifest'),
+        ('formal/timing/test_coverage.py', 'test-source'),
         ('formal/timing/PRODUCTION-EVIDENCE.json', 'component-receipt'),
         ('docs/formal-security.md', 'documentation'),
         ('docs/project/2026-10-28-java-crypto-verification.md', 'documentation'),
@@ -945,6 +1029,7 @@ REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = 
  'formal/timing/SecretTrace.dfy',
  'formal/timing/bytecode_trace.py',
  'formal/timing/composition.py',
+ 'formal/timing/execution_controls.py',
  'formal/timing/fixtures/CalleeDescriptor.java',
  'formal/timing/fixtures/CalleeOwner.java',
  'formal/timing/fixtures/CategoryTwo.java',
@@ -980,6 +1065,7 @@ REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = 
  'formal/timing/fixtures/VirtualDispatch.java',
  'formal/timing/policy.json',
  'formal/timing/run.py',
+ 'formal/timing/test_coverage.py',
  'formal/timing/test_exception_table.py',
  'formal/timing/test_trace.py',
  'formal/timing/threat-model.md',
@@ -1884,6 +1970,300 @@ def _validate_file_set(root: Path, check: dict[str, Any], label: str) -> int:
     return len(mapping)
 
 
+REQUIRED_TRACE_BOUNDARIES = {'trusted': ['Dafny/Boogie/Z3',
+             'javap parser and operand mapping',
+             'declared policy of public/secret parameters, fields, allocations and call results',
+             'javac/JVM word-operation observer (atomic, operand-independent cost)',
+             'enumerated external contracts: JDK HMAC/SHA3, DafnyRuntime, JDK BigInteger/String/boxed '
+             'deterministic calls',
+             'opaque owned helper/adapter contracts listed in assumed_owned_callees; these are not '
+             'callee trace proofs',
+             'inline expansion of exact static certified owned callees: plain parameter-role identity, '
+             'register renaming, entry and return copies (shape-bound to the direct translation, '
+             'mutation-tested, not a JVM-semantics theorem)',
+             'execution_controls.py paired-state seeding and finite runs over the frozen trace_exec '
+             'mirror: a control on the promoted roots, not a theorem (parameters are taken from the '
+             'frozen extractor param_regs; only the chosen finite pair per program is exercised)'],
+ 'execution_controls': {'machine_mirror': 'trace_exec.py: bounded interpreter of the frozen SecretTrace '
+                                          'Apply/DoStep/Exec semantics used only for witness execution '
+                                          'and copy-operand controls',
+                        'mirror_cross_check': 'compiled ApplyProbe.dfy table compared row-by-row with '
+                                              'trace_exec.apply; a mismatch fails the replay',
+                        'witness_execution': 'a witness is reported as validated-finite-execution only '
+                                             'when both runs reach a terminal instruction; otherwise '
+                                             'the emitted lemma is hypothesis-only and no completed run '
+                                             'is claimed',
+                        'truncation': 'a fuel-truncated prefix is never recorded as a completed '
+                                      'execution',
+                        'scope': 'model-level operand/execution control; not a JVM value-refinement or '
+                                 'timing theorem'},
+ 'composition_not_a_closure': 'The five original caller certificates keep their 19 opaque owned '
+                              'contracts (unchanged by this replay). The composed Feed certificate is a '
+                              'separate artifact that discharges only NativeCodec.Extract, PublicMod '
+                              'and Wipe by inlining their certified bodies. In addition, this replay '
+                              'checks two adapter-helper roots (HkdfBridge.sequence, '
+                              'HkdfBridge.labelUnits) and nine NativeField owned-callee roots (seven '
+                              'private-arithmetic bodies with Q/ReduceOnce/Reduce inlined, plus the Q '
+                              'and MaxReduce public leaves) as separate certificates; those check new '
+                              'bodies only and do NOT discharge any contract of the five original '
+                              'callers. Two of the previously fifteen open roots are now checked, so '
+                              'thirteen open roots remain listed in open_roots, and every unchecked '
+                              'aggregate label (31, including "NativeMlKem.Field/NTT/codec/sampling '
+                              'helpers") remains explicit.',
+ 'promoted_kind': 'finite paired-state / bounded-length execution controls',
+ 'promoted_note': 'finite model-execution controls on the exact promoted program text; not JVM value '
+                  'refinement and no claim that every operand affects the result. A required '
+                  'private-flow control must be `ok`; a structural `not-applicable` is accepted only '
+                  'for genuinely public-only targets.'}
+
+
+def _validate_trace_boundaries(report: dict[str, Any], label: str) -> int:
+    # Trust/scope disclosures are part of the reviewed claim, not optional prose.
+    promoted = report.get("promoted_controls")
+    actual = {
+        "trusted": report.get("trusted"),
+        "execution_controls": report.get("execution_controls"),
+        "composition_not_a_closure": report.get("composition_not_a_closure"),
+        "promoted_kind": promoted.get("kind") if isinstance(promoted, dict) else None,
+        "promoted_note": promoted.get("note") if isinstance(promoted, dict) else None,
+    }
+    if actual != REQUIRED_TRACE_BOUNDARIES:
+        raise LedgerError(f"{label}: trace trust/scope boundary text changed")
+    return len(actual)
+
+
+TRACE_FIELD_PROFILE = {
+    # obligations, expanded/direct instructions, parameter count, return register,
+    # audited shift calls, inlined sites. These are reviewed snapshot identities.
+    "ReduceOnce:(I)I": (29, 23, 19, 1, 22, 1, 2),
+    "Reduce:(I)I": (53, 45, 19, 1, 25, 2, 4),
+    "Add:(II)I": (37, 31, 7, 2, 10, 1, 3),
+    "Sub:(II)I": (43, 35, 9, 2, 12, 1, 4),
+    "Mul:(II)I": (61, 53, 7, 2, 10, 2, 5),
+    "MulSub:(III)I": (67, 59, 11, 3, 16, 2, 6),
+    "AddMul:(IIII)I": (63, 55, 9, 4, 14, 2, 5),
+    "Q:()I": (7, 2, 2, 0, None, 0, 0),
+    "MaxReduce:()I": (7, 2, 2, 0, None, 0, 0),
+}
+TRACE_CONTROL_INVARIANTS = {
+    "public_registers_equal", "non_parameter_private_start_at_zero",
+    "parameter_values_differ_across_runs", "parameter_values_distinct_within_run",
+    "role_lengths_equal", "non_parameter_role_contents_equal",
+    "parameter_secret_role_contents_differ", "differences_are_inputs_only",
+}
+
+
+def _validate_trace_pair(control: Any, label: str, *, private_params: list[int],
+                         private_roles: list[str], return_register: int | None,
+                         instructions: int, shifts: int, live_return: bool) -> None:
+    """Validate finite control facts, independently of snapshot-digest renewal.
+
+    This checks a trusted interpreter's recorded control, not JVM semantics or a
+    universal value-liveness theorem. Runtime shift admission is an audit rule.
+    """
+    if not isinstance(control, dict):
+        raise LedgerError(f"{label}: trace private execution control missing")
+    invariants = control.get("state_invariants")
+    checks = control.get("checks")
+    required_checks = {
+        "state_differences_are_inputs_only", "both_terminal_stop", "trace_equal",
+        "public_registers_equal", "no_parameter_only_liveness", "audit_clean",
+        "shift_counts_public", "no_owned_calls_remaining",
+    }
+    if live_return:
+        required_checks |= {"non_parameter_private_flow", "return_value_differs"}
+    rule = control.get("shift_count_rule")
+    shift_calls = rule.get("shift_calls") if isinstance(rule, dict) else None
+    if (control.get("kind") != "paired-state-execution-control"
+            or control.get("status") != "ok"
+            or control.get("seeds") != {"S": [11, 3], "T": [13, 5]}
+            or control.get("require_liveness") is not live_return
+            or control.get("parameter_registers") != private_params
+            or control.get("private_scalar_parameters") != private_params
+            or control.get("secret_parameter_roles") != private_roles
+            or control.get("return_register") != return_register
+            or control.get("audit_failures") != []
+            or control.get("owned_call_targets") != []
+            or not isinstance(invariants, dict) or set(invariants) != TRACE_CONTROL_INVARIANTS
+            or any(value is not True for value in invariants.values())
+            or not isinstance(checks, dict) or set(checks) != required_checks
+            or any(value is not True for value in checks.values())
+            or control.get("terminal") != {"s": "stop", "t": "stop"}
+            or control.get("steps") != {"s": instructions, "t": instructions}
+            or control.get("fuel") != max(32, instructions + 8)
+            or control.get("trace_equal") is not True
+            or control.get("public_registers_equal") is not True
+            or control.get("parameter_only_liveness") is not False
+            or not isinstance(rule, dict) or rule.get("all_counts_public") is not True
+            or not isinstance(shift_calls, list) or len(shift_calls) != shifts
+            or any(not isinstance(call, dict) or call.get("count_taint") != "pub"
+                   or call.get("word_taint") != "sec" for call in shift_calls)):
+        raise LedgerError(f"{label}: trace private execution control changed")
+    events = control.get("events")
+    if (not isinstance(events, dict) or not isinstance(events.get("s"), list)
+            or events.get("s") != events.get("t")
+            or any(not isinstance(event, list) or not event or type(event[0]) is not str
+                   for event in events["s"])):
+        raise LedgerError(f"{label}: trace paired observation tapes differ")
+    differing = control.get("differing_registers")
+    non_parameter = control.get("non_parameter_differing")
+    if (not isinstance(differing, list)
+            or any(type(reg) is not int or reg < 0 for reg in differing)
+            or differing != sorted(set(differing))
+            or non_parameter != [reg for reg in differing if reg not in private_params]
+            or set(differing) & set(control.get("public_registers") or [])):
+        raise LedgerError(f"{label}: trace private execution register projection changed")
+    if live_return:
+        if (not non_parameter or return_register not in non_parameter
+                or control.get("return_differs") is not True
+                or any(event[0] == "guard" for event in events["s"])):
+            raise LedgerError(f"{label}: trace private return liveness changed")
+    elif (private_roles and (differing != [] or non_parameter != []
+                            or control.get("return_differs") is not False)):
+        raise LedgerError(f"{label}: sequence control must not claim modeled copy/return liveness")
+
+
+def _validate_trace_public_pair(control: Any, label: str) -> None:
+    if (not isinstance(control, dict)
+            or control.get("kind") != "paired-state-execution-control"
+            or control.get("status") != "not-applicable: no private parameters or private parameter roles"
+            or control.get("require_liveness") is not False
+            or control.get("parameter_registers") != []
+            or control.get("private_scalar_parameters") != []
+            or control.get("secret_parameter_roles") != []
+            or control.get("audit_failures") != []
+            or control.get("owned_call_targets") != []
+            or control.get("shift_count_rule") != {"shift_calls": [], "all_counts_public": True}
+            or not isinstance(control.get("state_invariants"), dict)
+            or set(control["state_invariants"]) != TRACE_CONTROL_INVARIANTS
+            or any(value is not True for value in control.get("state_invariants", {}).values())):
+        raise LedgerError(f"{label}: trace public-only control changed")
+
+
+def _validate_trace_promoted_controls(report: dict[str, Any], label: str) -> int:
+    """Bind duplicated control summaries to the exact checked helper records."""
+    roots = report.get("roots", [])
+    by_method = {item.get("method"): item for item in roots if isinstance(item, dict)}
+    sequence = by_method.get("sequence:([BLjava/lang/String;)Ldafny/DafnySequence;", {})
+    units = by_method.get("labelUnits:(Ljava/lang/String;)Ldafny/DafnySequence;", {})
+    owner = "io.github.mahmoudimus.quic.internal.verifiedhkdf.HkdfBridge"
+    if any(item.get("class") != owner or item.get("role") != "adapter-helper-root"
+           for item in (sequence, units)):
+        raise LedgerError(f"{label}: trace adapter-helper identity changed")
+    if (sequence.get("certificate") != "HkdfBridge_sequence.dfy"
+            or units.get("certificate") != "HkdfBridge_labelUnits.dfy"
+            or sequence.get("execution_control_required") is not True
+            or units.get("execution_control_required") is not False):
+        raise LedgerError(f"{label}: trace adapter-helper certificate identity changed")
+    if sequence.get("witness") != "validated-finite-execution":
+        raise LedgerError(f"{label}: trace sequence private-input witness missing")
+    _validate_trace_pair(sequence.get("execution_control"), label + ":sequence",
+                         private_params=[], private_roles=[owner.replace(".", "/") + ".sequence#p0"],
+                         return_register=4, instructions=5, shifts=0, live_return=False)
+    unit_control = units.get("execution_control")
+    if not isinstance(unit_control, dict) or set(unit_control) != {"paired", "lengths"}:
+        raise LedgerError(f"{label}: trace public-label control missing")
+    _validate_trace_public_pair(unit_control["paired"], label + ":labelUnits")
+    lengths = unit_control["lengths"]
+    if (units.get("witness") != "public-only" or not isinstance(lengths, dict)
+            or lengths.get("kind") != "length-execution-control" or lengths.get("status") != "ok"
+            or lengths.get("lengths") != [0, 1, 3, 5] or lengths.get("seed_register") != 1
+            or not isinstance(lengths.get("runs"), list) or len(lengths["runs"]) != 4):
+        raise LedgerError(f"{label}: trace public-label length cohorts changed")
+    for size, run in zip((0, 1, 3, 5), lengths["runs"]):
+        if (not isinstance(run, dict) or run.get("length") != size or run.get("status") != "ok"
+                or run.get("terminal") != "stop" or run.get("stores") != size
+                or run.get("guards") != size + 1 or run.get("allocs") != [size, size]
+                or run.get("alloc_sizes_match") is not True or run.get("store_count_matches") is not True):
+            raise LedgerError(f"{label}: trace public-label executed length control changed")
+    expected = {Path(item["certificate"]).stem: item for item in (sequence, units)}
+    field_owner = "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default"
+    for item in report.get("callee_roots", []):
+        if item.get("class") == field_owner:
+            expected[Path(item["certificate"]).stem] = item
+    promoted = report.get("promoted_controls")
+    rows = promoted.get("records") if isinstance(promoted, dict) else None
+    if (not isinstance(promoted, dict) or promoted.get("status") != "ok"
+            or not isinstance(rows, list) or len(rows) != 11 or len(expected) != 11
+            or any(not isinstance(row, dict) for row in rows)
+            or {row.get("certificate") for row in rows} != set(expected)):
+        raise LedgerError(f"{label}: trace promoted control inventory changed")
+    for row in rows:
+        item = expected[row["certificate"]]
+        if (row.get("role") != item["role"]
+                or row.get("require_applicable") is not item.get("execution_control_required")
+                or row.get("control") != item.get("execution_control")):
+            raise LedgerError(f"{label}: trace promoted control is not bound to its checked body")
+    return len(rows)
+
+
+def _validate_trace_field_callees(callees: list, label: str) -> int:
+    owner = "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeField.__default"
+    prefix = owner.replace(".", "/") + "."
+    targets = {prefix + method: item for item in callees
+               if (method := item.get("method")) in TRACE_FIELD_PROFILE}
+    if len(targets) != 9:
+        raise LedgerError(f"{label}: trace field-helper inventory changed")
+    shift_target = "dafny/Helpers.bv64ShiftRight:(JB)J"
+    for method, (obligations, instructions, direct, arity, ret, shifts, inline_count) in TRACE_FIELD_PROFILE.items():
+        item = targets[prefix + method]
+        params = list(range(1, arity + 1))
+        contract = item.get("contract")
+        limits = item.get("solver_limits")
+        if (item.get("class") != owner or item.get("status") != "checked"
+                or item.get("certificate") != "Callee_" + method.split(":")[0] + ".dfy"
+                or item.get("role") != "owned-callee" or item.get("obligations") != obligations
+                or item.get("instructions") != instructions or item.get("instructions_reachable") != instructions
+                or item.get("direct_instructions") != direct or item.get("roles") != {}
+                or item.get("parameter_registers") != params
+                or item.get("execution_control_required") is not bool(arity)
+                or item.get("source_sha256") != "5f88cf2708b5a2ec50583e101ac65b41f84b3c69f5177d8ffe7429009db7b645"
+                or item.get("source_rebuild_sha256") != {
+                    "class_sha256": "2660117043da0db8c5f0ef9dd532d16e790aebc79121edb4e906671c442a64e2",
+                    "source_rebuild_sha256": "2660117043da0db8c5f0ef9dd532d16e790aebc79121edb4e906671c442a64e2"}
+                or item.get("cfg_edges_checked") != ("component-cfgs-and-splice-reachability" if arity else True)
+                or item.get("composition_trusted") is not bool(arity)
+                or not isinstance(item.get("inlined"), list) or len(item["inlined"]) != inline_count
+                or set(item.get("call_targets", {})) != ({shift_target} if arity else set())
+                or not isinstance(contract, dict) or contract.get("params") != ["sec"] * arity
+                or contract.get("result") != ("args" if arity else "pub") or contract.get("heap") != "none"
+                or not isinstance(limits, dict) or limits.get("time") != 30 or limits.get("resources") != 50000000
+                or limits.get("solver_options") != ["O:smt.case_split=0"]):
+            raise LedgerError(f"{label}: trace field-helper identity/contract changed: {method}")
+        mutants = item.get("mutants")
+        expected_mutants = {"public-result-from-secret-arg"} if arity else set()
+        if (not isinstance(mutants, dict) or set(mutants) != expected_mutants
+                or any(not isinstance(value, dict) or value.get("status") != "proof-obligation-rejected"
+                       or value.get("diagnostic") != "Error: possible violation of postcondition"
+                       for value in mutants.values())):
+            raise LedgerError(f"{label}: trace field-helper proof-mutant result changed: {method}")
+        control = item.get("execution_control")
+        if (not isinstance(control, dict)
+                or control.get("requirement") != ("private-paired" if arity else "public-leaf")):
+            raise LedgerError(f"{label}: trace field execution requirement changed: {method}")
+        if arity:
+            _validate_trace_pair(control, label + ":" + method, private_params=params,
+                                 private_roles=[], return_register=ret, instructions=instructions,
+                                 shifts=shifts, live_return=True)
+            witness = item.get("witness_execution")
+            witness_contract = item.get("witness_contract")
+            if (item.get("witness") != "validated-finite-execution"
+                    or not isinstance(witness, dict) or witness.get("terminal") != "stop"
+                    or witness.get("public_registers_agree") is not True
+                    or not isinstance(witness_contract, dict)
+                    or witness_contract.get("parameter_registers") != params
+                    or witness_contract.get("liveness") != "non-parameter-secret-live"
+                    or not witness_contract.get("non_parameter_differing")
+                    or witness_contract.get("differing_registers") != witness.get("differing_registers")):
+                raise LedgerError(f"{label}: trace field-helper witness control changed: {method}")
+        else:
+            _validate_trace_public_pair(control, label + ":" + method)
+            if (item.get("witness") != "public-only"
+                    or item.get("witness_contract") != {"parameter_registers": [], "status": "not-required"}):
+                raise LedgerError(f"{label}: trace field public-leaf witness changed")
+    return 7  # Seven genuine proof-obligation mutants, separate from finite controls.
+
+
 def _validate_trace_composition(report: dict[str, Any], label: str) -> int:
     """Require executed model controls and the reviewed, narrowly scoped roots.
 
@@ -1902,9 +2282,9 @@ def _validate_trace_composition(report: dict[str, Any], label: str) -> int:
                         {"secret-store-index", "secret-branch-cond"}),
     }
     callees = report.get("callee_roots")
-    if (not isinstance(callees, list) or len(callees) != len(expected)
+    if (not isinstance(callees, list) or len(callees) != len(expected) + len(TRACE_FIELD_PROFILE)
             or any(not isinstance(item, dict) for item in callees)
-            or {item.get("method") for item in callees} != set(expected)):
+            or {item.get("method") for item in callees} != set(expected) | set(TRACE_FIELD_PROFILE)):
         raise LedgerError(f"{label}: trace owned-callee inventory changed")
     by_method = {item["method"]: item for item in callees}
     mutant_count = 0
@@ -1930,6 +2310,7 @@ def _validate_trace_composition(report: dict[str, Any], label: str) -> int:
                        for value in mutants.values())):
             raise LedgerError(f"{label}: trace callee mutant inventory/results changed: {method}")
         mutant_count += len(mutants)
+    mutant_count += _validate_trace_field_callees(callees, label)
     wipe = by_method["Wipe:([I)V"].get("witness_execution")
     if (not isinstance(wipe, dict) or wipe.get("terminal") != "stop"
             or wipe.get("steps") != 51 or wipe.get("fuel") != 64
@@ -2042,7 +2423,9 @@ def _validate_trace_report(root: Path, label: str) -> int:
             (name, value.get("status")) for name, value in mutants.items()
     ) != REQUIRED_TRACE_MUTANTS:
         raise LedgerError(f"{label}: trace certificate mutant inventory changed")
-    composition_checks = _validate_trace_composition(report, label)
+    composition_checks = (_validate_trace_composition(report, label)
+                          + _validate_trace_promoted_controls(report, label)
+                          + _validate_trace_boundaries(report, label))
     assumed = {
         item.get("target") for item in report.get("assumed_owned_callees", [])
         if isinstance(item, dict)

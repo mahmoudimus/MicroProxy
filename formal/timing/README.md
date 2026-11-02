@@ -17,6 +17,8 @@ declassifications, dispatch/type restrictions, and residuals.
 | `bytecode_trace.py` | Trusted javap extractor: CFG + fall-through gate, SSA/phi edge copies (`Op(12, 0, src)` so the frozen `Apply(12,a,b)==b` really copies `src`), taint/role fixpoint, dispatch/field/type policy, certificate/module emitter, independent audit |
 | `composition.py` | Fail-closed inline expansion of an enumerated set of exact static certified owned callees into a caller certificate (plain parameter-role identity, register renaming, argument instantiation, return copy, recursion/expansion guards, full reachability gate) |
 | `trace_exec.py` | Bounded interpreter of the frozen machine (`Apply`/`DoStep`/`Exec`); executes witness states and emitted certificates for *executed* control-flow controls (terminal instruction, stores, secret liveness). Not a theorem |
+| `execution_controls.py` | Bounded paired executions using the frozen `trace_exec` semantics; only private inputs vary, with explicit terminal/trace/public-state and scoped private-result checks. A finite control, not a theorem or JVM refinement |
+| `test_coverage.py` | Coverage and execution-control regressions for the additional static HKDF helper roots and fully expanded private field-arithmetic bodies |
 | `ApplyProbe.dfy` | Compiled control (`dafny run`) that prints the frozen `Apply` operand table; `run.py` compares it row-by-row with `trace_exec.apply` |
 | `policy.json` | Checked caller/callee/composed roots, open roots, parameter/field/allocation/call policy, enums of external contracts, fixtures, per-root solver budgets |
 | `run.py` | Atomic replay: pins, model and HKDF-shape proofs, compiled control, source→class binding against a chosen class directory, actual-class certificates, fixtures, certificate mutants, structured open scope |
@@ -75,6 +77,14 @@ Checks enforced by `Structure` and the extractor include:
   used to classify result objects as public shape while payload bytes stay
   secret.
 
+Two additional static adapter-helper bodies, `HkdfBridge.sequence` and
+`labelUnits`, have checked trace programs. The former keeps the byte-array
+content role private; the latter handles a public label and allocates at the
+single reviewed pc 11 (`alloc_public: [11]`). The model observes lengths and
+allocations for clone/sequence creation; it does not model copied contents or
+prove copy ownership. `AliasNoClone` is trace-equivalent under this observer.
+The other adapter bodies and their dispatch/type/exception refinement stay open.
+
 ### Owned-callee certificates and checked inline composition
 
 The `NativeCodec.__default` primitives are certified from the same actual
@@ -92,6 +102,20 @@ canonical21 classes:
   flow. A zero divisor would throw and remains outside the trace model.
 - `NativeCodec.Wipe:([I)V` — private array contents, public length/reference;
   the full 19-instruction loop-stores-0 body (30 s / 50 M).
+
+The private-operand `NativeField` bodies `ReduceOnce`, `Reduce`, `Add`, `Sub`,
+`Mul`, `MulSub` and `AddMul` are also checked with all owned calls inlined,
+supported by the public constant leaves `Q` and `MaxReduce`. Their remaining
+external operation is the existing `Helpers.bv64ShiftRight` contract with a
+private word and a public shift count. Runtime admission is enforced by the
+trusted audit gate as well as the source/class/policy pins; the model theorem
+alone does not enforce every runtime-admission condition. Separate finite paired
+executions require a live private return register for these seven expanded
+programs. Their arithmetic values remain abstract, including the shift result;
+the functional field proofs are separate. Generated `NativeTypes.I.Witness`
+reads are represented as a public literal; each checked arithmetic body
+overwrites its initial result before use. The NTT/polynomial/KEM callers and
+the broad unchecked helper label remain open.
 
 Each callee root has a full emitted-CFG reachability gate and a recorded contract
 that is checked against the enforced class policy (`params`, role values, result
@@ -227,13 +251,13 @@ closure.
 
 ```sh
 cd /path/to/microproxy
-# The trace module and direct script each run 90 tests; discovery runs all 105,
-# including 15 exception-table and member-boundary regressions. The module adds its own directory
-# to sys.path and puts `unittest.main()` at end of file:
+# The trace module and direct script each run 90 tests. Discovery also runs the
+# 15 exception/method-boundary regressions and the coverage/control tests.
+# Current complete-suite counts are recorded in EVIDENCE.md:
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   python3 -m unittest -v formal.timing.test_trace      # from the repo root
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
-  python3 -m unittest discover -s formal/timing -p 'test_*.py'  # all 105
+  python3 -m unittest discover -s formal/timing -p 'test_*.py'  # complete component suite
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   python3 formal/timing/test_trace.py                  # direct script
 # (add DAFNY=/path/to/pinned/dafny to also run the compiled ApplyProbe cross-check;
