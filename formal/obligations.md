@@ -242,7 +242,7 @@ At this snapshot:
 - V7 records corrected conditional caller/model evidence: five caller certificates
   (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169), four owned
   helper certificates and a separate 369-instruction composed Feed. The model and
-  HKDF-shape proofs remain 57 and 17; 90 unit tests, 27 fixtures (four accepted,
+  HKDF-shape proofs remain 57 and 17; 105 unit tests, 27 fixtures (four accepted,
   23 policy rejects), four Select mutants and five callee mutants cover the
   extraction/gate controls. A compiled 138-row Apply probe cross-checks the finite
   execution interpreter. Wipe's witness must execute four stores to its secret
@@ -252,9 +252,13 @@ At this snapshot:
   composed Feed removes three from its own set (ten to seven), with 16 in the
   hypothetical replacement union. Fifteen roots and 31 unchecked labels remain.
   V7 stays partial. The snapshot
-  `b6ae6560ccf2e107597001afdec3d1abb197582328ad52d64f857419ec543ab6`
-  replaces the earlier copy-operand-mismatched certificates. Its source/policy,
-  126-input inventory, helper contracts, execution controls and residual sets are
+  `29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f`
+  preserves the corrected copy operands and enforces rejection of every declared
+  javap exception table, malformed method boundaries and duplicate/backwards
+  offsets. Fifteen additional real-javap/malformed-input regression tests cover
+  those guards; selected bodies contain no handlers and are unchanged apart
+  from the include path. Its source/policy,
+  127-input inventory, helper contracts, execution controls and residual sets are
   checked independently of a data-only digest renewal. The extractor, splice,
   target-to-model-kind mapping and runtime contracts remain trusted; full value,
   alias/dispatch, implicit-exception and physical-timing refinement remain open.

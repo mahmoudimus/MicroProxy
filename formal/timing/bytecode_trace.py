@@ -192,24 +192,114 @@ class Method:
     insns: list[Insn]
     handlers: list[tuple[int, int, int, str]] = field(default_factory=list)
     switches: dict[int, tuple[list[tuple[int, int]], int]] = field(default_factory=dict)
+    #: `javap` printed an `Exception table:` block for this method. Recorded
+    #: independently of `handlers` so that an empty or unparseable table still
+    #: fails closed; the translator rejects any method with a declared table.
+    exception_table: bool = False
 
     @property
     def key(self) -> str:
         return f'{self.owner}.{self.name}:{self.descriptor}'
 
 
+#: `javap` writes this non-numeric header row before the exception-table rows.
+#: It is not a row: treating it as one ended table parsing before any real row
+#: was read, so a method with handlers parsed as handler-free.
+EXCEPTION_TABLE_HEADER = re.compile(r'^from\s+to\s+target\s+type$')
+
+#: A real `javap` exception-table row: `start end handler type`, where the type
+#: is `Class <name>`, `any`, or another javap class reference.
+EXCEPTION_TABLE_ROW = re.compile(r'^(\d+)\s+(\d+)\s+(\d+)\s+(\S.*)$')
+
+#: `javap` prints a method declaration's `throws` clause instead of a trailing
+#: `);` when the method declares checked or runtime exceptions. The old header
+#: rule missed these declarations, so their `descriptor:`/`Code:` block was
+#: attributed to the preceding method (duplicate offsets, silently dropped body).
+THROWS_DECLARATION = re.compile(r'\)\s*throws\s+[\w.$]+(?:\s*,\s*[\w.$]+)*\s*;\s*$')
+
+
+def is_member_declaration(raw: str, line: str) -> bool:
+    """True for a javap member declaration line (field, method or `static {}`).
+
+    `javap -c -p -s` prints every member declaration with exactly two spaces of
+    indentation and terminates it with `;`; attributes and instructions are
+    indented deeper, so this distinguishes a member boundary from a `descriptor:`,
+    `flags:`, `Code:` or instruction line without guessing from content.
+    """
+    return (raw.startswith('  ') and raw[2:3] not in ('', ' ', '\t')
+            and line.endswith(';'))
+
+
+def check_offsets(method: Method) -> None:
+    """Fail closed unless bytecode offsets are strictly increasing.
+
+    A member body merged into the wrong `Method` (or a hand-built one) shows up
+    as a repeated or backwards offset. Checking before CFG construction keeps
+    such a body out of a certificate instead of letting it silently reshape the
+    control-flow graph.
+    """
+    previous = -1
+    for insn in method.insns:
+        if insn.offset <= previous:
+            raise PolicyError(
+                f'{method.key}: non-increasing bytecode offset {insn.offset} after '
+                f'{previous}; refusing to build a control-flow graph')
+        previous = insn.offset
+
+
 def parse(text: str, owner: str) -> dict[str, Method]:
-    """Parse javap -c -p -s output into methods keyed by name:descriptor."""
+    """Parse javap -c -p -s output into methods keyed by name:descriptor.
+
+    Member boundaries come from javap's layout: a member declaration is a line
+    indented by exactly two spaces and terminated by `;` (fields, methods
+    including `throws` clauses, and `static {};`). Every `descriptor:`, `Code:`
+    array and exception table is bound to the most recent declaration; a
+    descriptor or `Code:` array that cannot be bound to a recognised method is a
+    hard error instead of being attributed to the preceding method, and offsets
+    must be strictly increasing. `-c -p -s` is the supported javap mode.
+    """
     methods: dict[str, Method] = {}
     current: Method | None = None
     state = None  # 'code' | 'table' | 'switch' | None
     pending_switch = None
+    member = None  # None | 'method' | 'field' | 'unknown' (last declaration seen)
+    descriptor_seen = False  # the current member's `descriptor:` has been bound
+    code_seen = False        # the current method's `Code:` array has been opened
     for raw in text.splitlines():
         line = raw.strip()
         if line in ('static {};', 'static {}'):
             current = Method(owner, '<clinit>', '()V', True, {'ACC_STATIC'}, [], [])
             methods['<clinit>:()V'] = current
             state = 'header'
+            member = 'method'
+            descriptor_seen = False
+            code_seen = False
+            continue
+        if is_member_declaration(raw, line):
+            name_match = None
+            if '(' in line and (re.search(r'\);\s*$', line) or THROWS_DECLARATION.search(line)):
+                name_match = re.search(r'([\w.$<>]+)\(', line)
+            if name_match:
+                current = Method(owner, name_match[1], '', bool(re.search(r'\bstatic\b', line)),
+                                 {'ACC_STATIC'} if re.search(r'\bstatic\b', line) else set(), [], [])
+                state = 'header'
+                member = 'method'
+            else:
+                # A field declaration or a method declaration this parser cannot
+                # recognise. Neither may inherit the preceding method's state, and
+                # a `Code:` array under it is rejected below (orphan body).
+                member = 'field' if '(' not in line else 'unknown'
+                state = None
+            descriptor_seen = False
+            code_seen = False
+            continue
+        # Table presence is detected from the actual javap header in every
+        # parser state, before any state-specific handling can consume the line.
+        if line.startswith('Exception table:'):
+            if current is None or member != 'method':
+                raise PolicyError(f'{owner}: exception table outside a method body: {line}')
+            current.exception_table = True
+            state = 'table'
             continue
         if state == 'switch' and current is not None:
             m = re.match(r'^(-?\d+):\s*(\d+)$', line)
@@ -228,42 +318,53 @@ def parse(text: str, owner: str) -> dict[str, Method]:
                 continue
             raise PolicyError(f'unparsed switch table line: {line}')
         if state == 'table' and current is not None:
-            row = re.match(r'^(\d+)\s+(\d+)\s+(\d+)\s+(.*)$', line)
+            if EXCEPTION_TABLE_HEADER.match(line):
+                continue
+            row = EXCEPTION_TABLE_ROW.match(line)
             if row:
                 current.handlers.append((int(row[1]), int(row[2]), int(row[3]), row[4].strip()))
                 continue
+            if re.match(r'^\d', line):
+                # A row-shaped line that does not parse must never be skipped:
+                # the protected ranges it describes would be silently lost.
+                raise PolicyError(f'{current.key}: malformed exception table row: {line}')
             state = None
+            # The line is not a table row; fall through so the remaining rules
+            # see it. `exception_table` already forces rejection for this method.
         if state == 'code' and current is not None:
             code = re.match(r'^(\d+):\s+(\w+)\s*(.*)$', line)
             if code:
                 insn = Insn(int(code[1]), code[2], code[3].strip(), line)
+                if current.insns and insn.offset <= current.insns[-1].offset:
+                    raise PolicyError(
+                        f'{current.key}: non-increasing bytecode offset {insn.offset} after '
+                        f'{current.insns[-1].offset}; refusing to build a control-flow graph')
                 current.insns.append(insn)
                 if insn.op in ('tableswitch', 'lookupswitch'):
                     state = 'switch'
                     pending_switch = [[], None, insn.offset]
                 continue
-            if line.startswith(('Exception table:', 'LineNumberTable:', 'LocalVariableTable:', 'StackMapTable:')):
-                state = 'table' if line.startswith('Exception table:') else None
+            if line.startswith(('LineNumberTable:', 'LocalVariableTable:', 'StackMapTable:')):
+                state = None
                 continue
             if line == '':
                 continue
             # Any other trailing attribute ends the code array.
             state = None
-        # Method header: a declaration ending in ');' (possibly with throws)
-        # that is not a descriptor and does not start with a bytecode offset.
-        if '(' in line and re.search(r'\);\s*$', line) and not line.startswith('descriptor:'):
-            name_match = re.search(r'([\w.$<>]+)\(', line)
-            if name_match:
-                current = Method(owner, name_match[1], '', bool(re.search(r'\bstatic\b', line)),
-                                 {'ACC_STATIC'} if re.search(r'\bstatic\b', line) else set(), [], [])
-                state = 'header'
-                continue
-        if current is not None and state == 'header':
-            if line.startswith('descriptor:'):
+        if line.startswith('descriptor:'):
+            if member == 'method' and state == 'header' and not descriptor_seen:
                 current.descriptor = line.split('descriptor:', 1)[1].strip()
                 methods[f'{current.name}:{current.descriptor}'] = current
+                descriptor_seen = True
                 state = 'flags'
                 continue
+            if member == 'field' and not descriptor_seen and state is None:
+                # A field's descriptor carries no certificate meaning; it must
+                # never be silently bound to a method.
+                descriptor_seen = True
+                continue
+            raise PolicyError(f'{owner}: descriptor for an unrecognised member: {line}')
+        if current is not None and state == 'header':
             if line.startswith('flags:'):
                 current.flags = set(re.findall(r'ACC_\w+', line))
                 current.static = 'ACC_STATIC' in current.flags
@@ -274,11 +375,12 @@ def parse(text: str, owner: str) -> dict[str, Method]:
         if line.startswith('flags:') and current is not None:
             current.flags = set(re.findall(r'ACC_\w+', line))
             current.static = 'ACC_STATIC' in current.flags
-        if line == 'Code:' and current is not None:
+        if line == 'Code:':
+            if member != 'method' or not descriptor_seen or code_seen or current is None:
+                raise PolicyError(
+                    f'{owner}: Code array without a recognised method declaration: {line}')
+            code_seen = True
             state = 'code'
-            continue
-        if line.startswith('Exception table:') and current is not None:
-            state = 'table'
             continue
     return methods
 
@@ -566,10 +668,14 @@ class Translator:
         self.m = method
         self.policy = policy
         self.cp = class_policy
+        # Both gates run before any CFG/stack analysis so that a rejected body is
+        # diagnosed by its actual defect (table presence, merged offsets) rather
+        # than by a downstream symptom of the corrupted instruction list.
+        if method.exception_table or method.handlers:
+            raise PolicyError(f'{method.key}: exception table is outside the accepted language')
+        check_offsets(method)
         self.succ_offsets = cfg(method)
         self.depth = stack_depths(method, self.succ_offsets)
-        if method.handlers:
-            raise PolicyError(f'{method.key}: exception table is outside the accepted language')
         self.leaders = leaders(method, self.succ_offsets)
         self.block_of = {lead: i for i, lead in enumerate(self.leaders)}
         self.by_offset = {i.offset: i for i in method.insns}

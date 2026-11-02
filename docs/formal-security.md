@@ -377,6 +377,18 @@ HKDF/SHAKE/ML-KEM proofs are separate. This is also why the extractor remains an
 explicit trust assumption: proving the emitted model does not itself prove that
 the model faithfully represents Java execution.
 
+The extractor also rejects every method with a declared exception table. A repair
+prevents javap's column header from hiding catch/finally ranges and keeps methods
+with `throws` declarations separate. Unbound Code arrays and non-increasing
+bytecode offsets are rejected. Fifteen additional regression tests independently
+read real javap tables/member boundaries and exercise malformed-input rejection.
+The current selected bodies contain no handlers and retain their certificates'
+mathematical content. `JdkHmac.compute` remains an opaque owned assumption and
+can throw when called by the generated Extract/Expand bodies; its exceptions
+are not modeled. The other three handler-bearing wrapper methods in the class
+inventory are outside the certified call graph. Implicit exceptions and JVM
+timing remain outside this observer.
+
 ### Obligation and release-claim gates
 
 The [unified ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)

@@ -27,6 +27,27 @@ mapping and policy classification are the residual trusted step. Arithmetic is
 abstract/deterministic: the theorem is about control-dependency shape, not JVM
 value refinement.
 
+Methods with a declared javap exception table are rejected before certificate
+translation, including empty tables. The parser records table presence separately
+from its rows and rejects malformed numeric rows. Real typed-catch, catch-all and
+finally bytecode regressions check this guard against independently read javap
+output. This guard covers explicit protected ranges; ordinary implicit exceptions
+of handler-free methods remain outside the observer. The current selected caller,
+helper and composed bodies contain no exception tables. Among the four handler-bearing HMAC/hash wrapper methods found in the bound
+class inventory, only `JdkHmac.compute` is a declared opaque owned assumption;
+the other three are outside the certified call graph. `VerifiedHkdf.Extract` and
+`Expand` call `compute`, which can throw. Its call is modeled atomically as
+returning, so table-free translated bodies do not imply exception-free call
+chains.
+
+The parser recognizes method declarations with `throws` clauses and binds each
+descriptor and Code array to its member declaration. Unbound descriptors and
+orphan/repeated Code arrays are rejected; instruction offsets must strictly
+increase before CFG construction. Member boundaries rely on the pinned javap
+`-c -p -s` layout (two-space declaration indentation). Real sibling-method and
+synthetic malformed-input regressions exercise these guards. They do not prove
+method-boundary parsing or the extractor correct for all class files.
+
 ## 2. Public / secret classification
 
 | Root | Public | Secret |

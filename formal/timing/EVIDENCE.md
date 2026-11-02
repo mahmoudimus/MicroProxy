@@ -1,10 +1,10 @@
 # Checked secret-trace evidence
 
 The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
-`b6ae6560ccf2e107597001afdec3d1abb197582328ad52d64f857419ec543ab6`.
+`29b666ab4d950ab4f7b675d642b1df95ac10c50b78fc5a5aafe06d648f7e5f4f`.
 It records the 2026-11-01 macOS arm64 replay at
-`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/report.json`
-(workspace `replay-nvi3byhu`) over the preserved JDK 21 library classes.
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/exception-boundary-final-replay/report.json`
+(workspace `replay-xg5me5ku`) over the preserved JDK 21 library classes.
 The central ledger pins the snapshot and independently requires its input,
 root, fixture, execution-control and residual inventories. A future receipt
 needs source review and an explicit checker-baseline renewal.
@@ -18,9 +18,10 @@ hardness, implicit-exception coverage or physical secret erasure.
 - Dafny `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3 `4.12.1`.
 - Homebrew JDK `21.0.12.1`; DafnyRuntime SHA-256
   `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`.
-- 126 pinned inputs and 77 matching source-rebuilt class bindings.
-- 90 unit tests, all run by the root-module, discovery and direct-script entry
-  points documented in `README.md`.
+- 127 pinned inputs and 77 matching source-rebuilt class bindings.
+- 105 unit tests by discovery: 90 in `test_trace.py` and 15 real-javap and
+  malformed-input regressions in `test_exception_table.py`. The original module
+  and direct-script entry points still run their 90 tests.
 - Unchanged `SecretTrace.dfy`: 57 verified declarations; unchanged
   `HkdfShape.dfy`: 17; compiled positive control executed.
 - Compiled `ApplyProbe.dfy`: 138 rows and nine operand-sensitive expectations,
@@ -31,6 +32,36 @@ hardness, implicit-exception coverage or physical secret erasure.
 - Four Select certificate mutants and five callee mutants rejected with genuine
   proof-obligation failures. Parser, crash, timeout and resource failures never
   count as successful negative controls.
+
+## Exception-table and member-boundary guards
+
+An additional guard repair records the actual javap `Exception table:` header
+independently of parsed rows, skips the table's column header and preserves its
+protected ranges. Every method with a declared table is rejected; malformed
+numeric rows cause a hard parse failure. Previously the column header ended
+parsing early, leaving the handler list empty and allowing handler code to be
+omitted. Real typed-catch, catch-all and finally controls reproduce that defect
+and now reject; a no-table control is still accepted. Empty-table and malformed
+row controls also reject.
+
+The same review found that declarations ending in `throws` were not recognized:
+a sibling's body could be merged with the preceding method and silently dropped
+from its certificate. Such declarations are now recognized as distinct members;
+each descriptor/Code array must bind to its own recognized declaration. Orphan or
+repeated Code arrays, unbound descriptors, and non-increasing bytecode offsets
+are rejected. Positive controls retain separate no-handler throws methods,
+constructors/static initializers, fields and abstract/native members. The 15
+additional tests are in the pinned input inventory. Member boundaries still
+rely on javap's reviewed `-c -p -s` layout; these guards are not a parser proof.
+
+All selected caller, helper and expanded Feed bodies lack exception tables.
+Their certificate bodies are unchanged apart from the repository include path;
+proof counts, solver limits, policies, execution controls and residual
+inventories are unchanged. Of the four handler-bearing wrapper methods, only `JdkHmac.compute` is an
+explicit opaque owned contract; the other three are outside the certified call
+graph. Extract and Expand call `compute`, whose exceptions are not modeled.
+This repair strengthens the trusted extractor's rejection boundary;
+it does not verify exceptions or eliminate those owned assumptions.
 
 ## Checked certificates
 
