@@ -12,6 +12,12 @@ caller assumptions and 31 aggregate unchecked labels. The SAW alternative remain
 blocked, the unused AWS reference closure remains unreproduced, and independent
 external expert review and physical JVM timing evidence remain open.
 
+Keccak helper coverage merged through #131 after all 50 checks passed on
+`8b6541e`; merge `5a9f684` has the identical tested tree. The following scalar-field
+mapper repair is a separate integration change, with 139 pinned inputs and 209
+component tests (two optional replays skipped). It preserves the 13/19/31 residual
+sets and does not complete Task 2.
+
 **Architecture:** Continue the approved Dafny-to-Java route for HKDF, with the existing generated SHAKE/ML-KEM backend. Establish separate evidence for functional correctness, source-level traces, measured execution and external review. A unified ledger checks the declared scope and provenance; it does not replace proof replays.
 
 **Tech stack:** Dafny 4.9.1, bundled Z3 4.12.1, Java 21 and 25, DafnyRuntime 4.9.1, Python gates, existing Lean/TLC and SAW evidence.
@@ -152,6 +158,12 @@ This supplement does not complete Task 2 or close the 13/19/31 residual sets. Th
 exhausted its fixed budget on `Div5_16`. Six intermediate assertions preserve
 that theorem and its 56 checks; the three models and seven helper certificates
 now also verify with the Linux binary at the original budget.
+
+The scalar-field correction repairs a confirmed extractor defect: `putfield`
+stored the receiver word after discarding the assigned value. Twelve regression
+controls now check real value flow, live private returns and descriptor-based
+reference rejection. Current certified methods are field-free; their bodies
+and residual scope are preserved. The complete refreshed replay passes.
 
 The next implementation work is to establish exact receiver/type and ownership
 contracts for the production factories, then compose SHAKE sponge, Keccak,

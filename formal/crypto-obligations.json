@@ -2318,7 +2318,7 @@
         },
         {
           "path": "formal/timing/README.md",
-          "sha256": "9c4930db0a4fee09ed30d690ad46816b02396282013bed44b7818c4e2c4affc9",
+          "sha256": "0bf34dfd7823273eb12a7ade698967a8b6792309190ccc3b0748f9dc5705f67f",
           "kind": "documentation",
           "role": "V7 component scope, checked roots and open scope"
         },
@@ -2330,9 +2330,9 @@
         },
         {
           "path": "formal/timing/inputs.json",
-          "sha256": "543b4af57b39d56730ade7bb79ba39d6d4e35c00d03ab647c870ea743ed3e3de",
+          "sha256": "43119445fc9aba48dd377f6fea5a2296b0db66ec08a34fbfe1dc4389a5556ec5",
           "kind": "input-manifest",
-          "role": "138 pinned timing sources/fixtures/production inputs/tools"
+          "role": "139 pinned timing sources/fixtures/production inputs/tools"
         },
         {
           "path": "formal/timing/policy.json",
@@ -2348,7 +2348,7 @@
         },
         {
           "path": "formal/timing/bytecode_trace.py",
-          "sha256": "f5f11bd34bb48f8697cc295e12b9251ce44af8ffb6ac6d80ce6d8f6691577439",
+          "sha256": "823c09cea6b70d8389ea44e5ab4e8f6e6b2666abe27836645a401df5d5f85812",
           "kind": "tool-manifest",
           "role": "trusted javap extractor, CFG/taint/dispatch audit"
         },
@@ -2372,9 +2372,9 @@
         },
         {
           "path": "formal/timing/test_trace.py",
-          "sha256": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
+          "sha256": "cd4d40452328b725013266e35c262d6ce295e852847eba43c895714bc1756d97",
           "kind": "test-source",
-          "role": "90 parser/audit/CFG/rejection/callee-scope/execution controls"
+          "role": "102 parser/audit/CFG/rejection/callee-scope/execution and scalar-field value-binding controls"
         },
         {
           "path": "formal/timing/test_exception_table.py",
@@ -2384,7 +2384,7 @@
         },
         {
           "path": "formal/timing/PRODUCTION-EVIDENCE.json",
-          "sha256": "85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47",
+          "sha256": "dceff6e678f54ffd2679a0db8ff14de9194320824ad619fdf954d7fcb1b18e4b",
           "kind": "component-receipt",
           "role": "actual-bytecode certificate report with open scope and assumptions"
         },
@@ -2420,7 +2420,7 @@
         },
         {
           "path": "formal/timing/EVIDENCE.md",
-          "sha256": "335c89f6174d6df9029ce878fd625d0f566ad4c786155729bde1a38f51e2a16b",
+          "sha256": "f3238a998164ae4f0bbff01500baf6b01cdee6cc896a5e389158f4cd53b1ff78",
           "kind": "documentation",
           "role": "corrected receipt and remaining scope"
         },
@@ -2562,7 +2562,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "6553c3cb1dcc8aa29d33092705e63e4b4571a29f166ab381ce9679a7efa4924f",
+          "sha256": "27c05e8a44d13b440b89a24010f786904a562215691f28b568954ddc37a36a03",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2580,7 +2580,7 @@
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "7d03dae93dbf14edf08453d912de2a57e48e1f58f2a93c68f6e95a3f2b0350bb",
+          "sha256": "224b4d9f3bc7438bddc8fc103beef48905cb2331cc7c9ea7ff317a721a06ffe7",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },

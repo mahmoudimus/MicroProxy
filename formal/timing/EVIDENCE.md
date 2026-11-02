@@ -1,10 +1,10 @@
 # Checked secret-trace evidence
 
 The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
-`85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47`.
+`dceff6e678f54ffd2679a0db8ff14de9194320824ad619fdf954d7fcb1b18e4b`.
 It records the 2026-11-02 macOS arm64 replay at
-`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-linux-hints-full-replay/report.json`
-(workspace `replay-bnc6incm`) over the preserved JDK 21 library classes.
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/putfield-full-replay/report.json`
+(workspace `replay-3_zo7zuk`) over the preserved JDK 21 library classes.
 The central ledger pins the snapshot and independently requires its input,
 root, fixture, execution-control and residual inventories. A future receipt
 needs source review and an explicit checker-baseline renewal.
@@ -18,10 +18,10 @@ hardness, implicit-exception coverage or physical secret erasure.
 - Dafny `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3 `4.12.1`.
 - Homebrew JDK `21.0.12.1`; DafnyRuntime SHA-256
   `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`.
-- 138 pinned inputs and 77 matching source-rebuilt class bindings.
-- 197 unit tests by discovery, with two optional expensive replays skipped. The
+- 139 pinned inputs and 77 matching source-rebuilt class bindings.
+- 209 unit tests by discovery, with two optional expensive replays skipped. The
   complete replay above executes both proof components; its API regression is
-  also run separately. The trace module/direct script retains its 90 tests.
+  also run separately. The trace module/direct script retains its 102 tests.
   The ledger/release suite separately checks receipt semantics, including
   corruption after snapshot-digest renewal; all 200 ledger/release tests pass.
 - Unchanged `SecretTrace.dfy`: 57 verified declarations; unchanged
@@ -135,6 +135,28 @@ mathematical certificate bodies (only repository include paths differ). The
 field/NTT/codec/sampling label stays because its callers and other helpers are
 unfinished. The receipt's TCB and partial-composition disclosures are validated
 independently of an accepted snapshot-digest renewal.
+
+## Scalar field-store correction
+
+The trusted extractor previously consumed `putfield` in the wrong order: it
+discarded the assigned value and stored the receiver register. The corrected
+translation pops the value, then the receiver. Reference-typed writes are also
+rejected from their descriptors even if an alias annotation is missing.
+
+Twelve real-javap and execution regressions cover int/long fields, public and
+private stores, reference writers and a live private-return case. Nine fail on
+the old extractor and all twelve pass on the repair. Real Java stores the
+argument; the old model stored the receiver. In the `setAndEcho` counterexample,
+the old emitted program passes eight Dafny checks despite the dropped public
+store while its private return remains live. Correctly binding the value makes
+the unchanged model reject that secret-to-public store (five checks, two genuine
+proof errors). This is a mapping correction, not a change to the observer.
+
+None of the 21 selected caller/helper/composed methods or seven supplemental
+Keccak methods has a field opcode. Their program bodies are preserved. The
+reference-writing fixture still rejects, and Sponge field-writing methods stay
+open until their receiver/frame contracts and composition are checked. No
+production Java vulnerability or broader trace closure is claimed by this fix.
 
 ## Expanded Keccak trace supplement
 

@@ -4,12 +4,12 @@
     "formal/timing/SecretTrace.dfy": "95e683435ca753ee97b53e2a6b2c1b8b07a8b7db5cd974f99e2ca7cd3e93be15",
     "formal/timing/PositiveTraceCheck.dfy": "5428fb89db59695f46442c083dec626005de16cff93e158736b896e76382e9b0",
     "formal/timing/HkdfShape.dfy": "e97ece26d90e905bc31e39f44f52fecafca72efa99fe219edfd68ed2a9adbb88",
-    "formal/timing/bytecode_trace.py": "f5f11bd34bb48f8697cc295e12b9251ce44af8ffb6ac6d80ce6d8f6691577439",
+    "formal/timing/bytecode_trace.py": "823c09cea6b70d8389ea44e5ab4e8f6e6b2666abe27836645a401df5d5f85812",
     "formal/timing/policy.json": "f506883f3efaffce8ad356713b7d366066036b9ce32433d880cc69635593d227",
     "formal/timing/run.py": "defd08ba0b694a94cfb73c4fbe82e6f1aa490c379ec1dc277e1b8b8441ef24ae",
     "formal/timing/threat-model.md": "550db1f7e29d2a533649a06fecbcf8cc3276477ee30a8e278f458608a6c39665",
-    "formal/timing/README.md": "9c4930db0a4fee09ed30d690ad46816b02396282013bed44b7818c4e2c4affc9",
-    "formal/timing/test_trace.py": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
+    "formal/timing/README.md": "0bf34dfd7823273eb12a7ade698967a8b6792309190ccc3b0748f9dc5705f67f",
+    "formal/timing/test_trace.py": "cd4d40452328b725013266e35c262d6ce295e852847eba43c895714bc1756d97",
     "formal/timing/fixtures/CategoryTwo.java": "297819f8daabe05cb0349c1f91c3c3839a4304205f7d45109a271863b8a4f70a",
     "formal/timing/fixtures/ClassOracle.java": "6e3cce568f3ba1fcecf5d948fa59af096f82953d944cfdf37f27e76219a8f80d",
     "formal/timing/fixtures/ConstantTime.java": "933f9c672173cd2f550c72d4aa1f7b9eb58a1e32d43f4c1a37ed5e972f28c744",
@@ -138,6 +138,7 @@
     "formal/timing/test_runtime_primitives.py": "3fa814cfd894a34ed659ec7dbf7b5048bc6a4a2b6f212357fe3d7e922e93cdad",
     "formal/timing/keccak_traces.py": "f83af5b896b93008d8875448d5f27ebbb40d0db252ee9dde525e1f4a2b9a23ca",
     "formal/timing/test_keccak_traces.py": "3598fd4e582378bf1970a16a04a15636ccfa045940ba2b7c9daef2e0d1ed93e4",
-    "formal/timing/PublicProviderPublic.dfy": "8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94"
+    "formal/timing/PublicProviderPublic.dfy": "8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94",
+    "formal/timing/fixtures/FieldStoreProbe.java": "60d2a3c11f05057ea3d417164ed5442f8a7eeeaa3f8c4e563cd5a7ff7bd3e8e5"
   }
 }
