@@ -179,7 +179,9 @@ REQUIRED_COMPONENT_EVIDENCE = {
     'V8': (
         ('scripts/security/check_crypto_obligations.py', 'tool-manifest'),
         ('scripts/security/check_crypto_release.py', 'tool-manifest'),
+        ('scripts/security/crypto_current_release.py', 'tool-manifest'),
         ('scripts/security/test_crypto_obligations.py', 'test-source'),
+        ('scripts/security/test_crypto_current_release.py', 'test-source'),
         ('formal/obligations.md', 'documentation'),
         ('scripts/security/assess-local-timing.sh', 'tool-manifest'),
         ('docs/security-timing-audit.md', 'documentation'),
@@ -773,7 +775,9 @@ _PACKET_TRACE_EVIDENCE = (
 _RELEASE_GATE_EVIDENCE = (
     ("scripts/security/check_crypto_obligations.py", "tool-manifest"),
     ("scripts/security/check_crypto_release.py", "tool-manifest"),
+    ("scripts/security/crypto_current_release.py", "tool-manifest"),
     ("scripts/security/test_crypto_obligations.py", "test-source"),
+    ("scripts/security/test_crypto_current_release.py", "test-source"),
     ("formal/obligations.md", "documentation"),
 )
 

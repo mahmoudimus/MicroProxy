@@ -2238,7 +2238,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "fcd691018fd743f0acbc63b5d854d224a503f6ee97288593d8e009b1db074466",
+          "sha256": "04eb617693c82777b0fc85cc9c91a10332c2f88cc5e978a0fc263294c0ebf685",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2318,13 +2318,13 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "61f2d0ee10e2bc1cb3ccacc6cba1546317db2021219583c6e85685140b8022c0",
+          "sha256": "01c199adb3b35f099cd7383d10c76ab7347a143a40315407fb595c812c9d56b0",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
         {
           "path": "scripts/security/check_crypto_release.py",
-          "sha256": "6802be4fcc3ab3dd503d50ab8ed3b5acc31cb86b07a4922338a3fb1f50ac5463",
+          "sha256": "6605a1a2053882be9e37799380d3f222933fd0ceb35e97dd77a14674f5c52871",
           "kind": "tool-manifest",
           "role": "claim-level release gate"
         },
@@ -2336,7 +2336,7 @@
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "88a86a596d54e43a31cd44ad988ca74a89843eed8acf09fd2b2e1619e9304d0e",
+          "sha256": "85ee71a605a7a30e9885d88be1c75f1f97bfb7e54976596e5d8e9bf5b7715f28",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -2354,7 +2354,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "fcd691018fd743f0acbc63b5d854d224a503f6ee97288593d8e009b1db074466",
+          "sha256": "04eb617693c82777b0fc85cc9c91a10332c2f88cc5e978a0fc263294c0ebf685",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2381,6 +2381,18 @@
           "sha256": "285d7adf775f0f340a820b2a7f4895f5b23d8035785fd4dd28c2324632a17d40",
           "kind": "delivery-receipt",
           "role": "current generated-source/class inventory"
+        },
+        {
+          "path": "scripts/security/crypto_current_release.py",
+          "sha256": "f1d82a69de5ee4730ab3f82eb4c121efe37d4170a1c202b3f69735e9e860b5eb",
+          "kind": "tool-manifest",
+          "role": "fresh actual-artifact orchestration and end-of-run bindings"
+        },
+        {
+          "path": "scripts/security/test_crypto_current_release.py",
+          "sha256": "0215dc9c10c75e008257a638118ea58a6d66327116cace416b2be656cb8cae97",
+          "kind": "test-source",
+          "role": "actual-artifact gate regression and rejection controls"
         }
       ],
       "limitations": [
@@ -2678,7 +2690,9 @@
         "scripts/security/check_crypto_obligations.py",
         "scripts/security/check_crypto_release.py",
         "scripts/security/test_crypto_obligations.py",
-        "formal/obligations.md"
+        "formal/obligations.md",
+        "scripts/security/crypto_current_release.py",
+        "scripts/security/test_crypto_current_release.py"
       ],
       "limitations": [
         "The gate validates provenance and declared claims, not the mathematical proofs themselves.",
