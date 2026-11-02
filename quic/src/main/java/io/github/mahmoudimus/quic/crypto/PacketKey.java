@@ -4,6 +4,8 @@
  */
 package io.github.mahmoudimus.quic.crypto;
 
+import static io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default.Nonce;
+
 import io.github.mahmoudimus.quic.CipherSuite;
 import io.github.mahmoudimus.quic.QuicVersion;
 import java.nio.ByteBuffer;
@@ -138,17 +140,16 @@ public final class PacketKey {
     }
 
     /**
-     * The nonce for a packet number: the IV XORed with the 62-bit packet number, left-padded.
+     * The nonce for a packet number: the IV XORed with all 64 bits of the packet number,
+     * left-padded. QUIC limits packet numbers to 62 bits at the protocol layer; that limit is a
+     * caller policy, not a mask in this primitive, and every 64-bit {@code long} pattern remains
+     * accepted here.
      *
      * @param packetNumber the full packet number
      * @return a new 12-byte nonce
      */
     public byte[] nonce(long packetNumber) {
-        byte[] nonce = iv.clone();
-        for (int i = 0; i < 8; i++) {
-            nonce[NONCE_LENGTH - 1 - i] ^= (byte) (packetNumber >>> (8 * i));
-        }
-        return nonce;
+        return Nonce(iv, packetNumber);
     }
 
     /**

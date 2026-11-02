@@ -56,6 +56,7 @@ CLAIM_OBLIGATION = {
     "jvm-constant-time": "V7",
     "whole-proxy-security": "V8",
     "aws-full-upstream-hkdf-replay": "V1",
+    "packet-nonce-functional-production": "V3",
     "all-v0-v8-complete": "V8",
 }
 
@@ -223,9 +224,11 @@ class Fixture:
 
     def _write_expected_hash_map(self, oid: str, receipt_path: str, map_path: str,
                                  includes: tuple, excludes: tuple, path_prefix: str) -> None:
-        expected = obligations.REQUIRED_HASH_MAP_KEYS.get((oid, receipt_path, map_path))
+        expected = obligations.REQUIRED_HASH_MAP_KEYS.get(
+            (oid, receipt_path, map_path, tuple(includes), path_prefix))
         if expected is None:
-            raise AssertionError(f"missing expected hash-map keys for {oid}:{receipt_path}:{map_path}")
+            raise AssertionError(
+                f"missing expected hash-map keys for {oid}:{receipt_path}:{map_path}:{includes}:{path_prefix}")
         mapping = {}
         for key in expected:
             actual_relative = f"{path_prefix}/{key}" if path_prefix else key
@@ -239,7 +242,17 @@ class Fixture:
                     self.write(actual_relative, f"fixture pinned source {key}\n")
             mapping[key] = sha(path.read_bytes())
         receipt = self._load_json(receipt_path)
-        self._nested_set(receipt, map_path, mapping)
+        existing = receipt.get(map_path)
+        if not isinstance(existing, dict):
+            existing = {}
+        # A single manifest map can be validated by more than one reviewed
+        # signature (V3: live formal entries and historical quic/src entries).
+        # Replace only this signature's include scope so the split preserves
+        # keys owned by the other signature.
+        kept = {key: value for key, value in existing.items()
+                if not (includes and any(key.startswith(prefix) for prefix in includes))}
+        kept.update(mapping)
+        self._nested_set(receipt, map_path, kept)
         self._write_json(receipt_path, receipt)
 
     def _refresh_required_hash_maps(self, oid: str) -> None:
@@ -1078,6 +1091,167 @@ class ObligationLedgerTests(unittest.TestCase):
             "markers": ["a = 1", "Proof succeeded"],
         }
         self.assert_invalid("nonvacuity path/markers changed|required-evidence")
+
+    def test_packet_nonce_functional_production_policy_passes(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        status = self.validate()
+        self.assertEqual(status["claims"]["packet-nonce-functional-production"], "supported")
+        self.assertNotIn("packet-nonce-functional-production", status["residual_claims"])
+
+    def test_packet_nonce_receipt_controls_and_proof_counts_are_semantically_checked(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        path = "formal/nonce/PRODUCTION-EVIDENCE.json"
+        original = self.fixture._load_json(path)
+        cases = (
+            ("control", lambda r: r["controls"]["wrong-endian"].update({"status": "verified"}),
+             "not a semantic proof rejection"),
+            ("proof", lambda r: r["proof"]["kernel"].update({"verified": 0}),
+             "proof counts changed"),
+            ("audit", lambda r: r["proof"]["audits"].update({"kernel": "0 warnings"}),
+             "trusted declaration"),
+            ("historical", lambda r: r["bridge"].update({"sha256": "f" * 64}),
+             "PacketKey source identity changed"),
+        )
+        for name, mutate, pattern in cases:
+            receipt = json.loads(json.dumps(original))
+            mutate(receipt)
+            self.fixture._write_json(path, receipt)
+            self.fixture._set_evidence("V3", path, "component-receipt")
+            with self.subTest(case=name):
+                self.assert_invalid(pattern)
+        self.fixture._write_json(path, original)
+        self.fixture._set_evidence("V3", path, "component-receipt")
+
+    def test_packet_nonce_immutable_core_rejects_medium_domain_narrowing_repro(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        kernel = "formal/nonce/Nonce.dfy"
+        text = (self.root / kernel).read_text(encoding="utf-8")
+        narrowed = text.replace("    requires iv.Length == 12",
+                                "    requires (pn >> 62) == 0\n    requires iv.Length == 12", 1)
+        self.assertNotEqual(text, narrowed)
+        (self.root / kernel).write_text(narrowed, encoding="utf-8")
+        generated_before = sha((self.root / (
+            "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"
+            "VerifiedNonce/__default.java")).read_bytes())
+        self._renew_nonce_component_for(self.fixture, [kernel])
+        self.assertEqual(generated_before, sha((self.root / (
+            "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"
+            "VerifiedNonce/__default.java")).read_bytes()))
+        self.assert_invalid("reviewed core source changed")
+
+    def test_each_nonce_core_pin_rollback_is_rejected_after_json_renewal(self):
+        pins = obligations.PACKET_NONCE_CORE_PINS
+        for path in pins:
+            if path == "formal/nonce/inputs.json":
+                continue  # covered by the exact input-map test below
+            with self.subTest(path=path), tempfile.TemporaryDirectory() as directory:
+                fixture = Fixture(Path(directory))
+                fixture.make_supported("packet-nonce-functional-production")
+                original = (fixture.root / path).read_bytes()
+                (fixture.root / path).write_text(
+                    original.decode("utf-8", "replace") + "\n// renewed core pin\n",
+                    encoding="utf-8")
+                # Reuse the helper through a scoped Fixture instance.
+                ObligationLedgerTests._renew_nonce_component_for(fixture, [path])
+                with self.assertRaisesRegex(obligations.LedgerError,
+                                            "reviewed core source changed|exact 13-file core input map changed"):
+                    obligations.validate_ledger(fixture.root, fixture.write_ledger())
+
+    @staticmethod
+    def _renew_nonce_component_for(fixture, changed):
+        receipt_path = "formal/nonce/PRODUCTION-EVIDENCE.json"
+        receipt = fixture._load_json(receipt_path)
+        roles = {
+            "formal/nonce/Nonce.dfy": "kernel_source",
+            "formal/nonce/NonceDomain.dfy": "domain_source",
+            "formal/nonce/run.py": "runner",
+            "formal/nonce/test_run.py": "test_runner",
+            "formal/nonce/tools.json": "tools",
+            "formal/nonce/inputs.json": "input_manifest",
+            "formal/nonce/GENERATED.json": "generated_receipt",
+        }
+        kinds = {
+            "formal/nonce/Nonce.dfy": "spec-source",
+            "formal/nonce/NonceDomain.dfy": "spec-source",
+            "formal/nonce/run.py": "tool-manifest",
+            "formal/nonce/test_run.py": "test-source",
+            "formal/nonce/tools.json": "tool-manifest",
+            "formal/nonce/inputs.json": "input-manifest",
+            "formal/nonce/GENERATED.json": "generated-source",
+        }
+        for path in changed:
+            receipt["component"][roles[path]]["sha256"] = sha(
+                (fixture.root / path).read_bytes())
+            fixture._set_evidence("V3", path, kinds[path])
+        inputs = fixture._load_json("formal/nonce/inputs.json")
+        for path in changed:
+            if path in inputs["inputs"]:
+                inputs["inputs"][path] = sha((fixture.root / path).read_bytes())
+        fixture._write_json("formal/nonce/inputs.json", inputs)
+        receipt["component"]["input_manifest"]["sha256"] = sha(
+            (fixture.root / "formal/nonce/inputs.json").read_bytes())
+        receipt["proof"]["source_sha256"] = {
+            "before": sha((fixture.root / "formal/nonce/Nonce.dfy").read_bytes()),
+            "after": sha((fixture.root / "formal/nonce/Nonce.dfy").read_bytes()),
+        }
+        fixture._write_json(receipt_path, receipt)
+        fixture._set_evidence("V3", receipt_path, "component-receipt")
+        fixture._set_evidence("V3", "formal/nonce/inputs.json", "input-manifest")
+        fixture._set_evidence("V3", "formal/nonce/GENERATED.json", "generated-source")
+
+    def test_packet_nonce_core_input_map_rejects_value_renewal(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        inputs_path = "formal/nonce/inputs.json"
+        inputs = self.fixture._load_json(inputs_path)
+        bench = "formal/nonce/bench/NonceBenchmark.java"
+        inputs["inputs"][bench] = "a" * 64
+        self.fixture._write_json(inputs_path, inputs)
+        receipt_path = "formal/nonce/PRODUCTION-EVIDENCE.json"
+        receipt = self.fixture._load_json(receipt_path)
+        receipt["component"]["input_manifest"]["sha256"] = sha(
+            (self.root / inputs_path).read_bytes())
+        self.fixture._write_json(receipt_path, receipt)
+        self.fixture._set_evidence("V3", inputs_path, "input-manifest")
+        self.fixture._set_evidence("V3", receipt_path, "component-receipt")
+        self.assert_invalid("reviewed core source changed|exact 13-file core input map changed")
+
+    def test_packet_nonce_generation_identity_fields_are_immutable(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        receipt_path = "formal/nonce/PRODUCTION-EVIDENCE.json"
+        original = self.fixture._load_json(receipt_path)
+        cases = (
+            ("generated_class_key", "io/x/Other.class", "generated class key changed"),
+            ("generated_class_sha256", "b" * 64, "generated class hash is not the reviewed output"),
+            ("translation_metadata_sha256", "c" * 64, "translation metadata is not the accepted output"),
+            ("external_replay_report_sha256", "d" * 64, "external report is not the accepted component replay"),
+        )
+        for field, value, pattern in cases:
+            with self.subTest(field=field):
+                receipt = json.loads(json.dumps(original))
+                receipt["generation"][field] = value
+                self.fixture._write_json(receipt_path, receipt)
+                self.fixture._set_evidence("V3", receipt_path, "component-receipt")
+                self.assert_invalid(pattern)
+        self.fixture._write_json(receipt_path, original)
+        self.fixture._set_evidence("V3", receipt_path, "component-receipt")
+
+    def test_packet_nonce_hand_edited_generated_source_is_rejected(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        generated = ("quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"
+                     "VerifiedNonce/__default.java")
+        (self.root / generated).write_text("// hand-edited generated nonce\n", encoding="utf-8")
+        self.fixture._set_evidence("V3", generated, "generated-source")
+        self.assert_invalid("checked-in generated Java changed|reviewed input changed")
+
+    def test_legacy_saw_map_cannot_be_rebound_to_current_packetkey(self):
+        self.fixture.make_supported("packet-nonce-functional-production")
+        inputs_path = "formal/saw/inputs.json"
+        inputs = self.fixture._load_json(inputs_path)
+        packetkey = "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java"
+        inputs["inputs"][packetkey] = sha((self.root / packetkey).read_bytes())
+        self.fixture._write_json(inputs_path, inputs)
+        self.fixture._set_evidence("V3", inputs_path, "input-manifest")
+        self.assert_invalid("stale source/evidence hash")
 
     def test_hkdf_local_functional_and_production_policies_pass(self):
         for claim_id in ("hkdf-isolated-functional", "hkdf-production-functional"):

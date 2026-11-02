@@ -52,15 +52,15 @@ import delivery as audited_delivery  # noqa: E402
 
 SCHEMA = "microproxy.crypto-current-release-artifact-validation/v1"
 STAGE_SCHEMA = "microproxy.crypto-delivery-stage/v1"
-BUNDLE_SCHEMA = "microproxy.crypto-current-bundle/v1"
+BUNDLE_SCHEMA = "microproxy.crypto-current-bundle/v2"
 
 # Current release scope: every actual QUIC library class, the scoped crypto
 # classes, the retained library classes in the minimized bundle, the bundled
 # Dafny runtime classes and the three packaged notices.  These are release
 # identity pins, not proof-strength claims.
-EXPECTED_LIBRARY_CLASS_COUNT = 467
-EXPECTED_CRYPTO_CLASS_COUNT = 82
-EXPECTED_RETAINED_LIBRARY_CLASS_COUNT = 467
+EXPECTED_LIBRARY_CLASS_COUNT = 468
+EXPECTED_CRYPTO_CLASS_COUNT = 84
+EXPECTED_RETAINED_LIBRARY_CLASS_COUNT = 468
 EXPECTED_RUNTIME_CLASS_COUNT = 37
 EXPECTED_RESOURCES = (
     "META-INF/LICENSE-dafny.txt",
@@ -68,6 +68,20 @@ EXPECTED_RESOURCES = (
     "META-INF/NOTICE-crypto.txt",
 )
 EXPECTED_BUNDLE_RUNS = {"21": 9, "25": 9}
+EXPECTED_NONCE_SMOKE_CASES = 9
+EXPECTED_NONCE_SMOKE_SUITES = (
+    "TLS_AES_128_GCM_SHA256",
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_CHACHA20_POLY1305_SHA256",
+)
+EXPECTED_NONCE_SMOKE_PACKET_NUMBERS = (0, 1, -1)
+NONCE_SMOKE_SOURCE = "formal/nonce/BundleNonceSmoke.java"
+NONCE_SMOKE_OWNERS = (
+    "io.github.mahmoudimus.quic.crypto.PacketKey",
+    "io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default",
+    "nonceadoption.BundleNonceSmoke",
+    "dafny.Helpers",
+)
 EXPECTED_JDK_MAJORS = frozenset({"21", "25"})
 DEFAULT_TIMEOUT_SECONDS = 7200
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -416,6 +430,88 @@ def _check_delivery_receipt(receipt: dict[str, Any], *, stage_receipt: dict[str,
     }
 
 
+def _check_nonce_smoke(nonce: Any, *, tool_hashes: dict[str, str],
+                       delivery_classes: dict[str, str]) -> dict[str, Any]:
+    _require(isinstance(nonce, dict), "bundle receipt lacks the nonce execution smoke")
+    _require(nonce.get("schema") == "microproxy.nonce-bundle-smoke/v1",
+             "nonce smoke schema changed")
+    _require(nonce.get("source") == NONCE_SMOKE_SOURCE,
+             "nonce smoke source path changed")
+    _require(nonce.get("source_sha256") == tool_hashes.get(NONCE_SMOKE_SOURCE),
+             "nonce smoke harness does not bind the current checkout source")
+    harness = _sha_map(nonce.get("harness_classes"), "nonce smoke harness classes")
+    _require(set(harness) == {"nonceadoption/BundleNonceSmoke.class"},
+             "nonce smoke compiled an unexpected harness class set")
+    _require(not (set(harness) & set(delivery_classes)),
+             "nonce smoke harness leaked into the production class map")
+    runs = nonce.get("runs")
+    _require(isinstance(runs, dict) and set(runs) == {"21", "25"},
+             "nonce smoke does not cover both required JDKs")
+    summary: dict[str, Any] = {}
+    for major in ("21", "25"):
+        run = runs.get(major)
+        _require(isinstance(run, dict), f"nonce smoke JDK {major} record is missing")
+        _require(run.get("cases") == EXPECTED_NONCE_SMOKE_CASES
+                 and run.get("passed") == EXPECTED_NONCE_SMOKE_CASES,
+                 f"nonce smoke JDK {major} did not execute all {EXPECTED_NONCE_SMOKE_CASES} cases")
+        origins = run.get("origins")
+        _require(isinstance(origins, dict)
+                 and set(origins) == {"PacketKey", "VerifiedNonce", "DafnyRuntime", "harness"},
+                 f"nonce smoke JDK {major} origin inventory changed")
+        _require(all(isinstance(value, str) and value for value in origins.values()),
+                 f"nonce smoke JDK {major} origin paths are malformed")
+        _require(origins["PacketKey"] == origins["VerifiedNonce"],
+                 f"nonce smoke JDK {major} loaded VerifiedNonce outside the bundle")
+        _require(origins["DafnyRuntime"] == origins["PacketKey"],
+                 f"nonce smoke JDK {major} loaded the Dafny runtime outside the bundle")
+        _require(origins["harness"] not in {origins["PacketKey"], origins["DafnyRuntime"]},
+                 f"nonce smoke JDK {major} harness shares a production origin")
+        detail = run.get("cases_detail")
+        _require(isinstance(detail, list) and len(detail) == EXPECTED_NONCE_SMOKE_CASES,
+                 f"nonce smoke JDK {major} case inventory changed")
+        seen = set()
+        for row in detail:
+            _require(isinstance(row, dict)
+                     and set(row) == {"suite", "packet_number", "nonce", "ciphertext_sha256"},
+                     f"nonce smoke JDK {major} case fields changed")
+            suite, packet_number = row["suite"], row["packet_number"]
+            _require(suite in EXPECTED_NONCE_SMOKE_SUITES
+                     and type(packet_number) is int
+                     and packet_number in EXPECTED_NONCE_SMOKE_PACKET_NUMBERS,
+                     f"nonce smoke JDK {major} has an unexpected case")
+            _require((suite, packet_number) not in seen,
+                     f"nonce smoke JDK {major} repeats a case")
+            seen.add((suite, packet_number))
+            _require(isinstance(row["nonce"], str)
+                     and re.fullmatch(r"[0-9a-f]{24}", row["nonce"]),
+                     f"nonce smoke JDK {major} has a malformed nonce")
+            _require(isinstance(row["ciphertext_sha256"], str)
+                     and SHA256.fullmatch(row["ciphertext_sha256"]),
+                     f"nonce smoke JDK {major} has a malformed ciphertext digest")
+        _require(seen == {(suite, packet_number)
+                          for suite in EXPECTED_NONCE_SMOKE_SUITES
+                          for packet_number in EXPECTED_NONCE_SMOKE_PACKET_NUMBERS},
+                 f"nonce smoke JDK {major} case matrix changed")
+        loaded = run.get("loaded_classes")
+        _require(isinstance(loaded, dict), f"nonce smoke JDK {major} lacks loaded origins")
+        for owner in NONCE_SMOKE_OWNERS:
+            _require(owner in loaded, f"nonce smoke JDK {major} did not load {owner}")
+        _require(loaded["io.github.mahmoudimus.quic.crypto.PacketKey"] == origins["PacketKey"]
+                 and loaded["io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default"]
+                 == origins["PacketKey"],
+                 f"nonce smoke JDK {major} did not execute PacketKey/VerifiedNonce from the bundle")
+        _require(loaded["nonceadoption.BundleNonceSmoke"] == origins["harness"],
+                 f"nonce smoke JDK {major} harness origin differs")
+        _require(loaded["dafny.Helpers"] == origins["DafnyRuntime"],
+                 f"nonce smoke JDK {major} runtime origin differs")
+        _require(isinstance(run.get("classload_sha256"), str)
+                 and SHA256.fullmatch(run["classload_sha256"]),
+                 f"nonce smoke JDK {major} class-load digest is malformed")
+        summary[major] = {"cases": EXPECTED_NONCE_SMOKE_CASES,
+                          "classload_sha256": run["classload_sha256"]}
+    return summary
+
+
 def _check_bundle_receipt(receipt: dict[str, Any], *, delivery_receipt: dict[str, Any],
                           library_sha: str, bundle_sha: str, runtime_sha: str,
                           delivery_receipt_sha: str, stage_sha: str,
@@ -499,9 +595,11 @@ def _check_bundle_receipt(receipt: dict[str, Any], *, delivery_receipt: dict[str
 
     source_inputs = receipt.get("source_inputs")
     _require(isinstance(source_inputs, dict), "bundle receipt lacks source inputs")
-    for name in ("formal/crypto/delivery.py", "formal/crypto/bundle_checks.py"):
+    for name in ("formal/crypto/delivery.py", "formal/crypto/bundle_checks.py", NONCE_SMOKE_SOURCE):
         _require(source_inputs.get(name) == tool_hashes.get(name),
                  f"bundle receipt tool/source binding differs: {name}")
+    nonce_smoke = _check_nonce_smoke(receipt.get("nonce_smoke"), tool_hashes=tool_hashes,
+                                     delivery_classes=classes)
 
     return {
         "crypto_class_count": len(crypto),
@@ -510,6 +608,7 @@ def _check_bundle_receipt(receipt: dict[str, Any], *, delivery_receipt: dict[str
         "resources": sorted(resources),
         "runs": {major: run["completed_full_handshakes"]
                  for major, run in runs.items()},
+        "nonce_smoke": nonce_smoke,
     }
 
 
@@ -632,6 +731,10 @@ def validate_current_release(repository_root: str | Path, *, stage: str | Path,
         stage_receipt_sha = digest(stage_receipt_path)
 
         tool_paths = [Path(__file__).resolve(), delivery_tool, bundle_tool]
+        nonce_smoke_tool = tool_root_path / NONCE_SMOKE_SOURCE
+        _require(nonce_smoke_tool.is_file(),
+                 f"missing nonce execution smoke harness: {nonce_smoke_tool}")
+        tool_paths.append(nonce_smoke_tool)
         release_tool = tool_root_path / "scripts/security/check_crypto_release.py"
         if release_tool.is_file():
             tool_paths.append(release_tool)

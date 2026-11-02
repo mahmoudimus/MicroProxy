@@ -4,6 +4,14 @@
 
 **Goal:** Complete the remaining implementation and assurance work in issue 117, preserving explicit gaps that require external review or deferred JVM timing work.
 
+**Status of this plan (2026-11-02): partial, not complete.** The generated-nonce functional
+production route is implemented and locally bound; its required CI and merge gates
+are separate acceptance steps, and the broad issue remains open. This plan does not
+claim that only timing remains: the SAW nonce bytecode route is still blocked, the full AWS
+upstream closure is still unreproduced, the trace work still has open roots/assumed callees
+(the corrected trace snapshot retains 15 open roots, 19 assumed contracts and
+31 unchecked labels), and independent external expert review is absent.
+
 **Architecture:** Continue the approved Dafny-to-Java route for HKDF, with the existing generated SHAKE/ML-KEM backend. Establish separate evidence for functional correctness, source-level traces, measured execution and external review. A unified ledger checks the declared scope and provenance; it does not replace proof replays.
 
 **Tech stack:** Dafny 4.9.1, bundled Z3 4.12.1, Java 21 and 25, DafnyRuntime 4.9.1, Python gates, existing Lean/TLC and SAW evidence.
@@ -70,7 +78,7 @@
 
 - [x] Add GitHub to the top-level navigation and verify rendered HTML, strict MkDocs and links.
 - [x] Review current open PRs against exact heads. Merge only eligible changes after the required checks; assess release side effects separately.
-- [ ] Reconcile assurance documentation, original checklist and issue 117 with current evidence. Keep external review and timing obligations visible.
+- [x] Reconcile assurance documentation, original checklist and issue 117 with current evidence. Keep external review and timing obligations visible. (Bounded reconciliation: this plan remains partial; the nonce functional route is implemented, and the SAW bytecode route stays blocked.)
 - [ ] Run the appropriate proof, gate, Maven, fingerprint and packaging checks; commit/push coherent changes and verify remote heads.
 
 ## Execution evidence and remaining work
@@ -78,28 +86,51 @@
 Production HKDF now delegates to the verified generated kernel. The final replay
 checks 21 kernel obligations, 22 unrestricted-domain obligations, ten proof/audit/
 compiled-adapter controls, and 45 JCE cases with 2,766 assertions on each of JDK
-21 and 25. The full Maven reactor passes 4,146 test executions per JDK with no
-failures/errors and 23 skips; fingerprint tests passed. The source, runtime,
+21 and 25. The earlier HKDF adoption record reports 4,146 test executions per
+JDK with no failures/errors and 23 skips; its fingerprint tests passed. The source, runtime,
 canonical-class and actual library/bundle evidence is in the
 [HKDF adoption record](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/crypto/adoption/hkdf).
 It includes the measured allocation increase and inconclusive shared-host CPU
 results, rather than treating performance measurements as timing-security proof.
 
-The ledger has 68 regression tests. The reviewed policy requires the complete
-source/generated-file/control inventories and positive proof/execution results.
+The combined ledger and release gates have 123 regression tests on this base. The reviewed policy requires
+the complete source/generated-file/control inventories and positive proof/execution results.
 A self-declared JSON status cannot enable future timing, expert-review,
 whole-system, AWS-closure or current-release claims. Actual artifact checks run
 against the specified build separately from those static claim labels.
 
+Production `PacketKey.nonce` delegates to the Dafny-verified generated
+`VerifiedNonce.__default.Nonce`. The combined local `mvn test` reactor passes
+4,109 tests per JDK 21/25, with zero failures/errors and 23 skips; CI additionally
+runs `verify` and the Linux nonce proof replay. Local evidence is not a release
+or deployment attestation. The frozen nonce replay records 337 kernel and 343
+domain assertions, zero audit findings, five genuine proof-obligation rejects, a bounded
+`--no-verify` translation byte-identical to the checked-in source, and
+`NONCE-TEST-OK cases=10 assertions=162774` on JDK 21 and 25. The candidate adoption receipt binds
+the live bridge, generated source, `GENERATED.json`, the central delivery inventory
+(468 library / 84 scoped crypto / 468 retained classes), a separate executed 9-case
+bundle nonce/seal/open smoke and eight `PacketKeyNonceTest` cases on both JDKs. The
+narrow `packet-nonce-functional-production` claim is supported; V3 remains `blocked`
+because the historical SAW `PacketKey.nonce` proof is still blocked by array-clone
+translation. No cryptographic-hardness, constant-time, JVM-timing or full-JAR claim
+follows.
+
 The trace milestone covers five conditional caller certificates: ML-KEM's full
 1088-byte comparison/selection, public-seed rejection sampling, and generated HKDF
 Extract, Expand and label serialization. All instructions in those certificates
-are reachable from entry. The 19 opaque owned helper/adapter contracts used by
-these callers are explicit assumptions; binding their actual class bytes does
+are reachable from entry. The corrected snapshot also verifies four owned helpers and a separate composed
+Feed. A compiled 138-row Apply probe, 90 trace tests, 27 fixtures and nine genuine
+proof-failure mutants exercise extraction and execution controls. Wipe must
+execute four stores to its private parameter role; private-input liveness is
+enforced. The original 19 opaque owned helper/adapter contracts used by
+these callers remain explicit assumptions; binding their actual class bytes does
 not prove their traces. This is why the full paired-flow task remains unchecked.
-Unsupported object, dispatch, alias and exception paths are rejected. The report
-records 15 open roots and 31 unchecked callee labels instead of hiding them as
-provider code. The final core and replay evidence stays in
+Unsupported object, dispatch, alias and exception paths are rejected. The separate composed Feed reduces its own opaque set from ten to seven;
+substituting it would yield a 16-contract union, which is not the selected
+five-caller set. The report records 15 open roots and 31 unchecked callee labels instead of hiding them as
+provider code. Those counts are the pre-trace-correction snapshot; the separately
+reviewed trace correction is reconciled by root, not silently reclassified here.
+The final core and replay evidence stays in
 [the trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing).
 
 The next implementation work is to establish exact receiver/type and ownership

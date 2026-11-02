@@ -28,6 +28,22 @@ macOS arm64 archive and input hashes are pinned in `inputs.json`. This runner do
 not install tools or build Java. Existing reference class files must match the
 pinned hashes; changed inputs require review before updating the pins.
 
+The pre-adoption `PacketKey.java` pin is **historical** and is preserved byte-for-byte
+under `historical/` with the original `501999d8...` hash. `inputs.json` is kept
+verbatim. The ledger splits that same `inputs` map into a live `formal/` signature
+and a `quic/src/` signature validated with `path_prefix: formal/saw/historical`;
+the frozen copy at that path is what the historical pin resolves to. Do not repin
+the `quic/src/...` key to the current bridge `120f4569...`: doing so would extend
+this receipt to unreviewed bytecode. The current generated-nonce route is a
+separate reviewed claim, not a SAW result. The unchanged runner still validates
+its `inputs` against the checkout, so a replay on the current tree fails at the
+`PacketKey.java` input check. That is accurate: a faithful replay requires the
+pinned historical checkout (or a byte-identical historical build), not the
+current bridge. The two historical class pins (`65f1d21d...` for
+`MlKem768.class`, `61f7d592...` for the pre-adoption `PacketKey.class`) also
+stay in `inputs`; a current Maven build cannot satisfy them. See
+`historical/README.md`.
+
 From the repository root:
 
 ```sh

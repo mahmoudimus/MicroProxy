@@ -100,9 +100,11 @@ ledger's own `strength`/`production`/dependency/evidence values cannot relax tha
 policy; `supported` is rejected when any of them differ.
 
 The current supported claims are the generated SHAKE/ML-KEM functional production
-claim, the scoped local HKDF functional and production components, the scoped packet
-receive trace and the non-timing release gate. The V0 finite fixture cannot be
-relabelled as a production implementation claim.
+claim, the scoped local HKDF functional and production components, the narrow
+generated nonce functional production claim, the scoped packet receive trace and
+the non-timing release gate. The V0 finite fixture cannot be relabelled as a
+production implementation claim, and the blocked SAW nonce bytecode route is not
+made supported by the generated nonce route.
 
 Supported status is fail-closed to the claims that have a reviewed, implemented
 semantic evidence validator in the checker. Security proofs, timing/constant-time,
@@ -134,6 +136,8 @@ python3 scripts/security/check_crypto_release.py \
   --require shake-mlkem-functional-production
 python3 scripts/security/check_crypto_release.py \
   --require hkdf-production-functional
+python3 scripts/security/check_crypto_release.py \
+  --require packet-nonce-functional-production
 
 # Fails without actual artifact inputs; the static claim remains deferred.
 python3 scripts/security/check_crypto_release.py --require current-release-jar-identity
@@ -202,7 +206,23 @@ At this snapshot:
 - SAW `reduceOnce` evidence is a historical pre-adoption bytecode snapshot. The
   actual `PacketKey.nonce` proof remains blocked by unsupported primitive-array
   `clone` translation; the portable SAW route is explicitly `not-selected`, not
-  complete.
+  complete. V3 stays `blocked`. The original `formal/saw/inputs.json` is
+  preserved verbatim and its pre-adoption `PacketKey.java` entry
+  (`501999d8...`) is frozen under `formal/saw/historical` and validated through a
+  `path_prefix` split; it is never repinned to the current bridge. A current-tree
+  SAW replay is expected to fail that historical input check, which is accurate.
+- The generated nonce functional route is candidate-integrated separately and narrowly in this worktree (root acceptance/merge and Linux CI pending):
+  `PacketKey.nonce` delegates to the Dafny-verified generated
+  `VerifiedNonce.__default.Nonce`; `formal/nonce/PRODUCTION-EVIDENCE.json` binds
+  the frozen kernel/domain sources, 337/343 proof counts, five genuine
+  proof-obligation rejects, bounded `--no-verify` generation, the checked-in
+  generated source and the 468/84/468 delivery inventory. `PacketKey.seal/open`
+  plus nonce vectors pass 8 JUnit tests on JDK 21 and JDK 25. This is a
+  functional component claim under Dafny/javac/JVM/DafnyRuntime trust; it is not
+  a SAW bytecode proof, cryptographic-hardness claim, JVM timing/constant-time
+  result, full-JAR identity or Linux live CI pass. The claim is an independent
+  functional route; advancing the legacy SAW status later requires a reviewed
+  policy change and does not retroactively weaken this nonce proof.
 - The pinned AWS HKDF target replay verifies 9 declarations with 0 errors, but it
   is target-only (`full_dependency_graph_verified=false`). The pinned full closure
   replay failed with exit 134/resource/timeouts/backend errors and discharged no
@@ -272,5 +292,12 @@ must be tied to an actual reviewed receipt, not a label:
 4. If the HKDF final delivery store or production adapter changes, renew the exact
    input/tool/generated-source/class/provider/facade pins and their receipt
    validators, then rerun the gate regressions and all normal/narrow/all-required checks.
+4a. If the nonce kernel, generated source, delivery inventory or PacketKey bridge
+   changes, renew `formal/nonce/PRODUCTION-EVIDENCE.json`, the generated receipt and
+   inputs, the typed nonce validator constants and the affected hash pins; do not
+   extend the frozen historical SAW receipt to the new bridge.
+   The reviewed nonce claim policy currently requires the legacy V3 status to
+   remain `blocked`. Advancing that SAW status also requires an explicit policy
+   renewal; it does not invalidate the separate nonce functional proof.
 5. Do not convert agent-assisted development review into an independent external
    expert-review receipt.

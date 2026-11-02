@@ -2,7 +2,7 @@
 
 ## Functionally verified cryptographic implementations with documented trust assumptions
 
-Production HKDF, SHAKE128/256 and ML-KEM-768 use Java generated from functionally verified
+Production HKDF, SHAKE128/256, ML-KEM-768 and the QUIC packet-number nonce primitive use Java generated from functionally verified
 Dafny implementations. The proofs cover their stated functional specifications; checked source,
 class and JAR delivery connects the verified source to the packaged Java. Compiler/runtime,
 reviewed Java facades and selected JDK primitives remain trusted, as detailed below.
@@ -28,7 +28,7 @@ remaining assumptions.
 | TLA+ with TLC | Explore TLS key/sequence/closure transitions and check invariants within the configured finite state space | Model checking plus finite observations of production behavior; it does not generate our Java or prove unbounded refinement. |
 | Lean 4 | Kernel-checked mathematical theorems about counters, nonce/label encodings and resource bounds | Universal model theorems plus separately identified finite Java observations; it does not generate the production implementation. |
 | Dafny | Specify exact results, verify executable algorithms, and generate Java from the verified source | Production HKDF, SHAKE and ML-KEM use generated Java with checked delivery. SHAKE/ML-KEM use native-array refinements; HKDF implements complete Extract/Expand/label equations. The packet kernel is integrated. Compiler/runtime, facades and any lowering are explicit trust boundaries. |
-| SAW/Crucible | Prove a property of supported actual Java class-file methods | One bounded reduction method from the pre-adoption Java artifact; it does not prove the current generated backend. Unsupported operations and caller preconditions remain outside that experiment. |
+| SAW/Crucible | Prove a property of supported actual Java class-file methods | One bounded reduction method from the pre-adoption Java artifact; it does not prove the current generated backend. The `PacketKey.nonce` SAW attempt remains blocked; the adopted nonce uses a separate Dafny-generated functional route and claim. Unsupported operations and caller preconditions remain outside that experiment. |
 
 For generated components the delivery sequence is:
 
@@ -155,6 +155,14 @@ and records SAW summaries. A wrong-modulus specification must produce a proof
 counterexample, and a deliberately contradictory precondition must be detected
 as vacuous. An actual `PacketKey.nonce(long)` proof attempt is recorded as blocked
 by SAW's unsupported primitive-array `clone` translation, never as verified.
+The original SAW input map is preserved verbatim and its pre-adoption
+`PacketKey.java` entry is frozen under `formal/saw/historical`; a current-tree
+replay is expected to fail that historical input check. The candidate production
+nonce is a **separate** generated-Dafny functional route: `PacketKey.nonce`
+delegates to `VerifiedNonce.__default.Nonce`, with its own proof/control/
+generation/JDK21-25 receipt and a narrow `packet-nonce-functional-production`
+claim. That claim is not a SAW bytecode result and makes no cryptographic-
+hardness, timing or full-JAR claim.
 SAW/Crucible semantics and translation, Cryptol, the solver, selected JDK classes
 and the Java build remain trusted. This experiment is separate from the Lean/TLC
 CI job and currently requires the documented local tool setup.

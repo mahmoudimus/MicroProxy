@@ -141,7 +141,7 @@ if mode == "malformed":
 delivery = json.loads(Path(args.delivery_receipt).read_text())
 classes = delivery["classes"]
 names = list(classes)
-crypto = {name: classes[name] for name in names[:82]}
+crypto = {name: classes[name] for name in names[:84]}
 retained = dict(classes)
 if mode == "short_retained":
     retained.pop(next(iter(retained)))
@@ -159,8 +159,43 @@ runs = {
     "25": {"completed_full_handshakes": 9, "loaded_classes": {"fixture": "origin"}},
 }
 here = Path(__file__).resolve()
+harness_source = here.parents[2] / "formal/nonce/BundleNonceSmoke.java"
+harness_sha = digest(harness_source)
+suites = ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"]
+nonce_origins = {
+    "PacketKey": "/fixture/bundle.jar",
+    "VerifiedNonce": "/fixture/bundle.jar",
+    "DafnyRuntime": "/fixture/bundle.jar",
+    "harness": "/fixture/nonce-harness",
+}
+nonce_detail = [
+    {"suite": suite, "packet_number": pn, "nonce": "00" * 12,
+     "ciphertext_sha256": hashlib.sha256((suite + str(pn)).encode()).hexdigest()}
+    for suite in suites for pn in (0, 1, -1)
+]
+nonce_loaded = {
+    "io.github.mahmoudimus.quic.crypto.PacketKey": nonce_origins["PacketKey"],
+    "io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default":
+        nonce_origins["PacketKey"],
+    "nonceadoption.BundleNonceSmoke": nonce_origins["harness"],
+    "dafny.Helpers": nonce_origins["DafnyRuntime"],
+}
+nonce_runs = {
+    major: {"cases": 9, "passed": 9, "origins": nonce_origins,
+            "cases_detail": nonce_detail,
+            "classload_sha256": hashlib.sha256((major + "nonce").encode()).hexdigest(),
+            "loaded_classes": nonce_loaded}
+    for major in ("21", "25")
+}
+nonce_smoke = {
+    "schema": "microproxy.nonce-bundle-smoke/v1",
+    "source": "formal/nonce/BundleNonceSmoke.java",
+    "source_sha256": harness_sha,
+    "harness_classes": {"nonceadoption/BundleNonceSmoke.class": harness_sha},
+    "runs": nonce_runs,
+}
 receipt = {
-    "schema": "microproxy.crypto-current-bundle/v1",
+    "schema": "microproxy.crypto-current-bundle/v2",
     "status": "complete",
     "artifact_inputs": {
         "library.jar": digest(args.library),
@@ -183,13 +218,29 @@ receipt = {
     "source_inputs": {
         "formal/crypto/bundle_checks.py": digest(here),
         "formal/crypto/delivery.py": digest(here.parent / "delivery.py"),
+        "formal/nonce/BundleNonceSmoke.java": harness_sha,
     },
+    "nonce_smoke": nonce_smoke,
     "jdk_inputs": {str(Path(home).resolve()): {} for home in args.java_home},
 }
 if mode == "wrong_library":
     receipt["library_jar_sha256"] = "0" * 64
 if mode == "incomplete":
     receipt["status"] = "incomplete"
+if mode == "missing_nonce_smoke":
+    receipt.pop("nonce_smoke")
+if mode == "short_nonce_smoke":
+    nonce_smoke["runs"]["21"]["cases"] = 8
+if mode == "wrong_nonce_origin":
+    nonce_smoke["runs"]["25"]["origins"]["VerifiedNonce"] = "/elsewhere/nonce.jar"
+if mode == "wrong_nonce_runtime":
+    nonce_smoke["runs"]["21"]["origins"]["DafnyRuntime"] = "/elsewhere/runtime.jar"
+if mode == "wrong_nonce_loaded":
+    nonce_smoke["runs"]["21"]["loaded_classes"][
+        "io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default"] = \
+        nonce_origins["harness"]
+if mode == "nonce_harness_leak":
+    nonce_smoke["harness_classes"] = {names[0]: harness_sha}
 receipt_path.write_text(json.dumps(receipt))
 print(receipt_path)
 if mode == "mutate_bundle":
@@ -216,6 +267,10 @@ class FakeArtifactCheckout:
         self.delivery_tool.write_text(FAKE_DELIVERY, encoding="utf-8")
         self.bundle_tool = self.root / "formal/crypto/bundle_checks.py"
         self.bundle_tool.write_text(FAKE_BUNDLE, encoding="utf-8")
+        self.nonce_smoke_source = self.root / "formal/nonce/BundleNonceSmoke.java"
+        self.nonce_smoke_source.parent.mkdir(parents=True)
+        self.nonce_smoke_source.write_text(
+            "package nonceadoption; public final class BundleNonceSmoke {}\n", encoding="utf-8")
         release_tool = self.root / "scripts/security/check_crypto_release.py"
         release_tool.parent.mkdir(parents=True)
         release_tool.write_text("# fixture release tool\n", encoding="utf-8")
@@ -553,7 +608,9 @@ class ArtifactBindingTests(unittest.TestCase):
 
     def test_bundle_nonzero_malformed_incomplete_wrong_binding_fail(self):
         for mode in ("nonzero", "malformed", "incomplete", "wrong_library",
-                     "short_retained"):
+                     "short_retained", "missing_nonce_smoke", "short_nonce_smoke",
+                     "wrong_nonce_origin", "wrong_nonce_runtime", "wrong_nonce_loaded",
+                     "nonce_harness_leak"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 checkout = FakeArtifactCheckout(Path(directory))
                 with mock.patch.dict(os.environ, {"FAKE_BUNDLE_MODE": mode}):
@@ -561,6 +618,22 @@ class ArtifactBindingTests(unittest.TestCase):
                         checkout.validate()
                 report = json.loads((checkout.output / "report.json").read_text())
                 self.assertEqual(report["status"], "failed")
+
+    def test_nonce_smoke_requires_executed_cases_and_real_origins(self):
+        cases = (
+            ("missing_nonce_smoke", "lacks the nonce execution smoke"),
+            ("short_nonce_smoke", "did not execute all 9 cases"),
+            ("wrong_nonce_origin", "loaded VerifiedNonce outside the bundle"),
+            ("wrong_nonce_runtime", "loaded the Dafny runtime outside the bundle"),
+            ("wrong_nonce_loaded", "did not execute PacketKey/VerifiedNonce from the bundle"),
+            ("nonce_harness_leak", "unexpected harness class set"),
+        )
+        for mode, pattern in cases:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                checkout = FakeArtifactCheckout(Path(directory))
+                with mock.patch.dict(os.environ, {"FAKE_BUNDLE_MODE": mode}):
+                    with self.assertRaisesRegex(artifacts.ArtifactValidationError, pattern):
+                        checkout.validate()
 
     def test_altered_artifact_after_delivery_is_rejected(self):
         with mock.patch.dict(os.environ, {"FAKE_DELIVERY_MODE": "alter_after"}):

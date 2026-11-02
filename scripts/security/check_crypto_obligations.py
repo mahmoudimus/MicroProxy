@@ -11,6 +11,7 @@ matching hash to a semantic proof or an expert review.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -517,11 +518,34 @@ REQUIRED_COMPONENT_EVIDENCE.update({
         ('formal/saw/evidence/vacuous.log', 'proof-log'),
         ('formal/saw/evidence/nonce.log', 'proof-log'),
         ('formal/saw/README.md', 'documentation'),
+        ('formal/saw/run.py', 'tool-manifest'),
+        ('formal/saw/historical/README.md', 'documentation'),
+        ('formal/saw/historical/quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java', 'snapshot-receipt'),
         ('formal/saw/mlkem-reduce-once.saw', 'spec-source'),
         ('formal/saw/blocked/packet-key-nonce.saw', 'spec-source'),
         ('formal/crypto/reference/MlKem768.java', 'spec-source'),
         ('formal/crypto/reference/provenance.json', 'documentation'),
         ('quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java', 'production-source'),
+        ('formal/nonce/Nonce.dfy', 'spec-source'),
+        ('formal/nonce/NonceDomain.dfy', 'spec-source'),
+        ('formal/nonce/run.py', 'tool-manifest'),
+        ('formal/nonce/test_run.py', 'test-source'),
+        ('formal/nonce/tools.json', 'tool-manifest'),
+        ('formal/nonce/inputs.json', 'input-manifest'),
+        ('formal/nonce/GENERATED.json', 'generated-source'),
+        ('formal/nonce/PRODUCTION-EVIDENCE.json', 'component-receipt'),
+        ('quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java', 'generated-source'),
+        ('quic/src/test/java/io/github/mahmoudimus/quic/crypto/PacketKeyNonceTest.java', 'test-source'),
+        ('formal/nonce/BundleNonceSmoke.java', 'test-source'),
+        ('formal/nonce/bench/NonceBenchmark.java', 'test-source'),
+        ('formal/nonce/bench_nonce.py', 'tool-manifest'),
+        ('formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java', 'test-source'),
+        ('formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java', 'test-source'),
+        ('formal/dafny/toolchain.py', 'tool-manifest'),
+        ('formal/dafny/tools.json', 'tool-manifest'),
+        ('formal/crypto/delivery.json', 'delivery-receipt'),
+        ('formal/crypto/bundle_checks.py', 'tool-manifest'),
+        ('scripts/security/crypto_current_release.py', 'tool-manifest'),
     ),
 })
 REQUIRED_COMPONENT_CHECKS.update({
@@ -558,7 +582,7 @@ REQUIRED_COMPONENT_CHECKS.update({
     'V3': {
         'control_groups': (('saw-scoped-replay', 'formal/saw/evidence/report.json', 'runs'),),
         'receipt_checks': (('formal/saw/evidence/report.json', ('status', 'runs.proof.result', 'runs.wrong_modulus.result', 'runs.vacuous.result', 'runs.nonce.result')),),
-        'hash_maps': (('formal/saw/inputs.json', 'inputs', ('formal/', 'quic/src/'), (), ''),),
+        'hash_maps': (('formal/saw/inputs.json', 'inputs', ('formal/',), (), ''), ('formal/saw/inputs.json', 'inputs', ('quic/src/',), (), 'formal/saw/historical')),
         'entry_hash_checks': (),
         'inventory_checks': (),
         'file_set_checks': (),
@@ -567,24 +591,26 @@ REQUIRED_COMPONENT_CHECKS.update({
     },
 })
 REQUIRED_HASH_MAP_KEYS = {
-    ('V0', 'formal/assurance.json', 'java_sources'): ('microproxy/src/main/java/org/microproxy/dns/BoundedExpiringCache.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecHostResolver.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecValidator.java', 'microproxy/src/test/java/org/microproxy/dns/FormalResourceModelTest.java', 'quic/src/main/java/io/github/mahmoudimus/quic/CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/Tls12CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsRecordLayer.java', 'quic/src/test/java/io/github/mahmoudimus/quic/FormalCryptoModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/FormalRecordModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/TlsKeyUsageTest.java'),
-    ('V0', 'formal/packet/inputs.json', 'inputs'): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
-    ('V0', 'formal/primitives/inputs.json', 'inputs'): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/primitives/java/io/github/mahmoudimus/quic/tls/GeneratedPrimitivesTest.java', 'formal/primitives/run.py', 'formal/primitives/test_run.py'),
-    ('V1', 'formal/dafny/inputs.json', 'inputs'): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs'): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V1', 'formal/reference/aws-hkdf/inputs.json', 'tool_inputs'): ('formal/dafny/toolchain.py', 'formal/dafny/tools.json'),
-    ('V2', 'formal/dafny/inputs.json', 'inputs'): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs'): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
-    ('V2', 'formal/crypto/delivery.json', 'existing_generated_sources'): ('io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java'),
-    ('V2', 'formal/crypto/delivery.json', 'existing_generated_dependencies'): ('io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',),
-    ('V3', 'formal/saw/inputs.json', 'inputs'): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/provenance.json', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java'),
-    ('V4', 'formal/crypto/adoption/stage-receipt.json', 'sources'): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.inputs'): ('formal/crypto/NativeField.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/native_polynomial_checks.py', 'formal/crypto/native_polynomial_domain.dfy', 'formal/crypto/native_polynomial_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy'),
-    ('V5', 'formal/crypto/adoption/stage-receipt.json', 'sources'): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'inputs'): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_checks.py', 'formal/crypto/native_kem_domain.dfy', 'formal/crypto/native_kem_hash.java', 'formal/crypto/native_kem_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'source_graph'): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_domain.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V6', 'formal/crypto/adoption/stage-receipt.json', 'sources'): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
-    ('V7', 'formal/packet/inputs.json', 'inputs'): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
+    ('V0', 'formal/assurance.json', 'java_sources', (), ''): ('microproxy/src/main/java/org/microproxy/dns/BoundedExpiringCache.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecHostResolver.java', 'microproxy/src/main/java/org/microproxy/dns/DnssecValidator.java', 'microproxy/src/test/java/org/microproxy/dns/FormalResourceModelTest.java', 'quic/src/main/java/io/github/mahmoudimus/quic/CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/Tls12CipherSuite.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsClientConnection.java', 'quic/src/main/java/io/github/mahmoudimus/quic/tls/TlsRecordLayer.java', 'quic/src/test/java/io/github/mahmoudimus/quic/FormalCryptoModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/FormalRecordModelTest.java', 'quic/src/test/java/io/github/mahmoudimus/quic/tls/TlsKeyUsageTest.java'),
+    ('V0', 'formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), ''): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
+    ('V0', 'formal/primitives/inputs.json', 'inputs', ('formal/primitives/', 'formal/crypto/reference/'), ''): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy', 'formal/primitives/java/io/github/mahmoudimus/quic/tls/GeneratedPrimitivesTest.java', 'formal/primitives/run.py', 'formal/primitives/test_run.py'),
+    ('V1', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V1', 'formal/dafny/inputs.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V1', 'formal/reference/aws-hkdf/inputs.json', 'tool_inputs', (), ''): ('formal/dafny/toolchain.py', 'formal/dafny/tools.json'),
+    ('V2', 'formal/crypto/delivery.json', 'existing_generated_dependencies', (), 'quic/src/main/java'): ('io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',),
+    ('V2', 'formal/crypto/delivery.json', 'existing_generated_sources', ('io/github/mahmoudimus/quic/internal/verifiedhkdf/',), 'quic/src/main/java'): ('io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java'),
+    ('V2', 'formal/dafny/PRODUCTION-EVIDENCE.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V2', 'formal/dafny/inputs.json', 'inputs', (), ''): ('formal/dafny/bench/HkdfBenchmark.java', 'formal/dafny/bench_hkdf.py', 'formal/dafny/check_adapter_discipline.py', 'formal/dafny/deliver_hkdf.py', 'formal/dafny/hkdf/GENERATED.json', 'formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/java/dafny/BulkOnlySequence.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/DafnyHkdf.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/GeneratedHkdfTest.java', 'formal/dafny/java/io/github/mahmoudimus/verifiedcrypto/ReferenceHkdf.java', 'formal/dafny/run.py', 'formal/dafny/test_run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'quic/src/main/java/io/github/mahmoudimus/quic/Hkdf.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java'),
+    ('V3', 'formal/saw/inputs.json', 'inputs', ('formal/',), ''): ('formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/provenance.json'),
+    ('V3', 'formal/saw/inputs.json', 'inputs', ('quic/src/',), 'formal/saw/historical'): ('quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java',),
+    ('V4', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V5', 'formal/crypto/NATIVE-POLYNOMIAL-EVIDENCE.json', 'mac_full.receipt.inputs', (), ''): ('formal/crypto/NativeField.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/native_polynomial_checks.py', 'formal/crypto/native_polynomial_domain.dfy', 'formal/crypto/native_polynomial_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy'),
+    ('V5', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V6', 'formal/crypto/NATIVE-KEM-EVIDENCE.json', 'inputs', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_checks.py', 'formal/crypto/native_kem_domain.dfy', 'formal/crypto/native_kem_hash.java', 'formal/crypto/native_kem_test.java', 'formal/crypto/reference/MlKem768.java', 'formal/crypto/reference/Shake.java', 'formal/crypto/reference/provenance.json', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V6', 'formal/crypto/NATIVE-KEM-LINUX-EVIDENCE.json', 'source_graph', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/crypto/native_kem_domain.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V6', 'formal/crypto/adoption/stage-receipt.json', 'sources', (), ''): ('formal/crypto/Codec.dfy', 'formal/crypto/JdkHash.dfy', 'formal/crypto/KemSpec.dfy', 'formal/crypto/NativeCodec.dfy', 'formal/crypto/NativeField.dfy', 'formal/crypto/NativeJdkHash.dfy', 'formal/crypto/NativeKeccak.dfy', 'formal/crypto/NativeMlKem.dfy', 'formal/crypto/NativePolynomial.dfy', 'formal/crypto/NativeSampling.dfy', 'formal/crypto/NativeShake.dfy', 'formal/crypto/NativeTypes.dfy', 'formal/crypto/Polynomial.dfy', 'formal/crypto/Sampling.dfy', 'formal/crypto/Shake.dfy', 'formal/crypto/SpongeSpec.dfy', 'formal/primitives/Field.dfy', 'formal/primitives/Keccak.dfy'),
+    ('V7', 'formal/packet/inputs.json', 'inputs', ('formal/packet/', 'quic/src/'), ''): ('formal/packet/PacketKernel.dfy', 'formal/packet/TraceMachine.dfy', 'formal/packet/bytecode_guard.py', 'formal/packet/lowering.py', 'formal/packet/run.py', 'formal/packet/test_bytecode.py', 'formal/packet/test_io.py', 'formal/packet/test_lowering.py', 'formal/packet/test_replay.py', 'quic/src/main/java/io/github/mahmoudimus/quic/crypto/HeaderKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verified/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/PacketNumber.java', 'quic/src/main/java/io/github/mahmoudimus/quic/packet/ProtectedPacket.java', 'quic/src/test/java/io/github/mahmoudimus/quic/packet/HeaderProtectionTimingTest.java'),
+    ('V7', 'formal/timing/inputs.json', 'inputs', (), ''): ('formal/dafny/hkdf/Hkdf.dfy', 'formal/dafny/run.py', 'formal/dafny/toolchain.py', 'formal/dafny/tools.json', 'formal/timing/HkdfShape.dfy', 'formal/timing/PositiveTraceCheck.dfy', 'formal/timing/README.md', 'formal/timing/SecretTrace.dfy', 'formal/timing/bytecode_trace.py', 'formal/timing/fixtures/CategoryTwo.java', 'formal/timing/fixtures/ClassOracle.java', 'formal/timing/fixtures/ConstantTime.java', 'formal/timing/fixtures/EarlyCompare.java', 'formal/timing/fixtures/ExceptionOracle.java', 'formal/timing/fixtures/FieldAlias.java', 'formal/timing/fixtures/NewIdentity.java', 'formal/timing/fixtures/ResultArrayCall.java', 'formal/timing/fixtures/SecretAlloc.java', 'formal/timing/fixtures/SecretBranch.java', 'formal/timing/fixtures/SecretDigestBranch.java', 'formal/timing/fixtures/SecretIndex.java', 'formal/timing/fixtures/SecretLoopBound.java', 'formal/timing/fixtures/VirtualDispatch.java', 'formal/timing/policy.json', 'formal/timing/run.py', 'formal/timing/test_trace.py', 'formal/timing/threat-model.md', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java', 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/kem_hash.java', 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java'),
 }
 REQUIRED_FILE_SET_KEYS = {
     ('V1', 'hkdf-generated-source-inventory'): ('BytesResult.java', 'BytesResult_Failure.java', 'BytesResult_Success.java', 'FailureKind.java', 'FailureKind_InvalidHash.java', 'FailureKind_InvalidKey.java', 'FailureKind_InvalidLabel.java', 'FailureKind_InvalidLength.java', '__default.java'),
@@ -906,7 +932,7 @@ REQUIRED_COMPONENT_CHECKS.update({
         'text_checks': (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),),
     },
 })
-REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs')] = ('formal/dafny/hkdf/Hkdf.dfy',
+REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = ('formal/dafny/hkdf/Hkdf.dfy',
  'formal/dafny/run.py',
  'formal/dafny/toolchain.py',
  'formal/dafny/tools.json',
@@ -1159,6 +1185,29 @@ CLAIM_POLICIES = {
             ("formal/saw/evidence/report.json", {"runs.nonce.result": "verified"}),
         ),
     },
+    "packet-nonce-functional-production": {
+        "obligations": ("V3",),
+        "strength": "implementation",
+        "production": True,
+        "assumptions": frozenset({
+            "dafny-toolchain", "dafny-runtime", "javac-jvm", "generated-runtime-discipline",
+        }),
+        "required_evidence": (
+            ("formal/nonce/PRODUCTION-EVIDENCE.json", "component-receipt"),
+            ("formal/nonce/Nonce.dfy", "spec-source"),
+            ("formal/nonce/NonceDomain.dfy", "spec-source"),
+            ("formal/nonce/GENERATED.json", "generated-source"),
+            ("formal/nonce/inputs.json", "input-manifest"),
+            ("quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java", "generated-source"),
+            ("quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java", "production-source"),
+            ("quic/src/test/java/io/github/mahmoudimus/quic/crypto/PacketKeyNonceTest.java", "test-source"),
+            ("formal/nonce/BundleNonceSmoke.java", "test-source"),
+            ("formal/crypto/delivery.json", "delivery-receipt"),
+            ("formal/saw/historical/quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java", "snapshot-receipt"),
+        ),
+        "required_statuses": {"V3": ("blocked",)},
+        "component_checks": ("V3",),
+    },
     "packet-receive-trace-scoped": {
         "obligations": ("V7",),
         "strength": "model",
@@ -1327,6 +1376,7 @@ ALLOWED_CLAIMS = {
     "jvm-constant-time",
     "whole-proxy-security",
     "aws-full-upstream-hkdf-replay",
+    "packet-nonce-functional-production",
     "all-v0-v8-complete",
 }
 # A metadata/schema recognizer cannot establish a new theorem, expert review or
@@ -1339,6 +1389,7 @@ SEMANTICALLY_VALIDATED_SUPPORTED_CLAIMS = {
     "hkdf-production-functional",
     "packet-receive-trace-scoped",
     "v8-nontiming-release-gate",
+    "packet-nonce-functional-production",
 }
 COMPLETION_REQUIRED_CLAIMS = {
     "shake-mlkem-functional-production",
@@ -2114,7 +2165,8 @@ def _validate_required_component(root: Path, obligation: dict[str, Any], label: 
             key for key in mapping
             if key not in excludes and (not includes or any(key.startswith(prefix) for prefix in includes))
         }
-        expected_keys = REQUIRED_HASH_MAP_KEYS.get((oid, receipt_path, map_path))
+        expected_keys = REQUIRED_HASH_MAP_KEYS.get(
+            (oid, receipt_path, map_path, tuple(includes), path_prefix))
         if expected_keys is None:
             raise LedgerError(f"{item}: checker has no reviewed key inventory for this map")
         if actual_keys != set(expected_keys):
@@ -2195,6 +2247,444 @@ def _validate_required_component(root: Path, obligation: dict[str, Any], label: 
         if found != expected:
             raise LedgerError(f"{label}: required receipt value changed: {receipt_path}:{value_path}")
         checked += 1
+    return checked
+
+
+PACKET_NONCE_EVIDENCE = "formal/nonce/PRODUCTION-EVIDENCE.json"
+PACKET_NONCE_KERNEL = "formal/nonce/Nonce.dfy"
+PACKET_NONCE_DOMAIN = "formal/nonce/NonceDomain.dfy"
+PACKET_NONCE_GENERATED = (
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"
+    "VerifiedNonce/__default.java")
+PACKET_NONCE_GENERATED_KEY = (
+    "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.java")
+PACKET_NONCE_BRIDGE = "quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java"
+PACKET_NONCE_TEST = "quic/src/test/java/io/github/mahmoudimus/quic/crypto/PacketKeyNonceTest.java"
+PACKET_NONCE_SMOKE = "formal/nonce/BundleNonceSmoke.java"
+PACKET_NONCE_SMOKE_SUITES = ("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384",
+                              "TLS_CHACHA20_POLY1305_SHA256")
+PACKET_NONCE_HISTORICAL = (
+    "formal/saw/historical/quic/src/main/java/io/github/mahmoudimus/quic/crypto/PacketKey.java")
+PACKET_NONCE_HISTORICAL_SHA256 = "501999d8871707497f9f1c6a4765524384551bb3383484045a7ca2aabe40130d"
+PACKET_NONCE_BRIDGE_SHA256 = "120f456959c3bdd2edd5916d8e9a76e9ed63dbb0ca84f886f31e8ea0814e2c2e"
+PACKET_NONCE_GENERATED_SHA256 = "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06"
+PACKET_NONCE_TEST_SHA256 = "c2f1b845b679bc86d1025d6c6b45d3f5ccbda80fe1c1e0382391ec280393fe57"
+PACKET_NONCE_CONTROL_NAMES = (
+    "wrong-endian", "counter-truncation", "alias-freshness", "input-preservation",
+    "counter-truncation-injectivity")
+PACKET_NONCE_JAVA_RUNS = (
+    (21, "d7ab2ea6a7e731a8a2cee7d722046c9f7d8c5f184cd769b9954a392592337770",
+     "ab9b94d81dd22c843ef637be9aa2121253c6d4cfe2ba0a89a7bde5c0b9567945"),
+    (25, "d6b5c8ffce485baa7e9aacfd9c652e2999c89053a5070104c598731636bd2249",
+     "6a9d1ef0aa490929d80e6d864fea9a4ada17303dd5a6fad6376e037aee2fcd68"),
+)
+PACKET_NONCE_JAVA_TESTS = "NONCE-TEST-OK cases=10 assertions=162774"
+PACKET_NONCE_CORE_PINS = {
+    "formal/nonce/Nonce.dfy":
+        "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+    "formal/nonce/NonceDomain.dfy":
+        "9f0ed7272e430fccd3deb984814f0ce51691dac59e6c91b7fc7958d5fe9292e7",
+    "formal/nonce/run.py":
+        "999070f7ddf8bdaa1a0b22b9a16682e8592dbf50ffa74e2a17eab740878d19c8",
+    "formal/nonce/test_run.py":
+        "6ba5f22b59dc31b9895f5ccab092f02ba4aa7c7dc9d3138fbfa6274b1a6dda8c",
+    "formal/nonce/tools.json":
+        "96af825819ad09cd2f40d296422ada913ee56f2e3fed24570d8d3ac5fc0cd54a",
+    "formal/nonce/inputs.json":
+        "9c01b622b5ee23edbccca9e94713aa638d89ef56c69b189818ca61661130f52a",
+    "formal/nonce/GENERATED.json":
+        "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+}
+PACKET_NONCE_CORE_RECEIPT_ROLES = {
+    "formal/nonce/Nonce.dfy": "kernel_source",
+    "formal/nonce/NonceDomain.dfy": "domain_source",
+    "formal/nonce/run.py": "runner",
+    "formal/nonce/test_run.py": "test_runner",
+    "formal/nonce/tools.json": "tools",
+    "formal/nonce/inputs.json": "input_manifest",
+    "formal/nonce/GENERATED.json": "generated_receipt",
+}
+PACKET_NONCE_INPUT_PINS = {
+    "formal/dafny/toolchain.py":
+        "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
+    "formal/dafny/tools.json":
+        "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
+    "formal/nonce/GENERATED.json":
+        "d5f9952e1cef30f12653b2705a080d280fbb2cbc68df212f631385c9b73e7783",
+    "formal/nonce/Nonce.dfy":
+        "e83c9a7a448a4b7d982f7c54822f9af53cffe4d3808870ed04ddac0bd89f5c28",
+    "formal/nonce/NonceDomain.dfy":
+        "9f0ed7272e430fccd3deb984814f0ce51691dac59e6c91b7fc7958d5fe9292e7",
+    "formal/nonce/bench/NonceBenchmark.java":
+        "29b10d806fdb846d458a3a10e6d8606f968bf7f74761ecc9b3001c342f5e89cf",
+    "formal/nonce/bench_nonce.py":
+        "7b951a32584bdab60a2f9f11a4c427abbb29d74e85dc2c15059f172b30b83967",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/GeneratedNonceTest.java":
+        "4434e8f11076e61dc941ff6c8ff3868eafa15a912795bbacfc9b74bc0acec070",
+    "formal/nonce/java/io/github/mahmoudimus/nonce/ReferenceNonce.java":
+        "03532fa616870ced3ede2b89f3194403c0480546bf1b4dac33d49feb378970a9",
+    "formal/nonce/run.py":
+        "999070f7ddf8bdaa1a0b22b9a16682e8592dbf50ffa74e2a17eab740878d19c8",
+    "formal/nonce/test_run.py":
+        "6ba5f22b59dc31b9895f5ccab092f02ba4aa7c7dc9d3138fbfa6274b1a6dda8c",
+    "formal/nonce/tools.json":
+        "96af825819ad09cd2f40d296422ada913ee56f2e3fed24570d8d3ac5fc0cd54a",
+    "quic/src/main/java/io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"
+    "VerifiedNonce/__default.java":
+        "aabace51edf58e4aefd398717b674ccbf8c138517f95fbb843139c8aea61cc06",
+}
+PACKET_NONCE_ACCEPTED_REPORT_SHA256 = (
+    "82062ab01fb067e95d441a859c85fb1892d04277affd87fa9f8d7bfab3082a59")
+PACKET_NONCE_GENERATED_CLASS_KEY = (
+    "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class")
+PACKET_NONCE_GENERATED_CLASS_SHA256 = (
+    "64ba6bbcccba2bc0f519b60ba090e11cf164544e98e24e73cd4699f9481c7069")
+PACKET_NONCE_TRANSLATION_METADATA_SHA256 = (
+    "e65cce5ab0364a300dcebbb537648f87b9b02a13efe8c321fb731d2c341604e4")
+PACKET_NONCE_LIBRARY_CLASS_COUNT = 468
+PACKET_NONCE_CRYPTO_CLASS_COUNT = 84
+PACKET_NONCE_RETAINED_CLASS_COUNT = 468
+
+
+def _exact_keys(value: Any, expected: Iterable[str], label: str) -> None:
+    if not isinstance(value, dict):
+        raise LedgerError(f"{label}: expected an object")
+    wanted, found = set(expected), set(value)
+    if found != wanted:
+        raise LedgerError(
+            f"{label}: immutable key inventory changed; missing={sorted(wanted - found)} "
+            f"added={sorted(found - wanted)}")
+
+
+def _nonce_receipt_ref(root: Path, value: Any, label: str, expected_path: str) -> str:
+    _exact_keys(value, ("path", "sha256"), label)
+    if value["path"] != expected_path:
+        raise LedgerError(f"{label}: path must be {expected_path!r}, found {value['path']!r}")
+    pinned = checked_hash(value["sha256"], label)
+    if digest(checked_path(root, expected_path, label)) != pinned:
+        raise LedgerError(f"{label}: stale hash for {expected_path}")
+    return pinned
+
+
+def _python_assignments(path: Path, names: Iterable[str], label: str) -> dict[str, Any]:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as exc:
+        raise LedgerError(f"{label}: cannot parse pinned tool: {exc}") from exc
+    wanted = set(names)
+    found: dict[str, Any] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id in wanted:
+                if target.id in found:
+                    raise LedgerError(f"{label}: duplicate assignment {target.id}")
+                try:
+                    found[target.id] = ast.literal_eval(node.value)
+                except ValueError as exc:
+                    raise LedgerError(f"{label}: non-literal {target.id}") from exc
+    missing = wanted - set(found)
+    if missing:
+        raise LedgerError(f"{label}: missing tool constants {sorted(missing)}")
+    return found
+
+
+def _validate_packet_nonce_functional(root: Path) -> int:
+    """Typed validation of the generated-nonce functional production claim.
+
+    This reads the actual repository sources, the central delivery manifest and
+    the pinned gate code. It never treats the receipt checksum, the external
+    replay report checksum or a self-declared status as evidence by itself.
+    """
+    receipt_path = checked_path(root, PACKET_NONCE_EVIDENCE, "nonce:receipt")
+    receipt = load_json(receipt_path)
+    _exact_keys(receipt, (
+        "schema", "status", "scope", "component", "proof", "controls", "generation",
+        "bridge", "delivery", "java_runs", "junit", "bundle_smoke", "non_claims",
+        "limitations"),
+        "nonce:receipt")
+    if receipt["schema"] != "microproxy.packet-nonce-production-evidence/v1":
+        raise LedgerError("nonce:receipt: unexpected schema")
+    if receipt["status"] != "complete":
+        raise LedgerError("nonce:receipt: status is not complete")
+    if not isinstance(receipt["scope"], str) or "Generated VerifiedNonce" not in receipt["scope"]:
+        raise LedgerError("nonce:receipt: scope label changed")
+    if "SAW" not in receipt["scope"] or "blocked" not in receipt["scope"]:
+        raise LedgerError("nonce:receipt: scope must keep the blocked SAW boundary")
+    checked = 0
+
+    component = receipt["component"]
+    _exact_keys(component, (
+        "kernel_source", "domain_source", "generated_receipt", "input_manifest",
+        "tools", "runner", "test_runner"), "nonce:component")
+    for key, relative in (
+        ("kernel_source", PACKET_NONCE_KERNEL),
+        ("domain_source", PACKET_NONCE_DOMAIN),
+        ("generated_receipt", "formal/nonce/GENERATED.json"),
+        ("input_manifest", "formal/nonce/inputs.json"),
+        ("tools", "formal/nonce/tools.json"),
+        ("runner", "formal/nonce/run.py"),
+        ("test_runner", "formal/nonce/test_run.py"),
+    ):
+        _nonce_receipt_ref(root, component[key], f"nonce:component:{key}", relative)
+        checked += 1
+    kernel_sha = component["kernel_source"]["sha256"]
+    kernel_text = checked_path(root, PACKET_NONCE_KERNEL, "nonce:kernel").read_text(encoding="utf-8")
+
+    # The accepted functional baseline is immutable in this trusted checker.
+    # Renewing the kernel/domain/runner/tools/inputs/generated receipt requires
+    # an explicit checker review, not a JSON/hash renewal alone. The accepted
+    # external report hash is provenance only; it is not a theorem by checksum.
+    for core_path, pinned in PACKET_NONCE_CORE_PINS.items():
+        actual = digest(checked_path(root, core_path, "nonce:core-pin"))
+        if actual != pinned:
+            raise LedgerError(f"nonce:core-pin:{core_path}: reviewed core source changed")
+        role = PACKET_NONCE_CORE_RECEIPT_ROLES[core_path]
+        if component[role]["sha256"] != pinned:
+            raise LedgerError(f"nonce:core-pin:{core_path}: receipt role {role} was renewed")
+        checked += 1
+    input_manifest = load_json(checked_path(root, "formal/nonce/inputs.json", "nonce:input-manifest"))
+    if input_manifest.get("inputs") != PACKET_NONCE_INPUT_PINS:
+        raise LedgerError("nonce:core-pin: exact 13-file core input map changed")
+    for input_path, pinned in PACKET_NONCE_INPUT_PINS.items():
+        if digest(checked_path(root, input_path, "nonce:input-pin")) != pinned:
+            raise LedgerError(f"nonce:core-pin:{input_path}: reviewed input changed")
+        checked += 1
+
+    proof = receipt["proof"]
+    _exact_keys(proof, ("kernel", "domain", "audits", "forbidden_source_constructs",
+                        "source_sha256"), "nonce:proof")
+    for name, expected in (("kernel", 337), ("domain", 343)):
+        _exact_keys(proof[name], ("verified", "errors"), f"nonce:proof:{name}")
+        if proof[name] != {"verified": expected, "errors": 0}:
+            raise LedgerError(f"nonce:proof:{name}: proof counts changed")
+        checked += 1
+    _exact_keys(proof["audits"], ("kernel", "domain"), "nonce:proof:audits")
+    for name in ("kernel", "domain"):
+        if proof["audits"][name] != "Dafny auditor completed with 0 findings":
+            raise LedgerError(f"nonce:proof:audits:{name}: trusted declaration reached the audit")
+        checked += 1
+    if proof["forbidden_source_constructs"] != "none found in code (comments stripped)":
+        raise LedgerError("nonce:proof: forbidden source constructs changed")
+    _exact_keys(proof["source_sha256"], ("before", "after"), "nonce:proof:source")
+    if proof["source_sha256"] != {"before": kernel_sha, "after": kernel_sha}:
+        raise LedgerError("nonce:proof: frozen source hash is not the kernel pin before and after")
+    checked += 2
+
+    controls = receipt["controls"]
+    _exact_keys(controls, PACKET_NONCE_CONTROL_NAMES, "nonce:controls")
+    for name in PACKET_NONCE_CONTROL_NAMES:
+        control = controls[name]
+        _exact_keys(control, ("status", "anchor", "summary"), f"nonce:control:{name}")
+        if control["status"] != "proof-obligation-rejected":
+            raise LedgerError(f"nonce:control:{name}: not a semantic proof rejection")
+        if not isinstance(control["anchor"], str) or control["anchor"] not in kernel_text:
+            raise LedgerError(f"nonce:control:{name}: anchor is not in the frozen kernel")
+        match = re.fullmatch(r"(\d+) verified, (\d+) errors", str(control["summary"]))
+        if match is None or int(match[2]) < 1 or int(match[1]) < 1:
+            raise LedgerError(f"nonce:control:{name}: controls must show real proof errors")
+        reject_inconclusive_control(control, f"nonce:control:{name}")
+        checked += 1
+
+    generation = receipt["generation"]
+    _exact_keys(generation, (
+        "dafny_version", "generator_command", "aggregator_sha256",
+        "translation_metadata_sha256", "generated_java_key", "generated_java_sha256",
+        "generated_class_key", "generated_class_sha256", "external_replay_report_sha256",
+        "external_replay_report_role"), "nonce:generation")
+    generated_receipt = load_json(checked_path(root, "formal/nonce/GENERATED.json", "nonce:generated"))
+    if (generation["dafny_version"] != generated_receipt.get("dafny_version")
+            or generation["generator_command"] != generated_receipt.get("generator_command")):
+        raise LedgerError("nonce:generation: compiler identity differs from GENERATED.json")
+    if generation["aggregator_sha256"] != generated_receipt.get("aggregator_sha256"):
+        raise LedgerError("nonce:generation: aggregator differs from GENERATED.json")
+    for name in ("aggregator_sha256", "translation_metadata_sha256", "generated_class_sha256",
+                 "external_replay_report_sha256"):
+        checked_hash(generation[name], f"nonce:generation:{name}")
+    if generation["external_replay_report_sha256"] != PACKET_NONCE_ACCEPTED_REPORT_SHA256:
+        raise LedgerError("nonce:generation: external report is not the accepted component replay")
+    if generation["translation_metadata_sha256"] != PACKET_NONCE_TRANSLATION_METADATA_SHA256:
+        raise LedgerError("nonce:generation: translation metadata is not the accepted output")
+    if generation["generated_class_key"] != PACKET_NONCE_GENERATED_CLASS_KEY:
+        raise LedgerError("nonce:generation: generated class key changed")
+    if generation["generated_class_sha256"] != PACKET_NONCE_GENERATED_CLASS_SHA256:
+        raise LedgerError("nonce:generation: generated class hash is not the reviewed output")
+    if generation["generated_java_key"] != PACKET_NONCE_GENERATED_KEY:
+        raise LedgerError("nonce:generation: generated source key changed")
+    if generation["generated_java_sha256"] != PACKET_NONCE_GENERATED_SHA256:
+        raise LedgerError("nonce:generation: generated source hash is not the reviewed output")
+    actual_generated = digest(checked_path(root, PACKET_NONCE_GENERATED, "nonce:generated"))
+    if actual_generated != generation["generated_java_sha256"]:
+        raise LedgerError("nonce:generation: checked-in generated Java changed")
+    if generated_receipt.get("generated_java", {}).get("__default.java") != actual_generated:
+        raise LedgerError("nonce:generation: GENERATED.json does not bind the checked-in source")
+    if generated_receipt.get("source", {}).get("sha256") != kernel_sha:
+        raise LedgerError("nonce:generation: GENERATED.json does not bind the frozen kernel")
+    if "provenance only" not in str(generation["external_replay_report_role"]):
+        raise LedgerError("nonce:generation: external report must be labelled provenance only")
+    generated_text = checked_path(root, PACKET_NONCE_GENERATED, "nonce:generated").read_text(encoding="utf-8")
+    if "public static byte[] Nonce(byte[] iv, long pn)" not in generated_text:
+        raise LedgerError("nonce:generation: generated signature changed")
+    checked += 6
+
+    bridge = receipt["bridge"]
+    _exact_keys(bridge, ("source", "sha256", "symbol", "signature", "delegation",
+                         "class_key"), "nonce:bridge")
+    if bridge["source"] != PACKET_NONCE_BRIDGE or bridge["sha256"] != PACKET_NONCE_BRIDGE_SHA256:
+        raise LedgerError("nonce:bridge: PacketKey source identity changed")
+    if digest(checked_path(root, PACKET_NONCE_BRIDGE, "nonce:bridge")) != bridge["sha256"]:
+        raise LedgerError("nonce:bridge: current PacketKey source differs from its pin")
+    if bridge["delegation"] != "return Nonce(iv, packetNumber);":
+        raise LedgerError("nonce:bridge: delegation statement changed")
+    bridge_text = checked_path(root, PACKET_NONCE_BRIDGE, "nonce:bridge").read_text(encoding="utf-8")
+    if bridge["delegation"] not in bridge_text:
+        raise LedgerError("nonce:bridge: PacketKey does not delegate to the generated nonce")
+    if "packetNumber >>>" in bridge_text:
+        raise LedgerError("nonce:bridge: inline nonce loop is still present")
+    if ("io.github.mahmoudimus.quic.crypto.internal.verifiednonce.VerifiedNonce.__default.Nonce"
+            not in bridge_text):
+        raise LedgerError("nonce:bridge: static import of the generated symbol is missing")
+    historical = checked_path(root, PACKET_NONCE_HISTORICAL, "nonce:historical")
+    if digest(historical) != PACKET_NONCE_HISTORICAL_SHA256:
+        raise LedgerError("nonce:historical: frozen pre-adoption source changed")
+    if digest(historical) == digest(checked_path(root, PACKET_NONCE_BRIDGE, "nonce:bridge")):
+        raise LedgerError("nonce:historical: live bridge silently rebound to the frozen source")
+    checked += 4
+
+    delivery = receipt["delivery"]
+    _exact_keys(delivery, (
+        "manifest", "manifest_sha256", "existing_generated_sources_key",
+        "existing_generated_sources_sha256", "crypto_scope_prefixes",
+        "expected_library_class_count", "expected_crypto_class_count",
+        "expected_retained_library_class_count"), "nonce:delivery")
+    if delivery["manifest"] != "formal/crypto/delivery.json":
+        raise LedgerError("nonce:delivery: manifest path changed")
+    manifest = load_json(checked_path(root, delivery["manifest"], "nonce:delivery"))
+    if digest(checked_path(root, delivery["manifest"], "nonce:delivery")) != delivery["manifest_sha256"]:
+        raise LedgerError("nonce:delivery: manifest hash is stale")
+    key = delivery["existing_generated_sources_key"]
+    if key != PACKET_NONCE_GENERATED_KEY:
+        raise LedgerError("nonce:delivery: generated inventory key changed")
+    inventory = manifest.get("existing_generated_sources", {})
+    if inventory.get(key) != delivery["existing_generated_sources_sha256"]:
+        raise LedgerError("nonce:delivery: delivery manifest lacks the generated nonce pin")
+    if delivery["existing_generated_sources_sha256"] != PACKET_NONCE_GENERATED_SHA256:
+        raise LedgerError("nonce:delivery: delivery pin is not the reviewed generated output")
+    if digest(checked_path(root, "quic/src/main/java/" + key, "nonce:delivery")) != inventory[key]:
+        raise LedgerError("nonce:delivery: generated nonce source differs from the delivery pin")
+    if delivery["crypto_scope_prefixes"] != [
+            "io/github/mahmoudimus/quic/crypto/PacketKey",
+            "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/"]:
+        raise LedgerError("nonce:delivery: scoped crypto prefixes changed")
+    counts = (delivery["expected_library_class_count"], delivery["expected_crypto_class_count"],
+              delivery["expected_retained_library_class_count"])
+    if counts != (PACKET_NONCE_LIBRARY_CLASS_COUNT, PACKET_NONCE_CRYPTO_CLASS_COUNT,
+                  PACKET_NONCE_RETAINED_CLASS_COUNT):
+        raise LedgerError("nonce:delivery: reviewed class counts changed")
+    release_tool = checked_path(root, "scripts/security/crypto_current_release.py", "nonce:delivery")
+    release_constants = _python_assignments(release_tool, (
+        "EXPECTED_LIBRARY_CLASS_COUNT", "EXPECTED_CRYPTO_CLASS_COUNT",
+        "EXPECTED_RETAINED_LIBRARY_CLASS_COUNT", "NONCE_SMOKE_SOURCE",
+        "EXPECTED_NONCE_SMOKE_CASES"), "nonce:release-tool")
+    if (release_constants["EXPECTED_LIBRARY_CLASS_COUNT"],
+            release_constants["EXPECTED_CRYPTO_CLASS_COUNT"],
+            release_constants["EXPECTED_RETAINED_LIBRARY_CLASS_COUNT"]) != counts:
+        raise LedgerError("nonce:delivery: receipt counts differ from the release validator")
+    if (release_constants["NONCE_SMOKE_SOURCE"] != PACKET_NONCE_SMOKE
+            or release_constants["EXPECTED_NONCE_SMOKE_CASES"] != 9):
+        raise LedgerError("nonce:delivery: release validator nonce smoke binding changed")
+    bundle_tool = checked_path(root, "formal/crypto/bundle_checks.py", "nonce:delivery")
+    bundle_constants = _python_assignments(
+        bundle_tool, ("CRYPTO_PREFIXES", "REQUIRED_ROOTS"), "nonce:bundle-tool")
+    for prefix in delivery["crypto_scope_prefixes"]:
+        if prefix not in bundle_constants["CRYPTO_PREFIXES"]:
+            raise LedgerError(f"nonce:bundle-tool: missing scoped crypto prefix {prefix}")
+    for required in ("io/github/mahmoudimus/quic/crypto/PacketKey.class",
+                     "io/github/mahmoudimus/quic/crypto/internal/verifiednonce/VerifiedNonce/__default.class"):
+        if required not in bundle_constants["REQUIRED_ROOTS"]:
+            raise LedgerError(f"nonce:bundle-tool: missing required bundle root {required}")
+    checked += 8
+
+    runs = receipt["java_runs"]
+    if not isinstance(runs, list) or len(runs) != len(PACKET_NONCE_JAVA_RUNS):
+        raise LedgerError("nonce:java: expected exactly JDK 21 and 25 records")
+    for run, (major, java_sha, javac_sha) in zip(runs, PACKET_NONCE_JAVA_RUNS):
+        _exact_keys(run, ("major", "java_sha256", "javac_sha256", "tests"), "nonce:java")
+        if (run["major"], run["java_sha256"], run["javac_sha256"], run["tests"]) != (
+                major, java_sha, javac_sha, PACKET_NONCE_JAVA_TESTS):
+            raise LedgerError(f"nonce:java: JDK {major} identity or test result changed")
+        checked += 1
+
+    junit = receipt["junit"]
+    _exact_keys(junit, ("source", "sha256", "tests", "jdk_majors", "result", "scope"),
+                "nonce:junit")
+    if junit["source"] != PACKET_NONCE_TEST or junit["sha256"] != PACKET_NONCE_TEST_SHA256:
+        raise LedgerError("nonce:junit: test source identity changed")
+    junit_text = checked_path(root, PACKET_NONCE_TEST, "nonce:junit").read_text(encoding="utf-8")
+    if digest(checked_path(root, PACKET_NONCE_TEST, "nonce:junit")) != junit["sha256"]:
+        raise LedgerError("nonce:junit: test source differs from its pin")
+    if junit["tests"] != 8 or junit_text.count("@Test") != 8:
+        raise LedgerError("nonce:junit: reviewed test count changed")
+    if junit["jdk_majors"] != [21, 25]:
+        raise LedgerError("nonce:junit: both JDK replays are required")
+    if "8 tests successful" not in str(junit["result"]):
+        raise LedgerError("nonce:junit: missing reviewed result")
+    for marker in ("seal(", "open("):
+        if marker not in junit_text:
+            raise LedgerError(f"nonce:junit: test source lacks {marker!r}")
+        checked += 1
+    checked += 2
+
+    smoke = receipt["bundle_smoke"]
+    _exact_keys(smoke, ("schema", "source", "sha256", "cases", "suites",
+                        "packet_numbers", "executes", "origins",
+                        "not_bound_to_core_inputs", "note"), "nonce:bundle-smoke")
+    if smoke["schema"] != "microproxy.nonce-bundle-smoke/v1":
+        raise LedgerError("nonce:bundle-smoke: schema changed")
+    if smoke["source"] != PACKET_NONCE_SMOKE:
+        raise LedgerError("nonce:bundle-smoke: source path changed")
+    if smoke["sha256"] != digest(checked_path(root, PACKET_NONCE_SMOKE, "nonce:bundle-smoke")):
+        raise LedgerError("nonce:bundle-smoke: harness source differs from its pin")
+    if smoke["cases"] != 9 or tuple(smoke["suites"]) != PACKET_NONCE_SMOKE_SUITES \
+            or smoke["packet_numbers"] != [0, 1, -1]:
+        raise LedgerError("nonce:bundle-smoke: case matrix changed")
+    if smoke["executes"] != ["PacketKey.nonce", "PacketKey.seal", "PacketKey.open"]:
+        raise LedgerError("nonce:bundle-smoke: executed production calls changed")
+    _exact_keys(smoke["origins"], ("PacketKey", "VerifiedNonce", "DafnyRuntime", "harness"),
+                "nonce:bundle-smoke:origins")
+    if any(not isinstance(value, str) or not value for value in smoke["origins"].values()):
+        raise LedgerError("nonce:bundle-smoke: origin descriptions are malformed")
+    if smoke["origins"]["DafnyRuntime"] != smoke["origins"]["PacketKey"]:
+        raise LedgerError("nonce:bundle-smoke: Dafny runtime must execute from the actual bundle")
+    if smoke["not_bound_to_core_inputs"] is not True:
+        raise LedgerError("nonce:bundle-smoke: harness must stay outside the core proof closure")
+    core_inputs = load_json(checked_path(root, "formal/nonce/inputs.json", "nonce:core-inputs"))
+    if PACKET_NONCE_SMOKE in core_inputs.get("inputs", {}):
+        raise LedgerError("nonce:bundle-smoke: smoke harness leaked into the core input closure")
+    smoke_text = checked_path(root, PACKET_NONCE_SMOKE, "nonce:bundle-smoke").read_text(encoding="utf-8")
+    for marker in ("packetKey.nonce(", "packetKey.seal(", "packetKey.open(",
+                   "Class.forName("):
+        if marker not in smoke_text:
+            raise LedgerError(f"nonce:bundle-smoke: harness lacks {marker!r}")
+        checked += 1
+    if smoke_text.index("origin(Class.forName(") < smoke_text.index("packetKey.open("):
+        raise LedgerError("nonce:bundle-smoke: origin Class.forName precedes production execution")
+    checked += 3
+
+    non_claims = receipt["non_claims"]
+    if not isinstance(non_claims, list) or not non_claims or any(
+            not isinstance(item, str) or not item for item in non_claims):
+        raise LedgerError("nonce:receipt: non_claims must be a nonempty string list")
+    text = " ".join(non_claims).lower()
+    for phrase in ("saw", "cryptographic hardness", "timing", "full-jar"):
+        if phrase not in text:
+            raise LedgerError(f"nonce:receipt: explicit non-claim {phrase!r} is missing")
+    limitations = receipt["limitations"]
+    if not isinstance(limitations, list) or not limitations or any(
+            not isinstance(item, str) or not item for item in limitations):
+        raise LedgerError("nonce:receipt: limitations must be a nonempty string list")
+    checked += len(non_claims) + len(limitations)
     return checked
 
 
@@ -2282,6 +2772,8 @@ def _validate_supported_claim(root: Path, claim: dict[str, Any], policy: dict[st
                    if other != claim_id and claim_statuses.get(other) != "supported"]
         if missing:
             raise LedgerError(f"{claim_id}: required claims are not supported: {missing}")
+    if claim_id == "packet-nonce-functional-production":
+        checked += _validate_packet_nonce_functional(root)
     return checked
 
 
