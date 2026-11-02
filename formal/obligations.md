@@ -242,8 +242,9 @@ At this snapshot:
 - V7 records corrected conditional caller/model evidence: five caller certificates
   (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169), four owned
   helper certificates and a separate 369-instruction composed Feed. The model and
-  HKDF-shape proofs remain 57 and 17; 128 unit tests, 27 fixtures (four accepted,
-  23 policy rejects), four Select mutants and five callee mutants cover the
+  HKDF-shape proofs remain 57 and 17; 197 unit tests (two optional replays skipped),
+  27 fixtures (four accepted, 23 policy rejects), four Select mutants and twelve
+  callee mutants cover the
   extraction/gate controls. A compiled 138-row Apply probe cross-checks the finite
   execution interpreter. Wipe's witness must execute four stores to its secret
   parameter role; Extract must retain a non-parameter private value. These finite
@@ -257,14 +258,20 @@ At this snapshot:
   is admitted by a trusted audit rule. Required finite private controls cannot
   pass as public-only; the sequence allocation model does not prove copy/alias
   ownership, and arithmetic values do not refine JVM values.
+  Seven expanded Keccak helpers add public-oracle trace proofs: all remaining
+  calls have public scalar arguments, exact arity, no heap arguments and known
+  targets. The completed finite permutation control covers all 24 rounds and
+  public-heap equality; actual callee bodies, provider inventories and named
+  negative diagnostics have independent gate pins. Sponge and complete KEM/adapter
+  trace composition remain open. See [the trace evidence](timing/EVIDENCE.md).
   V7 stays partial. The snapshot
-  `7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b`
+  `85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47`
   preserves the corrected copy operands and enforces rejection of every declared
   javap exception table, malformed method boundaries and duplicate/backwards
   offsets. Fifteen additional real-javap/malformed-input regression tests cover
   those guards; selected bodies contain no handlers and are unchanged apart
   from the include path. Its source/policy,
-  129-input inventory, helper contracts, execution controls and residual sets are
+  138-input inventory, helper contracts, execution controls and residual sets are
   checked independently of a data-only digest renewal. The extractor, splice,
   target-to-model-kind mapping and runtime contracts remain trusted; full value,
   alias/dispatch, implicit-exception and physical-timing refinement remain open.

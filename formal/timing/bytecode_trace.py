@@ -76,6 +76,10 @@ PRIVATE_SAFE_RUNTIME_CALLS = {
     'java/lang/Byte.toUnsignedInt:(B)I',
 }
 SHIFT_COUNT_PUBLIC_RUNTIME_CALLS = {
+    # Both exact pinned-runtime bodies are replayed by runtime_primitives.py
+    # before the mandatory Keccak helper certificates. Counts must be public;
+    # words may be private. Private counts fail the audit and body proof.
+    'dafny/Helpers.bv64ShiftLeft:(JB)J',
     'dafny/Helpers.bv64ShiftRight:(JB)J',
 }
 #: Reviewed targets whose *heap contents* may be secret even though the call is

@@ -704,7 +704,7 @@ REQUIRED_RECEIPT_EXACT.update({
 REQUIRED_COMPONENT_CHECKS['V7'] = dict(REQUIRED_COMPONENT_CHECKS['V7'])
 REQUIRED_COMPONENT_CHECKS['V7']['text_checks'] = (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),)
 
-REQUIRED_TRACE_REPORT_SHA256 = "7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b"
+REQUIRED_TRACE_REPORT_SHA256 = '85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47'
 
 REQUIRED_TRACE_ROOTS = ({'class': 'io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeMlKem.__default',
   'method': 'Select:([B[B[B[B)[B',
@@ -838,9 +838,13 @@ REQUIRED_TRACE_INPUT_KEYS = ('formal/dafny/hkdf/Hkdf.dfy',
  'formal/timing/ApplyProbe.dfy',
  'formal/timing/HkdfShape.dfy',
  'formal/timing/PositiveTraceCheck.dfy',
+ 'formal/timing/PublicProvider.dfy',
+ 'formal/timing/PublicProviderPublic.dfy',
  'formal/timing/README.md',
  'formal/timing/SecretTrace.dfy',
+ 'formal/timing/WordArithmetic.dfy',
  'formal/timing/bytecode_trace.py',
+ 'formal/timing/compact_certificates.py',
  'formal/timing/composition.py',
  'formal/timing/execution_controls.py',
  'formal/timing/fixtures/CalleeDescriptor.java',
@@ -876,10 +880,15 @@ REQUIRED_TRACE_INPUT_KEYS = ('formal/dafny/hkdf/Hkdf.dfy',
  'formal/timing/fixtures/SecretLoopBound.java',
  'formal/timing/fixtures/SecretResultBranch.java',
  'formal/timing/fixtures/VirtualDispatch.java',
+ 'formal/timing/keccak_traces.py',
  'formal/timing/policy.json',
  'formal/timing/run.py',
+ 'formal/timing/runtime_primitives.py',
+ 'formal/timing/test_compact_certificates.py',
  'formal/timing/test_coverage.py',
  'formal/timing/test_exception_table.py',
+ 'formal/timing/test_keccak_traces.py',
+ 'formal/timing/test_runtime_primitives.py',
  'formal/timing/test_trace.py',
  'formal/timing/threat-model.md',
  'formal/timing/trace_exec.py',
@@ -1018,135 +1027,7 @@ REQUIRED_COMPONENT_CHECKS.update({
         'text_checks': (('formal/packet/EVIDENCE.md', ('| macOS arm64, Homebrew21.0.12.1 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| macOS arm64, Temurin25.0.5+8 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', '| Linux x86-64, Temurin21.0.7+6 | 46 verified,0 errors | 10 verified,0 errors | 19 verified,0 errors | All7 rejected as intended |', 'All33 Python gate tests passed on macOS and Linux.', 'The extracted scalar programs contain160 SSA nodes for Decode,13 for ReadPrefix')),),
     },
 })
-REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = ('formal/dafny/hkdf/Hkdf.dfy',
- 'formal/dafny/run.py',
- 'formal/dafny/toolchain.py',
- 'formal/dafny/tools.json',
- 'formal/timing/ApplyProbe.dfy',
- 'formal/timing/HkdfShape.dfy',
- 'formal/timing/PositiveTraceCheck.dfy',
- 'formal/timing/README.md',
- 'formal/timing/SecretTrace.dfy',
- 'formal/timing/bytecode_trace.py',
- 'formal/timing/composition.py',
- 'formal/timing/execution_controls.py',
- 'formal/timing/fixtures/CalleeDescriptor.java',
- 'formal/timing/fixtures/CalleeOwner.java',
- 'formal/timing/fixtures/CategoryTwo.java',
- 'formal/timing/fixtures/ClassOracle.java',
- 'formal/timing/fixtures/ConstantTime.java',
- 'formal/timing/fixtures/EarlyCompare.java',
- 'formal/timing/fixtures/ExceptionOracle.java',
- 'formal/timing/fixtures/ExtractShape.java',
- 'formal/timing/fixtures/FieldAlias.java',
- 'formal/timing/fixtures/HeapExternalCompare.java',
- 'formal/timing/fixtures/HeapExternalPublic.java',
- 'formal/timing/fixtures/HeapResultLaunder.java',
- 'formal/timing/fixtures/InlineCallee.java',
- 'formal/timing/fixtures/InlineCaller.java',
- 'formal/timing/fixtures/LongSlotArray.java',
- 'formal/timing/fixtures/LongSlotPrivate.java',
- 'formal/timing/fixtures/LongSlotPublic.java',
- 'formal/timing/fixtures/MergeRoleCallee.java',
- 'formal/timing/fixtures/MergeRoleCaller.java',
- 'formal/timing/fixtures/NewIdentity.java',
- 'formal/timing/fixtures/PostWipeLaunder.java',
- 'formal/timing/fixtures/PrivateEuclidean.java',
- 'formal/timing/fixtures/PrivateEuclideanDivision.java',
- 'formal/timing/fixtures/PublicEuclidean.java',
- 'formal/timing/fixtures/RecursiveCallee.java',
- 'formal/timing/fixtures/ResultArrayCall.java',
- 'formal/timing/fixtures/SecretAlloc.java',
- 'formal/timing/fixtures/SecretBranch.java',
- 'formal/timing/fixtures/SecretDigestBranch.java',
- 'formal/timing/fixtures/SecretIndex.java',
- 'formal/timing/fixtures/SecretLoopBound.java',
- 'formal/timing/fixtures/SecretResultBranch.java',
- 'formal/timing/fixtures/VirtualDispatch.java',
- 'formal/timing/policy.json',
- 'formal/timing/run.py',
- 'formal/timing/test_coverage.py',
- 'formal/timing/test_exception_table.py',
- 'formal/timing/test_trace.py',
- 'formal/timing/threat-model.md',
- 'formal/timing/trace_exec.py',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_Decoded.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_InvalidWidth.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/DecodeResult_ModulusError.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/CodecSpec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Encapsulation.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidCiphertextLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidKeyLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidMessageLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_InvalidSeedLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_ModulusError.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/FailureKind_RejectionLimit.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/PublicKey.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Failure.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/Result_Success.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/KemSpec/SecretKey.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_Decoded.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_InvalidWidth.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/DecodeResult_ModulusError.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeField/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/Encapsulation.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/PublicKey.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/SecretKey.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativePolynomial/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_Full.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidBlockLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_InvalidPrefix.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult_NeedMore.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/Sponge.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeShake/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/I.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeTypes/L.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolySpec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/Residue.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/PolynomialRing/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_Full.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidBlockLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_InvalidPrefix.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/FeedResult_NeedMore.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SamplingSpec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/ReadResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/State.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InputAfterOutput.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_InvalidSlice.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/UpdateResult_Updated.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/SpongeSpec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedCodec/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedField/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedKeccak/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedPolynomial/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedSampling/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedcrypto/VerifiedShake/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/HkdfBridge.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Failure.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult_Success.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidHash.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidKey.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLabel.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind_InvalidLength.java',
- 'quic/src/main/java/io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.java',
- 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/JdkHmac.java',
- 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/kem_hash.java',
- 'quic/src/main/java/io/github/mahmoudimus/verifiedcrypto/native_kem_hash.java')
+REQUIRED_HASH_MAP_KEYS[('V7', 'formal/timing/inputs.json', 'inputs', (), '')] = REQUIRED_TRACE_INPUT_KEYS
 
 
 # Reviewed immutable policies for a claim that is marked supported.  These are
@@ -1983,7 +1864,8 @@ REQUIRED_TRACE_BOUNDARIES = {'trusted': ['Dafny/Boogie/Z3',
              'mutation-tested, not a JVM-semantics theorem)',
              'execution_controls.py paired-state seeding and finite runs over the frozen trace_exec '
              'mirror: a control on the promoted roots, not a theorem (parameters are taken from the '
-             'frozen extractor param_regs; only the chosen finite pair per program is exercised)'],
+             'frozen extractor param_regs; only the chosen finite pair per program is exercised)',
+             'keccak_traces.py exact-target composition, public-provider oracle mapping and finite OracleView controls; runtime_primitives.py loaded-source binding and named private-count controls; these trusted bridges are not JVM refinement or physical timing proofs'],
  'execution_controls': {'machine_mirror': 'trace_exec.py: bounded interpreter of the frozen SecretTrace '
                                           'Apply/DoStep/Exec semantics used only for witness execution '
                                           'and copy-operand controls',
@@ -2378,6 +2260,605 @@ def _validate_trace_composition(report: dict[str, Any], label: str) -> int:
     return len(callees) + len(composed) + mutant_count + 1
 
 
+KECCAK_TRACE_PROFILES = {
+    # method, instructions, registers, inlines, proof obligations, extracted IR
+    "Rotate": ("Rotate:(JI)J", 32, 26, 2, 48, "238c1cdaa65ea61c522c0fee37a1aa3a1230ece138383d2cfa90ff365172ae29"),
+    "Theta": ("Theta:([J[J)V", 130, 105, 3, 163, "bfa31f34099f3ea9a2bc62b4de8c4ffc47f98297711a848b673460f137e91344"),
+    "RhoPi": ("RhoPi:([J[J[I[I)V", 59, 49, 3, 80, "420adca78a95150f1aa21bbcd463831346f2717660df3e6225d73d21e91c2343"),
+    "Iota": ("Iota:([JJ)V", 12, 17, 1, 29, "2e5a5528671e04f568995671207d7f776d0439d311ff9535281fb028ceeddc40"),
+    "Chi": ("Chi:([J[J)V", 46, 43, 0, 67, "538777dfe2dcc887e0759369ebc1f24c8a33acb39dad0c432917b1c9de2186e0"),
+    "Round": ("Round:([J[J[J[I[IJ)V", 249, 229, 11, 294, "682d35c9340cea295ba5530aba0884d3a443e37ae00ee258ab5c412ccb48c68a"),
+    "PermuteScratch": ("PermuteScratch:([J[J[J[I[I)V", 407, 322, 13, 472, "80d2f3c34076b5d81077424829cf92515b9c51c4426721d8e88a74f514fd4492"),
+}
+KECCAK_PUBLIC_TARGETS = {
+    "java/lang/Integer.signum:(I)I", "dafny/Helpers.toInt:(I)I",
+    "dafny/Helpers.toInt:(Ljava/math/BigInteger;)I",
+    "dafny/DafnyEuclidean.EuclideanDivision:(II)I",
+    "dafny/DafnyEuclidean.EuclideanModulus:(II)I",
+}
+KECCAK_BUDGET = ["--verification-time-limit", "30", "--resource-limit", "50000000",
+                 "--solver-option", "O:smt.case_split=0"]
+KECCAK_CLASS = "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.class"
+KECCAK_SOURCE = "quic/src/main/java/" + KECCAK_CLASS.removesuffix(".class") + ".java"
+KECCAK_CLASS_SHA = "5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91"
+KECCAK_SOURCE_SHA = "539f3cee594139794fde8be11853f8a09470177d42a23f5f422433ae57e3b75e"
+KECCAK_HELPERS_SHA = "4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c"
+KECCAK_RUNTIME_SHA = "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6"
+
+
+# Reviewed identities from actual pinned-class extraction, not from the incoming report.
+# Renew only after reviewing a fresh replay against the class/source pins above.
+KECCAK_BODY_IDENTITIES = {'dafny/Helpers.bv64ShiftLeft:(JB)J': {'callee_bytecode_sha256': 'a0f29776357892ec7662f459010bc464eca9c8a454c247f193720f4b0cc0645e',
+                                       'callee_class_sha256': '4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c'},
+ 'dafny/Helpers.bv64ShiftRight:(JB)J': {'callee_bytecode_sha256': '7c986febe3a32e7ff194a0aa2c6e9febceb4bc28def87fd9947aa99cb34edd87',
+                                        'callee_class_sha256': '4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J': {'callee_bytecode_sha256': 'dfc1b784d46860ef6f936af6efad52f440ca5f6df819964fecbb06b1104dd5cd',
+                                                                                            'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V': {'callee_bytecode_sha256': '44a97981191d08bcc78f8707b4e57fb34164384a507c1319abb726f5c2e258c2',
+                                                                                               'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta:([J[J)V': {'callee_bytecode_sha256': 'ce1e0ed05688c564f43ab640d8176b79d78409bfde969faa57776a8b99b45537',
+                                                                                             'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi:([J[J[I[I)V': {'callee_bytecode_sha256': '01c102c322b9a9f08f455cb681186f3e5e16cf02b2f55cac9ed8f91801581edc',
+                                                                                                 'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi:([J[J)V': {'callee_bytecode_sha256': '7972ed1e1cac6b1635d8149bd37d217f5a2d4498269461ed84134edb860cd79f',
+                                                                                           'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota:([JJ)V': {'callee_bytecode_sha256': '9c86602d998a4d0f6d49a61c09c9902e15d5f85f68074ea8df2006fe609b8ac2',
+                                                                                           'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Constant:(I)J': {'callee_bytecode_sha256': '7609bf50df8c623498d2754fd10504efcd9e4e9b1c970f9d93b29a2c4fa49bd1',
+                                                                                             'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'},
+ 'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round:([J[J[J[I[IJ)V': {'callee_bytecode_sha256': '080a2d34eebade1ac705d7dd9327239d3f3ac6bb373a7cc1d3931e3af3747a0a',
+                                                                                                    'callee_class_sha256': '5b4f35f3595ff8f3f5600c235e3c8fc3e2cb32c942afba291df1dcf57ec34b91'}}
+KECCAK_ROOT_IDENTITIES = {'Rotate': {'call_targets': {'java/lang/Integer.signum:(I)I': 1},
+            'remaining_calls': {'java/lang/Integer.signum:(I)I': 1},
+            'direct': {'instructions': 12,
+                       'registers': 12,
+                       'call_targets': {'java/lang/Integer.signum:(I)I': 1,
+                                        'dafny/Helpers.bv64ShiftLeft:(JB)J': 2,
+                                        'dafny/Helpers.bv64ShiftRight:(JB)J': 3},
+                       'roles': {},
+                       'audit_failures': []},
+            'param_regs': [1, 2],
+            'roles': {},
+            'inlined': ['dafny/Helpers.bv64ShiftLeft:(JB)J', 'dafny/Helpers.bv64ShiftRight:(JB)J'],
+            'control': {'steps': {'s': 4, 't': 4},
+                        'fuel': 40,
+                        'initial_state_sha256': {'s': '4ab3719c4921cb610e29e424ca909f7cb04c09f054eca4ef19cd30a5295c58d7',
+                                                 't': '2c3ff8ea6da50c988a69ae70c64ae67dfa0ab2f3120ee1825166b2343a88a79e'},
+                        'final_state_sha256': {'s': '2af769ef080ab98097fcfc857714a3e7270405031686f74f722f68b48b804038',
+                                               't': '9edea86ed977f374dde4e9053f9fd6372466c4f8752bfd8af62b78ca02d75b8a'}}},
+ 'Theta': {'call_targets': {'dafny/Helpers.toInt:(I)I': 1,
+                            'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 2,
+                            'java/lang/Integer.signum:(I)I': 4},
+           'remaining_calls': {'dafny/Helpers.toInt:(I)I': 2,
+                               'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 2,
+                               'java/lang/Integer.signum:(I)I': 1},
+           'direct': {'instructions': 95,
+                      'registers': 79,
+                      'call_targets': {'dafny/Helpers.toInt:(I)I': 1,
+                                       'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 2,
+                                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J': 3},
+                      'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta#p0': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta#p1': 'sec'},
+                      'audit_failures': []},
+           'param_regs': [1, 2],
+           'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta#p0': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta#p1': 'sec'},
+           'inlined': ['io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                       'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                       'dafny/Helpers.bv64ShiftRight:(JB)J'],
+           'control': {'steps': {'s': 763, 't': 763},
+                       'fuel': 1104,
+                       'initial_state_sha256': {'s': 'b66f066372dbf0dc0394978369bef5393e68f4a9025c525fe78f57c31d603ea1',
+                                                't': '65a12c6588b0f28128edaa801b8af6f7be7d0916df94d0a006f0a80404a6f3c2'},
+                       'final_state_sha256': {'s': '0eca3b9a00749e4b6e4d2346822eba12fefbf70f5d1d02f42109642f8e5d3354',
+                                              't': '8d3d346069162f7bb37930522f5f833264b281993a4e76066332dc9aac43d5ca'}}},
+ 'RhoPi': {'call_targets': {'dafny/Helpers.toInt:(I)I': 1, 'java/lang/Integer.signum:(I)I': 3},
+           'remaining_calls': {'dafny/Helpers.toInt:(I)I': 1, 'java/lang/Integer.signum:(I)I': 1},
+           'direct': {'instructions': 24,
+                      'registers': 23,
+                      'call_targets': {'dafny/Helpers.toInt:(I)I': 1,
+                                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J': 2},
+                      'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p0': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p1': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p2': 'pub',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p3': 'pub'},
+                      'audit_failures': []},
+           'param_regs': [1, 2, 3, 4],
+           'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p0': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p1': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p2': 'pub',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi#p3': 'pub'},
+           'inlined': ['io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                       'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                       'dafny/Helpers.bv64ShiftRight:(JB)J'],
+           'control': {'steps': {'s': 557, 't': 557},
+                       'fuel': 1072,
+                       'initial_state_sha256': {'s': '3a332e9958b53b9677728c763555675499fd148ae661c30f60031ede5e9c1143',
+                                                't': '1d5cb576da6b20b9a8c27349a27917e4a7b9a5c658106dc84f9b48a8a4fc58c2'},
+                       'final_state_sha256': {'s': 'a324e0d0bab03acdc8a97e82da42fdf66e81ea87a125bf03c8336e7629de89b3',
+                                              't': 'f93b8d14fea604c105ee8907f296acf13a291eec6b2a9f3829dd53c855996ca8'}}},
+ 'Iota': {'call_targets': {'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 1, 'dafny/Helpers.toInt:(I)I': 3},
+          'remaining_calls': {'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 1,
+                              'dafny/Helpers.toInt:(I)I': 1},
+          'direct': {'instructions': 8,
+                     'registers': 12,
+                     'call_targets': {'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 1,
+                                      'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V': 2},
+                     'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota#p0': 'sec'},
+                     'audit_failures': []},
+          'param_regs': [1, 2],
+          'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota#p0': 'sec'},
+          'inlined': ['io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V'],
+          'control': {'steps': {'s': 12, 't': 12},
+                      'fuel': 32,
+                      'initial_state_sha256': {'s': '703a85238c83759a1880d13d58a9371399b0741e7eeb8b1bdda99875f6b1ab00',
+                                               't': '5c1cd685167bb974d6a1bb66de87b46d0996acbf837cd02e3bc98663cabbda57'},
+                      'final_state_sha256': {'s': 'bf463629f75d722fe730b8981c1223397b79c952c71e81cf7725fad1b9feb991',
+                                             't': 'c672347580c898434860e92f84a0fd2063bb2efcec437097ef43ebe233cf75c2'}}},
+ 'Chi': {'call_targets': {'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 1,
+                          'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 2,
+                          'dafny/Helpers.toInt:(I)I': 3},
+         'remaining_calls': {'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 1,
+                             'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 3,
+                             'dafny/Helpers.toInt:(I)I': 1},
+         'direct': {'instructions': 46,
+                    'registers': 43,
+                    'call_targets': {'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 1,
+                                     'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 2,
+                                     'dafny/Helpers.toInt:(I)I': 3},
+                    'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi#p0': 'sec',
+                              'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi#p1': 'sec'},
+                    'audit_failures': []},
+         'param_regs': [1, 2],
+         'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi#p0': 'sec',
+                   'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi#p1': 'sec'},
+         'inlined': [],
+         'control': {'steps': {'s': 912, 't': 912},
+                     'fuel': 1728,
+                     'initial_state_sha256': {'s': '87afffa340ddbada049572242460a43fb08b657a2b46541a24f2aff3dd427a16',
+                                              't': '8ae9f91aa19625d0ac0fda165c7bd641139ebd64c3470c81f2b08b9841131a19'},
+                     'final_state_sha256': {'s': '038cad4a1e679854eacc54b8cd50c2beedf8a38873cefca803419d7c4af28f39',
+                                            't': '36a0c9e4d2347d101342a2d93e07355876d3408c1c1c9cf1dd01f003c567246f'}}},
+ 'Round': {'call_targets': {'dafny/Helpers.toInt:(I)I': 5,
+                            'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 6,
+                            'java/lang/Integer.signum:(I)I': 8,
+                            'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 11,
+                            'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 12},
+           'remaining_calls': {'dafny/Helpers.toInt:(I)I': 5,
+                               'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 5,
+                               'java/lang/Integer.signum:(I)I': 2,
+                               'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 1,
+                               'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 1},
+           'direct': {'instructions': 5,
+                      'registers': 15,
+                      'call_targets': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta:([J[J)V': 1,
+                                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi:([J[J[I[I)V': 2,
+                                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi:([J[J)V': 3,
+                                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota:([JJ)V': 4},
+                      'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p0': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p1': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p2': 'sec',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p3': 'pub',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p4': 'pub'},
+                      'audit_failures': []},
+           'param_regs': [1, 2, 3, 4, 5, 6],
+           'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p0': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p1': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p2': 'sec',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p3': 'pub',
+                     'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round#p4': 'pub'},
+           'inlined': ['io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta:([J[J)V',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                       'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                       'dafny/Helpers.bv64ShiftRight:(JB)J',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi:([J[J[I[I)V',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                       'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                       'dafny/Helpers.bv64ShiftRight:(JB)J',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi:([J[J)V',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota:([JJ)V',
+                       'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V'],
+           'control': {'steps': {'s': 2246, 't': 2246},
+                       'fuel': 4112,
+                       'initial_state_sha256': {'s': '33da8e96ad4a0707035401090207a09b5e0cc0d146c4dbaa6db568e5f12ae0cf',
+                                                't': 'd72da3d9272a27bb54be7cd9cfdfe9fdb1ee3ba425c0cbe36cbde5c2cf301177'},
+                       'final_state_sha256': {'s': '807fc158e12f6c2aca552915f4dcfd4dd6c0b933981f5f7904fd148fc45690e3',
+                                              't': '1eacc1b2652ff6dea623a5010e695c2561a4b0437305f67f8b25bef4e55a9da9'}}},
+ 'PermuteScratch': {'call_targets': {'java/lang/Integer.signum:(I)I': 3,
+                                     'dafny/Helpers.toInt:(I)I': 8,
+                                     'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 9,
+                                     'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 13,
+                                     'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 14},
+                    'remaining_calls': {'java/lang/Integer.signum:(I)I': 3,
+                                        'dafny/Helpers.toInt:(I)I': 5,
+                                        'dafny/DafnyEuclidean.EuclideanModulus:(II)I': 5,
+                                        'dafny/DafnyEuclidean.EuclideanDivision:(II)I': 1,
+                                        'dafny/Helpers.toInt:(Ljava/math/BigInteger;)I': 1},
+                    'direct': {'instructions': 17,
+                               'registers': 21,
+                               'call_targets': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Constant:(I)J': 1,
+                                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round:([J[J[J[I[IJ)V': 2},
+                               'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p0': 'sec',
+                                         'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p1': 'sec',
+                                         'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p2': 'sec',
+                                         'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p3': 'pub',
+                                         'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p4': 'pub'},
+                               'audit_failures': []},
+                    'param_regs': [1, 2, 3, 4, 5],
+                    'roles': {'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p0': 'sec',
+                              'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p1': 'sec',
+                              'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p2': 'sec',
+                              'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p3': 'pub',
+                              'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p4': 'pub'},
+                    'inlined': ['io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Constant:(I)J',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Round:([J[J[J[I[IJ)V',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Theta:([J[J)V',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                                'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                                'dafny/Helpers.bv64ShiftRight:(JB)J',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.RhoPi:([J[J[I[I)V',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Rotate:(JI)J',
+                                'dafny/Helpers.bv64ShiftLeft:(JB)J',
+                                'dafny/Helpers.bv64ShiftRight:(JB)J',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Chi:([J[J)V',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.Iota:([JJ)V',
+                                'io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.SetLane:([JIJ)V'],
+                    'control': {'steps': {'s': 54340, 't': 54340},
+                                'fuel': 106240,
+                                'initial_state_sha256': {'s': 'f6ec888c7851a924f764ef318dab477af45dfea743102bddf2b6b8468e01c846',
+                                                         't': '940b9eb1296774c685dd8d8f7cdc42bde7083f400a8eaced841f49c986d50ea3'},
+                                'final_state_sha256': {'s': 'cfafdc267251fd7364a764d446590706296f0908805c1e4830c34dffc7a766f3',
+                                                       't': '6efd606b4ab545fcd49b6a779aa064fc2be5891636f7277cb1b553c8e670cbad'}}}}
+
+
+# Hashes below were checked against the preserved replay files before acceptance.
+KECCAK_MODEL_ARTIFACTS = {'PublicProvider': {'source_sha256': '0b974605e8c43276b422f973c3271996cc45fe33aae579e0641cd16fcef8c94b',
+                    'log_sha256': 'a1abf91819beff25935d30304cae9adc6e4fe0bbe4468ba36ae5576a5ecac8a0'},
+ 'PublicProviderPublic': {'source_sha256': '8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94',
+                          'log_sha256': '3f70ba253123bed848ea5673ef78da6828f7f543eff36fc835390796c904a726'},
+ 'WordArithmetic': {'source_sha256': '76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a',
+                    'log_sha256': '77a8844ef1f1bca3553a87f7c7991a556402b4e8df81beea956eda4a294217b9'}}
+KECCAK_PROOF_ARTIFACTS = {'Rotate': {'source_sha256': 'f1aa689da9e97acd830ad48ad4dbbef63972c3ea1fa42f4eb7a71ead0b32f525',
+            'log_sha256': 'ceb555bd2c219d803843ffa7a9d05df4e0088ecb328d43dfd119639a4e48781c',
+            'oracle_sha256': '0a07658fcbf4c453134a830066ae61d591ca734adafb94cd5bec4b097033562e'},
+ 'Theta': {'source_sha256': '9769faae784cccf0dc98f13a8db5c78e3e0edf92e9f30886b53b56d5debcada2',
+           'log_sha256': '6c46b70d5da52196aeff921183529d91d9e20ef050f623476a8f6142fb1e7d23',
+           'oracle_sha256': '0c090b9bb08e5d70fc0a7dd5173e3cff5034648b68acf97c354151c0597073ac'},
+ 'RhoPi': {'source_sha256': '1bbd901885d2793ac6a015a169f173eb338a83b5c9bf080765dee60bee5aa94f',
+           'log_sha256': '8a627c10412758918e8163071fa096df30bdc46c786cffa53fffda9ffe3f08f8',
+           'oracle_sha256': '19e792d293aeb73295df86e0b956e435f862c1a3165e5c745b8f8baf13182780'},
+ 'Iota': {'source_sha256': 'd35ba5c2b6adf8c04bc2b8b2d1340f4b2a7657a0564a4a875906fbac92a6260a',
+          'log_sha256': '25f8d5a40d8f39ccacf0bca88abd969f0364d7fced2cf1efbeb48f9ac190c6c2',
+          'oracle_sha256': 'e3b50f9f5f67c6f90a069c86d3e5fd783749f411b8f39b83d1cfc889e2f343f5'},
+ 'Chi': {'source_sha256': '818ff760d0c0b253962538f1258290828d6ebfe245586c6f9b17dd82b926982a',
+         'log_sha256': '3772eb42a41cd32b59b3a418580302f4c962af9af75bcb4bc0178469263e4388',
+         'oracle_sha256': 'ac223683bcbdbe1c47524da543bf0d33bd6c246e0130b6ecefdb262cf71de17f'},
+ 'Round': {'source_sha256': '4ebd01dfbd116600b7943c03b7879a6c3507acb1898e6c9bbc89f37f44a0c166',
+           'log_sha256': 'ec9d2793da03e07b435131e9d9709f3b567b27d4518aa275b41311f929429960',
+           'oracle_sha256': '9e63157ef6922aaba41fc6ec0c7c4f44114b9cfe1c123ae5ae7a58db48ddacd7'},
+ 'PermuteScratch': {'source_sha256': 'e374ccfa93ebfe8cd603660ac576fcca5b31f06902e0509b77e172f02337b154',
+                    'log_sha256': 'be5c46f34dfdad01a2d5d2e76ccf552ff2e59db0a93ef45a58a5c9f3e9f5c3b9',
+                    'oracle_sha256': '05f24c6cee1734399a5672a29ddb53f64d885626c83e5985a3d089b38897aa2d'}}
+KECCAK_AUXILIARY_IDENTITIES = {'Rotate': 'c976146b84b7ec025d24082a42d9a62e6c92e6d1026cdfbcbda0e98d843fe65f',
+ 'Theta': '9ba7d0d04f189cf65b956739566848d3c3ee153b3a46e42c18ee43ace784d16e',
+ 'RhoPi': 'c520dfd51918a74eaa9679f2ce507b50a529d437b0acda73ec29e7407caee7d2',
+ 'Iota': '400f8ade5feb1104a7a63dcce3f42cf46126388f425de1644e3805d9e0ea7442',
+ 'Chi': '184bb16b77dce925d5d6d968ada1f2803f2eabac17d9a746acd2ccc1b5ef3051',
+ 'Round': '4fd807a2cab08c969a3472c1e5bd9b52b77955ee8f351124bf06e7c26c333b81',
+ 'PermuteScratch': 'db42052c2916ecd8ed279b7b22c50801ec930f25afc556b5876ca3fc870392ba'}
+KECCAK_COMPONENT_IDENTITIES = {'overlay': 'fdf47c5f53e92046dae2b0bdb28ce636c8f0152fc2229260489bac1bb75f5602',
+ 'actual_tables': 'ca33b50ca92b50e996f7b3682ba2f1732197dbb13f72cec4c69d9806457c17c2',
+ 'binding_controls': '9eed7c0225af69042779625f8484b1758300927fa0e5653308516ffeb142748a',
+ 'oracle_kats': '6e39e2d21cc342c8d171b4446ac1ab238b8ac3465471a7787054feaac728dd2e'}
+
+
+def _validate_trace_keccak(report: dict[str, Any], label: str) -> int:
+    """Check the supplemental claim even if the accepted snapshot is renewed.
+
+    This is a trusted receipt gate, not a replay or a proof of its Python code.
+    Caller assumptions/open roots stay under the original independent gates.
+    """
+    def require(ok: bool, reason: str) -> None:
+        if not ok:
+            raise LedgerError(f"{label}: Keccak {reason}")
+
+    def obj(value: Any, reason: str) -> dict:
+        require(isinstance(value, dict), reason)
+        return value
+
+    def sha(value: Any) -> bool:
+        return (isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+                and value != "0" * 64)
+
+    component = obj(report.get("keccak_traces"), "component missing")
+    require(component.get("schema") == 1 and component.get("status") == "verified", "component incomplete")
+    def record_hash(value: Any) -> str:
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    roots = obj(component.get("roots"), "root inventory missing")
+    require(set(roots) == set(KECCAK_TRACE_PROFILES), "root inventory changed")
+    require(component.get("scope") == {
+        "roots": [p[0] for p in KECCAK_TRACE_PROFILES.values()],
+        "excluded": ["Permute:([J)V (array-return NewOffsets/NewSources unsupported)"],
+        "not_claimed": ["Sponge ownership/NI", "13-root closure", "JVM value/timing",
+                        "physical erasure", "external expert review"],
+    }, "scope boundaries changed")
+    require(component.get("limits") == {
+        "budget": KECCAK_BUDGET, "no_resource_bump": True,
+        "proof_timeout_seconds": 300, "step_cap": 1048576,
+    }, "solver budget changed")
+    shifts = ["dafny/Helpers.bv64ShiftLeft:(JB)J", "dafny/Helpers.bv64ShiftRight:(JB)J"]
+    require(component.get("admission") == {"actual": shifts, "declared": shifts, "expected": shifts},
+            "runtime admission changed")
+    classification = obj(report.get("runtime_classification"), "runtime admission missing")
+    require(classification.get("shift_count_public") == shifts
+            and classification.get("public_heap_exceptions") == [], "runtime admission scope changed")
+    runtime_policy = obj(classification.get("pinned_runtime"), "runtime policy missing")
+    require(runtime_policy.get("jar_sha256") == KECCAK_RUNTIME_SHA
+            and runtime_policy.get("helpers_entry_sha256") == KECCAK_HELPERS_SHA,
+            "runtime class pin changed")
+
+    binding = obj(component.get("binding"), "binding missing")
+    before = obj(binding.get("before"), "binding before missing")
+    require(binding.get("after") == before, "binding changed after execution")
+    native = obj(binding.get("native"), "native class binding missing")
+    require(native.get("class_sha256") == KECCAK_CLASS_SHA
+            and native.get("source_sha256") == KECCAK_SOURCE_SHA, "native class/source binding changed")
+    classes = obj(report.get("class_binding"), "class bindings missing")
+    require(obj(classes.get(KECCAK_CLASS), "native class missing").get("class_sha256") == KECCAK_CLASS_SHA,
+            "native class differs from the rebuilt class set")
+    inputs = obj(report.get("inputs"), "input binding missing")
+    require(inputs.get(KECCAK_SOURCE) == KECCAK_SOURCE_SHA, "native source pin changed")
+    native_source = native.get("source")
+    require(isinstance(native_source, str) and native_source.endswith("/" + KECCAK_SOURCE),
+            "native source origin changed")
+    origin = native_source[:-len(KECCAK_SOURCE)]
+    modules = obj(before.get("modules"), "module binding missing")
+    expected_modules = {name: "formal/timing/" + name + ".py" for name in (
+        "bytecode_trace", "composition", "trace_exec", "runtime_primitives",
+        "compact_certificates", "keccak_traces")}
+    require(set(modules) == set(expected_modules), "module inventory changed")
+    for name, pin in expected_modules.items():
+        entry = obj(modules.get(name), "module record missing")
+        require(entry.get("pin_key") == pin and entry.get("path") == origin + pin
+                and sha(inputs.get(pin)) and entry.get("sha256") == inputs[pin]
+                and entry.get("expected_sha256") == inputs[pin], "loaded module differs from pinned source")
+    files = obj(before.get("files"), "file binding missing")
+    by_pin = {entry.get("pin_key"): entry for entry in files.values() if isinstance(entry, dict)}
+    expected_files = {KECCAK_SOURCE, "formal/timing/policy.json", "formal/timing/SecretTrace.dfy",
+                      "formal/timing/PublicProvider.dfy", "formal/timing/PublicProviderPublic.dfy",
+                      "formal/timing/WordArithmetic.dfy"}
+    require(set(by_pin) == expected_files, "model/file binding inventory changed")
+    for pin, entry in by_pin.items():
+        require(entry.get("path") == origin + pin and sha(inputs.get(pin))
+                and entry.get("actual_sha256") == inputs[pin]
+                and entry.get("expected_sha256") == inputs[pin], "model/file binding changed")
+    artifacts = obj(binding.get("artifacts"), "tool binding missing")
+    for name, pin in (("dafny", "binary_sha256"), ("solver", "solver_sha256")):
+        require(obj(artifacts.get(name), "tool binding missing").get("sha256")
+                == REQUIRED_TRACE_TOOL_IDENTITY[pin], "tool identity changed")
+        tool_key = "binary" if name == "dafny" else "solver"
+        require(artifacts[name].get("path") == report.get("tools", {}).get(tool_key),
+                "tool origin differs from top-level binding")
+
+    def proof(value: Any, count: int | None, name: str, *, negative: bool = False) -> dict:
+        p = obj(value, name + " proof missing")
+        expected = ("proof_failed", 4) if negative else ("verified", 0)
+        require(p.get("status") == expected[0] and type(p.get("returncode")) is int
+                and p["returncode"] == expected[1] and p.get("summary_count") == 1
+                and p.get("bad_run") is False and p.get("bad_match") is None,
+                name + " proof status changed")
+        require(type(p.get("verified")) is int and p["verified"] > 0
+                and (count is None or p["verified"] == count)
+                and type(p.get("errors")) is int
+                and (p["errors"] > 0 if negative else p["errors"] == 0), name + " proof count changed")
+        cmd = p.get("command")
+        require(isinstance(cmd, list) and len(cmd) == 11 and isinstance(cmd[2], str)
+                and cmd[2].endswith(".dfy"), name + " proof command changed")
+        require(cmd == [artifacts["dafny"]["path"], "verify", cmd[2], "--solver-path",
+                        artifacts["solver"]["path"], *KECCAK_BUDGET], name + " solver budget/command changed")
+        require(sha(p.get("log_sha256")), name + " proof log binding missing")
+        if negative:
+            require(p.get("obligation") == "Error: possible violation of postcondition",
+                    name + " negative obligation changed")
+        return p
+
+    models = obj(component.get("model_proofs"), "model inventory missing")
+    require(set(models) == {"PublicProvider", "PublicProviderPublic", "WordArithmetic"}, "model inventory changed")
+    for name, count in (("PublicProvider", 16), ("PublicProviderPublic", 9), ("WordArithmetic", 56)):
+        p = proof(models[name], count, name)
+        require(p.get("source_sha256") == inputs.get("formal/timing/" + name + ".dfy"),
+                name + " model source pin changed")
+        require(p["command"][2] == origin + "formal/timing/" + name + ".dfy", name + " model origin changed")
+        require(all(p.get(key) == value for key, value in KECCAK_MODEL_ARTIFACTS[name].items()),
+                name + " proof artifact identity changed")
+    for name, (method, instructions, registers, inlines, count, ir) in KECCAK_TRACE_PROFILES.items():
+        row = obj(roots[name], name + " root missing")
+        require((row.get("source_method"), row.get("instructions"), row.get("registers"),
+                 row.get("inlined_count"), row.get("ir_sha256"))
+                == (method, instructions, registers, inlines, ir), name + " root/IR identity changed")
+        require(row.get("audit_failures") == [] and isinstance(row.get("inlined"), list)
+                and len(row["inlined"]) == inlines, name + " inline/audit evidence changed")
+        identity = KECCAK_ROOT_IDENTITIES[name]
+        require([entry.get("target") for entry in row["inlined"]] == identity["inlined"],
+                name + " inline target inventory changed")
+        require(row.get("direct") == identity["direct"]
+                and row.get("param_regs") == identity["param_regs"]
+                and row.get("roles") == identity["roles"], name + " direct extraction metadata changed")
+        targets = obj(row.get("call_targets"), name + " provider targets missing")
+        remaining = obj(row.get("remaining_calls"), name + " provider calls missing")
+        require(targets == identity["call_targets"] and remaining == identity["remaining_calls"]
+                and set(targets) == set(remaining) and set(targets).issubset(KECCAK_PUBLIC_TARGETS)
+                and all(type(v) is int and v > 0 for v in targets.values())
+                and all(type(v) is int and v > 0 for v in remaining.values())
+                and len(set(targets.values())) == len(targets), name + " provider target set changed")
+        contract = obj(row.get("public_contract"), name + " public-call contract missing")
+        require(contract == {
+            "known_public_ids": sorted(targets.values()), "known_public_targets": sorted(targets),
+            "known_public_arity": {str(ident): 2 if target.startswith("dafny/DafnyEuclidean.") else 1
+                                   for target, ident in targets.items()},
+            "unknown_oracle_case": "FallbackOracle (total, defined 0; proved unreachable by CallsOnly/arity)",
+            "public_only_postcondition": "PublicOnly(P(), KNOWN_PUBLIC_ARITY)",
+            "every_call_target_known_lemma": "EveryCallTargetKnown",
+            "every_call_arity_matches_lemma": "EveryCallArityMatches",
+            "default_oracle_matches_lemma": "DefaultOracleMatches",
+            "every_call_target_known_verified": True,
+        }, name + " public-call contract changed")
+        p = proof(row.get("proof"), count, name)
+        certificate = obj(row.get("certificate"), name + " certificate binding missing")
+        require(sha(p.get("source_sha256"))
+                and p["source_sha256"] == certificate.get("certificate_sha256")
+                and sha(certificate.get("oracle_sha256")), name + " certificate binding changed")
+        require(p["command"][2] == certificate.get("certificate")
+                and Path(p["command"][2]).name == name + "Provider.dfy", name + " proved certificate changed")
+        expected_artifacts = KECCAK_PROOF_ARTIFACTS[name]
+        require(p.get("source_sha256") == expected_artifacts["source_sha256"]
+                and p.get("log_sha256") == expected_artifacts["log_sha256"]
+                and certificate.get("oracle_sha256") == expected_artifacts["oracle_sha256"],
+                name + " proof artifact identity changed")
+        require(isinstance(certificate.get("oracle"), str)
+                and Path(certificate["oracle"]).name == "Oracle_" + name + ".dfy"
+                and Path(certificate["oracle"]).parent == Path(p["command"][2]).parent.parent / "oracles"
+                and certificate.get("oracle_module") == "Oracle_" + name
+                and certificate.get("oracle_function") == "PublicOracle", name + " oracle origin changed")
+        require(all(certificate.get(key) == value for key, value in contract.items()
+                    if key != "every_call_target_known_verified"), name + " certificate public contract changed")
+        ctl = obj(row.get("control"), name + " execution control missing")
+        require(all(ctl.get(key) == value for key, value in identity["control"].items()),
+                name + " execution profile changed")
+        checks = obj(ctl.get("checks"), name + " execution checks missing")
+        require(ctl.get("status") == "ok" and ctl.get("terminal") == {"s": "stop", "t": "stop"}
+                and ctl.get("fault_events") == {"s": [], "t": []}
+                and ctl.get("trace_equal") is True and ctl.get("public_registers_equal") is True
+                and ctl.get("public_heap_equal") is True
+                and checks.get("public_heap_equal") is True and all(v is True for v in checks.values()),
+                name + " execution control incomplete or false")
+        events = obj(ctl.get("events_sha256"), name + " execution trace hash missing")
+        require(sha(events.get("s")) and events.get("s") == events.get("t"), name + " execution traces differ")
+        if name != "Rotate":
+            require(checks.get("private_heap_output_live") is True and ctl.get("heap_output_differs"),
+                    name + " execution private output not live")
+    final = roots["PermuteScratch"]["control"]
+    require(final.get("rounds_executed") == 24 and final["checks"].get("24_rounds_executed") is True,
+            "round execution incomplete")
+    expected_shapes = {f"io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeKeccak/__default.PermuteScratch#p{i}": [n, n]
+                       for i, n in enumerate((25, 25, 5, 25, 25))}
+    require(final.get("heap_shape") == expected_shapes, "honest heap shape changed")
+    require(final["checks"].get("both_private_input_roles_vary") is True
+            and final["checks"].get("both_private_outputs_live") is True
+            and final["checks"].get("to_int_big_integer_only_zero_argument") is True,
+            "execution private-input/public-provider controls changed")
+    require(final.get("event_counts") == {side: {
+        "alloc": 0, "call": 5352, "fault": 0, "guard": 3095, "len": 0,
+        "load": 5064, "raise": 0, "store": 1944} for side in ("s", "t")}, "round event counts changed")
+    runtime = obj(component.get("runtime_replay"), "runtime replay missing")
+    require(runtime.get("status") == "verified" and runtime.get("jar_sha256") == KECCAK_RUNTIME_SHA
+            and runtime.get("helpers_entry_sha256") == KECCAK_HELPERS_SHA
+            and runtime.get("proofs") == {side: {"with_witness": 12, "without_witness": 11}
+                                         for side in ("left", "right")}
+            and runtime.get("java_adapter") == {"status": "finite-java-equals-model", "comparisons": 56, "inputs": 28},
+            "runtime proof/artifact replay changed")
+    helper_pin = obj(component.get("helper_entry_pin"), "runtime class pin check missing")
+    require(helper_pin == {
+        "declared_helpers_entry_sha256": KECCAK_HELPERS_SHA,
+        "actual_helpers_entry_sha256": KECCAK_HELPERS_SHA,
+        "declared_jar_sha256": KECCAK_RUNTIME_SHA, "actual_jar_sha256": KECCAK_RUNTIME_SHA,
+        "matches": True,
+    }, "runtime class pin check changed")
+    after_bodies = obj(component.get("inlined_body_binding_after"), "callee body binding missing")
+    bodies = {}
+    native_owner = KECCAK_CLASS.removesuffix(".class")
+    for name, row in roots.items():
+        for entry in row["inlined"]:
+            body = obj(entry.get("callee_body"), name + " callee body missing")
+            owner = body.get("owner")
+            require(owner in (native_owner, "dafny/Helpers")
+                    and body.get("static") is True and body.get("exception_table") is False
+                    and body.get("handlers") == [] and isinstance(body.get("bytecode"), list)
+                    and body["bytecode"], name + " callee body scope changed")
+            target = f"{owner}.{body.get('name')}:{body.get('descriptor')}"
+            body_hash = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            class_hash = KECCAK_HELPERS_SHA if owner == "dafny/Helpers" else KECCAK_CLASS_SHA
+            require(entry.get("target") == target and entry.get("callee_bytecode_sha256") == body_hash
+                    and entry.get("callee_class_sha256") == class_hash
+                    and KECCAK_BODY_IDENTITIES.get(target) == {
+                        "callee_bytecode_sha256": body_hash, "callee_class_sha256": class_hash}
+                    and entry.get("callee_shape_sha256_is_body_identity") is False,
+                    name + " callee body identity changed")
+            value = {"callee_bytecode_sha256": body_hash, "callee_class_sha256": class_hash}
+            require(target not in bodies or bodies[target] == value, name + " callee body inconsistent")
+            bodies[target] = value
+        require(record_hash({"inlined": row["inlined"], "events_sha256": row["control"]["events_sha256"]})
+                == KECCAK_AUXILIARY_IDENTITIES[name], name + " auxiliary identity changed")
+    require(after_bodies == bodies, "callee body binding changed after replay")
+    private = obj(component.get("private_count"), "private-count anchor inventory missing")
+    require(set(private) == {"left", "right"}, "private-count anchor inventory changed")
+    for side in ("left", "right"):
+        p = proof(private[side].get("proof"), 9, "private-count " + side, negative=True)
+        anchor = obj(p.get("anchor"), "private-count anchor missing")
+        require(p.get("errors") == 2 and private[side].get("obligation_named") is True
+                and p.get("anchor_status") == "proof_failed_named_chunk0_branch_postcondition"
+                and anchor.get("certificate_statement") == "ensures InstrOK(p, p.chunks[0][j])"
+                and anchor.get("model_statement") == "cond < p.registers && RegTaint(p, cond) == Pub &&"
+                and anchor.get("certificate_line") == 25 and anchor.get("model_line") == 227,
+                "private-count anchor changed")
+        error = "Error: possible violation of postcondition of forall statement"
+        related = "Related location: this proposition could not be proved"
+        diagnostics = anchor.get("diagnostics")
+        require(anchor.get("error_message") == error and anchor.get("related_message") == related
+                and anchor.get("obligation") == "Chunk0.InstrOK universal postcondition on secret branch taint"
+                and isinstance(diagnostics, list) and len(diagnostics) == 2
+                and diagnostics[0] == {
+                    "path": anchor.get("certificate"), "line": 25, "col": 14,
+                    "message": error, "related": [{"path": "formal/timing/SecretTrace.dfy",
+                        "line": 227, "col": 28, "message": related}]}
+                and diagnostics[1] == {
+                    "path": anchor.get("certificate"), "line": 61, "col": 12,
+                    "message": "Error: function precondition could not be proved", "related": [
+                        {"path": "formal/timing/SecretTrace.dfy", "line": 352, "col": 13, "message": related},
+                        {"path": "formal/timing/SecretTrace.dfy", "line": 266, "col": 5, "message": related}]},
+                "private-count anchor diagnostics changed")
+    structural = obj(component.get("mutants"), "structural mutant inventory missing")
+    require(set(structural) == {"branch", "index"}, "structural mutant inventory changed")
+    for name, line in (("branch", 227), ("index", 224)):
+        p = proof(structural[name].get("proof"), None, name + " mutant", negative=True)
+        lines = p.get("error_lines")
+        require(isinstance(lines, list) and p.get("contains_structure_error") is True
+                and any(f"SecretTrace.dfy({line}," in str(s) for s in lines),
+                name + " mutant obligation anchor changed")
+    public = obj(component.get("public_call_mutants"), "public-call mutant inventory missing")
+    require(set(public) == {"private_argument", "unknown_target", "private_heap_argument", "wrong_arity"},
+            "public-call mutant inventory changed")
+    for name, line in (("private_argument", 28), ("unknown_target", 26),
+                       ("private_heap_argument", 27), ("wrong_arity", 29)):
+        row = obj(public[name], name + " mutant missing")
+        p = proof(row.get("proof"), None, name + " mutant", negative=True)
+        lines = p.get("error_lines")
+        require(p.get("contains_structure_error") is False and isinstance(lines, list)
+                and any(f"PublicProviderPublic.dfy({line}," in str(s) for s in lines),
+                name + " public-call mutant anchor changed")
+        # These fields describe the diagnostic, not a separate positive
+        # Structure theorem. Require consistency with the derived proof facts.
+        require(row.get("derived_from_proof") is True
+                and row.get("proof_status") == p["status"]
+                and row.get("contains_structure_error") == p["contains_structure_error"]
+                and row.get("structure_valid") == (not p["contains_structure_error"])
+                and row.get("public_only_false") == (p["status"] == "proof_failed"),
+                name + " public-call mutant derived metadata changed")
+    kat = obj(component.get("oracle_kats"), "oracle control missing")
+    require(kat.get("status") == "compiled-dafny-equals-python-kat" and kat.get("cases") == 243
+            and sha(kat.get("source_sha256")) and sha(kat.get("log_sha256")), "compiled oracle comparison missing")
+    controls = obj(component.get("noncompletion_controls"), "noncompletion controls missing")
+    require(set(controls) == {"fuel", "out_of_bounds", "equal_inputs"}
+            and all(isinstance(c, dict) and c.get("accepted_as_complete") is False for c in controls.values())
+            and controls["fuel"].get("terminal") == "fuel"
+            and controls["out_of_bounds"].get("terminal") == "fault"
+            and controls["equal_inputs"].get("status") == "FAILED", "noncompletion control promoted or missing")
+    for name, expected_hash in KECCAK_COMPONENT_IDENTITIES.items():
+        require(record_hash(component.get(name)) == expected_hash, name + " component identity changed")
+    return 7 + 3 + 2 + 3 + 6
+
+
 def _validate_trace_report(root: Path, label: str) -> int:
     report_path = "formal/timing/PRODUCTION-EVIDENCE.json"
     report_file = checked_path(root, report_path, label)
@@ -2425,7 +2906,8 @@ def _validate_trace_report(root: Path, label: str) -> int:
         raise LedgerError(f"{label}: trace certificate mutant inventory changed")
     composition_checks = (_validate_trace_composition(report, label)
                           + _validate_trace_promoted_controls(report, label)
-                          + _validate_trace_boundaries(report, label))
+                          + _validate_trace_boundaries(report, label)
+                          + _validate_trace_keccak(report, label))
     assumed = {
         item.get("target") for item in report.get("assumed_owned_callees", [])
         if isinstance(item, dict)
@@ -2449,6 +2931,9 @@ def _validate_trace_report(root: Path, label: str) -> int:
         raise LedgerError(f"{label}: trace input inventory missing")
     if tuple(sorted(inputs)) != REQUIRED_TRACE_INPUT_KEYS or inputs != manifest:
         raise LedgerError(f"{label}: trace report inputs differ from the pinned manifest")
+    if report["keccak_traces"]["binding"]["before"]["inputs"].get("sha256") != digest(
+            checked_path(root, "formal/timing/inputs.json", label)):
+        raise LedgerError(f"{label}: Keccak input-manifest binding changed")
     bindings = report.get("class_binding")
     if not isinstance(bindings, dict) or tuple(sorted(bindings)) != REQUIRED_TRACE_CLASS_BINDING_KEYS:
         raise LedgerError(f"{label}: crypto class binding inventory changed")

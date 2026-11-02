@@ -8,6 +8,8 @@ commands.
 from __future__ import annotations
 
 import contextlib
+import copy
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -253,7 +255,15 @@ class Fixture:
                 if not (includes and any(key.startswith(prefix) for prefix in includes))}
         kept.update(mapping)
         self._nested_set(receipt, map_path, kept)
-        self._write_json(receipt_path, receipt)
+        # The timing receipt binds the actual manifest bytes as well as its
+        # semantic map. Preserve the reviewed fixture's encoding when its data
+        # is unchanged; do not repin the report to mask a changed manifest.
+        real = self.REAL_ROOT / receipt_path
+        if (receipt_path == "formal/timing/inputs.json" and real.is_file()
+                and receipt == json.loads(real.read_text())):
+            (self.root / receipt_path).write_bytes(real.read_bytes())
+        else:
+            self._write_json(receipt_path, receipt)
 
     def _refresh_required_hash_maps(self, oid: str) -> None:
         for signature in obligations.REQUIRED_COMPONENT_CHECKS[oid]["hash_maps"]:
@@ -856,6 +866,16 @@ class ObligationLedgerTests(unittest.TestCase):
         path = "formal/timing/PRODUCTION-EVIDENCE.json"
         self.fixture._set_evidence("V7", path, "component-receipt")
         return path
+
+    def test_v7_manifest_bytes_must_match_the_executed_binding(self):
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = "formal/timing/inputs.json"
+        target = self.root / path
+        # Same JSON data, different executed-input bytes. Renewing the ledger
+        # evidence hash must not erase the replay's manifest binding.
+        target.write_bytes(target.read_bytes() + b"\n")
+        self.fixture._set_evidence("V7", path, "input-manifest")
+        self.assert_invalid("Keccak input-manifest binding changed")
 
     def test_trace_positive_fixture_and_mutant_diagnostic_snapshot_bound(self):
         self.fixture.make_supported("packet-receive-trace-scoped")
@@ -1648,6 +1668,278 @@ class PromotedTraceControlTests(unittest.TestCase):
         self.report["promoted_controls"]["note"] = ""
         with self.assertRaisesRegex(obligations.LedgerError, "trust/scope boundary"):
             self.validate()
+
+
+class KeccakTraceGateTests(unittest.TestCase):
+    """Reject changed Keccak claims independently of the snapshot digest."""
+
+    def setUp(self):
+        root = Path(__file__).resolve().parents[2]
+        self.report = json.loads((root / "formal/timing/PRODUCTION-EVIDENCE.json").read_text())
+        self.component = self.report["keccak_traces"]
+
+    def validate(self):
+        return obligations._validate_trace_keccak(self.report, "V7:trace-report")
+
+    def reject(self, pattern="Keccak"):
+        with self.assertRaisesRegex(obligations.LedgerError, pattern):
+            self.validate()
+
+    def test_reviewed_keccak_evidence_is_accepted(self):
+        self.assertGreater(self.validate(), 0)
+
+    def test_keccak_component_cannot_be_omitted(self):
+        self.report.pop("keccak_traces")
+        self.reject("Keccak component")
+
+    def test_root_inventory_cannot_shrink(self):
+        self.component["roots"].pop("Theta")
+        self.reject("Keccak root inventory")
+
+    def test_positive_proof_cannot_be_partial(self):
+        self.component["roots"]["PermuteScratch"]["proof"]["verified"] = 1
+        self.reject("Keccak .*proof")
+
+    def test_solver_budget_cannot_be_silently_increased(self):
+        cmd = self.component["roots"]["Rotate"]["proof"]["command"]
+        cmd[cmd.index("--resource-limit") + 1] = "200000000"
+        self.reject("Keccak .*budget")
+
+    def test_public_call_model_cannot_be_dropped(self):
+        self.component["model_proofs"].pop("PublicProviderPublic", None)
+        self.reject("Keccak model inventory")
+
+    def test_word_arithmetic_requires_its_reviewed_proof_count(self):
+        self.component["model_proofs"]["WordArithmetic"]["verified"] = 1
+        self.reject("Keccak .*proof")
+
+    def test_unknown_remaining_provider_is_rejected(self):
+        self.component["roots"]["Rotate"]["remaining_calls"]["owned/Secret.run:()J"] = 1
+        self.reject("Keccak .*provider")
+
+    def test_native_class_binding_cannot_drift(self):
+        self.component["binding"]["native"]["class_sha256"] = "0" * 64
+        self.reject("Keccak .*class")
+
+    def test_loaded_module_must_match_the_pinned_file(self):
+        for side in ("before", "after"):
+            self.component["binding"][side]["modules"]["composition"]["sha256"] = "0" * 64
+        self.reject("Keccak .*module")
+
+    def test_after_binding_must_equal_before(self):
+        self.component["binding"]["after"]["modules"]["trace_exec"]["path"] += ".shadow"
+        self.reject("Keccak .*binding")
+
+    def test_fault_is_not_a_completed_execution(self):
+        self.component["roots"]["PermuteScratch"]["control"]["terminal"]["s"] = "fault"
+        self.reject("Keccak .*execution")
+
+    def test_all_rounds_must_execute(self):
+        self.component["roots"]["PermuteScratch"]["control"]["rounds_executed"] = 23
+        self.reject("Keccak .*round")
+
+    def test_public_heap_equality_cannot_be_omitted(self):
+        ctl = self.component["roots"]["PermuteScratch"]["control"]
+        ctl["public_heap_equal"] = False
+        ctl["checks"]["public_heap_equal"] = False
+        self.reject("Keccak .*execution")
+
+    def test_heap_shape_cannot_be_enlarged_to_hide_a_fault(self):
+        ctl = self.component["roots"]["PermuteScratch"]["control"]
+        role = next(iter(ctl["heap_shape"]))
+        ctl["heap_shape"][role] = [125, 125]
+        self.reject("Keccak .*shape")
+
+    def test_private_count_requires_the_named_branch_obligation(self):
+        self.component["private_count"]["left"]["proof"].pop("anchor", None)
+        self.reject("Keccak .*private-count anchor")
+
+    def test_unrelated_error_cannot_replace_private_count_failure(self):
+        proof = self.component["private_count"]["right"]["proof"]
+        proof["anchor_status"] = "unrelated-false-lemma"
+        self.reject("Keccak .*private-count anchor")
+
+    def test_partial_control_cannot_be_promoted(self):
+        self.component["noncompletion_controls"]["fuel"]["accepted_as_complete"] = True
+        self.reject("Keccak .*noncompletion")
+
+    def test_trust_and_scope_disclosures_cannot_be_removed(self):
+        self.component["scope"]["not_claimed"] = []
+        self.reject("Keccak scope")
+
+    def test_compiled_oracle_comparison_cannot_be_skipped(self):
+        self.component["oracle_kats"]["cases"] = 0
+        self.reject("Keccak .*oracle")
+
+    def test_declared_and_actual_admission_must_match(self):
+        self.component["admission"]["actual"] = []
+        self.reject("Keccak .*admission")
+
+    def test_public_only_contract_is_required_for_each_root(self):
+        self.component["roots"]["Theta"]["public_contract"]["public_only_postcondition"] = ""
+        self.reject("Keccak .*public-call contract")
+
+    def test_shape_hash_cannot_substitute_for_actual_body_identity(self):
+        entry = self.component["roots"]["Rotate"]["inlined"][0]
+        entry["callee_bytecode_sha256"] = entry["callee_shape_sha256"]
+        self.reject("Keccak .*callee body identity")
+
+    def test_body_binding_must_still_match_after_composition(self):
+        self.component["inlined_body_binding_after"] = {}
+        self.reject("Keccak .*callee body binding")
+
+    def test_public_call_mutants_cannot_be_omitted(self):
+        self.component["public_call_mutants"] = {}
+        self.reject("Keccak public-call mutant inventory")
+
+    def test_public_only_failure_cannot_be_an_unrelated_structure_error(self):
+        self.component["public_call_mutants"]["private_argument"]["proof"]["contains_structure_error"] = True
+        self.reject("Keccak .*public-call mutant anchor")
+
+    def test_helper_class_pin_cannot_be_dead_metadata(self):
+        self.component["helper_entry_pin"]["declared_helpers_entry_sha256"] = "0" * 64
+        self.reject("Keccak .*runtime class pin")
+
+    def test_known_provider_arity_is_part_of_the_contract(self):
+        contract = self.component["roots"]["PermuteScratch"]["public_contract"]
+        contract["known_public_arity"] = {}
+        self.reject("Keccak .*public-call contract")
+
+    def test_wrong_arity_requires_its_own_public_only_failure(self):
+        self.component["public_call_mutants"].pop("wrong_arity")
+        self.reject("Keccak public-call mutant inventory")
+
+    def test_mutant_summary_must_match_derived_proof_facts(self):
+        self.component["public_call_mutants"]["private_argument"]["proof_status"] = "verified"
+        self.reject("Keccak .*derived metadata")
+
+    def _rewrite_inline(self, root_name, transform):
+        entry = self.component["roots"][root_name]["inlined"][0]
+        old_target = entry["target"]
+        transform(entry["callee_body"])
+        body = entry["callee_body"]
+        entry["target"] = f"{body['owner']}.{body['name']}:{body['descriptor']}"
+        entry["callee_bytecode_sha256"] = hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        after = self.component["inlined_body_binding_after"]
+        after.pop(old_target, None)
+        after[entry["target"]] = {
+            key: entry[key] for key in ("callee_bytecode_sha256", "callee_class_sha256")}
+
+    def test_fake_callee_with_renewed_self_hash_is_rejected(self):
+        self._rewrite_inline("Iota", lambda b: b.update(bytecode=["not-real-bytecode"]))
+        self.reject("Keccak .*callee body identity")
+
+    def test_fabricated_callee_with_renewed_binding_is_rejected(self):
+        self._rewrite_inline("Iota", lambda b: b.update(
+            name="Fabricated", descriptor="()V", bytecode=[[0, "return", ""]]))
+        self.reject("Keccak .*inline")
+
+    def test_replacing_inline_with_another_real_body_is_rejected(self):
+        self.component["roots"]["Iota"]["inlined"][0] = copy.deepcopy(
+            self.component["roots"]["Rotate"]["inlined"][0])
+        self.reject("Keccak .*inline")
+
+    def test_provider_inventory_cannot_be_emptied_consistently(self):
+        row = self.component["roots"]["Chi"]
+        row["call_targets"] = row["remaining_calls"] = {}
+        for location in (row["public_contract"], row["certificate"]):
+            location.update(known_public_ids=[], known_public_targets=[], known_public_arity={})
+        self.reject("Keccak .*provider")
+
+    def test_provider_ids_cannot_be_renumbered_consistently(self):
+        row = self.component["roots"]["Rotate"]
+        row["call_targets"] = {k: v + 100 for k, v in row["call_targets"].items()}
+        for location in (row["public_contract"], row["certificate"]):
+            location["known_public_ids"] = [101]
+            location["known_public_arity"] = {"101": 1}
+        self.reject("Keccak .*provider")
+
+    def test_remaining_call_counts_are_exact(self):
+        self.component["roots"]["Chi"]["remaining_calls"]["dafny/Helpers.toInt:(I)I"] += 1
+        self.reject("Keccak .*provider")
+
+    def test_remaining_call_counts_require_integers(self):
+        self.component["roots"]["Rotate"]["remaining_calls"]["java/lang/Integer.signum:(I)I"] = True
+        self.reject("Keccak .*provider")
+
+    def test_certificate_provider_ids_must_match_public_contract(self):
+        self.component["roots"]["Rotate"]["certificate"]["known_public_ids"] = []
+        self.reject("Keccak .*certificate")
+
+    def test_certificate_provider_arity_must_match_public_contract(self):
+        self.component["roots"]["Rotate"]["certificate"]["known_public_arity"] = {}
+        self.reject("Keccak .*certificate")
+
+    def test_zero_certificate_digest_is_rejected_even_when_self_consistent(self):
+        row = self.component["roots"]["Rotate"]
+        row["certificate"]["certificate_sha256"] = row["proof"]["source_sha256"] = "0" * 64
+        self.reject("Keccak .*certificate")
+
+    def test_zero_proof_log_digest_is_rejected(self):
+        self.component["model_proofs"]["WordArithmetic"]["log_sha256"] = "0" * 64
+        self.reject("Keccak .*log binding")
+
+    def test_resource_error_cannot_replace_a_named_mutant_failure(self):
+        self.component["mutants"]["branch"]["proof"]["obligation"] = "Error: out of resource"
+        self.reject("Keccak .*negative obligation")
+
+    def test_parse_error_cannot_replace_private_count_anchor(self):
+        anchor = self.component["private_count"]["left"]["proof"]["anchor"]
+        anchor["error_message"] = "Error: parse error"
+        anchor["diagnostics"][0]["message"] = "Error: parse error"
+        self.reject("Keccak .*private-count anchor")
+
+    def test_direct_call_inventory_cannot_be_fabricated(self):
+        self.component["roots"]["Rotate"]["direct"]["call_targets"] = {}
+        self.reject("Keccak .*direct")
+
+    def test_execution_step_count_cannot_be_fabricated(self):
+        self.component["roots"]["Rotate"]["control"]["steps"] = {"s": 0, "t": 0}
+        self.reject("Keccak .*execution profile")
+
+    def test_proof_tool_paths_must_match_the_top_level_tool_binding(self):
+        self.report["tools"]["binary"] += ".shadow"
+        self.reject("Keccak .*tool origin")
+
+    def test_trivial_proof_file_cannot_replace_the_certificate(self):
+        self.component["roots"]["Rotate"]["proof"]["command"][2] = "/tmp/unreviewed/Trivial.dfy"
+        self.reject("Keccak .*proved certificate")
+
+    def test_certificate_and_oracle_digests_have_independent_pins(self):
+        row = self.component["roots"]["Rotate"]
+        row["certificate"]["certificate_sha256"] = row["proof"]["source_sha256"] = "a" * 64
+        row["certificate"]["oracle_sha256"] = "b" * 64
+        self.reject("Keccak .*proof artifact")
+
+    def test_model_proof_must_name_the_bound_model(self):
+        self.component["model_proofs"]["PublicProvider"]["command"][2] = "/tmp/Trivial.dfy"
+        self.reject("Keccak .*model origin")
+
+    def test_nonzero_proof_log_digest_also_has_an_independent_pin(self):
+        self.component["model_proofs"]["WordArithmetic"]["log_sha256"] = "a" * 64
+        self.reject("Keccak .*proof artifact")
+
+    def test_fabricated_oracle_function_is_rejected(self):
+        self.component["roots"]["Rotate"]["certificate"]["oracle_function"] = "TrivialOracle"
+        self.reject("Keccak .*oracle origin")
+
+    def test_equal_fabricated_event_hashes_are_rejected(self):
+        self.component["roots"]["Rotate"]["control"]["events_sha256"] = {"s": "a" * 64, "t": "a" * 64}
+        self.reject("Keccak .*auxiliary identity")
+
+    def test_inline_site_is_bound_to_the_reviewed_composition(self):
+        self.component["roots"]["Rotate"]["inlined"][0]["site"] = "fabricated"
+        self.reject("Keccak .*auxiliary identity")
+
+    def test_auxiliary_components_cannot_be_emptied(self):
+        for name in ("overlay", "actual_tables", "binding_controls", "oracle_kats"):
+            with self.subTest(name=name):
+                saved = self.component[name]
+                self.component[name] = {}
+                self.reject("Keccak .*oracle comparison" if name == "oracle_kats"
+                            else "Keccak .*component identity")
+                self.component[name] = saved
 
 
 if __name__ == "__main__":

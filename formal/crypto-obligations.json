@@ -204,7 +204,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "800b93569d7ae550cf99fecc1759b1e7af8d3c8cbbc23373dac7d7fe92d9b3cd",
+          "sha256": "6a8d59b6d0a15d8c7cce5249bd26a83287f854b45c788594ac6cc803a8372e12",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -2251,7 +2251,7 @@
       "id": "V7",
       "title": "Secret-trace proof for our code",
       "status": "partial",
-      "statement": "Conditional SecretTrace evidence covers the original five callers, four codec helpers, two static HKDF helper roots, nine NativeField helper roots and a separate composed Feed under the trusted extractor, splice and runtime/policy contracts. Finite controls enforce scoped private-input/return liveness and per-role clearing. The original caller set retains 19 assumed owned contracts; 13 roots and 31 aggregate labels remain open. Copy/alias, JVM value/timing and full V7 closure are not claimed.",
+      "statement": "Conditional trace evidence covers the original five callers, four codec helpers, two static HKDF helper roots, nine NativeField helpers, a separate composed Feed and seven fully expanded Keccak helpers under explicit mapper/runtime/provider assumptions. The Keccak concrete programs prove public-only scalar arguments, exact argument counts, no heap arguments and known targets for their remaining provider calls. Completed finite controls enforce public-heap equality and all 24 permutation rounds. The original caller set retains 19 assumed owned contracts; 13 roots and 31 aggregate labels remain open. Copy/alias, JVM value/timing and full V7 closure are not claimed.",
       "dependencies": [
         "V1",
         "V2",
@@ -2318,37 +2318,37 @@
         },
         {
           "path": "formal/timing/README.md",
-          "sha256": "6c8c18fa3ec70f8ef1c863f3ae389349a2d5bedf76e3b9faec5bf4de7695d801",
+          "sha256": "9c4930db0a4fee09ed30d690ad46816b02396282013bed44b7818c4e2c4affc9",
           "kind": "documentation",
           "role": "V7 component scope, checked roots and open scope"
         },
         {
           "path": "formal/timing/threat-model.md",
-          "sha256": "1c92606b40240bcccc06c48f7ea834ab503e43294c958fc2c1a2c65ef1ff7ae0",
+          "sha256": "550db1f7e29d2a533649a06fecbcf8cc3276477ee30a8e278f458608a6c39665",
           "kind": "documentation",
           "role": "two-run observer, declassification and TCB exclusions"
         },
         {
           "path": "formal/timing/inputs.json",
-          "sha256": "446bc56f30cde62f280e08f6df2996f75124907ca55e18712394e8b64805eb66",
+          "sha256": "543b4af57b39d56730ade7bb79ba39d6d4e35c00d03ab647c870ea743ed3e3de",
           "kind": "input-manifest",
-          "role": "129 pinned timing sources/fixtures/production inputs/tools"
+          "role": "138 pinned timing sources/fixtures/production inputs/tools"
         },
         {
           "path": "formal/timing/policy.json",
-          "sha256": "753a283cb8cc8eee48ac0f4d1491ba41f9937e7279d4562af8edf8751eabb33f",
+          "sha256": "f506883f3efaffce8ad356713b7d366066036b9ce32433d880cc69635593d227",
           "kind": "component-receipt",
           "role": "checked roots, open roots, dispatch/call policy and budgets"
         },
         {
           "path": "formal/timing/run.py",
-          "sha256": "5f71e646f64a7af128f5f8da8fbecd4f86d797724bb299033ab01a3b5831c7e2",
+          "sha256": "defd08ba0b694a94cfb73c4fbe82e6f1aa490c379ec1dc277e1b8b8441ef24ae",
           "kind": "tool-manifest",
           "role": "atomic timing replay and certificate runner"
         },
         {
           "path": "formal/timing/bytecode_trace.py",
-          "sha256": "6b85f4630868c826bdb7139b16e362ef096f102d73786454e3bf24b3e44227b4",
+          "sha256": "f5f11bd34bb48f8697cc295e12b9251ce44af8ffb6ac6d80ce6d8f6691577439",
           "kind": "tool-manifest",
           "role": "trusted javap extractor, CFG/taint/dispatch audit"
         },
@@ -2384,13 +2384,13 @@
         },
         {
           "path": "formal/timing/PRODUCTION-EVIDENCE.json",
-          "sha256": "7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b",
+          "sha256": "85fcbfb445ac0ceaecd82fd19a51a935cbec24aa68474e5a547f67c72a077f47",
           "kind": "component-receipt",
           "role": "actual-bytecode certificate report with open scope and assumptions"
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "28d9e4abebd1fd46aed89fd4c24f50b2ca4969bef46a1cbbfdd0a8fe13f2416e",
+          "sha256": "8b01ab41ddbc108f909ef133e81027c2cc8d319d50a9d8fac7d8f4e344f89825",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2420,7 +2420,7 @@
         },
         {
           "path": "formal/timing/EVIDENCE.md",
-          "sha256": "10889a20364eb27bddc276117aebece786f2fb10be502009f818b55a2da9205a",
+          "sha256": "335c89f6174d6df9029ce878fd625d0f566ad4c786155729bde1a38f51e2a16b",
           "kind": "documentation",
           "role": "corrected receipt and remaining scope"
         },
@@ -2435,6 +2435,60 @@
           "sha256": "552fbf449ac80e042530e30970b3b639c4e2dd94a0d3ede596707e90a1481159",
           "kind": "test-source",
           "role": "23 regression tests for static helper coverage and required finite execution controls"
+        },
+        {
+          "path": "formal/timing/PublicProvider.dfy",
+          "sha256": "0b974605e8c43276b422f973c3271996cc45fe33aae579e0641cd16fcef8c94b",
+          "kind": "model-source",
+          "role": "conservative pure-public-oracle semantics and default equivalence"
+        },
+        {
+          "path": "formal/timing/PublicProviderPublic.dfy",
+          "sha256": "8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94",
+          "kind": "model-source",
+          "role": "Dafny-checked public-only arguments and known provider targets"
+        },
+        {
+          "path": "formal/timing/WordArithmetic.dfy",
+          "sha256": "76fb11977c40495cb530b673bab49c8722a925f24e9ade12bac325526281ce4a",
+          "kind": "model-source",
+          "role": "public arithmetic for concrete oracle instantiation"
+        },
+        {
+          "path": "formal/timing/compact_certificates.py",
+          "sha256": "87297cf88b5023d460b52448c6907553342687a311950b432246cc467eda2a13",
+          "kind": "tool-manifest",
+          "role": "verified opaque-program layout preserving concrete IR identity"
+        },
+        {
+          "path": "formal/timing/keccak_traces.py",
+          "sha256": "f83af5b896b93008d8875448d5f27ebbb40d0db252ee9dde525e1f4a2b9a23ca",
+          "kind": "tool-manifest",
+          "role": "mandatory fully inlined helper replay and finite-control bridge"
+        },
+        {
+          "path": "formal/timing/runtime_primitives.py",
+          "sha256": "99f6edcc23984bf6d54dfb42f3d3cb89eea6deb061708ce25a64f22ac5768fb4",
+          "kind": "tool-manifest",
+          "role": "actual pinned runtime shift bodies and named binding/control gates"
+        },
+        {
+          "path": "formal/timing/test_compact_certificates.py",
+          "sha256": "eb90ed8eeec17b143e50a51523f1d040627ca77bc60649dd5179cef3873924c7",
+          "kind": "test-source",
+          "role": "positive/secret-guard/false-contract proof controls"
+        },
+        {
+          "path": "formal/timing/test_keccak_traces.py",
+          "sha256": "3598fd4e582378bf1970a16a04a15636ccfa045940ba2b7c9daef2e0d1ed93e4",
+          "kind": "test-source",
+          "role": "public-heap, provider mapping, identity and API regressions"
+        },
+        {
+          "path": "formal/timing/test_runtime_primitives.py",
+          "sha256": "3fa814cfd894a34ed659ec7dbf7b5048bc6a4a2b6f212357fe3d7e922e93cdad",
+          "kind": "test-source",
+          "role": "runtime binding, partial-mode and private-count gate regressions"
         }
       ],
       "limitations": [
@@ -2444,7 +2498,9 @@
         "Finite timing samples are not pass/fail evidence.",
         "The timing component has 13 open owned roots and 19 assumed owned helper/adapter trace contracts; every assumed target remains in the checked unchecked-owned inventory.",
         "Five actual-bytecode caller certificates are conditional on the trusted javap extractor/policy and abstract SecretTrace semantics; they do not prove JVM value refinement, implicit exceptions or timing.",
-        "Packet receive trace remains separately scoped; this does not promote the whole V7 obligation."
+        "Packet receive trace remains separately scoped; this does not promote the whole V7 obligation.",
+        "The Keccak supplement excludes the Permute wrapper, Sponge ownership/NI and full polynomial/NTT/KEM and adapter trace composition; receiver prototypes are outside accepted evidence.",
+        "The shared public oracle is an abstract pure deterministic contract; its checked public-argument premise is not a proof of JDK/provider internals, JVM narrowing, implicit exceptions or timing."
       ],
       "receipt_checks": [
         {
@@ -2506,7 +2562,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "7dc91ea329d24d5054e1b1d7c6a781dc85943b0014ca301104b05cbbcfa364fa",
+          "sha256": "6553c3cb1dcc8aa29d33092705e63e4b4571a29f166ab381ce9679a7efa4924f",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -2518,13 +2574,13 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "800b93569d7ae550cf99fecc1759b1e7af8d3c8cbbc23373dac7d7fe92d9b3cd",
+          "sha256": "6a8d59b6d0a15d8c7cce5249bd26a83287f854b45c788594ac6cc803a8372e12",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },
         {
           "path": "formal/obligations.md",
-          "sha256": "0e6190e62407a165ca1262ac03f9740569c74cd3aec3e6b8f77c54da230fadc9",
+          "sha256": "7d03dae93dbf14edf08453d912de2a57e48e1f58f2a93c68f6e95a3f2b0350bb",
           "kind": "documentation",
           "role": "ledger status, renewal and residual guide"
         },
@@ -2542,7 +2598,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "28d9e4abebd1fd46aed89fd4c24f50b2ca4969bef46a1cbbfdd0a8fe13f2416e",
+          "sha256": "8b01ab41ddbc108f909ef133e81027c2cc8d319d50a9d8fac7d8f4e344f89825",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
