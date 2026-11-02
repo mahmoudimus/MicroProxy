@@ -404,6 +404,20 @@ and 31 aggregate unchecked labels. The clone/sequence model does not prove copie
 contents or alias ownership, and modeled arithmetic does not refine JVM values.
 The full adapter, polynomial/NTT and KEM trace composition remains open.
 
+The replay also checks seven Keccak helper bodies, including the complete
+`PermuteScratch` loop, with private calls and the actual pinned runtime shift
+bodies inlined. A conservative Dafny extension retains the same observer and
+proves default-semantics equivalence. Its additional `PublicOnly` property
+checks known targets, exact argument counts, public scalar arguments and no heap arguments for every
+remaining provider call. The concrete certificate proves that property; it is
+not a new assumption about our helpers. Completed finite controls exercise all
+24 rounds and check public heaps as well as registers and traces. They are not
+JVM timing evidence. The compiler/runtime, reviewed extraction and oracle
+mapping remain trusted. Full Sponge, `Permute` wrapper, KEM and adapter trace
+composition is still open; the original 19 caller assumptions, 13 open roots
+and 31 aggregate labels remain explicit. Receiver/ownership prototypes have
+not been promoted into this evidence.
+
 ### Obligation and release-claim gates
 
 The [unified ledger](https://github.com/mahmoudimus/MicroProxy/blob/main/formal/obligations.md)

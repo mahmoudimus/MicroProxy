@@ -4,11 +4,11 @@
     "formal/timing/SecretTrace.dfy": "95e683435ca753ee97b53e2a6b2c1b8b07a8b7db5cd974f99e2ca7cd3e93be15",
     "formal/timing/PositiveTraceCheck.dfy": "5428fb89db59695f46442c083dec626005de16cff93e158736b896e76382e9b0",
     "formal/timing/HkdfShape.dfy": "e97ece26d90e905bc31e39f44f52fecafca72efa99fe219edfd68ed2a9adbb88",
-    "formal/timing/bytecode_trace.py": "6b85f4630868c826bdb7139b16e362ef096f102d73786454e3bf24b3e44227b4",
-    "formal/timing/policy.json": "753a283cb8cc8eee48ac0f4d1491ba41f9937e7279d4562af8edf8751eabb33f",
-    "formal/timing/run.py": "5f71e646f64a7af128f5f8da8fbecd4f86d797724bb299033ab01a3b5831c7e2",
-    "formal/timing/threat-model.md": "1c92606b40240bcccc06c48f7ea834ab503e43294c958fc2c1a2c65ef1ff7ae0",
-    "formal/timing/README.md": "6c8c18fa3ec70f8ef1c863f3ae389349a2d5bedf76e3b9faec5bf4de7695d801",
+    "formal/timing/bytecode_trace.py": "f5f11bd34bb48f8697cc295e12b9251ce44af8ffb6ac6d80ce6d8f6691577439",
+    "formal/timing/policy.json": "f506883f3efaffce8ad356713b7d366066036b9ce32433d880cc69635593d227",
+    "formal/timing/run.py": "defd08ba0b694a94cfb73c4fbe82e6f1aa490c379ec1dc277e1b8b8441ef24ae",
+    "formal/timing/threat-model.md": "550db1f7e29d2a533649a06fecbcf8cc3276477ee30a8e278f458608a6c39665",
+    "formal/timing/README.md": "474186e4802bd0c04850ee457978554e1f15eb6240c814576b967ea203ba29c8",
     "formal/timing/test_trace.py": "6aa80268e69fed0cdf6a0b9cf5456923827cabd96e142799f06715fc4cab4a4e",
     "formal/timing/fixtures/CategoryTwo.java": "297819f8daabe05cb0349c1f91c3c3839a4304205f7d45109a271863b8a4f70a",
     "formal/timing/fixtures/ClassOracle.java": "6e3cce568f3ba1fcecf5d948fa59af096f82953d944cfdf37f27e76219a8f80d",
@@ -129,6 +129,15 @@
     "formal/timing/fixtures/RecursiveCallee.java": "2ba78c01041cb187a186a21411fc677d384e1f6ee528f6bc14e10a3cf9cb0c8b",
     "formal/timing/test_exception_table.py": "4ec876f9fb557268ee1059066d14794472df29ac1a5405fbd9f5f32fec3a183d",
     "formal/timing/execution_controls.py": "663a4d984885fb6246cc202a8f02ada86841cc752d6351a155f3d42e6459ee85",
-    "formal/timing/test_coverage.py": "552fbf449ac80e042530e30970b3b639c4e2dd94a0d3ede596707e90a1481159"
+    "formal/timing/test_coverage.py": "552fbf449ac80e042530e30970b3b639c4e2dd94a0d3ede596707e90a1481159",
+    "formal/timing/PublicProvider.dfy": "0b974605e8c43276b422f973c3271996cc45fe33aae579e0641cd16fcef8c94b",
+    "formal/timing/WordArithmetic.dfy": "1353c60c5b29e02521764a5f9b6b6a209d8742f5515dd1b027d9693a5499a7be",
+    "formal/timing/compact_certificates.py": "87297cf88b5023d460b52448c6907553342687a311950b432246cc467eda2a13",
+    "formal/timing/test_compact_certificates.py": "eb90ed8eeec17b143e50a51523f1d040627ca77bc60649dd5179cef3873924c7",
+    "formal/timing/runtime_primitives.py": "99f6edcc23984bf6d54dfb42f3d3cb89eea6deb061708ce25a64f22ac5768fb4",
+    "formal/timing/test_runtime_primitives.py": "3fa814cfd894a34ed659ec7dbf7b5048bc6a4a2b6f212357fe3d7e922e93cdad",
+    "formal/timing/keccak_traces.py": "f83af5b896b93008d8875448d5f27ebbb40d0db252ee9dde525e1f4a2b9a23ca",
+    "formal/timing/test_keccak_traces.py": "3598fd4e582378bf1970a16a04a15636ccfa045940ba2b7c9daef2e0d1ed93e4",
+    "formal/timing/PublicProviderPublic.dfy": "8381910e6692e0b2f7b151c2de11d81f573f4f51181c3ec50bbc612ca4203b94"
   }
 }

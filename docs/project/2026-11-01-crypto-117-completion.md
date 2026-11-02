@@ -6,8 +6,8 @@
 
 **Status of this plan (2026-11-02): partial, not complete.** The generated-nonce
 route merged in #128 after 51 exact-head checks; extractor guards merged in #129
-after 50. The next helper-coverage candidate has a checked local replay and awaits
-its own upstream CI/merge gates. Its snapshot has 13 open roots, 19 original
+after 50. Helper coverage merged through #130 after all 50 checks passed on
+`8f5b551`; main `2b07bd3` has the identical tested tree. Its snapshot has 13 open roots, 19 original
 caller assumptions and 31 aggregate unchecked labels. The SAW alternative remains
 blocked, the unused AWS reference closure remains unreproduced, and independent
 external expert review and physical JVM timing evidence remain open.
@@ -93,7 +93,8 @@ canonical-class and actual library/bundle evidence is in the
 It includes the measured allocation increase and inconclusive shared-host CPU
 results, rather than treating performance measurements as timing-security proof.
 
-The combined ledger and release gates have 145 regression tests on the current helper-coverage candidate. The reviewed policy requires
+The combined ledger and release gates are replayed for each delivery; the
+merged helper milestone had 145 regression tests, before the Keccak gate additions. The reviewed policy requires
 the complete source/generated-file/control inventories and positive proof/execution results.
 A self-declared JSON status cannot enable future timing, expert-review,
 whole-system, AWS-closure or current-release claims. Actual artifact checks run
@@ -106,7 +107,7 @@ runs `verify` and the Linux nonce proof replay. Local evidence is not a release
 or deployment attestation. The frozen nonce replay records 337 kernel and 343
 domain assertions, zero audit findings, five genuine proof-obligation rejects, a bounded
 `--no-verify` translation byte-identical to the checked-in source, and
-`NONCE-TEST-OK cases=10 assertions=162774` on JDK 21 and 25. The candidate adoption receipt binds
+`NONCE-TEST-OK cases=10 assertions=162774` on JDK 21 and 25. The adoption receipt binds
 the live bridge, generated source, `GENERATED.json`, the central delivery inventory
 (468 library / 84 scoped crypto / 468 retained classes), a separate executed 9-case
 bundle nonce/seal/open smoke and eight `PacketKeyNonceTest` cases on both JDKs. The
@@ -117,11 +118,11 @@ follows.
 
 The original trace milestone covers five conditional caller certificates: ML-KEM
 comparison/selection, public-seed rejection sampling, and generated HKDF Extract,
-Expand and label serialization. The current candidate adds two static adapter
+Expand and label serialization. The merged helper replay adds two static adapter
 helpers and nine NativeField helpers (seven private bodies with owned calls
 inlined, supported by two public constant leaves) alongside the four codec
 helpers and separate composed Feed. The replay preserves the original ten
-mathematical certificate bodies and solver limits. It records 129 pinned inputs,
+mathematical certificate bodies and solver limits. That milestone records 129 pinned inputs,
 77 source-rebuilt classes, 128 component tests, 27 fixtures and sixteen genuine
 proof-obligation mutants. Required private controls cannot pass as public-only.
 
@@ -136,6 +137,18 @@ or JVM timing proofs. Feed still removes three opaque contracts from its own set
 (ten to seven); its hypothetical replacement union is sixteen, while the five
 original callers retain nineteen. The latest source, limits and snapshot are in
 [the trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing).
+
+The current Keccak supplement adds seven expanded helper certificates, a checked
+public-only/known-target/exact-arity provider contract, and a completed 24-round
+finite control with public-heap agreement. It records 138 pinned inputs and 197
+component tests (two optional expensive replays skipped). Independent review
+identified receipt-gate holes; regression tests first reproduced them and the
+checker now requires independent callee-body, provider, proof-artifact and
+diagnostic identities. All 200 ledger/release regression tests pass; the 197-test
+component discovery has two optional skips and its expensive API replay passes
+separately. Strict MkDocs and generated-document checks pass.
+The source algorithms, production Java and browser fingerprints are unchanged.
+This supplement does not complete Task 2 or close the 13/19/31 residual sets.
 
 The next implementation work is to establish exact receiver/type and ownership
 contracts for the production factories, then compose SHAKE sponge, Keccak,

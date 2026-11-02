@@ -1,10 +1,10 @@
 # Checked secret-trace evidence
 
 The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
-`7161fb239854329ee4095427255cc2bd60fd09eb41b185ff9b9aa86b2b11781b`.
+`968e7e34d6df15045f7f87b1ef2f274590caadc4c566bdf3c6848e5eaa88ea35`.
 It records the 2026-11-02 macOS arm64 replay at
-`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/primitive-final-full-replay/report.json`
-(workspace `replay-kuy03ljl`) over the preserved JDK 21 library classes.
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/keccak-arity-final-replay/report.json`
+(workspace `replay-k77a76wp`) over the preserved JDK 21 library classes.
 The central ledger pins the snapshot and independently requires its input,
 root, fixture, execution-control and residual inventories. A future receipt
 needs source review and an explicit checker-baseline renewal.
@@ -18,11 +18,12 @@ hardness, implicit-exception coverage or physical secret erasure.
 - Dafny `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3 `4.12.1`.
 - Homebrew JDK `21.0.12.1`; DafnyRuntime SHA-256
   `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`.
-- 129 pinned inputs and 77 matching source-rebuilt class bindings.
-- 128 unit tests by discovery: 90 trace, 15 exception/member-boundary and
-  23 coverage/applicability regressions. The trace module/direct script still
-  run their 90 tests. The ledger/release suite separately checks the receipt
-  semantics, including corruption after snapshot-digest renewal.
+- 138 pinned inputs and 77 matching source-rebuilt class bindings.
+- 197 unit tests by discovery, with two optional expensive replays skipped. The
+  complete replay above executes both proof components; its API regression is
+  also run separately. The trace module/direct script retains its 90 tests.
+  The ledger/release suite separately checks receipt semantics, including
+  corruption after snapshot-digest renewal; all 200 ledger/release tests pass.
 - Unchanged `SecretTrace.dfy`: 57 verified declarations; unchanged
   `HkdfShape.dfy`: 17; compiled positive control executed.
 - Compiled `ApplyProbe.dfy`: 138 rows and nine operand-sensitive expectations,
@@ -135,6 +136,62 @@ field/NTT/codec/sampling label stays because its callers and other helpers are
 unfinished. The receipt's TCB and partial-composition disclosures are validated
 independently of an accepted snapshot-digest renewal.
 
+## Expanded Keccak trace supplement
+
+Seven actual generated Keccak methods are translated and composed into separate
+certificates. All owned calls and both DafnyRuntime word-shift bodies in these
+programs are expanded. The original five-caller assumption inventory is retained;
+this supplement does not silently replace those caller certificates.
+
+| Body | Instructions | Verified declarations |
+|---|---:|---:|
+| Rotate | 32 | 48 |
+| Theta | 130 | 163 |
+| RhoPi | 59 | 80 |
+| Iota | 12 | 29 |
+| Chi | 46 | 67 |
+| Round | 249 | 294 |
+| PermuteScratch | 407 | 472 |
+
+`PublicProvider.dfy` has 16 checks, `PublicProviderPublic.dfy` nine, and
+`WordArithmetic.dfy` 56. They preserve the frozen observer's events, faults and
+fuel and extend calls with the same pure total public oracle in both executions.
+Each concrete certificate proves that every remaining call has a known target,
+exact argument count, public scalar arguments and no heap arguments. The total
+fallback oracle is unreachable for these programs' call shapes. Provider purity,
+JVM narrowing, BigInteger identity and primitive costs remain trusted boundaries.
+All new proofs use 30 s / 50 M and the existing case-split option.
+
+The actual pinned `Helpers.class` left/right bodies each have 12 checks with a
+witness and 11 without. Their branch depends on the public byte count; private
+count variants fail the named `Chunk0.InstrOK` branch obligation (nine checks,
+two genuine errors each). A Java/model adapter compares 28 input rows, 56 results,
+including counts 64 and 65. This is a bounded value check, not JVM refinement.
+
+The completed `PermuteScratch` control executes all 24 rounds in each cohort:
+54,340 steps with fuel 106,240, private lanes/scratch/parity and public offset/
+source arrays of honest lengths 25/25/5/25/25. Both runs stop without a fault,
+produce equal observations and public state, and retain live private input/output
+differences. Compiled Dafny public arithmetic matches Python in 243 finite cases.
+Secret-branch, secret-index and four public-call mutants fail their named proof
+obligations; insufficient fuel, bounds faults and equal private cohorts cannot
+count as completed private controls.
+
+The receipt binds loaded checker modules, actual source/class bytes, runtime
+entry and JDK/Dafny/solver identities before and after replay. The independent
+static gate additionally pins the exact per-root provider IDs/counts, inline
+sequence, actual callee body/class hashes, certificate/public-contract agreement
+and named negative diagnostics. Certificate, oracle and proof-log identities
+were checked against the actual preserved replay artifacts and independently
+pinned; the proved file must match the claimed certificate/model. Recomputing a report-local hash or renewing the
+accepted report digest alone cannot satisfy those identities. These checks are
+trusted Python tooling, not a proof of the mapper or evidence checker itself.
+
+`Permute`'s array-return factories, Sponge receiver/alias ownership and trace
+composition, complete NTT/KEM/adapter traces, physical timing and external expert
+review remain outside this supplement. The 13/19/31 residual inventories stay
+unchanged. Functional SHAKE/ML-KEM source proofs remain a distinct claim.
+
 ## Execution witnesses and their limits
 
 Only private inputs differ initially; other private registers start equally at
@@ -160,7 +217,8 @@ conditional on `Structure` and `Agree`.
 Ordinary calls in the reviewed Dafny/JDK namespaces (`dafny/`, `java/`,
 `javax/`, `jdk/`, `sun/`, `com/sun/`) require public scalar and heap-content
 arguments by default. Reviewed exceptions are the branch-free Byte unsigned
-casts and `Helpers.bv64ShiftRight` with a public shift count. There are no
+casts and both `Helpers.bv64ShiftLeft` and `Helpers.bv64ShiftRight` with a public shift
+count. The expanded Keccak supplement separately checks their actual bodies. There are no
 private-heap exceptions. Enumerated memory/shape primitives are distinct model
 steps; their implementation semantics remain trusted. In particular, the pinned
 Dafny Euclidean bodies branch on values: PublicMod is public-only. Policy/code
@@ -196,6 +254,8 @@ hashes were replaced; the model itself was unchanged.
 The preserved `helper-fixed-replay` receipt `9800c358...` includes the copy fix,
 but predates the complete unit entry points and enforced witness contracts. It
 is historical only. The preserved `helper-final-replay` receipt `245c1d77...` adds those controls.
-The current snapshot repeats that replay after correcting three documentation
-counts/offset/classification descriptions; its mathematical certificates differ
-only in the absolute include path for the worktree. It retains the same budgets. See `README.md` for fresh replay commands.
+The accepted helper snapshot `7161fb23...` retains those repairs and predates the
+Keccak supplement. The current snapshot preserves the original 25 positive
+certificate bodies, including fixtures, while adding the seven Keccak certificates
+and their models/controls. The original budgets are unchanged. See `README.md`
+for fresh replay commands.

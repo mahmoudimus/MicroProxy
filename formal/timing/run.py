@@ -12,7 +12,8 @@ Steps (any failure leaves an incomplete/failed report, never old success):
   5. compile and check bytecode controls (positive constant-time fixture plus
      secret-branch/index/early-compare/exception/alloc/loop-bound mutants),
   6. mutate the actual Select certificate and require Dafny rejection,
-  7. report generated-HKDF root status and the structured open roots/callees.
+  7. require the actual runtime shift-body/public-call/Keccak helper replay,
+  8. report generated-HKDF root status and the structured open roots/callees.
 
 JVM timing is not addressed here. See threat-model.md.
 """
@@ -37,6 +38,7 @@ import bytecode_trace as bt  # noqa: E402
 import composition as comp  # noqa: E402
 import execution_controls as controls  # noqa: E402
 import trace_exec  # noqa: E402
+import keccak_traces  # noqa: E402
 
 # Reuse the reviewed bounded-process / report / pin helpers from formal/dafny.
 sys.path.insert(0, str(HERE.parent / 'dafny'))
@@ -628,6 +630,14 @@ def pipeline(args, output):
     inspected = args.classes.expanduser().resolve()
     binding = bind_classes(workspace, rebuilt, inspected)
 
+    # Mandatory companion replay: actual pinned runtime shift bodies, the
+    # conservative public-provider model, and fully expanded Keccak helpers.
+    # Failure aborts the whole replay; the original caller/helper certificates
+    # below retain their original model and emitted bodies.
+    keccak = keccak_traces.replay(
+        output=workspace / 'keccak', jar=runtime, dafny=dafny, solver=solver,
+        java_home=jdk, classpath=inspected)
+
     promoted_control_records = []
     roots = []
     # NOTE: an entry must live in exactly one of `roots` / `helper_roots`; a
@@ -967,6 +977,7 @@ def pipeline(args, output):
         'runtime_sha256': runtime_sha,
         'tools': tools, 'jdk_identity': jdk_before,
         'model_obligations': model, 'hkdf_shape_obligations': shape,
+        'keccak_traces': keccak,
         'positive_control': positive,
         'apply_probe': apply_probe,
         'execution_controls': {
@@ -1013,7 +1024,8 @@ def pipeline(args, output):
                     'enumerated external contracts: JDK HMAC/SHA3, DafnyRuntime, JDK BigInteger/String/boxed deterministic calls',
                     'opaque owned helper/adapter contracts listed in assumed_owned_callees; these are not callee trace proofs',
                     'inline expansion of exact static certified owned callees: plain parameter-role identity, register renaming, entry and return copies (shape-bound to the direct translation, mutation-tested, not a JVM-semantics theorem)',
-                    'execution_controls.py paired-state seeding and finite runs over the frozen trace_exec mirror: a control on the promoted roots, not a theorem (parameters are taken from the frozen extractor param_regs; only the chosen finite pair per program is exercised)'],
+                    'execution_controls.py paired-state seeding and finite runs over the frozen trace_exec mirror: a control on the promoted roots, not a theorem (parameters are taken from the frozen extractor param_regs; only the chosen finite pair per program is exercised)',
+                    'keccak_traces.py exact-target composition, public-provider oracle mapping and finite OracleView controls; runtime_primitives.py loaded-source binding and named private-count controls; these trusted bridges are not JVM refinement or physical timing proofs'],
         'excluded': ['JVM/JIT/CPU/GC/provider timing', 'implicit JVM exceptions and null checks',
                      'exact arithmetic/value refinement (dependency shape only)',
                      'cryptographic hardness and entropy',

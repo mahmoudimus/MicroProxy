@@ -2158,6 +2158,7 @@
       "java/lang/Byte.toUnsignedInt:(B)I"
     ],
     "shift_count_public": [
+      "dafny/Helpers.bv64ShiftLeft:(JB)J",
       "dafny/Helpers.bv64ShiftRight:(JB)J"
     ],
     "public_heap_exceptions": [],
@@ -2199,7 +2200,8 @@
     ],
     "pinned_runtime": {
       "jar_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
-      "evidence": "DafnyEuclidean.EuclideanModulus(II)I: value branch at offset 22 (if_icmpgt), further value branches at 28/38/53/59/64/72/104/120; EuclideanDivision(II)I has value branch at 22; Helpers.bv64ShiftRight(JB)J branches only on the shift count at offset 3; Helpers.toInt(I)I is branch-free; Helpers.toIntChecked(J,String)I branches on the value at offset 7; JDK 21 Integer.signum is branchless but admitted public-only by default"
+      "evidence": "DafnyEuclidean.EuclideanModulus(II)I: value branch at offset 22 (if_icmpgt), further value branches at 28/38/53/59/64/72/104/120; EuclideanDivision(II)I has value branch at 22; Helpers.bv64ShiftRight(JB)J branches only on the shift count at offset 3; Helpers.toInt(I)I is branch-free; Helpers.toIntChecked(J,String)I branches on the value at offset 7; JDK 21 Integer.signum is branchless but admitted public-only by default; both bv64ShiftLeft/Right(JB)J actual pinned Helpers.class bodies are freshly replayed by runtime_primitives.py through the mandatory Keccak supplement (private word/public count; named private-count proof mutants)",
+      "helpers_entry_sha256": "4e5ec798394565756a1bc8438eb1638c2ad79eca264ae105ac576f537451e76c"
     }
   }
 }

@@ -12,6 +12,12 @@ declassifications, dispatch/type restrictions, and residuals.
 | File | Role |
 |---|---|
 | `SecretTrace.dfy` | Taint-annotated word/array machine with chunked code/taint tables, switch terminator, shape-result calls, terminal array faults, two-run theorem, positive instance and model controls |
+| `PublicProvider.dfy` | Conservative extension with a shared pure public oracle; proves two-run independence and equivalence to the original default semantics |
+| `PublicProviderPublic.dfy` | Checked public-scalar/no-heap/known-target condition for every remaining Keccak provider call |
+| `WordArithmetic.dfy` | Target-free public arithmetic used by the Keccak oracle and compiled finite controls; not JVM value refinement |
+| `compact_certificates.py` | Verified opaque-program layout that preserves concrete IR and the universal theorem while limiting solver unfolding |
+| `runtime_primitives.py` | Fresh pinned-jar shift-body proofs, loaded-source and before/after binding gates, named private-count failures and finite Java controls |
+| `keccak_traces.py` | Mandatory fully expanded Keccak helper replay, public-call proofs, actual callee-body binding and completed paired executions |
 | `PositiveTraceCheck.dfy` | Compiled execution control (`dafny run`), not a proof |
 | `HkdfShape.dfy` | Imports the unchanged `formal/dafny/hkdf/Hkdf.dfy` and proves source-level result-kind/length independence for equal public inputs; it does not prove compiler trace preservation |
 | `bytecode_trace.py` | Trusted javap extractor: CFG + fall-through gate, SSA/phi edge copies (`Op(12, 0, src)` so the frozen `Apply(12,a,b)==b` really copies `src`), taint/role fixpoint, dispatch/field/type policy, certificate/module emitter, independent audit |
@@ -34,6 +40,38 @@ requires that repository sibling. The shared runner, toolchain installer and too
 manifest are pinned alongside this component's sources. Replay validates the
 official Dafny archive and extracted tools, the Maven runtime checksum and the
 selected JDK tool identities before and after checking the certificates.
+
+## Keccak helper supplement
+
+The replay checks `Rotate`, `Theta`, `RhoPi`, `Iota`, `Chi`, `Round` and
+`PermuteScratch` from the actual bound NativeKeccak class. Private owned calls
+and the pinned runtime's two shift bodies are inlined. Every remaining call
+must target the enumerated public arithmetic providers. `PublicOnly` proves
+that those calls have public scalar arguments, no heap arguments, known
+target ids and exactly the declared argument count; it is a verified postcondition of the concrete program, not an
+additional premise of the two-run theorem. The total oracle's unknown case is
+proved unreachable. The original `SecretTrace` model and earlier certificates
+retain their mathematical content.
+
+The generic public-oracle model has 16 verified checks, its public-call layer 9,
+and the word arithmetic 56. The seven certificates have respectively
+48/163/80/29/67/294/472 checks at 30 s / 50 M. The compact layout proves its
+structural postconditions and identity with the concrete emitted program;
+opacity controls solver unfolding. It adds no assumed success flag.
+
+The finite permutation control completes all 24 rounds on 25/25/5 private-lane
+workspaces and two public 25-entry tables. It checks equal traces, public
+registers and public heaps, no faults, and live private outputs. A separately
+compiled Dafny control compares 243 public arithmetic cases with the Python
+adapter. These are finite controls. The universal statement remains the
+two-run theorem under the declared observer and trusted mapping.
+
+This supplement does not compose the Sponge objects, KEM or Java adapters. The
+`Permute` wrapper's array-returning table constructors are outside it. The
+original 19 caller assumptions, 13 open roots and 31 aggregate unchecked labels
+remain. Provider purity, JVM narrowing/implicit exceptions, array aliasing and
+physical timing are not proved. New receipt claims require the fixed ledger
+checks as well as fresh proof and binding results.
 
 ## What is checked
 
@@ -165,14 +203,16 @@ contents are the same kind of value-dependent input as a secret scalar, and the
 model's `Call` step is atomic, so it cannot see runtime branches on those
 contents. The reviewed exceptions are the branch-free byte casts
 (`Byte.toUnsignedLong`, `Byte.toUnsignedInt`, any scalar taint, no heap
-arguments) and `Helpers.bv64ShiftRight`, where only the shift-count argument must
+arguments) and `Helpers.bv64ShiftLeft`/`bv64ShiftRight`, where the shift-count argument must
 be public (the shifted long may be private). No heap-content exception is needed
 or granted for any checked root (`public_heap_exceptions` is empty). Abstract
 memory/shape steps (`Load`/`LenOf`/`Alloc`/fill and the enumerated
 `modeled_primitive_kinds`) are not ordinary calls and are unaffected. The
 recorded classification is compared with the enforced code tables before the
 replay starts, so a policy edit cannot silently change what the report claims to
-have enforced. In particular, every
+have enforced. The mandatory Keccak supplement first proves both actual shift
+bodies from the pinned runtime entry; a private-count mutant must fail at the
+named branch obligation. In particular, every
 `DafnyEuclidean.EuclideanDivision`/`EuclideanModulus` overload is
 public-argument-only; that family branches on the dividend value in the pinned
 runtime. `Helpers.toIntChecked` and `Integer.compareUnsigned`/`BigInteger.compareTo`

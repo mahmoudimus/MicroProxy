@@ -273,6 +273,36 @@ pairs check termination, equal observations/public state, and live private resul
 registers in these seven programs. Their source-level functional correctness,
 full NTT/KEM composition and physical timing are separate obligations.
 
+## 7b. Keccak public-provider extension
+
+The Keccak supplement imports the original observer through `PublicProvider.dfy`.
+Its theorem uses the same pure public oracle in both runs and proves equivalence
+with the original semantics for the default oracle. It does not model arbitrary
+private provider outputs. For the seven concrete helper programs, a separate
+`PublicOnly` proof checks every remaining call: its target is known, all scalar
+arguments are public, it has no heap arguments, and its argument count matches
+the generated arity map. The certificate proves this
+property from the emitted instructions; it is not an assumed precondition.
+Private helpers and both actual pinned runtime shift bodies are inlined.
+
+The trusted bridges additionally include `keccak_traces.py`'s exact-target splice,
+public-oracle mapping and finite execution adapter, and `runtime_primitives.py`'s
+loaded-source, jar-entry and diagnostic binding. The original shape hash is not
+a callee-body identity: the supplement records actual bytecode-body and class
+hashes as well. Python source-file binding assumes a trusted interpreter/process
+and does not attest bytecode caches or a compromised execution environment.
+
+Completed finite controls require public-heap equality as well as public-register
+and trace equality. A fault, truncated fuel prefix or unchanged private inputs
+cannot stand in for a completed private-flow control. The concrete public word
+arithmetic and its compiled controls do not refine all Java int narrowing,
+BigInteger objects or exceptional/provider execution. `BigInteger.ZERO` is the
+only handle used by the corresponding Iota call in the selected control.
+
+The seven helper proofs leave the whole Sponge, `Permute` wrapper, polynomial/NTT,
+KEM and adapter composition open. Prototype receiver/ownership analyses are not
+accepted by this replay; no new exact-receiver assumption is introduced.
+
 ## 8. Explicit open items
 
 `policy.json.open_roots` names every claimed-but-unchecked root: Sponge methods,
@@ -281,7 +311,8 @@ failure/hash and bridge bytes (semantic object/dispatch/type/exception
 restrictions; final canonical21 build exists). The checked sequence/labelUnits
 trace bodies remove exactly those two entries, leaving 13 open roots. `unchecked_owned_callees`
 lists owned code not covered (Encrypt, Decrypt, ExpandMatrix, KeyGen, Encaps,
-Xof, Keccak helpers, field/NTT/codec/sampling). The report includes both lists and
+Xof, the Keccak aggregate label, field/NTT/codec/sampling). The Keccak helper
+supplement does not close those consuming layers. The report includes both lists and
 never reclassifies them as providers. `NativeSampling.Feed` is checked at
 120 s/200 M with the explicit `O:smt.case_split=0` override omitted (explicitly recorded); a
 timeout/resource failure is always a failure, never a counterexample/success.
