@@ -219,20 +219,25 @@ At this snapshot:
   component functional/generation claim; it is not a fresh full-JAR identity, whole
   handwritten-bytecode refinement, JVM timing or security proof. V1 stays partial
   for the failed AWS upstream closure.
-- V7 now catalogues the stable `formal/timing` component as conditional caller/model
-  evidence: a two-run `SecretTrace` theorem, five actual-bytecode caller
-  certificates (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169),
-  57 model / 17 HKDF-shape obligations, 14 fixtures (1 positive, 13 policy rejects)
-  and 4 genuine certificate mutants. Its report has 15 open owned roots, 19 assumed
-  owned helper/adapter trace contracts and 31 unchecked owned callees/labels. Those
-  assumptions are explicit; the trusted javap extractor/policy is recorded. V7 is
-  not promoted and cannot be promoted while the open roots/assumed callees remain;
-  this is not a universal JVM bytecode proof, JVM timing theorem, source functional
-  proof of new modules, or complete secret-trace proof for HKDF/SHAKE/ML-KEM. The
-  exact reviewed report snapshot SHA-256
-  `9782ef72d7a725d12cc1098b88f21506b802a344c6dbcb858549ef2804a2de54` is pinned in
-  code; advancing that baseline requires explicit source/policy review as well as a
-  data-hash update, not a self-declared ledger/receipt repin.
+- V7 records corrected conditional caller/model evidence: five caller certificates
+  (Select 84 checks, Feed 179, Extract 34, Expand 111, LabelInfo 169), four owned
+  helper certificates and a separate 369-instruction composed Feed. The model and
+  HKDF-shape proofs remain 57 and 17; 90 unit tests, 27 fixtures (four accepted,
+  23 policy rejects), four Select mutants and five callee mutants cover the
+  extraction/gate controls. A compiled 138-row Apply probe cross-checks the finite
+  execution interpreter. Wipe's witness must execute four stores to its secret
+  parameter role; Extract must retain a non-parameter private value. These finite
+  controls supplement the theorem and do not prove JVM semantics or timing.
+  The original five-caller set still assumes 19 owned contracts; the separate
+  composed Feed removes three from its own set (ten to seven), with 16 in the
+  hypothetical replacement union. Fifteen roots and 31 unchecked labels remain.
+  V7 stays partial. The snapshot
+  `b6ae6560ccf2e107597001afdec3d1abb197582328ad52d64f857419ec543ab6`
+  replaces the earlier copy-operand-mismatched certificates. Its source/policy,
+  126-input inventory, helper contracts, execution controls and residual sets are
+  checked independently of a data-only digest renewal. The extractor, splice,
+  target-to-model-kind mapping and runtime contracts remain trusted; full value,
+  alias/dispatch, implicit-exception and physical-timing refinement remain open.
 - Packet receive-path trace evidence remains separately scoped. The existing
   `packet-receive-trace-scoped` claim covers only its documented packet observer; it
   does not claim the new whole-crypto timing-component results.

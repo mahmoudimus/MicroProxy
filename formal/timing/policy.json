@@ -27,6 +27,134 @@
       "descriptor": "(Ldafny/DafnySequence;Ldafny/DafnySequence;Ljava/math/BigInteger;)Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/BytesResult;"
     }
   ],
+  "callee_roots": [
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
+      "name": "Extract",
+      "descriptor": "(JII)I",
+      "role": "owned-callee",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I"
+      ],
+      "contract": {
+        "params": [
+          "sec",
+          "pub",
+          "pub"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "value is the private accumulator; shift and bits are public offsets/widths",
+        "roles": {
+          "value": "sec",
+          "shift": "pub",
+          "bits": "pub",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 120,
+        "resources": 100000000,
+        "justification": "composed Extract+Pow2 certificate with concrete secret-pair witness; no timeout/resource counts as success"
+      }
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
+      "name": "Pow2",
+      "descriptor": "(I)I",
+      "role": "owned-callee",
+      "contract": {
+        "params": [
+          "pub"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "public width power; no secret input",
+        "roles": {
+          "d": "pub",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000
+      }
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
+      "name": "PublicMod",
+      "descriptor": "(II)I",
+      "role": "owned-callee",
+      "contract": {
+        "params": [
+          "pub",
+          "pub"
+        ],
+        "result": "args",
+        "heap": "none",
+        "reading": "public value and public divisor; admitted only in public contexts because the pinned DafnyRuntime EuclideanModulus body branches on the dividend value",
+        "roles": {
+          "value": "pub",
+          "divisor": "pub",
+          "result": "args"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000
+      }
+    },
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeCodec.__default",
+      "name": "Wipe",
+      "descriptor": "([I)V",
+      "role": "owned-callee",
+      "contract": {
+        "params": [
+          "array_sec"
+        ],
+        "result": "V",
+        "heap": "parameter-array-clear",
+        "reading": "array contents private; length/reference public; the parameter array is overwritten with public zeros at public indices; physical erasure excluded",
+        "roles": {
+          "array": "array_sec",
+          "result": "V"
+        }
+      },
+      "limits": {
+        "time": 30,
+        "resources": 50000000
+      }
+    }
+  ],
+  "composed_roots": [
+    {
+      "class": "io.github.mahmoudimus.quic.internal.verifiedcrypto.NativeSampling.__default",
+      "name": "Feed",
+      "descriptor": "([I[B)Lio/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/FeedResult;",
+      "role": "composed-caller",
+      "inline": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I"
+      ],
+      "discharged": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V"
+      ],
+      "supporting": [
+        "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I"
+      ],
+      "limits": {
+        "time": 180,
+        "resources": 400000000,
+        "solver_options": [],
+        "justification": "369-instruction composed Feed certificate (callee bodies inlined); no timeout/resource counts as success"
+      }
+    }
+  ],
   "calls": {
     "java/lang/Byte.toUnsignedLong:(B)J": {
       "kind": "call",
@@ -615,6 +743,10 @@
     },
     "[B.clone:()Ljava/lang/Object;": {
       "kind": "clone"
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I": {
+      "kind": "call",
+      "result": "args"
     }
   },
   "statics": {
@@ -1080,6 +1212,34 @@
           "allow_raise": true
         }
       }
+    },
+    "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default": {
+      "fields": {},
+      "methods": {
+        "Extract:(JII)I": {
+          "params": [
+            "sec",
+            "pub",
+            "pub"
+          ]
+        },
+        "PublicMod:(II)I": {
+          "params": [
+            "pub",
+            "pub"
+          ]
+        },
+        "Wipe:([I)V": {
+          "params": [
+            "array_sec"
+          ]
+        },
+        "Pow2:(I)I": {
+          "params": [
+            "pub"
+          ]
+        }
+      }
     }
   },
   "roles": {},
@@ -1223,6 +1383,138 @@
         "pub"
       ],
       "expect": "reject"
+    },
+    {
+      "class": "CalleeOwner",
+      "method": "run:(JII)I",
+      "params": [
+        "pub",
+        "pub",
+        "pub"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "CalleeDescriptor",
+      "method": "run:(JII)J",
+      "params": [
+        "pub",
+        "pub",
+        "pub"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "SecretResultBranch",
+      "method": "run:([II)I",
+      "params": [
+        "array_pub",
+        "sec"
+      ],
+      "expect": "reject",
+      "calls": {
+        "SecretResultBranch.pass:(I)I": {
+          "kind": "call",
+          "result": "args"
+        }
+      }
+    },
+    {
+      "class": "HeapResultLaunder",
+      "method": "run:([I)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject",
+      "calls": {
+        "HeapResultLaunder.first:([I)I": {
+          "kind": "call",
+          "result": "pub"
+        }
+      }
+    },
+    {
+      "class": "PostWipeLaunder",
+      "method": "run:([I)I",
+      "params": [
+        "array_sec"
+      ],
+      "expect": "reject",
+      "calls": {
+        "PostWipeLaunder.wipe:([I)V": {
+          "kind": "call",
+          "result": "sec"
+        }
+      }
+    },
+    {
+      "class": "PrivateEuclidean",
+      "method": "run:(I)I",
+      "params": [
+        "sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "PublicEuclidean",
+      "method": "run:(I)I",
+      "params": [
+        "pub"
+      ],
+      "expect": "accept"
+    },
+    {
+      "class": "PrivateEuclideanDivision",
+      "method": "run:(I)I",
+      "params": [
+        "sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "LongSlotPrivate",
+      "method": "run:(JI)I",
+      "params": [
+        "pub",
+        "sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "LongSlotPublic",
+      "method": "run:(JI)J",
+      "params": [
+        "pub",
+        "pub"
+      ],
+      "expect": "accept"
+    },
+    {
+      "class": "LongSlotArray",
+      "method": "run:(J[I)I",
+      "params": [
+        "pub",
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "HeapExternalCompare",
+      "method": "run:([B[B)Z",
+      "params": [
+        "array_sec",
+        "array_sec"
+      ],
+      "expect": "reject"
+    },
+    {
+      "class": "HeapExternalPublic",
+      "method": "run:([B[B)Z",
+      "params": [
+        "array_pub",
+        "array_pub"
+      ],
+      "expect": "accept"
     }
   ],
   "limits": {
@@ -1392,5 +1684,113 @@
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind.create_InvalidLength:()Lio/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/FailureKind;",
     "io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.ValidHash:(Ljava/math/BigInteger;)Z",
     "io/github/mahmoudimus/verifiedcrypto/JdkHmac.compute:(Ljava/math/BigInteger;Ldafny/DafnySequence;Ldafny/DafnySequence;)Ldafny/DafnySequence;"
-  ]
+  ],
+  "callee_mutants": {
+    "Extract": [
+      "public-result-from-secret-arg"
+    ],
+    "PublicMod": [
+      "secret-runtime-arg"
+    ],
+    "Wipe": [
+      "secret-store-index",
+      "secret-branch-cond"
+    ],
+    "Pow2": [
+      "secret-branch-cond"
+    ]
+  },
+  "composition": {
+    "status": "checked-inline-expansion",
+    "rule": "splice the exact static certified callee body into the caller certificate using the frozen Op(12, 0, src) copy convention; re-check Structure and ExecTwoRun on the composed program",
+    "discharged_targets": [
+      "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
+      "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
+      "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V"
+    ],
+    "supporting_targets": [
+      "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I"
+    ],
+    "originals": "the five caller certificates in roots keep their 19 opaque owned contracts; the composed Feed certificate is a separate artifact",
+    "residuals": [
+      "the model does not emit the constant invoke/return dispatch events for inlined calls; it observes the expanded body trace",
+      "register renaming, plain parameter-role aliasing, scalar entry copies and return copies are trusted bridge steps, mutation-tested but not proved",
+      "shape binding compares the inlined body with the in-process direct translation of the same callee; it is not a hash of the emitted certificate and not a JVM-semantics theorem",
+      "JVM value refinement, implicit exceptions/null checks and physical timing remain excluded",
+      "Wipe's executed stores are modelled and checked by the bounded witness execution, but physical erasure is not proved and array contents are not declassified"
+    ],
+    "owned_helper_boundaries": [
+      {
+        "target": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Extract:(JII)I",
+        "classification": "value private accumulator; shift and bits public offsets/widths",
+        "boundary": "actual bytecode body plus the separately certified public Pow2 body"
+      },
+      {
+        "target": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.PublicMod:(II)I",
+        "classification": "public value and public divisor; no private-value constant-time claim",
+        "boundary": "DafnyRuntime EuclideanModulus/Division branch on the dividend/divisor value; the extractor and audit enforce public-argument-only use. A zero divisor would throw and is not modeled. The actual Feed call passes constant 3."
+      },
+      {
+        "target": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Wipe:([I)V",
+        "classification": "array contents private; length and reference public",
+        "boundary": "the composed certificate models the loop stores, but does not prove physical erasure or declassify contents"
+      },
+      {
+        "target": "io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeCodec/__default.Pow2:(I)I",
+        "classification": "public width power",
+        "boundary": "separate public-only root; public parameters must agree across runs"
+      }
+    ]
+  },
+  "runtime_classification": {
+    "default": "Ordinary external Calls in every enumerated external_runtime_prefixes namespace require public scalar and heap-content arguments unless an enforced reviewed exception applies.",
+    "private_safe": [
+      "java/lang/Byte.toUnsignedLong:(B)J",
+      "java/lang/Byte.toUnsignedInt:(B)I"
+    ],
+    "shift_count_public": [
+      "dafny/Helpers.bv64ShiftRight:(JB)J"
+    ],
+    "public_heap_exceptions": [],
+    "modeled_primitive_kinds": [
+      "identity",
+      "requireNonNull",
+      "length",
+      "getfield",
+      "alloc",
+      "empty",
+      "seq_of",
+      "seq_concat",
+      "seq_take",
+      "seq_to_array",
+      "clone",
+      "seq_load",
+      "fill",
+      "new"
+    ],
+    "external_runtime_prefixes": [
+      "dafny/",
+      "java/",
+      "javax/",
+      "jdk/",
+      "sun/",
+      "com/sun/"
+    ],
+    "euclidean_families": [
+      "dafny/DafnyEuclidean.EuclideanDivision:(BB)B",
+      "dafny/DafnyEuclidean.EuclideanDivision:(SS)S",
+      "dafny/DafnyEuclidean.EuclideanDivision:(II)I",
+      "dafny/DafnyEuclidean.EuclideanDivision:(JJ)J",
+      "dafny/DafnyEuclidean.EuclideanDivision:(Ljava/math/BigInteger;Ljava/math/BigInteger;)Ljava/math/BigInteger;",
+      "dafny/DafnyEuclidean.EuclideanModulus:(BB)B",
+      "dafny/DafnyEuclidean.EuclideanModulus:(SS)S",
+      "dafny/DafnyEuclidean.EuclideanModulus:(II)I",
+      "dafny/DafnyEuclidean.EuclideanModulus:(JJ)J",
+      "dafny/DafnyEuclidean.EuclideanModulus:(Ljava/math/BigInteger;Ljava/math/BigInteger;)Ljava/math/BigInteger;"
+    ],
+    "pinned_runtime": {
+      "jar_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+      "evidence": "DafnyEuclidean.EuclideanModulus(II)I: value branch at offset 22 (if_icmpgt), further value branches at 28/38/53/59/64/72/104/120; EuclideanDivision(II)I has value branch at 22; Helpers.bv64ShiftRight(JB)J branches only on the shift count at offset 3; Helpers.toInt(I)I is branch-free; Helpers.toIntChecked(J,String)I branches on the value at offset 7; JDK 21 Integer.signum is branchless but admitted public-only by default"
+    }
+  }
 }

@@ -56,6 +56,124 @@ class PolicyError(RuntimeError):
     pass
 
 
+# Mandatory classification for enumerated external runtime/JDK calls. The
+# extractor and the independent audit both enforce it; it is not a JSON success
+# flag. The pinned DafnyRuntime 4.9.1 `DafnyEuclidean` overloads branch on the
+# dividend/divisor value (e.g. EuclideanModulus(II)I offsets 22/50/64/120), so
+# admitting them with a secret argument would hide known private control flow.
+# `Helpers.bv64ShiftRight` branches only on the shift count; the shifted value
+# may be private. `Byte.toUnsignedLong/Int` are branch-free casts.
+#
+# The default covers **every scalar argument and every heap (array/sequence)
+# content argument** of an ordinary external `Call` step. Secret array/sequence
+# contents are the same kind of value-dependent input as a secret scalar: the
+# runtime may branch on them, and the model's `Call` step is atomic, so it cannot
+# see those branches. Checked roots need no heap-content exception; abstract
+# array load/length instructions (`Load`/`LenOf`/`Alloc`) are separate model
+# steps and are not ordinary calls, so they are unaffected by this gate.
+PRIVATE_SAFE_RUNTIME_CALLS = {
+    'java/lang/Byte.toUnsignedLong:(B)J',
+    'java/lang/Byte.toUnsignedInt:(B)I',
+}
+SHIFT_COUNT_PUBLIC_RUNTIME_CALLS = {
+    'dafny/Helpers.bv64ShiftRight:(JB)J',
+}
+#: Reviewed targets whose *heap contents* may be secret even though the call is
+#: an ordinary external `Call`. Empty by construction: the checked roots pass no
+#: secret array/sequence content to any external call, and a target may only be
+#: listed here with a per-target justification. Adding an entry here is the
+#: documented review point for a future constant-time primitive.
+PUBLIC_HEAP_EXCEPTIONS: dict[str, str] = {}
+#: Enumerated *modeled* external kinds: the extractor replaces these with
+#: abstract `alloc`/`load`/`len`/`fill` steps instead of an atomic `Call`, so
+#: their real runtime code is a reviewed memory/shape primitive rather than an
+#: opaque dispatch (DafnySequence length/select/concat/toRawArray, TypeDescriptor
+#: newArray/fillThenReturnArray, Object identity/requireNonNull). The
+#: public-argument gate below applies to ordinary `Call` steps only; every other
+#: kind must be in this set, so an unknown kind cannot dodge the gate.
+MODELED_PRIMITIVE_KINDS = frozenset({
+    'identity', 'requireNonNull', 'length', 'getfield', 'alloc', 'empty',
+    'seq_of', 'seq_concat', 'seq_take', 'seq_to_array', 'clone', 'seq_load',
+    'fill', 'new',
+})
+#: Enumerated standard-runtime/Dafny package prefixes whose *ordinary* calls are
+#: governed by the public-argument gate above. Deliberately an exhaustive list of
+#: reviewed runtime namespaces (`dafny/` = pinned DafnyRuntime, `java/`, `javax/`,
+#: `jdk/`, `sun/`, `com/sun/` = JDK modules, including the JDK's own internal
+#: provider code). A target under any *other* prefix is not admitted by any
+#: checked certificate and is outside this claim: arbitrary third-party library
+#: calls are not covered. The list is drift-checked against `policy.json`
+#: (`external_runtime_prefixes`) so a policy edit cannot silently widen or narrow
+#: what the report claims to have enforced.
+EXTERNAL_RUNTIME_PREFIXES = ('dafny/', 'java/', 'javax/', 'jdk/', 'sun/', 'com/sun/')
+
+
+def runtime_call_public_ok(target: str, arg_taints: list[str],
+                          heap_taints: list[str] = ()) -> bool:
+    """Whether an external runtime/JDK call is admitted for these taints.
+
+    Owned calls return True here; their opaque contracts are reported separately.
+    For external calls the default is public scalar **and** public heap-content
+    arguments. The only reviewed exceptions are the branch-free byte casts (any
+    scalar taint, no heap arguments in practice) and bv64ShiftRight (the shift
+    count argument must be public; the shifted value may be secret).
+    """
+    if not target.startswith(EXTERNAL_RUNTIME_PREFIXES):
+        return True
+    heap_public = all(t == 'pub' for t in heap_taints)
+    if not heap_public and target not in PUBLIC_HEAP_EXCEPTIONS:
+        return False
+    if target in PRIVATE_SAFE_RUNTIME_CALLS:
+        return True
+    if target in SHIFT_COUNT_PUBLIC_RUNTIME_CALLS:
+        return len(arg_taints) >= 2 and arg_taints[1] == 'pub'
+    return all(t == 'pub' for t in arg_taints)
+
+
+def runtime_call_problem(target: str, arg_taints: list[str],
+                         heap_taints: list[str] = ()):
+    if runtime_call_public_ok(target, arg_taints, heap_taints):
+        return None
+    secret_heap = [t for t in heap_taints if t != 'pub']
+    if secret_heap and target not in PUBLIC_HEAP_EXCEPTIONS:
+        return f'public-argument-only runtime call {target} with secret heap argument'
+    return f'public-argument-only runtime call {target} with secret argument'
+
+
+def check_runtime_classification(policy: dict) -> dict:
+    """Fail closed on drift between the declared and enforced classification.
+
+    The admission tables that the extractor and audit actually use live in this
+    module. `policy.json` records the same sets for review and reporting; this
+    gate refuses to run if the record and the code disagree, so the report can
+    never describe a classification that was not enforced.
+    """
+    declared = policy.get('runtime_classification')
+    if not isinstance(declared, dict):
+        raise RuntimeError('runtime classification is not declared in the policy')
+    checks = (
+        ('private_safe', 'private-safe runtime call',
+         set(declared.get('private_safe', [])), PRIVATE_SAFE_RUNTIME_CALLS),
+        ('shift_count_public', 'shift-count-public runtime call',
+         set(declared.get('shift_count_public', [])), SHIFT_COUNT_PUBLIC_RUNTIME_CALLS),
+        ('public_heap_exceptions', 'public-heap runtime call exception',
+         set(declared.get('public_heap_exceptions', [])), set(PUBLIC_HEAP_EXCEPTIONS)),
+        ('modeled_primitive_kinds', 'modeled external primitive kind',
+         set(declared.get('modeled_primitive_kinds', [])), set(MODELED_PRIMITIVE_KINDS)),
+        ('external_runtime_prefixes', 'external runtime prefix',
+         set(declared.get('external_runtime_prefixes', [])), set(EXTERNAL_RUNTIME_PREFIXES)),
+    )
+    for key, label, recorded, enforced in checks:
+        if recorded != enforced:
+            raise RuntimeError(
+                'runtime classification drift for ' + label + ': policy='
+                + repr(sorted(recorded)) + ' code=' + repr(sorted(enforced)))
+    for entry in declared.get('public_heap_exceptions', []):
+        if entry not in PUBLIC_HEAP_EXCEPTIONS:
+            raise RuntimeError('public-heap exception has no code justification: ' + entry)
+    return declared
+
+
 @dataclass
 class Insn:
     offset: int
@@ -420,20 +538,6 @@ def _int_literal(operand: str):
     raise PolicyError(f'non-integer constant: {operand}')
 
 
-def _param_slots(method: Method) -> list[int]:
-    """JVM local slots occupied by the (implicit this and) declared parameters."""
-    args, _ = descriptor_types(method.descriptor)
-    slots = [0] if not method.static else []
-    out = [0] if not method.static else []
-    slot = 0 if not method.static else 0
-    if not method.static:
-        slot = 1
-    for t in args:
-        out.append(slot)
-        slot += width(t)
-    return out
-
-
 def _max_local(method: Method) -> int:
     top = 0
     for insn in method.insns:
@@ -573,6 +677,7 @@ class Translator:
         self.param_reg = {}
         self.param_taint = {}
         self.param_role = {}
+        self.param_order: list[int] = []
         zero = self.alloc('pub')
         if zero != 0:
             raise PolicyError('zero register must be 0')
@@ -585,6 +690,7 @@ class Translator:
         for i, (t, value) in enumerate(zip(args, declared)):
             reg = self.alloc('pub' if value in ('pub', 'array_pub', 'array_sec', 'seq_pub', 'seq_sec') else 'sec')
             self.param_reg[slot] = reg
+            self.param_order.append(reg)
             if value in ('pub', 'sec'):
                 self.param_taint[slot] = value
                 self.param_role[slot] = None
@@ -1004,7 +1110,7 @@ class Translator:
                 value = pop()
                 dst = self.write_id(pc)
                 self.def_taints[dst] = self.or_(self.def_taints.get(dst, 'pub'), value['t'])
-                step(pc, 'store-local', dst, ('op', 'copy', value['id'], 0), value['t'])
+                step(pc, 'store-local', dst, ('op', 'copy', 0, value['id']), value['t'])
                 value = dict(value)
                 value['id'] = dst
                 write_local(pc, slot, value)
@@ -1172,8 +1278,11 @@ class Translator:
             elif op in ('goto', 'goto_w'):
                 term = ('goto', None, None, self.block_of[branch_target(insn)], None)
                 break
-            elif op in ('ireturn', 'lreturn', 'areturn', 'freturn', 'dreturn', 'return'):
-                term = ('stop',)
+            elif op in ('ireturn', 'lreturn', 'areturn', 'freturn', 'dreturn'):
+                term = ('stop', pop()['id'])
+                break
+            elif op == 'return':
+                term = ('stop', None)
                 break
             elif op == 'nop':
                 pass
@@ -1220,7 +1329,15 @@ class Translator:
         rule = self.call_rule(target)
         if rule is None:
             raise PolicyError(f'{self.m.key}@{pc}: unlisted call {target}')
+        arg_taints = [e['t'] for e in values]
         kind = rule.get('kind', 'call')
+        if kind == 'call':
+            heap_taints = [self.roles.get(e['role'], 'sec') for e in values if e.get('role')]
+            problem = runtime_call_problem(target, arg_taints, heap_taints)
+            if problem:
+                raise PolicyError(f'{self.m.key}@{pc}: {problem}')
+        elif kind not in MODELED_PRIMITIVE_KINDS:
+            raise PolicyError(f'{self.m.key}@{pc}: unclassified external call kind {kind!r} for {target}')
         off = 0 if insn.op == 'invokestatic' else 1
 
         def alloc_role(role, taint, size_reg, what=target):
@@ -1363,7 +1480,7 @@ class Translator:
             blocks[eid] = []
             for phi, incoming in copies:
                 blocks[eid].append({'type': 'step', 'site': self.site(-1, 'phi-copy'),
-                                    'dst': phi, 'kind': ('op', 'copy', incoming, 0),
+                                    'dst': phi, 'kind': ('op', 'copy', 0, incoming),
                                     'ann': self.def_taints.get(incoming, 'sec')})
             blocks[eid].append({'type': 'goto', 'target': tb})
         # terminators (recompute from run data stored per block)
@@ -1378,7 +1495,7 @@ class Translator:
             code.extend(blocks[b])
             term = terms[b]
             if term[0] == 'stop':
-                code.append({'type': 'stop'})
+                code.append({'type': 'stop', 'ret': term[1] if len(term) > 1 else None})
                 emitted_succ[b] = set()
             elif term[0] == 'goto':
                 target_block = term[3] if len(term) > 3 else term[1]
@@ -1442,6 +1559,8 @@ class Translator:
             'inputs': self.inputs,
             'instructions_reachable': len(seen),
             'cfg_edges_checked': True,
+            'param_regs': list(self.param_order),
+            'static': self.m.static,
         }
 
 
@@ -1564,10 +1683,26 @@ def audit_certificate(result: dict) -> list[dict]:
             elif kind[0] == 'call':
                 args, heap_args = kind[2], kind[3]
                 shape = len(kind) > 4 and kind[4]
+                target = result.get('call_targets', {})
+                names = sorted(name for name, ident in target.items() if ident == kind[1])
+                if len(names) != 1:
+                    # Fail closed: an unregistered or ambiguous call id cannot be
+                    # classified, so it must never be treated as an owned call.
+                    problem = ('unclassified call target id %s (%s)'
+                               % (kind[1], 'missing' if not names else 'ambiguous: '
+                                  + ', '.join(names)))
+                    target_name = ''
+                else:
+                    target_name = names[0]
+                runtime_problem = runtime_call_problem(
+                    target_name, [rt(a) for a in args],
+                    [ht(role_id[r]) for r in heap_args])
+                if runtime_problem:
+                    problem = runtime_problem
                 rule = or_(*[rt(a) for a in args], *[ht(role_id[r]) for r in heap_args])
-                if shape:
+                if problem is None and shape:
                     if rt(dst) != 'pub': problem = 'shape call result not public'
-                elif not _leq(rule, rt(dst)):
+                elif problem is None and not _leq(rule, rt(dst)):
                     problem = f'call rule {rule} > annot {rt(dst)}'
             if problem:
                 failures.append({'site': site, 'offset': result['sites'][site]['offset'] if site is not None and site < len(result['sites']) else None,
@@ -1582,8 +1717,23 @@ def audit_certificate(result: dict) -> list[dict]:
     return failures
 
 
-def certificate_module(name: str, result: dict, check_only: bool = False) -> str:
-    """Emit a Dafny module proving Structure in chunks and applying TwoRun."""
+def certificate_module(name: str, result: dict, check_only: bool = False,
+                       witness: dict | None = None) -> str:
+    """Emit a Dafny module proving Structure in chunks and applying TwoRun.
+
+    A `witness` adds a concrete secret-pair application of the universal theorem.
+    Two different obligations are kept apart:
+
+      * hypothesis satisfiability: `WS() != WT()` and `Agree(P(), WS(), WT())`;
+      * finite concrete execution: the witness run is executed by the bounded
+        interpreter in `trace_exec.py` and only then is the emitted lemma allowed
+        to claim a completed (`terminal == 'stop'`) run and concrete event/store
+        facts. `Exec` returns `(s, [])` at fuel 0, so a truncated prefix would
+        otherwise be indistinguishable from a completed run.
+
+    The witness is a control over the *extracted program text*, not a new
+    theorem; the universal statement remains `TwoRun`.
+    """
     src = certificate_source(result)
     n = len(result['code'])
     chunk = 32
@@ -1629,6 +1779,51 @@ def certificate_module(name: str, result: dict, check_only: bool = False) -> str
     ExecTwoRun(p, 0, s, t, fuel);
   }
 ''' % n
+    witness_text = ''
+    if witness is not None and not check_only:
+        def seq(values):
+            return '[' + ', '.join(str(v) for v in values) + ']'
+        heap_s = '[' + ', '.join(seq(h) for h in witness['heap_s']) + ']'
+        heap_t = '[' + ', '.join(seq(h) for h in witness['heap_t']) + ']'
+        states = '''
+  function WS(): State { State(%s, %s) }
+  function WT(): State { State(%s, %s) }
+''' % (seq(witness['regs_s']), heap_s, seq(witness['regs_t']), heap_t)
+        execution = witness.get('execution')
+        fuel = witness['fuel'] or (len(result['code']) + 8)
+        if execution is None:
+            # No finite execution was validated: only claim what is proved (the
+            # hypothesis is satisfiable). Never call a truncated prefix complete.
+            witness_text = states + '''
+  // Hypothesis satisfiability only. The bounded interpreter did not reach a
+  // terminal instruction within its step cap, so no concrete execution claim is
+  // made here.
+  lemma WitnessHypothesis()
+    ensures WS() != WT()
+  {
+    assert Agree(P(), WS(), WT());
+  }
+'''
+        else:
+            # Concrete executed control flow (terminal instruction, stores) is
+            # validated by the independent bounded interpreter in trace_exec.py
+            # and reported as witness_execution. Dafny's verifier does not
+            # symbolically evaluate a long concrete `Exec` (that is a resource
+            # limit, not an error), so no concrete event-count assertion is
+            # emitted here.
+            witness_text = states + '''
+  // Non-vacuity: the secret projection really differs and `Agree` holds. The
+  // witness run's completion, executed stores and secret liveness are checked
+  // by the bounded interpreter (trace_exec.py) on this exact program text and
+  // recorded in the report as `witness_execution`.
+  lemma Witness()
+    ensures WS() != WT()
+  {
+    var p := P();
+    assert Agree(p, WS(), WT());
+    TwoRun(WS(), WT(), %d);
+  }
+''' % fuel
     return '''// Generated by formal/timing/bytecode_trace.py -- do not edit.
 include "SecretTrace.dfy"
 module Cert%s {
@@ -1657,6 +1852,6 @@ module Cert%s {
     assert Structure(p);
   }
 
-%s}
+%s%s}
 ''' % (name, src['functions'], src['dafny'], '\n\n'.join(lemmas), n, len(chunks),
-       '\n'.join(calls), split, two_run)
+       '\n'.join(calls), split, two_run, witness_text)

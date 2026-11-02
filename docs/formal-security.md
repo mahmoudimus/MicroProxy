@@ -358,8 +358,13 @@ and authentication paths.
 
 Review found a copy-operand mismatch between the bytecode extractor and its trace
 model. It could make modeled loops degenerate despite successful proof checking.
-Affected trace receipts need replacement with corrected extraction and execution
-controls that exercise loop stores and secret-value flow. The functional
+The affected receipts have been replaced after correcting extraction and adding
+execution controls for loop stores and secret-value flow. All five caller
+certificate hashes changed. Four helper certificates and a separate composed
+sampler certificate supplement them; they do not close all owned-call assumptions.
+The finite execution controls require private-input liveness and stores to the
+intended secret parameter role. They supplement the model theorem and do not
+prove Java/JVM value refinement. The functional
 HKDF/SHAKE/ML-KEM proofs are separate. This is also why the extractor remains an
 explicit trust assumption: proving the emitted model does not itself prove that
 the model faithfully represents Java execution.

@@ -14,11 +14,14 @@ declassifications, dispatch/type restrictions, and residuals.
 | `SecretTrace.dfy` | Taint-annotated word/array machine with chunked code/taint tables, switch terminator, shape-result calls, terminal array faults, two-run theorem, positive instance and model controls |
 | `PositiveTraceCheck.dfy` | Compiled execution control (`dafny run`), not a proof |
 | `HkdfShape.dfy` | Imports the unchanged `formal/dafny/hkdf/Hkdf.dfy` and proves source-level result-kind/length independence for equal public inputs; it does not prove compiler trace preservation |
-| `bytecode_trace.py` | Trusted javap extractor: CFG + fall-through gate, SSA/phi edge copies, taint/role fixpoint, dispatch/field/type policy, certificate/module emitter, independent audit |
-| `policy.json` | Checked roots, open roots, parameter/field/allocation/call policy, enums of external contracts, fixtures, per-root solver budgets |
+| `bytecode_trace.py` | Trusted javap extractor: CFG + fall-through gate, SSA/phi edge copies (`Op(12, 0, src)` so the frozen `Apply(12,a,b)==b` really copies `src`), taint/role fixpoint, dispatch/field/type policy, certificate/module emitter, independent audit |
+| `composition.py` | Fail-closed inline expansion of an enumerated set of exact static certified owned callees into a caller certificate (plain parameter-role identity, register renaming, argument instantiation, return copy, recursion/expansion guards, full reachability gate) |
+| `trace_exec.py` | Bounded interpreter of the frozen machine (`Apply`/`DoStep`/`Exec`); executes witness states and emitted certificates for *executed* control-flow controls (terminal instruction, stores, secret liveness). Not a theorem |
+| `ApplyProbe.dfy` | Compiled control (`dafny run`) that prints the frozen `Apply` operand table; `run.py` compares it row-by-row with `trace_exec.apply` |
+| `policy.json` | Checked caller/callee/composed roots, open roots, parameter/field/allocation/call policy, enums of external contracts, fixtures, per-root solver budgets |
 | `run.py` | Atomic replay: pins, model and HKDF-shape proofs, compiled control, source→class binding against a chosen class directory, actual-class certificates, fixtures, certificate mutants, structured open scope |
-| `fixtures/` | Constant-time positive control plus branch/index/early-compare/exception/alloc/loop-bound/field-alias/virtual-dispatch/type-test/new-identity/call-length/category-2 mutants |
-| `test_trace.py` | 27 unit tests over parser, translation, audit, rejection, callee identity/scope and CFG/reachability gates |
+| `fixtures/` | Constant-time positive control plus branch/index/early-compare/exception/alloc/loop-bound/field-alias/virtual-dispatch/type-test/new-identity/call-length/category-2 mutants, exact-owned-target and call-result/heap composition mutants, public/private Euclidean-runtime controls, long-slot regressions, secret-heap external-call controls and unit-test-only merged-role/extract-shape/recursive composition controls |
+| `test_trace.py` | 90 unit tests over parser, translation, audit, rejection, callee identity/scope, inline composition, frozen-`Apply`/executed-witness controls, contract-driven witness liveness/clearing gates, heap-argument classification (including `javax/`, `jdk/`, `sun/`, `com/sun/`), policy/contract/prefix drift, call-id and recursion fail-closed gates. One test re-runs the compiled `ApplyProbe.dfy` cross-check and is skipped when the pinned Dafny binary is absent (the replay always runs it) |
 | `EVIDENCE.md` | Recorded local replay and exact open items |
 | `inputs.json` | SHA-256 pins for timing sources, fixtures, inspected production sources and the unchanged HKDF model |
 
@@ -71,6 +74,120 @@ Checks enforced by `Structure` and the extractor include:
   used to classify result objects as public shape while payload bytes stay
   secret.
 
+### Owned-callee certificates and checked inline composition
+
+The `NativeCodec.__default` primitives are certified from the same actual
+canonical21 classes:
+
+- `NativeCodec.Extract:(JII)I` — private accumulator `value`, public `shift` and
+  `bits`; the certificate is composed with the separately certified `Pow2:(I)I`
+  body (12 direct instructions, 87 composed, 120 s / 100 M).
+- `NativeCodec.Pow2:(I)I` — public width power (62 instructions, 30 s / 50 M).
+- `NativeCodec.PublicMod:(II)I` — **public** `value` and **public** `divisor`
+  (2 instructions, 30 s / 50 M), admitted only in public contexts. The pinned
+  DafnyRuntime `DafnyEuclidean.EuclideanModulus/Division` bodies branch on the
+  dividend/divisor value (e.g. `EuclideanModulus(II)I` offsets 22/28/38/53/59/64/72/104/120), so
+  a private-value contract for this wrapper would hide known runtime control
+  flow. A zero divisor would throw and remains outside the trace model.
+- `NativeCodec.Wipe:([I)V` — private array contents, public length/reference;
+  the full 19-instruction loop-stores-0 body (30 s / 50 M).
+
+Each callee root has a full emitted-CFG reachability gate and a recorded contract
+that is checked against the enforced class policy (`params`, role values, result
+and heap effect); `PublicMod` is public/public in both places. `Extract` and
+`Wipe` carry a secret-pair witness (two states with equal public projection that
+differ in a secret register or in secret-array contents) applied to `ExecTwoRun`,
+and the *executed* witness is validated by the bounded interpreter in
+`trace_exec.py`. Only private inputs differ initially (private scalar parameter
+registers and secret array contents); every other secret register starts at zero
+in both witness states, so a difference in the final state can only come from
+execution. `run.check_witness_contract` then enforces, from the certificate's
+actual `param_regs` and the validated execution:
+
+- a callee with a private scalar parameter must have a **non-parameter** register
+  differing at the end (a parameter-only difference is rejected as a dead private
+  input);
+- a callee whose contract records `parameter-array-clear` must zero every
+  **secret parameter array role** and execute at least that role's witness length
+  in stores to *that role* (not merely a global store count to any role).
+
+`Callee_Extract` keeps the non-parameter difference in register 7; `Callee_Wipe`
+executes its four stores and clears secret role 0. The record carries
+`parameter_registers`, `witness_execution` and `witness_contract`; a run that
+exhausts the step cap is recorded as hypothesis-only and is never called
+complete. The model's atomic `Call` result (`ProviderResult`) depends only on
+public arguments, so no secret-dependent *value* in `Callee_Extract`'s returned
+register is claimed — that is the documented dependency-shape abstraction. `Pow2` and `PublicMod` are **public-only** certificates;
+no private-value constant-time claim is made for `PublicMod`. Normal
+Dafny proof mutants (`public-result-from-secret-arg`, `secret-runtime-arg`,
+`secret-store-index`, `secret-branch-cond`) are rejected by the same strict
+normal proof-failure gate as the `Select` mutants (single completed summary,
+non-zero errors, obligation diagnostic, no resource/crash), never as
+resource/crash results.
+
+### External runtime classification
+
+The extractor and the independent audit enforce a mandatory rule for every
+admitted **ordinary external `Call`** in the enumerated standard-runtime
+namespaces `dafny/`, `java/`, `javax/`, `jdk/`, `sun/` and `com/sun/`: public
+scalar arguments **and** public heap (array/sequence) contents by default. The
+prefix enumeration is recorded in `policy.json` (`external_runtime_prefixes`) and
+drift-checked against the code table, so a policy edit cannot narrow the gate
+silently. A target under any other prefix is not admitted by any checked
+certificate and is outside this claim: arbitrary third-party library calls are
+not covered, and no blanket "all libraries" claim is made. Secret array
+contents are the same kind of value-dependent input as a secret scalar, and the
+model's `Call` step is atomic, so it cannot see runtime branches on those
+contents. The reviewed exceptions are the branch-free byte casts
+(`Byte.toUnsignedLong`, `Byte.toUnsignedInt`, any scalar taint, no heap
+arguments) and `Helpers.bv64ShiftRight`, where only the shift-count argument must
+be public (the shifted long may be private). No heap-content exception is needed
+or granted for any checked root (`public_heap_exceptions` is empty). Abstract
+memory/shape steps (`Load`/`LenOf`/`Alloc`/fill and the enumerated
+`modeled_primitive_kinds`) are not ordinary calls and are unaffected. The
+recorded classification is compared with the enforced code tables before the
+replay starts, so a policy edit cannot silently change what the report claims to
+have enforced. In particular, every
+`DafnyEuclidean.EuclideanDivision`/`EuclideanModulus` overload is
+public-argument-only; that family branches on the dividend value in the pinned
+runtime. `Helpers.toIntChecked` and `Integer.compareUnsigned`/`BigInteger.compareTo`
+also branch on values and are therefore public-only under the default. This is a
+classification gate in code, not an optional JSON flag; a private argument is a
+normal policy rejection. It is not a compiler/runtime timing proof.
+
+`NativeSampling.Feed` additionally has a **separate** composed certificate
+(369 reachable instructions, 180 s / 400 M) in which the exact static bodies of
+`Extract`, `PublicMod` and `Wipe` are inlined. The composed certificate:
+
+- re-translates each body with the caller's actual argument/role taints and
+  re-checks the full body under that instantiation;
+- aliases array parameter roles to the caller's role, emits scalar entry copies,
+  and copies the callee's actual return register into the caller destination;
+- models `Wipe`'s heap stores instead of assuming a no-op call (the inlined
+  body's stores are executed by the validated witness run of `Callee_Wipe`);
+- aliases only an *exact plain* callee parameter role; merged/derived roles are
+  rejected instead of being silently mapped to a caller role;
+- shape-binds every inlined body (including nested callee-root inlines) to the
+  in-process direct translation of the same callee, as direct-translation
+  self-consistency plus the trusted splice — not a hash of the emitted
+  certificate and not a JVM-semantics theorem;
+- proves that exactly the three enumerated owned targets disappear from the
+  opaque target set and no owned target is added (`removed == 3`, `added == 0`).
+
+This removes exactly those three assumptions **for the composed certificate
+only**. The original five caller certificates remain unchanged and still assume
+their 19-target union; the composed Feed alone still assumes its other 7 owned
+contracts. The five-certificate union would be 16 only if the composed
+certificate replaced the original Feed certificate, which this branch does not
+claim (§Open scope). There is no new JSON success flag and no whole-V7 closure
+claim.
+The inline expansion itself (plain parameter-role aliasing, register/role
+renaming, entry/return copies and the omission of the constant `invoke`/`return`
+dispatch events) is a trusted bridge step like the extractor; it is
+mutation-tested but not formally verified. Recursive or unbounded callee
+expansion is refused before it starts (policy-cycle detection plus expansion
+limits).
+
 ## Open scope (reported, not green)
 
 The five caller certificates assume 19 opaque owned helper/adapter contracts,
@@ -79,7 +196,11 @@ public-seed sampler's helpers. `assumed_owned_callees` records each exact target
 and policy contract; every one must also appear in `unchecked_owned_callees`.
 These are explicit assumptions, not callee trace proofs. Source/class identity is
 checked for all rebuilt crypto classes, including adapters and result variants;
-matching bytes do not discharge a callee's trace obligation.
+matching bytes do not discharge a callee's trace obligation. The separate
+composed Feed certificate discharges only `NativeCodec.Extract`, `PublicMod` and
+`Wipe`; it still assumes its other 7 owned contracts (16 across the
+five-certificate union only if it replaced Feed) and is not a whole-callee
+closure.
 
 - `NativeShake.Sponge.{Update,AbsorbOne,XorByte,Next,Start}` and
   `NativeMlKem.Decaps`: rejected by the dispatch gate because owned classes and
@@ -105,23 +226,31 @@ matching bytes do not discharge a callee's trace obligation.
 
 ```sh
 cd /path/to/microproxy
+# All entry points run the same 90 tests (the module adds its own directory to
+# sys.path, and the `unittest.main()` guard is at end of file):
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
-  python3 -m unittest -v formal/timing/test_trace.py
+  python3 -m unittest -v formal.timing.test_trace      # from the repo root
+JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+  python3 -m unittest discover -s formal/timing -p 'test_*.py'
+JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+  python3 formal/timing/test_trace.py                  # direct script
+# (add DAFNY=/path/to/pinned/dafny to also run the compiled ApplyProbe cross-check;
+#  the full replay below always runs it)
 
 python3 formal/timing/run.py \
   --output /fresh/output/dir \
-  --classes /tmp/microproxy-117-20261101/actual-final21/classes \
+  --classes quic/target/classes \
   --java-home /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   --dafny ~/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny \
   --runtime ~/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar
 ```
 
-`--classes` selects the immutable class directory to inspect; the replay rebuilds
-the pinned sources with `javac -g --release 21` and requires byte-identical
-class files for the checked roots. Use
-`/tmp/microproxy-117-20261101/actual-final21/classes` (467 classes) for the final
-canonical21 replay. The current `quic/target/classes` carries javac25 attributes
-and is not treated as a product regression. The replay validates the official
+`--classes` selects the class directory to inspect. First build it with JDK 21
+(`JAVA_HOME=/trusted/jdk21 mvn -pl quic -am -DskipTests package`), or select a
+preserved JDK 21 class directory. The replay rebuilds the pinned sources with
+`javac -g --release 21` and requires byte-identical class files for the checked
+roots. Classes compiled with JDK 25 can carry different attributes and are not a
+canonical JDK 21 input; this does not by itself indicate a product regression. The replay validates the official
 checksum-pinned Dafny archive and every extracted assembly/solver, requires the
 exact build `4.9.1+452c...`, derives the solver from that distribution, pins the
 shared helper/tool manifest, validates the Maven DafnyRuntime SHA and records

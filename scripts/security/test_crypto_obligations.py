@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_crypto_obligations as obligations  # noqa: E402
@@ -903,6 +904,39 @@ class ObligationLedgerTests(unittest.TestCase):
         self.fixture._write_json(report_path, report)
         self.fixture._set_evidence("V7", report_path, "component-receipt")
         self.assert_invalid("assumed owned callee set changed|open owned root|unchecked owned callee|trace report does not match reviewed snapshot")
+
+    def test_trace_execution_and_callee_controls_survive_snapshot_renewal(self):
+        """A future digest renewal cannot bless dead execution or private modulus."""
+        import copy
+        self.fixture.make_supported("packet-receive-trace-scoped")
+        path = "formal/timing/PRODUCTION-EVIDENCE.json"
+        original = self.fixture._load_json(path)
+        for case in ("wipe-stores", "wipe-role", "dead-extract", "apply-probe",
+                     "private-modulus", "timeout-mutant"):
+            with self.subTest(case=case):
+                report = copy.deepcopy(original)
+                callees = {item["method"].split(":")[0]: item
+                           for item in report["callee_roots"]}
+                if case == "wipe-stores":
+                    callees["Wipe"]["witness_execution"]["counts"]["store"] = 0
+                elif case == "wipe-role":
+                    callees["Wipe"]["witness_execution"]["role_store_counts"] = [0, 4]
+                elif case == "dead-extract":
+                    callees["Extract"]["witness_execution"]["differing_registers"] = [1]
+                elif case == "apply-probe":
+                    report["apply_probe"]["rows"] = 0
+                elif case == "private-modulus":
+                    callees["PublicMod"]["contract"]["params"] = ["sec", "pub"]
+                else:
+                    callees["Wipe"]["mutants"]["secret-store-index"]["status"] = "timeout"
+                self.fixture._write_json(path, report)
+                self._repin_trace_report()
+                # Simulate a reviewed-code digest renewal while keeping the
+                # independent semantic requirements intact.
+                renewed = sha((self.fixture.root / path).read_bytes())
+                with mock.patch.object(obligations, "REQUIRED_TRACE_REPORT_SHA256", renewed):
+                    self.assert_invalid(
+                        "trace (Wipe execution|Apply execution|owned-callee|callee mutant)")
 
     def test_v7_cannot_be_promoted_with_open_roots_or_assumed_callees(self):
         self.fixture.make_supported("packet-receive-trace-scoped")

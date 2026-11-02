@@ -1,85 +1,120 @@
-# Recorded local replay (V7 secret trace, post-review fixes)
+# Checked secret-trace evidence
 
-- Dafny: `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3: `Z3 version 4.12.1 - 64 bit`
-- JDK: `openjdk version "21.0.12.1" 2026-08-18`; DafnyRuntime `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`
-- Inspected classes: `/tmp/microproxy-117-20261101/actual-final21/classes` (final canonical21, 467 classes); report `/tmp/microproxy-117-20261101/timing-evidence-release/report.json`
-- `SecretTrace.dfy`: 57 verified declarations, 0 errors; `HkdfShape.dfy`: 17 verified declarations
-- Compiled positive control: `positive-control-ok` (runtime evidence, not a proof)
-- Official pinned Dafny archive/extracted assemblies/solver validated; exact build `4.9.1+452c...`; Maven runtime SHA `dc62...` and JDK tool identities checked before/after replay; shared `formal/dafny/{run.py,toolchain.py,tools.json}` pinned.
+The checked snapshot is `PRODUCTION-EVIDENCE.json`, SHA-256
+`b6ae6560ccf2e107597001afdec3d1abb197582328ad52d64f857419ec543ab6`.
+It records the 2026-11-01 macOS arm64 replay at
+`/Users/mahmoud/.cache/microproxy-formal/issue117-20261101/helper-final-doc-replay/report.json`
+(workspace `replay-nvi3byhu`) over the preserved JDK 21 library classes.
+The central ledger pins the snapshot and independently requires its input,
+root, fixture, execution-control and residual inventories. A future receipt
+needs source review and an explicit checker-baseline renewal.
 
-## Checked roots (full emitted CFG reachable)
+This is conditional trace evidence under the frozen `SecretTrace` observer.
+It is not exact Java/JVM value refinement, physical timing, cryptographic
+hardness, implicit-exception coverage or physical secret erasure.
 
-| Root | Instructions | Reachable | Dafny verified declarations | Budget |
-|---|---|---|---|---|
-| `Select` | 75 | 75 | 84 | 30s / 50,000,000 |
-| `Feed` | 167 | 167 | 179 | 120s / 200,000,000 |
-| `Extract` | 30 | 30 | 34 | 30s / 50,000,000 |
-| `Expand` | 103 | 103 | 111 | 120s / 200,000,000 |
-| `LabelInfo` | 158 | 158 | 169 | 120s / 200,000,000 |
+## Replay and controls
 
-All roots pass the emitted-CFG-edge/reachability gate (`instructions == instructions_reachable`); `Select` is the full 75-instruction 1088-byte compare/mask, not an entry prefix. `Expand`/`LabelInfo`/`Feed` use the recorded larger budgets with the explicit O:smt.case_split=0 override omitted; no timeout/resource result is accepted as success.
+- Dafny `4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2`; Z3 `4.12.1`.
+- Homebrew JDK `21.0.12.1`; DafnyRuntime SHA-256
+  `dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6`.
+- 126 pinned inputs and 77 matching source-rebuilt class bindings.
+- 90 unit tests, all run by the root-module, discovery and direct-script entry
+  points documented in `README.md`.
+- Unchanged `SecretTrace.dfy`: 57 verified declarations; unchanged
+  `HkdfShape.dfy`: 17; compiled positive control executed.
+- Compiled `ApplyProbe.dfy`: 138 rows and nine operand-sensitive expectations,
+  compared with the bounded execution-control interpreter. This checks the
+  interpreter against the model; it does not prove the interpreter correct.
+- 27 fixtures: four accepted (`ConstantTime`, `PublicEuclidean`,
+  `LongSlotPublic`, `HeapExternalPublic`), 23 normal policy rejections.
+- Four Select certificate mutants and five callee mutants rejected with genuine
+  proof-obligation failures. Parser, crash, timeout and resource failures never
+  count as successful negative controls.
 
-## Source/class binding
+## Checked certificates
 
-The final replay binds all 77 rebuilt crypto classes, including the assumed callees. The replay rebuilds all pinned crypto sources with `javac -g --release 21` and checks the entire resulting crypto class inventory against the inspected build, including owned adapters and generated result variants. The five certified methods reside in these three classes:
-- `io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeMlKem/__default.class` `545a578cab08e318`
-- `io/github/mahmoudimus/quic/internal/verifiedcrypto/NativeSampling/__default.class` `2cb86bea744d0f94`
-- `io/github/mahmoudimus/quic/internal/verifiedhkdf/VerifiedHkdf/__default.class` `c1df4e947257748b`
+| Caller | Instructions/reachable | Verified declarations | Budget |
+|---|---:|---:|---|
+| NativeMlKem.Select | 75/75 | 84 | 30 s / 50 M |
+| NativeSampling.Feed | 167/167 | 179 | 120 s / 200 M |
+| VerifiedHkdf.Extract | 30/30 | 34 | 30 s / 50 M |
+| VerifiedHkdf.Expand | 103/103 | 111 | 120 s / 200 M |
+| VerifiedHkdf.LabelInfo | 158/158 | 169 | 120 s / 200 M |
 
-## Bytecode controls
+| Additional certificate | Instructions/reachable | Verified declarations | Scope |
+|---|---:|---:|---|
+| NativeCodec.Extract, including Pow2 | 87/87 | 97 | private accumulator; public shift/width |
+| NativeCodec.Pow2 | 62/62 | 57 | public inputs only |
+| NativeCodec.PublicMod | 2/2 | 7 | public dividend/divisor only |
+| NativeCodec.Wipe | 19/19 | 25 | private array contents; public length |
+| Composed NativeSampling.Feed | 369/369 | 393 | public seed/prefix; three helper bodies expanded |
 
-- `ConstantTime`: accepted, certificate verified (61 declarations, reachable 54/54)
-- `SecretBranch`: rejected normally: secret branch condition (taint sec)
-- `SecretIndex`: rejected normally: secret load index (taint sec)
-- `EarlyCompare`: rejected normally: secret branch condition (taint sec)
-- `ExceptionOracle`: rejected normally: ExceptionOracle.run:([B)I@6: object identity/new outside certificate
-- `SecretAlloc`: rejected normally: secret allocation size (taint sec)
-- `SecretLoopBound`: rejected normally: secret branch condition (taint sec)
-- `SecretDigestBranch`: rejected normally: secret branch condition (taint sec)
-- `FieldAlias`: rejected normally: FieldAlias.run:([B)I@27: write to reference field FieldAlias.f:[I outside alias contract
-- `VirtualDispatch`: rejected normally: VirtualDispatch.run:([BLVirtualDispatch$Base;)I@1: unproven virtual dispatch VirtualDispatch$Base.tag:()I
-- `ClassOracle`: rejected normally: ClassOracle.run:([BLjava/lang/Object;)I@1: runtime type test/cast outside certificate
-- `NewIdentity`: rejected normally: NewIdentity.run:([B)I@0: object identity/new outside certificate
-- `ResultArrayCall`: rejected normally: ResultArrayCall.run:([B)I@1: call-result role without length contract ResultArrayCall.make:([B)[B
-- `CategoryTwo`: rejected normally: CategoryTwo.run:(J)J@10: category-2 stack op outside certificate
+Extract uses 120 s / 100 M; Pow2/PublicMod/Wipe use 30 s / 50 M; the composed
+Feed uses 180 s / 400 M. Exact solver options, including omitted case-split
+overrides, are retained in the snapshot. Budgets were not padded.
 
-## Certificate mutations (actual Select certificate)
+## Execution witnesses and their limits
 
-The 13 rejected bytecode fixtures are **policy/extractor rejections**, not
-counterexamples to the Dafny theorem. `ExceptionOracle` is rejected because
-`new`/object construction is unsupported, not because a secret throw theorem was
-proved. Only the four certificate mutations below are proof-obligation failures.
+Only private inputs differ initially; other private registers start equally at
+zero. The finite model-execution control checks termination, trace equality,
+public-register agreement and the declared witness contract. Wipe completes
+in 51 steps with four stores to its secret parameter role and a zeroed
+four-element heap. Extract completes in 18 steps: parameter registers are
+`[1,2,3]`, differing registers `[1,7]`, and register 7 is a live non-parameter
+private value. The replay rejects parameter-only liveness or clearing the wrong
+role. These are finite execution controls, not additional universal SMT proofs.
 
-- `secret-guard`: proof-obligation-rejected (Error: possible violation of postcondition of forall statement)
-- `secret-index`: proof-obligation-rejected (Error: possible violation of postcondition of forall statement)
-- `early-compare-guard`: proof-obligation-rejected (Error: possible violation of postcondition of forall statement)
-- `public-taint-launder`: proof-obligation-rejected (Error: possible violation of postcondition of forall statement)
+The Dafny witness lemma establishes differing states, `Agree` and an application
+of `TwoRun` at the validated fuel. It does not assert a fully unrolled concrete
+`Exec`: attempts to discharge that stronger assertion were inconclusive and are
+not counted as proofs. Extract's atomic shift-helper model depends only on public
+arguments, so the witness does not establish a private-dependent returned value.
+The separate ExtractShape fixture tests private flow through explicit operations.
+The large composed Feed has no concrete witness; its universal theorem remains
+conditional on `Structure` and `Agree`.
 
-## Structured open scope (not green)
+## Runtime classification and composition
 
-- `open_roots`: 15 entries in `policy.json`; includes Sponge methods, Decaps caller skeleton, HKDF ExpandLabel, and bridge extract/expand/labelInfo/failure/hash/bytes/sequence/labelUnits (owned dispatch/type/object/exception/alias restrictions; final canonical21 build exists; adapter refinement open).
-- `unchecked_owned_callees`: 31 entries (Encrypt, Decrypt, ExpandMatrix, KeyGen, Encaps, Xof, Keccak/field/NTT/codec/sampling helpers). These are owned code, not provider assumptions.
-- HKDF checked roots are generated `Extract`, `Expand`, `LabelInfo`; `HkdfShape.dfy` justifies public result tags/lengths only. Bridge/adapters and `ExpandLabel` remain open.
-- JVM/JIT/CPU/GC/provider timing, implicit exceptions/null, exact value refinement, dispatch/type identity and physical erasure are excluded.
+Ordinary calls in the reviewed Dafny/JDK namespaces (`dafny/`, `java/`,
+`javax/`, `jdk/`, `sun/`, `com/sun/`) require public scalar and heap-content
+arguments by default. Reviewed exceptions are the branch-free Byte unsigned
+casts and `Helpers.bv64ShiftRight` with a public shift count. There are no
+private-heap exceptions. Enumerated memory/shape primitives are distinct model
+steps; their implementation semantics remain trusted. In particular, the pinned
+Dafny Euclidean bodies branch on values: PublicMod is public-only. Policy/code
+classification drift, unknown call IDs, merged parameter roles and recursion
+are rejected. Arbitrary third-party namespaces are outside this classification
+claim.
 
-## Review-finding disposition
+The original five caller certificates retain 19 opaque owned helper contracts.
+The separate composed Feed expands Extract, PublicMod and Wipe, with Pow2 as a
+supporting body, reducing Feed's opaque set from ten to seven. Replacing the
+original Feed would reduce the five-caller union to 16; this snapshot keeps both
+certificates and does not claim that replacement or whole-callee closure.
+Fifteen roots and 31 unchecked labels remain open. Dispatch/object identity,
+implicit exceptions, full arithmetic/value refinement and provider/runtime
+internals remain outside the observer. Shape hashes check direct-translation
+self-consistency; the splice and javap extractor are trusted, mutation-tested
+bridges rather than proved JVM translations.
 
-- F1 fixed: fall-through edges emitted as goto; emitted CFG edge comparison and full reachability gates added. `Select` 75/75, `Feed` 167/167.
-- F2 fixed: owned non-final virtual/interface dispatch rejected; external contracts enumerated. Sponge/Decaps/HKDF bridge/ExpandLabel are open, not hidden as JVM/provider.
-- F3 fixed: reference-field writes and `aastore` rejected; `FieldAlias` regression rejected.
-- F4 fixed: call-result array/sequence roles require explicit length contracts; `ResultArrayCall` regression rejected.
-- F5 fixed: `new`/null/`instanceof`/owned casts rejected; `ClassOracle`/`NewIdentity` regressions rejected.
-- F6 fixed: report carries `open_roots`, `unchecked_owned_callees`, caller-skeleton status; HKDF is no longer stale.
-- F7 fixed/declared: EFault terminal, category-2 ops rejected (`CategoryTwo`), helper sibling dependency documented (not self-contained); provider-fault/divisor residuals explicit.
+The reviewed target-to-model-kind mapping is pinned policy, without a second
+independent target/kind inventory. Array-parameter references are connected by
+role aliasing; the selected Wipe uses role-based length/stores. Extending to a
+callee that reads a reference as a scalar needs an additional rule or entry copy.
+Neither limitation affects the enumerated current callees.
 
-## Opaque owned callee contracts
+## Superseded receipts
 
-The five caller certificates assume 19 explicitly recorded owned contracts.
-The report lists each target and its policy in `assumed_owned_callees`, and
-requires every target in the 31-entry `unchecked_owned_callees` inventory.
-`JdkHmac.compute` is our reviewed Java bridge, not external provider code.
-`ValidHash`, result/failure factories, type metadata and public-seed sampling
-helpers are generated owned code whose class identity is checked; their traces
-remain unproved. These conditional caller certificates do not close full V7.
-The unused false `labelUnits` length-zero rule was removed, so that open adapter
-path requires a real String-length contract before it can be admitted.
+The earlier accepted snapshot `9782ef72...`, candidate `5f9faa87...`, and the
+missing temporary `4db165b4...` candidate predate the copy correction. The
+extractor put the source in operand a while model copy returns operand b, so
+modeled local/loop values could be degenerate. All five caller certificate
+hashes were replaced; the model itself was unchanged.
+
+The preserved `helper-fixed-replay` receipt `9800c358...` includes the copy fix,
+but predates the complete unit entry points and enforced witness contracts. It
+is historical only. The preserved `helper-final-replay` receipt `245c1d77...` adds those controls.
+The current snapshot repeats that replay after correcting three documentation
+counts/offset/classification descriptions; its mathematical certificates differ
+only in the absolute include path for the worktree. It retains the same budgets. See `README.md` for fresh replay commands.
