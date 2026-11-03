@@ -1,0 +1,80 @@
+# Executable Dafny as the primary crypto proof boundary
+
+This records the source-first direction approved for issue #117 on 2026-11-03.
+The implementation being verified must be the executable Dafny implementation
+used to generate production Java. Bytecode analysis remains supplementary.
+This changes the route to the remaining obligations, not their required scope.
+
+## Existing evidence
+
+Production HKDF, SHAKE, ML-KEM and nonce construction already use generated Java
+with functional proofs and explicit external primitive, compiler, runtime and
+adapter assumptions. `NativeShake.Sponge` already has checked constructor
+freshness, array bounds, several alias restrictions and method frames. Its
+domain harness calls those actual methods over arbitrary permitted inputs.
+
+The bytecode trace work remains useful evidence for its documented observer and
+subset. Its original 13 open roots, 19 caller assumptions and 31 unchecked
+labels remain open. Passing a theorem about an extracted model does not prove
+that an incorrect extractor described the implementation faithfully.
+
+## Approved approach
+
+1. Establish ownership, freshness, disjointness and frame preservation directly
+   in the actual Dafny classes and factory callers. Separate a stronger factory
+   footprint from the accepted domain of arbitrary existing callers; do not
+   silently narrow that domain to simplify a proof.
+2. Specify observable source execution: runtime branches, iteration counts,
+   accessed buffer roles and indices, allocations and public call metadata.
+   State allowed output declassification and external primitive contracts.
+3. Prove equal observations for executions whose public inputs agree while
+   secret payloads vary. Bind the observations to the same executable bodies.
+   A manually appended ghost trace is not sufficient unless its coverage and
+   connection to the executed operations are checked and their remaining
+   trusted machinery is identified.
+4. Generate Java from those verified bodies. Check ghost erasure against the
+   prior generated source and retain functional vectors, adapter, packaging and
+   fingerprint checks. If executable code changes, measure compatibility and
+   performance before production adoption.
+5. Retain bytecode checks as independent diagnostics and release evidence.
+   They are not prerequisites for a source theorem, nor may a source theorem
+   be relabeled as a proof of the JVM's execution trace.
+
+We considered continuing to expand the bytecode extractor, maintaining a second
+handwritten trace implementation, and proving properties at the executable
+Dafny boundary. The user selected the last approach. It reuses Dafny's actual
+heap, call and frame verification instead of reconstructing ownership in a
+separate instruction model. A second implementation would reintroduce an
+equivalence obligation and cannot establish the source connection by identity
+hashes or matching finite test outputs alone.
+
+## Delivery and acceptance
+
+- A direct ownership harness calls the production constructor and methods,
+  proves freshness relative to preexisting external arrays, preserves frames
+  through absorb/read/destroy, and exercises permitted external buffer aliases.
+- Source trace roots name their observer, secret/public domains, real callee
+  dependencies, declassifications and trusted instrumentation explicitly.
+- Missing observations, secret-dependent conditions/indices, wrong alias facts,
+  incorrect frame writes and dropped owned callees must be caught by genuine
+  proof failures or a separately identified completeness check. A checker
+  rejection is not a Dafny proof of that checker's correctness.
+- Positive and negative results use pinned Dafny 4.9.1 and Z3, the existing
+  30-second / 50,000,000-resource policy and `O:smt.case_split=0`. Parse/type
+  failures, timeouts and resource exhaustion are not semantic negative controls.
+- Regeneration and actual supplied-artifact validation connect the checked
+  source to the delivered classes. Their finite checks support that connection
+  under the compiler/runtime assumptions; they do not prove a compiler correct.
+
+The implementation plan is in
+[the source-assurance plan](2026-11-03-dafny-source-assurance-plan.md).
+
+## Assurance boundaries
+
+Functional correctness, source trace independence and artifact identity remain
+separate claims. The proof infrastructure, compiler/runtime, reviewed Java
+adapters, JDK primitives and their stated contracts remain trust boundaries.
+Cryptographic hardness and complete TLS/QUIC security are not established by
+these implementation proofs. Physical JVM/JIT/CPU/GC/provider timing remains
+explicitly deferred. Independent external cryptographic/proof review remains
+open; development-agent review does not discharge it.

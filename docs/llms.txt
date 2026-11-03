@@ -77,6 +77,8 @@ Markdown file, and the Java API (Javadoc) is at https://mahmoudimus.github.io/Mi
 
 ## QUIC and crypto roadmap
 
+- [Executable Dafny assurance](https://mahmoudimus.github.io/MicroProxy/project/2026-11-03-dafny-source-assurance/): This records the source-first direction approved for issue #117 on 2026-11-03.
+- [Source assurance execution](https://mahmoudimus.github.io/MicroProxy/project/2026-11-03-dafny-source-assurance-plan/): Goal: Complete the owned crypto source-level obligations using the actual verified Dafny implementation and its generated Java, preserving explicit remaining trust boundaries.
 - [Crypto issue 117 execution](https://mahmoudimus.github.io/MicroProxy/project/2026-11-01-crypto-117-completion/): Goal: Complete the remaining implementation and assurance work in issue 117, preserving explicit gaps that require external review or deferred JVM timing work.
 - [Design and scope](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-crypto-assurance-design/): This roadmap completes a named QUIC feature baseline and builds implementation proofs for our Java cryptography, starting with HKDF.
 - [QUIC implementation plan](https://mahmoudimus.github.io/MicroProxy/project/2026-10-28-quic-feature-completion/): Goal: Complete and demonstrate the named protocol/application feature baseline without changing captured browser behavior by default.

@@ -32,6 +32,16 @@ composition. Production uses its generated Java. Separate gates check native-arr
 refinements, generated sources, canonical classes, JAR contents and runtime loading.
 These functional results do not establish cryptographic hardness or JVM timing.
 
+The [source-first continuation](../docs/project/2026-11-03-dafny-source-assurance.md)
+uses those executable Dafny bodies as the primary boundary for ownership,
+freshness, aliasing, frame and future secret-trace proofs. Source observations
+must have a checked connection to actual execution; a second model or matching
+source hashes alone cannot establish it. Existing bytecode analysis remains
+supplementary, with its original assumptions and incomplete coverage visible.
+The [direct source component](source/README.md) starts with universal SHAKE
+freshness, disjointness and frame proofs over calls to the actual implementation.
+Its source-trace and runtime boundaries are explicit.
+
 The [obligation ledger](obligations.md) records the selected implementation route,
 mandatory evidence, assumptions and remaining work for issue #117. Its Python
 validator is a tested evidence gate, not a theorem. The

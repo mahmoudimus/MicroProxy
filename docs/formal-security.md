@@ -8,11 +8,17 @@ class and JAR delivery connects the verified source to the packaged Java. Compil
 reviewed Java facades and selected JDK primitives remain trusted, as detailed below.
 
 **Version scope:** these claims describe current `main` source and explicitly
-validated build artifacts. The published
+validated build artifacts. The historical
 [`v0.6.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.6.0)
 predates the generated-backend integration; its downloadable binaries are outside
-this proof scope. [Build current source](getting-started/install.md#building-from-source)
-to use the verified backend. A future release needs its own actual-artifact gate.
+this proof scope. The published
+[`v0.7.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.7.0)
+contains the generated-backend source integration. Its downloadable artifacts
+passed [scoped actual-artifact validation](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/releases/v0.7.0)
+for the recorded library and bundle SHA-256 digests, with identity and
+loaded-origin checks on JDK 21/25. A source commit alone does not certify binary
+files. [Current source builds](getting-started/install.md#building-from-source)
+and later releases still need validation for their exact supplied artifacts.
 
 MicroProxy has a custom TLS/QUIC implementation. Its assurance includes development review,
 published standards vectors, interoperability/rejection tests, exploratory timing observations,
@@ -357,6 +363,34 @@ A trace semantics can describe observable branches, addresses and costs, with a 
 independence from secrets. Connecting that to HotSpot machine code, native providers, CPUs,
 allocation and GC requires another justified link. Branchless source and noisy timing checks do
 not supply it. Our JDK primitive/runtime boundary is explicit; see the [timing review](security-timing-audit.md).
+
+### Source-first continuation
+
+The approved continuation proves ownership, freshness, aliasing and frame
+contracts directly over executable Dafny, then generates Java from those same
+verified bodies. Source-level secret-trace proofs must additionally establish
+the connection between their observations and the actual executed operations.
+An independently handwritten trace model, an unobserved operation, or an
+unchecked ghost-trace annotation cannot supply that connection.
+
+The [source-assurance design](project/2026-11-03-dafny-source-assurance.md) and
+[implementation plan](project/2026-11-03-dafny-source-assurance-plan.md) record
+this direction. The broader source-trace obligation is still open. This route
+does not remove compiler/runtime assumptions or establish physical JVM timing.
+The existing bytecode results below remain supplementary evidence for their
+stated scopes; they are not the primary route for proving Dafny ownership.
+
+The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
+adds a SHAKE ownership harness that calls the actual constructor and methods.
+It proves fresh outputs, a disjoint six-object factory footprint, preserved
+frames and rate, unchanged external inputs, output survival through destruction,
+and permitted external input/output aliasing. It verifies the included
+implementation bodies and existing public-domain callers as well as the new
+harness. These results use the existing contracts without changing executable
+Dafny, generated Java or accepted caller domains. They do not discharge the
+separate secret-trace, compiler-preservation or exclusive Java ownership claims.
+
+### Existing bytecode trace evidence
 
 The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)
 adds a Dafny paired-execution model and a checked extraction route for selected
