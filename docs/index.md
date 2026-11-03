@@ -21,8 +21,8 @@ This describes current `main` source and explicitly validated builds. The histor
 [`v0.6.0` binaries](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.6.0)
 predate the verified-backend integration and are outside this proof scope.
 The [`v0.7.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.7.0)
-includes the generated-backend source integration; its binary identity requires
-validation of the actual downloaded artifacts. See the
+includes the generated-backend source integration; its recorded library and
+bundle digests passed scoped identity and loaded-origin checks. See the
 [release assurance boundary](formal-security.md#obligation-and-release-claim-gates).
 
 - **Runtime:** JDK 21 or newer (also tested on JDK 25).

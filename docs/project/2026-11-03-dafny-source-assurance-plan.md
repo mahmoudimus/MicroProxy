@@ -43,13 +43,16 @@ Files: actual `formal/crypto/NativeShake.dfy` as the verified dependency, new
 - [x] Prove identity, disjointness and frames by calling the actual constructor,
   `Update`, `Read`, `Destroy` and `Xof` over arbitrary permitted inputs.
 - [x] Reject incorrect alias/freshness claims with genuine proof controls.
-- [ ] Verify all included source bodies and harness, confirm executable source
+- [x] Verify all included source bodies and harness, confirm executable source
   and generated Java remain unchanged, and independently review before integration.
 
 The direct harness proves the stronger footprint using the existing `Valid()`
 table equations: their index-1 entries are distinct. No production contract
 change is needed. The complete local replay has 1,552 verified checks, 20 new
 harness checks, zero audit findings and three genuine assertion controls.
+Independent review accepted the scoped theorem and found an audit-coverage gap.
+The replay now audits every included source, rejects an injected included-body
+axiom, enforces the reviewed complete-graph count and freezes its tool module.
 
 ## Task 2: Same-body source observation and paired execution
 
@@ -70,13 +73,20 @@ must settle its concrete instrumentation interface before production changes.
 
 Files: existing supplied-artifact validator and new scoped release receipt.
 
-- [ ] Download the actual v0.7.0 library and bundle; verify published asset
+- [x] Download the actual v0.7.0 library and bundle; verify published asset
   digests and record the exact release commit.
-- [ ] Run the existing identity and loaded-origin checks against a canonical
+- [x] Run the existing identity and loaded-origin checks against a canonical
   stage built from those exact sources on JDK 21/25. Investigate differences;
   never renew a digest simply to accept changed classes.
-- [ ] Record this invocation's artifact scope without enabling a static claim
+- [x] Record this invocation's artifact scope without enabling a static claim
   about arbitrary future releases or whole-bundle dependency correctness.
+
+The [published-artifact record](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/releases/v0.7.0)
+binds the exact library/bundle digests. Fresh stage verification totals 8,905
+checks across 18 roots. Identity checks cover 468 library, 84 crypto and 37
+runtime classes; each JDK passes nine handshake and nine nonce cases. Reuse of
+the exact-matched native control/JDK receipt is disclosed separately from the
+fresh proof/generation/artifact work.
 
 ## Task 4: Evidence, review and delivery
 

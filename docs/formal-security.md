@@ -14,9 +14,11 @@ predates the generated-backend integration; its downloadable binaries are outsid
 this proof scope. The published
 [`v0.7.0` release](https://github.com/mahmoudimus/MicroProxy/releases/tag/v0.7.0)
 contains the generated-backend source integration. Its downloadable artifacts
-require their own actual-artifact validation; a source commit alone does not
-certify those files. [Current source builds](getting-started/install.md#building-from-source)
-and later releases also need validation for their exact supplied artifacts.
+passed [scoped actual-artifact validation](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/releases/v0.7.0)
+for the recorded library and bundle SHA-256 digests, with identity and
+loaded-origin checks on JDK 21/25. A source commit alone does not certify binary
+files. [Current source builds](getting-started/install.md#building-from-source)
+and later releases still need validation for their exact supplied artifacts.
 
 MicroProxy has a custom TLS/QUIC implementation. Its assurance includes development review,
 published standards vectors, interoperability/rejection tests, exploratory timing observations,
