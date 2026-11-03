@@ -135,11 +135,17 @@ jobs:
         run: |
           python -m unittest discover -s formal/source -p 'test_*.py' -v
           python formal/source/replay.py --output target/dafny-source-ownership
+      - name: Prove ghost observation encoding and reject defective encoders
+        run: |
+          python -m unittest discover -s formal/source/vocabulary -p 'test_*.py' -v
+          python formal/source/vocabulary/replay.py --output target/dafny-source-vocabulary
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: dafny-source-ownership
-          path: target/dafny-source-ownership/
+          path: |
+            target/dafny-source-ownership/
+            target/dafny-source-vocabulary/
           if-no-files-found: ignore
 
   dafny-nonce-functional:
