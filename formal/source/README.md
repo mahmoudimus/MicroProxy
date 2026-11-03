@@ -36,11 +36,20 @@ The output directory must not exist. The runner checks the complete source and
 replay/tool input inventories, freezes the source graph, uses the checksum-pinned
 Dafny 4.9.1 distribution and Z3, verifies included bodies with the existing
 30-second / 50,000,000-resource / `O:smt.case_split=0` policy, audits assumptions,
-and rejects three intentionally false alias/freshness assertions. A failed
+and rejects three intentionally false alias/freshness assertions. It explicitly
+audits every included source file, since Dafny's auditor does not automatically
+traverse includes. A separate control injects `assume {:axiom} false` into the
+included production `Xof` body and requires that audit to report the assumption.
+A failed
 control must be a named assertion failure; CLI, parser, timeout, resource and
 internal errors do not count. Source and tool checks run again before success.
 
-The new harness has 20 verified checks. These are universal proofs under the
+The included-body/domain graph has 1,552 verified checks and the new harness has
+20. The runner requires both reviewed counts; contract-only verification
+produces 45 checks and must not qualify. Legitimate source changes require
+replaying and reviewing the new obligations before these expectations change.
+The three negative assertions must each yield exactly one failed obligation.
+These are universal proofs under the
 preconditions, not twenty sampled inputs. Negative controls are regression
 evidence for the replay and its proof dependencies, not discovered runtime
 vulnerabilities. The Python inventory/diagnostic gate remains trusted code.

@@ -47,7 +47,7 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def proof_result(status, output, negative=None):
+def proof_result(status, output, negative=None, expected=None):
     summaries = SUMMARY.findall(output)
     if len(summaries) != 1 or BAD.search(output):
         raise ValueError('Missing clean proof summary or forbidden diagnostic')
@@ -55,10 +55,26 @@ def proof_result(status, output, negative=None):
     if negative is None:
         if status != 0 or errors or verified == 0 or 'Error:' in output:
             raise ValueError('Expected a nonempty successful verification')
-    elif (status != 4 or errors == 0 or negative not in output or
+        if expected is not None and verified != expected:
+            raise ValueError('Reviewed proof inventory changed')
+    elif (status != 4 or verified != 1 or errors != 1 or negative not in output or
           'Error: assertion might not hold' not in output):
         raise ValueError('Expected a named assertion failure, not a tool failure')
     return {'verified': verified, 'errors': errors}
+
+
+def audit_result(status, output, negative=False):
+    counts = re.findall(r'^Dafny auditor completed with (\d+) findings?\s*$', output, re.M)
+    if status or len(counts) != 1 or 'Error:' in output:
+        raise ValueError('Expected a completed source audit')
+    if negative:
+        if (counts != ['1'] or 'NativeShake.dfy' not in output or
+                'Xof: Definition has `assume {:axiom}` statement in body' not in output or
+                BAD.search(output.replace('Warning:', ''))):
+            raise ValueError('Expected the included-body assumption audit finding')
+    elif counts != ['0'] or BAD.search(output):
+        raise ValueError('Unexpected source trust assumption or audit diagnostic')
+    return int(counts[0])
 
 
 def check_pins(root, pins):
@@ -150,8 +166,14 @@ def main():
         check_inventory(sources, pins)
         if sources != manifest['sources']:
             raise ValueError('Complete Dafny source inventory changed or omitted')
+        frozen = out / 'frozen'
+        for name in pins:
+            target = frozen / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / name, target)
+        check_pins(frozen, pins)
         spec = importlib.util.spec_from_file_location('source_pinned_toolchain',
-                                                     ROOT / 'formal/dafny/toolchain.py')
+                                                     frozen / 'formal/dafny/toolchain.py')
         tools = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(tools)
         dafny, _, tool_manifest, asset = tools.install(args.cache)
@@ -161,12 +183,6 @@ def main():
         tool_before = {'dafny': digest(dafny), 'solver': digest(solver),
                        'archive': asset['sha256']}
         report.update(inputs_before=pins, source_graph=sources, tools=tool_before)
-        frozen = out / 'frozen'
-        for name in sources:
-            target = frozen / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT / name, target)
-        check_pins(frozen, sources)
 
         def call(label, arguments):
             log = out / (label + '.log')
@@ -179,15 +195,16 @@ def main():
         status, text = call('actual-bodies-and-domain',
                             ['verify', ENTRY, DOMAIN, '--verify-included-files',
                              *FLAGS, '--solver-path', solver])
-        report['proofs']['complete_source_graph'] = proof_result(status, text)
+        # Renew these reviewed counts only after replaying and reviewing source
+        # changes. Without included-body verification this graph has only 45.
+        report['proofs']['complete_source_graph'] = proof_result(status, text, expected=1552)
         status, text = call('ownership-domain', ['verify', ENTRY, *FLAGS,
                                                 '--solver-path', solver])
-        report['proofs']['ownership_domain'] = proof_result(status, text)
-        if report['proofs']['ownership_domain']['verified'] != 20:
-            raise ValueError('Reviewed ownership proof inventory changed')
-        status, text = call('audit', ['audit', ENTRY, DOMAIN])
-        if status or 'Dafny auditor completed with 0 findings' not in text:
-            raise ValueError('Unexpected source trust assumption')
+        report['proofs']['ownership_domain'] = proof_result(status, text, expected=20)
+        # The auditor does not audit included files implicitly, even when the
+        # verifier was given --verify-included-files. Enumerate the whole graph.
+        status, text = call('audit', ['audit', *sorted(sources)])
+        report['audit_findings'] = audit_result(status, text)
         original = (frozen / ENTRY).read_text()
         for name, (old, new, symbol) in CONTROLS.items():
             if original.count(old) != 1:
@@ -198,7 +215,19 @@ def main():
                                 ['verify', target, '--filter-symbol', symbol,
                                  *FLAGS, '--solver-path', solver])
             report['controls'][name] = proof_result(status, text, negative=new)
-        check_pins(frozen, sources)
+        assumption_root = out / 'assumption-control'
+        shutil.copytree(frozen, assumption_root)
+        native = assumption_root / 'formal/crypto/NativeShake.dfy'
+        native_text = native.read_text()
+        anchor = '    ghost var before := sponge.Model();'
+        if native_text.count(anchor) != 1:
+            raise ValueError('Included-body assumption control anchor changed')
+        native.write_text(native_text.replace(anchor,
+            '    assume {:axiom} false;\n' + anchor, 1))
+        status, text = call('control-included-assumption',
+                            ['audit', *(assumption_root / name for name in sorted(sources))])
+        report['assumption_control_findings'] = audit_result(status, text, negative=True)
+        check_pins(frozen, pins)
         check_pins(ROOT, pins)
         if manifest_path.read_bytes() != manifest_bytes:
             raise ValueError('Input manifest changed during replay')
