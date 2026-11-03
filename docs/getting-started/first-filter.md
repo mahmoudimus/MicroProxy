@@ -54,7 +54,7 @@ Run it with the `microproxy` jar on the class path, and try it:
 
 <!-- x-release-please-start-version -->
 ```bash
-MICROPROXY_VERSION=0.6.0
+MICROPROXY_VERSION=0.6.1-SNAPSHOT
 java -cp microproxy/target/microproxy-${MICROPROXY_VERSION}.jar BlockingProxy.java
 ```
 <!-- x-release-please-end -->
