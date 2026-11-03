@@ -14,13 +14,14 @@
     "formal/crypto/NativeShake.dfy": "c2f701c331def2d9e168fae6145c77d44b95bee59899efeb282d43d96cb8a5c1",
     "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
     "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/delivery.py": "7f22ea74344c8714bccb3d8a9b3c919098d3ac32331d63d8ade861bd28654eb1",
     "formal/crypto/native_shake_domain.dfy": "7da40baa76faadada4efa0d51113bcc84f0dfba0f724a161c8d02d30d3774fbd",
     "formal/dafny/toolchain.py": "4ff94e948692ed9d358d06c58add5362c084880124d058d906d4d381cf15b5a8",
     "formal/dafny/tools.json": "d0400f892192bd2e603651aa36c9fed32394b5d0600955d4854c852df729f1c6",
     "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
-    "formal/source/README.md": "db0e24714f801390c76cf420782b258bfa02a96cd791946ebd202df97cd7d806",
+    "formal/source/README.md": "4028f6e75312b681360dd97ddbec7bc5cd399551c31c35fe998a2fd4ca0e2000",
     "formal/source/ShakeOwnership.dfy": "3ed874d01c9479e6bfc99c9e3f3001e16ad4987007484e5c197594745f840e4a",
-    "formal/source/replay.py": "f7fb480f1acf14a26984dca74866870c76b4a6b13453c2c810835f14a3c8e915",
-    "formal/source/test_replay.py": "0b55ac9144442375d41cd75c72e155f7f52581c52fbe150f8c137e8b506c1bf0"
+    "formal/source/replay.py": "a62c3edce327513e8a3c24b924a3e4b62b4452db4102e4ba21d96b20f1c2487f",
+    "formal/source/test_replay.py": "e117a38d4deb380489077ff249d97cacc5e3f5bea510fab3c5627e81df3c5c34"
   }
 }

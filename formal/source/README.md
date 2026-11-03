@@ -36,10 +36,12 @@ The output directory must not exist. The runner checks the complete source and
 replay/tool input inventories, freezes the source graph, uses the checksum-pinned
 Dafny 4.9.1 distribution and Z3, verifies included bodies with the existing
 30-second / 50,000,000-resource / `O:smt.case_split=0` policy, audits assumptions,
-and rejects three intentionally false alias/freshness assertions. It explicitly
+and rejects three intentionally false alias/freshness assertions. Include discovery uses the pinned Dafny parser, including BOMs, comments and multiline directives; it does not infer the graph with a source-text regex. It explicitly
 audits every included source file, since Dafny's auditor does not automatically
 traverse includes. A separate control injects `assume {:axiom} false` into the
 included production `Xof` body and requires that audit to report the assumption.
+Separate BOM/comment include controls demonstrate that entry proofs and entry-only audits can pass with a hidden assumption; parser discovery must expose it and the complete audit must report it.
+
 A failed
 control must be a named assertion failure; CLI, parser, timeout, resource and
 internal errors do not count. Source and tool checks run again before success.

@@ -13,6 +13,29 @@ def replay_module():
 
 
 class ProofDiagnosticsTests(unittest.TestCase):
+    def test_closure_retains_every_parser_dependency(self):
+        replay = replay_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            entry = root / 'Entry.dfy'
+            entry.write_text('\ufeffinclude "Hidden.dfy"\nmodule Entry {}')
+            hidden = root / 'Hidden.dfy'
+            hidden.write_text('module Hidden {}')
+            expected = {p.name: replay.digest(p) for p in (entry, hidden)}
+            calls = []
+            def discover(actual_root, actual_entry, dafny, **kwargs):
+                calls.append((actual_root, actual_entry, dafny))
+                return expected
+            self.assertEqual(replay.closure(root, ('Entry.dfy',), 'dafny', discover), expected)
+            self.assertEqual(calls, [(root, entry, 'dafny')])
+
+    def test_closure_propagates_parser_failures(self):
+        replay = replay_module()
+        def fail(*args, **kwargs):
+            raise RuntimeError('Dafny dependency parser diagnostic')
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(RuntimeError):
+            replay.closure(Path(directory).resolve(), ('Entry.dfy',), 'dafny', fail)
+
     def test_included_body_assumption_is_not_a_clean_audit(self):
         replay = replay_module()
         clean = 'Dafny auditor completed with 0 findings\n'
