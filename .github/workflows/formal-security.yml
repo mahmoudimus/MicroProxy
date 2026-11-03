@@ -121,6 +121,27 @@ jobs:
           path: target/dafny-native-crypto/
           if-no-files-found: ignore
 
+  dafny-source-ownership:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - name: Install Dafny's Linux globalization dependency
+        run: sudo apt-get update && sudo apt-get install --yes libicu74
+      - name: Verify actual Dafny bodies, ownership domains and negative controls
+        run: |
+          python -m unittest discover -s formal/source -p 'test_*.py' -v
+          python formal/source/replay.py --output target/dafny-source-ownership
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-source-ownership
+          path: target/dafny-source-ownership/
+          if-no-files-found: ignore
+
   dafny-nonce-functional:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

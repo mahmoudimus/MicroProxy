@@ -378,6 +378,16 @@ does not remove compiler/runtime assumptions or establish physical JVM timing.
 The existing bytecode results below remain supplementary evidence for their
 stated scopes; they are not the primary route for proving Dafny ownership.
 
+The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
+adds a SHAKE ownership harness that calls the actual constructor and methods.
+It proves fresh outputs, a disjoint six-object factory footprint, preserved
+frames and rate, unchanged external inputs, output survival through destruction,
+and permitted external input/output aliasing. It verifies the included
+implementation bodies and existing public-domain callers as well as the new
+harness. These results use the existing contracts without changing executable
+Dafny, generated Java or accepted caller domains. They do not discharge the
+separate secret-trace, compiler-preservation or exclusive Java ownership claims.
+
 ### Existing bytecode trace evidence
 
 The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)

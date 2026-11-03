@@ -38,6 +38,9 @@ freshness, aliasing, frame and future secret-trace proofs. Source observations
 must have a checked connection to actual execution; a second model or matching
 source hashes alone cannot establish it. Existing bytecode analysis remains
 supplementary, with its original assumptions and incomplete coverage visible.
+The [direct source component](source/README.md) starts with universal SHAKE
+freshness, disjointness and frame proofs over calls to the actual implementation.
+Its source-trace and runtime boundaries are explicit.
 
 The [obligation ledger](obligations.md) records the selected implementation route,
 mandatory evidence, assumptions and remaining work for issue #117. Its Python

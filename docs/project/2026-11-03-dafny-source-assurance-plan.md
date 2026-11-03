@@ -35,16 +35,21 @@ integration evidence. Existing bytecode results remain supplementary.
 
 ## Task 1: Actual Sponge ownership and frames
 
-Files: `formal/crypto/NativeShake.dfy`, new
-`formal/crypto/native_shake_ownership.dfy`, source-assurance replay/control files.
+Files: actual `formal/crypto/NativeShake.dfy` as the verified dependency, new
+`formal/source/ShakeOwnership.dfy`, source-assurance replay/control files.
 
-- [ ] Add a ghost factory footprint and constructor freshness guarantees without
-  narrowing the existing `Valid()` domain.
-- [ ] Prove identity, disjointness and frames by calling the actual constructor,
+- [x] Derive a ghost factory footprint and constructor freshness guarantees
+  from existing contracts without narrowing the `Valid()` domain.
+- [x] Prove identity, disjointness and frames by calling the actual constructor,
   `Update`, `Read`, `Destroy` and `Xof` over arbitrary permitted inputs.
-- [ ] Reject incorrect alias/freshness/frame claims with genuine proof controls.
-- [ ] Verify the changed source bodies and harness, then compare regenerated
-  Java with the unchanged baseline. Independently review before integration.
+- [x] Reject incorrect alias/freshness claims with genuine proof controls.
+- [ ] Verify all included source bodies and harness, confirm executable source
+  and generated Java remain unchanged, and independently review before integration.
+
+The direct harness proves the stronger footprint using the existing `Valid()`
+table equations: their index-1 entries are distinct. No production contract
+change is needed. The complete local replay has 1,552 verified checks, 20 new
+harness checks, zero audit findings and three genuine assertion controls.
 
 ## Task 2: Same-body source observation and paired execution
 
