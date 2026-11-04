@@ -421,6 +421,32 @@ Java heap addresses. This scoped result does not discharge complete SHAKE,
 ML-KEM, adapter or invalid-input composition. Generated class identity and the
 existing functional and artifact checks remain separate delivery requirements.
 
+The [Select source package](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source/select)
+applies the same route to the actual `NativeMlKem.Select` body. Its Dafny
+contracts return a fresh 32-byte result, preserve existing input arrays through
+the method frame, and retain permitted input aliases. The paired harness calls
+the real method with independently varying expected/candidate/fallback bytes,
+including permitted aliases, and proves equal logical observations. Its six
+checks cover the fixed 1088-byte comparison and 32-byte selection trace; the
+complete ML-KEM body replay has 2,773 overlapping checks. These counts are not
+independent security theorems.
+
+The resolved-AST coverage checker binds reads, writes, loop observations and
+the single result allocation to the executable body. That C# checker remains
+trusted code. Buffer roles and indices describe source observations, not
+physical Java addresses. The package also checks erasure over 65 generated
+algorithm sources/classes per supported JDK; the complete delivery's 66-class
+inventory is a separate scope. These source, generation and delivery checks
+retain their compiler/runtime/provider assumptions. Complete ML-KEM trace
+composition, physical JVM timing and external expert review remain open.
+
+Some component READMEs are frozen proof inputs. In particular, the polynomial
+README's 2,767 row records its earlier snapshot; the current full report and
+obligation ledger record 2,773. The frozen package README's candidate wording
+likewise describes its qualification snapshot. Current support is determined
+by the gated ledger and actual evidence, rather than renewing a receipt to
+accept a documentation edit.
+
 The [direct source component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/source)
 adds a SHAKE ownership harness that calls the actual constructor and methods.
 It proves fresh outputs, a disjoint six-object factory footprint, preserved

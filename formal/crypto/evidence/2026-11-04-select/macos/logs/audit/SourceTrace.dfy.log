@@ -1,0 +1,4 @@
+CASE-CONTEXT case=audit-SourceTrace.dfy operand_sha256=adb80e0ad79ed36c945239e671619711c4970358036531c653104da2cbc85866 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","audit","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/frozen-source-b1ce4b85/candidate/formal/source/SourceTrace.dfy"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/frozen-source-b1ce4b85/candidate/formal/source
+Dafny auditor completed with 0 findings
+
+Dafny program verifier did not attempt verification

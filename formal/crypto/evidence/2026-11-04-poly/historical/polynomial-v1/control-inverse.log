@@ -1,8 +1,0 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/native-polynomial-fwprnnpd/native_polynomial_inverse.dfy(1039,18): Error: this invariant could not be proved to be maintained by the loop
- Related message: loop invariant violation
-     |
-1039 |         invariant forall j: int :: (start as int)+(l as int) <= j < (start as int)+(l as int)+(offset as int) ==> r[j] as int == S.InverseLane(T.Ints(f),s as int,j)
-     |                   ^^^^^^
-
-
-Dafny program verifier finished with 205 verified, 1 error

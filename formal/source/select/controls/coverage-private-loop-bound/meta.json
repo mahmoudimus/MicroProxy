@@ -1,0 +1,6 @@
+{
+  "name": "coverage-private-loop-bound",
+  "expect": "accept",
+  "needle": null,
+  "note": "F2 fully observed private LoopBound coverage accept; publicness/NI is a Dafny trace obligation, not C#"
+}

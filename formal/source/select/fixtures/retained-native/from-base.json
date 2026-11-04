@@ -1,0 +1,32 @@
+{
+  "base_canonical_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+  "base_component": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair",
+  "base_component_report_sha256": "274c8dca6f6a1aa41c3a2e384e2316bcfd1dc40934665e6dd6a515f5c4141fab",
+  "base_dll_sha256": "045940ea8ccb11b9bee4ba6ebb6bf9d820bb5ecaba868a4e49de56eacdcb021f",
+  "base_project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+  "base_review_report_sha256": "9a15a2730d45b11adf7aa0f52153a5445003f7ace187e71b2ca15ca8ed46c78f",
+  "base_review_verdict": "CHANGES REQUESTED: callee/pure events before exact Call marker",
+  "base_source_coverage_sha256": "bbd806f84c82761e47650ca735425abc94d07751482cacb5aa7c3ad68d35e958",
+  "copied_roots": {
+    "controls": "d41a76d761721e133066f466cf8171f503c175e773dabeee834a7a9fde21c3ea",
+    "formal": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+    "runner": "8970bef7fcfbc20cb8376b9d2e05f7f471ce5417031664482ca74588e0e4c3d8",
+    "source_fixtures": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f"
+  },
+  "new_order_controls": [
+    "callee-before-call",
+    "pure-rr-before-call",
+    "call-child-interposed-marker"
+  ],
+  "old_false_accept_replay": {
+    "base_dll": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair/work/checker-build/bin/Debug/net6.0/SourceCoverage.dll",
+    "checker": "SOURCE-COVERAGE OK for all 13 roots",
+    "command": "SOURCE_TRACE_ROOTS=<13 roots> dafny resolve AllTraceRoots.dfy --plugin base-combined",
+    "receipts": [
+      "work/base-false-accept/verify.log",
+      "work/base-false-accept/checker.log"
+    ],
+    "source": "work/controls/callee-before-call/formal/crypto/NativeField.dfy",
+    "verify": "86 verified, 0 errors"
+  }
+}

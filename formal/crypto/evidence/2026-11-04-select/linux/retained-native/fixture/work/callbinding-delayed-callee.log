@@ -1,0 +1,11 @@
+work/controls/callbinding-delayed-callee/formal/crypto/NativeField.dfy(96,10): Error: Add: callee trace append is not the first trace update immediately after its defining call
+   |
+96 |     trace := trace + ST.Call(1,1,1) + callee + callee2;
+   |           ^^
+
+work/controls/callbinding-delayed-callee/formal/crypto/NativeField.dfy(96,10): Error: Add: callee trace append must place its exact defining Call marker immediately before its callee trace leaf
+   |
+96 |     trace := trace + ST.Call(1,1,1) + callee + callee2;
+   |           ^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

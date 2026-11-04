@@ -1,0 +1,6 @@
+work/controls/root19-shadow-marker-class/formal/source/SourceTrace.dfy(80,19): Error: reserved marker outside exact SourceTrace default ghost function: SourceTrace.Shadow.Branch
+   |
+80 |     ghost function Branch(site: int, taken: bool): seq<int> { [] }
+   |                    ^^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

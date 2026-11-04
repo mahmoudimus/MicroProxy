@@ -1,0 +1,11 @@
+work/controls/callbinding-binding-unknown/formal/crypto/NativeField.dfy(93,38): Error: Add: later trace update contains non-approved suffix expression
+   |
+93 |     trace := trace + ST.Call(1,1,1) + bogus;
+   |                                       ^^^^^
+
+work/controls/callbinding-binding-unknown/formal/crypto/NativeField.dfy(84,52): Error: Add: callee trace local must be appended exactly once
+   |
+84 |   method Add(a: T.I, b: T.I) returns (r: T.I, ghost trace: seq<int>)
+   |                                                     ^^^^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

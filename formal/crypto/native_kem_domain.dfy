@@ -28,7 +28,7 @@ module NativeKemDomain {
   method Selection(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>)
     requires c.Length == 1088 && expected.Length == 1088 && candidate.Length == 32 && fallback.Length == 32
   {
-    var key := N.Select(c,expected,candidate,fallback);
+    var key, selectionTrace := N.Select(c,expected,candidate,fallback);
     assert key[..] == (if c[..] == expected[..] then candidate[..] else fallback[..]);
   }
   method Destroy(dk: N.SecretKey)

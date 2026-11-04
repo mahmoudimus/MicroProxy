@@ -1,0 +1,6 @@
+{
+  "name": "neg-wrong-size",
+  "expect": "reject",
+  "needle": "Select allocation size must be the exact public literal 32",
+  "note": "wrong allocation dimension"
+}

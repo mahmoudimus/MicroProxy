@@ -1,0 +1,6 @@
+work/controls/callbinding-root-unexpected-field/formal/crypto/NativeField.dfy(90,16): Error: unsupported executable class/global field use in reviewed static root grammar
+   |
+90 |     var junk := MaxReduce;
+   |                 ^^^^^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

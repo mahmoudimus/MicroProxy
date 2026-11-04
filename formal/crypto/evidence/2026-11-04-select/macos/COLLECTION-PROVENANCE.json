@@ -1,0 +1,74 @@
+{
+  "boundaries": [
+    "This is evidence curation and actual-file hashing, not a new proof replay.",
+    "Dafny input clones and generated source/class trees are excluded.",
+    "Original absolute paths remain provenance strings in unchanged report/logs; portable consumers must not open them."
+  ],
+  "created_utc": "2026-11-04T14:18:03.898852+00:00",
+  "derived_codegen_maps": {
+    "classes-base-jdk21": {
+      "file": "derived-codegen-maps/classes-base-jdk21.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+      "selection": "recursive *.class; same selection as reviewed codegen()",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/classes-base-jdk21"
+    },
+    "classes-base-jdk25": {
+      "file": "derived-codegen-maps/classes-base-jdk25.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+      "selection": "recursive *.class; same selection as reviewed codegen()",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/classes-base-jdk25"
+    },
+    "classes-overlay-jdk21": {
+      "file": "derived-codegen-maps/classes-overlay-jdk21.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263",
+      "selection": "recursive *.class; same selection as reviewed codegen()",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/classes-overlay-jdk21"
+    },
+    "classes-overlay-jdk25": {
+      "file": "derived-codegen-maps/classes-overlay-jdk25.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5",
+      "selection": "recursive *.class; same selection as reviewed codegen()",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/classes-overlay-jdk25"
+    },
+    "java-base": {
+      "file": "derived-codegen-maps/java-base.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+      "selection": "recursive *.java excluding gen_base.java and gen_overlay.java",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/gen-base-java"
+    },
+    "java-overlay": {
+      "file": "derived-codegen-maps/java-overlay.sha256",
+      "files": 65,
+      "kind": "DERIVED by hashing actual generated files; no generation rerun or proof input changes",
+      "map_sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9",
+      "selection": "recursive *.java excluding gen_base.java and gen_overlay.java",
+      "source_directory": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/codegen/gen-overlay-java"
+    }
+  },
+  "original_files_copied": 116,
+  "package_sha256": "b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f",
+  "referenced_count_including_duplicates": 53,
+  "referenced_unique_files": 52,
+  "report_sha256": "a54f702df2c047ba078e5466e804c5ce5c6f482962c52f057736a7dc4e66c220",
+  "retained_raw_build_files": 64,
+  "reviewed_codegen_source": {
+    "boundary": "Generation/compiler behavior is bound to reviewed Python source and tool identities; derived maps do not invent raw command records.",
+    "literal_javac_argv_recorded_by_producer": false,
+    "method": "codegen",
+    "repository_path": "formal/source/select/replay.py",
+    "sha256": "14bdb5e5bdc0fd354ee9d74ff4523b4c0cf16aee1abc59908ef3330c1973cdf9"
+  },
+  "schema": "microproxy.select-mac-evidence-collection/1",
+  "source_output": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full",
+  "source_report_preserved_bytes": true
+}

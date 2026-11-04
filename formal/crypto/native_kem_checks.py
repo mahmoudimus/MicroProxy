@@ -218,7 +218,8 @@ def main():
         receipt['controls'][name] = {'verified':int(match[1]),'errors':int(match[2])}
 
     prefix = out/'NativeMlKem'
-    prove('generate-java',[args.dafny,'translate','java',*owned,'--output',prefix,*flags])
+    # Match verify's assertion isolation; keep every obligation and limit.
+    prove('generate-java',[args.dafny,'translate','java',*owned,'--output',prefix,*flags,'--isolate-assertions'])
     generated = out/'NativeMlKem-java'
     classes = out/'classes';classes.mkdir()
     runtime = args.runtime

@@ -1,0 +1,11 @@
+work/controls/root19-ghost-lemma-output/formal/crypto/NativeField.dfy(54,10): Error: ghost/lemma call output binding is unsupported
+   |
+54 |     gy := L();
+   |           ^^^
+
+work/controls/root19-ghost-lemma-output/formal/crypto/NativeField.dfy(47,73): Error: ReduceOnce: callee trace local must be appended exactly once
+   |
+47 |   method {:isolate_assertions} ReduceOnce(a: T.I) returns (r: T.I, ghost trace: seq<int>)
+   |                                                                          ^^^^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

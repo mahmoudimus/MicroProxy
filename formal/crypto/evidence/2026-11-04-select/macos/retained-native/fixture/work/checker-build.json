@@ -1,0 +1,8 @@
+{
+  "sdk": "10.0.400",
+  "dll_sha256": "2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67",
+  "source_sha256": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+  "project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+  "encoder_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+  "directory_build_imports_disabled": true
+}

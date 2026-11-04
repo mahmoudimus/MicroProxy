@@ -3,6 +3,7 @@ include "NativeJdkHash.dfy"
 include "NativeSampling.dfy"
 include "NativeShake.dfy"
 include "NativePolynomial.dfy"
+include "../source/SourceTrace.dfy"
 
 // Composition formulas adapted from Go crypto/internal/fips140/mlkem via
 // MlKem768.java (Copyright 2023 The Go Authors, BSD-3-Clause). Native ownership,
@@ -18,6 +19,7 @@ module NativeMlKem {
   import X = NativeShake
   import H = NativeJdkHash
   import J = JdkHash
+  import ST = SourceTrace
   import NP = NativePolynomial
 
   ghost function {:opaque} Polys(a: array<array<T.I>>): seq<seq<int>>
@@ -220,30 +222,68 @@ module NativeMlKem {
     b[n] := tag;
   }
 
-  method Select(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>) returns(r: array<bv8>)
+  ghost function {:opaque} SelectDiffPrefix(k: int): seq<int>
+    requires 0 <= k <= 1088
+    decreases k
+  {
+    if k == 0 then []
+    else SelectDiffPrefix(k-1) + ST.Read(0, 0,k-1) + ST.Read(0, 1,k-1)
+  }
+  ghost function {:opaque} SelectOutPrefix(k: int): seq<int>
+    requires 0 <= k <= 32
+    decreases k
+  {
+    if k == 0 then []
+    else SelectOutPrefix(k-1) + ST.Read(0, 2,k-1) + ST.Read(0, 3,k-1) + ST.Write(0, 4,k-1)
+  }
+
+  lemma SelectDiffStep(i: int)
+    requires 0 <= i < 1088
+    ensures SelectDiffPrefix(i+1) == SelectDiffPrefix(i) + ST.Read(0,0,i) + ST.Read(0,1,i)
+  { reveal SelectDiffPrefix(); }
+  lemma SelectOutStep(i: int)
+    requires 0 <= i < 32
+    ensures SelectOutPrefix(i+1) == SelectOutPrefix(i) + ST.Read(0,2,i) + ST.Read(0,3,i) + ST.Write(0,4,i)
+  { reveal SelectOutPrefix(); }
+
+  method Select(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>) returns(r: array<bv8>, ghost trace: seq<int>)
     requires c.Length == 1088 && expected.Length == 1088 && candidate.Length == 32 && fallback.Length == 32
     ensures fresh(r) && r.Length == 32
     ensures r[..] == (if c[..] == expected[..] then candidate[..] else fallback[..])
+    ensures trace == ST.LoopBound(0,0) + ST.LoopBound(0,1088) + SelectDiffPrefix(1088)
+      + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32) + SelectOutPrefix(32)
   {
+    reveal SelectDiffPrefix(); reveal SelectOutPrefix();
     var diff: bv8 := 0;
+    trace := ST.LoopBound(0,0) + ST.LoopBound(0,1088);
     for i: T.I := 0 to 1088
       invariant diff == 0 <==> c[..i as int] == expected[..i as int]
+      invariant trace == ST.LoopBound(0,0) + ST.LoopBound(0,1088) + SelectDiffPrefix(i as int)
     {
       ghost var before := diff;
+      trace := trace + ST.Read(0,0,i as int) + ST.Read(0,1,i as int);
       diff := diff | (c[i] ^ expected[i]);
       assert diff == 0 <==> before == 0 && c[i] == expected[i];
       assert c[..i as int+1] == c[..i as int]+[c[i]];
       assert expected[..i as int+1] == expected[..i as int]+[expected[i]];
+      SelectDiffStep(i as int);
     }
-    // The pinned runtime's bv64 shift branches only on its public distance;
-    // bv8/bv16/bv32 right-shift helpers branch on the payload sign.
     var mask := (((diff as bv64)-1) >> 56) as bv8;
     assert mask == (if diff == 0 then 255 else 0);
+    // The pinned runtime's bv64 shift branches only on its public distance;
+    // bv8/bv16/bv32 right-shift helpers branch on the payload sign.
+    trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
     r := new bv8[32 as T.I];
     for i: T.I := 0 to 32
       modifies r
       invariant forall j: int :: 0 <= j < i as int ==> r[j] == (if c[..] == expected[..] then candidate[j] else fallback[j])
-    { r[i] := (candidate[i] & mask) | (fallback[i] & !mask); }
+      invariant trace == ST.LoopBound(0,0) + ST.LoopBound(0,1088) + SelectDiffPrefix(1088)
+        + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32) + SelectOutPrefix(i as int)
+    {
+      trace := trace + ST.Read(0,2,i as int) + ST.Read(0,3,i as int) + ST.Write(0,4,i as int);
+      r[i] := (candidate[i] & mask) | (fallback[i] & !mask);
+      SelectOutStep(i as int);
+    }
   }
   method CopyInto(a: array<bv8>, b: array<bv8>, start: T.I)
     requires a != b && T.JavaLength(b.Length)
@@ -1113,7 +1153,7 @@ module NativeMlKem {
     assert discarded !! borrowed;
     AllocatedSet(discarded);
     label BeforeSelection:
-    var key := Select(ciphertext,expected,candidate,fallback);
+    var key, selectTrace := Select(ciphertext,expected,candidate,fallback);
     assert !old@BeforeSelection(allocated(key));
     assert forall obj: object | obj in discarded :: old@BeforeSelection(allocated(obj));
     assert fresh(key) && key !in discarded;

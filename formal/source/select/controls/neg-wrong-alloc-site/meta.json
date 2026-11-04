@@ -1,0 +1,6 @@
+{
+  "name": "neg-wrong-alloc-site",
+  "expect": "reject",
+  "needle": "mismatched Alloc observation",
+  "note": "marker site differs from exact allocation site"
+}

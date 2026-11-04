@@ -1,0 +1,2 @@
+CASE-CONTEXT case=retained-native argv=["/usr/bin/python3","run.py","--dafny","/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","--dotnet","/opt/dotnet/dotnet"] cwd=/out/replay-b1ce/retained-native/fixture
+Complete: /out/replay-b1ce/retained-native/fixture/report.json

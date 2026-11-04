@@ -1,0 +1,6 @@
+{
+  "name": "neg-shadow-select",
+  "expect": "reject",
+  "needle": "reserved Select root outside exact default declaration",
+  "note": "shadow Select class/method"
+}

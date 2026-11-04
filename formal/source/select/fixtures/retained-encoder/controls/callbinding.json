@@ -1,0 +1,109 @@
+{
+  "binding-unknown": {
+    "exit": 2,
+    "needle": "later trace update contains non-approved suffix expression"
+  },
+  "block-boundary": {
+    "exit": 2,
+    "needle": "callee trace append is not the first trace update immediately after its defining call"
+  },
+  "call-child-interposed-marker": {
+    "exit": 2,
+    "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf",
+    "verify_method": 86
+  },
+  "callee-before-call": {
+    "exit": 2,
+    "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf",
+    "verify_method": 86
+  },
+  "delayed-callee": {
+    "exit": 2,
+    "needle": "callee trace append is not the first trace update immediately after its defining call",
+    "verify_method": 86
+  },
+  "interposed-op": {
+    "exit": 2,
+    "needle": "callee trace append is not the first trace update immediately after its defining call"
+  },
+  "nested-callee": {
+    "exit": 2,
+    "needle": "callee trace append is not the first trace update immediately after its defining call"
+  },
+  "pure-call-delayed": {
+    "exit": 2,
+    "needle": "pure-function trace append is not the first trace update immediately after its defining call"
+  },
+  "pure-call-forged-ghost-local": {
+    "exit": 2,
+    "needle": "later trace update contains non-approved suffix expression",
+    "verify_harness": 766,
+    "verify_nativekeccak": 587
+  },
+  "pure-call-inline-projection": {
+    "exit": 2,
+    "needle": "registered pure call must be the direct RHS of one defining assignment",
+    "verify_harness": 766,
+    "verify_nativekeccak": 587
+  },
+  "pure-call-missing-child": {
+    "exit": 2,
+    "needle": "pure function trace must be appended exactly once",
+    "verify_harness": 766,
+    "verify_nativekeccak": 587
+  },
+  "pure-call-no-call-marker": {
+    "exit": 2,
+    "needle": "pure-function trace append does not bind its exact defining Call marker"
+  },
+  "pure-call-second-inline": {
+    "exit": 2,
+    "needle": "registered pure call must be the direct RHS of one defining assignment",
+    "verify_harness": 781,
+    "verify_nativekeccak": 602
+  },
+  "pure-call-second-missing-child": {
+    "exit": 2,
+    "needle": "pure function trace must be appended exactly once",
+    "verify_harness": 781,
+    "verify_nativekeccak": 602
+  },
+  "pure-call-two-direct-accepted": {
+    "exit": 0,
+    "expect": "accept",
+    "verify_harness": 781,
+    "verify_nativekeccak": 602
+  },
+  "pure-rr-before-call": {
+    "exit": 2,
+    "needle": "pure-function trace append must place its exact defining Call marker immediately before its pure trace leaf",
+    "verify_harness": 766,
+    "verify_nativekeccak": 587
+  },
+  "root-array-rank": {
+    "exit": 2,
+    "needle": "input 0 expected array<bv64>, found array-rank-2"
+  },
+  "root-array-role": {
+    "exit": 2,
+    "needle": "expected 1 input formals, found 2"
+  },
+  "root-extra-output": {
+    "exit": 2,
+    "needle": "expected 2 output formals, found 3"
+  },
+  "root-signature-add": {
+    "exit": 2,
+    "needle": "expected 2 input formals, found 3",
+    "verify_method": 86
+  },
+  "root-unexpected-field": {
+    "exit": 2,
+    "needle": "unsupported executable class/global field use in reviewed static root grammar",
+    "verify_method": 86
+  },
+  "root-wrong-ghost": {
+    "exit": 2,
+    "needle": "output 0 expected NativeTypes.I"
+  }
+}

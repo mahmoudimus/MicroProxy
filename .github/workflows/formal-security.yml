@@ -23,7 +23,7 @@ jobs:
       - name: Require scoped production functional claims with current evidence
         run: |
           python scripts/security/check_crypto_obligations.py --output target/crypto-obligations.json
-          python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require packet-nonce-functional-production --require poly-source-trace-ni --output target/crypto-release-claims.json
+          python scripts/security/check_crypto_release.py --require shake-mlkem-functional-production --require hkdf-production-functional --require packet-nonce-functional-production --require poly-source-trace-ni --require select-source-trace-ni --output target/crypto-release-claims.json
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
@@ -195,6 +195,60 @@ jobs:
             target/dafny-polynomial-source/
             !target/dafny-polynomial-source/checker-build/nuget/**
             !target/dafny-polynomial-source/checker-build/dotnet-home/**
+          if-no-files-found: ignore
+
+  dafny-select-source-traces:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-dotnet@v6.1.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/microproxy-select-dotnet-10.0.400
+        with:
+          dotnet-version: '10.0.400'
+          skip-lts-prepass: true
+      - name: Install the qualified JDK archives and Linux dependency
+        run: |
+          sudo apt-get update && sudo apt-get install --yes libicu74
+          bash scripts/security/install_select_jdks.sh
+      - name: Install pinned Dafny and materialize the authenticated baseline
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'formal/dafny')
+          import toolchain
+          dafny, *_ = toolchain.install(Path(os.environ['RUNNER_TEMP']) / 'select-dafny')
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              out.write('SELECT_DAFNY=' + str(dafny) + '\n')
+          PY
+          JAVA_HOME="$SELECT_JDK21" mvn -q dependency:get -Dartifact=org.dafny:DafnyRuntime:4.9.1
+          mkdir -p target
+          mkdir target/select-source-baseline
+          test "$(/usr/bin/git rev-parse '155bbe14cb9748cf677f4eb223af3dd2331687b0^{tree}')" = '74a3eb686d02bf4226afed08227391e742b54f12'
+          /usr/bin/git archive --format=tar 155bbe14cb9748cf677f4eb223af3dd2331687b0 formal | tar -x -C target/select-source-baseline
+      - name: Prove Select source contracts, observations and erasure
+        # Outside Git ancestry: MSBuild otherwise injects the checkout revision into the DLL.
+        run: |
+          python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output "$RUNNER_TEMP/dafny-select-source" --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$RUNNER_TEMP/microproxy-select-dotnet-10.0.400/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
+          python scripts/security/run_select_package_tests.py --baseline target/select-source-baseline --full-report "$RUNNER_TEMP/dafny-select-source/package-report.json" --work-root "$RUNNER_TEMP/select-package-tests"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: dafny-select-source-traces-jdk-21-and-25
+          path: |
+            ${{ runner.temp }}/dafny-select-source/
+            !${{ runner.temp }}/dafny-select-source/**/nuget/**
+            !${{ runner.temp }}/dafny-select-source/**/dotnet-home/**
           if-no-files-found: ignore
 
   dafny-source-ownership:

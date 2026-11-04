@@ -1,0 +1,11 @@
+work/controls/callbinding-root-wrong-ghost/formal/crypto/NativeField.dfy(84,44): Error: NativeField.Add: output 0 expected NativeTypes.I, found seq<int> ghost
+   |
+84 |   method Add(a: T.I, b: T.I) returns (ghost trace: seq<int>, r: T.I)
+   |                                             ^^^^^
+
+work/controls/callbinding-root-wrong-ghost/formal/crypto/NativeField.dfy(84,61): Error: NativeField.Add: output 1 expected seq<int> ghost, found NativeTypes.I
+   |
+84 |   method Add(a: T.I, b: T.I) returns (ghost trace: seq<int>, r: T.I)
+   |                                                              ^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

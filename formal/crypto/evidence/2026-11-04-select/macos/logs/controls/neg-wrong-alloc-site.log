@@ -1,0 +1,37 @@
+CASE-CONTEXT case=neg-wrong-alloc-site operand_sha256=2b46cb2c82b8d15d45e9015a92782f4c517068c3c6d543e57737c21c8a8d12df expected_fixture_sha256=2b46cb2c82b8d15d45e9015a92782f4c517068c3c6d543e57737c21c8a8d12df argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/trees/neg-wrong-alloc-site/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/trees/neg-wrong-alloc-site/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(273,24): Error: mismatched Alloc observation for exact Select allocation Alloc(0,32)
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.LoopBound for for start 0, found Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.LoopBound for for end 32, found Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Read for array read candidate[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Read for array read fallback[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: expected exact SourceTrace.Write for array write r[i], found Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(273,24): Error: Select: stale observation Alloc
+    |
+273 |     trace := trace + ST.Alloc(1,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+7 resolution/type errors detected in NativeMlKem.dfy

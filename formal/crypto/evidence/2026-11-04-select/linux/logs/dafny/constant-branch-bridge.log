@@ -1,0 +1,23 @@
+CASE-CONTEXT case=constant-branch-bridge operand_sha256=bbf3c96ff52da922022e7f5d68d2c326a122b4e8909c3b9634e681795bb53931 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","verify","/out/replay-b1ce/constant-branch/source/SourceTraceBridge.dfy","--allow-external-contracts","--verification-time-limit","30","--resource-limit","50000000","--cores","2","--verify-included-files","--solver-option","O:smt.case_split=0"] cwd=/out/replay-b1ce/constant-branch/source
+SourceTrace.dfy(50,2): Error: a postcondition could not be proved on this return path
+   |
+50 |   {}
+   |   ^
+
+SourceTrace.dfy(49,12): Related location: this is the postcondition that could not be proved
+   |
+49 |     ensures Branch(site,taken) == O.Encode(O.Branch(site,taken))
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+SourceTrace.dfy(71,86): Error: a postcondition could not be proved on this return path
+   |
+71 |   lemma BranchFalseNotTrue(site: int) ensures Branch(site,false) != Branch(site,true) {}
+   |                                                                                       ^
+
+SourceTrace.dfy(71,46): Related location: this is the postcondition that could not be proved
+   |
+71 |   lemma BranchFalseNotTrue(site: int) ensures Branch(site,false) != Branch(site,true) {}
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 52 verified, 2 errors

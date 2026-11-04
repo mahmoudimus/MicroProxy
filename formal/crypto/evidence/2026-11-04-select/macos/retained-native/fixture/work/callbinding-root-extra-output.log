@@ -1,0 +1,6 @@
+work/controls/callbinding-root-extra-output/formal/crypto/NativeField.dfy(84,9): Error: NativeField.Add: expected 2 output formals, found 3
+   |
+84 |   method Add(a: T.I, b: T.I) returns (r: T.I, extra: T.I, ghost trace: seq<int>)
+   |          ^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

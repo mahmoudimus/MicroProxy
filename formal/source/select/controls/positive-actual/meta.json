@@ -1,0 +1,6 @@
+{
+  "name": "positive-actual",
+  "expect": "accept",
+  "needle": null,
+  "note": "actual overlay, default zero initializer"
+}

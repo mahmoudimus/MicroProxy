@@ -1,0 +1,6 @@
+{
+  "name": "neg-block-wrap-alloc",
+  "expect": "reject",
+  "needle": "Select allocation must be a direct top-level statement of the method body",
+  "note": "F1 allocation inside a bare wrapper block, marker/block contexts consistent"
+}

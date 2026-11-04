@@ -1,0 +1,9 @@
+CASE-CONTEXT case=f2-private-loop-bound-full operand_sha256=83bf0bb21ae57d4d47b8d9d2e8a88259254ef3a9d8f68e55fc92636dcccfa2b4 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","verify","/out/replay-b1ce/trees/f2-private-loop-bound/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--verification-time-limit","30","--resource-limit","50000000","--cores","2","--solver-option","O:smt.case_split=3"] cwd=/out/replay-b1ce/trees/f2-private-loop-bound/formal/crypto
+NativeMlKem.dfy(261,16): Error: this loop invariant could not be proved on entry
+ Related message: loop invariant violation
+    |
+261 |       invariant trace == ST.LoopBound(0,0) + ST.LoopBound(0,1088) + SelectDiffPrefix(i as int)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Dafny program verifier finished with 2772 verified, 1 error

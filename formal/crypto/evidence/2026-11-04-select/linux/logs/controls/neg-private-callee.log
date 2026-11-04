@@ -1,0 +1,42 @@
+CASE-CONTEXT case=neg-private-callee operand_sha256=88b3db8ed1ac0c238538c2d400db6bd42845a847f6cf1338ea597cc2ffc929b1 expected_fixture_sha256=88b3db8ed1ac0c238538c2d400db6bd42845a847f6cf1338ea597cc2ffc929b1 argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","resolve","/out/replay-b1ce/trees/neg-private-callee/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/out/replay-b1ce/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/out/replay-b1ce/trees/neg-private-callee/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(278,33): Error: Select allocation initializer contains an executable call: NativeMlKem._default.PickByte
+    |
+278 |     r := new bv8[32 as T.I](i => PickByte(expected, i));
+    |                                  ^^^^^^^^
+
+NativeMlKem.dfy(277,24): Error: expected exact SourceTrace.LoopBound for for start 0, found Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(277,24): Error: expected exact SourceTrace.LoopBound for for end 32, found Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(277,24): Error: expected exact SourceTrace.Read for array read candidate[i], found Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(277,24): Error: expected exact SourceTrace.Read for array read fallback[i], found Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(277,24): Error: expected exact SourceTrace.Write for array write r[i], found Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(277,24): Error: Select: stale observation Alloc
+    |
+277 |     trace := trace + ST.Alloc(0,32) + ST.LoopBound(2,0) + ST.LoopBound(2,32);
+    |                         ^^^^^
+
+NativeMlKem.dfy(253,9): Error: Select: expected exactly one exact returned-buffer allocation
+    |
+253 |   method Select(c: array<bv8>, expected: array<bv8>, candidate: array<bv8>, fallback: array<bv8>) returns(r: array<bv8>, ghost trace: seq<int>)
+    |          ^^^^^^
+
+8 resolution/type errors detected in NativeMlKem.dfy

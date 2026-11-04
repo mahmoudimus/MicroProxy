@@ -1,0 +1,11 @@
+work/controls/callbinding-pure-call-no-call-marker/formal/crypto/NativeKeccak.dfy(227,12): Error: Theta: pure-function trace append does not bind its exact defining Call marker
+    |
+227 |       trace := trace + rr.1;
+    |             ^^
+
+work/controls/callbinding-pure-call-no-call-marker/formal/crypto/NativeKeccak.dfy(229,26): Error: expected exact SourceTrace.Call for function call Rotate/2, found LoopBound
+    |
+229 |       trace := trace + ST.LoopBound(1, 0) + ST.LoopBound(1, 5);
+    |                           ^^^^^^^^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

@@ -1,0 +1,7 @@
+CASE-CONTEXT case=neg-select-calls-rotate operand_sha256=f9b70df5e965ff02237cb8bae831ccaa1315ad0f37179475cdd57304efcdf310 expected_fixture_sha256=f9b70df5e965ff02237cb8bae831ccaa1315ad0f37179475cdd57304efcdf310 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","resolve","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/trees/neg-select-calls-rotate/formal/crypto/NativeMlKem.dfy","--allow-external-contracts","--plugin","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/checker-build/bin/Debug/net6.0/SourceCoverage.dll"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/trees/neg-select-calls-rotate/formal/crypto plugin_sha256=2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67
+NativeMlKem.dfy(276,18): Error: unregistered executable function call NativeKeccak._default.Rotate
+    |
+276 |     var rot := NK.Rotate(0 as bv64, 0 as T.I);
+    |                   ^^^^^^
+
+1 resolution/type errors detected in NativeMlKem.dfy

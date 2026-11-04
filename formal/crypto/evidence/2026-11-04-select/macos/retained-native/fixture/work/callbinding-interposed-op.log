@@ -1,0 +1,16 @@
+work/controls/callbinding-interposed-op/formal/crypto/NativeField.dfy(93,10): Error: Add: callee trace append is not the first trace update immediately after its defining call
+   |
+93 |     trace := trace + ST.Call(1,1,1) + callee;
+   |           ^^
+
+work/controls/callbinding-interposed-op/formal/crypto/NativeField.dfy(93,24): Error: Call marker is not the next observation after its call
+   |
+93 |     trace := trace + ST.Call(1,1,1) + callee;
+   |                         ^^^^
+
+work/controls/callbinding-interposed-op/formal/crypto/NativeField.dfy(93,24): Error: Add: stale observation Call
+   |
+93 |     trace := trace + ST.Call(1,1,1) + callee;
+   |                         ^^^^
+
+3 resolution/type errors detected in AllTraceRoots.dfy

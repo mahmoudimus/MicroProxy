@@ -1,7 +1,7 @@
-/out/linux-full/native-kem-xh1s0sah/missing-byte-wipe.dfy(150,16): Error: this invariant could not be proved to be maintained by the loop
+/out/repair-full/native-kem-uon76nt5/missing-byte-wipe.dfy(152,16): Error: this invariant could not be proved to be maintained by the loop
  Related message: loop invariant violation
     |
-150 |       invariant forall j: int :: 0 <= j < i as int ==> a[j] == 0
+152 |       invariant forall j: int :: 0 <= j < i as int ==> a[j] == 0
     |                 ^^^^^^
 
 

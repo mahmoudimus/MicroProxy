@@ -1,0 +1,16 @@
+work/controls/root19-alloc-wrong-marker/formal/crypto/NativeKeccak.dfy(130,16): Error: unsupported allocation in current native root grammar
+    |
+130 |     var junk := new bv64[(value as int)%2];
+    |                 ^^^
+
+work/controls/root19-alloc-wrong-marker/formal/crypto/NativeKeccak.dfy(129,16): Error: expected exact SourceTrace.Write for array write a[index], found Alloc
+    |
+129 |     trace := ST.Alloc(9, 1);
+    |                 ^^^^^
+
+work/controls/root19-alloc-wrong-marker/formal/crypto/NativeKeccak.dfy(129,16): Error: SetLane: stale observation Alloc
+    |
+129 |     trace := ST.Alloc(9, 1);
+    |                 ^^^^^
+
+3 resolution/type errors detected in AllTraceRoots.dfy

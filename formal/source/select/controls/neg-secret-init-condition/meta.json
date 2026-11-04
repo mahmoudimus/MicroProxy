@@ -1,0 +1,6 @@
+{
+  "name": "neg-secret-init-condition",
+  "expect": "reject",
+  "needle": "Select allocation initializer contains an unsupported condition/branch/compound expression",
+  "note": "F2 secret initializer condition"
+}

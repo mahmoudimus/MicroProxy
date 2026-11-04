@@ -1,0 +1,36 @@
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(231,19): Error: registered pure call must be the direct RHS of one defining assignment
+    |
+231 |       var again := Rotate(c[(x+1)%5],1).0;
+    |                    ^^^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(231,19): Error: registered pure call must be the direct RHS of one defining assignment
+    |
+231 |       var again := Rotate(c[(x+1)%5],1).0;
+    |                    ^^^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(230,26): Error: expected exact SourceTrace.LoopBound for for start 0, found Read
+    |
+230 |       trace := trace + ST.Read(0, 1,((x+1)%5) as int);
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(230,26): Error: expected exact SourceTrace.LoopBound for for end 5, found Read
+    |
+230 |       trace := trace + ST.Read(0, 1,((x+1)%5) as int);
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(230,26): Error: mismatched Read observation for array read a[i]
+    |
+230 |       trace := trace + ST.Read(0, 1,((x+1)%5) as int);
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(230,26): Error: expected exact SourceTrace.Write for array write a[i], found Read
+    |
+230 |       trace := trace + ST.Read(0, 1,((x+1)%5) as int);
+    |                           ^^^^
+
+work/controls/callbinding-pure-call-second-inline/formal/crypto/NativeKeccak.dfy(230,26): Error: Theta: stale observation Read
+    |
+230 |       trace := trace + ST.Read(0, 1,((x+1)%5) as int);
+    |                           ^^^^
+
+7 resolution/type errors detected in AllTraceRoots.dfy

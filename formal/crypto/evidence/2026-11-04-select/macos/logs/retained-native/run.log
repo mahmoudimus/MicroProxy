@@ -1,0 +1,2 @@
+CASE-CONTEXT case=retained-native argv=["/opt/homebrew/opt/python@3.14/bin/python3.14","run.py","--dafny","/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","--dotnet","/usr/local/share/dotnet/dotnet"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/retained-native/fixture
+Complete: /Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/macos-full/retained-native/fixture/report.json

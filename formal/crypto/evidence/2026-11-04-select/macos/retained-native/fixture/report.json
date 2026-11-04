@@ -1,0 +1,536 @@
+{
+  "baseline13": {
+    "exit": 0,
+    "status": "SOURCE-COVERAGE OK"
+  },
+  "callbinding": {
+    "binding-unknown": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "later trace update contains non-approved suffix expression"
+    },
+    "block-boundary": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "callee trace append is not the first trace update immediately after its defining call"
+    },
+    "call-child-interposed-marker": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "method": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      },
+      "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf"
+    },
+    "callee-before-call": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "method": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      },
+      "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf"
+    },
+    "delayed-callee": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "method": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      },
+      "needle": "callee trace append is not the first trace update immediately after its defining call"
+    },
+    "interposed-op": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "callee trace append is not the first trace update immediately after its defining call"
+    },
+    "nested-callee": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "callee trace append is not the first trace update immediately after its defining call"
+    },
+    "pure-call-delayed": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "pure-function trace append is not the first trace update immediately after its defining call"
+    },
+    "pure-call-forged-ghost-local": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 766
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 587
+      },
+      "needle": "later trace update contains non-approved suffix expression"
+    },
+    "pure-call-inline-projection": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 766
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 587
+      },
+      "needle": "registered pure call must be the direct RHS of one defining assignment"
+    },
+    "pure-call-missing-child": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 766
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 587
+      },
+      "needle": "pure function trace must be appended exactly once"
+    },
+    "pure-call-no-call-marker": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "pure-function trace append does not bind its exact defining Call marker"
+    },
+    "pure-call-second-inline": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 781
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 602
+      },
+      "needle": "registered pure call must be the direct RHS of one defining assignment"
+    },
+    "pure-call-second-missing-child": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 781
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 602
+      },
+      "needle": "pure function trace must be appended exactly once"
+    },
+    "pure-call-two-direct-accepted": {
+      "exit": 0,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 781
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 602
+      },
+      "status": "SOURCE-COVERAGE OK"
+    },
+    "pure-rr-before-call": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 766
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 587
+      },
+      "needle": "pure-function trace append must place its exact defining Call marker immediately before its pure trace leaf"
+    },
+    "root-array-rank": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "input 0 expected array<bv64>, found array-rank-2"
+    },
+    "root-array-role": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "expected 1 input formals, found 2"
+    },
+    "root-extra-output": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "expected 2 output formals, found 3"
+    },
+    "root-signature-add": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "method": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      },
+      "needle": "expected 2 input formals, found 3"
+    },
+    "root-unexpected-field": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "method": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      },
+      "needle": "unsupported executable class/global field use in reviewed static root grammar"
+    },
+    "root-wrong-ghost": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "output 0 expected NativeTypes.I"
+    }
+  },
+  "canonical_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+  "checker_project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+  "checker_source_sha256": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+  "dafny": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+  "from_base": {
+    "base_canonical_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "base_component": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair",
+    "base_component_report_sha256": "274c8dca6f6a1aa41c3a2e384e2316bcfd1dc40934665e6dd6a515f5c4141fab",
+    "base_dll_sha256": "045940ea8ccb11b9bee4ba6ebb6bf9d820bb5ecaba868a4e49de56eacdcb021f",
+    "base_project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+    "base_review_report_sha256": "9a15a2730d45b11adf7aa0f52153a5445003f7ace187e71b2ca15ca8ed46c78f",
+    "base_review_verdict": "CHANGES REQUESTED: callee/pure events before exact Call marker",
+    "base_source_coverage_sha256": "bbd806f84c82761e47650ca735425abc94d07751482cacb5aa7c3ad68d35e958",
+    "copied_roots": {
+      "controls": "d41a76d761721e133066f466cf8171f503c175e773dabeee834a7a9fde21c3ea",
+      "formal": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+      "runner": "8970bef7fcfbc20cb8376b9d2e05f7f471ce5417031664482ca74588e0e4c3d8",
+      "source_fixtures": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f"
+    },
+    "new_order_controls": [
+      "callee-before-call",
+      "pure-rr-before-call",
+      "call-child-interposed-marker"
+    ],
+    "old_false_accept_replay": {
+      "base_dll": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair/work/checker-build/bin/Debug/net6.0/SourceCoverage.dll",
+      "checker": "SOURCE-COVERAGE OK for all 13 roots",
+      "command": "SOURCE_TRACE_ROOTS=<13 roots> dafny resolve AllTraceRoots.dfy --plugin base-combined",
+      "receipts": [
+        "work/base-false-accept/verify.log",
+        "work/base-false-accept/checker.log"
+      ],
+      "source": "work/controls/callee-before-call/formal/crypto/NativeField.dfy",
+      "verify": "86 verified, 0 errors"
+    }
+  },
+  "pins_after": {
+    "controls/callbinding.json": "42767ad62a16f22c804b62b645e36eec298ceefa8295e4964a17ef29fdb6aee8",
+    "controls/callbinding/binding-unknown/formal/crypto/NativeField.dfy": "09b1aa53a3668049aeac4b71d42324a239149ba6817d881c3643c2085916d4df",
+    "controls/callbinding/block-boundary/formal/crypto/NativeField.dfy": "17862d5164cc1529bedb03cbfb46f3eeb9523897ac4fa116047529372f283291",
+    "controls/callbinding/call-child-interposed-marker/formal/crypto/NativeField.dfy": "659d62a120febdedd3cd640343131fa4943893495f6e73cbe695e9b6fbaad262",
+    "controls/callbinding/callee-before-call/formal/crypto/NativeField.dfy": "4595b2ed19c811df88ffad224a972fa6a523728e5ead52aeff5a94384445adad",
+    "controls/callbinding/delayed-callee/formal/crypto/NativeField.dfy": "e1b5c80e10e46f5cd20d75f511d39cdbeb23e6260903693cb1f30f458460c37a",
+    "controls/callbinding/interposed-op/formal/crypto/NativeField.dfy": "720afc57f93bfda2c2c5398239ec15e6c7c18de98237f12b709603149e2eac29",
+    "controls/callbinding/nested-callee/formal/crypto/NativeField.dfy": "79981875a7deced873c601776ab7217e1c4a1bc96414c8d147fa98eb1c0b6736",
+    "controls/callbinding/pure-call-delayed/formal/crypto/NativeKeccak.dfy": "ba3ac02e9dda88584501c1262a748dd3c2fefc7a6399e1811628decc121a3eb8",
+    "controls/callbinding/pure-call-forged-ghost-local/formal/crypto/NativeKeccak.dfy": "2ade0bfbf8e5a29915d8ab0e4ef79454871dc77f675ee7e7dc5b9a10ababd4fd",
+    "controls/callbinding/pure-call-inline-projection/formal/crypto/NativeKeccak.dfy": "256b6a11d0c22c9f4a82a2a8f5b85a7252c278a3a90fa6fc7d357909e584dd9e",
+    "controls/callbinding/pure-call-missing-child/formal/crypto/NativeKeccak.dfy": "06995c5759fe3029b90b3530d6b09dfb3a6b33a19784aa4cf4ce9ca5774df677",
+    "controls/callbinding/pure-call-no-call-marker/formal/crypto/NativeKeccak.dfy": "e8b498ab3abc3f9b303c804fcdef1ac1c46ad6d8cc4118180a962ac87e289b73",
+    "controls/callbinding/pure-call-second-inline/formal/crypto/NativeKeccak.dfy": "bd866d1538b1ca9e2fd248130c615b2aaaaa5fc9c0b0836cdd6bd9f56f61e2b0",
+    "controls/callbinding/pure-call-second-missing-child/formal/crypto/NativeKeccak.dfy": "4ca95a20bcbc5185f408a5739188a0f4abc5b893d4c8121816dadad97bc6aa17",
+    "controls/callbinding/pure-call-two-direct-accepted/formal/crypto/NativeKeccak.dfy": "e55dd8f4af407ffa45670251dd3a13a721ffb6f3b758e95ca51a85b5feff1f73",
+    "controls/callbinding/pure-rr-before-call/formal/crypto/NativeKeccak.dfy": "b9c6dad8ce4ede4ddd610d9eb51375f870b8bb507e8a1f0b24029d4fde3cf74b",
+    "controls/callbinding/root-array-rank/formal/crypto/NativeKeccak.dfy": "545dc9f6dcc52f7ba2c792c5f016f33011c4fa43786bbd240d86fd5639a1302b",
+    "controls/callbinding/root-array-role/formal/crypto/NativeKeccak.dfy": "935a6c3b0672990caeced7bdc6f49dc7845c623cc3ab2817fddcece1f8e448ba",
+    "controls/callbinding/root-extra-output/formal/crypto/NativeField.dfy": "a2132f6624936bf63e43e24ab7abe0874ed9a4c6f3cc8e84fd2c0f6e7bbf2403",
+    "controls/callbinding/root-signature-add/formal/crypto/NativeField.dfy": "1dd2b399e802907b85f127649e8aaa25197788020c83168b915622af39416ccc",
+    "controls/callbinding/root-unexpected-field/formal/crypto/NativeField.dfy": "038216e5b33eb45d4a2314bc5576a650ef39460ff4ad3003d6370a5122c341a3",
+    "controls/callbinding/root-wrong-ghost/formal/crypto/NativeField.dfy": "b38269b2263fb467b659b15052e8b4edeba5a025ffe250652993e5e9a5522a48",
+    "controls/root19.json": "d6f0a30447bec5c43bffa5ae183ac06a28f62b746e58a41b167cc5e37934cbb5",
+    "controls/root19/alloc-marked-public/crypto/NativeKeccak.dfy": "3a64a80e952e51c9bf85a977199e2620893f106a2cf7aa35b0835145b51ffc46",
+    "controls/root19/alloc-marked-secret/crypto/NativeKeccak.dfy": "9f9613ddd16deee05d2eb4d0f6203d0093e06866332cb12e46bf6fd775e0f6b6",
+    "controls/root19/alloc-unmarked/crypto/NativeKeccak.dfy": "0e155224569958c1b65a17591d8329fd04042c3653cde8218a35eb9f96d7db43",
+    "controls/root19/alloc-unmarked/source/SourceTraceBridge.dfy": "48aa2668c511d7c4ad05abece19684db283eed19a2b7ccd4d09550cbe490de9e",
+    "controls/root19/alloc-wrong-marker/crypto/NativeKeccak.dfy": "7fc9272d2a25c54a4bfa0c8cbfae55bb88452bcce0a0ebf392f1a06d823c654c",
+    "controls/root19/duplicate-root/crypto/NativeField.dfy": "de48e0d5c2b5af67b76701e2dce75c2220754b704198ffbe2af4bd3eb426fcdb",
+    "controls/root19/fake-rotate/crypto/NativeKeccak.dfy": "58e62808dd76353abeedc11185b71ed838d6ca650ae93212d75ee736b1938692",
+    "controls/root19/ghost-lemma-output/crypto/NativeField.dfy": "464dfcef6057bd1fbb8bcc6265648db345a7da424ae1791905d2785bfe98092f",
+    "controls/root19/helper-constant-arg/source/SourceTrace.dfy": "b7e3aa450d0bb588255fefe51588c6eaf5c0c277fe5d44afa8b3c696129b5729",
+    "controls/root19/helper-prefix/source/SourceTrace.dfy": "9cc6c87486bead12ae8aa300bd12ccdcd6b869b18d35cdf2be91d4fd973a9e3d",
+    "controls/root19/match-unmarked/crypto/NativeKeccak.dfy": "2995be40baf6fd53bc90c2a7fb8ce5f593dd0a911b19fc57cc1f3fb28fec0b98",
+    "controls/root19/rename-helper-formal/source/SourceTrace.dfy": "a4489f9ded757a8c4ad062cf9658673a52262855b9100743fa3db34c2b7ed19b",
+    "controls/root19/rename-public-formal/crypto/NativeKeccak.dfy": "fac0b637edb8a8f46eab5ad1538c54e2326cda03fbdfc3b7d014e0bc4aada47e",
+    "controls/root19/shadow-encoder/source/SourceTrace.dfy": "fca518c674ea47717bb3631c52bc6122b8f7936c2c20114f0708e0bd320741d8",
+    "controls/root19/shadow-marker-class/source/SourceTrace.dfy": "1d49038fa2e116baaa854477029aca669b55b8ab5b07cfc5788d0f0710f0e32f",
+    "controls/root19/shadow-rotate-class/crypto/NativeKeccak.dfy": "4d04dd73c3311d5b81773f2f7cccc0ed3ddd166a33e83b0737d7d766fe0974c4",
+    "controls/root19/statement-expression/crypto/NativeField.dfy": "f5ae190786fe4351880494ca6e2dcf85fd3ff824029898fab4633126fc84d465",
+    "controls/root19/wrong-branch-outcome/crypto/NativeKeccak.dfy": "0bb669e0c3d357a3a94be089d0a8d2a9efa8b59b1e7dc66323894c0239231a65",
+    "controls/root19/wrong-word-count/crypto/NativeKeccak.dfy": "c142182f4e4133efc6236a1bf8ceaa876ba564b3e90a639e134b98ea04f9aa6c",
+    "formal/crypto/ByteLanes.dfy": "ed2c5d10d054b50cdaf411dbfb7b45c3b822483fbbc1f6ef6f854d0f39747ed5",
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/MlKem.dfy": "f668827a7b891874a0cafd3e4686f544d3304da34d9356be4065d0ede8626152",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a",
+    "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+    "formal/crypto/NativePolynomial.dfy": "7236249023ce8e3554f295d0578dbb4ccbfe6b6434ff2cc0f05d82ac9c803cf8",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/NativeShake.dfy": "c3506178563e3f95fa0bf87da5240d123330c0b19099b2c3457cffbad0d3570a",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
+    "formal/crypto/kem_domain.dfy": "2e8fde5072cce86cbc68faf3e33744a23da2190b0b72e0d37696ddd6b30f40a5",
+    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+    "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+    "formal/crypto/native_polynomial_domain.dfy": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+    "formal/crypto/native_shake_domain.dfy": "7da40baa76faadada4efa0d51113bcc84f0dfba0f724a161c8d02d30d3774fbd",
+    "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9",
+    "formal/crypto/shake_domain.dfy": "15fdfd4eeed09bc8c3d87106e8a3a796e5f3159e1a80ee4023823762087b2897",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/source/AllTraceRoots.dfy": "8dd1aa97e4c35c4dd2e2f16f46d1f5741c99e10fe49934ab8dc3609c71a3c065",
+    "formal/source/NativeFieldTraceHarness.dfy": "fc2a2de5270c5f3f7fda7a801b20fa4c0822294d88509bffaf08388c487b6984",
+    "formal/source/NativeKeccakTraceHarness.dfy": "f9b70d4ebff6df77f156e6c80a18dbcd376ca2c5b1aef1eac89885f9c9aa7e32",
+    "formal/source/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "formal/source/RotateThetaTraceHarness.dfy": "4efb88e194a7848720a381e8872fab87270062c8b5eef9032371a9533b8d5687",
+    "formal/source/SourceTrace.dfy": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+    "formal/source/SourceTraceBridge.dfy": "bbf3c96ff52da922022e7f5d68d2c326a122b4e8909c3b9634e681795bb53931",
+    "formal/source/checker/NativeCanonicalEncoderPolicy.cs": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "formal/source/checker/SourceCoverage.cs": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+    "formal/source/checker/SourceCoverage.csproj": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+    "run.py": "a9ea276f3d92cfb630ce73233b4fcff5afd2085d407b4e4749931cfc220ab019",
+    "run_encoder_bridge.py": "8b57a4d0ea5c590f8d4b063a91afb60481bad9e50cb7c6368284ce66f0141a17",
+    "source-fixtures/formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "source-fixtures/formal/crypto/NativeKeccak.dfy": "793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a",
+    "source-fixtures/formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "source-fixtures/formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "source-fixtures/formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "source-fixtures/formal/source/AllTraceRoots.dfy": "8dd1aa97e4c35c4dd2e2f16f46d1f5741c99e10fe49934ab8dc3609c71a3c065",
+    "source-fixtures/formal/source/NativeFieldTraceHarness.dfy": "fc2a2de5270c5f3f7fda7a801b20fa4c0822294d88509bffaf08388c487b6984",
+    "source-fixtures/formal/source/NativeKeccakTraceHarness.dfy": "f9b70d4ebff6df77f156e6c80a18dbcd376ca2c5b1aef1eac89885f9c9aa7e32",
+    "source-fixtures/formal/source/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "source-fixtures/formal/source/RotateThetaTraceHarness.dfy": "4efb88e194a7848720a381e8872fab87270062c8b5eef9032371a9533b8d5687",
+    "source-fixtures/formal/source/SourceTrace.dfy": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+    "test_run.py": "bb3ae94cbf7a1445e9d5a7e1ac57f3ed14a2ce3e52fe25032492d3c848fb9256"
+  },
+  "pins_before": {
+    "controls/callbinding.json": "42767ad62a16f22c804b62b645e36eec298ceefa8295e4964a17ef29fdb6aee8",
+    "controls/callbinding/binding-unknown/formal/crypto/NativeField.dfy": "09b1aa53a3668049aeac4b71d42324a239149ba6817d881c3643c2085916d4df",
+    "controls/callbinding/block-boundary/formal/crypto/NativeField.dfy": "17862d5164cc1529bedb03cbfb46f3eeb9523897ac4fa116047529372f283291",
+    "controls/callbinding/call-child-interposed-marker/formal/crypto/NativeField.dfy": "659d62a120febdedd3cd640343131fa4943893495f6e73cbe695e9b6fbaad262",
+    "controls/callbinding/callee-before-call/formal/crypto/NativeField.dfy": "4595b2ed19c811df88ffad224a972fa6a523728e5ead52aeff5a94384445adad",
+    "controls/callbinding/delayed-callee/formal/crypto/NativeField.dfy": "e1b5c80e10e46f5cd20d75f511d39cdbeb23e6260903693cb1f30f458460c37a",
+    "controls/callbinding/interposed-op/formal/crypto/NativeField.dfy": "720afc57f93bfda2c2c5398239ec15e6c7c18de98237f12b709603149e2eac29",
+    "controls/callbinding/nested-callee/formal/crypto/NativeField.dfy": "79981875a7deced873c601776ab7217e1c4a1bc96414c8d147fa98eb1c0b6736",
+    "controls/callbinding/pure-call-delayed/formal/crypto/NativeKeccak.dfy": "ba3ac02e9dda88584501c1262a748dd3c2fefc7a6399e1811628decc121a3eb8",
+    "controls/callbinding/pure-call-forged-ghost-local/formal/crypto/NativeKeccak.dfy": "2ade0bfbf8e5a29915d8ab0e4ef79454871dc77f675ee7e7dc5b9a10ababd4fd",
+    "controls/callbinding/pure-call-inline-projection/formal/crypto/NativeKeccak.dfy": "256b6a11d0c22c9f4a82a2a8f5b85a7252c278a3a90fa6fc7d357909e584dd9e",
+    "controls/callbinding/pure-call-missing-child/formal/crypto/NativeKeccak.dfy": "06995c5759fe3029b90b3530d6b09dfb3a6b33a19784aa4cf4ce9ca5774df677",
+    "controls/callbinding/pure-call-no-call-marker/formal/crypto/NativeKeccak.dfy": "e8b498ab3abc3f9b303c804fcdef1ac1c46ad6d8cc4118180a962ac87e289b73",
+    "controls/callbinding/pure-call-second-inline/formal/crypto/NativeKeccak.dfy": "bd866d1538b1ca9e2fd248130c615b2aaaaa5fc9c0b0836cdd6bd9f56f61e2b0",
+    "controls/callbinding/pure-call-second-missing-child/formal/crypto/NativeKeccak.dfy": "4ca95a20bcbc5185f408a5739188a0f4abc5b893d4c8121816dadad97bc6aa17",
+    "controls/callbinding/pure-call-two-direct-accepted/formal/crypto/NativeKeccak.dfy": "e55dd8f4af407ffa45670251dd3a13a721ffb6f3b758e95ca51a85b5feff1f73",
+    "controls/callbinding/pure-rr-before-call/formal/crypto/NativeKeccak.dfy": "b9c6dad8ce4ede4ddd610d9eb51375f870b8bb507e8a1f0b24029d4fde3cf74b",
+    "controls/callbinding/root-array-rank/formal/crypto/NativeKeccak.dfy": "545dc9f6dcc52f7ba2c792c5f016f33011c4fa43786bbd240d86fd5639a1302b",
+    "controls/callbinding/root-array-role/formal/crypto/NativeKeccak.dfy": "935a6c3b0672990caeced7bdc6f49dc7845c623cc3ab2817fddcece1f8e448ba",
+    "controls/callbinding/root-extra-output/formal/crypto/NativeField.dfy": "a2132f6624936bf63e43e24ab7abe0874ed9a4c6f3cc8e84fd2c0f6e7bbf2403",
+    "controls/callbinding/root-signature-add/formal/crypto/NativeField.dfy": "1dd2b399e802907b85f127649e8aaa25197788020c83168b915622af39416ccc",
+    "controls/callbinding/root-unexpected-field/formal/crypto/NativeField.dfy": "038216e5b33eb45d4a2314bc5576a650ef39460ff4ad3003d6370a5122c341a3",
+    "controls/callbinding/root-wrong-ghost/formal/crypto/NativeField.dfy": "b38269b2263fb467b659b15052e8b4edeba5a025ffe250652993e5e9a5522a48",
+    "controls/root19.json": "d6f0a30447bec5c43bffa5ae183ac06a28f62b746e58a41b167cc5e37934cbb5",
+    "controls/root19/alloc-marked-public/crypto/NativeKeccak.dfy": "3a64a80e952e51c9bf85a977199e2620893f106a2cf7aa35b0835145b51ffc46",
+    "controls/root19/alloc-marked-secret/crypto/NativeKeccak.dfy": "9f9613ddd16deee05d2eb4d0f6203d0093e06866332cb12e46bf6fd775e0f6b6",
+    "controls/root19/alloc-unmarked/crypto/NativeKeccak.dfy": "0e155224569958c1b65a17591d8329fd04042c3653cde8218a35eb9f96d7db43",
+    "controls/root19/alloc-unmarked/source/SourceTraceBridge.dfy": "48aa2668c511d7c4ad05abece19684db283eed19a2b7ccd4d09550cbe490de9e",
+    "controls/root19/alloc-wrong-marker/crypto/NativeKeccak.dfy": "7fc9272d2a25c54a4bfa0c8cbfae55bb88452bcce0a0ebf392f1a06d823c654c",
+    "controls/root19/duplicate-root/crypto/NativeField.dfy": "de48e0d5c2b5af67b76701e2dce75c2220754b704198ffbe2af4bd3eb426fcdb",
+    "controls/root19/fake-rotate/crypto/NativeKeccak.dfy": "58e62808dd76353abeedc11185b71ed838d6ca650ae93212d75ee736b1938692",
+    "controls/root19/ghost-lemma-output/crypto/NativeField.dfy": "464dfcef6057bd1fbb8bcc6265648db345a7da424ae1791905d2785bfe98092f",
+    "controls/root19/helper-constant-arg/source/SourceTrace.dfy": "b7e3aa450d0bb588255fefe51588c6eaf5c0c277fe5d44afa8b3c696129b5729",
+    "controls/root19/helper-prefix/source/SourceTrace.dfy": "9cc6c87486bead12ae8aa300bd12ccdcd6b869b18d35cdf2be91d4fd973a9e3d",
+    "controls/root19/match-unmarked/crypto/NativeKeccak.dfy": "2995be40baf6fd53bc90c2a7fb8ce5f593dd0a911b19fc57cc1f3fb28fec0b98",
+    "controls/root19/rename-helper-formal/source/SourceTrace.dfy": "a4489f9ded757a8c4ad062cf9658673a52262855b9100743fa3db34c2b7ed19b",
+    "controls/root19/rename-public-formal/crypto/NativeKeccak.dfy": "fac0b637edb8a8f46eab5ad1538c54e2326cda03fbdfc3b7d014e0bc4aada47e",
+    "controls/root19/shadow-encoder/source/SourceTrace.dfy": "fca518c674ea47717bb3631c52bc6122b8f7936c2c20114f0708e0bd320741d8",
+    "controls/root19/shadow-marker-class/source/SourceTrace.dfy": "1d49038fa2e116baaa854477029aca669b55b8ab5b07cfc5788d0f0710f0e32f",
+    "controls/root19/shadow-rotate-class/crypto/NativeKeccak.dfy": "4d04dd73c3311d5b81773f2f7cccc0ed3ddd166a33e83b0737d7d766fe0974c4",
+    "controls/root19/statement-expression/crypto/NativeField.dfy": "f5ae190786fe4351880494ca6e2dcf85fd3ff824029898fab4633126fc84d465",
+    "controls/root19/wrong-branch-outcome/crypto/NativeKeccak.dfy": "0bb669e0c3d357a3a94be089d0a8d2a9efa8b59b1e7dc66323894c0239231a65",
+    "controls/root19/wrong-word-count/crypto/NativeKeccak.dfy": "c142182f4e4133efc6236a1bf8ceaa876ba564b3e90a639e134b98ea04f9aa6c",
+    "formal/crypto/ByteLanes.dfy": "ed2c5d10d054b50cdaf411dbfb7b45c3b822483fbbc1f6ef6f854d0f39747ed5",
+    "formal/crypto/Codec.dfy": "b81cfe9dadf088f0a607d33c8141547f9777ce45aafba0f437992cc2920a13b7",
+    "formal/crypto/JdkHash.dfy": "4f51bf56291558aaeb660e8a20d3d20eb1f3501513600e1c8c545c7147681e1f",
+    "formal/crypto/KemSpec.dfy": "9a2e5c7a51c9ccb96305918f4b267b86b3f2576d9ffafb2b51f6dab6bdd57530",
+    "formal/crypto/MlKem.dfy": "f668827a7b891874a0cafd3e4686f544d3304da34d9356be4065d0ede8626152",
+    "formal/crypto/NativeCodec.dfy": "b25e91ee96522883246518d550a6764af7c7f8d8e63c6a84c3b8e42c48bc20f8",
+    "formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "formal/crypto/NativeJdkHash.dfy": "464bd26200d43283d48fd9e8c8e810f0d5c59e949fad963aed57b0376f22a698",
+    "formal/crypto/NativeKeccak.dfy": "793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a",
+    "formal/crypto/NativeMlKem.dfy": "4dabda21e130be283ac2ab78e74414019a0f74dc04ea7ca92af361825898c2d8",
+    "formal/crypto/NativePolynomial.dfy": "7236249023ce8e3554f295d0578dbb4ccbfe6b6434ff2cc0f05d82ac9c803cf8",
+    "formal/crypto/NativeSampling.dfy": "c6c9eebfe84976295bb868ce7bdd7892833a6bb06f2d92336fe0b2a5dcbe8670",
+    "formal/crypto/NativeShake.dfy": "c3506178563e3f95fa0bf87da5240d123330c0b19099b2c3457cffbad0d3570a",
+    "formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "formal/crypto/Polynomial.dfy": "f41e27a7a8363342645271e24851252cc725090356b03b97abc59962a1d3e488",
+    "formal/crypto/Sampling.dfy": "431592b4f9651c32ac8fa2795f0b58af379bbd7ff57acd05f2e24543b278f415",
+    "formal/crypto/Shake.dfy": "a54546f728687a023cb4c6fc59473876ff3c126c3973bf7cc015666919dfead5",
+    "formal/crypto/SpongeSpec.dfy": "5ba379f203689db66cd1763acfedb11cc2b36e98e036de6edee8895909bfca68",
+    "formal/crypto/codec_domain.dfy": "ccab7f1189c27f9e5472a8b3eddd4655c0392baea1d13bfa1deff122edb8560c",
+    "formal/crypto/kem_domain.dfy": "2e8fde5072cce86cbc68faf3e33744a23da2190b0b72e0d37696ddd6b30f40a5",
+    "formal/crypto/native_codec_domain.dfy": "64ed991f7bf1e0702fa4220f722b8b5836bc6084c0e307ca69d37fcd1a2c030d",
+    "formal/crypto/native_kem_domain.dfy": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+    "formal/crypto/native_polynomial_domain.dfy": "9e823c908a52a68148fddd9fd1f2ca8e3a117f21fc565076bd3fe2109ce98810",
+    "formal/crypto/native_sampling_domain.dfy": "86a51509058bc60f52a1a22d1a8c882cb917e833771cd7d03758981a7fab1282",
+    "formal/crypto/native_shake_domain.dfy": "7da40baa76faadada4efa0d51113bcc84f0dfba0f724a161c8d02d30d3774fbd",
+    "formal/crypto/sampling_domain.dfy": "51fe2bb8828e36e8b583af54edfe72a429787298d08116b7e3754337b95edda9",
+    "formal/crypto/shake_domain.dfy": "15fdfd4eeed09bc8c3d87106e8a3a796e5f3159e1a80ee4023823762087b2897",
+    "formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "formal/source/AllTraceRoots.dfy": "8dd1aa97e4c35c4dd2e2f16f46d1f5741c99e10fe49934ab8dc3609c71a3c065",
+    "formal/source/NativeFieldTraceHarness.dfy": "fc2a2de5270c5f3f7fda7a801b20fa4c0822294d88509bffaf08388c487b6984",
+    "formal/source/NativeKeccakTraceHarness.dfy": "f9b70d4ebff6df77f156e6c80a18dbcd376ca2c5b1aef1eac89885f9c9aa7e32",
+    "formal/source/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "formal/source/RotateThetaTraceHarness.dfy": "4efb88e194a7848720a381e8872fab87270062c8b5eef9032371a9533b8d5687",
+    "formal/source/SourceTrace.dfy": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+    "formal/source/SourceTraceBridge.dfy": "bbf3c96ff52da922022e7f5d68d2c326a122b4e8909c3b9634e681795bb53931",
+    "formal/source/checker/NativeCanonicalEncoderPolicy.cs": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "formal/source/checker/SourceCoverage.cs": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+    "formal/source/checker/SourceCoverage.csproj": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+    "run.py": "a9ea276f3d92cfb630ce73233b4fcff5afd2085d407b4e4749931cfc220ab019",
+    "run_encoder_bridge.py": "8b57a4d0ea5c590f8d4b063a91afb60481bad9e50cb7c6368284ce66f0141a17",
+    "source-fixtures/formal/crypto/NativeField.dfy": "f79048a6fff675ece336bd3a30999ad17133db9ce303852b6c26fe3c93b4c17f",
+    "source-fixtures/formal/crypto/NativeKeccak.dfy": "793118a4dc3e5313ba49bf519631652c0e721506822eca154db3468de0a8d66a",
+    "source-fixtures/formal/crypto/NativeTypes.dfy": "6346b11c10fc757a51cf841bf18da50c1abfbdc9e6285e290abf3f46ce0f3e1e",
+    "source-fixtures/formal/primitives/Field.dfy": "b9acd42686a1cb4ddae4930b95286f7e6784d422c461b6c04190e9e1135544de",
+    "source-fixtures/formal/primitives/Keccak.dfy": "b7fffa59afb7242676c5cf957a9c82426aa308601f89edf6b629def6ef26662c",
+    "source-fixtures/formal/source/AllTraceRoots.dfy": "8dd1aa97e4c35c4dd2e2f16f46d1f5741c99e10fe49934ab8dc3609c71a3c065",
+    "source-fixtures/formal/source/NativeFieldTraceHarness.dfy": "fc2a2de5270c5f3f7fda7a801b20fa4c0822294d88509bffaf08388c487b6984",
+    "source-fixtures/formal/source/NativeKeccakTraceHarness.dfy": "f9b70d4ebff6df77f156e6c80a18dbcd376ca2c5b1aef1eac89885f9c9aa7e32",
+    "source-fixtures/formal/source/ObservationVocabulary.dfy": "4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5",
+    "source-fixtures/formal/source/RotateThetaTraceHarness.dfy": "4efb88e194a7848720a381e8872fab87270062c8b5eef9032371a9533b8d5687",
+    "source-fixtures/formal/source/SourceTrace.dfy": "f5608a026a0f12e1de4d9a07f8e108bb773586101d82f6570dd4a187dcf2cd6c",
+    "test_run.py": "bb3ae94cbf7a1445e9d5a7e1ac57f3ed14a2ce3e52fe25032492d3c848fb9256"
+  },
+  "plugin_sha256": "2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67",
+  "root19": {
+    "alloc-marked-public": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported allocation in current native root grammar"
+    },
+    "alloc-marked-secret": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported allocation in current native root grammar"
+    },
+    "alloc-unmarked": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported allocation in current native root grammar"
+    },
+    "alloc-wrong-marker": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported allocation in current native root grammar"
+    },
+    "duplicate-root": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "reserved native root outside exact default declaration"
+    },
+    "fake-rotate": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "Rotate actual trace must begin with its actual branch outcome"
+    },
+    "ghost-lemma-output": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "ghost/lemma call output binding is unsupported"
+    },
+    "helper-constant-arg": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "marker helper changes or reorders positional formal"
+    },
+    "helper-prefix": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "marker helper is not exact canonical"
+    },
+    "match-unmarked": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported"
+    },
+    "rename-helper-formal": {
+      "exit": 0,
+      "status": "SOURCE-COVERAGE OK"
+    },
+    "rename-public-formal": {
+      "exit": 0,
+      "status": "SOURCE-COVERAGE OK"
+    },
+    "shadow-encoder": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "marker helper is not exact canonical"
+    },
+    "shadow-marker-class": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "reserved marker outside exact SourceTrace default ghost function"
+    },
+    "shadow-rotate-class": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "reserved native root outside exact default declaration"
+    },
+    "statement-expression": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "unsupported statement expression in native binding grammar"
+    },
+    "wrong-branch-outcome": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "Rotate actual trace must begin with its actual branch outcome"
+    },
+    "wrong-word-count": {
+      "classification": "named-checker-rejection",
+      "exit": 2,
+      "needle": "Rotate operation observation does not match actual executable count"
+    }
+  },
+  "status": "complete"
+}

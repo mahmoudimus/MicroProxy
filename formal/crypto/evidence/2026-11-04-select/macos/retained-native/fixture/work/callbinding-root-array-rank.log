@@ -1,0 +1,6 @@
+work/controls/callbinding-root-array-rank/formal/crypto/NativeKeccak.dfy(411,14): Error: NativeKeccak.Wipe: input 0 expected array<bv64>, found array-rank-2
+    |
+411 |   method Wipe(a: array2<bv64>) returns (ghost trace: seq<int>)
+    |               ^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

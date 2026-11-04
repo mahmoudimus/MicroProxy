@@ -1,0 +1,4 @@
+CASE-CONTEXT case=audit-ObservationVocabulary.dfy operand_sha256=4c4b9557ecccb92ee30f706287f984b541b6075e0998dc6077a6d5e01b3f9df5 argv=["/Users/mahmoud/.cache/microproxy-formal/dafny-4.9.1-macos-arm64/dafny/dafny","audit","/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/frozen-source-b1ce4b85/candidate/formal/source/vocabulary/ObservationVocabulary.dfy"] cwd=/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/source-assurance-delivery/frozen-source-b1ce4b85/candidate/formal/source/vocabulary
+Dafny auditor completed with 0 findings
+
+Dafny program verifier did not attempt verification

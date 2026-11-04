@@ -1,0 +1,21 @@
+work/controls/callbinding-nested-callee/formal/crypto/NativeField.dfy(95,12): Error: Add: callee trace append is not the first trace update immediately after its defining call
+   |
+95 |       trace := trace + ST.Call(1,1,1) + callee;
+   |             ^^
+
+work/controls/callbinding-nested-callee/formal/crypto/NativeField.dfy(95,26): Error: marker is outside the executable block of call to exact NativeField._default.ReduceOnce/1
+   |
+95 |       trace := trace + ST.Call(1,1,1) + callee;
+   |                           ^^^^
+
+work/controls/callbinding-nested-callee/formal/crypto/NativeField.dfy(95,26): Error: expected exact SourceTrace.Branch for branch guard r >= 0, found Call
+   |
+95 |       trace := trace + ST.Call(1,1,1) + callee;
+   |                           ^^^^
+
+work/controls/callbinding-nested-callee/formal/crypto/NativeField.dfy(95,26): Error: Add: stale observation Call
+   |
+95 |       trace := trace + ST.Call(1,1,1) + callee;
+   |                           ^^^^
+
+4 resolution/type errors detected in AllTraceRoots.dfy

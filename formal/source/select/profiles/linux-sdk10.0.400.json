@@ -1,0 +1,43 @@
+{
+  "boogie": {
+    "Boogie.AbstractInterpretation.dll": "fee53cc5342956c2781f0f943daf138ccc01fad1c894afc7ea7badc2cf26c4c0",
+    "Boogie.BaseTypes.dll": "616ccbebac3356c355b071da726a70fddf5accae83d4ebd0bef6961857bb9fc4",
+    "Boogie.CodeContractsExtender.dll": "e6af87468977d66316ed71f7f0416e2055693c8e1f2245d7d0ec074549ce64e5",
+    "Boogie.Concurrency.dll": "d247773d3bea314cdc0c26dd51e38218690d5ea087998a10d5fe1208973780cf",
+    "Boogie.Core.dll": "203b35b9a0d3e433fdfc7168aba127686747a255b7232e3881e8e635048edc54",
+    "Boogie.ExecutionEngine.dll": "9ec402b6e3df3a0ebd2cc24137110e71a60394a3d2ab94dbfd89bb74ed2f90c7",
+    "Boogie.Graph.dll": "9e1622591705ca31ee5df45b14ee755c40146ce12b68a3c334c8494220f1dd14",
+    "Boogie.Houdini.dll": "53c7ce64641d708b109db719f661b019fa4544cac34d0b4d26e74aea1ba01468",
+    "Boogie.Model.dll": "3dc53a8e24603277ff1b7aa4db85aabebdb833e66d52b1a05267c13de2834750",
+    "Boogie.Provers.LeanAuto.dll": "f18141a2567096b3ec3e7928811d73794c8476ab5db6a2e906f7e3fc5b88f4cc",
+    "Boogie.Provers.SMTLib.dll": "568d6e7d8c48126d0a16a9b4d2ace3d7c05e13a70a4a71b19494cfcec56ac229",
+    "Boogie.VCExpr.dll": "9c83d81e438709ef0cdc9626f4c8b825bed47662201288f67a7ab2ba2a3b643b",
+    "Boogie.VCGeneration.dll": "6e5ee7e763b98eb09406d36ef066df1f1b177f4199a11e5b312581830e536f74"
+  },
+  "checker_dll_expected_sha256": "2785f06aef69011784a64f7cf5cfbeded0c3722760d9ca4317778b12e932cd67",
+  "dafny_core_sha256": "93ae2dee38743e358c7824d8912ac59b86f4228dd1889b00b999b3f441c44088",
+  "dafny_sha256": "7f6353ce7f97016f199bff1bd04a77a220b9670a1aff3cd100e7c073baba08ea",
+  "dafny_version": "4.9.1+452c307284e1511e5c2d10b9615f4c9c15f010e2",
+  "dotnet_launcher_sha256": "0a5ec28e49da2c0be91ff3fc8fff53c250c9bbd92b25d3b9bfc5721adba96a0c",
+  "dotnet_sdk": "10.0.400",
+  "jdk21_tools": {
+    "bin/java": "9cad3f2620d3ef2ed10b26f922af7e773d54fdaa05f615d6d6df014f3fec4155",
+    "bin/javac": "2cc288a26beebc50ca7cd924847dffbfb38ef3314e105bba6d4ebce03a0bcb6b",
+    "bin/javap": "b2146e8dcfe5662c04d14f3fad68756a1a597d01461ca475a2cdbeb44c84a678",
+    "lib/modules": "a5fd7c311fbd96adcbd43757dbb94461e14df353b6ae9f5c029c45805a39782c",
+    "release": "f83f6dcc966043c93cd498ac8e7ee7c310852074970d62c702e4ad2710002898"
+  },
+  "jdk21_version": "21.0.13",
+  "jdk25_tools": {
+    "bin/java": "1bf1aaef01e4f8d7c85d913c60fb2ee4624cbe54d4053254c59657b7ea913b25",
+    "bin/javac": "269e2dff1d0b1c34e2ea0a801b5456aaf19024ed3542f947b995fc3ec36a5ca9",
+    "bin/javap": "ca8946288ae35eaa6afa1f32c671ba2ac8b5df854b41933d1436575dac2446d0",
+    "lib/modules": "f5463cffa81c51b3c13f57e2c23eacceab2b12e842069acf2facd5485f63bc85",
+    "release": "8545053a54a73969a65db2c8157f40f89bcdcf7526ae90a7ce9b3061c01bc34a"
+  },
+  "jdk25_version": "25.0.5",
+  "platform": "linux-x64",
+  "runtime_sha256": "dc62d34579572da104eda5ab812cf1aae8b1eae7bb952ce260a12b3c7c458ce6",
+  "schema": "microproxy.select-tool-profile/2",
+  "z3_sha256": "0a91d88420f7946833ca1efd51d4cf4fa658ce91aad18c02138dfd9ee703e54a"
+}

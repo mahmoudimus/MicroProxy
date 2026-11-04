@@ -1,0 +1,620 @@
+{
+  "files": {
+    "COLLECTION-PROVENANCE.json": {
+      "bytes": 4664,
+      "kind": "derived curation metadata",
+      "sha256": "e2c08cdfc995a49ebfd9c4e50727ce9aee4e5cc811250931fdbce9cab624bfb8"
+    },
+    "derived-codegen-maps/classes-base-jdk21.sha256": {
+      "bytes": 9716,
+      "kind": "derived curation metadata",
+      "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263"
+    },
+    "derived-codegen-maps/classes-base-jdk25.sha256": {
+      "bytes": 9716,
+      "kind": "derived curation metadata",
+      "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5"
+    },
+    "derived-codegen-maps/classes-overlay-jdk21.sha256": {
+      "bytes": 9716,
+      "kind": "derived curation metadata",
+      "sha256": "ee894ab070a3f39e0df9e3418e463ba4e340daa3b179406746d117beff6b6263"
+    },
+    "derived-codegen-maps/classes-overlay-jdk25.sha256": {
+      "bytes": 9716,
+      "kind": "derived curation metadata",
+      "sha256": "ecdfcc87f61074c88002d0d3e6d1f4c5ac15dd1d91f7de98f991013875770bd5"
+    },
+    "derived-codegen-maps/java-base.sha256": {
+      "bytes": 9651,
+      "kind": "derived curation metadata",
+      "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9"
+    },
+    "derived-codegen-maps/java-overlay.sha256": {
+      "bytes": 9651,
+      "kind": "derived curation metadata",
+      "sha256": "4217b981ea4bb4800c9da16b17846a3669c47f7b104c4f8918c0f7f82b70afb9"
+    },
+    "logs/audit/ObservationVocabulary.dfy.log": {
+      "bytes": 666,
+      "kind": "unchanged actual output",
+      "sha256": "3b6364278e00ded5fada16415142e19e5c26d4921df90b4bc592eaa0edd39b1d"
+    },
+    "logs/audit/SourceTrace.dfy.log": {
+      "bytes": 624,
+      "kind": "unchanged actual output",
+      "sha256": "90d895252a58b1f95b302ad23de9b4ad1449b2dec79bad72d26f872231846249"
+    },
+    "logs/audit/SourceTraceBridge.dfy.log": {
+      "bytes": 664,
+      "kind": "unchanged actual output",
+      "sha256": "d38c98bb71f2115d1ea6ea8e880a65878f65e85c757d6869cbc91d2416be0a31"
+    },
+    "logs/checker-build.log": {
+      "bytes": 76,
+      "kind": "unchanged actual output",
+      "sha256": "9e43a389132cc67e417023089e4310ba6a2144a3f7841f456b0606afbb6f74ad"
+    },
+    "logs/codegen/base-translate.log": {
+      "bytes": 53,
+      "kind": "unchanged actual output",
+      "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54"
+    },
+    "logs/codegen/overlay-translate.log": {
+      "bytes": 53,
+      "kind": "unchanged actual output",
+      "sha256": "538eedd440944ed8acccf1fbb3ceb0715055debd1a7b13336f6fb7a5d566bd54"
+    },
+    "logs/controls/coverage-private-loop-bound.log": {
+      "bytes": 1071,
+      "kind": "unchanged actual output",
+      "sha256": "392e030157f00bfb77c254d28833e4faffbd8aa5ea4a963994a853138219e27e"
+    },
+    "logs/controls/neg-block-wrap-alloc.log": {
+      "bytes": 2607,
+      "kind": "unchanged actual output",
+      "sha256": "17ade2dd3110a5b79310a99d4edc17df5b49ba631acb2530bbc7cfaf6c2e68b7"
+    },
+    "logs/controls/neg-conditional-alloc.log": {
+      "bytes": 2610,
+      "kind": "unchanged actual output",
+      "sha256": "8367833867dd38ca4235016ed2d86418b721f388f8864c94b8cd689bcaaa6985"
+    },
+    "logs/controls/neg-loop-alloc.log": {
+      "bytes": 2835,
+      "kind": "unchanged actual output",
+      "sha256": "c77a3fbd91c63714da2bdb9a8af4c5920313dc78ed1485c80e3afcc121dedd96"
+    },
+    "logs/controls/neg-private-branch-after-alloc.log": {
+      "bytes": 3222,
+      "kind": "unchanged actual output",
+      "sha256": "0f9c88b3884f3092c2b5e5888236686e1ce72316f61f3939d4f7e96d4d4134b0"
+    },
+    "logs/controls/neg-private-callee.log": {
+      "bytes": 2801,
+      "kind": "unchanged actual output",
+      "sha256": "69744092eda1245ac32ac9ade0f075ed5f8009f91ce11aa92b0fcaef178a6ec2"
+    },
+    "logs/controls/neg-private-init-read.log": {
+      "bytes": 2789,
+      "kind": "unchanged actual output",
+      "sha256": "82b84515d945bdf95a9eca96d999732b14c851769d22a967bc4fbbdeb455339f"
+    },
+    "logs/controls/neg-private-read-after-alloc.log": {
+      "bytes": 2700,
+      "kind": "unchanged actual output",
+      "sha256": "4652705bf0468b9761c97f3a513b9a5bade9676f1b22268ab3e3b568ce2fd961"
+    },
+    "logs/controls/neg-private-read-before-alloc.log": {
+      "bytes": 1225,
+      "kind": "unchanged actual output",
+      "sha256": "7d479a70de95655c5cc7e27e414ff61b7fb8ed93fed45aaaebd97712299522ee"
+    },
+    "logs/controls/neg-public-branch-after-alloc.log": {
+      "bytes": 2953,
+      "kind": "unchanged actual output",
+      "sha256": "eae7fe7095b79ca8ba033f1daf91860a1a0c7edda78ad7712a2d8eb611e6d301"
+    },
+    "logs/controls/neg-second-alloc.log": {
+      "bytes": 1523,
+      "kind": "unchanged actual output",
+      "sha256": "9452b267164a279dbe41c9835c39089b736b20627e07f38f9ab47b1f9ec9c8df"
+    },
+    "logs/controls/neg-secret-init-condition.log": {
+      "bytes": 2845,
+      "kind": "unchanged actual output",
+      "sha256": "539427e6c7294011f1ffba7c1fc27eeffccbf44586dbf10b6827b737d4f00d7f"
+    },
+    "logs/controls/neg-select-calls-rotate.log": {
+      "bytes": 1166,
+      "kind": "unchanged actual output",
+      "sha256": "344e5344abe02e6a321df42d9c2864034abe6245acd508c6017a5611de85bbb2"
+    },
+    "logs/controls/neg-shadow-select.log": {
+      "bytes": 1188,
+      "kind": "unchanged actual output",
+      "sha256": "c45bde39a392bf916d2b67722b0ea6048b8696d3479272d981505a7f42ffad06"
+    },
+    "logs/controls/neg-trace-reset-in-loop.log": {
+      "bytes": 1730,
+      "kind": "unchanged actual output",
+      "sha256": "db9ea6d19dbb0f2955a08fc49fb4f05103351d7e1cd79b668fae54ee29f4a66a"
+    },
+    "logs/controls/neg-unmarked-alloc.log": {
+      "bytes": 2446,
+      "kind": "unchanged actual output",
+      "sha256": "b38a5793726031528da451ee040f401e2b4de9e740c70d73d8a9ae3e237416d1"
+    },
+    "logs/controls/neg-unmarked-private-loop-bound.log": {
+      "bytes": 3385,
+      "kind": "unchanged actual output",
+      "sha256": "51b25ed8edc41b29c40a6b2e24603314c256b70c6c91a43248327e8ad224f63c"
+    },
+    "logs/controls/neg-wrong-alloc-site.log": {
+      "bytes": 2524,
+      "kind": "unchanged actual output",
+      "sha256": "4f0afa0111d0bcf90c9a28681efb07971221fe13ecd2373d0542f06fbd4b4f33"
+    },
+    "logs/controls/neg-wrong-alloc-size.log": {
+      "bytes": 2524,
+      "kind": "unchanged actual output",
+      "sha256": "580fa3cec189acecd2df269d41af68e2202bc4754e33a352367bcb9e8d493969"
+    },
+    "logs/controls/neg-wrong-initializer.log": {
+      "bytes": 2769,
+      "kind": "unchanged actual output",
+      "sha256": "aff77661328226c1803435c2faf07b4cc9e6c9c3f14ee2b61083f250ade7dab1"
+    },
+    "logs/controls/neg-wrong-result-identity.log": {
+      "bytes": 2775,
+      "kind": "unchanged actual output",
+      "sha256": "ba9404441571e16127c6a3d3db34a1ac5a1a260c91322807ebc4b33679c0c535"
+    },
+    "logs/controls/neg-wrong-size.log": {
+      "bytes": 2712,
+      "kind": "unchanged actual output",
+      "sha256": "f584ef715f9302b6e075195b4cac7375479084aef573626294fe6d7903d68ed9"
+    },
+    "logs/controls/observed-checker.log": {
+      "bytes": 1014,
+      "kind": "unchanged actual output",
+      "sha256": "0bffb0af3a1df46ed053677e03a1a7bcf3e3d333eb5491a53a866f3b40a50380"
+    },
+    "logs/controls/positive-actual.log": {
+      "bytes": 1035,
+      "kind": "unchanged actual output",
+      "sha256": "61d3cb688732dcf0f6d5e0f52204d1bd7e3348a496983599766c0b895bc2c50a"
+    },
+    "logs/controls/positive-alpha-out.log": {
+      "bytes": 1044,
+      "kind": "unchanged actual output",
+      "sha256": "8f90f67f5b74d04c478f59d122c2d52112519dd89820a98058ec2a17cbad6ec2"
+    },
+    "logs/controls/positive-zero-init.log": {
+      "bytes": 1044,
+      "kind": "unchanged actual output",
+      "sha256": "f653b3fcfa776a6eef6c9ef7a4f8990dc158e7ae3e983109f8fc0bbf5a4c8b62"
+    },
+    "logs/dafny/constant-branch-bridge.log": {
+      "bytes": 1658,
+      "kind": "unchanged actual output",
+      "sha256": "a6d0401054311ab31f3407f540c4dfdb8fef5339bb71498f3fe9ba68a159da33"
+    },
+    "logs/dafny/f2-private-loop-bound-full.log": {
+      "bytes": 1088,
+      "kind": "unchanged actual output",
+      "sha256": "182950be515de88f5f22ff0278a06076255aa533df0a4baaa64293b444a0f255"
+    },
+    "logs/dafny/full-native-mlkem.log": {
+      "bytes": 735,
+      "kind": "unchanged actual output",
+      "sha256": "ad3f73d0ccab772d099d65e36f0f3decab0c74c6eeb9b6e4ea15375307275b5e"
+    },
+    "logs/dafny/observed-mutant-harness.log": {
+      "bytes": 888,
+      "kind": "unchanged actual output",
+      "sha256": "f9da0593caac326c57baceb686267cf765012a8cf1e756601a5ffe1cc6e1efc0"
+    },
+    "logs/dafny/observed-mutant-method.log": {
+      "bytes": 726,
+      "kind": "unchanged actual output",
+      "sha256": "229f8def9dc63eed89a639faa9fa177e273af0a5f1126d901d81fc422e236332"
+    },
+    "logs/dafny/proof-observation-vocabulary.log": {
+      "bytes": 776,
+      "kind": "unchanged actual output",
+      "sha256": "0a763f510ae553732f03573fd89dbdde3d523442f109f8854ada516b42050c38"
+    },
+    "logs/dafny/proof-source-trace-bridge.log": {
+      "bytes": 801,
+      "kind": "unchanged actual output",
+      "sha256": "98d9ffeef2e60c10c14e036e3e76ba584c1bcf53eee8188d8aff93c5abbc727f"
+    },
+    "logs/dafny/proof-source-trace.log": {
+      "bytes": 734,
+      "kind": "unchanged actual output",
+      "sha256": "c2ce1b403ca846f8b3eba5cb6108e388fa5af1f7c0584e381e849a0ee9171804"
+    },
+    "logs/dafny/select-harness.log": {
+      "bytes": 766,
+      "kind": "unchanged actual output",
+      "sha256": "d5b3052cd6ec3f35e4c27235fd10f34ff3804ecac89962506c99040d23f6a58e"
+    },
+    "logs/encoder/address-loss.log": {
+      "bytes": 1567,
+      "kind": "unchanged actual output",
+      "sha256": "6c9f801b9c960ed7a03d318abad0372ff5733d6b7162881e5f6daac5c21ce5cb"
+    },
+    "logs/encoder/alpha-case-formals.log": {
+      "bytes": 1278,
+      "kind": "unchanged actual output",
+      "sha256": "6cf442e5502797aed96b229900c145a8b27278a510e3e0efbd2a50a099339023"
+    },
+    "logs/encoder/boolean-flip.log": {
+      "bytes": 1562,
+      "kind": "unchanged actual output",
+      "sha256": "f20abde3e36076274291df80c4261d482fcd40137b38bfde90d89d54d8b969b0"
+    },
+    "logs/encoder/branch-tag.log": {
+      "bytes": 1509,
+      "kind": "unchanged actual output",
+      "sha256": "d36fadcdf6bcf66d72319fb03069229bf127c64d0b0691c38660998a576a0c47"
+    },
+    "logs/encoder/encoder-body-constant4.log": {
+      "bytes": 1577,
+      "kind": "unchanged actual output",
+      "sha256": "f7a913f13472475b6e7d805dfd23111533bb4a9b58e400a67a2403ae9b7122b8"
+    },
+    "logs/encoder/encoder-body-empty.log": {
+      "bytes": 1554,
+      "kind": "unchanged actual output",
+      "sha256": "1aea35dcd3cdf1b23537ad8e9769846ee6ae5f70fb44c4beac53e91cd23956ad"
+    },
+    "logs/encoder/encoder-body-tag4.log": {
+      "bytes": 1565,
+      "kind": "unchanged actual output",
+      "sha256": "f07582ce8c82e9e2c9efc9713b98f088fe04afd2cccc8988b5ceaffb79518a86"
+    },
+    "logs/encoder/ops-reordered.log": {
+      "bytes": 1955,
+      "kind": "unchanged actual output",
+      "sha256": "332ac8811a56e9f5e6bca1a0937446b6c58f4f24abe473183ba30f4989989bd0"
+    },
+    "logs/retained-native/run.log": {
+      "bytes": 527,
+      "kind": "unchanged actual output",
+      "sha256": "0774f20ecccd30060f631f8f19962c9a02701c7c6492f4e616cf2e497ed6a310"
+    },
+    "package-report.json": {
+      "bytes": 171880,
+      "kind": "unchanged actual output",
+      "sha256": "a54f702df2c047ba078e5466e804c5ce5c6f482962c52f057736a7dc4e66c220"
+    },
+    "retained-native/fixture/report.json": {
+      "bytes": 35080,
+      "kind": "unchanged actual output",
+      "sha256": "fb6d212aed3766738f7aa02cb1c57d1b2ccbb95e6dc52c9c3a325b995bf31d2a"
+    },
+    "retained-native/fixture/work/baseline13.log": {
+      "bytes": 357,
+      "kind": "unchanged actual output",
+      "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f"
+    },
+    "retained-native/fixture/work/build.log": {
+      "bytes": 76,
+      "kind": "unchanged actual output",
+      "sha256": "3a7f60441552751cbaa8ee18dc41760398867543960cdb7cf2f17157178a55a3"
+    },
+    "retained-native/fixture/work/callbinding-binding-unknown.log": {
+      "bytes": 595,
+      "kind": "unchanged actual output",
+      "sha256": "6ae4843e297314aecea721b8e9487c234412625d6e3f6bca84869abf4f8485f6"
+    },
+    "retained-native/fixture/work/callbinding-block-boundary.log": {
+      "bytes": 744,
+      "kind": "unchanged actual output",
+      "sha256": "81bbc11bdbd73584ee39e9f087a6f9b566b435ec574c6234b209676d2cb80320"
+    },
+    "retained-native/fixture/work/callbinding-call-child-interposed-marker-verify.log": {
+      "bytes": 60,
+      "kind": "unchanged actual output",
+      "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+    },
+    "retained-native/fixture/work/callbinding-call-child-interposed-marker.log": {
+      "bytes": 620,
+      "kind": "unchanged actual output",
+      "sha256": "7607a750a995112fbf67585eabb48a3d3cd7346c1387ecc97e7e40f4151e5a13"
+    },
+    "retained-native/fixture/work/callbinding-callee-before-call-verify.log": {
+      "bytes": 60,
+      "kind": "unchanged actual output",
+      "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+    },
+    "retained-native/fixture/work/callbinding-callee-before-call.log": {
+      "bytes": 328,
+      "kind": "unchanged actual output",
+      "sha256": "bf68a33fe6d5cbd98810e71491ec5b950a565d7811c88776ed1a01fa5153e508"
+    },
+    "retained-native/fixture/work/callbinding-delayed-callee-verify.log": {
+      "bytes": 60,
+      "kind": "unchanged actual output",
+      "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+    },
+    "retained-native/fixture/work/callbinding-delayed-callee.log": {
+      "bytes": 596,
+      "kind": "unchanged actual output",
+      "sha256": "5bbcabd5b1a698ec891d2e54d4e72331fef8696c8a14668addaa28338014a764"
+    },
+    "retained-native/fixture/work/callbinding-interposed-op.log": {
+      "bytes": 741,
+      "kind": "unchanged actual output",
+      "sha256": "dbda17344c39189a5735ca44694158081fcd3be0941a079f640aae8093ec07af"
+    },
+    "retained-native/fixture/work/callbinding-nested-callee.log": {
+      "bytes": 1038,
+      "kind": "unchanged actual output",
+      "sha256": "5ffd7da1c89ae9b44378b66c797c5c42e3db02aeb613164ad3c6ecbf59ca7414"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-delayed.log": {
+      "bytes": 2050,
+      "kind": "unchanged actual output",
+      "sha256": "47749737e6f0f2aeeafdf8d11924cb6436e28f8b5f49c14bf93de45e5e112194"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-forged-ghost-local-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-forged-ghost-local.log": {
+      "bytes": 704,
+      "kind": "unchanged actual output",
+      "sha256": "c83d89b0fccbf1775012dab3cdaa65b93122e7f831f97dfc81aac0e135fd15c5"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-inline-projection-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-inline-projection-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-inline-projection.log": {
+      "bytes": 1889,
+      "kind": "unchanged actual output",
+      "sha256": "f75b3dc03319bf8b7d6c737232db01a2e3cc86f84fdd5a20d1a02b0d106d05c2"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-missing-child-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-missing-child-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-missing-child.log": {
+      "bytes": 419,
+      "kind": "unchanged actual output",
+      "sha256": "4825a65f7bf5b739db99c3f76b0b7c414b990fc97c572eff58ad99772f700b88"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-no-call-marker.log": {
+      "bytes": 588,
+      "kind": "unchanged actual output",
+      "sha256": "b0b27ce1131a62b6acab2f618c359cbf1d3949d846365c39d9137a1fb3fe48c2"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-inline-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-inline-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-inline.log": {
+      "bytes": 1849,
+      "kind": "unchanged actual output",
+      "sha256": "9a12cb30c224818486f27a8981f0eaf9953d314b10ab69bf5a7f1ba4fb850339"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-missing-child-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-missing-child-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-second-missing-child.log": {
+      "bytes": 426,
+      "kind": "unchanged actual output",
+      "sha256": "d44135c3033834dc46f09267c14d0341136985d379e7b0a73c0cb597a3d1c25d"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "7a29bb757ed754ff72a6e6506c380f82dcebbf1a6e7b72aa6bcb5cf4b65807ba"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-two-direct-accepted-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "3239dd8cf2d3cad37aa4643930a0223b80d6beda830fd718fba6ccd7714bb378"
+    },
+    "retained-native/fixture/work/callbinding-pure-call-two-direct-accepted.log": {
+      "bytes": 357,
+      "kind": "unchanged actual output",
+      "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f"
+    },
+    "retained-native/fixture/work/callbinding-pure-rr-before-call-harness-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "a92e4c7f32d2af770c2c85906fc68835af9d3e083cc1b5857ee35ae7c7970261"
+    },
+    "retained-native/fixture/work/callbinding-pure-rr-before-call-nativekeccak-verify.log": {
+      "bytes": 61,
+      "kind": "unchanged actual output",
+      "sha256": "85b4f7b2af99fd2491a592955d717692936624c9eff211bda06bbb36daa37e60"
+    },
+    "retained-native/fixture/work/callbinding-pure-rr-before-call.log": {
+      "bytes": 344,
+      "kind": "unchanged actual output",
+      "sha256": "9fa2692a6842ad19fb4da06c4cb7c443aadd7b93aaccb799789947f04c8b7d3b"
+    },
+    "retained-native/fixture/work/callbinding-root-array-rank.log": {
+      "bytes": 310,
+      "kind": "unchanged actual output",
+      "sha256": "11ac31d9b3d1a3b8c8492455ff45ddb3ee1ffff1e197c3f21c32eec20bebbed9"
+    },
+    "retained-native/fixture/work/callbinding-root-array-role.log": {
+      "bytes": 311,
+      "kind": "unchanged actual output",
+      "sha256": "d483f45d534382b94b05754f8dd06ebc873a8cb70cd45374374b15e3d298d4e8"
+    },
+    "retained-native/fixture/work/callbinding-root-extra-output.log": {
+      "bytes": 305,
+      "kind": "unchanged actual output",
+      "sha256": "4d1033dcc2d0ad13067a3d751770a35183207eb0ba1c39b8501b181b875c47a2"
+    },
+    "retained-native/fixture/work/callbinding-root-signature-add-verify.log": {
+      "bytes": 60,
+      "kind": "unchanged actual output",
+      "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+    },
+    "retained-native/fixture/work/callbinding-root-signature-add.log": {
+      "bytes": 305,
+      "kind": "unchanged actual output",
+      "sha256": "a8ce3086c50ad444d8d30bac83f639bb9c5a536483daf003083c6b3984a36f50"
+    },
+    "retained-native/fixture/work/callbinding-root-unexpected-field-verify.log": {
+      "bytes": 60,
+      "kind": "unchanged actual output",
+      "sha256": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+    },
+    "retained-native/fixture/work/callbinding-root-unexpected-field.log": {
+      "bytes": 295,
+      "kind": "unchanged actual output",
+      "sha256": "fb2bd4eca62bc03f997e233acd9853944b1a95e916b7b518b8ff3e7f350cfaad"
+    },
+    "retained-native/fixture/work/callbinding-root-wrong-ghost.log": {
+      "bytes": 656,
+      "kind": "unchanged actual output",
+      "sha256": "85247ea0276019e6ecac1ab0228b2703751c528ebc8ac70a393cacd7084bf000"
+    },
+    "retained-native/fixture/work/checker-build.json": {
+      "bytes": 422,
+      "kind": "unchanged actual output",
+      "sha256": "7f4268907265ebd47da4e39514e130f994936c694b60d971e01d36f031859cb3"
+    },
+    "retained-native/fixture/work/checker-sdk.log": {
+      "bytes": 9,
+      "kind": "unchanged actual output",
+      "sha256": "d0c8e5a09a2e5655cffdca9e350ecbba59a860154f5adadb92398b844f705ed0"
+    },
+    "retained-native/fixture/work/dafny-version.log": {
+      "bytes": 47,
+      "kind": "unchanged actual output",
+      "sha256": "c1d03cde4599b6cf8b705d9be538729765a9fa3ef43e511328c837155ccd1e48"
+    },
+    "retained-native/fixture/work/root19-alloc-marked-public.log": {
+      "bytes": 685,
+      "kind": "unchanged actual output",
+      "sha256": "bb9c9d7e2ba114948c624f57c5c483636c2200b5d9c7e1be0c0dc2b3dba560b6"
+    },
+    "retained-native/fixture/work/root19-alloc-marked-secret.log": {
+      "bytes": 730,
+      "kind": "unchanged actual output",
+      "sha256": "f0b43c94866811ea3f9c7dddfc8e12225a61955b52deebff3a0e1b2a8980b46a"
+    },
+    "retained-native/fixture/work/root19-alloc-unmarked.log": {
+      "bytes": 275,
+      "kind": "unchanged actual output",
+      "sha256": "2313e460711733a26d7bdf193661c5e90ce78716bf917a1b10ce23573c04fc2c"
+    },
+    "retained-native/fixture/work/root19-alloc-wrong-marker.log": {
+      "bytes": 697,
+      "kind": "unchanged actual output",
+      "sha256": "3b67b6c08ea054ae71af716900889f7e07e8c9ef319d0cb08dc473b8baf62556"
+    },
+    "retained-native/fixture/work/root19-duplicate-root.log": {
+      "bytes": 334,
+      "kind": "unchanged actual output",
+      "sha256": "6122d66bd8fb7be2f7ad1e2ec7a5561d331b39128b462aef05905550af7e12d2"
+    },
+    "retained-native/fixture/work/root19-fake-rotate.log": {
+      "bytes": 519,
+      "kind": "unchanged actual output",
+      "sha256": "d41fc713b3ccda520feebb3ba396218caf6f5842c20579740a24adde618abcca"
+    },
+    "retained-native/fixture/work/root19-ghost-lemma-output.log": {
+      "bytes": 563,
+      "kind": "unchanged actual output",
+      "sha256": "f03925a2708cbf27c8fc138e2a511adfec05dae785248c65eba4eb13454977de"
+    },
+    "retained-native/fixture/work/root19-helper-constant-arg.log": {
+      "bytes": 310,
+      "kind": "unchanged actual output",
+      "sha256": "d9a64a381921f7d461167f26a5891afe4e80af71c16427a6332b1faaa49b8554"
+    },
+    "retained-native/fixture/work/root19-helper-prefix.log": {
+      "bytes": 339,
+      "kind": "unchanged actual output",
+      "sha256": "2c8a520eadf983174504bbdde1ddc5a3c3c35b4c47ee05920be90ace881ddb08"
+    },
+    "retained-native/fixture/work/root19-match-unmarked.log": {
+      "bytes": 910,
+      "kind": "unchanged actual output",
+      "sha256": "967131d5b275f1aed0408fe578138ad628f8fae236f47a1cf0f40cfa726ad0f3"
+    },
+    "retained-native/fixture/work/root19-rename-helper-formal.log": {
+      "bytes": 357,
+      "kind": "unchanged actual output",
+      "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f"
+    },
+    "retained-native/fixture/work/root19-rename-public-formal.log": {
+      "bytes": 357,
+      "kind": "unchanged actual output",
+      "sha256": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f"
+    },
+    "retained-native/fixture/work/root19-shadow-encoder.log": {
+      "bytes": 340,
+      "kind": "unchanged actual output",
+      "sha256": "926cdc9174158586141ee8403ad6283ef0ae4ca15e6089eea847dd0bd694d3fe"
+    },
+    "retained-native/fixture/work/root19-shadow-marker-class.log": {
+      "bytes": 342,
+      "kind": "unchanged actual output",
+      "sha256": "480a6499a0c3d29284140e487784a7223977da47427184788faa520cca30284e"
+    },
+    "retained-native/fixture/work/root19-shadow-rotate-class.log": {
+      "bytes": 320,
+      "kind": "unchanged actual output",
+      "sha256": "aa62ae0853a3042a728d39bad34e996d43a0e550d5e3f7106e8f5248f7a7bc71"
+    },
+    "retained-native/fixture/work/root19-statement-expression.log": {
+      "bytes": 503,
+      "kind": "unchanged actual output",
+      "sha256": "5574b86b201b5bedb05959947754039d93a6c48ded07e7123a644352ba54c490"
+    },
+    "retained-native/fixture/work/root19-wrong-branch-outcome.log": {
+      "bytes": 556,
+      "kind": "unchanged actual output",
+      "sha256": "6f40ee6c516164f7490249ed2a0f7d49aff95ed973753bc09327375374d922ef"
+    },
+    "retained-native/fixture/work/root19-wrong-word-count.log": {
+      "bytes": 402,
+      "kind": "unchanged actual output",
+      "sha256": "5cc192a1fb90db2add6f60e2c4e7b2dc52e0d2f2f6753128ea536c3e10496089"
+    }
+  },
+  "schema": "microproxy.select-evidence-files/1"
+}

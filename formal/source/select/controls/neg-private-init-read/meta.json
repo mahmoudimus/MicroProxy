@@ -1,0 +1,6 @@
+{
+  "name": "neg-private-init-read",
+  "expect": "reject",
+  "needle": "Select allocation initializer contains a private/unknown array read or index",
+  "note": "F2 private initializer read"
+}

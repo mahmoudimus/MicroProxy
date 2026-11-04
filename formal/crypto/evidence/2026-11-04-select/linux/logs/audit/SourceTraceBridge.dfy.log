@@ -1,0 +1,4 @@
+CASE-CONTEXT case=audit-SourceTraceBridge.dfy operand_sha256=505d6bc737b8fba3e51ace056e3bd170f1d16b0a74d56623a72e983b74518a6c argv=["/opt/dafny-cache/dafny-4.9.1-linux-x64/dafny/dafny","audit","/src/candidate/formal/source/select/bridge/SourceTraceBridge.dfy"] cwd=/src/candidate/formal/source/select/bridge
+Dafny auditor completed with 0 findings
+
+Dafny program verifier did not attempt verification

@@ -1,0 +1,6 @@
+work/controls/root19-wrong-word-count/formal/crypto/NativeKeccak.dfy(18,83): Error: Rotate operation observation does not match actual executable count at 6
+   |
+18 |     else ((v << n) | (v >> (64-n)), ghost ST.Branch(30,false) + ST.Ops(0,1,0,0,0,1,1)) }
+   |                                                                                    ^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

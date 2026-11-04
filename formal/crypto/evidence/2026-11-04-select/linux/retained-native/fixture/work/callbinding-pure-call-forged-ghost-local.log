@@ -1,0 +1,11 @@
+work/controls/callbinding-pure-call-forged-ghost-local/formal/crypto/NativeKeccak.dfy(228,41): Error: Theta: later trace update contains non-approved suffix expression
+    |
+228 |       trace := trace + ST.Call(1,20,2) + fake;
+    |                                          ^^^^
+
+work/controls/callbinding-pure-call-forged-ghost-local/formal/crypto/NativeKeccak.dfy(191,84): Error: Theta: pure function trace must be appended exactly once
+    |
+191 |   method {:isolate_assertions} Theta(a: array<bv64>, c: array<bv64>) returns (ghost trace: seq<int>)
+    |                                                                                     ^^^^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

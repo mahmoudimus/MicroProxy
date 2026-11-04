@@ -1,11 +1,11 @@
-/out/linux-full/native-kem-xh1s0sah/short-sampler.dfy(304,4): Error: a postcondition could not be proved on this return path
+/out/repair-full/native-kem-uon76nt5/short-sampler.dfy(344,4): Error: a postcondition could not be proved on this return path
     |
-304 |     return S.Failure(S.RejectionLimit);
+344 |     return S.Failure(S.RejectionLimit);
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/out/linux-full/native-kem-xh1s0sah/short-sampler.dfy(294,12): Related location: this is the postcondition that could not be proved
+/out/repair-full/native-kem-uon76nt5/short-sampler.dfy(334,12): Related location: this is the postcondition that could not be proved
     |
-294 |     ensures ModelSample(r) == S.SamplePrefix(bytes[..])
+334 |     ensures ModelSample(r) == S.SamplePrefix(bytes[..])
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 

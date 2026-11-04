@@ -1,0 +1,103 @@
+{
+  "base_false_accept": {
+    "base_dll": "/Users/mahmoud/.cache/microproxy-formal/issue117-source-assurance-20261103/native-source-coverage-combined-repair/work/checker-build/bin/Debug/net6.0/SourceCoverage.dll",
+    "checker": "SOURCE-COVERAGE OK for all 13 roots",
+    "command": "SOURCE_TRACE_ROOTS=<13 roots> dafny resolve AllTraceRoots.dfy --plugin base-combined",
+    "receipts": [
+      "work/base-false-accept/verify.log",
+      "work/base-false-accept/checker.log"
+    ],
+    "source": "work/controls/callee-before-call/formal/crypto/NativeField.dfy",
+    "verify": "86 verified, 0 errors"
+  },
+  "base_false_accept_logs": {
+    "checker": "a0c654a89e77c77f10a858849e2254398b06a0179e3be49557d7906e37a0a00f",
+    "dll": "5f5937600d4b327333cf8bd0e31dde71194c76a4773582006ebf2fe2462440d0",
+    "verify": "463bcb4efca2c6932cd84964145572395b1129ef0340b721bcc9108c67388548"
+  },
+  "current_build": {
+    "directory_build_imports_disabled": true,
+    "dll_sha256": "44f155aa518ed38555e859990f770667dd8da81d482502ac634f27323917f7b6",
+    "encoder_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+    "sdk": "10.0.400",
+    "source_sha256": "c96e9c12bfa3663c1b8f62ec7b85838968c589e9d884432da9a1c7d140d1f2ec"
+  },
+  "encoder_bridge_report_sha256": "40890fb61745060fc13c4c909c804626050022ac27e767cd924e4a2290a8800a",
+  "new_order_controls": {
+    "call-child-interposed-marker": {
+      "checker": {
+        "classification": "named-checker-rejection",
+        "exit": 2,
+        "method": {
+          "errors": 0,
+          "exit": 0,
+          "verified": 86
+        },
+        "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf"
+      },
+      "source_sha256": "659d62a120febdedd3cd640343131fa4943893495f6e73cbe695e9b6fbaad262",
+      "verify": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      }
+    },
+    "callee-before-call": {
+      "checker": {
+        "classification": "named-checker-rejection",
+        "exit": 2,
+        "method": {
+          "errors": 0,
+          "exit": 0,
+          "verified": 86
+        },
+        "needle": "callee trace append must place its exact defining Call marker immediately before its callee trace leaf"
+      },
+      "source_sha256": "4595b2ed19c811df88ffad224a972fa6a523728e5ead52aeff5a94384445adad",
+      "verify": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 86
+      }
+    },
+    "pure-rr-before-call": {
+      "checker": {
+        "classification": "named-checker-rejection",
+        "exit": 2,
+        "harness": {
+          "errors": 0,
+          "exit": 0,
+          "verified": 766
+        },
+        "nativekeccak": {
+          "errors": 0,
+          "exit": 0,
+          "verified": 587
+        },
+        "needle": "pure-function trace append must place its exact defining Call marker immediately before its pure trace leaf"
+      },
+      "harness": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 766
+      },
+      "nativekeccak": {
+        "errors": 0,
+        "exit": 0,
+        "verified": 587
+      },
+      "source_sha256": "b9c6dad8ce4ede4ddd610d9eb51375f870b8bb507e8a1f0b24029d4fde3cf74b"
+    }
+  },
+  "source_before_after": {
+    "canonical_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+    "checker_source_after_sha256": "c96e9c12bfa3663c1b8f62ec7b85838968c589e9d884432da9a1c7d140d1f2ec",
+    "checker_source_before_sha256": "bbd806f84c82761e47650ca735425abc94d07751482cacb5aa7c3ad68d35e958",
+    "encoder_assembly_before_equals_after": true,
+    "encoder_formal_source_before_equals_after": true,
+    "pins_before_equals_after": true,
+    "pins_count": 96,
+    "project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b"
+  }
+}

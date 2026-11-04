@@ -1,0 +1,11 @@
+work/controls/root19-wrong-branch-outcome/formal/crypto/NativeKeccak.dfy(17,19): Error: Rotate actual trace must begin with its actual branch outcome
+   |
+17 |   { if n == 0 then (v, ghost ST.Branch(30,false))
+   |                    ^
+
+work/controls/root19-wrong-branch-outcome/formal/crypto/NativeKeccak.dfy(18,9): Error: Rotate actual trace must begin with its actual branch outcome
+   |
+18 |     else ((v << n) | (v >> (64-n)), ghost ST.Branch(30,true) + ST.Ops(0,1,0,0,0,1,2)) }
+   |          ^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

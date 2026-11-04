@@ -1,0 +1,3 @@
+SOURCE-COVERAGE OK: exact roots [NativeField.ReduceOnce,NativeField.Reduce,NativeField.Add,NativeField.Sub,NativeField.Mul,NativeField.MulSub,NativeField.AddMul,NativeKeccak.SetLane,NativeKeccak.Iota,NativeKeccak.Theta,NativeKeccak.RhoPi,NativeKeccak.Chi,NativeKeccak.Wipe]; ordered markers; fail-closed
+
+Dafny program verifier did not attempt verification

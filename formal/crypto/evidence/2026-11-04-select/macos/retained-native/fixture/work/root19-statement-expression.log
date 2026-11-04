@@ -1,0 +1,11 @@
+work/controls/root19-statement-expression/formal/crypto/NativeField.dfy(49,20): Error: unsupported statement expression in native binding grammar
+   |
+49 |     var st: T.I := (assert true; 0);
+   |                     ^^^^^^^^^^^^
+
+work/controls/root19-statement-expression/formal/crypto/NativeField.dfy(49,20): Error: unsupported executable expression StmtExpr
+   |
+49 |     var st: T.I := (assert true; 0);
+   |                     ^^^^^^^^^^^^
+
+2 resolution/type errors detected in AllTraceRoots.dfy

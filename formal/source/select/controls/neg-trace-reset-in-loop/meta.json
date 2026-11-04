@@ -1,0 +1,6 @@
+{
+  "name": "neg-trace-reset-in-loop",
+  "expect": "reject",
+  "needle": "later trace update must append to the same trace as its immutable left prefix",
+  "note": "F1 trace history reset inside the public output loop"
+}

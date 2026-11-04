@@ -1,0 +1,6 @@
+work/controls/root19-duplicate-root/formal/crypto/NativeField.dfy(147,11): Error: reserved native root outside exact default declaration: NativeField.Shadow.ReduceOnce
+    |
+147 |     method ReduceOnce(a: T.I) returns (r: T.I, ghost trace: seq<int>)
+    |            ^^^^^^^^^^
+
+1 resolution/type errors detected in AllTraceRoots.dfy

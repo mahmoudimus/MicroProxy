@@ -1,0 +1,187 @@
+{
+  "ambient_selector_policy": "clear all SOURCE_TRACE_* and set SOURCE_TRACE_ROOTS=NativeMlKem.Select only",
+  "baseline_manifest_sha256": "fcb201051093fdc50ae66e428a9533c88f2be00a4f8cc83c5abc04a98e870563",
+  "baseline_native_mlkem_sha256": "e4b3fe88a537b011f8581c0124d7169b45e83b294277113c16b534895f69e71f",
+  "candidate_inputs": {
+    "formal/crypto/NativeMlKem.dfy": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
+    "formal/crypto/native_kem_checks.py": "7c0bedc97e02abbdd1a700e58d78c38fa1a4ae63ba4ae820a07b9e0a5b3dd91a",
+    "formal/crypto/native_kem_domain.dfy": "30bda846c92ab356e3b34feab0531ce6dba3d279556d41d4f5c917596c0ef53e",
+    "formal/crypto/native_kem_hash.java": "5e16490e4620a17c593ee3a81358184c65c7293d309ca80d5d374210af99e4be",
+    "formal/crypto/native_kem_test.java": "8134a9adf34634324b13690006ad7b9faa12ca084180bed49333822d2e36b56c",
+    "formal/crypto/reference/MlKem768.java": "58ad84f5d54474f26e7d3dfad1fae1ceecb2ec5081c01ed5e3d96113c42a1478",
+    "formal/crypto/reference/Shake.java": "8fbfc723edc3aecc880affb9abc78c85b410c5c0c736f19ae7ae0c7bbf568697",
+    "formal/crypto/reference/provenance.json": "5ecd37f14f0390f01c21c566eb10ecf1923c84f9966a1d0e861b4c6353777b3f"
+  },
+  "candidate_overlay_sha256": "267ba21db3434f40c67c8540c30264af9ff7fd93ab211478618e777286c0db3a",
+  "candidate_sources_sha256": "12addcc0d2327b4033b3a99ddb8de033255c65f306395eca27defdc5754f009d",
+  "checker_policy_sha256": "27115848f259786cd928d9d477fe0b51d84c7fc21efb5f98d83f5182358c0734",
+  "checker_project_sha256": "9df595df51acb3f3cf68d739d2551e63dd611996dc4296a404ad1be81668c75b",
+  "checker_source_sha256": "1deea29195a48b519081905b3dec8db83381f939cf57d985da2de64429e8dcee",
+  "controls_expected": {
+    "coverage-private-loop-bound": {
+      "needle": null,
+      "status": "accepted"
+    },
+    "neg-block-wrap-alloc": {
+      "needle": "Select allocation must be a direct top-level statement of the method body",
+      "status": "named-checker-rejection"
+    },
+    "neg-conditional-alloc": {
+      "needle": "Select allocation must be a direct top-level statement of the method body",
+      "status": "named-checker-rejection"
+    },
+    "neg-loop-alloc": {
+      "needle": "Select allocation must be a direct top-level statement of the method body",
+      "status": "named-checker-rejection"
+    },
+    "neg-private-branch-after-alloc": {
+      "needle": "expected exact SourceTrace.Read",
+      "status": "named-checker-rejection"
+    },
+    "neg-private-callee": {
+      "needle": "Select allocation initializer contains an executable call",
+      "status": "named-checker-rejection"
+    },
+    "neg-private-init-read": {
+      "needle": "Select allocation initializer contains a private/unknown array read or index",
+      "status": "named-checker-rejection"
+    },
+    "neg-private-read-after-alloc": {
+      "needle": "expected exact SourceTrace.Read",
+      "status": "named-checker-rejection"
+    },
+    "neg-private-read-before-alloc": {
+      "needle": "expected exact SourceTrace.Read",
+      "status": "named-checker-rejection"
+    },
+    "neg-public-branch-after-alloc": {
+      "needle": "expected exact SourceTrace.Branch",
+      "status": "named-checker-rejection"
+    },
+    "neg-second-alloc": {
+      "needle": "Select must allocate its returned buffer exactly once",
+      "status": "named-checker-rejection"
+    },
+    "neg-secret-init-condition": {
+      "needle": "Select allocation initializer contains an unsupported condition/branch/compound expression",
+      "status": "named-checker-rejection"
+    },
+    "neg-select-calls-rotate": {
+      "needle": "unregistered executable function call NativeKeccak._default.Rotate",
+      "status": "named-checker-rejection"
+    },
+    "neg-shadow-select": {
+      "needle": "reserved Select root outside exact default declaration",
+      "status": "named-checker-rejection"
+    },
+    "neg-trace-reset-in-loop": {
+      "needle": "later trace update must append to the same trace as its immutable left prefix",
+      "status": "named-checker-rejection"
+    },
+    "neg-unmarked-alloc": {
+      "needle": "expected exact SourceTrace.Alloc",
+      "status": "named-checker-rejection"
+    },
+    "neg-unmarked-private-loop-bound": {
+      "needle": "expected exact SourceTrace.Read",
+      "status": "named-checker-rejection"
+    },
+    "neg-wrong-alloc-site": {
+      "needle": "mismatched Alloc observation",
+      "status": "named-checker-rejection"
+    },
+    "neg-wrong-alloc-size": {
+      "needle": "mismatched Alloc observation",
+      "status": "named-checker-rejection"
+    },
+    "neg-wrong-initializer": {
+      "needle": "Select allocation initializer body is not the exact literal zero",
+      "status": "named-checker-rejection"
+    },
+    "neg-wrong-result-identity": {
+      "needle": "Select allocation result must be the sole non-ghost output formal by resolved identity",
+      "status": "named-checker-rejection"
+    },
+    "neg-wrong-size": {
+      "needle": "Select allocation size must be the exact public literal 32",
+      "status": "named-checker-rejection"
+    },
+    "positive-actual": {
+      "needle": null,
+      "status": "accepted"
+    },
+    "positive-alpha-out": {
+      "needle": null,
+      "status": "accepted"
+    },
+    "positive-zero-init": {
+      "needle": null,
+      "status": "accepted"
+    }
+  },
+  "driver_name_exclusion": "generated gen_base.java/gen_overlay.java are excluded from algorithm Java identity",
+  "encoder_expected": {
+    "address-loss": false,
+    "alpha-case-formals": true,
+    "boolean-flip": false,
+    "branch-tag": false,
+    "encoder-body-constant4": false,
+    "encoder-body-empty": false,
+    "encoder-body-tag4": false,
+    "ops-reordered": false
+  },
+  "expected": {
+    "baseline13_roots": 13,
+    "constant_branch_mutant": [
+      52,
+      2
+    ],
+    "encoder_fixtures": 8,
+    "full_native_mlkem": [
+      2773,
+      0
+    ],
+    "jdk_classes": 65,
+    "observation_vocabulary": [
+      29,
+      0
+    ],
+    "observed_mutant_harness": [
+      1,
+      1
+    ],
+    "observed_mutant_method": [
+      2883,
+      0
+    ],
+    "private_loop_bound_full": [
+      2772,
+      1
+    ],
+    "retained_callbinding_cases": 22,
+    "retained_root19_cases": 18,
+    "select_harness": [
+      6,
+      0
+    ],
+    "source_trace": [
+      17,
+      0
+    ],
+    "source_trace_bridge": [
+      54,
+      0
+    ]
+  },
+  "native_kem_patch": {
+    "artifact_manifest_sha256": "8c0f4362caa59d1fcdebf1993808cc8506ee5e79a79d88c809a2f6e1ad02fcd6",
+    "domain_base_sha256": "d18368ecd4b4042830cbe42800a0b209e0d2ce7b4356cd16885d4b2adaa33688",
+    "domain_patched_sha256": "30bda846c92ab356e3b34feab0531ce6dba3d279556d41d4f5c917596c0ef53e",
+    "policy": "Root-authorized proof-domain ghost caller binding + translate --isolate-assertions; no production algorithm/resource change",
+    "runner_base_sha256": "4341752e4435d7e9717a14bbab756722327164777647edec3eb34553ca5417ce",
+    "runner_patched_sha256": "7c0bedc97e02abbdd1a700e58d78c38fa1a4ae63ba4ae820a07b9e0a5b3dd91a"
+  },
+  "profile_index_sha256": "013387dd0d1b646f5e0aa465a949787a84ec6334ddccf9e7052edbe4a8677f69",
+  "schema": "microproxy.select-package/2",
+  "scope": "Select package; retained Native 13/18/22 and encoder 8 are separate fixtures; no whole-KEM/NI/JVM claim"
+}

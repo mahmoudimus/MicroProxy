@@ -1,39 +1,39 @@
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(591,13): Error: unregistered executable callee NativePolynomial.Decoy._ctor
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(591,13): Error: unregistered executable callee NativePolynomial.Decoy._ctor
     |
 591 |     var d := new Decoy();
     |              ^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(590,24): Error: LoopBound marker is not adjacent-before loop bound
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(590,24): Error: LoopBound marker is not adjacent-before loop bound
     |
 590 |     trace := trace + ST.LoopBound(200,128);
     |                         ^^^^^^^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.LoopCheck for loop iteration, found LoopBound
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.LoopCheck for loop iteration, found LoopBound
     |
 590 |     trace := trace + ST.LoopBound(200,128);
     |                         ^^^^^^^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(600,16): Error: unregistered executable function call NativePolynomial.Decoy.ZetasValue
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(600,16): Error: unregistered executable function call NativePolynomial.Decoy.ZetasValue
     |
 600 |       r[i] := d.ZetasValue(i).0;
     |                 ^^^^^^^^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.Write for array write, found LoopBound
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.Write for array write, found LoopBound
     |
 590 |     trace := trace + ST.LoopBound(200,128);
     |                         ^^^^^^^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.LoopCheck for loop exit, found LoopBound
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(590,24): Error: expected exact SourceTrace.LoopCheck for loop exit, found LoopBound
     |
 590 |     trace := trace + ST.LoopBound(200,128);
     |                         ^^^^^^^^^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(601,37): Error: NewZetas: ghost projection ZetasValue is not immediately after an actual call with the same arguments
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(601,37): Error: NewZetas: ghost projection ZetasValue is not immediately after an actual call with the same arguments
     |
 601 |       trace := trace + ZetasValue(i).1 + ST.Write(500,0,i as int);
     |                                      ^
 
-/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-qszqr1pd/formal/crypto/NativePolynomial.dfy(590,24): Error: NewZetas: stale observation LoopBound
+/var/folders/88/5g4b4g6s2x93ynngtjw7_r300000gn/T/poly-decoy-class-jtyv0v46/formal/crypto/NativePolynomial.dfy(590,24): Error: NewZetas: stale observation LoopBound
     |
 590 |     trace := trace + ST.LoopBound(200,128);
     |                         ^^^^^^^^^
