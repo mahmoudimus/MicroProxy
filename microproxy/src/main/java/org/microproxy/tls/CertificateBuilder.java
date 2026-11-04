@@ -129,7 +129,7 @@ public final class CertificateBuilder {
         byte[] subjectName = name(subjectCommonName, subjectOrganization);
         byte[] issuerName = issuer != null ? issuer.getSubjectX500Principal().getEncoded() : subjectName;
         byte[] subjectKeyId = keyIdentifier(publicKey);
-        byte[] authorityKeyId = issuer != null ? keyIdentifier(issuer.getPublicKey()) : subjectKeyId;
+        byte[] authorityKeyId = issuer != null ? issuerKeyIdentifier(issuer) : subjectKeyId;
 
         List<byte[]> extensions = new ArrayList<>();
         extensions.add(extension("2.5.29.19", true, certificateAuthority
@@ -206,6 +206,45 @@ public final class CertificateBuilder {
             if (c != '.' && (c < '0' || c > '9')) return false;
         }
         return true;
+    }
+
+    /**
+     * The issuer's own Subject Key Identifier, which RFC 5280 (4.2.1.1) requires the Authority Key Identifier to
+     * equal: path builders, the JDK's among them, find the issuer by it. CAs made elsewhere usually derive it with
+     * method 1 (SHA-1 of the key's BIT STRING), not as {@link #keyIdentifier} does; only an issuer without the
+     * extension gets a computed one.
+     */
+    private static byte[] issuerKeyIdentifier(X509Certificate issuer) throws GeneralSecurityException {
+        byte[] extension = issuer.getExtensionValue("2.5.29.14");
+        if (extension != null) {
+            // OCTET STRING (the extension value) wrapping OCTET STRING (the key identifier)
+            byte[] value = octetStringContents(extension);
+            if (value != null) {
+                byte[] keyId = octetStringContents(value);
+                if (keyId != null && keyId.length > 0) {
+                    return keyId;
+                }
+            }
+        }
+        return keyIdentifier(issuer.getPublicKey());
+    }
+
+    /** The contents of a DER OCTET STRING that spans all of {@code der}, or null when it is not one. */
+    private static byte[] octetStringContents(byte[] der) {
+        if (der.length < 2 || der[0] != 0x04) return null;
+        int length = der[1] & 0xff;
+        int offset = 2;
+        if (length > 0x7f) {
+            int count = length & 0x7f;
+            if (count < 1 || count > 3 || der.length < 2 + count) return null;
+            length = 0;
+            for (int i = 0; i < count; i++) {
+                length = (length << 8) | (der[2 + i] & 0xff);
+            }
+            offset += count;
+        }
+        if (offset + length != der.length) return null;
+        return Arrays.copyOfRange(der, offset, der.length);
     }
 
     private static byte[] keyIdentifier(PublicKey key) throws GeneralSecurityException {
