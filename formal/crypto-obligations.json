@@ -2422,7 +2422,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "d53672ea8a8919eb0cacf29afe8b8a6958befbd98e00253e1768105cb5724696",
+          "sha256": "a3f7d58a9cdce0915fe7e1c39e89e6a2bb94035053ce0a2ba15aa8def556a665",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -4945,7 +4945,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "d53672ea8a8919eb0cacf29afe8b8a6958befbd98e00253e1768105cb5724696",
+          "sha256": "a3f7d58a9cdce0915fe7e1c39e89e6a2bb94035053ce0a2ba15aa8def556a665",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -5454,7 +5454,7 @@
         "scripts/security/assess-local-timing.sh"
       ],
       "limitations": [
-        "JVM/CPU/GC/provider timing is explicitly deferred; no constant-time claim is supported."
+        "Physical JVM/JIT/CPU/GC/provider timing remains outstanding; universal constant-time execution is not a promised Dafny deliverable. Bounded deployment measurements do not discharge that claim."
       ]
     },
     {

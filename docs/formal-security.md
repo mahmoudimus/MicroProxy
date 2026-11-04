@@ -548,9 +548,18 @@ is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/
 supplies the bytecode interface used by the scoped experiment above.
 
 Remaining work includes the unclosed AWS dependency replay, broader compositional
-secret-trace coverage, independent expert review and a justified timing model for the
-final JVM implementations. The scoped results do not establish that all custom
-TLS/QUIC glue is formally verified or that the whole proxy is secure.
+secret-trace coverage and independent expert review. The
+[external review brief](project/2026-11-04-crypto-external-review-brief.md) lists
+the implementation, specifications, trusted tooling and evidence to examine.
+Preparing that brief does not satisfy the independent-review obligation.
+
+Physical JVM/JIT/CPU/GC/provider timing stays outstanding as an assurance boundary.
+Universal constant-time execution is not a promised Dafny deliverable. Measurements
+and machine-code inspection can provide bounded evidence for a stated deployment;
+they cannot discharge a universal claim across runtimes and machines. Functional
+proofs and logical source traces do not close this item. The scoped results do not
+establish that all custom TLS/QUIC glue is formally verified or that the whole
+proxy is secure.
 
 The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
 uses Dafny across HKDF, SHAKE and ML-KEM, with TLA+/TLC and Lean covering their

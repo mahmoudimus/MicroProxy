@@ -100,5 +100,9 @@ separate claims. The proof infrastructure, compiler/runtime, reviewed Java
 adapters, JDK primitives and their stated contracts remain trust boundaries.
 Cryptographic hardness and complete TLS/QUIC security are not established by
 these implementation proofs. Physical JVM/JIT/CPU/GC/provider timing remains
-explicitly deferred. Independent external cryptographic/proof review remains
-open; development-agent review does not discharge it.
+outstanding as an assurance boundary; universal constant-time execution is not
+a promised Dafny deliverable. Deployment-specific measurements do not close that
+universal claim. Independent external cryptographic/proof review remains open;
+development-agent review does not discharge it. The
+[review brief](2026-11-04-crypto-external-review-brief.md) prepares its scope and
+reproduction requirements without claiming that the review has taken place.
