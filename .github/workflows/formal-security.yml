@@ -237,17 +237,18 @@ jobs:
           test "$(/usr/bin/git rev-parse '155bbe14cb9748cf677f4eb223af3dd2331687b0^{tree}')" = '74a3eb686d02bf4226afed08227391e742b54f12'
           /usr/bin/git archive --format=tar 155bbe14cb9748cf677f4eb223af3dd2331687b0 formal | tar -x -C target/select-source-baseline
       - name: Prove Select source contracts, observations and erasure
+        # Outside Git ancestry: MSBuild otherwise injects the checkout revision into the DLL.
         run: |
-          python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output target/dafny-select-source --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$RUNNER_TEMP/microproxy-select-dotnet-10.0.400/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
-          python scripts/security/run_select_package_tests.py --baseline target/select-source-baseline --full-report target/dafny-select-source/package-report.json --work-root "$RUNNER_TEMP/select-package-tests"
+          python formal/source/select/replay.py --package-root formal/source/select --baseline-root target/select-source-baseline --output "$RUNNER_TEMP/dafny-select-source" --tool-profile linux-sdk10.0.400 --expected-profile-sha256 89c444a9e5c4d473912fd57db16e53b71d06733f1751fe648bf9995c0a4deab1 --expected-package-sha256 b1ce4b851ba79f8a2c6d1c1b0e154c59e1ad446968c3e7da0adb54714adc0c1f --dafny "$SELECT_DAFNY" --dotnet "$RUNNER_TEMP/microproxy-select-dotnet-10.0.400/dotnet" --jdk21 "$SELECT_JDK21" --jdk25 "$SELECT_JDK25" --runtime "$HOME/.m2/repository/org/dafny/DafnyRuntime/4.9.1/DafnyRuntime-4.9.1.jar" --mode full
+          python scripts/security/run_select_package_tests.py --baseline target/select-source-baseline --full-report "$RUNNER_TEMP/dafny-select-source/package-report.json" --work-root "$RUNNER_TEMP/select-package-tests"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: dafny-select-source-traces-jdk-21-and-25
           path: |
-            target/dafny-select-source/
-            !target/dafny-select-source/**/nuget/**
-            !target/dafny-select-source/**/dotnet-home/**
+            ${{ runner.temp }}/dafny-select-source/
+            !${{ runner.temp }}/dafny-select-source/**/nuget/**
+            !${{ runner.temp }}/dafny-select-source/**/dotnet-home/**
           if-no-files-found: ignore
 
   dafny-source-ownership:

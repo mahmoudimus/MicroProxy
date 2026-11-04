@@ -2986,7 +2986,7 @@
         },
         {
           "path": ".github/workflows/formal-security.yml",
-          "sha256": "375118e598b51dfb46fa51c67fc971385c3aa3cb3a4cc78d2c942f326cdb0af4",
+          "sha256": "2c3421cebef84d4c663995301de0009c6c6c411f5c468b68bbbfb7a2f4c2f84b",
           "kind": "tool-manifest",
           "role": "Reviewed Select source-assurance input or actual cross-platform evidence"
         },
