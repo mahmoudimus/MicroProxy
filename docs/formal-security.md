@@ -390,8 +390,14 @@ paired/domain harness has 259. A separately trusted C# adapter over Dafny's
 resolved AST checks that observations cover the accepted executable operations
 and remain in order. Its adversarial controls reject omitted/reordered events,
 trace resets, shadow declarations and lost callee outputs. The checker is
-reviewed code, not a formally verified execution semantics. Site IDs are opaque
-method-local labels, not JVM program counters. Java erasure/delivery checks and
+reviewed code, not a formally verified execution semantics. Its binding scan
+uses an exact supported statement grammar over resolved statements and
+expressions, including ghost/proof code; unknown forms, ghost-call output
+bindings and direct trace replacement by calls reject.
+The assign-such-that regression demonstrates why this matters: its complete
+Dafny proofs and generated Java still pass after callee observations are erased,
+so the coverage adapter must independently reject that binding. Site IDs are
+opaque method-local labels, not JVM program counters. Java erasure/delivery checks and
 JDK HMAC/compiler/runtime assumptions remain explicit; this does not establish
 physical constant-time execution or whole-crypto trace independence.
 

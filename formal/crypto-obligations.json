@@ -2399,7 +2399,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "941944a34037b8f737425b1c15fea0df5378463ffd2b6cb63f51e80bff67096d",
+          "sha256": "32afda5a5ebeb24c72acddb6be65472a21267282a8f64a0f87da647bfb9e91b5",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },
@@ -2501,7 +2501,7 @@
         },
         {
           "path": "formal/source/hkdf/README.md",
-          "sha256": "dbbf88ecd068cabd985126ab3be5ab27eef988caf3a58a7ef8308fc251ebf9ec",
+          "sha256": "d573642e41698af2b7e052fa3afe3c3ba99515eb6f775008d6e1fb4bd82f11be",
           "kind": "documentation",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
@@ -2513,25 +2513,25 @@
         },
         {
           "path": "formal/source/hkdf/inputs.json",
-          "sha256": "562a43775b658b6a9fe7828b993d8aa24d05319eed1c8379a15df235d804ae5b",
+          "sha256": "fe36631f34840d9d59dc935bd9e3466c87b326fa20777a00a6327c8172a418b0",
           "kind": "input-manifest",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/SOURCE-EVIDENCE.json",
-          "sha256": "809c48eaee60a4a05b63da8458410933b763a26843256a693d51e219f30fd629",
+          "sha256": "28dfc67121efa52a753060de061c12d8e326c54a66d35deceffcf6c9ff7e6626",
           "kind": "component-receipt",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/run.py",
-          "sha256": "381a96c33dd2254cbe66ee7e3f0acb880fa2528ab17201801c17fd0c550bd305",
+          "sha256": "2f07a3f308e4e7281fd165857fc56b8a4908ac032949354557da5a3218dc1818",
           "kind": "tool-manifest",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/test_run.py",
-          "sha256": "0504bec2e7d8c2047b5929ee6167734388930c5e71ca981586bfb38cb39e9978",
+          "sha256": "aaeeafc864fde46490d58cb5a83b260dc944c5696f6a1f0796af20ae14c3e003",
           "kind": "test-source",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
@@ -2543,7 +2543,7 @@
         },
         {
           "path": "formal/source/hkdf/checker/HkdfCoverage.cs",
-          "sha256": "478db74c31e7ffc0b86d3b4d350305e262b921d66692f4a0ef33c5e0ff57d346",
+          "sha256": "5dddfb8137f75509618d07265a77ecd5cf90b77751549044ad7e16237b120923",
           "kind": "tool-manifest",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
@@ -2604,6 +2604,10 @@
               }
             ],
             "controls": {
+              "actual-call-trace-binding": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "actual trace output cannot be rebound by a call"
+              },
               "array-shadow": {
                 "classification": "resolved-ast-coverage-rejection",
                 "needle": "sequence read source is not the method's formal labelUnits"
@@ -2632,9 +2636,35 @@
                 "classification": "resolved-ast-coverage-rejection",
                 "needle": "callee ghost trace append is not the first trace update"
               },
+              "callee-suchthat-model-erasure": {
+                "classification": "resolved-ast-coverage-rejection",
+                "harness": {
+                  "errors": 0,
+                  "verified": 257
+                },
+                "java_identical": true,
+                "java_package_files": 9,
+                "method": {
+                  "errors": 0,
+                  "verified": 246
+                },
+                "needle": "unsupported ghost statement AssignSuchThatStmt in HKDF binding grammar"
+              },
+              "callee-suchthat-same-model": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "unsupported ghost statement AssignSuchThatStmt in HKDF binding grammar"
+              },
               "expect-secret-branch": {
                 "classification": "resolved-ast-coverage-rejection",
                 "needle": "unsupported executable statement ExpectStmt"
+              },
+              "ghost-call-callee-binding": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "ghost call output binding is unsupported in HKDF binding grammar"
+              },
+              "ghost-call-trace-binding": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "ghost call output binding is unsupported in HKDF binding grammar"
               },
               "ghost-if-marker": {
                 "classification": "resolved-ast-coverage-rejection",
@@ -2721,6 +2751,10 @@
                 "errors": 1,
                 "needle": "MetadataEvReadAddress",
                 "verified": 0
+              },
+              "nested-callee-suchthat": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "unsupported ghost statement AssignSuchThatStmt in HKDF binding grammar"
               },
               "observed-secret-branch-harness": {
                 "classification": "dafny-assertion-failure",
@@ -2868,6 +2902,10 @@
                 "classification": "resolved-ast-coverage-rejection",
                 "needle": "unmatched marker"
               },
+              "statement-expression": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "unsupported statement expression in HKDF binding grammar"
+              },
               "synthetic-golden-trace": {
                 "classification": "resolved-ast-coverage-rejection",
                 "needle": "later trace update must append to the same actual trace prefix"
@@ -2899,6 +2937,10 @@
                   "errors": 0,
                   "verified": 248
                 }
+              },
+              "trace-suchthat-reset": {
+                "classification": "resolved-ast-coverage-rejection",
+                "needle": "unsupported ghost statement AssignSuchThatStmt in HKDF binding grammar"
               },
               "unmarked-alloc": {
                 "classification": "resolved-ast-coverage-rejection",
@@ -2934,14 +2976,14 @@
               "formal/dafny/hkdf/Hkdf.dfy": "caea4393f1e85e77f717dbf47f635bc1851b4182b7b4f9d011eb66fddfaf3ddb",
               "formal/source/hkdf/HkdfTrace.dfy": "bef2d15cdc8f696b55e769777a6963fc3679affde9c1d50bedfe2368fe99f383"
             },
-            "checker.build.assembly_sha256": "fc0cf4ea2071980b71320e39faea5da02d40ce1c101a48e49265eb326b3235c3",
+            "checker.build.assembly_sha256": "892df4bda85b2e4b5b884cdd321cb354bbbb7b1debc5c59ac28b257b4bb11a3e",
             "checker.build.sdk": "10.0.400",
             "checker.build.source_pins": {
-              "HkdfCoverage.cs": "478db74c31e7ffc0b86d3b4d350305e262b921d66692f4a0ef33c5e0ff57d346",
+              "HkdfCoverage.cs": "5dddfb8137f75509618d07265a77ecd5cf90b77751549044ad7e16237b120923",
               "HkdfCoverage.csproj": "a5cc8f6943c20e8476787b7b2858fa1a0c57982821e261bfb580eddfde7412a5"
             },
             "checker.build.directory_build_imports_disabled": true,
-            "checker.assembly_sha256_after": "fc0cf4ea2071980b71320e39faea5da02d40ce1c101a48e49265eb326b3235c3",
+            "checker.assembly_sha256_after": "892df4bda85b2e4b5b884cdd321cb354bbbb7b1debc5c59ac28b257b4bb11a3e",
             "java.generated_package_files": 9,
             "java.generated_package_matches_committed_production": true,
             "java.aggregator_matches_fixture": true,
@@ -3044,7 +3086,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "2e1f793748d8bc74f43f8bb2fd631c91aefac126bc6e5eaceedeb708528e923d",
+          "sha256": "0225a76913b14fa77e5ad55d8a8bb07e4a15338247a57a8478389545857522d5",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -3080,7 +3122,7 @@
         },
         {
           "path": "docs/formal-security.md",
-          "sha256": "941944a34037b8f737425b1c15fea0df5378463ffd2b6cb63f51e80bff67096d",
+          "sha256": "32afda5a5ebeb24c72acddb6be65472a21267282a8f64a0f87da647bfb9e91b5",
           "kind": "documentation",
           "role": "published claim scope and residual limits"
         },

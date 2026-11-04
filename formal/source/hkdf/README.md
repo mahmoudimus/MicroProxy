@@ -23,6 +23,13 @@ private datatype equality and incomplete loop observations. The paired proof
 alone does not establish this coverage connection. The C# checker is reviewed
 and tested, not formally proved correct.
 
+The binding scan uses an exact positive statement-class grammar over every
+resolved descendant, including ghost/proof blocks. Unsupported forms such as
+assign-such-that (`:|`) and statement expressions reject. Ghost/lemma calls
+with output bindings also reject, and no call may replace the actual trace
+output. This restriction is on the supported instrumentation language; it
+does not narrow the cryptographic methods' input domain.
+
 Site IDs are bounded nonnegative integer literals unique per static marker in
 each method. They are opaque method-local annotation labels, not physical
 source positions or JVM program counters. A consistent fresh relabel is valid;
@@ -44,14 +51,18 @@ Dafny parser, audits every included file, and uses Dafny 4.9.1/Z3 with the
 `Mac` contract is the one allowed assumption. Parser errors, tool crashes,
 resource exhaustion and timeouts do not qualify as proof-control failures.
 
-The 64 control records include one accepted fresh relabel and 63
+The 72 control records include one accepted fresh relabel and 71
 rejection/audit/proof records. Historical frozen fault sources are distinguished
 from controls generated on the current source. Metadata defects must fail real
 Dafny obligations in their exact affected encoder declarations; each filtered
 encoder is also checked positively and the full baseline remains verified.
 This avoids treating unrelated failures in intentionally broken programs as
-semantic evidence. faithfully observed private behavior must fail the paired
+semantic evidence. Faithfully observed private behavior must fail the paired
 trace equality; omitted observations must fail the coverage adapter.
+The assign-such-that regression also replays its complete body and paired
+proofs (246 and 257 checks) and checks generated-Java identity: those gates
+still pass for the forged observation, so the named coverage rejection is
+essential.
 
 Java checks use the actual repository generated package and three production
 adapter/provider sources. All nine generated package files, the top-level

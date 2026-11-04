@@ -431,9 +431,59 @@ public class HkdfCoverageRewriter : Rewriter {
     traceFormal = m.Outs.OfType<Formal>().FirstOrDefault(o => o.IsGhost && o.Name == "trace");
     if (traceFormal == null) { Error(m.Tok, m.Name + ": missing exact ghost out formal trace"); return; }
     if (m.Body == null) { Error(m.Tok, m.Name + ": missing executable body"); return; }
+    CheckBindingGrammar(m);
     CollectGhostCallVars(m);
     CollectTraceAssignments(m);
     CheckBlock(m.Body.Body, null, m);
+  }
+
+  // Ghost code is part of the coverage boundary too. Ignoring an unfamiliar
+  // statement can miss a write to a previously checked callee output (for
+  // example `encTrace :| encTrace == []`). Check every resolved descendant,
+  // including proof/ghost blocks, against an exact, positive grammar before
+  // the event walk. New AST subclasses require review rather than inheriting
+  // acceptance from a base class or an assignment-descendant heuristic.
+  static readonly HashSet<System.Type> bindingStatementTypes = new() {
+    typeof(BlockStmt), typeof(IfStmt), typeof(WhileStmt), typeof(NestedMatchStmt),
+    typeof(ReturnStmt), typeof(VarDeclPattern), typeof(VarDeclStmt),
+    typeof(AssignStatement), typeof(SingleAssignStmt), typeof(CallStmt),
+    typeof(AssertStmt)
+  };
+
+  // Statement.DescendantsAndSelf and Expression.DescendantsAndSelf each stay
+  // within their respective node kind. Traverse official Node.Children instead
+  // so a statement expression cannot hide a proof statement from this scan.
+  static IEnumerable<INode> BindingNodes(INode root) {
+    var seen = new HashSet<INode>(ReferenceEqualityComparer.Instance);
+    var pending = new Stack<INode>();
+    pending.Push(root);
+    while (pending.Count > 0) {
+      var node = pending.Pop();
+      if (!seen.Add(node)) continue;
+      yield return node;
+      foreach (var child in node.Children) pending.Push(child);
+    }
+  }
+
+  void CheckBindingGrammar(Method m) {
+    var nodes = BindingNodes(m.Body).ToList();
+    foreach (var s in nodes.OfType<Statement>()) {
+      if (!bindingStatementTypes.Contains(s.GetType()))
+        Error(s.Tok, "unsupported " + (s.IsGhost ? "ghost" : "executable") +
+          " statement " + s.GetType().Name + " in HKDF binding grammar");
+      if (s is CallStmt call) {
+        // Lemma/ghost-method outs are another assignment form. They cannot
+        // substitute a model trace for a real callee's returned observation.
+        if ((call.IsGhost || call.Method?.IsGhost == true || call.Method?.IsLemmaLike == true) && call.Lhs.Count != 0)
+          Error(call.Tok, "ghost call output binding is unsupported in HKDF binding grammar");
+        if (call.Lhs.Any(IsActualTraceLhs))
+          Error(call.Tok, "actual trace output cannot be rebound by a call");
+      }
+    }
+    // Statement expressions can contain proof statements outside the ordinary
+    // executable block walk. This component has no need for them; fail closed.
+    foreach (var e in nodes.OfType<StmtExpr>())
+      Error(e.Tok, "unsupported statement expression in HKDF binding grammar");
   }
 
   List<Mark> MarkersIn(Statement s) {

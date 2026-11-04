@@ -89,6 +89,23 @@ class GateParsing(unittest.TestCase):
 
 
 class MutationInventory(unittest.TestCase):
+    def test_binding_controls_include_the_former_full_gate_bypass(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            controls = run.binding_mutants(run.INSTRUMENTED.read_text(), root)
+            self.assertEqual({
+                "callee-suchthat-model-erasure", "callee-suchthat-same-model",
+                "trace-suchthat-reset", "nested-callee-suchthat",
+                "ghost-call-callee-binding", "ghost-call-trace-binding",
+                "actual-call-trace-binding", "statement-expression",
+            }, set(controls))
+            erased = (root / "callee-suchthat-model-erasure/Hkdf.dfy").read_text()
+            self.assertIn("encTrace :| encTrace == [];", erased)
+            self.assertNotIn("EvCall(5, 3, 3) + LabelInfoTrace(labelUnits, contextLen, length) +", erased)
+            self.assertNotIn("assert encTrace == LabelInfoTrace(labelUnits, |context|, length);", erased)
+            for name in controls:
+                self.assertTrue((root / name / "HkdfTrace.dfy").is_file())
+
     def test_checker_mutants_generate_each_named_control(self):
         text = run.INSTRUMENTED.read_text()
         with tempfile.TemporaryDirectory() as folder:

@@ -170,6 +170,58 @@ def write_mutant_harness(folder, harness_source=HARNESS):
     (folder / "HkdfTrace.dfy").write_text(text)
 
 
+def binding_mutants(base_text, root, harness_source=HARNESS):
+    """Actual-source probes for binding syntax outside ordinary assignment.
+
+    In particular, the first mutant used to pass both complete Dafny proofs
+    and the coverage checker while dropping a real callee's observations.
+    """
+    anchor = "    trace := trace + encTrace;"
+    assertion = "    assert encTrace == LabelInfoTrace(labelUnits, |context|, length);\n"
+    erased = replace_once(base_text,
+        "EvCall(5, 3, 3) + LabelInfoTrace(labelUnits, contextLen, length) +",
+        "EvCall(5, 3, 3) +", "callee-suchthat-model-erasure-model")
+    erased = replace_once(erased, assertion, "", "callee-suchthat-model-erasure-assert")
+    erased = replace_once(erased, anchor, "    encTrace :| encTrace == [];\n" + anchor,
+                          "callee-suchthat-model-erasure-binding")
+    suchthat = "unsupported ghost statement AssignSuchThatStmt in HKDF binding grammar"
+    ghost_call = "ghost call output binding is unsupported in HKDF binding grammar"
+    lemma = ("  lemma ResetTrace() returns (t: seq<int>)\n"
+             "    ensures t == []\n"
+             "  { t := []; }\n")
+    with_lemma = replace_once(base_text, "module VerifiedHkdf {\n",
+                              "module VerifiedHkdf {\n" + lemma, "binding-lemma")
+    cases = {
+        "callee-suchthat-model-erasure": (suchthat, erased),
+        "callee-suchthat-same-model": (suchthat, replace_once(base_text, anchor,
+            "    encTrace :| encTrace == LabelInfoTrace(labelUnits, |context|, length);\n" + anchor,
+            "callee-suchthat-same-model")),
+        "trace-suchthat-reset": (suchthat, replace_once(base_text, anchor,
+            anchor + "\n    trace :| trace == [];", "trace-suchthat-reset")),
+        "nested-callee-suchthat": (suchthat, replace_once(base_text, anchor,
+            "    if true { encTrace :| encTrace == []; }\n" + anchor,
+            "nested-callee-suchthat")),
+        "ghost-call-callee-binding": (ghost_call, replace_once(with_lemma, anchor,
+            "    encTrace := ResetTrace();\n" + anchor, "ghost-call-callee-binding")),
+        "ghost-call-trace-binding": (ghost_call, replace_once(with_lemma, anchor,
+            anchor + "\n    trace := ResetTrace();", "ghost-call-trace-binding")),
+        "actual-call-trace-binding": ("actual trace output cannot be rebound by a call",
+            replace_once(base_text, anchor, anchor +
+                "\n    encoded, trace := LabelInfo(labelUnits, context, length);",
+                "actual-call-trace-binding")),
+        "statement-expression": ("unsupported statement expression in HKDF binding grammar",
+            replace_once(base_text, anchor, anchor +
+                "\n    assert (LabelInfoShape(labelUnits, context, length); true);",
+                "statement-expression")),
+    }
+    for name, (_, text) in cases.items():
+        folder = root / name
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "Hkdf.dfy").write_text(text)
+        write_mutant_harness(folder, harness_source)
+    return {name: needle for name, (needle, _) in cases.items()}
+
+
 def checker_mutants(base_text, root, harness_source=HARNESS):
     root.mkdir(parents=True, exist_ok=True)
     out = {}
@@ -769,11 +821,26 @@ def pipeline(args, output, evidence):
     # Negative coverage controls.
     base_text = frozen_hkdf.read_text()
     mutants = checker_mutants(base_text, output / "mutants", frozen_harness)
+    mutants.update(binding_mutants(base_text, output / "mutants", frozen_harness))
     for name, needle in mutants.items():
         folder = output / "mutants" / name
         rc, text = run([dafny, "resolve", folder / "Hkdf.dfy", "--allow-external-contracts", "--plugin", checker],
                        evidence / f"logs/checker-{name}.log")
         result["controls"][name] = require_checker_rejection(rc, text, needle, name)
+
+    # This exploit was previously false-green at every semantic gate. Replay
+    # the complete mutated body and paired harness, and later compare its Java,
+    # so the regression is tied to the coverage rejection rather than a broken
+    # proof or a changed executable algorithm.
+    binding_folder = output / "mutants/callee-suchthat-model-erasure"
+    binding_result = result["controls"]["callee-suchthat-model-erasure"]
+    for label, path, included, count in (
+            ("method", binding_folder / "Hkdf.dfy", [], 246),
+            ("harness", binding_folder / "HkdfTrace.dfy", ["--verify-included-files"], 257)):
+        rc, text = run([dafny, "verify", path, *included, *FLAGS],
+                       evidence / f"logs/verify-binding-erasure-{label}.log")
+        binding_result[label] = require_verified(rc, text, count,
+            "binding erasure " + label, exact=count)
 
     # Frozen independent-review findings: the exact real golden/empty/shadow
     # sources that the previous checker accepted must now be rejected by name.
@@ -902,6 +969,13 @@ def pipeline(args, output, evidence):
     result["java"]["generated_package_matches_committed_production"] = True
     result["java"]["aggregator_matches_fixture"] = True
     result["java"]["hashes"] = trace_pkg
+
+    erased_generated, erased_agg = translate(dafny, binding_folder / "Hkdf.dfy",
+        output / "java-binding-erasure", evidence / "logs/translate-binding-erasure.log")
+    if snapshot(erased_generated / PACKAGE) != trace_pkg or digest(erased_agg) != digest(trace_agg):
+        raise GateError("ghost binding-erasure regression changed generated executable Java")
+    binding_result["java_package_files"] = len(trace_pkg)
+    binding_result["java_identical"] = True
 
     java_home = find_jdk21()
     javac = java_home / "bin/javac"
