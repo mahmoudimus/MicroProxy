@@ -182,7 +182,7 @@
         },
         {
           "path": "formal/packet/inputs.json",
-          "sha256": "d1360e6a9b92049fa2e0ca40cd5a362e0d93eca4c647574cf0133bc6b2a80237",
+          "sha256": "c442f9faaf48f9cd3f48b8257361b1fe6186db3158e3ec611d5f1d7352fd6630",
           "kind": "input-manifest",
           "role": "packet kernel/checker/class pins"
         },
@@ -194,7 +194,7 @@
         },
         {
           "path": "formal/primitives/inputs.json",
-          "sha256": "9ca6d3f097fb3fee2dd2d357e59990df36f6c4732cb755547d74e483786de9d8",
+          "sha256": "7c1571b00cd4d1a0e476a599ae63ff46292e9764d941f15e709accba3e0d8563",
           "kind": "input-manifest",
           "role": "Keccak/field source/tool pins"
         },
@@ -212,7 +212,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "a300c931de6c97290ec88dc66963326b7e5caeb5311410c959408f320914520f",
+          "sha256": "331ae0564047a6ba937b7d6339bbacd943bd8a37305cbc82732ff0c6c678ccac",
           "kind": "test-source",
           "role": "gate-specific fail-closed regression controls"
         }
@@ -2297,7 +2297,7 @@
         },
         {
           "path": "formal/packet/inputs.json",
-          "sha256": "d1360e6a9b92049fa2e0ca40cd5a362e0d93eca4c647574cf0133bc6b2a80237",
+          "sha256": "c442f9faaf48f9cd3f48b8257361b1fe6186db3158e3ec611d5f1d7352fd6630",
           "kind": "input-manifest",
           "role": "packet trace source/checker/class pins"
         },
@@ -2501,7 +2501,7 @@
         },
         {
           "path": "formal/source/hkdf/README.md",
-          "sha256": "102980fc27ef503c85f17d4eea9150ffa78948a06dfa5608669911557746929d",
+          "sha256": "dbbf88ecd068cabd985126ab3be5ab27eef988caf3a58a7ef8308fc251ebf9ec",
           "kind": "documentation",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
@@ -2513,25 +2513,25 @@
         },
         {
           "path": "formal/source/hkdf/inputs.json",
-          "sha256": "cd7601a51d64c3076ce0fcfd1f68075a62784aa1f72b5c97b9ea639265efc462",
+          "sha256": "562a43775b658b6a9fe7828b993d8aa24d05319eed1c8379a15df235d804ae5b",
           "kind": "input-manifest",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/SOURCE-EVIDENCE.json",
-          "sha256": "c9a852e7c63570e94968f62998e46387819ff89648d4a7bf4d8e138a5d1c823e",
+          "sha256": "809c48eaee60a4a05b63da8458410933b763a26843256a693d51e219f30fd629",
           "kind": "component-receipt",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/run.py",
-          "sha256": "7b40b822f3df92b01e03add82c22ad7f4a0c946c5db685aa3e70db009c54c28b",
+          "sha256": "381a96c33dd2254cbe66ee7e3f0acb880fa2528ab17201801c17fd0c550bd305",
           "kind": "tool-manifest",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
         {
           "path": "formal/source/hkdf/test_run.py",
-          "sha256": "be2d3f4cedb86534bcfeb85cc252f9b41889b410d667c62972b2500ca83cd59d",
+          "sha256": "0504bec2e7d8c2047b5929ee6167734388930c5e71ca981586bfb38cb39e9978",
           "kind": "test-source",
           "role": "HKDF same-body source observation proof and its explicit trusted coverage/delivery boundary"
         },
@@ -2684,43 +2684,43 @@
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvBranchBoolean",
-                "verified": 247
+                "verified": 0
               },
               "metadata-branch-erases-one-id": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvBranchBoolean",
-                "verified": 247
+                "verified": 0
               },
               "metadata-call-erases-arity": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvCallArity",
-                "verified": 247
+                "verified": 0
               },
               "metadata-mac-erases-lengths": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 2,
                 "needle": "MetadataEvMacKeyLen",
-                "verified": 247
+                "verified": 0
               },
               "metadata-mac-erases-target": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvMacTarget",
-                "verified": 247
+                "verified": 0
               },
               "metadata-ops-erases-shift": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvOpsShift",
-                "verified": 247
+                "verified": 0
               },
               "metadata-read-erases-address": {
                 "classification": "dafny-metadata-proof-failure",
                 "errors": 1,
                 "needle": "MetadataEvReadAddress",
-                "verified": 247
+                "verified": 0
               },
               "observed-secret-branch-harness": {
                 "classification": "dafny-assertion-failure",
@@ -2953,7 +2953,29 @@
               "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult LabelInfo(dafny.DafnySequence<? extends java.lang.Short>, dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);",
               "public static io.github.mahmoudimus.quic.internal.verifiedhkdf.VerifiedHkdf.BytesResult ExpandLabel(java.math.BigInteger, dafny.DafnySequence<? extends java.lang.Byte>, dafny.DafnySequence<? extends java.lang.Short>, dafny.DafnySequence<? extends java.lang.Byte>, java.math.BigInteger);"
             ],
-            "java.javac": "javac 21.0.2"
+            "java.javac": "javac 21.0.2",
+            "metadata_targets": {
+              "EvBranch": {
+                "errors": 0,
+                "verified": 1
+              },
+              "EvCall": {
+                "errors": 0,
+                "verified": 1
+              },
+              "EvMac": {
+                "errors": 0,
+                "verified": 1
+              },
+              "EvOps": {
+                "errors": 0,
+                "verified": 1
+              },
+              "EvRead": {
+                "errors": 0,
+                "verified": 1
+              }
+            }
           }
         }
       ],
@@ -3022,7 +3044,7 @@
       "evidence": [
         {
           "path": "scripts/security/check_crypto_obligations.py",
-          "sha256": "5916483cabd8ee976013514385e1de41a80ebb60ae61641aa50cdfbbf827a0ec",
+          "sha256": "2e1f793748d8bc74f43f8bb2fd631c91aefac126bc6e5eaceedeb708528e923d",
           "kind": "tool-manifest",
           "role": "fail-closed obligation ledger validator"
         },
@@ -3034,7 +3056,7 @@
         },
         {
           "path": "scripts/security/test_crypto_obligations.py",
-          "sha256": "a300c931de6c97290ec88dc66963326b7e5caeb5311410c959408f320914520f",
+          "sha256": "331ae0564047a6ba937b7d6339bbacd943bd8a37305cbc82732ff0c6c678ccac",
           "kind": "test-source",
           "role": "ledger/gate negative-control tests"
         },

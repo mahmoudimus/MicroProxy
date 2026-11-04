@@ -5,8 +5,8 @@ This runner is intentionally fail-closed.  It pins every source it reads, runs t
 pinned Dafny 4.9.1 with the canonical 30 s / 50 M / case_split=0 budget, audits
 every file in the proof closure (Dafny audit does not traverse includes), builds
 and runs the trusted resolved-AST coverage checker, executes genuine negative
-controls, and compares baseline vs ghost-instrumented generated Java at the same
-source basename.
+controls, and compares committed production Java against fresh instrumented translation
+at the same source basename.
 
 Trust boundaries are explicit: the Dafny verifier, the pinned compiler's ghost
 erasure, the C# checker, javac/JVM and the JCE provider are trusted.  This is a
@@ -370,6 +370,27 @@ def checker_mutants(base_text, root, harness_source=HARNESS):
         if name == "block-boundary-pending":
             write_mutant_harness(folder, harness_source)
     return {name: needle for name, (needle, _) in out.items()}
+
+
+METADATA_ENCODERS = {
+    "metadata-branch-erases-boolean": "EvBranch",
+    "metadata-branch-erases-one-id": "EvBranch",
+    "metadata-read-erases-address": "EvRead",
+    "metadata-mac-erases-target": "EvMac",
+    "metadata-mac-erases-lengths": "EvMac",
+    "metadata-call-erases-arity": "EvCall",
+    "metadata-ops-erases-shift": "EvOps",
+}
+
+
+def metadata_command(dafny, source, control):
+    encoder = METADATA_ENCODERS.get(control)
+    if encoder is None:
+        raise GateError("unknown metadata control: " + control)
+    # A trailing dot is Dafny 4.9.1's exact-symbol suffix syntax. In particular,
+    # EvBranchInjective and unrelated LabelScan lemmas are not selected.
+    return [dafny, "verify", source, "--filter-symbol", "VerifiedHkdf." + encoder + ".",
+            "--progress", "Symbol", *FLAGS]
 
 
 def metadata_mutants(base_text, root):
@@ -839,12 +860,29 @@ def pipeline(args, output, evidence):
                        evidence / f"logs/verify-{name}-harness.log")
         result["controls"][name + "-harness"] = require_assertion_failure(rc, text, name + " harness")
 
-    # Metadata-encoder mutations: universal encoder contracts must fail at a
-    # named assertion/postcondition, not merely at a parser/resource error.
+    # Baseline still verifies ALL implementation/helper bodies above. First
+    # check each exact metadata symbol positively, then isolate the same actual
+    # declaration in its faulty control. A deliberately broken encoder can
+    # otherwise exhaust resources in unrelated recursive trace lemmas.
+    result["metadata_targets"] = {}
+    for control, encoder in METADATA_ENCODERS.items():
+        if encoder in result["metadata_targets"]:
+            continue
+        rc, text = run(metadata_command(dafny, frozen_hkdf, control),
+                       evidence / f"logs/metadata-target-{encoder}.log")
+        if "VerifiedHkdf." + encoder not in text:
+            raise GateError("metadata filter did not select actual encoder " + encoder)
+        result["metadata_targets"][encoder] = require_verified(
+            rc, text, 1, "metadata baseline " + encoder, exact=1)
+
+    # Faulty actual encoder contracts must fail at the named obligation, never
+    # at a parser/resource error. This does not replace full baseline proofs.
     for name, needle in metadata_mutants(base_text, output / "metadata-mutants").items():
         folder = output / "metadata-mutants" / name
-        rc, text = run([dafny, "verify", folder / "Hkdf.dfy", *FLAGS],
+        rc, text = run(metadata_command(dafny, folder / "Hkdf.dfy", name),
                        evidence / f"logs/verify-{name}.log")
+        if "VerifiedHkdf." + METADATA_ENCODERS[name] not in text:
+            raise GateError("metadata control did not select its actual encoder: " + name)
         result["controls"][name] = require_named_proof_failure(rc, text, needle, name)
 
     # Java identity: ghost-instrumented source must generate the committed

@@ -47,7 +47,10 @@ resource exhaustion and timeouts do not qualify as proof-control failures.
 The 64 control records include one accepted fresh relabel and 63
 rejection/audit/proof records. Historical frozen fault sources are distinguished
 from controls generated on the current source. Metadata defects must fail real
-Dafny obligations; faithfully observed private behavior must fail the paired
+Dafny obligations in their exact affected encoder declarations; each filtered
+encoder is also checked positively and the full baseline remains verified.
+This avoids treating unrelated failures in intentionally broken programs as
+semantic evidence. faithfully observed private behavior must fail the paired
 trace equality; omitted observations must fail the coverage adapter.
 
 Java checks use the actual repository generated package and three production

@@ -1103,7 +1103,8 @@ class ObligationLedgerTests(unittest.TestCase):
         for field, value in (("positive.hkdf_body.verified", 1),
                              ("checker.build.assembly_sha256", "0" * 64),
                              ("checker.build.sdk", "unreviewed"),
-                             ("checker.declarations", 1)):
+                             ("checker.declarations", 1),
+                             ("metadata_targets", {})):
             with self.subTest(field=field), tempfile.TemporaryDirectory() as folder:
                 fixture = Fixture(Path(folder))
                 fixture.make_supported("packet-receive-trace-scoped")

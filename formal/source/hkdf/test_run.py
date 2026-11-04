@@ -46,6 +46,29 @@ class GateParsing(unittest.TestCase):
             with self.subTest(rc=rc), self.assertRaises(run.GateError):
                 run.require_checker_rejection(rc, text, "sequence read source", "x")
 
+    def test_metadata_commands_select_only_the_actual_encoder(self):
+        expected = {
+            "metadata-branch-erases-boolean": "EvBranch",
+            "metadata-branch-erases-one-id": "EvBranch",
+            "metadata-read-erases-address": "EvRead",
+            "metadata-mac-erases-target": "EvMac",
+            "metadata-mac-erases-lengths": "EvMac",
+            "metadata-call-erases-arity": "EvCall",
+            "metadata-ops-erases-shift": "EvOps",
+        }
+        self.assertEqual(set(expected), set(run.METADATA_ENCODERS))
+        for name, encoder in expected.items():
+            command = run.metadata_command("dafny", Path("Hkdf.dfy"), name)
+            self.assertEqual("VerifiedHkdf." + encoder + ".",
+                             command[command.index("--filter-symbol") + 1])
+            self.assertIn("--progress", command)
+            self.assertNotIn("--no-verify", command)
+            for option, value in (("--verification-time-limit", "30"),
+                                  ("--resource-limit", "50000000")):
+                self.assertEqual(value, command[command.index(option) + 1])
+        with self.assertRaises(run.GateError):
+            run.metadata_command("dafny", Path("Hkdf.dfy"), "unknown-control")
+
     def test_named_metadata_failure_requires_named_proof_obligation(self):
         good = ("Hkdf.dfy(38,45): Error: a postcondition could not be proved on this return path\n"
                 "MetadataEvBranchBoolean\n"

@@ -103,3 +103,13 @@ The separate [same-body source-trace component](../source/hkdf/README.md) verifi
 coverage adapter. This functional receipt does not prove that adapter correct,
 Java/JCE refinement, cryptographic hardness or physical JVM timing. The earlier
 21/22 and 43-case records above are preserved as historical evidence.
+
+
+The shared functional runner is also pinned by the packet and primitive proof
+components. After its HKDF-specific domain/control changes, both dependent
+manifests were renewed only for that helper and fully replayed: primitive Keccak
+122 / Field 15 / domain 139 checks, all nine controls and 40,586 assertions on
+each JDK 21/25; packet kernel/trace/extracted proofs and all seven controls on
+each JDK 21/25. Their source algorithms, generated Java and proof policies are
+unchanged. This closes the two stale-input CI failures; it does not expand the
+source-trace or timing claims.
