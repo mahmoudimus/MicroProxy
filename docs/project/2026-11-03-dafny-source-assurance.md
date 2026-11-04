@@ -93,6 +93,17 @@ These are scoped source-observation results. Complete SHAKE/Keccak, ML-KEM,
 Java adapters/comparisons and failure-path declassification still require
 composition work. The existing residual bytecode inventories remain open.
 
+The separate `assurance/shake-api/` root now proves public API state/status
+coupling by calling the unchanged executable Sponge methods over arbitrary valid
+states. It preserves the native caller domains, makes cross-run separation
+explicit and includes shared external outputs. Its replay verifies 1,558
+included-body checks and 51 overlapping root-only checks, seven zero-finding
+audits, five named false-assertion controls and an included-body axiom control.
+This prerequisite does not prove internal operation traces: secret-dependent
+branches could preserve the public state. Keccak child traces and API observation
+faithfulness remain open. The independent root imports production source; no
+existing root imports it, so the frozen Select inputs remain unchanged.
+
 ## Assurance boundaries
 
 Functional correctness, source trace independence and artifact identity remain
@@ -100,5 +111,9 @@ separate claims. The proof infrastructure, compiler/runtime, reviewed Java
 adapters, JDK primitives and their stated contracts remain trust boundaries.
 Cryptographic hardness and complete TLS/QUIC security are not established by
 these implementation proofs. Physical JVM/JIT/CPU/GC/provider timing remains
-explicitly deferred. Independent external cryptographic/proof review remains
-open; development-agent review does not discharge it.
+outstanding as an assurance boundary; universal constant-time execution is not
+a promised Dafny deliverable. Deployment-specific measurements do not close that
+universal claim. Independent external cryptographic/proof review remains open;
+development-agent review does not discharge it. The
+[review brief](2026-11-04-crypto-external-review-brief.md) prepares its scope and
+reproduction requirements without claiming that the review has taken place.

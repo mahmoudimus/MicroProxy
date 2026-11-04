@@ -457,6 +457,25 @@ harness. These results use the existing contracts without changing executable
 Dafny, generated Java or accepted caller domains. They do not discharge the
 separate secret-trace, compiler-preservation or exclusive Java ownership claims.
 
+The independent [SHAKE API state component](https://github.com/mahmoudimus/MicroProxy/tree/main/assurance/shake-api)
+also proves public rate/position/phase and status coupling through the actual
+constructor, Update, Start, Next, Read and Destroy calls. Secret contents vary
+independently; the paired states are arbitrary valid instances with explicit
+cross-run footprint separation. Shared external output buffers remain permitted.
+The proofs cover invalid slices, phase-before-bounds precedence, empty reads,
+segmented calls, rate boundaries and destruction/reuse. The actual
+[qualification snapshot](https://github.com/mahmoudimus/MicroProxy/tree/main/assurance/shake-api/evidence/2026-11-04-macos)
+records 1,558 included-body checks, 51 overlapping root-only checks, seven clean
+source audits, five named assertion-failure controls and an included-body axiom
+audit control. Its own pinned replay and CI qualify this additive root; existing
+production source and Select inputs remain unchanged.
+
+This is an API state/status theorem, not a full SHAKE trace theorem. An internal
+secret-dependent branch could leave these public fields unchanged. Checked
+operation observations and transitive Keccak traces are still required, along
+with the remaining adapter and failure-path composition. V7 remains partial;
+this component enables no additional whole-SHAKE trace or release claim.
+
 ### Existing bytecode trace evidence
 
 The [secret-trace component](https://github.com/mahmoudimus/MicroProxy/tree/main/formal/timing)
@@ -548,9 +567,18 @@ is a component-level example. [SAW's JVM interface](https://galoisinc.github.io/
 supplies the bytecode interface used by the scoped experiment above.
 
 Remaining work includes the unclosed AWS dependency replay, broader compositional
-secret-trace coverage, independent expert review and a justified timing model for the
-final JVM implementations. The scoped results do not establish that all custom
-TLS/QUIC glue is formally verified or that the whole proxy is secure.
+secret-trace coverage and independent expert review. The
+[external review brief](project/2026-11-04-crypto-external-review-brief.md) lists
+the implementation, specifications, trusted tooling and evidence to examine.
+Preparing that brief does not satisfy the independent-review obligation.
+
+Physical JVM/JIT/CPU/GC/provider timing stays outstanding as an assurance boundary.
+Universal constant-time execution is not a promised Dafny deliverable. Measurements
+and machine-code inspection can provide bounded evidence for a stated deployment;
+they cannot discharge a universal claim across runtimes and machines. Functional
+proofs and logical source traces do not close this item. The scoped results do not
+establish that all custom TLS/QUIC glue is formally verified or that the whole
+proxy is secure.
 
 The [implementation roadmap](project/2026-10-28-quic-crypto-assurance-design.md)
 uses Dafny across HKDF, SHAKE and ML-KEM, with TLA+/TLC and Lean covering their

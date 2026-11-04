@@ -64,6 +64,11 @@ must settle its concrete instrumentation interface before production changes.
   secret-dependent branch/index negative, with an explicit coverage argument.
 - [x] Check ghost erasure, omission detection and method/callee coverage. Record
   any remaining instrumentation checker as trusted rather than formally proved.
+- [x] Prove the SHAKE public API state/status prerequisite over actual unchanged
+  methods and arbitrary valid states, including shared external output buffers.
+  The independent `assurance/shake-api/` replay and CI retain its exact source
+  graph, 1,558 included/51 overlapping root-only checks, seven clean audits and
+  five genuine assertion controls. This does not close operation-trace coverage.
 - [ ] Extend the same mechanism through SHAKE/Keccak, polynomial/NTT, ML-KEM,
   HKDF and retained adapters/comparison paths. Preserve actual heap/call effects.
 - [ ] Prove paired observations over the complete stated public/secret domains,

@@ -1,0 +1,30 @@
+{
+  "schema": "microproxy.shake-api-state-log-snapshot/1",
+  "files": {
+    "api-domain.log": "2c0b740bc99c935088dc9739afff3fbf28aeadc68bff0f152e1a736fba38c7e2",
+    "audit-0.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-1.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-2.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-3.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-4.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-5.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "audit-6.log": "c40b7394c6b9c33baae94cdd718de528c1db1ce60d663d1601a016c2aa00d9ed",
+    "complete-source.log": "9a824ab32654cb248717edbc5d25044f0675d6474bd231d6396a2679d91325bd",
+    "control-destroy-phase.log": "167ea928e1af1a4c6ad1c1df2bf6d69f4d7faa3148871653651c07e323c934c6",
+    "control-empty-read-phase.log": "d9bc3c912a9b556b575d43fed234d38e7175bcf200783f490bac0d6b5e0c1a7f",
+    "control-included-assumption.log": "286745a00a5918a6d6359172f448fc4790a31496caa7dd3f1669f026cce22559",
+    "control-invalid-slice.log": "355451223ee46574927c5dcbfdb543db2edb75dd5e8e101f993454eb75b6b191",
+    "control-next-boundary-position.log": "4a573b2f6396a0a11bde6113a4713eaed3c01885c03d98ea8bdac26c3a83c76f",
+    "control-phase-before-bounds.log": "7f98b2a71544b4d4191d1ff6a414593bd221150a4bd3de09f8b677b135f859ce",
+    "graph-0-dependencies-0.log": "4b5095e95f869b8361168759a237b690eac9eb075386b49b8e1cf9e095c27a51",
+    "graph-0-dependencies-1.log": "3ace912d165ebcfbb91a7af1b820063289aabc34fca1de97dc96edcf01d76f7b",
+    "graph-0-dependencies-2.log": "1602e27b06538b0bf0912737bbeaeac0269e6c5900953f89f2ea4815523c5a89",
+    "graph-0-dependencies-3.log": "3e8cea8c0fc83921bcfd49247882f201b4f54ca82b3218773a78b839dacea36a",
+    "graph-1-dependencies-0.log": "33bed0a0902eae1654531c47e19b4f8946d393984f56ed9b52d152a03e990d92",
+    "graph-1-dependencies-1.log": "4b5095e95f869b8361168759a237b690eac9eb075386b49b8e1cf9e095c27a51",
+    "graph-1-dependencies-2.log": "3ace912d165ebcfbb91a7af1b820063289aabc34fca1de97dc96edcf01d76f7b",
+    "graph-1-dependencies-3.log": "1602e27b06538b0bf0912737bbeaeac0269e6c5900953f89f2ea4815523c5a89",
+    "graph-1-dependencies-4.log": "3e8cea8c0fc83921bcfd49247882f201b4f54ca82b3218773a78b839dacea36a",
+    "report.json": "1f275136b1c16c63f62e3a057e78ed81cb89853c89187a3f21b5abbff50ba287"
+  }
+}
